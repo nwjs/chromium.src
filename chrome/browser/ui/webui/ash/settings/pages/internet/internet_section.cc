@@ -700,14 +700,14 @@ bool AllowAddESim(const network_config::mojom::GlobalPolicyPtr& global_policy) {
   return !global_policy->allow_only_policy_cellular_networks;
 }
 
-absl::optional<std::string> GetCellularActiveSimIccid(
+std::optional<std::string> GetCellularActiveSimIccid(
     const network_config::mojom::DeviceStatePropertiesPtr& device) {
   for (const auto& sim_info : *device->sim_infos) {
     if (sim_info->is_primary) {
       return sim_info->iccid;
     }
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 bool IsPolicySource(network_config::mojom::OncSource onc_source) {
@@ -777,6 +777,8 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_INTERNET_MENU_ITEM_DESCRIPTION_WIFI_ONLY},
       {"internetMenuItemDescriptionWifiAndMobileData",
        IDS_OS_SETTINGS_INTERNET_MENU_ITEM_DESCRIPTION_WIFI_AND_MOBILE_DATA},
+      {"internetMenuItemDescriptionInstantHotspotAvailable",
+       IDS_OS_SETTINGS_INTERNET_MENU_ITEM_DESCRIPTION_INSTANT_HOTSPOT_AVAILABLE},
       {"internetAddCellular", IDS_SETTINGS_INTERNET_ADD_CELLULAR},
       {"internetAddConnection", IDS_SETTINGS_INTERNET_ADD_CONNECTION},
       {"internetAddConnectionExpandA11yLabel",
@@ -792,10 +794,11 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       {"internetJoinType", IDS_SETTINGS_INTERNET_JOIN_TYPE},
       {"internetKnownNetworksPageTitle", IDS_SETTINGS_INTERNET_KNOWN_NETWORKS},
       {"internetNoNetworks", IDS_SETTINGS_INTERNET_NO_NETWORKS},
-      {"internetPageTitle", isRevampEnabled ? IDS_OS_SETTINGS_REVAMP_INTERNET
-                                            : IDS_SETTINGS_INTERNET},
+      {"internetPageTitle", IDS_SETTINGS_INTERNET},
       {"internetSummaryButtonA11yLabel",
        IDS_SETTINGS_INTERNET_SUMMARY_BUTTON_ACCESSIBILITY_LABEL},
+      {"internetToggleTetherA11yLabel",
+       IDS_SETTINGS_INTERNET_TOGGLE_MOBILE_ACCESSIBILITY_LABEL},
       {"internetToggleMobileA11yLabel",
        IDS_SETTINGS_INTERNET_TOGGLE_MOBILE_ACCESSIBILITY_LABEL},
       {"internetToggleWiFiA11yLabel",
@@ -1135,6 +1138,8 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
                           ash::features::IsSmdsSupportEnabled());
   html_source->AddBoolean("isHotspotEnabled",
                           ash::features::IsHotspotEnabled());
+  html_source->AddBoolean("isInstantHotspotRebrandEnabled",
+                          ash::features::IsInstantHotspotRebrandEnabled());
   html_source->AddBoolean("isPasspointEnabled",
                           ash::features::IsPasspointARCSupportEnabled());
   html_source->AddBoolean("isPasspointSettingsEnabled",
@@ -1228,9 +1233,7 @@ void InternetSection::AddHandlers(content::WebUI* web_ui) {
 }
 
 int InternetSection::GetSectionNameMessageId() const {
-  return ash::features::IsOsSettingsRevampWayfindingEnabled()
-             ? IDS_OS_SETTINGS_REVAMP_INTERNET
-             : IDS_SETTINGS_INTERNET;
+  return IDS_SETTINGS_INTERNET;
 }
 
 mojom::Section InternetSection::GetSection() const {

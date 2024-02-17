@@ -183,9 +183,9 @@ class CORE_EXPORT LineBreaker {
                                    LineInfo*);
   void HandleEmptyText(const InlineItem& item, LineInfo*);
 
-  scoped_refptr<ShapeResultView> TruncateLineEndResult(const LineInfo&,
-                                                       const InlineItemResult&,
-                                                       unsigned end_offset);
+  const ShapeResultView* TruncateLineEndResult(const LineInfo&,
+                                               const InlineItemResult&,
+                                               unsigned end_offset);
   void UpdateShapeResult(const LineInfo&, InlineItemResult*);
   scoped_refptr<ShapeResult> ShapeText(const InlineItem&,
                                        unsigned start,
@@ -221,6 +221,8 @@ class CORE_EXPORT LineBreaker {
   void HandleFloat(const InlineItem&,
                    const BlockBreakToken* float_break_token,
                    LineInfo*);
+  void UpdateLineOpportunity();
+  void RewindFloats(unsigned new_end, InlineItemResults& item_results);
 
   void HandleInitialLetter(const InlineItem&, LineInfo*);
   void HandleOutOfFlowPositioned(const InlineItem&, LineInfo*);
@@ -375,8 +377,11 @@ class CORE_EXPORT LineBreaker {
   // Cache the result of |ComputeTrailingCollapsibleSpace| to avoid shaping
   // multiple times.
   struct TrailingCollapsibleSpace {
+    STACK_ALLOCATED();
+
+   public:
     InlineItemResult* item_result;
-    scoped_refptr<const ShapeResultView> collapsed_shape_result;
+    const ShapeResultView* collapsed_shape_result;
   };
   absl::optional<TrailingCollapsibleSpace> trailing_collapsible_space_;
 

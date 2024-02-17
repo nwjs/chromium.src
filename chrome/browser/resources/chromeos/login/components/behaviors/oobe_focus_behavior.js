@@ -48,17 +48,10 @@ export const OobeFocusBehavior = {
       afterNextRender(this, () => this.focusOnElement_(focusedElements[0]));
     }
 
-    this.fire('show-dialog');
+    this.dispatchEvent(
+        new CustomEvent('show-dialog', {bubbles: true, composed: true}));
   },
 };
-
-/**
- * TODO: Replace with an interface. b/24294625
- * @typedef {{
- *   focusMarkedElement: function()
- * }}
- */
-OobeFocusBehavior.Proto;
 
 /** @interface */
 export class OobeFocusBehaviorInterface {

@@ -93,7 +93,7 @@ class SystemWebAppLinkCaptureBrowserTest
     } else {
       // Ash can have ordinary tabbed browser windows.
       GURL kInitiatingChromeUrl = GURL(chrome::kChromeUIAboutURL);
-      NavigateToURLAndWait(browser(), kInitiatingChromeUrl);
+      NavigateViaLinkClickToURLAndWait(browser(), kInitiatingChromeUrl);
       EXPECT_EQ(kInitiatingChromeUrl, browser()
                                           ->tab_strip_model()
                                           ->GetActiveWebContents()
@@ -229,7 +229,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
   WaitForTestSystemAppInstall();
 
   GURL kInitiatingChromeUrl = GURL(chrome::kChromeUIAboutURL);
-  NavigateToURLAndWait(browser(), kInitiatingChromeUrl);
+  NavigateViaLinkClickToURLAndWait(browser(), kInitiatingChromeUrl);
   EXPECT_EQ(kInitiatingChromeUrl, browser()
                                       ->tab_strip_model()
                                       ->GetActiveWebContents()
@@ -281,7 +281,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
   WaitForTestSystemAppInstall();
 
   GURL kInitiatingChromeUrl = GURL(chrome::kChromeUIAboutURL);
-  NavigateToURLAndWait(browser(), kInitiatingChromeUrl);
+  NavigateViaLinkClickToURLAndWait(browser(), kInitiatingChromeUrl);
   EXPECT_EQ(kInitiatingChromeUrl, browser()
                                       ->tab_strip_model()
                                       ->GetActiveWebContents()
@@ -436,7 +436,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
   content::WebContents* web_contents = LaunchApp(GetAppType(), &app_browser);
 
   GURL kInitiatingChromeUrl = GURL(chrome::kChromeUIAboutURL);
-  NavigateToURLAndWait(browser(), kInitiatingChromeUrl);
+  NavigateViaLinkClickToURLAndWait(browser(), kInitiatingChromeUrl);
   EXPECT_EQ(kInitiatingChromeUrl, browser()
                                       ->tab_strip_model()
                                       ->GetActiveWebContents()
@@ -555,7 +555,7 @@ class SystemWebAppManagerMultiDesktopLaunchBrowserTest
   }
 
   webapps::AppId GetAppId(Profile* profile) {
-    absl::optional<webapps::AppId> app_id =
+    std::optional<webapps::AppId> app_id =
         ash::SystemWebAppManager::Get(profile)->GetAppIdForSystemApp(
             installation_->GetType());
     CHECK(app_id.has_value());

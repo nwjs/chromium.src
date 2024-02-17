@@ -63,6 +63,9 @@ BASE_DECLARE_FEATURE(kBlockNotificationPromptsIfDisabledOnAppLevel);
 #else
 
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
+BASE_DECLARE_FEATURE(kRecordChooserPermissionLastVisitedTimestamps);
+
+COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kMitigateUnpartitionedWebviewPermissions);
 
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -105,6 +108,10 @@ extern const base::FeatureParam<double> kPermissionPredictionsV2HoldbackChance;
 
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 extern const base::FeatureParam<std::string> kPermissionsPromptSurveyTriggerId;
+
+COMPONENT_EXPORT(PERMISSIONS_COMMON)
+extern const base::FeatureParam<std::string>
+    kPermissionsPromptSurveyCustomInvitationTriggerId;
 
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 extern const base::FeatureParam<std::string>

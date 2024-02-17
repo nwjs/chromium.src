@@ -56,6 +56,7 @@
 #include "third_party/blink/renderer/platform/text/bidi_paragraph.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
+#include "third_party/blink/renderer/platform/wtf/text/text_offset_map.h"
 
 namespace blink {
 
@@ -110,6 +111,8 @@ class ReusingTextShaper final {
         shaper_(data->text_content),
         allow_shape_cache_(allow_shape_cache) {}
 
+  void SetOptions(ShapeOptions options) { options_ = options; }
+
   scoped_refptr<const ShapeResult> Shape(const InlineItem& start_item,
                                          const Font& font,
                                          unsigned end_offset) {
@@ -131,6 +134,7 @@ class ReusingTextShaper final {
     return result;
   }
 
+ private:
   scoped_refptr<ShapeResult> ShapeWithoutCache(const InlineItem& start_item,
                                                const Font& font,
                                                unsigned end_offset) {
@@ -163,6 +167,7 @@ class ReusingTextShaper final {
                                    reusable_shape_result->StartIndex()),
                           shape_result.get());
         offset = shape_result->EndIndex();
+        options_.han_kerning_start = false;
       }
       DCHECK_LT(offset, reusable_shape_result->EndIndex());
       DCHECK(shape_result->NumCharacters() == 0 ||
@@ -180,7 +185,6 @@ class ReusingTextShaper final {
     return shape_result;
   }
 
- private:
   void AppendShapeResult(const ShapeResult& shape_result, ShapeResult* target) {
     DCHECK(target->NumCharacters() == 0 ||
            target->EndIndex() == shape_result.StartIndex());
@@ -228,17 +232,20 @@ class ReusingTextShaper final {
     if (data_.segments) {
       return data_.segments->ShapeText(
           &shaper_, &font, direction, start_offset, end_offset,
-          base::checked_cast<unsigned>(&start_item - data_.items.begin()));
+          base::checked_cast<unsigned>(&start_item - data_.items.begin()),
+          options_);
     }
     RunSegmenter::RunSegmenterRange range =
         start_item.CreateRunSegmenterRange();
     range.end = end_offset;
-    return shaper_.Shape(&font, direction, start_offset, end_offset, range);
+    return shaper_.Shape(&font, direction, start_offset, end_offset, range,
+                         options_);
   }
 
   InlineItemsData& data_;
   const HeapVector<InlineItem>* const reusable_items_;
   HarfBuzzShaper shaper_;
+  ShapeOptions options_;
   const bool allow_shape_cache_;
 };
 
@@ -277,7 +284,7 @@ void CollectInlinesInternal(ItemsBuilder* builder,
         // https://w3c.github.io/csswg-drafts/css-counter-styles/#simple-symbolic,
         // disclosure-* should have special rendering paths.
         if (counter->IsDirectionalSymbolMarker()) {
-          const String& text = counter->GetText();
+          const String& text = counter->TransformedText();
           // We assume the text representation length for a predefined symbol
           // marker is always 1.
           if (text.length() <= 1) {
@@ -926,7 +933,7 @@ bool InlineNode::SetTextWithOffset(LayoutText* layout_text,
   if (!layout_text->HasValidInlineItems() ||
       !layout_text->IsInLayoutNGInlineFormattingContext())
     return false;
-  const String old_text = layout_text->GetText();
+  const String old_text = layout_text->TransformedText();
   if (offset == 0 && length == old_text.length()) {
     // We'll run collect inline items since whole text of |layout_text| is
     // changed.
@@ -943,9 +950,13 @@ bool InlineNode::SetTextWithOffset(LayoutText* layout_text,
   FontCachePurgePreventer font_cache_purge_preventer;
 
   String new_text(std::move(new_text_in));
-  layout_text->StyleRef().ApplyTextTransform(&new_text,
-                                             layout_text->PreviousCharacter());
+  TextOffsetMap offset_map;
+  new_text = layout_text->TransformAndSecureText(new_text, offset_map);
+  if (!offset_map.IsEmpty()) {
+    return false;
+  }
   layout_text->SetTextInternal(new_text);
+  layout_text->SetHasVariableLengthTransform(false);
 
   InlineNode node(editor.GetLayoutBlockFlow());
   InlineNodeData* data = node.MutableData();
@@ -978,7 +989,6 @@ const OffsetMapping* InlineNode::ComputeOffsetMappingIfNeeded() const {
   if (!data->offset_mapping) {
     DCHECK(!data->text_content.IsNull());
     ComputeOffsetMapping(GetLayoutBlockFlow(), data);
-    DCHECK(data->offset_mapping);
   }
 
   return data->offset_mapping.Get();
@@ -1020,9 +1030,11 @@ void InlineNode::ComputeOffsetMapping(LayoutBlockFlow* layout_block_flow,
   // TODO(xiaochengh): This doesn't compute offset mapping correctly when
   // text-transform CSS property changes text length.
   OffsetMappingBuilder& mapping_builder = builder.GetOffsetMappingBuilder();
-  mapping_builder.SetDestinationString(data->text_content);
-  data->offset_mapping = mapping_builder.Build();
-  DCHECK(data->offset_mapping);
+  data->offset_mapping = nullptr;
+  if (mapping_builder.SetDestinationString(data->text_content)) {
+    data->offset_mapping = mapping_builder.Build();
+    DCHECK(data->offset_mapping);
+  }
 }
 
 const OffsetMapping* InlineNode::GetOffsetMapping(
@@ -1063,7 +1075,7 @@ void InlineNode::CollectInlines(InlineNodeData* data,
     const auto* layout_text = DynamicTo<LayoutText>(block->FirstChild());
     bool empty_or_one_char =
         !block->FirstChild() || (layout_text && !layout_text->NextSibling() &&
-                                 layout_text->TextLength() <= 1);
+                                 layout_text->TransformedTextLength() <= 1);
     if (!empty_or_one_char)
       chunk_offsets = FindSvgTextChunks(*block, *data);
   }
@@ -1104,7 +1116,7 @@ const SvgTextChunkOffsets* InlineNode::FindSvgTextChunks(
   data.svg_node_data_ = svg_attr_builder.CreateSvgInlineNodeData();
 
   // Compute DOM offsets of text chunks.
-  mapping_builder.SetDestinationString(ifc_text_content);
+  CHECK(mapping_builder.SetDestinationString(ifc_text_content));
   OffsetMapping* mapping = mapping_builder.Build();
   StringView ifc_text_view(ifc_text_content);
   for (wtf_size_t i = 0; i < data.svg_node_data_->character_data_list.size();
@@ -1314,6 +1326,7 @@ void InlineNode::ShapeText(InlineItemsData* data,
 
   // Provide full context of the entire node to the shaper.
   ReusingTextShaper shaper(data, previous_items, allow_shape_cache);
+  bool is_next_start_of_paragraph = true;
 
   DCHECK(!data->segments ||
          data->segments->EndOffset() == text_content.length());
@@ -1322,6 +1335,7 @@ void InlineNode::ShapeText(InlineItemsData* data,
     InlineItem& start_item = (*items)[index];
     if (start_item.Type() != InlineItem::kText || !start_item.Length()) {
       index++;
+      is_next_start_of_paragraph = start_item.IsForcedLineBreak();
       continue;
     }
 
@@ -1339,6 +1353,17 @@ void InlineNode::ShapeText(InlineItemsData* data,
              font.GetFontDescription().WidthVariant() != kRegularWidth);
     }
 #endif
+    shaper.SetOptions({
+        .is_line_start = is_next_start_of_paragraph,
+        .han_kerning_start =
+            is_next_start_of_paragraph &&
+            RuntimeEnabledFeatures::CSSTextSpacingTrimEnabled() &&
+            ShouldTrimStartOfParagraph(
+                font.GetFontDescription().GetTextSpacingTrim()) &&
+            Character::MaybeHanKerningOpen(
+                text_content[start_item.StartOffset()]),
+    });
+    is_next_start_of_paragraph = false;
     TextDirection direction = start_item.Direction();
     unsigned end_index = index + 1;
     unsigned end_offset = start_item.EndOffset();
@@ -1530,24 +1555,24 @@ void InlineNode::ShapeTextForFirstLineIfNeeded(InlineNodeData* data) const {
     return;
 
   auto* first_line_items = MakeGarbageCollected<InlineItemsData>();
-  first_line_items->text_content = data->text_content;
+  String text_content = data->text_content;
   bool needs_reshape = false;
   if (first_line_style->TextTransform() != block_style->TextTransform()) {
     // TODO(kojii): This logic assumes that text-transform is applied only to
     // ::first-line, and does not work when the base style has text-transform
     // and ::first-line has different text-transform.
-    first_line_style->ApplyTextTransform(&first_line_items->text_content);
-    if (first_line_items->text_content != data->text_content) {
+    text_content = first_line_style->ApplyTextTransform(text_content);
+    if (text_content != data->text_content) {
       // TODO(kojii): When text-transform changes the length, we need to adjust
       // offset in InlineItem, or re-collect inlines. Other classes such as
       // line breaker need to support the scenario too. For now, we force the
       // string to be the same length to prevent them from crashing. This may
       // result in a missing or a duplicate character if the length changes.
-      TruncateOrPadText(&first_line_items->text_content,
-                        data->text_content.length());
+      TruncateOrPadText(&text_content, data->text_content.length());
       needs_reshape = true;
     }
   }
+  first_line_items->text_content = text_content;
 
   first_line_items->items.AppendVector(data->items);
   for (auto& item : first_line_items->items) {

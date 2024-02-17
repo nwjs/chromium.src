@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/tabs/organization/tab_organization.h"
 
+#include <optional>
 #include <string>
 
 #include "base/debug/dump_without_crashing.h"
@@ -11,7 +12,6 @@
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace {

@@ -20,12 +20,12 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiUnitTestUtils;
-import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
@@ -82,10 +82,10 @@ public class TabGroupUtilsUnitTest {
         doReturn(POSITION1).when(mTabGroupModelFilter).indexOf(mTab2);
 
         assertThat(
-                TabGroupUtils.getSelectedTabInGroupForTab(mTabModelSelector, mTab1),
+                TabGroupUtils.getSelectedTabInGroupForTab(mTabGroupModelFilter, mTab1),
                 equalTo(mTab1));
         assertThat(
-                TabGroupUtils.getSelectedTabInGroupForTab(mTabModelSelector, mTab2),
+                TabGroupUtils.getSelectedTabInGroupForTab(mTabGroupModelFilter, mTab2),
                 equalTo(mTab1));
     }
 

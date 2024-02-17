@@ -18,7 +18,6 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
-#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
@@ -36,8 +35,7 @@ class InterestGroupPermissionsBrowserTest
         /*enabled_features=*/
         {blink::features::kInterestGroupStorage,
          blink::features::kAdInterestGroupAPI, blink::features::kFledge,
-         features::kPrivacySandboxAdsAPIsOverride,
-         privacy_sandbox::kPrivacySandboxSettings4},
+         features::kPrivacySandboxAdsAPIsOverride},
         /*disabled_features=*/
         {blink::features::kFencedFrames,
          blink::features::kFledgeEnforceKAnonymity});
@@ -208,10 +206,10 @@ class InterestGroupPermissionsBrowserTest
   GURL render_url() { return GURL("https://example.com/render"); }
 
  protected:
-  base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<net::EmbeddedTestServer> https_server_;
   privacy_sandbox::PrivacySandboxAttestationsMixin
       privacy_sandbox_attestations_mixin_{&mixin_host_};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class InterestGroupOffBrowserTest : public InterestGroupPermissionsBrowserTest {

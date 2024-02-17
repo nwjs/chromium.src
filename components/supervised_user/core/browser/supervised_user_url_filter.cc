@@ -13,17 +13,20 @@
 #include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/functional/bind.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/task/thread_pool.h"
-#include "components/supervised_user/core/browser/kids_chrome_management_client.h"
-#include "components/supervised_user/core/browser/kids_management_url_checker_client.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/supervised_user/core/browser/kids_chrome_management_url_checker_client.h"
+#include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/supervised_user/core/common/supervised_user_utils.h"
 #include "components/url_matcher/url_util.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -222,13 +225,12 @@ std::optional<FilteringSubdomainConflictType> AddConflict(
 }  // namespace
 
 SupervisedUserURLFilter::SupervisedUserURLFilter(
+    PrefService& user_prefs,
     ValidateURLSupportCallback check_webstore_url_callback,
     std::unique_ptr<Delegate> service_delegate)
     : default_behavior_(FilteringBehavior::kAllow),
+      user_prefs_(user_prefs),
       service_delegate_(std::move(service_delegate)),
-      blocking_task_runner_(base::ThreadPool::CreateTaskRunner(
-          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
       check_webstore_url_callback_(std::move(check_webstore_url_callback)) {}
 
 SupervisedUserURLFilter::~SupervisedUserURLFilter() {
@@ -272,6 +274,9 @@ SupervisedUserURLFilter::GetManagedSiteListConflictTypeHistogramNameForTest() {
 // static
 supervised_user::FilteringBehavior SupervisedUserURLFilter::BehaviorFromInt(
     int behavior_value) {
+  // `behavior_value` is external input (from the server) - do not turn
+  // DCHECK into CHECK as it might lead to real crashes if the server ever
+  // supplies an unsupported value.
   DCHECK(behavior_value == static_cast<int>(FilteringBehavior::kAllow) ||
          behavior_value == static_cast<int>(FilteringBehavior::kBlock))
       << "SupervisedUserURLFilter value not supported: " << behavior_value;
@@ -674,13 +679,14 @@ void SupervisedUserURLFilter::SetManualURLs(std::map<GURL, bool> url_map) {
 }
 
 void SupervisedUserURLFilter::InitAsyncURLChecker(
-    KidsChromeManagementClient* kids_chrome_management_client) {
+    signin::IdentityManager* identity_manager,
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
   DCHECK(service_delegate_);
   std::string country = service_delegate_->GetCountryCode();
 
   std::unique_ptr<safe_search_api::URLCheckerClient> url_checker_client =
-      std::make_unique<KidsManagementURLCheckerClient>(
-          kids_chrome_management_client, country);
+      std::make_unique<KidsChromeManagementURLCheckerClient>(
+          identity_manager, url_loader_factory, country);
   async_url_checker_ = std::make_unique<safe_search_api::URLChecker>(
       std::move(url_checker_client));
 }
@@ -690,7 +696,7 @@ void SupervisedUserURLFilter::ClearAsyncURLChecker() {
 }
 
 bool SupervisedUserURLFilter::HasAsyncURLChecker() const {
-  return !!async_url_checker_;
+  return async_url_checker_.get() != nullptr;
 }
 
 void SupervisedUserURLFilter::Clear() {
@@ -710,38 +716,36 @@ void SupervisedUserURLFilter::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
-void SupervisedUserURLFilter::SetBlockingTaskRunnerForTesting(
-    const scoped_refptr<base::TaskRunner>& task_runner) {
-  blocking_task_runner_ = task_runner;
-}
-
-SupervisedUserURLFilter::WebFilterType
-SupervisedUserURLFilter::GetWebFilterType() const {
+WebFilterType SupervisedUserURLFilter::GetWebFilterType() const {
   // If the default filtering behavior is not block, it means the web filter
   // was set to either "allow all sites" or "try to block mature sites".
   if (default_behavior_ == FilteringBehavior::kBlock) {
     return WebFilterType::kCertainSites;
   }
 
-  bool safe_sites_enabled = HasAsyncURLChecker();
-  return safe_sites_enabled ? WebFilterType::kTryToBlockMatureSites
-                            : WebFilterType::kAllowAllSites;
+  return supervised_user::IsSafeSitesEnabled(user_prefs_.get())
+             ? WebFilterType::kTryToBlockMatureSites
+             : WebFilterType::kAllowAllSites;
+}
+
+bool SupervisedUserURLFilter::EmitURLFilterMetrics() const {
+  // Do not record metrics if the parent web filter configuration is not
+  // applied to the user.
+  if (!is_filter_initialized_) {
+    return false;
+  }
+
+  ReportWebFilterTypeMetrics();
+  ReportManagedSiteListMetrics();
+  return true;
 }
 
 void SupervisedUserURLFilter::ReportWebFilterTypeMetrics() const {
-  if (!is_filter_initialized_) {
-    return;
-  }
-
   base::UmaHistogramEnumeration(kWebFilterTypeHistogramName,
                                 GetWebFilterType());
 }
 
 void SupervisedUserURLFilter::ReportManagedSiteListMetrics() const {
-  if (!is_filter_initialized_) {
-    return;
-  }
-
   if (url_map_.empty() && allowed_host_list_.empty() &&
       blocked_host_list_.empty()) {
     base::UmaHistogramEnumeration(kManagedSiteListHistogramName,

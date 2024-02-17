@@ -51,16 +51,6 @@ const int32_t kMaxMtuSize = 517;
 // Timeout for connection response after Connect() method is called.
 constexpr base::TimeDelta kDefaultConnectTimeout = base::Seconds(10);
 
-void OnCreateBond(DBusResult<bool> ret) {
-  if (ret.has_value() && !*ret) {
-    BLUETOOTH_LOG(ERROR) << "CreateBond returned failure";
-  }
-
-  if (!ret.has_value()) {
-    BLUETOOTH_LOG(ERROR) << "Failed to create bond: " << ret.error();
-  }
-}
-
 void OnRemoveBond(base::OnceClosure callback, DBusResult<bool> ret) {
   if (!ret.has_value()) {
     BLUETOOTH_LOG(ERROR) << "Failed to remove bond: " << ret.error();
@@ -262,6 +252,13 @@ void BluetoothDeviceFloss::OnSetConnectionLatency(base::OnceClosure callback,
     pending_set_connection_latency_ = absl::nullopt;
   }
 
+  // If there is no active connection, UpdateConnectionParameters succeeds
+  // silently and won't generates any callbacks. Run callback right here.
+  if (!IsConnected()) {
+    std::move(callback).Run();
+    return;
+  }
+
   pending_set_connection_latency_ =
       std::make_pair(std::move(callback), std::move(error_callback));
 }
@@ -272,7 +269,8 @@ void BluetoothDeviceFloss::Connect(
   BLUETOOTH_LOG(EVENT) << "Connecting to " << address_;
 
   if ((connecting_state_ == ConnectingState::kACLConnecting) ||
-      (connecting_state_ == ConnectingState::kProfilesConnecting)) {
+      (connecting_state_ == ConnectingState::kProfilesConnecting) ||
+      (pending_callback_on_connect_profiles_ != absl::nullopt)) {
     std::move(callback).Run(
         BluetoothDevice::ConnectErrorCode::ERROR_INPROGRESS);
     return;
@@ -283,8 +281,9 @@ void BluetoothDeviceFloss::Connect(
   }
 
   // To simulate BlueZ API behavior, we don't reply the callback as soon as
-  // Floss CreateBond API returns, but rather we trigger the callback later
-  // after pairing is done and profiles are connected.
+  // Floss CreateBond API returns success, but rather we trigger the callback
+  // later after pairing is done and profiles are connected. In the event of
+  // immediate failure OnCreateBond will handle invoking the callback.
   pending_callback_on_connect_profiles_ = std::move(callback);
 
   if (IsPaired() || !pairing_delegate) {
@@ -293,8 +292,19 @@ void BluetoothDeviceFloss::Connect(
   } else {
     pairing_ = std::make_unique<BluetoothPairingFloss>(pairing_delegate);
     FlossDBusManager::Get()->GetAdapterClient()->CreateBond(
-        base::BindOnce(&OnCreateBond), AsFlossDeviceId(),
-        FlossAdapterClient::BluetoothTransport::kAuto);
+        base::BindOnce(&BluetoothDeviceFloss::OnCreateBond,
+                       weak_ptr_factory_.GetWeakPtr()),
+        AsFlossDeviceId(), FlossAdapterClient::BluetoothTransport::kAuto);
+  }
+}
+
+void BluetoothDeviceFloss::OnCreateBond(DBusResult<bool> ret) {
+  if (ret.has_value() && !*ret) {
+    BLUETOOTH_LOG(ERROR) << "CreateBond returned failure";
+    TriggerConnectCallback(BluetoothDevice::ConnectErrorCode::ERROR_FAILED);
+  } else if (!ret.has_value()) {
+    BLUETOOTH_LOG(ERROR) << "Failed to create bond: " << ret.error();
+    TriggerConnectCallback(BluetoothDevice::ConnectErrorCode::ERROR_FAILED);
   }
 }
 
@@ -1035,6 +1045,14 @@ void BluetoothDeviceFloss::GattConfigureMtu(std::string address,
   // Discover services after configuring MTU
   // This can be done even if configuring MTU failed.
   if (search_uuid.has_value()) {
+    // TODO(b/318402207) - Fast Pair HID mitigation to perform SDP before we
+    // bond with the device in order to get the name before bonding completes.
+    // This can be removed once we get scan responses from a LE scan session.
+    if (!svc_resolved_ && search_uuid.value().value() == "fe2c") {
+      BLUETOOTH_LOG(EVENT) << __func__ << ": Fetching remote UUIDs";
+      FlossDBusManager::Get()->GetAdapterClient()->FetchRemoteUuids(
+          base::DoNothing(), AsFlossDeviceId());
+    }
     FlossDBusManager::Get()->GetGattManagerClient()->DiscoverServiceByUuid(
         base::DoNothing(), address_, search_uuid.value());
   } else if (!IsGattServicesDiscoveryComplete()) {

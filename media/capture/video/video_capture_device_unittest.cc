@@ -50,6 +50,7 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chromeos/ash/components/mojo_service_manager/connection.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "media/capture/video/chromeos/camera_buffer_factory.h"
 #include "media/capture/video/chromeos/camera_hal_dispatcher_impl.h"
@@ -108,12 +109,9 @@
 #define MAYBE_UsingRealWebcam_AllocateBadSize \
   DISABLED_UsingRealWebcam_AllocateBadSize
 #define MAYBE_UsingRealWebcam_CaptureMjpeg UsingRealWebcam_CaptureMjpeg
-// TODO(b/228238413): Fix and reenable.
-#define MAYBE_UsingRealWebcam_TakePhoto DISABLED_UsingRealWebcam_TakePhoto
-#define MAYBE_UsingRealWebcam_GetPhotoState \
-  DISABLED_UsingRealWebcam_GetPhotoState
-#define MAYBE_UsingRealWebcam_CaptureWithSize \
-  DISABLED_UsingRealWebcam_CaptureWithSize
+#define MAYBE_UsingRealWebcam_TakePhoto UsingRealWebcam_TakePhoto
+#define MAYBE_UsingRealWebcam_GetPhotoState UsingRealWebcam_GetPhotoState
+#define MAYBE_UsingRealWebcam_CaptureWithSize UsingRealWebcam_CaptureWithSize
 #define MAYBE_UsingRealWebcam_CheckPhotoCallbackRelease \
   UsingRealWebcam_CheckPhotoCallbackRelease
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -288,6 +286,10 @@ class VideoCaptureDeviceTest
         local_gpu_memory_buffer_manager_.get());
     if (media::ShouldUseCrosCameraService() &&
         !CameraHalDispatcherImpl::GetInstance()->IsStarted()) {
+      if (!ash::mojo_service_manager::IsServiceManagerBound()) {
+        CHECK(ash::mojo_service_manager::BootstrapServiceManagerConnection())
+            << "Cannot bootstrap service manager connection.";
+      }
       CameraHalDispatcherImpl::GetInstance()->Start();
     }
 #endif
@@ -321,6 +323,14 @@ class VideoCaptureDeviceTest
   bool UseWinMediaFoundation() {
     return std::get<1>(GetParam()) == WIN_MEDIA_FOUNDATION &&
            VideoCaptureDeviceFactoryWin::PlatformSupportsMediaFoundation();
+  }
+#elif BUILDFLAG(IS_CHROMEOS_ASH)
+  void WaitForCameraServiceReady() {
+    if (media::ShouldUseCrosCameraService()) {
+      ASSERT_TRUE(CameraHalDispatcherImpl::GetInstance()->IsStarted());
+      ASSERT_TRUE(CameraHalDispatcherImpl::GetInstance()
+                      ->WaitForServiceReadyForTesting());
+    }
   }
 #endif
 
@@ -546,6 +556,9 @@ WRAPPED_TEST_P(VideoCaptureDeviceTest, MAYBE_UsingRealWebcam_CaptureWithSize) {
                      base::Unretained(this)));
 }
 void VideoCaptureDeviceTest::RunCaptureWithSizeTestCase() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  WaitForCameraServiceReady();
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   const auto device_info = FindUsableDevice();
   ASSERT_TRUE(device_info);
 
@@ -746,6 +759,9 @@ WRAPPED_TEST_P(VideoCaptureDeviceTest, MAYBE_UsingRealWebcam_TakePhoto) {
                              base::Unretained(this)));
 }
 void VideoCaptureDeviceTest::RunTakePhotoTestCase() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  WaitForCameraServiceReady();
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   const auto device_info = FindUsableDevice();
   ASSERT_TRUE(device_info);
 
@@ -790,6 +806,9 @@ WRAPPED_TEST_P(VideoCaptureDeviceTest, MAYBE_UsingRealWebcam_GetPhotoState) {
                              base::Unretained(this)));
 }
 void VideoCaptureDeviceTest::RunGetPhotoStateTestCase() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  WaitForCameraServiceReady();
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   const auto device_info = FindUsableDevice();
   ASSERT_TRUE(device_info);
 

@@ -2,17 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {VolumeManager} from '../../../background/js/volume_manager.js';
 import {entriesToURLs} from '../../../common/js/entry_utils.js';
-import {FilesAppEntry} from '../../../externs/files_app_entry_interfaces.js';
-import type {VolumeManager} from '../../../externs/volume_manager.js';
+import {FilesAppEntry} from '../../../common/js/files_app_entry_types.js';
 import {getStore} from '../../../state/store.js';
 
 import {ContentMetadataProvider} from './content_metadata_provider.js';
 import {DlpMetadataProvider} from './dlp_metadata_provider.js';
 import {ExternalMetadataProvider} from './external_metadata_provider.js';
 import {FileSystemMetadataProvider} from './file_system_metadata_provider.js';
-import {MetadataCacheSet} from './metadata_cache_set.js';
-import {MetadataItem, MetadataKey} from './metadata_item.js';
+import {MetadataCacheSet, type MetadataModelMap} from './metadata_cache_set.js';
+import {MetadataItem, type MetadataKey} from './metadata_item.js';
 import {MetadataProvider} from './metadata_provider.js';
 import {MultiMetadataProvider} from './multi_metadata_provider.js';
 
@@ -36,8 +36,6 @@ export class MetadataStats {
   clearAllCount: number = 0;
 }
 
-// TODO(austinct): Update these functions so that `names` is passed in as
-// MetadataKey[] rather than string[] for type safety.
 export class MetadataModel {
   private cache_ = new MetadataCacheSet();
   private callbackRequests_: MetadataProviderCallbackRequest[] = [];
@@ -65,7 +63,7 @@ export class MetadataModel {
    * @param names Metadata property names to be obtained.
    */
   get(entries: Array<Entry|FilesAppEntry>,
-      names: string[]): Promise<MetadataItem[]> {
+      names: readonly MetadataKey[]): Promise<MetadataItem[]> {
     this.rawProvider_.checkPropertyNames(names);
 
     // Check if the results are cached or not.
@@ -131,7 +129,7 @@ export class MetadataModel {
    *     new value for each metadata property passed in `names`.
    */
   update(
-      fileUrls: string[], names: string[],
+      fileUrls: string[], names: MetadataKey[],
       values: Array<Array<string|number|boolean>>) {
     const {allEntries} = getStore().getState();
 
@@ -148,8 +146,7 @@ export class MetadataModel {
       // TODO(austinct): Change the function call signature and update all
       // callers to allow this statement to be well typed without the type
       // assertions.
-      names.forEach(
-          (key, j) => (item[key as MetadataKey] as any) = values[i]![j]);
+      names.forEach((key, j) => (item[key] as any) = values[i]![j]);
       itemsToUpdate.push(item);
     }
 
@@ -168,7 +165,7 @@ export class MetadataModel {
    * @param entries Entries.
    * @param names Metadata property names to be obtained.
    */
-  getCache(entries: Array<Entry|FilesAppEntry>, names: string[]):
+  getCache(entries: Array<Entry|FilesAppEntry>, names: MetadataKey[]):
       MetadataItem[] {
     // Check if the property name is correct or not.
     this.rawProvider_.checkPropertyNames(names);
@@ -180,7 +177,7 @@ export class MetadataModel {
    * @param urls File URLs.
    * @param names Metadata property names to be obtained.
    */
-  getCacheByUrls(urls: string[], names: string[]): MetadataItem[] {
+  getCacheByUrls(urls: string[], names: MetadataKey[]): MetadataItem[] {
     // Check if the property name is correct or not.
     this.rawProvider_.checkPropertyNames(names);
     return this.cache_.getByUrls(urls, names);
@@ -232,27 +229,23 @@ export class MetadataModel {
     return this.stats_;
   }
 
-  /**
-   * Adds event listener to internal cache object.
-   */
-  addEventListener(type: string, callback: (event: Event) => void) {
-    this.cache_.addEventListener(type, callback);
+  /** Adds event listener to internal cache object. */
+  addEventListener<K extends keyof MetadataModelMap>(
+      type: K, listener: (event: MetadataModelMap[K]) => void): void {
+    this.cache_.addEventListener(type, listener);
   }
 
-  /**
-   * Removes event listener from internal cache object.
-   * @param type Name of the event to removed.
-   * @param callback Event listener.
-   */
-  removeEventListener(type: string, callback: (event: Event) => void) {
-    this.cache_.removeEventListener(type, callback);
+  /** Removes event listener from internal cache object. */
+  removeEventListener<K extends keyof MetadataModelMap>(
+      type: K, listener: (event: MetadataModelMap[K]) => void): void {
+    this.cache_.removeEventListener(type, listener);
   }
 }
 
 class MetadataProviderCallbackRequest {
   constructor(
-      private entries_: Array<Entry|FilesAppEntry>, private names_: string[],
-      private cache_: MetadataCacheSet,
+      private entries_: Array<Entry|FilesAppEntry>,
+      private names_: MetadataKey[], private cache_: MetadataCacheSet,
       private fulfill_: (items: MetadataItem[]) => void) {}
 
   /**

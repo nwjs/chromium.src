@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {VolumeManager} from '../../background/js/volume_manager.js';
 import {getExtension} from '../../common/js/file_type.js';
+import type {FilesAppEntry} from '../../common/js/files_app_entry_types.js';
 import {recordEnum} from '../../common/js/metrics.js';
 import {VolumeType} from '../../common/js/volume_manager_types.js';
-import {DialogType} from '../../externs/ts/state.js';
-import type {VolumeManager} from '../../externs/volume_manager.js';
+import {DialogType} from '../../state/state.js';
 
 import {UMA_INDEX_KNOWN_EXTENSIONS} from './uma_enums.gen.js';
 
@@ -20,7 +21,7 @@ export class QuickViewUma {
   /**
    * Exports file type metric with the given histogram `name`.
    */
-  private exportFileType_(entry: Entry, name: string) {
+  private exportFileType_(entry: Entry|FilesAppEntry, name: string) {
     let extension = getExtension(entry).toLowerCase();
     if (entry.isDirectory) {
       extension = 'directory';
@@ -35,14 +36,14 @@ export class QuickViewUma {
   /**
    * Exports UMA based on the entry shown in Quick View.
    */
-  onEntryChanged(entry: FileEntry|Entry) {
+  onEntryChanged(entry: Entry|FilesAppEntry) {
     this.exportFileType_(entry, 'QuickView.FileType');
   }
 
   /**
    * Exports UMA based on the entry selected when Quick View is opened.
    */
-  onOpened(entry: FileEntry|Entry, wayToOpen: WayToOpen) {
+  onOpened(entry: Entry|FilesAppEntry, wayToOpen: WayToOpen) {
     this.exportFileType_(entry, 'QuickView.FileTypeOnLaunch');
     recordEnum('QuickView.WayToOpen', wayToOpen, WAY_TO_OPEN_ENUM_TO_INDEX);
 

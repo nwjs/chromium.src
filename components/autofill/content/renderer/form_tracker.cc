@@ -9,6 +9,7 @@
 #include "base/observer_list.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "content/public/renderer/render_frame.h"
 #include "third_party/blink/public/common/features.h"
@@ -173,11 +174,10 @@ void FormTracker::TextFieldDidChange(const WebFormControlElement& element) {
   unsafe_render_frame()
       ->GetWebFrame()
       ->GetTaskRunner(blink::TaskType::kInternalUserInteraction)
-      ->PostTask(FROM_HERE,
-                 base::BindRepeating(
-                     &FormTracker::FormControlDidChangeImpl,
-                     weak_ptr_factory_.GetWeakPtr(), element,
-                     Observer::ElementChangeSource::TEXTFIELD_CHANGED));
+      ->PostTask(FROM_HERE, base::BindRepeating(
+                                &FormTracker::FormControlDidChangeImpl,
+                                weak_ptr_factory_.GetWeakPtr(), element,
+                                Observer::SaveFormReason::kTextFieldChanged));
 }
 
 void FormTracker::SelectControlDidChange(const WebFormControlElement& element) {
@@ -195,10 +195,10 @@ void FormTracker::SelectControlDidChange(const WebFormControlElement& element) {
   unsafe_render_frame()
       ->GetWebFrame()
       ->GetTaskRunner(blink::TaskType::kInternalUserInteraction)
-      ->PostTask(FROM_HERE, base::BindRepeating(
-                                &FormTracker::FormControlDidChangeImpl,
-                                weak_ptr_factory_.GetWeakPtr(), element,
-                                Observer::ElementChangeSource::SELECT_CHANGED));
+      ->PostTask(FROM_HERE,
+                 base::BindRepeating(&FormTracker::FormControlDidChangeImpl,
+                                     weak_ptr_factory_.GetWeakPtr(), element,
+                                     Observer::SaveFormReason::kSelectChanged));
 }
 
 void FormTracker::ElementDisappeared(const blink::WebElement& element) {
@@ -219,16 +219,12 @@ void FormTracker::TrackAutofilledElement(const WebFormControlElement& element) {
     last_interacted_form_ = FormRef(element.Form());
   // TODO(crbug.com/1483242): Investigate if this is necessary: if it is,
   // document the reason, if not, remove.
-  TrackElement();
-}
-
-void FormTracker::FireProbablyFormSubmittedForTesting() {
-  FireProbablyFormSubmitted();
+  TrackElement(mojom::SubmissionSource::DOM_MUTATION_AFTER_AUTOFILL);
 }
 
 void FormTracker::FormControlDidChangeImpl(
     const WebFormControlElement& element,
-    Observer::ElementChangeSource change_source) {
+    Observer::SaveFormReason change_source) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
   // The frame or document could be null because this function is called
   // asynchronously.
@@ -259,7 +255,7 @@ void FormTracker::DidFinishSameDocumentNavigation() {
 
 void FormTracker::DidStartNavigation(
     const GURL& url,
-    absl::optional<blink::WebNavigationType> navigation_type) {
+    std::optional<blink::WebNavigationType> navigation_type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
   if (!unsafe_render_frame()) {
     return;
@@ -296,7 +292,7 @@ void FormTracker::WillSendSubmitEvent(const WebFormElement& form) {
   for (auto& observer : observers_) {
     observer.OnProvisionallySaveForm(
         form, blink::WebFormControlElement(),
-        Observer::ElementChangeSource::WILL_SEND_SUBMIT_EVENT);
+        Observer::SaveFormReason::kWillSendSubmitEvent);
   }
 }
 
@@ -355,7 +351,7 @@ void FormTracker::FireSubmissionIfFormDisappear(SubmissionSource source) {
     FireInferredFormSubmission(source);
     return;
   }
-  TrackElement();
+  TrackElement(source);
 }
 
 bool FormTracker::CanInferFormSubmitted() {
@@ -378,12 +374,12 @@ bool FormTracker::CanInferFormSubmitted() {
   return false;
 }
 
-void FormTracker::TrackElement() {
+void FormTracker::TrackElement(mojom::SubmissionSource source) {
   // Already has observer for last interacted element.
   if (form_element_observer_)
     return;
   auto callback = base::BindOnce(&FormTracker::ElementWasHiddenOrRemoved,
-                                 base::Unretained(this));
+                                 base::Unretained(this), source);
 
   if (WebFormElement last_interacted_form = last_interacted_form_.GetForm();
       !last_interacted_form.IsNull()) {
@@ -406,8 +402,8 @@ void FormTracker::ResetLastInteractedElements() {
   }
 }
 
-void FormTracker::ElementWasHiddenOrRemoved() {
-  FireInferredFormSubmission(SubmissionSource::DOM_MUTATION_AFTER_XHR);
+void FormTracker::ElementWasHiddenOrRemoved(mojom::SubmissionSource source) {
+  FireInferredFormSubmission(source);
 }
 
 }  // namespace autofill

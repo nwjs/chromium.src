@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "base/containers/flat_map.h"
+#include "base/debug/alias.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -154,6 +156,8 @@ void ScreenAIServiceRouter::LaunchIfNotRunning() {
   // above.
   if (install_state != screen_ai::ScreenAIInstallState::State::kDownloaded &&
       install_state != screen_ai::ScreenAIInstallState::State::kReady) {
+    base::debug::Alias(&install_state);
+    base::debug::DumpWithoutCrashing();
     return;
   }
 

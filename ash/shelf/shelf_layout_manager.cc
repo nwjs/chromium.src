@@ -8,7 +8,7 @@
 #include <cmath>
 #include <vector>
 
-#include "ash/accessibility/accessibility_controller_impl.h"
+#include "ash/accessibility/accessibility_controller.h"
 #include "ash/animation/animation_change_type.h"
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/app_list/app_list_metrics.h"
@@ -312,7 +312,7 @@ aura::Window* GetWindowForDragToHomeOrOverview(
   // window should be the dragged window.
   aura::Window* left_window = split_view_controller->primary_window();
   aura::Window* right_window = split_view_controller->secondary_window();
-  const int divider_position = split_view_controller->divider_position();
+  const int divider_position = split_view_controller->GetDividerPosition();
   const bool is_landscape = IsCurrentScreenOrientationLandscape();
   const bool is_primary = IsCurrentScreenOrientationPrimary();
   const gfx::Rect work_area =
@@ -411,8 +411,7 @@ class HotseatEventHandler : public ui::EventHandler,
  private:
   // Whether events should get forwarded to ShelfLayoutManager.
   bool should_forward_event_ = false;
-  const raw_ptr<ShelfLayoutManager, ExperimentalAsh>
-      shelf_layout_manager_;  // unowned.
+  const raw_ptr<ShelfLayoutManager> shelf_layout_manager_;  // unowned.
 };
 
 }  // namespace
@@ -1221,7 +1220,7 @@ bool ShelfLayoutManager::HasVisibleWindow() const {
           kActiveDesk);
   // Process the window list and check if there are any visible windows.
   // Ignore app list windows that may be animating to hide after dismissal.
-  for (auto* window : windows) {
+  for (aura::Window* window : windows) {
     if (window->IsVisible() && !IsAppListWindow(window) &&
         root->Contains(window)) {
       return true;
@@ -1439,6 +1438,9 @@ void ShelfLayoutManager::OnDisplayMetricsChanged(
       changed_metrics == display::DisplayObserver::DISPLAY_METRIC_WORK_AREA) {
     return;
   }
+
+  // Layout may be needed if the display arrangement has changed.
+  LayoutShelf();
 
   // Update |user_work_area_bounds_| for the new display arrangement.
   UpdateShelfWorkAreaInsets();
@@ -1934,7 +1936,7 @@ bool ShelfLayoutManager::IsDraggingWindowFromTopOrCaptionArea() const {
   // in overview mode. http://crbug.com/866679
   auto windows =
       Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk);
-  for (auto* window : windows) {
+  for (aura::Window* window : windows) {
     WindowState* window_state = WindowState::Get(window);
     if (window_state && window_state->is_dragged() &&
         (window_state->IsMaximized() || window_state->IsFullscreen()) &&

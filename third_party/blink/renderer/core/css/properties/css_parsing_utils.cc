@@ -862,6 +862,7 @@ bool IsGeneratedImage(const CSSValueID id) {
     case CSSValueID::kWebkitGradient:
     case CSSValueID::kWebkitCrossFade:
     case CSSValueID::kPaint:
+    case CSSValueID::kCrossFade:
       return true;
 
     default:
@@ -870,13 +871,7 @@ bool IsGeneratedImage(const CSSValueID id) {
 }
 
 bool IsImageSet(const CSSValueID id) {
-  if (id == CSSValueID::kWebkitImageSet) {
-    return true;
-  }
-  if (id == CSSValueID::kImageSet) {
-    return RuntimeEnabledFeatures::CSSImageSetEnabled();
-  }
-  return false;
+  return id == CSSValueID::kWebkitImageSet || id == CSSValueID::kImageSet;
 }
 
 }  // namespace
@@ -2883,8 +2878,9 @@ CSSValue* ConsumeIntrinsicSizeLonghand(CSSParserTokenRange& range,
   return list;
 }
 
-static CSSValue* ConsumeCrossFade(CSSParserTokenRange& args,
-                                  const CSSParserContext& context) {
+static CSSValue* ConsumeDeprecatedWebkitCrossFade(
+    CSSParserTokenRange& args,
+    const CSSParserContext& context) {
   CSSValue* from_image_value = ConsumeImageOrNone(args, context);
   if (!from_image_value || !ConsumeCommaIncludingWhitespace(args)) {
     return nullptr;
@@ -2911,7 +2907,67 @@ static CSSValue* ConsumeCrossFade(CSSParserTokenRange& args,
     return nullptr;
   }
   return MakeGarbageCollected<cssvalue::CSSCrossfadeValue>(
-      from_image_value, to_image_value, percentage);
+      /*is_legacy_variant=*/true,
+      HeapVector<std::pair<Member<CSSValue>, Member<CSSPrimitiveValue>>>{
+          {from_image_value, nullptr}, {to_image_value, percentage}});
+}
+
+// https://drafts.csswg.org/css-images-4/#cross-fade-function
+static CSSValue* ConsumeCrossFade(CSSParserTokenRange& args,
+                                  const CSSParserContext& context) {
+  // Parse an arbitrary comma-separated image|color values,
+  // where each image may have a percentage before or after it.
+  HeapVector<std::pair<Member<CSSValue>, Member<CSSPrimitiveValue>>>
+      image_and_percentages;
+  CSSValue* image = nullptr;
+  CSSPrimitiveValue* percentage = nullptr;
+  for (;;) {
+    if (CSSPrimitiveValue* percent_value = ConsumePercent(
+            args, context, CSSPrimitiveValue::ValueRange::kAll)) {
+      if (percentage) {
+        return nullptr;
+      }
+      if (percent_value->IsNumericLiteralValue()) {
+        double val = percent_value->GetDoubleValue();
+        if (!(val >= 0.0 &&
+              val <= 100.0)) {  // Includes checks for NaN and infinities.
+          return nullptr;
+        }
+      }
+      percentage = percent_value;
+      continue;
+    } else if (CSSValue* image_value = ConsumeImage(args, context)) {
+      if (image) {
+        return nullptr;
+      }
+      image = image_value;
+    } else if (CSSValue* color_value = ConsumeColor(args, context)) {
+      if (image) {
+        return nullptr;
+      }
+
+      // Wrap the color in a constant gradient, so that we can treat it as a
+      // gradient in nearly all the remaining code.
+      image =
+          MakeGarbageCollected<cssvalue::CSSConstantGradientValue>(color_value);
+    } else {
+      if (!image) {
+        return nullptr;
+      }
+      image_and_percentages.emplace_back(image, percentage);
+      image = nullptr;
+      percentage = nullptr;
+      if (!ConsumeCommaIncludingWhitespace(args)) {
+        break;
+      }
+    }
+  }
+  if (image_and_percentages.empty()) {
+    return nullptr;
+  }
+
+  return MakeGarbageCollected<cssvalue::CSSCrossfadeValue>(
+      /*is_legacy_variant=*/false, image_and_percentages);
 }
 
 static CSSValue* ConsumePaint(CSSParserTokenRange& args,
@@ -3004,6 +3060,9 @@ static CSSValue* ConsumeGeneratedImage(CSSParserTokenRange& range,
   } else if (id == CSSValueID::kRepeatingConicGradient) {
     result = ConsumeConicGradient(args, context, cssvalue::kRepeating);
   } else if (id == CSSValueID::kWebkitCrossFade) {
+    result = ConsumeDeprecatedWebkitCrossFade(args, context);
+  } else if (RuntimeEnabledFeatures::CSSCrossFadeEnabled() &&
+             id == CSSValueID::kCrossFade) {
     result = ConsumeCrossFade(args, context);
   } else if (id == CSSValueID::kPaint) {
     result = context.IsSecureContext() ? ConsumePaint(args, context) : nullptr;
@@ -3038,8 +3097,7 @@ static CSSImageValue* CreateCSSImageValueWithReferrer(
 }
 
 static CSSImageSetTypeValue* ConsumeImageSetType(CSSParserTokenRange& range) {
-  if (!RuntimeEnabledFeatures::CSSImageSetEnabled() ||
-      range.Peek().FunctionId() != CSSValueID::kType) {
+  if (range.Peek().FunctionId() != CSSValueID::kType) {
     return nullptr;
   }
 
@@ -3059,33 +3117,16 @@ static CSSImageSetOptionValue* ConsumeImageSetOption(
     CSSParserTokenRange& range,
     const CSSParserContext& context,
     ConsumeGeneratedImagePolicy generated_image_policy) {
-  const ConsumeStringUrlImagePolicy string_url_image_policy =
-      RuntimeEnabledFeatures::CSSImageSetEnabled()
-          ? ConsumeStringUrlImagePolicy::kAllow
-          : ConsumeStringUrlImagePolicy::kForbid;
-  const ConsumeGeneratedImagePolicy image_set_generated_image_policy =
-      RuntimeEnabledFeatures::CSSImageSetEnabled()
-          ? generated_image_policy
-          : ConsumeGeneratedImagePolicy::kForbid;
-
-  const CSSValue* image = ConsumeImage(
-      range, context, image_set_generated_image_policy, string_url_image_policy,
-      ConsumeImageSetImagePolicy::kForbid);
+  const CSSValue* image = ConsumeImage(range, context, generated_image_policy,
+                                       ConsumeStringUrlImagePolicy::kAllow,
+                                       ConsumeImageSetImagePolicy::kForbid);
   if (!image) {
     return nullptr;
   }
 
   // Type could appear before or after resolution
   CSSImageSetTypeValue* type = ConsumeImageSetType(range);
-
-  if (!RuntimeEnabledFeatures::CSSImageSetEnabled() &&
-      range.Peek().GetType() != kDimensionToken &&
-      range.Peek().GetUnitType() != CSSPrimitiveValue::UnitType::kX) {
-    return nullptr;
-  }
-
   CSSPrimitiveValue* resolution = ConsumeResolution(range, context);
-
   if (!type) {
     type = ConsumeImageSetType(range);
   }
@@ -3290,15 +3331,13 @@ void CountKeywordOnlyPropertyUsage(CSSPropertyID property,
               NonStandardAppearanceValueSliderVerticalEnabled() &&
           value_id == CSSValueID::kSliderVertical) {
         if (const auto* document = context.GetDocument()) {
-          // TODO(crbug.com/681917): Remove "currently experimental" note when
-          // feature FormControlsVerticalWritingModeSupport is in stable.
           document->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
               mojom::blink::ConsoleMessageSource::kDeprecation,
               mojom::blink::ConsoleMessageLevel::kWarning,
               "The keyword 'slider-vertical' specified to an 'appearance' "
-              "property is not standardized. It will be removed in the future "
-              "and replaced by vertical writing-mode (currently "
-              "experimental)."));
+              "property is not standardized. It will be removed in the future. "
+              "Use <input type=range style=\"writing-mode: vertical-lr\"> "
+              "instead."));
           Deprecation::CountDeprecation(
               document->GetExecutionContext(),
               WebFeature::kCSSValueAppearanceSliderVertical);
@@ -4495,11 +4534,6 @@ bool ParseBackgroundOrMask(bool important,
 
   for (unsigned i = 0; i < longhand_count; ++i) {
     const CSSProperty& property = *shorthand.properties()[i];
-    if (property.IDEquals(CSSPropertyID::kBackgroundSize) &&
-        !longhands[i].empty() &&
-        context.UseLegacyBackgroundSizeShorthandBehavior()) {
-      continue;
-    }
 
     // To conserve memory we don't wrap a single value in a list.
     const CSSValue* longhand = GetSingleValueOrMakeList(

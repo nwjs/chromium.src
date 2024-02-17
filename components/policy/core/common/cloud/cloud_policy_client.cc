@@ -24,10 +24,10 @@
 #include "components/policy/core/common/cloud/device_management_service.h"
 #include "components/policy/core/common/cloud/dm_auth.h"
 #include "components/policy/core/common/cloud/dmserver_job_configurations.h"
-#include "components/policy/core/common/cloud/encrypted_reporting_job_configuration.h"
 #include "components/policy/core/common/cloud/realtime_reporting_job_configuration.h"
 #include "components/policy/core/common/cloud/signing_service.h"
 #include "components/policy/core/common/policy_logger.h"
+#include "components/policy/core/common/policy_types.h"
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_urls.h"
@@ -244,13 +244,13 @@ DeviceManagementStatus CloudPolicyClient::Result::GetDMServerError() const {
 }
 
 CloudPolicyClient::CloudPolicyClient(
-    base::StringPiece machine_id,
-    base::StringPiece machine_model,
-    base::StringPiece brand_code,
-    base::StringPiece attested_device_id,
+    std::string_view machine_id,
+    std::string_view machine_model,
+    std::string_view brand_code,
+    std::string_view attested_device_id,
     absl::optional<MacAddress> ethernet_mac_address,
     absl::optional<MacAddress> dock_mac_address,
-    base::StringPiece manufacture_date,
+    std::string_view manufacture_date,
     DeviceManagementService* service,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     DeviceDMTokenCallback device_dm_token_callback)
@@ -414,6 +414,39 @@ void CloudPolicyClient::RegisterWithToken(
                               base::Unretained(this), std::move(config)));
 }
 
+void CloudPolicyClient::RegisterWithOidcResponse(
+    const RegistrationParameters& parameters,
+    const std::string& oauth_token,
+    const std::string& oidc_id_token,
+    const std::string& profile_id,
+    const std::string& client_id) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(!oidc_id_token.empty());
+  CHECK(!oauth_token.empty());
+  CHECK(!profile_id.empty());
+
+  SetClientId(client_id);
+  auto params = DMServerJobConfiguration::CreateParams::WithClient(
+      DeviceManagementService::JobConfiguration::TYPE_OIDC_REGISTRATION, this);
+  params.profile_id = profile_id;
+  params.oauth_token = oauth_token;
+  params.auth_data = DMAuth::FromOidcResponse(oidc_id_token);
+  params.callback = base::BindOnce(&CloudPolicyClient::OnRegisterCompleted,
+                                   weak_ptr_factory_.GetWeakPtr());
+
+  auto config =
+      std::make_unique<RegistrationJobConfiguration>(std::move(params));
+
+  em::DeviceRegisterRequest* request =
+      config->request()->mutable_register_request();
+  CreateDeviceRegisterRequest(parameters, client_id, request);
+
+  // TODO(b/319479021): Reregistration behaviour is yet to be defined due to
+  // the expiring nature of OIDC responses.
+
+  unique_request_job_ = service_->CreateJob(std::move(config));
+}
+
 void CloudPolicyClient::OnRegisterWithCertificateRequestSigned(
     std::unique_ptr<SigningService> signing_service,
     bool success,
@@ -480,6 +513,11 @@ void CloudPolicyClient::FetchPolicy(PolicyFetchReason reason) {
   params.profile_id = profile_id_;
   params.callback = base::BindOnce(&CloudPolicyClient::OnPolicyFetchCompleted,
                                    weak_ptr_factory_.GetWeakPtr());
+  // Marking a small number of fetch reasons critical helps on DMServer, see for
+  // instance https://crbug.com/660009.
+  if (reason == PolicyFetchReason::kDeviceEnrollment) {
+    params.critical = true;
+  }
 
   auto config = std::make_unique<DMServerJobConfiguration>(std::move(params));
 
@@ -772,36 +810,6 @@ void CloudPolicyClient::UploadSecurityEventReport(
       std::move(report),
       service()->configuration()->GetReportingConnectorServerUrl(context),
       include_device_info, add_connector_url_params_, std::move(callback));
-}
-
-void CloudPolicyClient::UploadEncryptedReport(
-    base::Value::Dict merging_payload,
-    absl::optional<base::Value::Dict> context,
-    ResponseCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!is_registered()) {
-    std::move(callback).Run(absl::nullopt);
-    return;
-  }
-
-  auto config = std::make_unique<EncryptedReportingJobConfiguration>(
-      GetURLLoaderFactory(), DMAuth::FromDMToken(dm_token()),
-      service()->configuration()->GetEncryptedReportingServerUrl(),
-      std::move(merging_payload), this,
-      base::BindOnce(&CloudPolicyClient::OnEncryptedReportUploadCompleted,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
-  if (context.has_value()) {
-    config->UpdateContext(std::move(context.value()));
-  }
-  const auto delay = config->WhenIsAllowedToProceed();
-  if (delay.is_positive()) {
-    // Reject upload.
-    config->CancelNotAllowedJob();  // Invokes callback to response back.
-    return;
-  }
-  // Accept upload.
-  config->AccountForAllowedJob();
-  request_jobs_.push_back(service_->CreateJob(std::move(config)));
 }
 
 void CloudPolicyClient::UploadAppInstallReport(base::Value::Dict report,
@@ -1404,28 +1412,6 @@ void CloudPolicyClient::OnRealtimeReportUploadCompleted(
   }
 
   std::move(callback).Run(CloudPolicyClient::Result(status));
-  RemoveJob(job);
-}
-
-// |job| can be null if the owning EncryptedReportingJobConfiguration is
-// destroyed prior to calling OnUploadComplete. In that case, callback will be
-// called with nullopt value.
-void CloudPolicyClient::OnEncryptedReportUploadCompleted(
-    ResponseCallback callback,
-    DeviceManagementService::Job* job,
-    DeviceManagementStatus status,
-    int reponse_code,
-    absl::optional<base::Value::Dict> response) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (job == nullptr) {
-    std::move(callback).Run(absl::nullopt);
-    return;
-  }
-  last_dm_status_ = status;
-  if (status != DM_STATUS_SUCCESS) {
-    NotifyClientError();
-  }
-  std::move(callback).Run(std::move(response));
   RemoveJob(job);
 }
 

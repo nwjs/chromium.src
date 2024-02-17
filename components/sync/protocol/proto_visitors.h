@@ -204,7 +204,6 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT(use_count);
   VISIT(use_date);
   VISIT(profile_label);
-  VISIT_REP(name_honorific);
   VISIT_REP(name_first);
   VISIT_REP(name_middle);
   VISIT_REP(name_last_first);
@@ -212,9 +211,7 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT_REP(name_last_second);
   VISIT_REP(name_last);
   VISIT_REP(name_full);
-  VISIT_REP(name_full_with_honorific);
 
-  VISIT_REP(name_honorific_status);
   VISIT_REP(name_first_status);
   VISIT_REP(name_middle_status);
   VISIT_REP(name_last_first_status);
@@ -222,7 +219,6 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT_REP(name_last_second_status);
   VISIT_REP(name_last_status);
   VISIT_REP(name_full_status);
-  VISIT_REP(name_full_with_honorific_status);
 
   VISIT_REP(email_address);
   VISIT(company_name);
@@ -346,7 +342,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(profile_label);
   VISIT(initial_creator_id);
   VISIT(last_modifier_id);
-  VISIT(name_honorific);
   VISIT(name_first);
   VISIT(name_middle);
   VISIT(name_last);
@@ -354,7 +349,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(name_last_conjunction);
   VISIT(name_last_second);
   VISIT(name_full);
-  VISIT(name_full_with_honorific);
   VISIT(email_address);
   VISIT(company_name);
   VISIT(address_city);
@@ -415,7 +409,6 @@ VISIT_PROTO_FIELDS(const sync_pb::CustomNudgeDelay& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::ClientCommand& proto) {
   VISIT(set_sync_poll_interval);
   VISIT(max_commit_batch_size);
-  VISIT(sessions_commit_delay_seconds);
   VISIT(throttle_delay_seconds);
   VISIT(client_invalidation_hint_buffer_size);
   VISIT(gu_retry_delay_seconds);
@@ -447,7 +440,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ClientToServerMessage& proto) {
   VISIT(commit);
   VISIT(get_updates);
   VISIT(store_birthday);
-  VISIT(sync_problem_detected);
   VISIT(debug_info);
   VISIT(client_status);
   VISIT(invalidator_client_id);
@@ -1519,9 +1511,10 @@ VISIT_PROTO_FIELDS(const sync_pb::BankAccountDetails& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::CardBenefit& proto) {
+  VISIT(benefit_id);
   VISIT(benefit_description);
-  VISIT(start_time_unix_epoch_nanos);
-  VISIT(end_time_unix_epoch_nanos);
+  VISIT(start_time_unix_epoch_milliseconds);
+  VISIT(end_time_unix_epoch_milliseconds);
   VISIT(flat_rate_benefit);
   VISIT(category_benefit);
   VISIT(merchant_benefit);
@@ -1634,13 +1627,14 @@ VISIT_PROTO_FIELDS(const sync_pb::WebAppIconInfo& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::WebAppSpecifics& proto) {
   VISIT(start_url);
   VISIT(name);
-  VISIT_ENUM(user_display_mode);
+  VISIT_ENUM(user_display_mode_non_cros);
   VISIT(theme_color);
   VISIT(scope);
   VISIT_REP(icon_infos);
   VISIT(user_page_ordinal);
   VISIT(user_launch_ordinal);
   VISIT(relative_manifest_id);
+  VISIT_ENUM(user_display_mode_cros);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::WifiConfigurationSpecifics::

@@ -6,6 +6,7 @@
 #define COMPONENTS_AUTOFILL_CONTENT_BROWSER_CONTENT_AUTOFILL_DRIVER_H_
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -23,7 +24,6 @@
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace content {
 class RenderFrameHost;
@@ -157,7 +157,7 @@ class ContentAutofillDriver : public AutofillDriver,
   // These are the non-event functions from autofill::AutofillDriver. The events
   // are defined in the private part below.
   LocalFrameToken GetFrameToken() const override;
-  absl::optional<LocalFrameToken> Resolve(FrameToken query) override;
+  std::optional<LocalFrameToken> Resolve(FrameToken query) override;
   ContentAutofillDriver* GetParent() override;
   AutofillManager& GetAutofillManager() override;
   bool IsInActiveFrame() const override;
@@ -228,13 +228,12 @@ class ContentAutofillDriver : public AutofillDriver,
 
   // Group (1b): browser -> renderer events, routed (see comment above).
   // autofill::AutofillDriver:
-  std::vector<FieldGlobalId> ApplyFormAction(
+  base::flat_set<FieldGlobalId> ApplyFormAction(
       mojom::ActionType action_type,
       mojom::ActionPersistence action_persistence,
       const FormData& data,
       const url::Origin& triggered_origin,
-      const base::flat_map<FieldGlobalId, ServerFieldType>& field_type_map)
-      override;
+      const base::flat_map<FieldGlobalId, FieldType>& field_type_map) override;
   void ApplyFieldAction(mojom::ActionPersistence action_persistence,
                         mojom::TextReplacement text_replacement,
                         const FieldGlobalId& field_id,
@@ -251,9 +250,8 @@ class ContentAutofillDriver : public AutofillDriver,
       const FieldGlobalId& field_id,
       AutofillSuggestionTriggerSource trigger_source) override;
   void SendAutofillTypePredictionsToRenderer(
-      const std::vector<FormStructure*>& forms) override;
-  void SendFieldsEligibleForManualFillingToRenderer(
-      const std::vector<FieldGlobalId>& fields) override;
+      const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms)
+      override;
 
   // Group (1c): browser -> renderer events, unrouted (see comment above).
   // autofill::AutofillDriver:
@@ -296,7 +294,7 @@ class ContentAutofillDriver : public AutofillDriver,
                               const gfx::RectF& bounding_box) override;
   void SelectOrSelectListFieldOptionsDidChange(const FormData& form) override;
   void SetFormToBeProbablySubmitted(
-      const absl::optional<FormData>& form) override;
+      const std::optional<FormData>& form) override;
   void TextFieldDidChange(const FormData& form,
                           const FormFieldData& field,
                           const gfx::RectF& bounding_box,
@@ -343,7 +341,7 @@ class ContentAutofillDriver : public AutofillDriver,
   // The form pushed from the AutofillAgent to the AutofillDriver. When the
   // ProbablyFormSubmitted() event is fired, this form is considered the
   // submitted one.
-  absl::optional<FormData> potentially_submitted_form_;
+  std::optional<FormData> potentially_submitted_form_;
 
   // Keeps track of the forms for which FormSubmitted() event has been triggered
   // to avoid duplicates fired by AutofillAgent.

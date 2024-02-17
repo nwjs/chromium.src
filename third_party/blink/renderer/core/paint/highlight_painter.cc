@@ -174,7 +174,7 @@ bool HasNonTrivialSpellingGrammarStyles(const FragmentItem& fragment_item,
     // If the SVG-only fill- and stroke-related properties differ from their
     // values in the originating style. These checks must be skipped outside of
     // SVG content, because the initial ‘fill’ is ‘black’, not ‘currentColor’.
-    if (fragment_item.Type() == FragmentItem::kSvgText) {
+    if (fragment_item.IsSvgText()) {
       // If the ‘fill’ is ‘currentColor’, assume that it differs from the
       // originating style, even if the current color actually happens to
       // match. This simplifies the logic until we know it performs poorly.
@@ -415,21 +415,31 @@ HighlightPainter::HighlightPainter(
       }
     }
     if (!parts_.empty()) {
-      // TODO(schenney) The code here still results in n^2 calculations or,
-      // more precisely, O(num_edges * text_length) because
-      // CaretInlinePositionForOffset ultimately does a linear walk through
-      // the text shaping result looking for the offset while accumulating
-      // character widths. Given the edges are sorted, we should enable
-      // one pass through the text to accumulate all the necessary offset
-      // positions.
-      edges_info_.push_back(
-          HighlightEdgeInfo{parts_[0].range.from,
-                            fragment_item_.CaretInlinePositionForOffset(
-                                cursor_.CurrentText(), parts_[0].range.from)});
-      for (const HighlightPart& part : parts_) {
+      if (const ShapeResultView* shape_result_view =
+              fragment_item_->TextShapeResult()) {
+        scoped_refptr<ShapeResult> shape_result =
+            shape_result_view->CreateShapeResult();
+        unsigned start_offset = fragment_item_->StartOffset();
         edges_info_.push_back(HighlightEdgeInfo{
-            part.range.to, fragment_item_.CaretInlinePositionForOffset(
-                               cursor_.CurrentText(), part.range.to)});
+            parts_[0].range.from,
+            LayoutUnit::FromFloatRound(shape_result->CaretPositionForOffset(
+                parts_[0].range.from - start_offset, cursor_.CurrentText()))});
+        for (const HighlightPart& part : parts_) {
+          edges_info_.push_back(HighlightEdgeInfo{
+              part.range.to,
+              LayoutUnit::FromFloatRound(shape_result->CaretPositionForOffset(
+                  part.range.to - start_offset, cursor_.CurrentText()))});
+        }
+      } else {
+        edges_info_.push_back(HighlightEdgeInfo{
+            parts_[0].range.from,
+            fragment_item_.CaretInlinePositionForOffset(cursor_.CurrentText(),
+                                                        parts_[0].range.from)});
+        for (const HighlightPart& part : parts_) {
+          edges_info_.push_back(HighlightEdgeInfo{
+              part.range.to, fragment_item_.CaretInlinePositionForOffset(
+                                 cursor_.CurrentText(), part.range.to)});
+        }
       }
     }
   }
@@ -478,7 +488,9 @@ void HighlightPainter::Paint(Phase phase) {
           Color color =
               LayoutTheme::GetTheme().PlatformTextSearchHighlightColor(
                   text_match_marker.IsActiveMatch(),
-                  originating_style_.UsedColorScheme());
+                  originating_style_.UsedColorScheme(),
+                  document.GetColorProviderForPainting(
+                      originating_style_.UsedColorScheme()));
           PaintRect(paint_info_.context, PhysicalOffset(box_origin_),
                     fragment_item_.LocalRect(text, paint_start_offset,
                                              paint_end_offset),
@@ -487,23 +499,25 @@ void HighlightPainter::Paint(Phase phase) {
         }
 
         TextPaintStyle text_style;
-        if (fragment_item_->Type() != FragmentItem::kSvgText) {
-          text_style = DocumentMarkerPainter::ComputeTextPaintStyleFrom(
-              document, node_, originating_style_, text_match_marker,
-              paint_info_);
-        } else {
+        if (fragment_item_->IsSvgText()) {
           // DocumentMarkerPainter::ComputeTextPaintStyleFrom() doesn't work
           // well with SVG <text>, which doesn't apply 'color' CSS property.
           const Color platform_matched_color =
               LayoutTheme::GetTheme().PlatformTextSearchColor(
                   text_match_marker.IsActiveMatch(),
-                  originating_style_.UsedColorScheme());
+                  originating_style_.UsedColorScheme(),
+                  document.GetColorProviderForPainting(
+                      originating_style_.UsedColorScheme()));
           text_painter_.SetSvgState(
               *To<LayoutSVGInlineText>(fragment_item_->GetLayoutObject()),
               originating_style_, platform_matched_color);
           text_style.current_color = platform_matched_color;
           text_style.stroke_width = originating_style_.TextStrokeWidth();
           text_style.color_scheme = originating_style_.UsedColorScheme();
+        } else {
+          text_style = DocumentMarkerPainter::ComputeTextPaintStyleFrom(
+              document, node_, originating_style_, text_match_marker,
+              paint_info_);
         }
         text_painter_.Paint(
             fragment_paint_info_.Slice(paint_start_offset, paint_end_offset),
@@ -735,7 +749,7 @@ void HighlightPainter::PaintOneSpellingGrammarDecoration(
 
   text_painter_.PaintDecorationsExceptLineThrough(
       fragment_paint_info_.Slice(paint_start_offset, paint_end_offset),
-      fragment_item_, paint_info_, style, text_style, *decoration_info,
+      fragment_item_, paint_info_, text_style, *decoration_info,
       LineFor(marker_type));
 }
 
@@ -1154,8 +1168,8 @@ void HighlightPainter::PaintDecorationsExceptLineThrough(
 
     text_painter_.PaintDecorationsExceptLineThrough(
         fragment_paint_info_.Slice(part.range.from, part.range.to),
-        fragment_item_, paint_info_, *decoration_layer.style,
-        decoration_layer.text_style, *decoration_info, lines_to_paint);
+        fragment_item_, paint_info_, decoration_layer.text_style,
+        *decoration_info, lines_to_paint);
   }
 }
 
@@ -1217,9 +1231,9 @@ void HighlightPainter::PaintDecorationsOnlyLineThrough(
       }
     }
 
-    text_painter_.PaintDecorationsOnlyLineThrough(
-        fragment_item_, paint_info_, *decoration_layer.style,
-        decoration_layer.text_style, *decoration_info);
+    text_painter_.PaintDecorationsOnlyLineThrough(fragment_item_, paint_info_,
+                                                  decoration_layer.text_style,
+                                                  *decoration_info);
   }
 }
 

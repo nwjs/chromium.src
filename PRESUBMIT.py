@@ -315,7 +315,7 @@ _BANNED_JAVASCRIPT_FUNCTIONS : Sequence [BanRule] = (
           'ash/webui/common/resources/multidevice_setup/multidevice_setup_browser_proxy.js',
           'ash/webui/common/resources/quick_unlock/lock_screen_constants.ts',
           'ash/webui/common/resources/smb_shares/smb_browser_proxy.js',
-          'ash/webui/connectivity_diagnostics/resources/connectivity_diagnostics.js',
+          'ash/webui/connectivity_diagnostics/resources/connectivity_diagnostics.ts',
           'ash/webui/diagnostics_ui/resources/diagnostics_browser_proxy.ts',
           'ash/webui/multidevice_debug/resources/logs.js',
           'ash/webui/multidevice_debug/resources/webui.js',
@@ -891,7 +891,6 @@ _BANNED_CPP_FUNCTIONS : Sequence[BanRule] = (
         r'chrome/browser/web_applications/test/web_app_test_utils\.cc',
         r'chrome/browser/web_applications/test/web_app_test_utils\.cc',
         r'chrome/browser/win/conflicts/module_blocklist_cache_util_unittest\.cc',
-        r'chrome/chrome_cleaner/logging/detailed_info_sampler\.cc',
         r'chromeos/ash/components/memory/userspace_swap/swap_storage_unittest\.cc',
         r'chromeos/ash/components/memory/userspace_swap/userspace_swap\.cc',
         r'components/metrics/metrics_state_manager\.cc',
@@ -1190,6 +1189,15 @@ _BANNED_CPP_FUNCTIONS : Sequence[BanRule] = (
       [_THIRD_PARTY_EXCEPT_BLINK],  # Don't warn in third_party folders.
     ),
     BanRule(
+      r'/\bstd::bit_cast\b',
+      (
+        'std::bit_cast is banned; use base::bit_cast instead for values and '
+        'standard C++ casting when pointers are involved.',
+      ),
+      True,
+      [_THIRD_PARTY_EXCEPT_BLINK],  # Don't warn in third_party folders.
+    ),
+    BanRule(
       r'/\bstd::(c8rtomb|mbrtoc8)\b',
       (
         'std::c8rtomb() and std::mbrtoc8() are banned.',
@@ -1244,8 +1252,9 @@ _BANNED_CPP_FUNCTIONS : Sequence[BanRule] = (
       ),
       True,
       [
-        # NO_UNIQUE_ADDRESS provides canonical access.
-        r'^base/compiler_specific.h',
+        # NO_UNIQUE_ADDRESS / PA_NO_UNIQUE_ADDRESS provide canonical access.
+        r'^base/compiler_specific\.h',
+        r'^base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/compiler_specific\.h',
         # Not an error in third_party folders.
         _THIRD_PARTY_EXCEPT_BLINK,
       ],
@@ -1579,7 +1588,8 @@ _BANNED_CPP_FUNCTIONS : Sequence[BanRule] = (
       ),
       True,
       [
-        _THIRD_PARTY_EXCEPT_BLINK,
+          # Implements BASE_DECLARE_FEATURE().
+          r'^base/feature_list\.h',
       ],
     ),
     BanRule(
@@ -3225,7 +3235,6 @@ def CheckSpamLogging(input_api, output_api):
             r"^chrome/browser/ui/startup/startup_browser_creator\.cc$",
             r"^chrome/browser/browser_switcher/bho/.*",
             r"^chrome/browser/diagnostics/diagnostics_writer\.cc$",
-            r"^chrome/chrome_cleaner/.*",
             r"^chrome/chrome_elf/dll_hash/dll_hash_main\.cc$",
             r"^chrome/installer/setup/.*",
             r"^chromecast/",
@@ -7227,7 +7236,7 @@ def CheckDanglingUntriaged(input_api, output_api):
         "https://chromium.googlesource.com/chromium/src/+/main/docs/dangling_ptr_guide.md\n" +
         "\n" +
         "To disable this warning, please add in the commit description:\n" +
-        "DanglingUntriaged-notes: <rational for new untriaged dangling " +
+        "DanglingUntriaged-notes: <rationale for new untriaged dangling " +
         "pointers>"
     )
     return [output_api.PresubmitPromptWarning(message)]

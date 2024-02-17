@@ -11,12 +11,13 @@
 #import "ios/chrome/browser/device_sharing/model/device_sharing_browser_agent.h"
 #import "ios/chrome/browser/favicon/favicon_browser_agent.h"
 #import "ios/chrome/browser/follow/model/follow_browser_agent.h"
-#import "ios/chrome/browser/infobars/overlays/browser_agent/infobar_overlay_browser_agent_util.h"
+#import "ios/chrome/browser/infobars/model/overlays/browser_agent/infobar_overlay_browser_agent_util.h"
 #import "ios/chrome/browser/intents/user_activity_browser_agent.h"
+#import "ios/chrome/browser/iph_for_new_chrome_user/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/lens/model/lens_browser_agent.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
 #import "ios/chrome/browser/metrics/model/web_state_list_metrics_browser_agent.h"
-#import "ios/chrome/browser/policy/policy_watcher_browser_agent.h"
+#import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_browser_agent.h"
 #import "ios/chrome/browser/sessions/live_tab_context_browser_agent.h"
@@ -36,10 +37,10 @@
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/browser/view_source/model/view_source_browser_agent.h"
-#import "ios/chrome/browser/web/page_placeholder_browser_agent.h"
-#import "ios/chrome/browser/web/web_navigation_browser_agent.h"
-#import "ios/chrome/browser/web/web_state_delegate_browser_agent.h"
-#import "ios/chrome/browser/web/web_state_update_browser_agent.h"
+#import "ios/chrome/browser/web/model/page_placeholder_browser_agent.h"
+#import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
+#import "ios/chrome/browser/web/model/web_state_delegate_browser_agent.h"
+#import "ios/chrome/browser/web/model/web_state_update_browser_agent.h"
 #import "ios/chrome/browser/web_state_list/model/session_metrics.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/public/provider/chrome/browser/app_utils/app_utils_api.h"
@@ -67,7 +68,10 @@ void AttachBrowserAgents(Browser* browser) {
   WebNavigationBrowserAgent::CreateForBrowser(browser);
   TabParentingBrowserAgent::CreateForBrowser(browser);
 
-  ClosingWebStateObserverBrowserAgent::CreateForBrowser(browser);
+  if (!browser_is_off_record) {
+    ClosingWebStateObserverBrowserAgent::CreateForBrowser(browser);
+  }
+
   SnapshotBrowserAgent::CreateForBrowser(browser);
 
   if (!browser_is_off_record && !browser_is_inactive) {
@@ -128,6 +132,10 @@ void AttachBrowserAgents(Browser* browser) {
   FaviconBrowserAgent::CreateForBrowser(browser);
 
   UserActivityBrowserAgent::CreateForBrowser(browser);
+
+  if (!browser_is_inactive) {
+    TabBasedIPHBrowserAgent::CreateForBrowser(browser);
+  }
 
   // This needs to be called last in case any downstream browser agents need to
   // access upstream agents created earlier in this function.

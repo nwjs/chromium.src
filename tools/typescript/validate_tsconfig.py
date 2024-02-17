@@ -47,6 +47,7 @@ _allowed_compiler_options = [
     'strictPropertyInitialization',
     'typeRoots',
     'types',
+    'useDefineForClassFields',
 ]
 
 
@@ -77,7 +78,7 @@ def validateTsconfigJson(tsconfig, tsconfig_file, is_base_tsconfig):
             f' Use the dedicated |{tslibrary_flag}| attribute in '+ \
             'ts_library() instead.'
 
-    if 'ui/file_manager/tsconfig_base.json' in tsconfig_file:
+    if 'ui/file_manager' in tsconfig_file:
       # File manager uses ts_library() in an unsupported way. Just return true
       # here for this special case.
       return True, None
@@ -115,11 +116,13 @@ def validateJavaScriptAllowed(source_dir, out_dir, is_ios):
       'ash/webui/color_internals/',
       'ash/webui/common/resources/',
       'ash/webui/diagnostics_ui/',
-      'ash/webui/face_ml_app_ui/',
       'ash/webui/file_manager/resources/labs/',
-      # TODO(b/310963279): Migrate os_feedback_ui to TypeScript and remove
+      # TODO(b/314827247): Migrate media_app_ui to TypeScript and remove
       # exception.
-      'ash/webui/os_feedback_ui/',
+      'ash/webui/media_app_ui/',
+      # TODO(b/315002705): Migrate shimless_rma to TypeScript and remove
+      # exception.
+      'ash/webui/shimless_rma/',
       'ash/webui/shortcut_customization_ui/',
       'ash/webui/sample_system_web_app_ui/',
       # TODO(b/267329383): Migrate A11y to TypeScript.
@@ -136,6 +139,8 @@ def validateJavaScriptAllowed(source_dir, out_dir, is_ios):
       # remove exception.
       'chrome/browser/resources/bluetooth_internals',
       'chrome/browser/resources/chromeos/accessibility',
+      # TODO(crbug.com/1511758): Migrate to TypeScript.
+      'chrome/browser/resources/device_log',
       'chrome/test/data/webui',
       'chrome/test/data/webui/chromeos',
       'chrome/test/data/webui/chromeos/ash_common',
@@ -175,7 +180,7 @@ def isInAshFolder(path):
   ash_folders = [
       # Source code folders
       'ash/webui',
-      'chrome/browser/resources/ash/settings',
+      'chrome/browser/resources/ash',
       'chrome/browser/resources/chromeos',
       'chrome/browser/resources/nearby_share',
       'ui/file_manager',
@@ -205,12 +210,6 @@ def isMappingAllowed(is_ash_target, target_path, mapping_path):
   if is_ash_target:
     return True
 
-  # TODO(https://crbug.com/1506304): Remove these incorrect dependencies.
-  exceptions = [
-      'chrome/browser/resources/inline_login',
-      'chrome/test/data/webui/inline_login',
-  ]
-
   return not isInAshFolder(mapping_path) or target_path in exceptions
 
 
@@ -220,7 +219,6 @@ def isUnsupportedJsTarget(gen_dir, root_gen_dir):
   target_path = getTargetPath(gen_dir, root_gen_dir)
   exceptions = [
       'ash/webui/color_internals/resources',
-      'ash/webui/face_ml_app_ui/resources/trusted',
       'ash/webui/sample_system_web_app_ui/resources/trusted',
       'ash/webui/sample_system_web_app_ui/resources/untrusted',
       'chrome/browser/resources/chromeos/accessibility/select_to_speak',
@@ -251,9 +249,15 @@ def validateRootDir(root_dir, gen_dir, root_gen_dir, is_ios):
   exceptions = [
       # ChromeOS cases
       'ash/webui/color_internals/mojom',
-      'ash/webui/face_ml_app_ui/mojom',
       'ash/webui/sample_system_web_app_ui/mojom',
+      # TODO(b/315150183): Migrate A11y code to use path mappings.
+      'chrome/browser/resources/chromeos/accessibility/accessibility_common',
+      'chrome/browser/resources/chromeos/accessibility/braille_ime',
+      'chrome/browser/resources/chromeos/accessibility/chromevox',
+      'chrome/browser/resources/chromeos/accessibility/common',
+      'chrome/browser/resources/chromeos/accessibility/enhanced_network_tts',
       'chrome/browser/resources/chromeos/accessibility/select_to_speak',
+      'chrome/browser/resources/chromeos/accessibility/switch_access',
   ]
 
   if target_path in exceptions:

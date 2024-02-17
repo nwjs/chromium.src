@@ -31,6 +31,7 @@
 #include "gpu/command_buffer/service/shared_image/wrapped_sk_image_backing_factory.h"
 #include "gpu/config/gpu_preferences.h"
 #include "gpu/ipc/common/gpu_memory_buffer_impl_shared_memory.h"
+#include "ui/base/ozone_buildflags.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/gpu_memory_buffer.h"
@@ -283,7 +284,6 @@ SharedImageFactory::SharedImageFactory(
         shared_context_state_.get()));
   }
   if (D3DImageBackingFactory::IsD3DSharedImageSupported(gpu_preferences)) {
-    // TODO(sunnyps): Should we get the device from SharedContextState instead?
     auto d3d_factory = std::make_unique<D3DImageBackingFactory>(
         shared_context_state_->GetD3D11Device(),
         shared_image_manager_->dxgi_shared_handle_manager(),
@@ -445,11 +445,11 @@ bool SharedImageFactory::IsNativeBufferSupported(gfx::BufferFormat format,
   if (!supported_gmb_configurations_inited_) {
     supported_gmb_configurations_inited_ = true;
     if (WillGetGmbConfigFromGpu()) {
-#if defined(USE_OZONE_PLATFORM_X11)
+#if BUILDFLAG(IS_OZONE_X11)
       for (const auto& config : gpu_extra_info_.gpu_memory_buffer_support_x11) {
         supported_gmb_configurations_.emplace(config);
       }
-#endif
+#endif  // BUILDFLAG(IS_OZONE_X11)
     } else {
       supported_gmb_configurations_ =
           gpu::GpuMemoryBufferSupport::GetNativeGpuMemoryBufferConfigurations();
@@ -771,10 +771,23 @@ bool SharedImageFactory::DestroySharedImage(const Mailbox& mailbox) {
   return true;
 }
 
+bool SharedImageFactory::SetSharedImagePurgeable(const Mailbox& mailbox,
+                                                 bool purgeable) {
+  auto it = shared_images_.find(mailbox);
+  if (it == shared_images_.end()) {
+    LOG(ERROR)
+        << "SetSharedImagePurgeable: Could not find shared image mailbox";
+    return false;
+  }
+  (*it)->SetPurgeable(purgeable);
+  return true;
+}
+
 void SharedImageFactory::DestroyAllSharedImages(bool have_context) {
   if (!have_context) {
-    for (auto& shared_image : shared_images_)
+    for (auto& shared_image : shared_images_) {
       shared_image->OnContextLost();
+    }
   }
   shared_images_.clear();
 }
@@ -1046,9 +1059,10 @@ SharedImageRepresentationFactory::ProduceDawn(
     const Mailbox& mailbox,
     const wgpu::Device& device,
     wgpu::BackendType backend_type,
-    std::vector<wgpu::TextureFormat> view_formats) {
+    std::vector<wgpu::TextureFormat> view_formats,
+    scoped_refptr<SharedContextState> context_state) {
   return manager_->ProduceDawn(mailbox, tracker_.get(), device, backend_type,
-                               std::move(view_formats));
+                               std::move(view_formats), context_state);
 }
 
 std::unique_ptr<OverlayImageRepresentation>

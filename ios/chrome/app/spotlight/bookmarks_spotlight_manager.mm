@@ -50,7 +50,7 @@ class SpotlightBookmarkModelBridge;
 @property(nonatomic, assign) BOOL modelUpdatesShouldBeIgnored;
 
 // The operation for processing the next batch of bookmarks from the indexing
-// queue, if any.
+// stack, if any.
 @property(nonatomic, weak) NSOperation* nextBatchOperation;
 
 @end
@@ -75,8 +75,10 @@ class SpotlightBookmarkModelBridge;
   // Timer that counts how long it takes to index all bookmarks.
   std::unique_ptr<base::ElapsedTimer> _initialIndexTimer;
 
-  // The nodes stored in this queue will be indexed.
-  std::stack<const bookmarks::BookmarkNode*> _indexingStack;
+  // The nodes stored in this stack will be indexed.
+  // Nodes are stored as a pair of flag indicating if it belongs to the local
+  // model (true) or account model (false), plus UUID itself.
+  std::stack<std::pair<bool, base::Uuid>> _indexingStack;
 
   // Number of times the indexing was interrupted by model updates.
   NSInteger _reindexInterruptionCount;
@@ -203,7 +205,7 @@ class SpotlightBookmarkModelBridge;
   [self refreshItemWithURL:URL title:title];
 }
 
-// Returns true is the current index is too old or from an incompatible version.
+// Returns true is the current index is too old or from an incompatible
 - (BOOL)shouldReindex {
   NSUserDefaults* userDefaults = [NSUserDefaults standardUserDefaults];
 
@@ -254,8 +256,8 @@ class SpotlightBookmarkModelBridge;
     return;
   }
 
-  std::vector<const bookmarks::BookmarkNode*> nodesMatchingURL =
-      [self nodesByURL:URL];
+  std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
+      nodesMatchingURL = [self nodesByURL:URL];
 
   NSMutableArray* itemKeywords = [[NSMutableArray alloc] init];
 
@@ -294,14 +296,42 @@ class SpotlightBookmarkModelBridge;
 }
 
 // Refreshes all nodes in the subtree of node.
-- (void)refreshNodeInIndex:(const bookmarks::BookmarkNode*)node {
-  _indexingStack.push(node);
+- (void)refreshNodeInIndex:(const bookmarks::BookmarkNode*)node
+                   inModel:(bookmarks::BookmarkModel*)model {
+  DCHECK(node);
+  DCHECK(model);
+
+  bool isLocalModel = (model == _localOrSyncableBookmarkModel);
+  _indexingStack.push(std::make_pair(isLocalModel, node->uuid()));
+
   if (!self.nextBatchOperation) {
-    [self indexNextBatchInQueue];
+    [self indexNextBatchInStack];
   }
 }
 
-- (void)indexNextBatchInQueue {
+// Loads a node from the corresponding model, respecting the correct lookup
+// order (see comment in NodeTypeForUuidLookup).
+- (const bookmarks::BookmarkNode*)nodeWithUUID:(base::Uuid)uuid
+                               usingLocalModel:(BOOL)isLocalModel {
+  bookmarks::BookmarkModel* model =
+      isLocalModel ? _localOrSyncableBookmarkModel : _accountBookmarkModel;
+
+  if (!model || !model->loaded()) {
+    return nullptr;
+  }
+
+  const bookmarks::BookmarkNode* node = model->GetNodeByUuid(
+      uuid, bookmarks::BookmarkModel::NodeTypeForUuidLookup::kAccountNodes);
+  if (!node) {
+    node = model->GetNodeByUuid(
+        uuid,
+        bookmarks::BookmarkModel::NodeTypeForUuidLookup::kLocalOrSyncableNodes);
+  }
+
+  return node;
+}
+
+- (void)indexNextBatchInStack {
   self.nextBatchOperation = nil;
 
   if (self.isShuttingDown) {
@@ -317,8 +347,15 @@ class SpotlightBookmarkModelBridge;
       return;
     }
 
-    const bookmarks::BookmarkNode* node = _indexingStack.top();
+    std::pair<bool, base::Uuid> nodeDescription = _indexingStack.top();
     _indexingStack.pop();
+
+    const bookmarks::BookmarkNode* node =
+        [self nodeWithUUID:nodeDescription.second
+            usingLocalModel:nodeDescription.first];
+    if (!node) {
+      continue;
+    }
 
     if (node->is_url()) {
       _nodesIndexed++;
@@ -327,7 +364,8 @@ class SpotlightBookmarkModelBridge;
     } else {
       for (auto it = node->children().rbegin(); it != node->children().rend();
            ++it) {
-        _indexingStack.push(it->get());
+        _indexingStack.push(
+            std::make_pair(nodeDescription.first, it->get()->uuid()));
       }
     }
   }
@@ -335,7 +373,7 @@ class SpotlightBookmarkModelBridge;
   // Dispatch the next batch asynchronously to avoid blocking the main thread.
   __weak BookmarksSpotlightManager* weakSelf = self;
   NSOperation* nextBatchOperation = [NSBlockOperation blockOperationWithBlock:^{
-    [weakSelf indexNextBatchInQueue];
+    [weakSelf indexNextBatchInStack];
   }];
 
   [[NSOperationQueue mainQueue] addOperation:nextBatchOperation];
@@ -373,7 +411,7 @@ class SpotlightBookmarkModelBridge;
   self.modelUpdatesShouldBeIgnored = NO;
   self.modelUpdatesShouldCauseFullReindex = YES;
 
-  // Indexing queue should be empty. There should be no ongoing indexing
+  // Indexing stack should be empty. There should be no ongoing indexing
   // operations.
   DCHECK(_indexingStack.empty());
   DCHECK(!self.nextBatchOperation);
@@ -394,14 +432,17 @@ class SpotlightBookmarkModelBridge;
 
   _nodesIndexed = 0;
   _pendingLargeIconTasksCount = 0;
-  if (_localOrSyncableBookmarkModel) {
-    _indexingStack.push(_localOrSyncableBookmarkModel->root_node());
+  if (_localOrSyncableBookmarkModel &&
+      _localOrSyncableBookmarkModel->loaded()) {
+    _indexingStack.push(std::make_pair(
+        true, _localOrSyncableBookmarkModel->root_node()->uuid()));
   }
-  if (_accountBookmarkModel) {
-    _indexingStack.push(_accountBookmarkModel->root_node());
+  if (_accountBookmarkModel && _accountBookmarkModel->loaded()) {
+    _indexingStack.push(
+        std::make_pair(false, _accountBookmarkModel->root_node()->uuid()));
   }
   _initialIndexTimer = std::make_unique<base::ElapsedTimer>();
-  [self indexNextBatchInQueue];
+  [self indexNextBatchInStack];
 
   UMA_HISTOGRAM_COUNTS_1000("IOS.Spotlight.BookmarksInitialIndexSize",
                             _pendingLargeIconTasksCount);
@@ -417,22 +458,30 @@ class SpotlightBookmarkModelBridge;
   return _accountBookmarkModel;
 }
 
-- (std::vector<const bookmarks::BookmarkNode*>)nodesByURL:(const GURL&)url {
-  std::vector<const bookmarks::BookmarkNode*> localOrSyncableNodes =
-      _localOrSyncableBookmarkModel->GetNodesByURL(url);
-  if (_accountBookmarkModel) {
-    std::vector<const bookmarks::BookmarkNode*> accountNodes =
-        _accountBookmarkModel->GetNodesByURL(url);
-    localOrSyncableNodes.insert(localOrSyncableNodes.end(),
-                                accountNodes.begin(), accountNodes.end());
+- (std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>)
+    nodesByURL:(const GURL&)url {
+  std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
+      allNodes;
+
+  if (_localOrSyncableBookmarkModel) {
+    std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
+        localOrSyncableNodes =
+            _localOrSyncableBookmarkModel->GetNodesByURL(url);
+    allNodes.insert(allNodes.end(), localOrSyncableNodes.begin(),
+                    localOrSyncableNodes.end());
   }
-  return localOrSyncableNodes;
+  if (_accountBookmarkModel) {
+    std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
+        accountNodes = _accountBookmarkModel->GetNodesByURL(url);
+    allNodes.insert(allNodes.end(), accountNodes.begin(), accountNodes.end());
+  }
+  return allNodes;
 }
 
-// Clears the reindex queue.
+// Clears the reindex stack.
 - (void)stopIndexing {
   _initialIndexTimer.reset();
-  _indexingStack = std::stack<const bookmarks::BookmarkNode*>();
+  _indexingStack = std::stack<std::pair<bool, base::Uuid>>();
   _nodesIndexed = 0;
   [self.nextBatchOperation cancel];
   self.nextBatchOperation = nil;
@@ -476,6 +525,8 @@ class SpotlightBookmarkModelBridge;
   if (_localOrSyncableBookmarkModel == model) {
     _localOrSyncableBookmarkModel = nullptr;
   }
+
+  [self stopIndexing];
 }
 
 - (void)bookmarkModel:(bookmarks::BookmarkModel*)model
@@ -490,7 +541,7 @@ class SpotlightBookmarkModelBridge;
     return;
   }
 
-  [self refreshNodeInIndex:bookmarkNode];
+  [self refreshNodeInIndex:bookmarkNode inModel:model];
 }
 
 - (void)bookmarkModel:(bookmarks::BookmarkModel*)model
@@ -510,7 +561,7 @@ class SpotlightBookmarkModelBridge;
     return;
   }
 
-  [self refreshNodeInIndex:node];
+  [self refreshNodeInIndex:node inModel:model];
 }
 
 - (void)bookmarkModel:(bookmarks::BookmarkModel*)model
@@ -527,7 +578,7 @@ class SpotlightBookmarkModelBridge;
     return;
   }
 
-  [self refreshNodeInIndex:bookmarkNode];
+  [self refreshNodeInIndex:bookmarkNode inModel:model];
 }
 
 - (void)bookmarkModel:(bookmarks::BookmarkModel*)model
@@ -578,7 +629,7 @@ class SpotlightBookmarkModelBridge;
     return;
   }
 
-  [self refreshNodeInIndex:bookmarkNode];
+  [self refreshNodeInIndex:bookmarkNode inModel:model];
 }
 
 - (void)bookmarkModel:(bookmarks::BookmarkModel*)model

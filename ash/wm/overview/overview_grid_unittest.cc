@@ -15,6 +15,7 @@
 #include "ash/wm/workspace/backdrop_controller.h"
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window.h"
@@ -34,13 +35,14 @@ class OverviewGridTest : public AshTestBase {
 
   ~OverviewGridTest() override = default;
 
-  void InitializeGrid(const std::vector<aura::Window*>& windows) {
+  void InitializeGrid(
+      const std::vector<raw_ptr<aura::Window, VectorExperimental>>& windows) {
     aura::Window* root = Shell::GetPrimaryRootWindow();
     grid_ = std::make_unique<OverviewGrid>(root, windows, nullptr);
   }
 
   void CheckAnimationStates(
-      const std::vector<aura::Window*>& windows,
+      const std::vector<raw_ptr<aura::Window, VectorExperimental>>& windows,
       const std::vector<gfx::RectF>& target_bounds,
       const std::vector<bool>& expected_start_animations,
       const std::vector<bool>& expected_end_animations,
@@ -290,12 +292,10 @@ TEST_F(OverviewGridTest, SnappedWindow) {
   wm::ActivateWindow(window2.get());
 
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
-  split_view_controller()->SnapWindow(
-      window1.get(), SplitViewController::SnapPosition::kPrimary);
+  split_view_controller()->SnapWindow(window1.get(), SnapPosition::kPrimary);
 
   // Snap |window2| and check that |window3| is maximized.
-  split_view_controller()->SnapWindow(
-      window2.get(), SplitViewController::SnapPosition::kSecondary);
+  split_view_controller()->SnapWindow(window2.get(), SnapPosition::kSecondary);
   EXPECT_TRUE(WindowState::Get(window3.get())->IsMaximized());
 
   // We cannot create a grid object like in the other tests because creating a

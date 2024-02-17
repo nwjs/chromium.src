@@ -6,10 +6,12 @@
 #define CHROME_BROWSER_UI_BROWSER_WINDOW_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "chrome/common/draggable_regions.mojom.h"
+#include "extensions/common/mojom/frame.mojom.h"
+//#include "chrome/common/draggable_regions.mojom.h"
 
 #include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
@@ -35,7 +37,6 @@
 #include "components/translate/core/common/translate_errors.h"
 #include "components/user_education/common/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo_specification.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/base_window.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/window_open_disposition.h"
@@ -162,7 +163,7 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void SetMinimumSize(gfx::Size) = 0;
   virtual void SetMaximumSize(gfx::Size) = 0;
   virtual void UpdateDraggableRegions(
-                                      const std::vector<chrome::mojom::DraggableRegionPtr>& regions) = 0;
+                                      const std::vector<extensions::mojom::DraggableRegionPtr>& regions) = 0;
   virtual SkRegion* GetDraggableRegion() = 0;
   virtual void NativeWindowChanged() = 0;
 
@@ -421,7 +422,7 @@ class BrowserWindow : public ui::BaseWindow {
       bool show_stay_in_chrome,
       bool show_remember_selection,
       apps::IntentPickerBubbleType bubble_type,
-      const absl::optional<url::Origin>& initiating_origin,
+      const std::optional<url::Origin>& initiating_origin,
       IntentPickerResponse callback) = 0;
 
   // Shows the Bookmark bubble. |url| is the URL being bookmarked,
@@ -587,8 +588,8 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void ShowCaretBrowsingDialog() = 0;
 
   // Create and open the tab search bubble. Optionally force it to open to the
-  // given tab index
-  virtual void CreateTabSearchBubble(const int tab_index = -1) = 0;
+  // given tab index.
+  virtual void CreateTabSearchBubble(int tab_index) = 0;
   // Closes the tab search bubble if open for the given browser instance.
   virtual void CloseTabSearchBubble() = 0;
 

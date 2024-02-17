@@ -10,6 +10,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service.h"
+#include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -31,11 +32,9 @@ class TabSearchContainerBrowserTest : public InProcessBrowserTest {
   TabSearchContainerBrowserTest() {
     feature_list_.InitWithFeatures(
         {features::kTabOrganization, features::kChromeRefresh2023,
-         features::kChromeWebuiRefresh2023,
-         optimization_guide::features::internal::
-             kTabOrganizationSettingsVisibility,
-         optimization_guide::features::kOptimizationGuideModelExecution},
+         features::kChromeWebuiRefresh2023},
         {});
+    TabOrganizationUtils::GetInstance()->SetIgnoreOptGuideForTesting(true);
   }
 
   void EnableOptGuide() {
@@ -66,11 +65,6 @@ class TabSearchContainerBrowserTest : public InProcessBrowserTest {
  private:
   base::test::ScopedFeatureList feature_list_;
 };
-
-IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
-                       PRE_TogglesActionUIState) {
-  EnableOptGuide();
-}
 
 IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest, TogglesActionUIState) {
   ASSERT_FALSE(
@@ -123,11 +117,6 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest, DelaysHide) {
 }
 
 IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
-                       PRE_ImmediatelyHidesWhenOrganizeButtonClicked) {
-  EnableOptGuide();
-}
-
-IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
                        ImmediatelyHidesWhenOrganizeButtonClicked) {
   tab_search_container()->expansion_animation_for_testing()->Reset(1);
   tab_search_container()->SetLockedExpansionModeForTesting(
@@ -137,11 +126,6 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
 
   EXPECT_TRUE(
       tab_search_container()->expansion_animation_for_testing()->IsClosing());
-}
-
-IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
-                       PRE_ImmediatelyHidesWhenOrganizeButtonDismissed) {
-  EnableOptGuide();
 }
 
 IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
@@ -175,11 +159,6 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
-                       PRE_LogsSuccessWhenButtonClicked) {
-  EnableOptGuide();
-}
-
-IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
                        LogsSuccessWhenButtonClicked) {
   base::HistogramTester histogram_tester;
 
@@ -196,11 +175,7 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
                                       true, 1);
   histogram_tester.ExpectUniqueSample("Tab.Organization.Proactive.Clicked",
                                       true, 1);
-}
-
-IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
-                       PRE_LogsFailureWhenButtonDismissed) {
-  EnableOptGuide();
+  histogram_tester.ExpectUniqueSample("Tab.Organization.Trigger.Outcome", 0, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
@@ -218,11 +193,7 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
 
   histogram_tester.ExpectUniqueSample("Tab.Organization.Proactive.Clicked",
                                       false, 1);
-}
-
-IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
-                       PRE_LogsFailureWhenButtonTimeout) {
-  EnableOptGuide();
+  histogram_tester.ExpectUniqueSample("Tab.Organization.Trigger.Outcome", 1, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
@@ -240,4 +211,6 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
 
   histogram_tester.ExpectUniqueSample("Tab.Organization.Proactive.Clicked",
                                       false, 1);
+
+  histogram_tester.ExpectUniqueSample("Tab.Organization.Trigger.Outcome", 2, 1);
 }

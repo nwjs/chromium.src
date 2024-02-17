@@ -4,8 +4,9 @@
 
 #include "chrome/browser/ash/login/oobe_quick_start/target_device_bootstrap_controller.h"
 
+#include <optional>
+
 #include "base/check_op.h"
-#include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -27,28 +28,17 @@
 #include "chromeos/ash/components/quick_start/quick_start_metrics.h"
 #include "chromeos/ash/components/quick_start/types.h"
 #include "chromeos/ash/services/nearby/public/mojom/quick_start_decoder_types.mojom.h"
-#include "chromeos/dbus/power/power_manager_client.h"
 #include "components/prefs/pref_service.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/chromeos/devicetype_utils.h"
 #include "url/origin.h"
 
 namespace ash::quick_start {
 
-namespace {
-
-// Passing "--quick-start-test-forced-update" on the command line will simulate
-// the "Forced Update" flow after the wifi credentials transfer is complete.
-// This is for testing only and will not install an actual update. If this
-// switch is present, the Chromebook reboots and attempts to automatically
-// resume the Quick Start connection after reboot.
-// TODO(b/280308144): Delete this switch. The OOBE update screen should call
-// PrepareForUpdate() and trigger the update/reboot.
-constexpr char kQuickStartTestForcedUpdateSwitch[] =
-    "quick-start-test-forced-update";
-
-}  // namespace
+TargetDeviceBootstrapController::GaiaCredentials::GaiaCredentials() = default;
+TargetDeviceBootstrapController::GaiaCredentials::GaiaCredentials(
+    const TargetDeviceBootstrapController::GaiaCredentials& other) = default;
+TargetDeviceBootstrapController::GaiaCredentials::~GaiaCredentials() = default;
 
 TargetDeviceBootstrapController::TargetDeviceBootstrapController(
     std::unique_ptr<SecondDeviceAuthBroker> auth_broker,
@@ -156,7 +146,7 @@ void TargetDeviceBootstrapController::OnPinVerificationRequested(
                                      Step::ADVERTISING_WITH_QR_CODE};
   CHECK(base::Contains(kPossibleSteps, status_.step));
 
-  UpdateStatus(/*step=*/Step::PIN_VERIFICATION, /*payload=*/pin);
+  UpdateStatus(/*step=*/Step::PIN_VERIFICATION, /*payload=*/PinString(pin));
 }
 
 void TargetDeviceBootstrapController::OnConnectionAuthenticated(
@@ -177,14 +167,21 @@ void TargetDeviceBootstrapController::OnConnectionRejected() {
 }
 
 void TargetDeviceBootstrapController::OnConnectionClosed(
-    TargetDeviceConnectionBroker::ConnectionClosedReason reason) {
+    ConnectionClosedReason reason) {
   if (status_.step == Step::REQUESTING_WIFI_CREDENTIALS) {
     QuickStartMetrics::RecordWifiTransferResult(
         /*succeeded=*/false, /*failure_reason=*/QuickStartMetrics::
             WifiTransferResultFailureReason::kConnectionDroppedDuringAttempt);
   }
 
-  UpdateStatus(/*step=*/Step::ERROR, /*payload=*/ErrorCode::CONNECTION_CLOSED);
+  // UI observer will automatically exit the QuickStartScreen if there's an
+  // error. We want the user to manually exit the Quick Start screen when the
+  // setup is complete, so don't update the status to Step::Error in this case.
+  if (status_.step != Step::SETUP_COMPLETE) {
+    UpdateStatus(/*step=*/Step::ERROR,
+                 /*payload=*/ErrorCode::CONNECTION_CLOSED);
+  }
+
   authenticated_connection_.reset();
   CleanupIfNeeded();
 }
@@ -254,16 +251,7 @@ void TargetDeviceBootstrapController::OnNotifySourceOfUpdateResponse(
     prefs->CommitPendingWrite();
   }
 
-  authenticated_connection_->Close(
-      TargetDeviceConnectionBroker::ConnectionClosedReason::
-          kTargetDeviceUpdate);
-
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          kQuickStartTestForcedUpdateSwitch)) {
-    chromeos::PowerManagerClient::Get()->RequestRestart(
-        power_manager::REQUEST_RESTART_FOR_UPDATE,
-        "Testing OOBE Quick Start Forced Update flow");
-  }
+  authenticated_connection_->Close(ConnectionClosedReason::kTargetDeviceUpdate);
 }
 
 void TargetDeviceBootstrapController::WaitForUserVerification() {
@@ -273,8 +261,7 @@ void TargetDeviceBootstrapController::WaitForUserVerification() {
 }
 
 void TargetDeviceBootstrapController::OnUserVerificationResult(
-    absl::optional<mojom::UserVerificationResponse>
-        user_verification_response) {
+    std::optional<mojom::UserVerificationResponse> user_verification_response) {
   if (!user_verification_response.has_value() ||
       user_verification_response->result ==
           mojom::UserVerificationResult::kUserNotVerified) {
@@ -296,7 +283,7 @@ void TargetDeviceBootstrapController::AttemptWifiCredentialTransfer() {
 }
 
 void TargetDeviceBootstrapController::OnWifiCredentialsReceived(
-    absl::optional<mojom::WifiCredentials> credentials) {
+    std::optional<mojom::WifiCredentials> credentials) {
   CHECK_EQ(status_.step, Step::REQUESTING_WIFI_CREDENTIALS);
 
   if (credentials.has_value()) {
@@ -310,12 +297,7 @@ void TargetDeviceBootstrapController::OnWifiCredentialsReceived(
   // Record successful wifi credentials transfer. Failures will be
   // logged from the QuickStartDecoder class.
   QuickStartMetrics::RecordWifiTransferResult(
-      /*succeeded=*/true, /*failure_reason=*/absl::nullopt);
-
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          kQuickStartTestForcedUpdateSwitch)) {
-    PrepareForUpdate();
-  }
+      /*succeeded=*/true, /*failure_reason=*/std::nullopt);
 }
 
 void TargetDeviceBootstrapController::RequestGoogleAccountInfo() {
@@ -332,7 +314,7 @@ void TargetDeviceBootstrapController::RequestGoogleAccountInfo() {
 void TargetDeviceBootstrapController::OnGoogleAccountInfoReceived(
     std::string account_email) {
   UpdateStatus(/*step=*/Step::GOOGLE_ACCOUNT_INFO_RECEIVED,
-               /*payload=*/account_email);
+               /*payload=*/EmailString(account_email));
 }
 
 void TargetDeviceBootstrapController::AttemptGoogleAccountTransfer() {
@@ -351,6 +333,12 @@ void TargetDeviceBootstrapController::AttemptGoogleAccountTransfer() {
 void TargetDeviceBootstrapController::Cleanup() {
   status_ = Status();
   CleanupIfNeeded();
+}
+
+void TargetDeviceBootstrapController::OnSetupComplete() {
+  CHECK(authenticated_connection_);
+  UpdateStatus(/*step=*/Step::SETUP_COMPLETE, /*payload=*/absl::monostate());
+  authenticated_connection_->NotifyPhoneSetupComplete();
 }
 
 void TargetDeviceBootstrapController::OnChallengeBytesReceived(
@@ -383,7 +371,7 @@ void TargetDeviceBootstrapController::OnChallengeBytesReceived(
 }
 
 void TargetDeviceBootstrapController::OnFidoAssertionReceived(
-    absl::optional<FidoAssertionInfo> assertion) {
+    std::optional<FidoAssertionInfo> assertion) {
   if (!assertion.has_value()) {
     UpdateStatus(/*step=*/Step::ERROR,
                  /*payload=*/ErrorCode::GAIA_ASSERTION_NOT_RECEIVED);
@@ -434,10 +422,11 @@ void TargetDeviceBootstrapController::OnAuthCodeReceived(
   absl::visit(
       base::Overloaded{
           [&](SecondDeviceAuthBroker::AuthCodeSuccessResponse res) {
-            quick_start::QS_LOG(INFO) << "Successfully fetched refresh token ";
-            // TODO(b/287006890) Replace with auth code.
+            GaiaCredentials gaia_creds;
+            gaia_creds.auth_code = res.auth_code;
+            gaia_creds.email = fido_assertion_.email;
             UpdateStatus(/*step=*/Step::TRANSFERRED_GOOGLE_ACCOUNT_DETAILS,
-                         /*payload=*/fido_assertion_);
+                         /*payload=*/gaia_creds);
             is_error = false;
           },
           [](SecondDeviceAuthBroker::
@@ -515,6 +504,9 @@ std::ostream& operator<<(std::ostream& stream,
     case TargetDeviceBootstrapController::Step::
         TRANSFERRED_GOOGLE_ACCOUNT_DETAILS:
       stream << "[transferred Google account details]";
+      break;
+    case TargetDeviceBootstrapController::Step::SETUP_COMPLETE:
+      stream << "[setup complete]";
       break;
   }
 

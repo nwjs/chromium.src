@@ -7,11 +7,11 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "chromeos/ash/components/growth/action_performer.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace base {
 class Version;
@@ -20,7 +20,7 @@ class Version;
 namespace growth {
 
 using CampaignComponentLoadedCallback = base::OnceCallback<void(
-    const absl::optional<const base::FilePath>& file_path)>;
+    const std::optional<const base::FilePath>& file_path)>;
 
 using ActionMap = std::map<ActionType, std::unique_ptr<ActionPerformer>>;
 
@@ -54,6 +54,10 @@ class CampaignsManagerClient {
   // Get the implementations for the various Actions on the growth
   // framework.
   virtual ActionMap GetCampaignsActions() const = 0;
+
+  // Register sythetical trial for current session.
+  virtual void RegisterSyntheticFieldTrial(std::optional<int> study_id,
+                                           int campaign_id) const = 0;
 };
 
 }  // namespace growth

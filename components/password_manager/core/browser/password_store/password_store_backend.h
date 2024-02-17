@@ -36,8 +36,7 @@ using LoginsOrErrorReply = base::OnceCallback<void(LoginsResultOrError)>;
 // Android, it sends requests to a service).
 // All methods are required to do their work asynchronously to prevent expensive
 // IO operation from possibly blocking the main thread.
-class PasswordStoreBackend
-    : public base::SupportsWeakPtr<PasswordStoreBackend> {
+class PasswordStoreBackend {
  public:
   using RemoteChangesReceived =
       base::RepeatingCallback<void(std::optional<PasswordStoreChangeList>)>;
@@ -80,7 +79,7 @@ class PasswordStoreBackend
   // called with an error result. Callback is called on the main sequence.
   // TODO(crbug.com/1315594): Clean up/refactor to avoid having methods
   // introduced for a specific backend in this interface.
-  virtual void GetAllLoginsForAccountAsync(std::optional<std::string> account,
+  virtual void GetAllLoginsForAccountAsync(std::string account,
                                            LoginsOrErrorReply callback) = 0;
 
   // Returns all PasswordForms with the same signon_realm as a form in |forms|.
@@ -151,6 +150,9 @@ class PasswordStoreBackend
 
   // Propagates sync initialization event.
   virtual void OnSyncServiceInitialized(syncer::SyncService* sync_service) = 0;
+
+  // Get a WeakPtr to the instance.
+  virtual base::WeakPtr<PasswordStoreBackend> AsWeakPtr() = 0;
 };
 
 }  // namespace password_manager

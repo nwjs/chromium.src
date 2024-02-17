@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Mac Builder (dbg)",
-              "project": "chromium-m121"
+              "project": "chromium-m122"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-mac-archive",
@@ -22,6 +22,7 @@
                 ],
                 "build_config": "Debug",
                 "config": "chromium",
+                "target_arch": "intel",
                 "target_bits": 64,
                 "target_platform": "mac"
               },
@@ -34,7 +35,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Mac13 Tests (dbg)",
-              "project": "chromium-m121"
+              "project": "chromium-m122"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-mac-archive",
@@ -46,6 +47,7 @@
                 ],
                 "build_config": "Debug",
                 "config": "chromium",
+                "target_arch": "intel",
                 "target_bits": 64,
                 "target_platform": "mac"
               },
@@ -55,7 +57,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "Mac Builder (dbg)",
-                "project": "chromium-m121"
+                "project": "chromium-m122"
               }
             }
           }
@@ -65,14 +67,14 @@
         {
           "bucket": "ci",
           "builder": "Mac Builder (dbg)",
-          "project": "chromium-m121"
+          "project": "chromium-m122"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "Mac13 Tests (dbg)",
-          "project": "chromium-m121"
+          "project": "chromium-m122"
         }
       ],
       "is_compile_only": true

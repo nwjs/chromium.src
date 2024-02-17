@@ -160,6 +160,17 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
   }
 
   scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
+      viz::SharedImageFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
+      SkAlphaType alpha_type,
+      uint32_t usage,
+      base::StringPiece debug_label) override {
+    return base::MakeRefCounted<gpu::ClientSharedImage>(gpu::Mailbox());
+  }
+
+  scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
       gfx::GpuMemoryBuffer* gpu_memory_buffer,
       gpu::GpuMemoryBufferManager* gpu_memory_buffer_manager,
       gfx::BufferPlane plane,
@@ -183,10 +194,12 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
     ADD_FAILURE();
   }
 
-  void AddReferenceToSharedImage(const gpu::SyncToken& sync_token,
-                                 const gpu::Mailbox& mailbox,
-                                 uint32_t usage) override {
+  scoped_refptr<gpu::ClientSharedImage> AddReferenceToSharedImage(
+      const gpu::SyncToken& sync_token,
+      const gpu::Mailbox& mailbox,
+      uint32_t usage) override {
     ADD_FAILURE();
+    return nullptr;
   }
 
   void DestroySharedImage(const gpu::SyncToken& sync_token,
@@ -201,14 +214,15 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
     DestroySharedImage(sync_token, client_shared_image->mailbox());
   }
 
-  SwapChainMailboxes CreateSwapChain(viz::SharedImageFormat format,
-                                     const gfx::Size& size,
-                                     const gfx::ColorSpace& color_space,
-                                     GrSurfaceOrigin surface_origin,
-                                     SkAlphaType alpha_type,
-                                     uint32_t usage) override {
+  gpu::SharedImageInterface::SwapChainSharedImages CreateSwapChain(
+      viz::SharedImageFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
+      SkAlphaType alpha_type,
+      uint32_t usage) override {
     ADD_FAILURE();
-    return SwapChainMailboxes();
+    return gpu::SharedImageInterface::SwapChainSharedImages(nullptr, nullptr);
   }
   void PresentSwapChain(const gpu::SyncToken& sync_token,
                         const gpu::Mailbox& mailbox) override {

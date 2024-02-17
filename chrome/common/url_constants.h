@@ -137,9 +137,6 @@ inline constexpr char kChromeNativeScheme[] = "chrome-native";
 inline constexpr char16_t kChromeSafePageURL[] =
     u"https://www.google.com/chrome/#safe";
 
-// Pages under chrome-search.
-inline constexpr char kChromeSearchLocalNtpHost[] = "local-ntp";
-
 // Host and URL for most visited iframes used on the Instant Extended NTP.
 inline constexpr char kChromeSearchMostVisitedHost[] = "most-visited";
 inline constexpr char kChromeSearchMostVisitedUrl[] =
@@ -285,13 +282,13 @@ inline constexpr char kGooglePasswordManagerURL[] =
 // URL of the Google Photos.
 inline constexpr char kGooglePhotosURL[] = "https://photos.google.com";
 
-// The URL for the "Learn more" link for the High Efficiency Mode.
-inline constexpr char kHighEfficiencyModeLearnMoreUrl[] =
+// The URL for the "Learn more" link for the Memory Saver Mode.
+inline constexpr char kMemorySaverModeLearnMoreUrl[] =
     "https://support.google.com/chrome?p=chrome_memory_saver";
 
-// The URL in the help text for the High Efficiency Mode tab discarding
+// The URL in the help text for the Memory Saver Mode tab discarding
 // exceptions add dialog.
-inline constexpr char16_t kHighEfficiencyModeTabDiscardingHelpUrl[] =
+inline constexpr char16_t kMemorySaverModeTabDiscardingHelpUrl[] =
     u"https://support.google.com/chrome?p=performance_site_exclusion";
 
 // The URL to the help center article of Incognito mode.
@@ -556,6 +553,10 @@ inline constexpr char kArcPrivacyPolicyPathFormat[] =
 // The path format to the localized offline ARC++ Terms of Service.
 // Relative to |kChromeOSAssetPath|.
 inline constexpr char kArcTermsPathFormat[] = "arc_tos/%s/terms.html";
+
+// Help center URL for ChromeOS Battery Saver.
+inline constexpr char kCrosBatterySaverLearnMoreURL[] =
+    "https://support.google.com/chromebook/?p=battery_saver";
 
 // The URL for the "Learn more" link during Bluetooth pairing.
 // TODO(crbug.com/1010321): Remove 'm100' prefix from link once Bluetooth Revamp

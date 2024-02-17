@@ -944,8 +944,6 @@ const CSSValue* StyleCascade::ResolveCustomProperty(
     resolver.DetectCycle(GetCSSPropertyLineHeight());
   }
 
-  state_.StyleBuilder().SetHasVariableDeclaration();
-
   if (resolver.InCycle()) {
     return CSSCyclicVariableValue::Create();
   }
@@ -1079,20 +1077,7 @@ const CSSValue* StyleCascade::ResolvePendingSubstitution(
     }
   }
 
-  // Useful for debugging crashes.
-  StringBuilder builder;
-  builder.Append(property.GetPropertyName());
-  builder.Append(":");
-  for (unsigned i = 0; i < parsed_properties_count; ++i) {
-    const CSSProperty& longhand = CSSProperty::Get(parsed_properties[i].Id());
-    builder.Append(" ");
-    builder.Append(longhand.GetPropertyName());
-  }
-  builder.Append(" (from ");
-  builder.Append(value.CustomCSSText());
-  builder.Append(")");
-
-  DUMP_WILL_BE_NOTREACHED_NORETURN() << builder.ToString();
+  NOTREACHED();
   return cssvalue::CSSUnsetValue::Create();
 }
 

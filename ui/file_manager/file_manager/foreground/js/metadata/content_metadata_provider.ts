@@ -6,8 +6,10 @@ import {ImageLoaderClient} from 'chrome-extension://pmfjbimdmchhbnneeidfognadeop
 import {LoadImageRequest, type LoadImageResponse, LoadImageResponseStatus} from 'chrome-extension://pmfjbimdmchhbnneeidfognadeopoehp/load_image_request.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 
+import {getContentMetadata, getContentMimeType} from '../../../common/js/api.js';
 import {unwrapEntry} from '../../../common/js/entry_utils.js';
 import {getType} from '../../../common/js/file_type.js';
+import {FilesAppEntry} from '../../../common/js/files_app_entry_types.js';
 import {getSanitizedScriptUrl} from '../../../common/js/trusted_script_url_policy_util.js';
 import {testSendMessage} from '../../../common/js/util.js';
 import {THUMBNAIL_MAX_HEIGHT, THUMBNAIL_MAX_WIDTH} from '../thumbnail_loader.js';
@@ -121,7 +123,8 @@ export class ContentMetadataProvider extends MetadataProvider {
    *     this callback is called asynchronously.
    */
   private getImpl_(
-      entry: Entry, names: string[], callback: (item: MetadataItem) => void) {
+      entry: Entry|FilesAppEntry, names: string[],
+      callback: (item: MetadataItem) => void) {
     if (entry.isDirectory) {
       const cause = 'Directories do not have a thumbnail.';
       const error = this.createError_(entry.toURL(), 'get', cause);
@@ -152,7 +155,8 @@ export class ContentMetadataProvider extends MetadataProvider {
        * Creates an ifdError metadata item: when reading the fileEntry failed
        * or extracting its ifd data failed.
        */
-      function createIfdError(fileEntry: Entry, error: string): MetadataItem {
+      function createIfdError(
+          fileEntry: Entry|FilesAppEntry, error: string): MetadataItem {
         const url = fileEntry.toURL();
         const step = 'read file entry';
         const item = new MetadataItem();
@@ -200,32 +204,29 @@ export class ContentMetadataProvider extends MetadataProvider {
   /**
    * Gets the content metadata for a file entry consisting of the content mime
    * type. For audio and video file content mime types, additional metadata is
-   * extacted if requested, such as metadata tags and images.
+   * extracted if requested, such as metadata tags and images.
    *
    * @param entry File entry.
    * @param names Requested metadata types.
    * @return Promise that resolves with the content
    *     metadata of the file entry.
    */
-  private getContentMetadata_(entry: FileEntry, names: string[]):
+  private async getContentMetadata_(entry: FileEntry, names: string[]):
       Promise<MetadataItem> {
     /**
      * First step is to determine the sniffed content mime type of |entry|.
-     * @const
      */
-    const getContentMimeType =
-        new Promise<string>((resolve) => {
-          chrome.fileManagerPrivate.getContentMimeType(entry, resolve);
-        }).then(mimeType => {
-          if (chrome.runtime.lastError) {
-            const error = chrome.runtime.lastError.toString();
-            return this.createError_(entry.toURL(), 'sniff mime type', error);
-          }
-          const item = new MetadataItem();
-          item.contentMimeType = mimeType;
-          item.mediaMimeType = mimeType;
-          return item;
-        });
+    const getMetadataItem = async(): Promise<MetadataItem> => {
+      try {
+        const mimeType = await getContentMimeType(entry);
+        const item = new MetadataItem();
+        item.contentMimeType = mimeType;
+        item.mediaMimeType = mimeType;
+        return item;
+      } catch (error: any) {
+        return this.createError_(entry.toURL(), 'sniff mime type', error);
+      }
+    };
 
     /**
      * Once the content mime type sniff step is done, search |names| for any
@@ -253,29 +254,20 @@ export class ContentMetadataProvider extends MetadataProvider {
       return null;
     }
 
-    return getContentMimeType.then(item => {
-      const extract = getMediaMetadataType(names, item.contentMimeType);
-      if (extract === null) {
-        return item;  // done: no more media metadata to extract.
-      }
-      return new Promise<chrome.fileManagerPrivate.MediaMetadata>((resolve) => {
-               const contentMimeType = item.contentMimeType;
-               assert(contentMimeType);
-               chrome.fileManagerPrivate.getContentMetadata(
-                   entry, contentMimeType, !!extract, resolve);
-             })
-          .then(metadata => {
-            if (chrome.runtime.lastError) {
-              const error = chrome.runtime.lastError.toString();
-              return this.createError_(
-                  entry.toURL(), 'content metadata', error);
-            }
-            return this.convertMediaMetadataToMetadataItem_(entry, metadata);
-          })
-          .catch((_, error = 'Conversion failed') => {
-            return this.createError_(entry.toURL(), 'convert metadata', error);
-          });
-    });
+    const item = await getMetadataItem();
+    const extract = getMediaMetadataType(names, item.contentMimeType);
+    if (extract === null) {
+      return item;  // done: no more media metadata to extract.
+    }
+    try {
+      const contentMimeType = item.contentMimeType;
+      assert(contentMimeType);
+      const metadata =
+          await getContentMetadata(entry, contentMimeType, !!extract);
+      return await this.convertMediaMetadataToMetadataItem_(entry, metadata);
+    } catch (error: any) {
+      return this.createError_(entry.toURL(), 'content metadata', error);
+    }
   }
 
   /**

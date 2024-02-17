@@ -2,6 +2,7 @@
   "_default_specs": [
     {
       "name": "Unhealthy",
+      "period_days": 7,
       "score": 5,
       "thresholds": {
         "build_time": {},
@@ -15,16 +16,56 @@
           "p50_mins": 20
         }
       }
+    },
+    {
+      "name": "Low Value",
+      "period_days": 90,
+      "score": 1,
+      "thresholds": {
+        "fail_rate": {
+          "average": 0.99
+        }
+      }
     }
   ],
   "specs": {
     "ci": {
+      "Android FYI Release (Pixel 6)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
       "Android Release (Nexus 5X)": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -36,7 +77,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -48,7 +98,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -60,7 +119,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -72,7 +140,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -84,7 +161,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -96,7 +182,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -108,7 +203,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -120,7 +224,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -128,11 +241,19 @@
         ]
       },
       "Cast Linux": {
-        "contact_team_email": "chrome-linux-engprod@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -140,11 +261,19 @@
         ]
       },
       "Cast Linux Debug": {
-        "contact_team_email": "chrome-linux-engprod@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -156,7 +285,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -168,7 +306,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -180,7 +327,37 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Dawn Mac arm64 DEPS Release (Apple M2)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -192,7 +369,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -204,7 +390,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -216,7 +411,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -228,7 +432,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -240,7 +453,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -252,7 +474,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -264,7 +495,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -276,7 +516,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -288,7 +537,37 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "GPU FYI Android arm64 Builder": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -300,7 +579,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -312,7 +600,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -324,7 +621,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -336,7 +642,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -348,7 +663,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -360,7 +684,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -372,7 +705,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -384,7 +726,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -396,7 +747,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -408,7 +768,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -420,7 +789,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -432,7 +810,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -444,7 +831,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -456,7 +852,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -468,7 +873,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -480,7 +894,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -492,7 +915,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -504,7 +936,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -516,7 +957,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -528,7 +978,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -540,7 +999,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -551,7 +1019,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -562,7 +1039,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -573,7 +1059,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -585,7 +1080,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -597,7 +1101,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -609,7 +1122,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -621,7 +1143,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -633,7 +1164,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -645,7 +1185,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -657,7 +1206,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -669,7 +1227,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -681,7 +1248,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -693,7 +1269,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -705,7 +1290,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -717,7 +1311,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -729,7 +1332,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -741,7 +1353,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -753,7 +1374,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -765,7 +1395,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -777,6 +1416,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -790,6 +1430,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -800,6 +1450,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -813,6 +1464,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -823,6 +1484,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -836,6 +1498,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -846,6 +1518,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -861,27 +1534,14 @@
                 "p50_mins": 20
               }
             }
-          }
-        ]
-      },
-      "chromeos-amd64-generic-rel-renamed": {
-        "contact_team_email": "chromeos-sw-engprod@google.com",
-        "problem_specs": [
+          },
           {
-            "name": "Unhealthy",
-            "score": 5,
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
-              "build_time": {
-                "p50_mins": 60
-              },
               "fail_rate": {
-                "average": 0.2
-              },
-              "infra_fail_rate": {
-                "average": 0.05
-              },
-              "pending_time": {
-                "p50_mins": 20
+                "average": 0.99
               }
             }
           }
@@ -892,6 +1552,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -905,6 +1566,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -915,6 +1586,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -928,6 +1600,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -938,6 +1620,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -951,6 +1634,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -960,6 +1653,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -975,6 +1669,16 @@
                 "p50_mins": 20
               }
             }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
+              }
+            }
           }
         ]
       },
@@ -982,6 +1686,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -995,6 +1700,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1005,7 +1720,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1017,18 +1741,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "_default": "_default"
             }
-          }
-        ]
-      },
-      "fuchsia-official": {
-        "problem_specs": [
+          },
           {
-            "name": "Unhealthy",
-            "score": 5,
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1040,7 +1762,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1052,7 +1783,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1063,7 +1803,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1074,7 +1823,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1086,6 +1844,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1099,6 +1858,50 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
+              }
+            }
+          }
+        ]
+      },
+      "lacros-amd64-generic-rel-gtest": {
+        "contact_team_email": "chrome-desktop-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "build_time": {
+                "p50_mins": 60
+              },
+              "fail_rate": {
+                "average": 0.2
+              },
+              "infra_fail_rate": {
+                "average": 0.05
+              },
+              "pending_time": {
+                "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1109,6 +1912,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1122,6 +1926,84 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
+              }
+            }
+          }
+        ]
+      },
+      "lacros-amd64-generic-rel-renamed": {
+        "contact_team_email": "chrome-desktop-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "build_time": {
+                "p50_mins": 60
+              },
+              "fail_rate": {
+                "average": 0.2
+              },
+              "infra_fail_rate": {
+                "average": 0.05
+              },
+              "pending_time": {
+                "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
+              }
+            }
+          }
+        ]
+      },
+      "lacros-amd64-generic-rel-tast": {
+        "contact_team_email": "chrome-desktop-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "build_time": {
+                "p50_mins": 60
+              },
+              "fail_rate": {
+                "average": 0.2
+              },
+              "infra_fail_rate": {
+                "average": 0.05
+              },
+              "pending_time": {
+                "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1132,6 +2014,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1145,6 +2028,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1155,6 +2048,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1170,6 +2064,16 @@
                 "p50_mins": 20
               }
             }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
+              }
+            }
           }
         ]
       },
@@ -1177,6 +2081,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1190,6 +2095,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1200,6 +2115,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1213,6 +2129,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1223,19 +2149,24 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
                 "p50_mins": 150
               },
+              "fail_rate": {},
+              "infra_fail_rate": {},
+              "pending_time": {}
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
               "fail_rate": {
-                "average": 0.2
-              },
-              "infra_fail_rate": {
-                "average": 0.05
-              },
-              "pending_time": {
-                "p50_mins": 20
+                "average": 0.99
               }
             }
           }
@@ -1246,6 +2177,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1259,6 +2191,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1269,6 +2211,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1282,6 +2225,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1292,6 +2245,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1305,6 +2259,16 @@
               },
               "pending_time": {
                 "p50_mins": 20
+              }
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
               }
             }
           }
@@ -1315,6 +2279,7 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
@@ -1330,6 +2295,16 @@
                 "p50_mins": 20
               }
             }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
+              }
+            }
           }
         ]
       },
@@ -1337,19 +2312,24 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
             "thresholds": {
               "build_time": {
                 "p50_mins": 240
               },
+              "fail_rate": {},
+              "infra_fail_rate": {},
+              "pending_time": {}
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
               "fail_rate": {
-                "average": 0.2
-              },
-              "infra_fail_rate": {
-                "average": 0.05
-              },
-              "pending_time": {
-                "p50_mins": 20
+                "average": 0.99
               }
             }
           }
@@ -1360,7 +2340,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1372,7 +2361,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1384,7 +2382,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1396,7 +2403,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1408,7 +2424,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1420,7 +2445,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }
@@ -1432,7 +2466,16 @@
         "problem_specs": [
           {
             "name": "Unhealthy",
+            "period_days": 7,
             "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
             "thresholds": {
               "_default": "_default"
             }

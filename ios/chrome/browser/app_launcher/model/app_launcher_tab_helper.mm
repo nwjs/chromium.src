@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/web/common/url_scheme_util.h"
 #import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
@@ -150,6 +151,8 @@ void AppLauncherTabHelper::RequestToLaunchApp(const GURL& url,
         delegate_->LaunchAppForTabHelper(
             this, url,
             base::BindOnce(&AppLauncherTabHelper::OnAppLaunchCompleted,
+                           weak_factory_.GetWeakPtr()),
+            base::BindOnce(&AppLauncherTabHelper::AppNoLongerInactive,
                            weak_factory_.GetWeakPtr()));
       }
       return;
@@ -184,6 +187,8 @@ void AppLauncherTabHelper::OnShowAppLaunchAlertDone(const GURL& url,
   delegate_->LaunchAppForTabHelper(
       this, url,
       base::BindOnce(&AppLauncherTabHelper::OnAppLaunchTried,
+                     weak_factory_.GetWeakPtr()),
+      base::BindOnce(&AppLauncherTabHelper::AppNoLongerInactive,
                      weak_factory_.GetWeakPtr()));
 }
 
@@ -202,6 +207,21 @@ void AppLauncherTabHelper::ShowFailureAlertDone(bool user_allowed) {
 }
 
 void AppLauncherTabHelper::OnAppLaunchCompleted(bool success) {
+  if (success && !base::FeatureList::IsEnabled(
+                     kInactiveNavigationAfterAppLaunchKillSwitch)) {
+    return;
+  }
+  LaunchAppRequestCompleted();
+}
+
+void AppLauncherTabHelper::AppNoLongerInactive() {
+  if (!base::FeatureList::IsEnabled(
+          kInactiveNavigationAfterAppLaunchKillSwitch)) {
+    LaunchAppRequestCompleted();
+  }
+}
+
+void AppLauncherTabHelper::LaunchAppRequestCompleted() {
   is_app_launch_request_pending_ = false;
   is_prompt_active_ = false;
 
@@ -296,8 +316,7 @@ AppLauncherTabHelper::GetPolicyDecisionAndOptionalAppLaunchRequest(
       request_status = ExternalURLRequestStatus::kSubFrameRequestBlocked;
     }
   }
-  UMA_HISTOGRAM_ENUMERATION("WebController.ExternalURLRequestBlocking",
-                            request_status, ExternalURLRequestStatus::kCount);
+
   // Request is blocked.
   if (request_status == ExternalURLRequestStatus::kSubFrameRequestBlocked) {
     return {PolicyDecision::Cancel(), kNoAppLaunchRequest};

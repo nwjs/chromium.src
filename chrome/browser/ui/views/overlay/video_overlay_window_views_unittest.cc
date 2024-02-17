@@ -114,8 +114,8 @@ class TestVideoPictureInPictureWindowController
   void ToggleCamera() override {}
   void HangUp() override {}
   const gfx::Rect& GetSourceBounds() const override { return source_bounds_; }
-  absl::optional<gfx::Rect> GetWindowBounds() override { return absl::nullopt; }
-  absl::optional<url::Origin> GetOrigin() override { return absl::nullopt; }
+  std::optional<gfx::Rect> GetWindowBounds() override { return std::nullopt; }
+  std::optional<url::Origin> GetOrigin() override { return std::nullopt; }
 
  private:
   raw_ptr<content::WebContents> web_contents_;
@@ -464,7 +464,8 @@ TEST_F(VideoOverlayWindowViewsTest, HitTestFrameView) {
 // With pillarboxing, the close button doesn't cover the video area. Make sure
 // hovering the button doesn't get handled like normal mouse exit events
 // causing the controls to hide.
-TEST_F(VideoOverlayWindowViewsTest, NoMouseExitWithinWindowBounds) {
+// TODO(http://crbug/1509791): Fix and re-enable.
+TEST_F(VideoOverlayWindowViewsTest, DISABLED_NoMouseExitWithinWindowBounds) {
   overlay_window().UpdateNaturalSize({10, 400});
   WaitForMove();
 
@@ -553,7 +554,8 @@ TEST_F(VideoOverlayWindowViewsTest, SmallDisplayWorkAreaDoesNotCrash) {
             overlay_window().video_layer_for_testing()->size());
 }
 
-TEST_F(VideoOverlayWindowViewsTest, ControlsAreHiddenDuringMove) {
+// TODO(http://crbug/1509791): Fix and re-enable.
+TEST_F(VideoOverlayWindowViewsTest, DISABLED_ControlsAreHiddenDuringMove) {
   // Set the initial position.
   overlay_window().SetBounds({0, 0, 100, 100});
   WaitForMove();

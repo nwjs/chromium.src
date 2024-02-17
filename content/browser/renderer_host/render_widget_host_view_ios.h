@@ -99,7 +99,7 @@ class CONTENT_EXPORT RenderWidgetHostViewIOS
   void ShowWithVisibility(PageVisibilityState page_visibility) override;
   gfx::Rect GetBoundsInRootWindow() override;
   gfx::Size GetRequestedRendererSize() override;
-  absl::optional<DisplayFeature> GetDisplayFeature() override;
+  std::optional<DisplayFeature> GetDisplayFeature() override;
   void SetDisplayFeatureForTesting(
       const DisplayFeature* display_feature) override;
   void UpdateBackgroundColor() override;
@@ -125,14 +125,11 @@ class CONTENT_EXPORT RenderWidgetHostViewIOS
       const gfx::Size& dst_size,
       base::OnceCallback<void(const SkBitmap&)> callback) override;
   ui::Compositor* GetCompositor() override;
-  void GestureEventAck(
-      const blink::WebGestureEvent& event,
-      blink::mojom::InputEventResultState ack_result,
-      blink::mojom::ScrollResultDataPtr scroll_result_data) override;
+  void GestureEventAck(const blink::WebGestureEvent& event,
+                       blink::mojom::InputEventResultState ack_result) override;
   void ChildDidAckGestureEvent(
       const blink::WebGestureEvent& event,
-      blink::mojom::InputEventResultState ack_result,
-      blink::mojom::ScrollResultDataPtr scroll_result_data) override;
+      blink::mojom::InputEventResultState ack_result) override;
   void OnSynchronizedDisplayPropertiesChanged(bool rotation) override;
   gfx::Size GetCompositorViewportPixelSize() override;
 
@@ -248,7 +245,7 @@ class CONTENT_EXPORT RenderWidgetHostViewIOS
   // EnsureSurfaceSynchronizedForWebTest().
   uint32_t latest_capture_sequence_number_ = 0u;
 
-  absl::optional<gfx::PointF> last_root_scroll_offset_;
+  std::optional<gfx::PointF> last_root_scroll_offset_;
   bool is_scrolling_ = false;
 
   // This stores the underlying view bounds. The UIView might change size but

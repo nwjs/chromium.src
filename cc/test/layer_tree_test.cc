@@ -446,7 +446,7 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
   void RecordEndOfFrameMetrics(base::TimeTicks,
                                ActiveFrameSequenceTrackers) override {}
   std::unique_ptr<BeginMainFrameMetrics> GetBeginMainFrameMetrics() override {
-    return nullptr;
+    return test_hooks_->GetBeginMainFrameMetrics();
   }
   std::unique_ptr<WebVitalMetrics> GetWebVitalMetrics() override {
     return nullptr;
@@ -1055,7 +1055,7 @@ void LayerTreeTest::RealEndTest() {
     return;
   }
 
-  base::RunLoop::QuitCurrentWhenIdleDeprecated();
+  std::move(quit_closure_).Run();
 }
 
 void LayerTreeTest::DispatchAddNoDamageAnimation(
@@ -1194,7 +1194,9 @@ void LayerTreeTest::RunTest(CompositorMode mode) {
       FROM_HERE,
       base::BindOnce(&LayerTreeTest::DoBeginTest, base::Unretained(this)));
 
-  base::RunLoop().Run();
+  base::RunLoop loop;
+  quit_closure_ = loop.QuitWhenIdleClosure();
+  loop.Run();
   CleanupBeforeDestroy();
   DestroyLayerTreeHost();
 

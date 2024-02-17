@@ -36,6 +36,7 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
+#include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/flex_layout.h"
@@ -108,7 +109,7 @@ void DeskSwitchButton::OnViewBlurred(views::View* observed_view) {
       ->MaybeContract();
 }
 
-BEGIN_METADATA(DeskSwitchButton, views::ImageButton)
+BEGIN_METADATA(DeskSwitchButton)
 END_METADATA
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -139,6 +140,11 @@ DeskButton::DeskButton(DeskButtonWidget* desk_button_widget)
                                    views::MaximumFlexSizeRule::kPreferred));
 
   SetupFocus(this);
+
+  // TODO(yongshun): Remove this when the desk button is re-structured with the
+  // new specs.
+  views::FocusRing::Get(this)->SetHasFocusPredicate(base::BindRepeating(
+      [](const views::View* view) { return view->HasFocus(); }));
 
   // The previous desk button should always be on the left and the next desk
   // button on the right even in RTL mode to respect the direction of the desk
@@ -235,14 +241,6 @@ void DeskButton::SetActivation(bool is_activated) {
 
   UpdateShelfAutoHideDisabler(disable_shelf_auto_hide_activation_,
                               !is_activated_);
-
-  if (!force_expanded_state_) {
-    if (!is_activated_ && (GetHovered() || is_focused_)) {
-      desk_button_widget_->SetExpanded(true);
-    } else {
-      desk_button_widget_->SetExpanded(false);
-    }
-  }
 
   SetBackground(views::CreateThemedRoundedRectBackground(
       is_activated_ ? cros_tokens::kCrosSysSystemPrimaryContainer
@@ -341,10 +339,6 @@ void DeskButton::StateChanged(ButtonState old_state) {
     return;
   }
 
-  if (!force_expanded_state_ && !is_focused_) {
-    desk_button_widget_->SetExpanded(GetHovered());
-  }
-
   MaybeUpdateDeskSwitchButtonVisibility(
       SwitchButtonUpdateSource::kDeskButtonUpdate);
 }
@@ -396,8 +390,19 @@ void DeskButton::AboutToRequestFocusFromTabTraversal(bool reverse) {
       ->MaybeFocusOut(reverse);
 }
 
+// TODO(yongshun): Remove this when the desk button is re-structured with the
+// new specs.
+void DeskButton::OnViewFocused(views::View* observed_view) {
+  views::Button::OnViewFocused(observed_view);
+  views::FocusRing::Get(this)->SchedulePaint();
+}
+
+// TODO(yongshun): Remove this when the desk button is re-structured with the
+// new specs.
 void DeskButton::OnViewBlurred(views::View* observed_view) {
   MaybeContract();
+  views::Button::OnViewBlurred(observed_view);
+  views::FocusRing::Get(this)->SchedulePaint();
 }
 
 void DeskButton::OnShellDestroying() {
@@ -562,7 +567,7 @@ void DeskButton::SetupFocus(views::Button* view) {
   view->SetFlipCanvasOnPaintForRTLUI(false);
 }
 
-BEGIN_METADATA(DeskButton, Button)
+BEGIN_METADATA(DeskButton)
 END_METADATA
 
 }  // namespace ash

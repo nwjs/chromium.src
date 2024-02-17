@@ -115,7 +115,7 @@ class MediaTestShellDelegate : public TestShellDelegate {
 class TestMediaNotificationItem
     : public media_message_center::test::MockMediaNotificationItem {
  public:
-  absl::optional<base::UnguessableToken> GetSourceId() const override {
+  std::optional<base::UnguessableToken> GetSourceId() const override {
     return source_id_;
   }
 
@@ -189,10 +189,8 @@ class MediaNotificationProviderImplTest : public ChromeAshTestBase {
 
   std::unique_ptr<ChromeLayoutProvider> layout_provider_;
   std::unique_ptr<MockMediaNotificationProviderObserver> observer_;
-  raw_ptr<MediaNotificationProviderImpl, DanglingUntriaged | ExperimentalAsh>
-      provider_ = nullptr;
-  raw_ptr<MediaTestShellDelegate, DanglingUntriaged | ExperimentalAsh>
-      shell_delegate_ = nullptr;
+  raw_ptr<MediaNotificationProviderImpl, DanglingUntriaged> provider_ = nullptr;
+  raw_ptr<MediaTestShellDelegate, DanglingUntriaged> shell_delegate_ = nullptr;
   crosapi::TestCrosapiEnvironment crosapi_environment_;
 };
 
@@ -295,7 +293,7 @@ class CastStartStopMediaNotificationProviderImplTest
         /*show_devices_for_item_id=*/"");
   }
 
-  raw_ptr<Profile, ExperimentalAsh> profile_ = nullptr;
+  raw_ptr<Profile> profile_ = nullptr;
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<views::View> list_view_;
 };

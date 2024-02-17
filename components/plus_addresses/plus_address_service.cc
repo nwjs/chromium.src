@@ -18,6 +18,7 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "net/http/http_status_code.h"
 
 namespace plus_addresses {
 
@@ -122,36 +123,6 @@ bool PlusAddressService::IsPlusAddress(std::string potential_plus_address) {
   return plus_addresses_.contains(potential_plus_address);
 }
 
-void PlusAddressService::OfferPlusAddressCreation(
-    const url::Origin& origin,
-    PlusAddressCallback callback) {
-  if (!is_enabled()) {
-    return;
-  }
-  // Check the local mapping before issuing a network request.
-  if (absl::optional<std::string> plus_address = GetPlusAddress(origin);
-      plus_address) {
-    std::move(callback).Run(plus_address.value());
-    return;
-  }
-  plus_address_client_.CreatePlusAddress(
-      origin,
-      // On receiving the PlusAddress...
-      base::BindOnce(
-          // ... first send it back to Autofill
-          [](PlusAddressCallback callback, const std::string& plus_address) {
-            std::move(callback).Run(plus_address);
-            return plus_address;
-          },
-          std::move(callback))
-          // ... then save it in this service.
-          .Then(base::BindOnce(
-              &PlusAddressService::SavePlusAddress,
-              // base::Unretained is safe here since PlusAddressService owns
-              // the PlusAddressClient and they will have the same lifetime.
-              base::Unretained(this), origin)));
-}
-
 void PlusAddressService::ReservePlusAddress(
     const url::Origin& origin,
     PlusAddressRequestCallback on_completed) {
@@ -213,7 +184,7 @@ std::u16string PlusAddressService::GetCreateSuggestionLabel() {
   // TODO(crbug.com/1467623): once ready, use standard
   // `l10n_util::GetStringUTF16` instead of using feature params.
   return base::UTF8ToUTF16(
-      plus_addresses::kEnterprisePlusAddressLabelOverride.Get());
+      plus_addresses::kEnterprisePlusAddressSuggestionLabelOverride.Get());
 }
 
 absl::optional<std::string> PlusAddressService::GetPrimaryEmail() {
@@ -229,6 +200,10 @@ absl::optional<std::string> PlusAddressService::GetPrimaryEmail() {
 }
 
 bool PlusAddressService::is_enabled() const {
+  if (kDisableForForbiddenUsers.Get() && account_is_forbidden_.has_value() &&
+      account_is_forbidden_.value()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(plus_addresses::kFeature) &&
          (kEnterprisePlusAddressServerUrl.Get() != "") &&
          identity_manager_ != nullptr &&
@@ -260,7 +235,17 @@ void PlusAddressService::SyncPlusAddressMapping() {
     return;
   }
   plus_address_client_.GetAllPlusAddresses(base::BindOnce(
-      &PlusAddressService::UpdatePlusAddressMap,
+      [](PlusAddressService* service,
+         const PlusAddressMapOrError& maybe_mapping) {
+        if (maybe_mapping.has_value()) {
+          service->UpdatePlusAddressMap(maybe_mapping.value());
+          if (!service->account_is_forbidden_.has_value()) {
+            service->account_is_forbidden_.emplace(false);
+          }
+        } else {
+          service->HandlePollingError(maybe_mapping.error());
+        }
+      },
       // base::Unretained is safe here since PlusAddressService owns
       // the PlusAddressClient and they have the same lifetime.
       base::Unretained(this)));
@@ -277,6 +262,22 @@ void PlusAddressService::UpdatePlusAddressMap(const PlusAddressMap& map) {
   }
 }
 
+void PlusAddressService::HandlePollingError(PlusAddressRequestError error) {
+  if (!kDisableForForbiddenUsers.Get() ||
+      error.type() != PlusAddressRequestErrorType::kNetworkError) {
+    return;
+  }
+  if (!account_is_forbidden_.has_value() &&
+      error.http_response_code() == net::HTTP_FORBIDDEN) {
+    // Only retry failed 403s up to the limit.
+    if (initial_poll_retry_attempt_ < MAX_INITIAL_POLL_RETRY_ATTEMPTS) {
+      initial_poll_retry_attempt_++;
+      SyncPlusAddressMapping();
+    } else {
+      account_is_forbidden_.emplace(true);
+    }
+  }
+}
 void PlusAddressService::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event) {
   signin::PrimaryAccountChangeEvent::Type type =

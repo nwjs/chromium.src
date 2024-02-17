@@ -150,6 +150,7 @@ BASE_FEATURE(kDefaultEnableGpuRasterization,
 #endif
 );
 
+#if !BUILDFLAG(IS_ANDROID)
 // Enables the use of out of process rasterization for canvas.
 BASE_FEATURE(kCanvasOopRasterization,
              "CanvasOopRasterization",
@@ -161,6 +162,7 @@ BASE_FEATURE(kCanvasOopRasterization,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+#endif
 
 // Enables the use of out of process rasterization for canvas even when GPU tile
 // rasterization is disabled. CanvasOopRasterization is still required to be
@@ -219,13 +221,6 @@ BASE_FEATURE(kDisableVideoOverlayIfMoving,
 BASE_FEATURE(kNoUndamagedOverlayPromotion,
              "NoUndamagedOverlayPromotion",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Use a DCompPresenter as the root surface, instead of a
-// DirectCompositionSurfaceWin. DCompPresenter is surface-less and the actual
-// allocation of the root surface will be owned by DirectRenderer.
-BASE_FEATURE(kDCompPresenter,
-             "DCompPresenter",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
@@ -303,7 +298,24 @@ BASE_FEATURE(kWebGPUService, "WebGPUService", WEBGPU_ENABLED);
 BASE_FEATURE(kWebGPUBlobCache, "WebGPUBlobCache", WEBGPU_ENABLED);
 #undef WEBGPU_ENABLED
 
-BASE_FEATURE(kWebGPUUseDXC, "WebGPUUseDXC2", base::FEATURE_DISABLED_BY_DEFAULT);
+// List of WebGPU feature names, delimited by ,
+// The FeatureParam may be overridden via Finch config, or via the command line
+// For example:
+//   --enable-field-trial-config \
+//   --force-fieldtrial-params=WebGPU.Enabled:UnsafeFeatures/timestamp-query%2Cshader-f16
+// Note that the comma should be URL-encoded.
+const base::FeatureParam<std::string> kWebGPUUnsafeFeatures{
+    &kWebGPUService, "UnsafeFeatures", ""};
+// List of WGSL feature names, delimited by ,
+// The FeatureParam may be overridden via Finch config, or via the command line
+// For example:
+//   --enable-field-trial-config \
+//   --force-fieldtrial-params=WebGPU.Enabled:UnsafeWGSLFeatures/feature_1%2Cfeature_2
+// Note that the comma should be URL-encoded.
+const base::FeatureParam<std::string> kWGSLUnsafeFeatures{
+    &kWebGPUService, "UnsafeWGSLFeatures", ""};
+
+BASE_FEATURE(kWebGPUUseDXC, "WebGPUUseDXC2", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebGPUUseTintIR,
              "WebGPUUseTintIR",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -428,6 +440,20 @@ BASE_FEATURE(kForceRestartGpuKillSwitch,
              "ForceRestartGpuKillSwitch",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Prune transfer cache entries not accessed recently. This also turns off
+// similar logic in cc::GpuImageDecodeCache which is the largest (often single)
+// client of transfer cache.
+BASE_FEATURE(kPruneOldTransferCacheEntries,
+             "PruneOldTransferCacheEntries",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// A feature that will start a task on a timer to purge old GpuImageDecodeCache
+// entries. This is similar to `kPruneOldTransferCacheEntries` but done on the
+// client side.
+BASE_FEATURE(kPurgeOldCacheEntriesOnTimer,
+             "PurgeOldCacheEntriesOnTimer",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Using the new SchedulerDfs GPU scheduler.
 BASE_FEATURE(kUseGpuSchedulerDfs,
              "UseGpuSchedulerDfs",
@@ -441,14 +467,10 @@ BASE_FEATURE(kUseGpuSchedulerDfs,
 // Use the ClientGmb interface to create GpuMemoryBuffers. This is supposed to
 // reduce number of IPCs happening while creating GpuMemoryBuffers by allowing
 // Renderers to do IPC directly to GPU process. This feature is now enabled by
-// default on all platforms except lacros.
+// default on all platforms.
 BASE_FEATURE(kUseClientGmbInterface,
              "UseClientGmbInterface",
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
              base::FEATURE_ENABLED_BY_DEFAULT
-#endif
 );
 
 // When the application is in background, whether to perform immediate GPU
@@ -533,6 +555,12 @@ bool IsDrDcEnabled() {
   // Enabled on android P+.
   if (base::android::BuildInfo::GetInstance()->sdk_int() <
       base::android::SDK_VERSION_P) {
+    return false;
+  }
+
+  // DrDc is not supported with Graphite-Dawn yet.
+  // TODO(crbug.com/1505023): Add DrDc support with Graphite
+  if (IsSkiaGraphiteEnabled(base::CommandLine::ForCurrentProcess())) {
     return false;
   }
 
@@ -627,7 +655,7 @@ bool IsSkiaGraphiteEnabled(const base::CommandLine* command_line) {
   if (command_line->HasSwitch(switches::kEnableSkiaGraphite)) {
     return true;
   }
-#if !(BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN))
+#if !(BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN))
   // Disallow Graphite from being enabled via the base::Feature on
   // not-yet-supported platforms to avoid users experiencing undefined behavior,
   // including behavior that might prevent them from being able to return to
@@ -695,6 +723,25 @@ bool IsSkiaGraphiteEnabled(const base::CommandLine* command_line) {
 #endif  // !(BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN))
 }
 
+// Set up such that service side purge depends on the client side purge feature
+// being enabled. And enabling service side purge disables client purge
+bool EnablePurgeGpuImageDecodeCache() {
+  return base::FeatureList::IsEnabled(kPurgeOldCacheEntriesOnTimer) &&
+         !base::FeatureList::IsEnabled(kPruneOldTransferCacheEntries);
+}
+bool EnablePruneOldTransferCacheEntries() {
+  return base::FeatureList::IsEnabled(kPurgeOldCacheEntriesOnTimer) &&
+         base::FeatureList::IsEnabled(kPruneOldTransferCacheEntries);
+}
+
+bool IsCanvasOopRasterizationEnabled() {
+#if BUILDFLAG(IS_ANDROID)
+  return true;
+#else
+  return base::FeatureList::IsEnabled(kCanvasOopRasterization);
+#endif
+}
+
 #if BUILDFLAG(IS_ANDROID)
 bool IsAImageReaderEnabled() {
   // Device Hammer_Energy_2 seems to be very crash with image reader during
@@ -708,7 +755,7 @@ bool IsAImageReaderEnabled() {
   }
 
   return base::FeatureList::IsEnabled(kAImageReader) &&
-         base::android::AndroidImageReader::GetInstance().IsSupported();
+         base::android::EnableAndroidImageReader();
 }
 
 bool IsAndroidSurfaceControlEnabled() {

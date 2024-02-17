@@ -24,6 +24,11 @@ namespace arc {
 class ArcAppPerformanceTracing;
 class ArcAppPerformanceTracingSession;
 
+enum class PresentType {
+  kDiscarded,
+  kSuccessful,
+};
+
 // Helper class to share common functionality in browser and unit tests.
 class ArcAppPerformanceTracingTestHelper {
  public:
@@ -53,9 +58,13 @@ class ArcAppPerformanceTracingTestHelper {
   void PlaySequence(exo::Surface* surface,
                     const std::vector<base::TimeDelta>& deltas);
 
-  // Plays default sequence that has FPS = 45, CommitDeviation = 216 and
-  // RenderQuality = 48% for target tracing period as 1/3 seconds.
+  // Plays default sequence that has PerceivedFPS = FPS = 48,
+  // CommitDeviation = 216 and RenderQuality = 48% for target tracing period as
+  // 1/3 seconds.
   void PlayDefaultSequence(exo::Surface* surface);
+
+  // Causes the surface to be committed and its present callback to be invoked.
+  void Commit(exo::Surface* surface, PresentType present);
 
   // Disables App Syncing for profile.
   void DisableAppSync();
@@ -66,7 +75,7 @@ class ArcAppPerformanceTracingTestHelper {
 
  private:
   // Unowned pointer.
-  raw_ptr<Profile, ExperimentalAsh> profile_ = nullptr;
+  raw_ptr<Profile> profile_ = nullptr;
 
   // Timestamps used in generated commits.
   base::TimeTicks ticks_now_ =

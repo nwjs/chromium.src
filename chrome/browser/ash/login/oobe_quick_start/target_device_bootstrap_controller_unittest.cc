@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/login/oobe_quick_start/target_device_bootstrap_controller.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -36,7 +37,6 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/chromeos/devicetype_utils.h"
 
@@ -78,6 +78,7 @@ constexpr char kFakeChallengeBytesBase64[] =
     "ABz12ClFhY8/D89zWFB+KTHgUwJ5T3Avco/1IQuu+K/"
     "65KlsmB7o0+UyPde8ZW+b33aeJ9uyST8EMzS6WhK60e/VDjug+7LLK4YzDz1nNw==";
 constexpr char kTestCredentialId[] = "TEST_CREDENTIAL_ID";
+constexpr char kTestAuthCode[] = "AUTHORIZATION_CODE";
 constexpr char kPemCertificateString[] = R"({
 -----BEGIN CERTIFICATE-----
 MIICUTCCAfugAwIBAgIBADANBgkqhkiG9w0BAQQFADBXMQswCQYDVQQGEwJDTjEL
@@ -188,16 +189,16 @@ class TargetDeviceBootstrapControllerTest : public testing::Test {
   }
 
  protected:
-  absl::optional<FidoAssertionInfo> assertion_info_;
+  std::optional<FidoAssertionInfo> assertion_info_;
   base::test::SingleThreadTaskEnvironment task_environment_;
   network::TestURLLoaderFactory test_factory_;
   std::unique_ptr<FakeQuickStartConnectivityService>
       fake_quick_start_connectivity_service_;
-  raw_ptr<FakeTargetDeviceConnectionBroker, DanglingUntriaged | ExperimentalAsh>
+  raw_ptr<FakeTargetDeviceConnectionBroker, DanglingUntriaged>
       fake_target_device_connection_broker_;
   std::unique_ptr<FakeObserver> fake_observer_;
   raw_ptr<MockAuthBroker> auth_broker_;
-  raw_ptr<FakeAccessibilityManagerWrapper, DanglingUntriaged | ExperimentalAsh>
+  raw_ptr<FakeAccessibilityManagerWrapper, DanglingUntriaged>
       fake_accessibility_manager_ = nullptr;
   std::unique_ptr<TargetDeviceBootstrapController> bootstrap_controller_;
   ScopedTestingLocalState local_state_;
@@ -320,11 +321,10 @@ TEST_F(TargetDeviceBootstrapControllerTest, InitiateConnection_Pin) {
   fake_target_device_connection_broker_->InitiateConnection(kSourceDeviceId);
 
   EXPECT_EQ(fake_observer_->last_status.step, Step::PIN_VERIFICATION);
-  EXPECT_TRUE(absl::holds_alternative<TargetDeviceBootstrapController::Pin>(
-      fake_observer_->last_status.payload));
-  EXPECT_TRUE(absl::get<TargetDeviceBootstrapController::Pin>(
-                  fake_observer_->last_status.payload)
-                  .length() == 4);
+  EXPECT_TRUE(
+      absl::holds_alternative<PinString>(fake_observer_->last_status.payload));
+  EXPECT_TRUE(
+      absl::get<PinString>(fake_observer_->last_status.payload)->length() == 4);
 }
 
 TEST_F(TargetDeviceBootstrapControllerTest, AuthenticateConnection) {
@@ -334,7 +334,7 @@ TEST_F(TargetDeviceBootstrapControllerTest, AuthenticateConnection) {
 }
 
 TEST_F(TargetDeviceBootstrapControllerTest, FeatureSupportStatus) {
-  absl::optional<TargetDeviceConnectionBroker::FeatureSupportStatus>
+  std::optional<TargetDeviceConnectionBroker::FeatureSupportStatus>
       feature_status;
 
   fake_target_device_connection_broker_->set_feature_support_status(
@@ -500,7 +500,7 @@ TEST_F(TargetDeviceBootstrapControllerTest,
 
   bootstrap_controller_->AttemptWifiCredentialTransfer();
   fake_target_device_connection_broker_->GetFakeConnection()
-      ->SendWifiCredentials(absl::nullopt);
+      ->SendWifiCredentials(std::nullopt);
 
   EXPECT_EQ(fake_observer_->last_status.step,
             Step::EMPTY_WIFI_CREDENTIALS_RECEIVED);
@@ -542,7 +542,7 @@ TEST_F(TargetDeviceBootstrapControllerTest,
       fake_observer_->last_status.payload));
 
   fake_target_device_connection_broker_->GetFakeConnection()->VerifyUser(
-      absl::nullopt);
+      std::nullopt);
 
   EXPECT_EQ(fake_observer_->last_status.step, Step::ERROR);
   EXPECT_EQ(absl::get<ErrorCode>(fake_observer_->last_status.payload),
@@ -571,7 +571,8 @@ TEST_F(TargetDeviceBootstrapControllerTest,
 
   EXPECT_EQ(fake_observer_->last_status.step,
             Step::GOOGLE_ACCOUNT_INFO_RECEIVED);
-  EXPECT_EQ(absl::get<std::string>(fake_observer_->last_status.payload), email);
+  EXPECT_EQ(*absl::get<EmailString>(fake_observer_->last_status.payload),
+            email);
 }
 
 TEST_F(TargetDeviceBootstrapControllerTest,
@@ -633,11 +634,14 @@ TEST_F(TargetDeviceBootstrapControllerTest,
   fido_assertion.credential_id = Base64UrlEncode(kTestCredentialId);
   PEMCertChain pem_cert_chain{kPemCertificateString};
 
+  const auto auth_code_response =
+      SecondDeviceAuthBroker::AuthCodeSuccessResponse{.auth_code =
+                                                          kTestAuthCode};
+
   // TODO(b/287006890) - Expand test to include failure modes as well.
   auth_broker_->SetupChallengeBytesResponse(kFakeChallengeBytes_);
   auth_broker_->SetupAttestationCertificateResponse(pem_cert_chain);
-  auth_broker_->SetupAuthCodeResponse(
-      SecondDeviceAuthBroker::AuthCodeSuccessResponse());
+  auth_broker_->SetupAuthCodeResponse(auth_code_response);
 
   bootstrap_controller_->AttemptGoogleAccountTransfer();
 
@@ -664,8 +668,14 @@ TEST_F(TargetDeviceBootstrapControllerTest,
 
   EXPECT_EQ(fake_observer_->last_status.step,
             Step::TRANSFERRED_GOOGLE_ACCOUNT_DETAILS);
-  EXPECT_TRUE(absl::holds_alternative<FidoAssertionInfo>(
-      fake_observer_->last_status.payload));
+  const auto payload = fake_observer_->last_status.payload;
+  EXPECT_TRUE(
+      absl::holds_alternative<TargetDeviceBootstrapController::GaiaCredentials>(
+          payload));
+  const auto gaia_creds =
+      absl::get<TargetDeviceBootstrapController::GaiaCredentials>(payload);
+  EXPECT_EQ(gaia_creds.auth_code, kTestAuthCode);
+
   histogram_tester_.ExpectBucketCount(kGaiaTransferAttemptedName, true, 1);
 }
 
@@ -687,7 +697,7 @@ TEST_F(TargetDeviceBootstrapControllerTest,
       fake_observer_->last_status.payload));
 
   fake_target_device_connection_broker_->GetFakeConnection()
-      ->SendAccountTransferAssertionInfo(absl::nullopt);
+      ->SendAccountTransferAssertionInfo(std::nullopt);
 
   EXPECT_EQ(fake_observer_->last_status.step, Step::ERROR);
   EXPECT_EQ(absl::get<ErrorCode>(fake_observer_->last_status.payload),
@@ -739,7 +749,6 @@ TEST_F(TargetDeviceBootstrapControllerTest, SessionContext) {
   // Start is resuming after an update.
   EXPECT_FALSE(GetSessionContext().is_resume_after_update());
 
-  GetLocalState()->SetBoolean(prefs::kShouldResumeQuickStartAfterReboot, true);
   GetLocalState()->SetDict(prefs::kResumeQuickStartAfterRebootInfo,
                            GetSessionContext().GetPrepareForUpdateInfo());
 

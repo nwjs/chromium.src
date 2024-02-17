@@ -18,12 +18,16 @@ namespace blink {
 
 class ExceptionState;
 class KURL;
+struct SafeUrlPattern;
 class URLPatternInit;
 class URLPatternOptions;
 class URLPatternResult;
 
 class CORE_EXPORT URLPattern : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
+  struct Options final {
+    bool ignore_case;
+  };
   using Component = url_pattern::Component;
   using ComponentSet = base::EnumSet<Component::Type,
                                      Component::Type::kProtocol,
@@ -72,6 +76,7 @@ class CORE_EXPORT URLPattern : public ScriptWrappable {
              Component* pathname,
              Component* search,
              Component* hash,
+             Options options,
              base::PassKey<URLPattern> key);
 
   bool test(ScriptState* script_state,
@@ -105,6 +110,11 @@ class CORE_EXPORT URLPattern : public ScriptWrappable {
                               const URLPattern* left,
                               const URLPattern* right);
 
+  // Throws a TypeError if the pattern does not meet the requirements to be
+  // safe. i.e. has no regexp groups.
+  std::optional<SafeUrlPattern> ToSafeUrlPattern(
+      ExceptionState& exception_state) const;
+
   // Used for testing and debugging.
   String ToString() const;
 
@@ -129,6 +139,7 @@ class CORE_EXPORT URLPattern : public ScriptWrappable {
   Member<Component> pathname_;
   Member<Component> search_;
   Member<Component> hash_;
+  const Options options_;
 
   // For data analysis: the components which would be wildcarded but are empty
   // due to the string parsing.

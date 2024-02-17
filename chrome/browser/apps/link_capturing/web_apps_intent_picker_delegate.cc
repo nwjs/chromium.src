@@ -39,7 +39,7 @@ namespace {
 #if BUILDFLAG(IS_MAC)
 std::vector<apps::IntentPickerAppInfo> CombinePossibleMacAppWithOtherApps(
     std::vector<apps::IntentPickerAppInfo> apps,
-    absl::optional<apps::IntentPickerAppInfo> mac_app) {
+    std::optional<apps::IntentPickerAppInfo> mac_app) {
   if (mac_app) {
     apps.emplace_back(std::move(mac_app.value()));
   }
@@ -89,8 +89,8 @@ bool WebAppsIntentPickerDelegate::IsPreferredAppForSupportedLinks(
 }
 
 void WebAppsIntentPickerDelegate::LoadSingleAppIcon(
-    apps::AppType app_type,
-    const webapps::AppId& app_id,
+    PickerEntryType entry_type,
+    const std::string& app_id,
     int size_in_dep,
     IconLoadedCallback icon_loaded_callback) {
   web_app::WebAppIconManager& icon_manager = provider_->icon_manager();

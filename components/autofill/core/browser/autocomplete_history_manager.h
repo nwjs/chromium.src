@@ -11,10 +11,9 @@
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "components/autofill/core/browser/single_field_form_filler.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
-#include "components/autofill/core/browser/webdata/autocomplete_entry.h"
+#include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -44,7 +43,6 @@ class AutocompleteHistoryManager : public SingleFieldFormFiller,
 
   // SingleFieldFormFiller overrides:
   [[nodiscard]] bool OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource trigger_source,
       const FormFieldData& field,
       const AutofillClient& client,
       OnSuggestionsReturnedCallback on_suggestions_returned,
@@ -66,9 +64,6 @@ class AutocompleteHistoryManager : public SingleFieldFormFiller,
             PrefService* pref_service,
             bool is_off_the_record);
 
-  // Returns a weak pointer to the current AutocompleteHistoryManager instance.
-  base::WeakPtr<AutocompleteHistoryManager> GetWeakPtr();
-
   // WebDataServiceConsumer implementation.
   void OnWebDataServiceRequestDone(
       WebDataServiceBase::Handle h,
@@ -81,7 +76,6 @@ class AutocompleteHistoryManager : public SingleFieldFormFiller,
   // with the appropriate response.
   struct QueryHandler {
     QueryHandler(FieldGlobalId field_id,
-                 AutofillSuggestionTriggerSource trigger_source,
                  std::u16string prefix,
                  OnSuggestionsReturnedCallback on_suggestions_returned);
     QueryHandler(const QueryHandler&) = delete;
@@ -90,12 +84,6 @@ class AutocompleteHistoryManager : public SingleFieldFormFiller,
 
     // The queried field ID.
     FieldGlobalId field_id_;
-
-    // Describes what caused the suggestions to trigger. This value was provided
-    // by the handler when requesting suggestions. It is temporarily stored
-    // while suggestions are queried, so it can be passed on to the
-    // `on_suggestions_returned_` callback.
-    AutofillSuggestionTriggerSource trigger_source_;
 
     // Prefix used to search suggestions, submitted by the handler.
     std::u16string prefix_;
@@ -159,8 +147,6 @@ class AutocompleteHistoryManager : public SingleFieldFormFiller,
 
   // Whether the service is associated with an off-the-record browser context.
   bool is_off_the_record_ = false;
-
-  base::WeakPtrFactory<AutocompleteHistoryManager> weak_ptr_factory_{this};
 };
 
 }  // namespace autofill

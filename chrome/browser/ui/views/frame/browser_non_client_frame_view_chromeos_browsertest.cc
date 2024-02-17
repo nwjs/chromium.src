@@ -10,6 +10,7 @@
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/apps/app_service/app_registry_cache_waiter.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
 #include "chrome/browser/sessions/session_service_test_helper.h"
@@ -32,6 +33,7 @@
 #include "chromeos/ui/frame/caption_buttons/frame_size_button.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
+#include "components/services/app_service/public/cpp/app_update.h"
 #include "content/public/test/browser_test.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/aura/client/aura_constants.h"
@@ -68,11 +70,11 @@
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_helper.h"
 #include "chrome/browser/ui/ash/multi_user/test_multi_user_window_manager.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/ash/window_pin_util.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/chromeos/window_pin_util.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_test.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
@@ -138,6 +140,10 @@
 #include "ui/views/window/frame_caption_button.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chrome/browser/web_applications/app_service/test/loopback_crosapi_app_service_proxy.h"
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+
 using views::Widget;
 
 // TODO(crbug.com/1235203): Identify tests that should also run under Lacros.
@@ -171,7 +177,7 @@ class BrowserNonClientFrameViewChromeOSTestApi {
   }
 
  private:
-  const raw_ptr<BrowserNonClientFrameViewChromeOS, ExperimentalAsh> frame_view_;
+  const raw_ptr<BrowserNonClientFrameViewChromeOS> frame_view_;
 };
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -441,7 +447,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_NO_FATAL_FAILURE(
       ash::ShellTestApi().SetTabletModeEnabledForTest(true));
   ash::SplitViewTestApi().SnapWindow(widget->GetNativeWindow(),
-                                     ash::SplitViewTestApi::SnapPosition::LEFT);
+                                     ash::SnapPosition::kPrimary);
 
   // Touch on the top of the window is interpreted as client hit.
   gfx::Point top_point(widget->GetWindowBoundsInScreen().width() / 2, 0);
@@ -462,7 +468,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_NO_FATAL_FAILURE(
       ash::ShellTestApi().SetTabletModeEnabledForTest(true));
   ash::SplitViewTestApi().SnapWindow(widget->GetNativeWindow(),
-                                     ash::SplitViewTestApi::SnapPosition::LEFT);
+                                     ash::SnapPosition::kPrimary);
 
   // A point above the window, but not in the center horizontally, as a swipe
   // down from the top center will show the chromeos tablet mode multitask menu.
@@ -758,18 +764,17 @@ class WebAppNonClientFrameViewAshTest
 
   static SkColor GetThemeColor() { return SK_ColorBLUE; }
 
-  raw_ptr<Browser, DanglingUntriaged | ExperimentalAsh> app_browser_ = nullptr;
-  raw_ptr<BrowserView, DanglingUntriaged | ExperimentalAsh> browser_view_ =
+  raw_ptr<Browser, DanglingUntriaged> app_browser_ = nullptr;
+  raw_ptr<BrowserView, DanglingUntriaged> browser_view_ = nullptr;
+  raw_ptr<chromeos::DefaultFrameHeader, DanglingUntriaged> frame_header_ =
       nullptr;
-  raw_ptr<chromeos::DefaultFrameHeader, DanglingUntriaged | ExperimentalAsh>
-      frame_header_ = nullptr;
-  raw_ptr<WebAppFrameToolbarView, DanglingUntriaged | ExperimentalAsh>
-      web_app_frame_toolbar_ = nullptr;
-  raw_ptr<const std::vector<ContentSettingImageView*>,
-          DanglingUntriaged | ExperimentalAsh>
+  raw_ptr<WebAppFrameToolbarView, DanglingUntriaged> web_app_frame_toolbar_ =
+      nullptr;
+  raw_ptr<
+      const std::vector<raw_ptr<ContentSettingImageView, VectorExperimental>>,
+      DanglingUntriaged>
       content_setting_views_ = nullptr;
-  raw_ptr<AppMenuButton, DanglingUntriaged | ExperimentalAsh>
-      web_app_menu_button_ = nullptr;
+  raw_ptr<AppMenuButton, DanglingUntriaged> web_app_menu_button_ = nullptr;
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     TopChromeMdParamTest<InProcessBrowserTest>::SetUpCommandLine(command_line);
@@ -857,7 +862,7 @@ class WebAppNonClientFrameViewAshTest
 
     return *base::ranges::find(*content_setting_views_,
                                ContentSettingImageModel::ImageType::GEOLOCATION,
-                               &ContentSettingImageView::GetTypeForTesting);
+                               &ContentSettingImageView::GetType);
   }
 
   void SimulateClickOnView(views::View* view) {
@@ -1122,12 +1127,13 @@ IN_PROC_BROWSER_TEST_P(WebAppNonClientFrameViewAshTest,
 // Tests that a web app's content settings icons can be interacted with.
 IN_PROC_BROWSER_TEST_P(WebAppNonClientFrameViewAshTest, ContentSettingIcons) {
   SetUpWebApp();
-  for (auto* view : *content_setting_views_)
+  for (ContentSettingImageView* view : *content_setting_views_) {
     EXPECT_FALSE(view->GetVisible());
+  }
 
   ContentSettingImageView* geolocation_icon = GrantGeolocationPermission();
 
-  for (auto* view : *content_setting_views_) {
+  for (ContentSettingImageView* view : *content_setting_views_) {
     bool is_geolocation_icon = view == geolocation_icon;
     EXPECT_EQ(is_geolocation_icon, view->GetVisible());
   }
@@ -1246,7 +1252,7 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTest,
   EndOverview();
   EXPECT_FALSE(frame_view->caption_button_container()->GetVisible());
   ash::SplitViewTestApi().SnapWindow(widget->GetNativeWindow(),
-                                     ash::SplitViewTestApi::SnapPosition::LEFT);
+                                     ash::SnapPosition::kPrimary);
   EXPECT_FALSE(frame_view->caption_button_container()->GetVisible());
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1291,6 +1297,13 @@ constexpr char kPreventCloseEnabledForCalculator[] = R"([
   }
 ])";
 
+constexpr char kCalculatorForceInstalled[] = R"([
+  {
+    "url": "https://calculator.apps.chrome/",
+    "default_launch_container": "window"
+  }
+])";
+
 }  // namespace
 
 class PreventCloseBrowserNonClientFrameViewChromeOSTest
@@ -1305,7 +1318,24 @@ class PreventCloseBrowserNonClientFrameViewChromeOSTest
 
   ~PreventCloseBrowserNonClientFrameViewChromeOSTest() override = default;
 
-  views::Button* getWindowCloseButton(Browser* browser) {
+  void SetUpOnMainThread() override {
+    PreventCloseTestBase::SetUpOnMainThread();
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+    loopback_crosapi_ =
+        std::make_unique<web_app::LoopbackCrosapiAppServiceProxy>(profile());
+#endif
+  }
+
+  void TearDownOnMainThread() override {
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+    loopback_crosapi_ = nullptr;
+#endif
+
+    PreventCloseTestBase::TearDownOnMainThread();
+  }
+
+  views::Button* GetWindowCloseButton(Browser* browser) {
     auto* const browser_view = BrowserView::GetBrowserViewForBrowser(browser);
     auto* const frame_view = GetFrameViewChromeOS(browser_view);
 
@@ -1313,22 +1343,45 @@ class PreventCloseBrowserNonClientFrameViewChromeOSTest
         frame_view->caption_button_container());
     return test_api.close_button();
   }
+
+ private:
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  std::unique_ptr<web_app::LoopbackCrosapiAppServiceProxy> loopback_crosapi_;
+#endif
 };
 
 IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
                        CloseButtonIsDisabled) {
   InstallPWA(GURL(kCalculatorAppUrl), web_app::kCalculatorAppId);
-  SetWebAppSettings(kPreventCloseEnabledForCalculator);
+  SetPoliciesAndWaitUntilInstalled(web_app::kCalculatorAppId,
+                                   kPreventCloseEnabledForCalculator,
+                                   kCalculatorForceInstalled);
 
   Browser* const browser =
       LaunchPWA(web_app::kCalculatorAppId, /*launch_in_window=*/true);
   ASSERT_TRUE(browser);
 
-  auto* const close_button = getWindowCloseButton(browser);
-  ASSERT_TRUE(close_button);
-  EXPECT_FALSE(close_button->GetEnabled());
+  {
+    auto* const close_button = GetWindowCloseButton(browser);
+    ASSERT_TRUE(close_button);
+    EXPECT_FALSE(close_button->GetEnabled());
+  }
 
-  ClearWebAppSettings();
+  {
+    apps::AppUpdateWaiter waiter(
+        browser->profile(), web_app::kCalculatorAppId,
+        base::BindRepeating([](const apps::AppUpdate& update) {
+          return update.AllowClose().has_value() && update.AllowClose().value();
+        }));
+    ClearWebAppSettings();
+    waiter.Await();
+  }
+
+  {
+    auto* const close_button = GetWindowCloseButton(browser);
+    ASSERT_TRUE(close_button);
+    EXPECT_TRUE(close_button->GetEnabled());
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
@@ -1339,7 +1392,7 @@ IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
       LaunchPWA(web_app::kCalculatorAppId, /*launch_in_window=*/true);
   ASSERT_TRUE(browser);
 
-  auto* const close_button = getWindowCloseButton(browser);
+  auto* const close_button = GetWindowCloseButton(browser);
   ASSERT_TRUE(close_button);
   EXPECT_TRUE(close_button->GetEnabled());
 
@@ -1503,8 +1556,8 @@ IN_PROC_BROWSER_TEST_P(FloatBrowserNonClientFrameViewChromeOSTest,
       views::Widget::GetWidgetForNativeView(widget->GetNativeWindow()));
 
   // Snap a window. No immersive mode from regular browsers.
-  ash::SplitViewTestApi().SnapWindow(
-      widget->GetNativeWindow(), ash::SplitViewTestApi::SnapPosition::RIGHT);
+  ash::SplitViewTestApi().SnapWindow(widget->GetNativeWindow(),
+                                     ash::SnapPosition::kSecondary);
   EXPECT_FALSE(frame_view->caption_button_container()->GetVisible());
   EXPECT_FALSE(immersive_controller->IsEnabled());
 
@@ -1554,8 +1607,8 @@ IN_PROC_BROWSER_TEST_P(FloatBrowserNonClientFrameViewChromeOSTest,
       views::Widget::GetWidgetForNativeView(widget2->GetNativeWindow()));
 
   // Snap a window. Immersive mode is enabled so its title bar is not visible.
-  ash::SplitViewTestApi().SnapWindow(
-      widget2->GetNativeWindow(), ash::SplitViewTestApi::SnapPosition::RIGHT);
+  ash::SplitViewTestApi().SnapWindow(widget2->GetNativeWindow(),
+                                     ash::SnapPosition::kSecondary);
   EXPECT_TRUE(frame_view2->caption_button_container()->GetVisible());
   EXPECT_TRUE(immersive_controller->IsEnabled());
 

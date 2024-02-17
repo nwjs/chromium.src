@@ -40,7 +40,7 @@ namespace {
 void OnUploadDone(scoped_refptr<OneDriveUploadHandler> one_drive_upload_handler,
                   OneDriveUploadHandler::UploadCallback callback,
                   OfficeTaskResult task_result,
-                  absl::optional<FileSystemURL> uploaded_file_url,
+                  std::optional<FileSystemURL> uploaded_file_url,
                   int64_t upload_size) {
   std::move(callback).Run(task_result, std::move(uploaded_file_url),
                           upload_size);
@@ -134,6 +134,7 @@ void OneDriveUploadHandler::GetODFSMetadataAndStartIOTask() {
   file_system_provider::ProvidedFileSystemInterface* file_system =
       GetODFS(profile_);
   if (!file_system) {
+    LOG(ERROR) << "ODFS not found";
     // TODO(b/293363474): Remove when the underlying cause is diagnosed.
     base::debug::DumpWithoutCrashing(FROM_HERE);
     OnFailedUpload(OfficeFilesUploadResult::kFileSystemNotFound);
@@ -144,6 +145,32 @@ void OneDriveUploadHandler::GetODFSMetadataAndStartIOTask() {
       base::BindOnce(
           &OneDriveUploadHandler::CheckReauthenticationAndStartIOTask, this,
           destination_folder_url));
+}
+
+bool OneDriveUploadHandler::FileAlreadyBeingUploaded() {
+  for (std::reference_wrapper<const file_manager::io_task::ProgressStatus>
+           status : io_task_controller_->TaskStatuses()) {
+    // Check upload (copy/move) tasks.
+    if (status.get().type != file_manager::io_task::OperationType::kCopy &&
+        status.get().type != file_manager::io_task::OperationType::kMove) {
+      continue;
+    }
+
+    // Check upload to ODFS tasks.
+    if (!UrlIsOnODFS(profile_, status.get().GetDestinationFolder())) {
+      continue;
+    }
+
+    for (const auto& entry_status : status.get().sources) {
+      if (entry_status.url == source_url_) {
+        // The same source url is being uploaded to ODFS.
+        return true;
+      }
+    }
+  }
+
+  // No duplicate task.
+  return false;
 }
 
 void OneDriveUploadHandler::CheckReauthenticationAndStartIOTask(
@@ -168,6 +195,12 @@ void OneDriveUploadHandler::CheckReauthenticationAndStartIOTask(
                        base::BindOnce(&OneDriveUploadHandler::OnMountResponse,
                                       weak_ptr_factory_.GetWeakPtr()));
     }
+    return;
+  }
+
+  if (FileAlreadyBeingUploaded()) {
+    LOG(WARNING) << "File already being uploaded";
+    OnAbandonedUpload();
     return;
   }
 
@@ -198,6 +231,7 @@ void OneDriveUploadHandler::OnMountResponse(base::File::Error result) {
 FileSystemURL OneDriveUploadHandler::GetDestinationFolderUrl() {
   auto odfs_info = GetODFSInfo(profile_);
   if (!odfs_info) {
+    LOG(ERROR) << "ODFS not found";
     // TODO(b/293363474): Remove when the underlying cause is diagnosed.
     base::debug::DumpWithoutCrashing(FROM_HERE);
     OnFailedUpload(OfficeFilesUploadResult::kFileSystemNotFound);
@@ -236,8 +270,18 @@ void OneDriveUploadHandler::OnFailedUpload(
     notification_manager_->ShowUploadError(error_message);
   }
   if (callback_) {
-    std::move(callback_).Run(OfficeTaskResult::kFailedToUpload, absl::nullopt,
+    std::move(callback_).Run(OfficeTaskResult::kFailedToUpload, std::nullopt,
                              0);
+  }
+}
+
+void OneDriveUploadHandler::OnAbandonedUpload() {
+  if (notification_manager_) {
+    notification_manager_->CloseNotification();
+  }
+  if (callback_) {
+    std::move(callback_).Run(OfficeTaskResult::kFileAlreadyBeingUploaded,
+                             std::nullopt, 0);
   }
 }
 
@@ -309,6 +353,7 @@ void OneDriveUploadHandler::ShowAccessDeniedError() {
   file_system_provider::ProvidedFileSystemInterface* file_system =
       GetODFS(profile_);
   if (!file_system) {
+    LOG(ERROR) << "ODFS not found";
     OnFailedUpload(OfficeFilesUploadResult::kCloudAccessDenied);
     return;
   }

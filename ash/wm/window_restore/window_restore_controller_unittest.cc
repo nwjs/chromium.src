@@ -27,6 +27,7 @@
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "components/account_id/account_id.h"
 #include "components/app_restore/app_restore_info.h"
@@ -200,8 +201,10 @@ class WindowRestoreControllerTest : public AshTestBase,
         /*is_taskless_arc_app=*/false);
   }
 
-  void VerifyStackingOrder(aura::Window* parent,
-                           const std::vector<aura::Window*>& expected_windows) {
+  void VerifyStackingOrder(
+      aura::Window* parent,
+      const std::vector<raw_ptr<aura::Window, VectorExperimental>>&
+          expected_windows) {
     auto children = parent->children();
     EXPECT_EQ(children.size(), expected_windows.size());
 
@@ -614,9 +617,9 @@ TEST_F(WindowRestoreControllerTest, StackingMultiDisplay) {
   UpdateDisplay("800x700,801+0-800x700,1602+0-800x700");
 
   auto root_windows = Shell::GetAllRootWindows();
-  auto* root_1 = root_windows[0];
-  auto* root_2 = root_windows[1];
-  auto* root_3 = root_windows[2];
+  auto* root_1 = root_windows[0].get();
+  auto* root_2 = root_windows[1].get();
+  auto* root_3 = root_windows[2].get();
 
   auto* desk_container_display_1 =
       desks_util::GetActiveDeskContainerForRoot(root_1);
@@ -702,10 +705,10 @@ TEST_F(WindowRestoreControllerTest, ClamshellSnapWindow) {
   auto* split_view_controller =
       SplitViewController::Get(Shell::GetPrimaryRootWindow());
   EXPECT_EQ(split_view_controller->GetSnappedWindowBoundsInScreen(
-                SplitViewController::SnapPosition::kPrimary, nullptr),
+                SnapPosition::kPrimary, nullptr, chromeos::kDefaultSnapRatio),
             left_window->GetBoundsInScreen());
   EXPECT_EQ(split_view_controller->GetSnappedWindowBoundsInScreen(
-                SplitViewController::SnapPosition::kSecondary, nullptr),
+                SnapPosition::kSecondary, nullptr, chromeos::kDefaultSnapRatio),
             right_window->GetBoundsInScreen());
 
   // Test that after restoring the snapped windows, they have the bounds we
@@ -843,10 +846,8 @@ TEST_F(WindowRestoreControllerTest, TabletSplitviewWindow) {
 
   auto* split_view_controller =
       SplitViewController::Get(Shell::GetPrimaryRootWindow());
-  split_view_controller->SnapWindow(
-      window1.get(), SplitViewController::SnapPosition::kPrimary);
-  split_view_controller->SnapWindow(
-      window2.get(), SplitViewController::SnapPosition::kSecondary);
+  split_view_controller->SnapWindow(window1.get(), SnapPosition::kPrimary);
+  split_view_controller->SnapWindow(window2.get(), SnapPosition::kSecondary);
 
   app_restore::WindowInfo* window1_info = GetWindowInfo(window1.get());
   app_restore::WindowInfo* window2_info = GetWindowInfo(window2.get());
@@ -891,10 +892,10 @@ TEST_F(WindowRestoreControllerTest, TabletSnapWindow) {
   auto* split_view_controller =
       SplitViewController::Get(Shell::GetPrimaryRootWindow());
   EXPECT_EQ(split_view_controller->GetSnappedWindowBoundsInScreen(
-                SplitViewController::SnapPosition::kPrimary, nullptr),
+                SnapPosition::kPrimary, nullptr, chromeos::kDefaultSnapRatio),
             left_window->GetBoundsInScreen());
   EXPECT_EQ(split_view_controller->GetSnappedWindowBoundsInScreen(
-                SplitViewController::SnapPosition::kSecondary, nullptr),
+                SnapPosition::kSecondary, nullptr, chromeos::kDefaultSnapRatio),
             right_window->GetBoundsInScreen());
   EXPECT_EQ(left_window, split_view_controller->primary_window());
   EXPECT_EQ(right_window, split_view_controller->secondary_window());

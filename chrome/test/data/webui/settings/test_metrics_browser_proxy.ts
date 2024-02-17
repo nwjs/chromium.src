@@ -26,6 +26,9 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
       'recordPrivacyGuideStepsEligibleAndReachedHistogram',
       'recordDeleteBrowsingDataAction',
       'recordSafetyHubCardStateClicked',
+      'recordSafetyHubDashboardAnyWarning',
+      'recordSafetyHubEntryPointClicked',
+      'recordSafetyHubEntryPointShown',
       'recordSafetyHubImpression',
       'recordSafetyHubInteraction',
       'recordSafetyHubModuleWarningImpression',
@@ -33,10 +36,6 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
       'recordSafetyHubNotificationPermissionsModuleListCountHistogram',
       'recordSafetyHubUnusedSitePermissionsModuleInteractionsHistogram',
       'recordSafetyHubUnusedSitePermissionsModuleListCountHistogram',
-      'recordSafetyHubEntryPointShown',
-      'recordSafetyHubEntryPointClicked',
-      'recordSafetyHubModuleWarningImpression',
-      'recordSafetyHubDashboardAnyWarning',
     ]);
   }
 
@@ -127,12 +126,28 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
         'recordSafetyHubCardStateClicked', [histogramName, state]);
   }
 
+  recordSafetyHubDashboardAnyWarning(visible: boolean) {
+    this.methodCalled('recordSafetyHubDashboardAnyWarning', visible);
+  }
+
+  recordSafetyHubEntryPointClicked(page: SafetyHubEntryPoint) {
+    this.methodCalled('recordSafetyHubEntryPointClicked', page);
+  }
+
+  recordSafetyHubEntryPointShown(page: SafetyHubEntryPoint) {
+    this.methodCalled('recordSafetyHubModuleWarningImpression', page);
+  }
+
   recordSafetyHubImpression(surface: SafetyHubSurfaces) {
     this.methodCalled('recordSafetyHubImpression', surface);
   }
 
   recordSafetyHubInteraction(surface: SafetyHubSurfaces) {
     this.methodCalled('recordSafetyHubInteraction', surface);
+  }
+
+  recordSafetyHubModuleWarningImpression(module: SafetyHubModuleType) {
+    this.methodCalled('recordSafetyHubModuleWarningImpression', module);
   }
 
   recordSafetyHubNotificationPermissionsModuleInteractionsHistogram(
@@ -161,21 +176,5 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
     this.methodCalled(
         'recordSafetyHubUnusedSitePermissionsModuleListCountHistogram',
         suggestions);
-  }
-
-  recordSafetyHubEntryPointShown(page: SafetyHubEntryPoint) {
-    this.methodCalled('recordSafetyHubModuleWarningImpression', page);
-  }
-
-  recordSafetyHubEntryPointClicked(page: SafetyHubEntryPoint) {
-    this.methodCalled('recordSafetyHubEntryPointClicked', page);
-  }
-
-  recordSafetyHubModuleWarningImpression(module: SafetyHubModuleType) {
-    this.methodCalled('recordSafetyHubModuleWarningImpression', module);
-  }
-
-  recordSafetyHubDashboardAnyWarning(visible: boolean) {
-    this.methodCalled('recordSafetyHubDashboardAnyWarning', visible);
   }
 }

@@ -11,7 +11,7 @@
 #import "build/build_config.h"
 #import "components/infobars/core/infobar.h"
 #import "ios/chrome/browser/credential_provider_promo/model/features.h"
-#import "ios/chrome/browser/infobars/infobar_ios.h"
+#import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/overlays/model/public/default/default_infobar_overlay_request_config.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_response.h"
@@ -156,4 +156,25 @@ TEST_F(PasswordInfobarBannerOverlayMediatorTest,
   infobar_ = nullptr;
 
   [mediator_ bannerInfobarButtonWasPressed:nil];
+}
+
+// Tests that the infobar delegate is called on -finishDismissal when the
+// delegate is set.
+TEST_F(PasswordInfobarBannerOverlayMediatorTest, InfobarDone) {
+  InitInfobar();
+  EXPECT_CALL(mock_delegate(), InfobarGone).Times(1);
+  [mediator_ finishDismissal];
+}
+
+// Tests that the infobar delegate isn't called on -finishDismissal when the
+// infobar delegate is deleted.
+TEST_F(PasswordInfobarBannerOverlayMediatorTest,
+       InfobarDoneWhenInfobarDelegateDeleted) {
+  InitInfobar();
+  EXPECT_CALL(mock_delegate(), InfobarGone).Times(0);
+
+  // Delete the infobar to return a nullptr delegate.
+  infobar_.reset();
+
+  [mediator_ finishDismissal];
 }

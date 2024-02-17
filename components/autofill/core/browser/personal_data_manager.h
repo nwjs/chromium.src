@@ -8,8 +8,10 @@
 #include <deque>
 #include <list>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -52,29 +54,21 @@
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service_observer.h"
 #include "components/webdata/common/web_data_service_consumer.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 class PaymentsSuggestionBottomSheetMediatorTest;
 class Profile;
 class PrefService;
-
-namespace autofill {
-class AutofillImageFetcherBase;
-struct CreditCardArtImage;
-class PersonalDataManagerObserver;
-class PersonalDataManagerFactory;
-class PersonalDatabaseHelper;
-}  // namespace autofill
-
-namespace autofill_helper {
-void SetCreditCards(int, std::vector<autofill::CreditCard>*);
-}  // namespace autofill_helper
 
 namespace syncer {
 class SyncService;
 }  // namespace syncer
 
 namespace autofill {
+
+class AutofillImageFetcherBase;
+struct CreditCardArtImage;
+class PersonalDataManagerObserver;
+class PersonalDatabaseHelper;
 
 // The PersonalDataManager (PDM) has two main responsibilities:
 // - Caching the data stored in `AutofillTable` for synchronous retrieval.
@@ -216,9 +210,9 @@ class PersonalDataManager : public KeyedService,
   // signin::IdentityManager::Observer:
   void OnAccountsCookieDeletedByUserAction() override;
 
-  // Returns the account info of currently signed-in user, or absl::nullopt if
+  // Returns the account info of currently signed-in user, or std::nullopt if
   // the user is not signed-in or the identity manager is not available.
-  absl::optional<CoreAccountInfo> GetPrimaryAccountInfo() const;
+  std::optional<CoreAccountInfo> GetPrimaryAccountInfo() const;
 
   // Returns whether credit card download is active (meaning that wallet sync is
   // running at least in transport mode).
@@ -238,15 +232,19 @@ class PersonalDataManager : public KeyedService,
   // Removes |observer| as an observer of this PersonalDataManager.
   virtual void RemoveObserver(PersonalDataManagerObserver* observer);
 
-  // Notifies test observers that an address or credit card could not be
-  // imported from a form.
-  void MarkObserversInsufficientFormDataForImport();
-
   // Called to indicate |profile_or_credit_card| was used (to fill in a form).
   // Updates the database accordingly.
   virtual void RecordUseOf(
       absl::variant<const AutofillProfile*, const CreditCard*>
           profile_or_credit_card);
+
+  // Called to indicate `iban` was used (to fill in a form). Updates the
+  // database accordingly.
+  virtual void RecordUseOfIban(Iban& iban);
+
+  // Try to save a credit card locally. If the card already exists, do nothing
+  // and return false. If the card is new, save it locally and return true.
+  virtual bool SaveCardLocallyIfNew(const CreditCard& imported_credit_card);
 
   // Called when the user accepts the prompt to save the credit card locally.
   // Records some metrics and attempts to save the imported card. Returns the
@@ -283,7 +281,7 @@ class PersonalDataManager : public KeyedService,
   // Users based in unsupported countries and profiles with a country value set
   // to an unsupported country are not eligible for account storage. This
   // function determines if the `country_code` is eligible.
-  bool IsCountryEligibleForAccountStorage(base::StringPiece country_code) const;
+  bool IsCountryEligibleForAccountStorage(std::string_view country_code) const;
 
   // Migrates a given kLocalOrSyncable `profile` to source kAccount. This has
   // multiple side-effects for the profile:
@@ -375,9 +373,9 @@ class PersonalDataManager : public KeyedService,
   // TODO(1426498): rewrite tests that rely on this method to use Init instead.
   void SetSyncServiceForTest(syncer::SyncService* sync_service);
 
-  // Returns the IBAN with the specified |guid|, or nullptr if there is no IBAN
-  // with the specified |guid|.
-  virtual const Iban* GetIbanByGUID(const std::string& guid);
+  // Returns the IBAN with the specified `guid`, or nullptr if there is no IBAN
+  // with the specified `guid`.
+  const Iban* GetIbanByGUID(const std::string& guid) const;
 
   // Returns the IBAN if any cached IBAN in `server_ibans_` has the same
   // `instrument_id` as the given `instrument_id`, otherwise returns nullptr.
@@ -400,7 +398,7 @@ class PersonalDataManager : public KeyedService,
   CreditCard* GetCreditCardByServerId(const std::string& server_id);
 
   // Gets the field types available in the stored address and credit card data.
-  void GetNonEmptyTypes(ServerFieldTypeSet* non_empty_types) const;
+  void GetNonEmptyTypes(FieldTypeSet* non_empty_types) const;
 
   // Returns whether the personal data has been loaded from the web database.
   virtual bool IsDataLoaded() const;
@@ -501,7 +499,6 @@ class PersonalDataManager : public KeyedService,
   // Returns the |app_locale_| that was provided during construction.
   const std::string& app_locale() const { return app_locale_; }
 
-#ifdef UNIT_TEST
   // Returns the country code that was provided from the variations service
   // during construction.
   const std::string& variations_country_code_for_testing() const {
@@ -512,17 +509,6 @@ class PersonalDataManager : public KeyedService,
   void set_variations_country_code_for_testing(std::string country_code) {
     variations_country_code_ = country_code;
   }
-
-#if BUILDFLAG(IS_IOS)
-  // Returns the raw pointer to PersonalDataManagerCleaner used for testing
-  // purposes.
-  PersonalDataManagerCleaner* personal_data_manager_cleaner_for_testing()
-      const {
-    DCHECK(personal_data_manager_cleaner_);
-    return personal_data_manager_cleaner_.get();
-  }
-#endif  // IOS
-#endif  // UNIT_TEST
 
   // Returns our best guess for the country a user is likely to use when
   // inputting a new address. The value is calculated once and cached, so it
@@ -556,10 +542,8 @@ class PersonalDataManager : public KeyedService,
   // Cancels any pending queries to the server web database.
   void CancelPendingServerQueries();
 
-#if defined(UNIT_TEST)
   // Returns if there are any pending queries to the web database.
   bool HasPendingQueriesForTesting() { return HasPendingQueries(); }
-#endif
 
   // This function assumes |credit_card| contains the full PAN. Returns |true|
   // if the card number of |credit_card| is equal to any local card or any
@@ -586,6 +570,10 @@ class PersonalDataManager : public KeyedService,
   // Logs the fact that the server card link was clicked including information
   // about the current sync state.
   void LogServerCardLinkClicked() const;
+
+  // Logs the fact that the server IBAN link was clicked including information
+  // about the current sync state.
+  void LogServerIbanLinkClicked() const;
 
   // Records the sync transport consent if the user is in sync transport mode.
   virtual void OnUserAcceptedUpstreamOffer();
@@ -710,12 +698,11 @@ class PersonalDataManager : public KeyedService,
     return auto_accept_address_imports_for_testing_;
   }
 
-  void set_test_addresses(
-      std::vector<autofill::AutofillProfile> test_addresses) {
+  void set_test_addresses(std::vector<AutofillProfile> test_addresses) {
     test_addresses_ = test_addresses;
   }
 
-  const std::vector<autofill::AutofillProfile>& test_addresses() const {
+  const std::vector<AutofillProfile>& test_addresses() const {
     return test_addresses_;
   }
 
@@ -726,30 +713,19 @@ class PersonalDataManager : public KeyedService,
   // still-supported paths (filling, editing, and deleting full server cards).
   void AddFullServerCreditCardForTesting(const CreditCard& credit_card);
 
+  AlternativeStateNameMapUpdater*
+  get_alternative_state_name_map_updater_for_testing() {
+    return alternative_state_name_map_updater_.get();
+  }
+
  protected:
-  // Only PersonalDataManagerFactory and certain tests can create instances of
-  // PersonalDataManager.
   FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
                            AddAndGetCreditCardArtImage);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           GetProfilesToSuggest_ProfileAutofillDisabled);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           GetProfilesToSuggest_NoProfilesLoadedIfDisabled);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           GetProfilesToSuggest_NoProfilesAddedIfDisabled);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           GetCreditCardsToSuggest_CreditCardAutofillDisabled);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           GetCreditCardsToSuggest_NoCardsLoadedIfDisabled);
-  FRIEND_TEST_ALL_PREFIXES(
-      PersonalDataManagerTest,
-      GetCreditCardsToSuggest_NoCreditCardsAddedIfDisabled);
   FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest, LogStoredCreditCardMetrics);
 
-  friend class autofill::PersonalDataManagerCleaner;
   friend class ::PaymentsSuggestionBottomSheetMediatorTest;
+  friend class PersonalDataManagerCleaner;
   friend class VirtualCardEnrollmentManagerTest;
-  friend std::default_delete<PersonalDataManager>;
 
   // Used to get a pointer to the strike database for migrating existing
   // profiles. Note, the result can be a nullptr, for example, on incognito
@@ -805,8 +781,9 @@ class PersonalDataManager : public KeyedService,
   // addresses, credit card, offer and IBAN. On subsequent calls, does nothing.
   void LogStoredDataMetrics() const;
 
-  // Whether the server cards are enabled and should be suggested to the user.
-  virtual bool ShouldSuggestServerCards() const;
+  // Whether server cards or IBANs are enabled and should be suggested to the
+  // user.
+  virtual bool ShouldSuggestServerPaymentMethods() const;
 
   // Overrideable for testing.
   virtual std::string CountryCodeForCurrentTimezone() const;
@@ -1040,7 +1017,7 @@ class PersonalDataManager : public KeyedService,
   bool is_syncing_for_test_ = false;
 
   // Test addresses used to allow developers to test their forms.
-  std::vector<autofill::AutofillProfile> test_addresses_;
+  std::vector<AutofillProfile> test_addresses_;
 
   base::ScopedObservation<history::HistoryService, HistoryServiceObserver>
       history_service_observation_{this};

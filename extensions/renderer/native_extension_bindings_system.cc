@@ -4,13 +4,13 @@
 
 #include "extensions/renderer/native_extension_bindings_system.h"
 
+#include <string_view>
 #include <utility>
 #include "extensions/common/manifest_constants.h"
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
@@ -18,7 +18,6 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/renderer/render_thread.h"
 #include "extensions/common/constants.h"
-#include "extensions/common/context_type_adapter.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/features/feature.h"
@@ -26,8 +25,10 @@
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/content_capabilities_handler.h"
 #include "extensions/common/manifest_handlers/externally_connectable.h"
+#include "extensions/common/mojom/context_type.mojom.h"
 #include "extensions/common/mojom/event_dispatcher.mojom.h"
 #include "extensions/common/mojom/frame.mojom.h"
+#include "extensions/common/utils/extension_utils.h"
 #include "extensions/renderer/api/declarative_content_hooks_delegate.h"
 #include "extensions/renderer/api/dom_hooks_delegate.h"
 #include "extensions/renderer/api/feedback_private_hooks_delegate.h"
@@ -82,7 +83,7 @@ bool is_creating_hidden_binding = false;
 // For example, 'app.runtime' is a prefixed api of 'app'.
 // This is designed to be used as a utility when iterating over a sorted map, so
 // assumes that |api| is lexicographically greater than |root_api|.
-bool IsPrefixedAPI(base::StringPiece api, base::StringPiece root_api) {
+bool IsPrefixedAPI(std::string_view api, std::string_view root_api) {
   DCHECK_NE(api, root_api);
   DCHECK_GT(api, root_api);
   return base::StartsWith(api, root_api, base::CompareCase::SENSITIVE) &&
@@ -95,12 +96,13 @@ bool IsPrefixedAPI(base::StringPiece api, base::StringPiece root_api) {
 // 'cast.streaming.session' and a reference of 'cast', this returns
 // 'cast.streaming'. If reference is empty, this simply returns the first layer;
 // so given 'app.runtime' and no reference, this returns 'app'.
-base::StringPiece GetFirstDifferentAPIName(base::StringPiece api_name,
-                                           base::StringPiece reference) {
-  base::StringPiece::size_type dot =
+std::string_view GetFirstDifferentAPIName(std::string_view api_name,
+                                          std::string_view reference) {
+  std::string_view::size_type dot =
       api_name.find('.', reference.empty() ? 0 : reference.size() + 1);
-  if (dot == base::StringPiece::npos)
+  if (dot == std::string_view::npos) {
     return api_name;
+  }
   return api_name.substr(0, dot);
 }
 
@@ -244,13 +246,21 @@ bool ArePromisesAllowed(v8::Local<v8::Context> context) {
   if (extension && extension->manifest_version() >= 3) {
     return true;
   }
-  if (script_context->context_type() == Feature::WEBUI_CONTEXT) {
-    return true;
+  switch (script_context->context_type()) {
+    case mojom::ContextType::kWebUi:
+    case mojom::ContextType::kUntrustedWebUi:
+    case mojom::ContextType::kWebPage:
+      return true;
+    case mojom::ContextType::kUnspecified:
+    case mojom::ContextType::kPrivilegedWebPage:
+    case mojom::ContextType::kPrivilegedExtension:
+    case mojom::ContextType::kLockscreenExtension:
+    case mojom::ContextType::kOffscreenExtension:
+    case mojom::ContextType::kUnprivilegedExtension:
+    case mojom::ContextType::kUserScript:
+    case mojom::ContextType::kContentScript:
+      return false;
   }
-  if (script_context->context_type() == Feature::WEB_PAGE_CONTEXT) {
-    return true;
-  }
-  return false;
 }
 
 // Instantiates the binding object for the given |name|. |name| must specify a
@@ -336,7 +346,7 @@ v8::Local<v8::Object> CreateFullBinding(
   // start with the same base name (e.g. 'app') + '.' (since '.' is < x for any
   // absl::ascii_isalpha(x)).
   std::string upper = root_name + static_cast<char>('.' + 1);
-  base::StringPiece last_binding_name;
+  std::string_view last_binding_name;
   // The following loop is a little painful because we have crazy binding names
   // and syntaxes. The way this works is as follows:
   // Look at each feature after the root feature we passed in. If there exists
@@ -380,7 +390,7 @@ v8::Local<v8::Object> CreateFullBinding(
     if (api_feature_provider->GetParent(*iter->second) != nullptr)
       continue;
 
-    base::StringPiece binding_name =
+    std::string_view binding_name =
         GetFirstDifferentAPIName(iter->first, root_name);
 
     v8::Local<v8::Object> nested_binding =
@@ -398,8 +408,8 @@ v8::Local<v8::Object> CreateFullBinding(
     // expose it on the object simply as 'runtime'.
     // Cache the last_binding_name now before mangling it.
     last_binding_name = binding_name;
-    DCHECK_NE(base::StringPiece::npos, binding_name.rfind('.'));
-    base::StringPiece accessor_name =
+    DCHECK_NE(std::string_view::npos, binding_name.rfind('.'));
+    std::string_view accessor_name =
         binding_name.substr(binding_name.rfind('.') + 1);
     v8::Local<v8::String> nested_name =
         gin::StringToSymbol(context->GetIsolate(), accessor_name);
@@ -540,9 +550,10 @@ void NativeExtensionBindingsSystem::DidCreateScriptContext(
 
   // Set the scripting params object for if we are running in a content script
   // context. This effectively checks that we are running in an isolated world
-  // since main world script contexts have a different Feature::Context type.
-  if (context->context_type() == Feature::CONTENT_SCRIPT_CONTEXT)
+  // since main world script contexts have a different mojom::ContextType type.
+  if (context->context_type() == mojom::ContextType::kContentScript) {
     SetScriptingParams(context);
+  }
 }
 
 void NativeExtensionBindingsSystem::WillReleaseScriptContext(
@@ -570,7 +581,7 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
   DCHECK(GetBindingsDataFromContext(v8_context));
 
   auto set_accessor = [chrome, isolate,
-                       v8_context](base::StringPiece accessor_name) {
+                       v8_context](std::string_view accessor_name) {
     v8::Local<v8::String> api_name =
         gin::StringToSymbol(isolate, accessor_name);
     v8::Maybe<bool> success = chrome->SetLazyDataProperty(
@@ -597,8 +608,8 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
   const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
   bool hidden_nw = true;
   if (nodejs_enabled &&
-    (context->context_type() == Feature::BLESSED_EXTENSION_CONTEXT ||
-      context->context_type() == Feature::BLESSED_WEB_PAGE_CONTEXT ||
+      (context->context_type() == mojom::ContextType::kPrivilegedExtension ||
+       context->context_type() == mojom::ContextType::kPrivilegedWebPage ||
      command_line.HasSwitch("nwjs-guest-nw")))
     hidden_nw = false;
   nw_obj = GetOrCreateChrome(v8_context, "nw", hidden_nw);
@@ -615,7 +626,7 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
   };
 
   auto set_restricted_accessor = [chrome, isolate,
-                                  v8_context](base::StringPiece accessor_name) {
+                                  v8_context](std::string_view accessor_name) {
     v8::Local<v8::String> api_name =
         gin::StringToSymbol(isolate, accessor_name);
     v8::Maybe<bool> success = chrome->SetLazyDataProperty(
@@ -626,19 +637,19 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
   bool is_webpage = false;
 
   switch (context->context_type()) {
-    case Feature::UNSPECIFIED_CONTEXT:
-    case Feature::WEB_PAGE_CONTEXT:
-    case Feature::BLESSED_WEB_PAGE_CONTEXT:
+    case mojom::ContextType::kUnspecified:
+    case mojom::ContextType::kWebPage:
+    case mojom::ContextType::kPrivilegedWebPage:
       is_webpage = true;
       break;
-    case Feature::BLESSED_EXTENSION_CONTEXT:
-    case Feature::LOCK_SCREEN_EXTENSION_CONTEXT:
-    case Feature::OFFSCREEN_EXTENSION_CONTEXT:
-    case Feature::UNBLESSED_EXTENSION_CONTEXT:
-    case Feature::USER_SCRIPT_CONTEXT:
-    case Feature::CONTENT_SCRIPT_CONTEXT:
-    case Feature::WEBUI_CONTEXT:
-    case Feature::WEBUI_UNTRUSTED_CONTEXT:
+    case mojom::ContextType::kPrivilegedExtension:
+    case mojom::ContextType::kLockscreenExtension:
+    case mojom::ContextType::kOffscreenExtension:
+    case mojom::ContextType::kUnprivilegedExtension:
+    case mojom::ContextType::kUserScript:
+    case mojom::ContextType::kContentScript:
+    case mojom::ContextType::kWebUi:
+    case mojom::ContextType::kUntrustedWebUi:
       is_webpage = false;
   }
 
@@ -674,7 +685,7 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
       feature_cache_.GetAvailableFeatures(
           context->context_type(), context->extension(), context->url(),
           RendererFrameContextData(context->web_frame()));
-  base::StringPiece last_accessor;
+  std::string_view last_accessor;
   for (const std::string& feature : features) {
     // If we've already set up an accessor for the immediate property of the
     // chrome object, we don't need to do more.
@@ -691,8 +702,8 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
     // creation, but also when e.g. permissions change. Do we need to be
     // checking for whether or not the API already exists on the object as well
     // as if we need to remove any existing APIs?
-    base::StringPiece accessor_name =
-        GetFirstDifferentAPIName(feature, base::StringPiece());
+    std::string_view accessor_name =
+        GetFirstDifferentAPIName(feature, std::string_view());
     if (accessor_name.substr(0, 3) == "nw." && nw_obj.IsEmpty())
       continue;
     if (feature.substr(0, 3) == "nw.") {
@@ -719,8 +730,8 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
           RendererFrameContextData(context->web_frame()));
 
   for (const std::string& feature : dev_mode_features) {
-    base::StringPiece accessor_name =
-        GetFirstDifferentAPIName(feature, base::StringPiece());
+    std::string_view accessor_name =
+        GetFirstDifferentAPIName(feature, std::string_view());
     // This code only works for restricting top-level features to developer
     // mode. For sub-features, this would result in overwriting the accessor
     // for the root API object and restricting the whole API.
@@ -784,7 +795,7 @@ void NativeExtensionBindingsSystem::UpdateBindings(
   }
 
   script_context_set->ForEach(
-      extension_id,
+      GenerateHostIdFromExtensionId(extension_id),
       base::BindRepeating(
           &NativeExtensionBindingsSystem::UpdateBindingsForContext,
           // Called synchronously.
@@ -994,7 +1005,7 @@ void NativeExtensionBindingsSystem::SendRequest(
     std::unique_ptr<APIRequestHandler::Request> request,
     v8::Local<v8::Context> context) {
   ScriptContext* script_context = GetScriptContextFromV8ContextChecked(context);
-  CHECK_NE(Feature::UNSPECIFIED_CONTEXT, script_context->context_type())
+  CHECK_NE(mojom::ContextType::kUnspecified, script_context->context_type())
       << "Attempting to send a request from an unspecified context type. "
       << "Request: " << request->method_name
       << ", Context: " << script_context->GetDebugString();
@@ -1013,8 +1024,7 @@ void NativeExtensionBindingsSystem::SendRequest(
   params->arguments = std::move(request->arguments_list);
   params->extension_id = script_context->GetExtensionID();
   params->source_url = url;
-  params->context_type =
-      FeatureContextToMojomContext(script_context->context_type());
+  params->context_type = script_context->context_type();
   params->request_id = request->request_id;
   params->has_callback = request->has_async_response_handler;
   params->user_gesture = request->has_user_gesture;
@@ -1022,7 +1032,7 @@ void NativeExtensionBindingsSystem::SendRequest(
   params->worker_thread_id = kMainThreadId;
   params->service_worker_version_id =
       blink::mojom::kInvalidServiceWorkerVersionId;
-  CHECK_NE(Feature::UNSPECIFIED_CONTEXT, script_context->context_type())
+  CHECK_NE(mojom::ContextType::kUnspecified, script_context->context_type())
       << script_context->GetDebugString();
 
   ipc_message_sender_->SendRequestIPC(script_context, std::move(params),
@@ -1116,9 +1126,9 @@ void NativeExtensionBindingsSystem::GetJSBindingUtil(
 
 void NativeExtensionBindingsSystem::UpdateContentCapabilities(
     ScriptContext* context) {
-  Feature::Context context_type = context->context_type();
-  if (context_type != Feature::WEB_PAGE_CONTEXT &&
-      context_type != Feature::BLESSED_WEB_PAGE_CONTEXT) {
+  mojom::ContextType context_type = context->context_type();
+  if (context_type != mojom::ContextType::kWebPage &&
+      context_type != mojom::ContextType::kPrivilegedWebPage) {
     return;
   }
 

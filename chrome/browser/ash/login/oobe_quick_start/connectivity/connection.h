@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_ASH_LOGIN_OOBE_QUICK_START_CONNECTIVITY_CONNECTION_H_
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/functional/callback_forward.h"
@@ -28,7 +29,6 @@
 #include "components/cbor/values.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
 #include "mojo/public/cpp/bindings/struct_ptr.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/origin.h"
 
 namespace ash::quick_start {
@@ -111,9 +111,9 @@ class Connection
   friend class ConnectionTest;
 
   using ConnectionResponseCallback =
-      base::OnceCallback<void(absl::optional<std::vector<uint8_t>>)>;
+      base::OnceCallback<void(std::optional<std::vector<uint8_t>>)>;
   using PayloadResponseCallback =
-      base::OnceCallback<void(absl::optional<std::vector<uint8_t>>)>;
+      base::OnceCallback<void(std::optional<std::vector<uint8_t>>)>;
   using OnDecodingCompleteCallback =
       base::OnceCallback<void(mojom::QuickStartMessagePtr)>;
 
@@ -126,6 +126,7 @@ class Connection
       RequestAccountTransferAssertionCallback callback) override;
   void WaitForUserVerification(AwaitUserVerificationCallback callback) override;
   base::Value::Dict GetPrepareForUpdateInfo() override;
+  void NotifyPhoneSetupComplete() override;
 
   void DoWaitForUserVerification(size_t attempt_number,
                                  AwaitUserVerificationCallback callback);
@@ -172,7 +173,7 @@ class Connection
 
   void OnHandshakeResponse(const std::string& authentication_token,
                            HandshakeSuccessCallback callback,
-                           absl::optional<std::vector<uint8_t>> response_bytes);
+                           std::optional<std::vector<uint8_t>> response_bytes);
 
   void OnConnectionClosed(
       TargetDeviceConnectionBroker::ConnectionClosedReason reason);
@@ -180,16 +181,16 @@ class Connection
   void OnResponseTimeout(QuickStartResponseType response_type);
   void OnResponseReceived(ConnectionResponseCallback callback,
                           QuickStartResponseType response_type,
-                          absl::optional<std::vector<uint8_t>> response_bytes);
+                          std::optional<std::vector<uint8_t>> response_bytes);
 
   // Generic method to decode data using QuickStartDecoder. If a decoding error
   // occurs, return invoke |on_decoding_complete| with nullptr. On success,
   // |on_decoding_complete| will be called with the decoded data.
   void DecodeQuickStartMessage(OnDecodingCompleteCallback on_decoding_complete,
-                               absl::optional<std::vector<uint8_t>> data);
+                               std::optional<std::vector<uint8_t>> data);
 
   base::OneShotTimer response_timeout_timer_;
-  raw_ptr<NearbyConnection, ExperimentalAsh> nearby_connection_;
+  raw_ptr<NearbyConnection> nearby_connection_;
   SessionContext session_context_;
   State connection_state_ = State::kOpen;
   ConnectionClosedCallback on_connection_closed_;

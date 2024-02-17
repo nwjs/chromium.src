@@ -36,7 +36,6 @@
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/autofill/core/common/autofill_prefs.h"
-#import "components/autofill/core/common/autofill_tick_clock.h"
 #import "components/autofill/core/common/autofill_util.h"
 #import "components/autofill/core/common/field_data_manager.h"
 #import "components/autofill/core/common/form_data.h"
@@ -244,15 +243,34 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
 }
 
 // Notifies the autofill manager when forms are detected on a page.
-- (void)notifyBrowserAutofillManager:
-            (autofill::BrowserAutofillManager*)autofillManager
-                         ofFormsSeen:(const FormDataVector&)updated_forms {
-  DCHECK(autofillManager);
-  DCHECK(!updated_forms.empty());
+- (void)notifyFormsSeen:(const FormDataVector&)updatedForms
+                inFrame:(web::WebFrame*)frame {
+  auto* driver =
+      autofill::AutofillDriverIOS::FromWebStateAndWebFrame(_webState, frame);
+  if (!driver) {
+    return;
+  }
+
+  DCHECK(!updatedForms.empty());
+
+  if (base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAcrossIframesIos)) {
+    for (const autofill::FormData& form : updatedForms) {
+      for (const autofill::FrameTokenWithPredecessor& childFrame :
+           form.child_frames) {
+        // This absl::get is safe because on iOS, FormData::child_frames is
+        // only ever populated with RemoteFrameTokens. absl::get will fail a
+        // CHECK if this assumption is ever wrong.
+        auto token = absl::get<autofill::RemoteFrameToken>(childFrame.token);
+        driver->NotifyOfChildFrame(token);
+      }
+    }
+  }
+
   // TODO(crbug.com/1215337): Notify |autofillManager| about deleted fields.
-  std::vector<FormGlobalId> removed_forms;
-  autofillManager->OnFormsSeen(/*updated_forms=*/updated_forms,
-                               /*removed_forms=*/removed_forms);
+  std::vector<FormGlobalId> removedForms;
+  driver->GetAutofillManager().OnFormsSeen(/*updated_forms=*/updatedForms,
+                                           /*removed_forms=*/removedForms);
 }
 
 // Notifies the autofill manager when forms are submitted.
@@ -486,10 +504,7 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
                 SysNSStringToUTF8(suggestion.backendIdentifier)));
       }
 
-      // On iOS, only a single trigger source exists. See crbug.com/1448447.
-      _popupDelegate->DidAcceptSuggestion(
-          autofill_suggestion, {0, 0},
-          autofill::AutofillSuggestionTriggerSource::kiOS);
+      _popupDelegate->DidAcceptSuggestion(autofill_suggestion, {0, 0});
     }
     return;
   }
@@ -592,8 +607,7 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
   autofill::BrowserAutofillManager* autofillManager =
       [self autofillManagerFromWebState:_webState webFrame:frame];
   if (autofillManager)
-    autofillManager->OnDidFillAutofillFormData(
-        form, autofill::AutofillTickClock::NowTicks());
+    autofillManager->OnDidFillAutofillFormData(form, base::TimeTicks::Now());
 }
 
 // Similar to `fillField`, but does not rely on `FillActiveFormField`, opting
@@ -629,7 +643,9 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
       }));
 }
 
-- (void)handleParsedForms:(const std::vector<autofill::FormStructure*>&)forms
+- (void)handleParsedForms:
+            (const std::vector<
+                raw_ptr<autofill::FormStructure, VectorExperimental>>&)forms
                   inFrame:(web::WebFrame*)frame {
 }
 
@@ -654,6 +670,27 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
   }
   AutofillJavaScriptFeature::GetInstance()->FillPredictionData(
       frame, std::move(predictionData));
+}
+
+- (void)scanFormsInWebState:(web::WebState*)webState
+                    inFrame:(web::WebFrame*)webFrame {
+  __weak AutofillAgent* weakSelf = self;
+  id completionHandler = ^(BOOL success, const FormDataVector& forms) {
+    if (!success || forms.empty()) {
+      return;
+    }
+    [weakSelf notifyFormsSeen:forms inFrame:webFrame];
+  };
+  // The document has now been fully loaded. Scan for forms to be extracted.
+  size_t min_required_fields =
+      MIN(autofill::kMinRequiredFieldsForUpload,
+          MIN(autofill::kMinRequiredFieldsForHeuristics,
+              autofill::kMinRequiredFieldsForQuery));
+  [self fetchFormsFiltered:NO
+                        withName:std::u16string()
+      minimumRequiredFieldsCount:min_required_fields
+                         inFrame:webFrame
+               completionHandler:completionHandler];
 }
 
 #pragma mark - AutofillClientIOSBridge
@@ -914,31 +951,6 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
   [self scanFormsInWebState:webState inFrame:frame];
 }
 
-- (void)scanFormsInWebState:(web::WebState*)webState
-                    inFrame:(web::WebFrame*)webFrame {
-  __weak AutofillAgent* weakSelf = self;
-  id completionHandler = ^(BOOL success, const FormDataVector& forms) {
-    AutofillAgent* strongSelf = weakSelf;
-    if (!strongSelf || !success)
-      return;
-    autofill::BrowserAutofillManager* autofillManager =
-        [strongSelf autofillManagerFromWebState:webState webFrame:webFrame];
-    if (!autofillManager || forms.empty())
-      return;
-    [strongSelf notifyBrowserAutofillManager:autofillManager ofFormsSeen:forms];
-  };
-  // The document has now been fully loaded. Scan for forms to be extracted.
-  size_t min_required_fields =
-      MIN(autofill::kMinRequiredFieldsForUpload,
-          MIN(autofill::kMinRequiredFieldsForHeuristics,
-              autofill::kMinRequiredFieldsForQuery));
-  [self fetchFormsFiltered:NO
-                        withName:std::u16string()
-      minimumRequiredFieldsCount:min_required_fields
-                         inFrame:webFrame
-               completionHandler:completionHandler];
-}
-
 #pragma mark -
 #pragma mark FormActivityObserver
 
@@ -1166,8 +1178,8 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
 
   autofill::FormFieldData field;
   GetFormField(&field, forms[0], fieldIdentifier);
-  autofillManager->OnTextFieldDidChange(
-      forms[0], field, gfx::RectF(), autofill::AutofillTickClock::NowTicks());
+  autofillManager->OnTextFieldDidChange(forms[0], field, gfx::RectF(),
+                                        base::TimeTicks::Now());
 }
 
 // Helper method to create icons for payment cards.

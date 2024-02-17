@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.app.Activity;
 import android.graphics.Rect;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -15,11 +16,13 @@ import androidx.annotation.Nullable;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
@@ -44,7 +47,8 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
     private final ObservableSupplierImpl<Boolean> mBackPressChangedSupplier =
             new ObservableSupplierImpl<>();
     private final Activity mActivity;
-    private TabModelSelector mTabModelSelector;
+    private final ObservableSupplier<TabModelFilter> mCurrentTabModelFilterSupplier;
+    private final Supplier<TabModel> mRegularTabModelSupplier;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private TabContentManager mTabContentManager;
     private TabListEditorCoordinator mTabListEditorCoordinator;
@@ -54,11 +58,12 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
     TabGridDialogCoordinator(
             Activity activity,
             BrowserControlsStateProvider browserControlsStateProvider,
-            TabModelSelector tabModelSelector,
+            @NonNull ObservableSupplier<TabModelFilter> currentTabModelFilterSupplier,
+            @NonNull Supplier<TabModel> regularTabModelSupplier,
             TabContentManager tabContentManager,
             TabCreatorManager tabCreatorManager,
             ViewGroup containerView,
-            TabSwitcherMediator.ResetHandler resetHandler,
+            TabSwitcherResetHandler resetHandler,
             TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             TabGridDialogMediator.AnimationSourceViewProvider animationSourceViewProvider,
             ScrimCoordinator scrimCoordinator,
@@ -71,7 +76,8 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             ? "TabGridDialogFromStrip"
                             : "TabGridDialogInSwitcher";
             mBrowserControlsStateProvider = browserControlsStateProvider;
-            mTabModelSelector = tabModelSelector;
+            mCurrentTabModelFilterSupplier = currentTabModelFilterSupplier;
+            mRegularTabModelSupplier = regularTabModelSupplier;
             mTabContentManager = tabContentManager;
 
             mModel =
@@ -97,7 +103,7 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             activity,
                             this,
                             mModel,
-                            tabModelSelector,
+                            currentTabModelFilterSupplier,
                             tabCreatorManager,
                             resetHandler,
                             this::getRecyclerViewPosition,
@@ -114,7 +120,8 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                                     : TabListCoordinator.TabListMode.GRID,
                             activity,
                             mBrowserControlsStateProvider,
-                            tabModelSelector,
+                            currentTabModelFilterSupplier,
+                            regularTabModelSupplier,
                             (tabId,
                                     thumbnailSize,
                                     callback,
@@ -157,7 +164,7 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
             // TODO(crbug/1418690): Consider inlining these behaviors in their respective
             // constructors if possible.
             mMediator.initWithNative(this::getTabListEditorController, tabGroupTitleEditor);
-            mTabListCoordinator.initWithNative(null);
+            mTabListCoordinator.initWithNative(mRegularTabModelSupplier.get().getProfile(), null);
         }
     }
 
@@ -178,7 +185,8 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             mActivity,
                             mDialogView.findViewById(R.id.dialog_container_view),
                             mBrowserControlsStateProvider,
-                            mTabModelSelector,
+                            mCurrentTabModelFilterSupplier,
+                            mRegularTabModelSupplier,
                             mTabContentManager,
                             mTabListCoordinator::setRecyclerViewPosition,
                             mode,
@@ -206,9 +214,27 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
         return mMediator.isVisible();
     }
 
+    /**
+     * @param tabId The tab ID to get a rect for.
+     * @return a {@link Rect} for the tab's thumbnail (may be an empty rect if the tab is not
+     *     found).
+     */
+    @NonNull
+    Rect getTabThumbnailRect(int tabId) {
+        return mTabListCoordinator.getTabThumbnailRect(tabId);
+    }
+
+    @NonNull
+    Size getThumbnailSize() {
+        return mTabListCoordinator.getThumbnailSize();
+    }
+
+    void waitForLayoutWithTab(int tabId, Runnable r) {
+        mTabListCoordinator.waitForLayoutWithTab(tabId, r);
+    }
+
     @NonNull
     Rect getGlobalLocationOfCurrentThumbnail() {
-        mTabListCoordinator.updateThumbnailLocation();
         Rect thumbnail = mTabListCoordinator.getThumbnailLocationOfCurrentTab();
         Rect recyclerViewLocation = mTabListCoordinator.getRecyclerViewLocation();
         thumbnail.offset(recyclerViewLocation.left, recyclerViewLocation.top);

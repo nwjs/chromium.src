@@ -703,17 +703,10 @@ bool HTMLMediaElement::SupportsFocus(UpdateBehavior update_behavior) const {
 }
 
 bool HTMLMediaElement::IsFocusable(UpdateBehavior update_behavior) const {
-  if (!SupportsFocus()) {
+  if (!SupportsFocus(update_behavior)) {
     return false;
   }
   return !IsFullscreen() || HTMLElement::IsFocusable(update_behavior);
-}
-
-bool HTMLMediaElement::IsKeyboardFocusable(
-    UpdateBehavior update_behavior) const {
-  // Media elements are keyboard focusable if they are focusable at all,
-  // and don't have a negative tabindex set.
-  return IsFocusable(update_behavior) && tabIndex() >= 0;
 }
 
 int HTMLMediaElement::DefaultTabIndex() const {

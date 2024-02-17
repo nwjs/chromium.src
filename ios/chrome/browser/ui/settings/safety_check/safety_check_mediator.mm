@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_mediator.h"
+#import "ios/chrome/browser/ui/settings/safety_check/safety_check_mediator+Testing.h"
 
 #import "base/apple/foundation_util.h"
 #import "base/metrics/histogram_functions.h"
@@ -43,7 +44,6 @@
 #import "ios/chrome/browser/ui/settings/cells/settings_check_item.h"
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_constants.h"
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_consumer.h"
-#import "ios/chrome/browser/ui/settings/safety_check/safety_check_mediator+private.h"
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_navigation_commands.h"
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_utils.h"
@@ -176,6 +176,56 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
 
 // When the check was started.
 @property(nonatomic, assign) base::Time checkStartTime;
+
+// SettingsCheckItem used to display the state of the update check.
+@property(nonatomic, strong) SettingsCheckItem* updateCheckItem;
+
+// Current state of the update check.
+@property(nonatomic, assign) UpdateCheckRowStates updateCheckRowState;
+
+// Previous on load or finished check state of the update check.
+@property(nonatomic, assign) UpdateCheckRowStates previousUpdateCheckRowState;
+
+// SettingsCheckItem used to display the state of the password check.
+@property(nonatomic, strong) SettingsCheckItem* passwordCheckItem;
+
+// Current state of the password check.
+@property(nonatomic, assign) PasswordCheckRowStates passwordCheckRowState;
+
+// Previous on load or finished check state of the password check.
+@property(nonatomic, assign)
+    PasswordCheckRowStates previousPasswordCheckRowState;
+
+// SettingsCheckItem used to display the state of the Safe Browsing check.
+@property(nonatomic, strong) SettingsCheckItem* safeBrowsingCheckItem;
+
+// Current state of the Safe Browsing check.
+@property(nonatomic, assign)
+    SafeBrowsingCheckRowStates safeBrowsingCheckRowState;
+
+// Previous on load or finished check state of the Safe Browsing check.
+@property(nonatomic, assign)
+    SafeBrowsingCheckRowStates previousSafeBrowsingCheckRowState;
+
+// Row button to start the safety check.
+@property(nonatomic, strong) TableViewTextItem* checkStartItem;
+
+// Current state of the start safety check row button.
+@property(nonatomic, assign) CheckStartStates checkStartState;
+
+// Whether or not a safety check just ran.
+@property(nonatomic, assign) BOOL checkDidRun;
+
+// Current state of password check.
+@property(nonatomic, assign) PasswordCheckState currentPasswordCheckState;
+
+// Preference value for Safe Browsing.
+@property(nonatomic, strong, readonly)
+    PrefBackedBoolean* safeBrowsingPreference;
+
+// Preference value for Enhanced Safe Browsing.
+@property(nonatomic, strong, readonly)
+    PrefBackedBoolean* enhancedSafeBrowsingPreference;
 
 @end
 
@@ -371,14 +421,16 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
         case UpdateCheckRowStateNetError:      // i tap: Show error popover.
           break;
         case UpdateCheckRowStateOutOfDate: {  // i tap: Go to app store.
-          NSString* updateLocation = [[NSUserDefaults standardUserDefaults]
-              stringForKey:kIOSChromeUpgradeURLKey];
+          PrefService* prefService = GetApplicationContext()->GetLocalState();
+          std::string updateLocation =
+              prefService->GetString(kIOSChromeUpgradeURLKey);
           base::RecordAction(base::UserMetricsAction(
               "Settings.SafetyCheck.RelaunchAfterUpdates"));
           base::UmaHistogramEnumeration(
               kSafetyCheckInteractions,
               SafetyCheckInteractions::kUpdatesRelaunch);
-          [self.handler showUpdateAtLocation:updateLocation];
+          [self.handler
+              showUpdateAtLocation:base::SysUTF8ToNSString(updateLocation)];
           break;
         }
       }
@@ -810,7 +862,8 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
             }
           });
     } else {
-      self.passwordCheckManager->StartPasswordCheck();
+      self.passwordCheckManager->StartPasswordCheck(
+          password_manager::LeakDetectionInitiator::kBulkSyncedPasswordsCheck);
     }
     // Want to show the loading wheel momentarily.
     dispatch_after(
@@ -934,8 +987,6 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
     return;
   }
 
-  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-
   if (details.is_up_to_date) {
     [self possiblyDelayReconfigureUpdateCheckItemWithState:
               UpdateCheckRowStateUpToDate];
@@ -969,15 +1020,14 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
     base::UmaHistogramEnumeration(kSafetyCheckMetricsUpdates,
                                   safety_check::UpdateStatus::kOutdated);
 
-    // Valid results, update all NSUserDefaults.
-    [defaults setValue:base::SysUTF8ToNSString(upgradeUrl.spec())
-                forKey:kIOSChromeUpgradeURLKey];
-    [defaults setValue:base::SysUTF8ToNSString(details.next_version)
-                forKey:kIOSChromeNextVersionKey];
+    // Valid results, update all prefs.
+    PrefService* prefService = GetApplicationContext()->GetLocalState();
+    prefService->SetString(kIOSChromeNextVersionKey, details.next_version);
+    prefService->SetString(kIOSChromeUpgradeURLKey, upgradeUrl.spec());
 
     // Treat the safety check finding the device out of date as if the update
     // infobar was just shown to not overshow the infobar to the user.
-    [defaults setObject:[NSDate date] forKey:kLastInfobarDisplayTimeKey];
+    prefService->SetTime(kLastInfobarDisplayTimeKey, base::Time::Now());
   }
 }
 

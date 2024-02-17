@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/memory/raw_ptr.h"
+#include "extensions/common/mojom/context_type.mojom.h"
 #include "extensions/renderer/api/automation/automation_internal_custom_bindings.h"
 
 #include "base/test/bind.h"
@@ -34,7 +35,7 @@ class AutomationInternalCustomBindingsTest
     v8::HandleScope handle_scope(isolate());
     v8::Local<v8::Context> context = MainContext();
     ScriptContext* script_context = CreateScriptContext(
-        context, extension.get(), Feature::BLESSED_EXTENSION_CONTEXT);
+        context, extension.get(), mojom::ContextType::kPrivilegedExtension);
     script_context->set_url(extension->url());
     bindings_system()->UpdateBindingsForContext(script_context);
 
@@ -42,7 +43,6 @@ class AutomationInternalCustomBindingsTest
     auto automation_internal_bindings =
         std::make_unique<AutomationInternalCustomBindings>(script_context,
                                                            bindings_system());
-    automation_internal_bindings_ = automation_internal_bindings.get();
     script_context->module_system()->RegisterNativeHandler(
         "automationInternal", std::move(automation_internal_bindings));
 
@@ -54,10 +54,6 @@ class AutomationInternalCustomBindingsTest
         automation_api->IsAvailableToExtension(extension.get());
     EXPECT_TRUE(availability.is_available()) << availability.message();
   }
-
- private:
-  raw_ptr<AutomationInternalCustomBindings, DanglingUntriaged>
-      automation_internal_bindings_ = nullptr;
 };
 
 TEST_F(AutomationInternalCustomBindingsTest, ActionStringMapping) {

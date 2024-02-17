@@ -20,7 +20,6 @@
 #include "build/build_config.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#include "components/supervised_user/core/browser/kids_chrome_management_client.h"
 #include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/browser/supervised_user_service_observer.h"
 #include "components/supervised_user/core/browser/supervised_user_settings_service.h"
@@ -138,23 +137,26 @@ void SupervisedUserService::RemoveObserver(
 
 SupervisedUserService::SupervisedUserService(
     signin::IdentityManager* identity_manager,
-    KidsChromeManagementClient* kids_chrome_management_client,
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     PrefService& user_prefs,
     SupervisedUserSettingsService& settings_service,
     syncer::SyncService* sync_service,
     ValidateURLSupportCallback check_webstore_url_callback,
     std::unique_ptr<SupervisedUserURLFilter::Delegate> url_filter_delegate,
+    std::unique_ptr<SupervisedUserService::PlatformDelegate> platform_delegate,
     bool can_show_first_time_interstitial_banner)
     : user_prefs_(user_prefs),
       settings_service_(settings_service),
       sync_service_(sync_service),
       identity_manager_(identity_manager),
-      kids_chrome_management_client_(kids_chrome_management_client),
+      url_loader_factory_(url_loader_factory),
       delegate_(nullptr),
+      platform_delegate_(std::move(platform_delegate)),
       can_show_first_time_interstitial_banner_(
           can_show_first_time_interstitial_banner) {
   url_filter_ = std::make_unique<SupervisedUserURLFilter>(
-      std::move(check_webstore_url_callback), std::move(url_filter_delegate));
+      user_prefs, std::move(check_webstore_url_callback),
+      std::move(url_filter_delegate));
   url_filter_->AddObserver(this);
 }
 
@@ -260,7 +262,15 @@ void SupervisedUserService::OnCustodianInfoChanged() {
 }
 
 void SupervisedUserService::OnSupervisedUserIdChanged() {
-  SetActive(supervised_user::IsChildAccount(user_prefs_.get()));
+  bool is_child = supervised_user::IsChildAccount(user_prefs_.get());
+  if (is_child) {
+    // When supervision is enabled, close any incognito windows/tabs that may
+    // be open for this profile. These windows cannot be created after the
+    // user is signed in, and closing existing ones avoids unexpected
+    // behavior due to baked-in assumptions in the SupervisedUser code.
+    platform_delegate_->CloseIncognitoTabs();
+  }
+  SetActive(is_child);
 }
 
 void SupervisedUserService::OnDefaultFilteringBehaviorChanged() {
@@ -275,8 +285,7 @@ void SupervisedUserService::OnDefaultFilteringBehaviorChanged() {
     observer.OnURLFilterChanged();
   }
 
-  SupervisedUserURLFilter::WebFilterType filter_type =
-      url_filter_->GetWebFilterType();
+  WebFilterType filter_type = url_filter_->GetWebFilterType();
   if (!AreWebFilterPrefsDefault(*user_prefs_) &&
       current_web_filter_type_ != filter_type) {
     url_filter_->ReportWebFilterTypeMetrics();
@@ -287,8 +296,7 @@ void SupervisedUserService::OnDefaultFilteringBehaviorChanged() {
 void SupervisedUserService::OnSafeSitesSettingChanged() {
   UpdateAsyncUrlChecker();
 
-  SupervisedUserURLFilter::WebFilterType filter_type =
-      url_filter_->GetWebFilterType();
+  WebFilterType filter_type = url_filter_->GetWebFilterType();
   if (!AreWebFilterPrefsDefault(*user_prefs_) &&
       current_web_filter_type_ != filter_type) {
     url_filter_->ReportWebFilterTypeMetrics();
@@ -308,7 +316,7 @@ void SupervisedUserService::UpdateAsyncUrlChecker() {
 
   if (use_online_check != url_filter_->HasAsyncURLChecker()) {
     if (use_online_check) {
-      url_filter_->InitAsyncURLChecker(kids_chrome_management_client_);
+      url_filter_->InitAsyncURLChecker(identity_manager_, url_loader_factory_);
     } else {
       url_filter_->ClearAsyncURLChecker();
     }

@@ -219,6 +219,8 @@ SkYUVAInfo::PlaneConfig ToSkYUVAPlaneConfig(viz::SharedImageFormat format) {
       return SkYUVAInfo::PlaneConfig::kY_UV;
     case PlaneConfig::kY_UV_A:
       return SkYUVAInfo::PlaneConfig::kY_UV_A;
+    case PlaneConfig::kY_U_V_A:
+      return SkYUVAInfo::PlaneConfig::kY_U_V_A;
   }
 }
 
@@ -349,11 +351,10 @@ GLenum GLFormatCaps::GetFallbackFormatIfNotSupported(GLenum gl_format) const {
       !ext_texture_norm16_) {
     return GL_ZERO;
   }
-  // Fallback to GL_LUMINANCE16F for R16F format without texture_rg
-  // extension.
-  if (gl_format == GL_R16F_EXT && !ext_texture_rg_) {
-    // TODO(hitawala): Check for enable_texture_half_float_linear extension
-    // support.
+  // Fallback to GL_LUMINANCE16F for R16F format.
+  if (gl_format == GL_R16F_EXT) {
+    // TODO(hitawala): Check for enable_texture_half_float_linear and no
+    // texture_rg extension support.
     return GL_LUMINANCE16F_EXT;
   }
   // No fallback for RG16F format without texture_rg extension.
@@ -503,7 +504,8 @@ wgpu::TextureFormat ToDawnTextureViewFormat(viz::SharedImageFormat format,
                             : wgpu::TextureFormat::RG16Unorm;
   } else if (format == viz::LegacyMultiPlaneFormat::kYV12 ||
              format == viz::MultiPlaneFormat::kYV12 ||
-             format == viz::MultiPlaneFormat::kI420) {
+             format == viz::MultiPlaneFormat::kI420 ||
+             format == viz::MultiPlaneFormat::kI420A) {
     // All planes are R8.
     return wgpu::TextureFormat::R8Unorm;
   } else {

@@ -6,11 +6,23 @@
 
 #include <memory>
 
+#include "base/dcheck_is_on.h"
 #include "base/ranges/algorithm.h"
+#include "build/build_config.h"
 #include "device/vr/openxr/openxr_anchor_manager.h"
-#include "device/vr/openxr/openxr_scene_understanding_manager.h"
+#include "device/vr/openxr/openxr_hand_tracker.h"
+#include "device/vr/openxr/openxr_hand_tracker_meta.h"
+#include "device/vr/openxr/openxr_scene_understanding_manager_msft.h"
 #include "device/vr/openxr/openxr_stage_bounds_provider_basic.h"
 #include "device/vr/public/mojom/xr_session.mojom.h"
+// Included on all platforms so that we can check the extension names, even
+// if they may not be supported there.
+#include "third_party/openxr/dev/xr_android.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "device/vr/openxr/android/openxr_hand_tracker_android.h"
+#include "device/vr/openxr/android/openxr_stage_bounds_provider_android.h"
+#endif
 
 namespace device {
 
@@ -26,6 +38,15 @@ OpenXrExtensionEnumeration::OpenXrExtensionEnumeration() {
     xrEnumerateInstanceExtensionProperties(nullptr, extension_count,
                                            &extension_count,
                                            extension_properties_.data());
+  }
+
+  if constexpr (DCHECK_IS_ON()) {
+    DVLOG(1) << __func__ << ": Supported Extensions Begin";
+    for (const auto& extension : extension_properties_) {
+      DVLOG(1) << __func__ << ": " << extension.extensionName
+               << " version=" << extension.extensionVersion;
+    }
+    DVLOG(1) << __func__ << ": Supported Extensions End";
   }
 }
 
@@ -82,6 +103,7 @@ OpenXrExtensionHelper::OpenXrExtensionHelper(
           const_cast<PFN_xrCreateSpatialAnchorSpaceMSFT*>(
               &extension_methods_.xrCreateSpatialAnchorSpaceMSFT)));
 
+  // MSFT Scene Understanding Methods
   std::ignore = xrGetInstanceProcAddr(
       instance, "xrEnumerateSceneComputeFeaturesMSFT",
       reinterpret_cast<PFN_xrVoidFunction*>(
@@ -138,6 +160,14 @@ OpenXrExtensionHelper::OpenXrExtensionHelper(
           const_cast<PFN_xrConvertWin32PerformanceCounterToTimeKHR*>(
               &extension_methods_.xrConvertWin32PerformanceCounterToTimeKHR)));
 #endif
+
+#if BUILDFLAG(IS_ANDROID)
+  std::ignore = xrGetInstanceProcAddr(
+      instance, "xrGetReferenceSpaceBoundsPolygonANDROID",
+      reinterpret_cast<PFN_xrVoidFunction*>(
+          const_cast<PFN_xrGetReferenceSpaceBoundsPolygonANDROID*>(
+              &extension_methods_.xrGetReferenceSpaceBoundsPolygonANDROID)));
+#endif
 }
 
 bool OpenXrExtensionHelper::IsFeatureSupported(
@@ -154,7 +184,9 @@ bool OpenXrExtensionHelper::IsFeatureSupported(
       // enabled that we can use to generate that.
       return IsExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME) &&
              (IsExtensionSupported(XR_EXT_HAND_INTERACTION_EXTENSION_NAME) ||
-              IsExtensionSupported(XR_MSFT_HAND_INTERACTION_EXTENSION_NAME));
+              IsExtensionSupported(XR_MSFT_HAND_INTERACTION_EXTENSION_NAME) ||
+              IsExtensionSupported(XR_FB_HAND_TRACKING_AIM_EXTENSION_NAME) ||
+              IsExtensionSupported(XR_ANDROID_HAND_GESTURE_EXTENSION_NAME));
     case device::mojom::XRSessionFeature::HIT_TEST:
       return IsExtensionSupported(XR_MSFT_SCENE_UNDERSTANDING_EXTENSION_NAME);
     case device::mojom::XRSessionFeature::SECONDARY_VIEWS:
@@ -181,7 +213,24 @@ std::unique_ptr<OpenXrAnchorManager> OpenXrExtensionHelper::CreateAnchorManager(
 std::unique_ptr<OpenXrHandTracker> OpenXrExtensionHelper::CreateHandTracker(
     XrSession session,
     OpenXrHandednessType handedness) const {
-  if (IsExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
+  // While not explicitly always required, many extensions implicitly rely upon
+  // this being required by virtue of extending it's core structs.
+  bool ext_hand_tracking_supported =
+      IsExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+#if BUILDFLAG(IS_ANDROID)
+  if (ext_hand_tracking_supported &&
+      IsExtensionSupported(XR_ANDROID_HAND_GESTURE_EXTENSION_NAME)) {
+    return std::make_unique<OpenXrHandTrackerAndroid>(*this, session,
+                                                      handedness);
+  }
+#endif
+
+  if (ext_hand_tracking_supported &&
+      IsExtensionSupported(XR_FB_HAND_TRACKING_AIM_EXTENSION_NAME)) {
+    return std::make_unique<OpenXrHandTrackerMeta>(*this, session, handedness);
+  }
+
+  if (ext_hand_tracking_supported) {
     return std::make_unique<OpenXrHandTracker>(*this, session, handedness);
   }
 
@@ -192,12 +241,22 @@ std::unique_ptr<OpenXRSceneUnderstandingManager>
 OpenXrExtensionHelper::CreateSceneUnderstandingManager(
     XrSession session,
     XrSpace base_space) const {
-  return std::make_unique<OpenXRSceneUnderstandingManager>(*this, session,
-                                                           base_space);
+  if (IsExtensionSupported(XR_MSFT_SCENE_UNDERSTANDING_EXTENSION_NAME)) {
+    return std::make_unique<OpenXRSceneUnderstandingManagerMSFT>(*this, session,
+                                                                 base_space);
+  }
+
+  return nullptr;
 }
 
 std::unique_ptr<OpenXrStageBoundsProvider>
 OpenXrExtensionHelper::CreateStageBoundsProvider(XrSession session) const {
+#if BUILDFLAG(IS_ANDROID)
+  if (IsExtensionSupported(
+          XR_ANDROID_REFERENCE_SPACE_BOUNDS_POLYGON_EXTENSION_NAME)) {
+    return std::make_unique<OpenXrStageBoundsProviderAndroid>(*this, session);
+  }
+#endif
   return std::make_unique<OpenXrStageBoundsProviderBasic>(session);
 }
 

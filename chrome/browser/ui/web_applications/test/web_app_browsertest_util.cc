@@ -143,7 +143,7 @@ webapps::AppId InstallWebAppFromManifest(Browser* browser,
                                          const GURL& app_url) {
   ServiceWorkerRegistrationWaiter registration_waiter(browser->profile(),
                                                       app_url);
-  NavigateToURLAndWait(browser, app_url);
+  NavigateViaLinkClickToURLAndWait(browser, app_url);
   registration_waiter.AwaitRegistration();
 
   webapps::AppId app_id;
@@ -227,9 +227,10 @@ Browser* LaunchBrowserForWebAppInTab(Profile* profile,
 Browser* LaunchWebAppToURL(Profile* profile,
                            const webapps::AppId& app_id,
                            const GURL& url) {
-  apps::AppLaunchParams params(
-      app_id, apps::LaunchContainer::kLaunchContainerWindow,
-      WindowOpenDisposition::NEW_WINDOW, apps::LaunchSource::kFromCommandLine);
+  apps::AppLaunchParams params(app_id,
+                               apps::LaunchContainer::kLaunchContainerWindow,
+                               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                               apps::LaunchSource::kFromCommandLine);
   params.override_url = url;
   content::WebContents* const web_contents =
       apps::AppServiceProxyFactory::GetForProfile(profile)
@@ -278,9 +279,9 @@ ExternallyManagedAppManager::InstallResult ExternallyManagedAppManagerInstall(
   return result;
 }
 
-void NavigateToURLAndWait(Browser* browser,
-                          const GURL& url,
-                          bool proceed_through_interstitial) {
+void NavigateViaLinkClickToURLAndWait(Browser* browser,
+                                      const GURL& url,
+                                      bool proceed_through_interstitial) {
   content::WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
 
@@ -317,7 +318,7 @@ void NavigateAndCheckForToolbar(Browser* browser,
                                 const GURL& url,
                                 bool expected_visibility,
                                 bool proceed_through_interstitial) {
-  NavigateToURLAndWait(browser, url, proceed_through_interstitial);
+  NavigateViaLinkClickToURLAndWait(browser, url, proceed_through_interstitial);
   EXPECT_EQ(expected_visibility,
             browser->app_controller()->ShouldShowCustomTabBar());
 }
@@ -337,7 +338,7 @@ AppMenuCommandState GetAppMenuCommandState(int command_id, Browser* browser) {
 }
 
 Browser* FindWebAppBrowser(Profile* profile, const webapps::AppId& app_id) {
-  for (auto* browser : *BrowserList::GetInstance()) {
+  for (Browser* browser : *BrowserList::GetInstance()) {
     if (browser->profile() != profile)
       continue;
 
@@ -362,7 +363,7 @@ bool IsBrowserOpen(const Browser* test_browser) {
   return false;
 }
 
-absl::optional<webapps::AppId> ForceInstallWebApp(Profile* profile, GURL url) {
+std::optional<webapps::AppId> ForceInstallWebApp(Profile* profile, GURL url) {
   web_app::ExternalInstallOptions install_options(
       url, web_app::mojom::UserDisplayMode::kStandalone,
       web_app::ExternalInstallSource::kExternalPolicy);
@@ -371,7 +372,7 @@ absl::optional<webapps::AppId> ForceInstallWebApp(Profile* profile, GURL url) {
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall, result.code);
   const auto& registrar =
       WebAppProvider::GetForTest(profile)->registrar_unsafe();
-  absl::optional<webapps::AppId> policy_app_id =
+  std::optional<webapps::AppId> policy_app_id =
       registrar.LookupExternalAppId(url);
   EXPECT_TRUE(policy_app_id.has_value());
   EXPECT_TRUE(

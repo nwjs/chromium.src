@@ -89,9 +89,8 @@ drivefs::mojom::FileChangePtr CreateDriveFsChange(
 }
 
 // Creates a txt file at the path of the downloads mount point for `profile`.
-base::FilePath CreateTextFile(
-    const base::FilePath& root_path,
-    const absl::optional<std::string>& relative_path) {
+base::FilePath CreateTextFile(const base::FilePath& root_path,
+                              const std::optional<std::string>& relative_path) {
   const base::FilePath path =
       root_path.Append(relative_path.value_or(base::StringPrintf(
           "%s.txt", base::UnguessableToken::Create().ToString().c_str())));
@@ -165,8 +164,9 @@ void WaitForItemInitialization(
   ON_CALL(mock, OnHoldingSpaceItemsRemoved)
       .WillByDefault([&](const std::vector<const HoldingSpaceItem*>& items) {
         for (const HoldingSpaceItem* item : items) {
-          if (item != item_it->get())
+          if (item != item_it->get()) {
             continue;
+          }
           ADD_FAILURE() << "Item unexpectedly removed: " << item->id();
           run_loop.Quit();
           return;
@@ -340,7 +340,7 @@ class HoldingSpaceKeyedServiceBrowserTest : public InProcessBrowserTest {
   // Used to set up drive fs for for drive tests.
   base::ScopedTempDir test_cache_root_;
   std::unique_ptr<drive::FakeDriveFsHelper> fake_drivefs_helper_;
-  raw_ptr<drive::DriveIntegrationService, DanglingUntriaged | ExperimentalAsh>
+  raw_ptr<drive::DriveIntegrationService, DanglingUntriaged>
       drive_integration_service_ = nullptr;
   drive::DriveIntegrationServiceFactory::FactoryCallback
       create_drive_integration_service_;
@@ -520,7 +520,7 @@ IN_PROC_BROWSER_TEST_F(HoldingSpaceKeyedServiceBrowserTest,
 
   // Add another holding space item, pointing to `src` in `src_dir`.
   base::FilePath src_dir = GetTestMountPoint().Append("src/");
-  src = CreateTextFile(src_dir, /*relative_path=*/absl::nullopt);
+  src = CreateTextFile(src_dir, /*relative_path=*/std::nullopt);
   item = AddHoldingSpaceItem(browser()->profile(), src);
 
   // Verify the item exists in the model.
@@ -643,7 +643,7 @@ IN_PROC_BROWSER_TEST_P(HoldingSpaceKeyedServiceFlexibleFsBrowserTest,
   const auto* in_progress_holding_space_item_to_delete = AddHoldingSpaceItem(
       browser()->profile(),
       CreateTextFile(GetTestMountPoint(),
-                     /*relative_path=*/absl::nullopt),
+                     /*relative_path=*/std::nullopt),
       HoldingSpaceProgress(/*current_bytes=*/0, /*total_bytes=*/100));
 
   {
@@ -658,7 +658,7 @@ IN_PROC_BROWSER_TEST_P(HoldingSpaceKeyedServiceFlexibleFsBrowserTest,
   // Create a completed `holding_space_item_to_delete`.
   const auto* holding_space_item_to_delete = AddHoldingSpaceItem(
       browser()->profile(), CreateTextFile(GetTestMountPoint(),
-                                           /*relative_path=*/absl::nullopt));
+                                           /*relative_path=*/std::nullopt));
 
   // Delete its backing file and verify that it is removed from holding space.
   // Note that this guarantees that scheduled validity checks will have run.
@@ -678,7 +678,7 @@ IN_PROC_BROWSER_TEST_P(HoldingSpaceKeyedServiceFlexibleFsBrowserTest,
   const auto* in_progress_holding_space_item_to_move = AddHoldingSpaceItem(
       browser()->profile(),
       CreateTextFile(GetTestMountPoint(),
-                     /*relative_path=*/absl::nullopt),
+                     /*relative_path=*/std::nullopt),
       HoldingSpaceProgress(/*current_bytes=*/0, /*total_bytes=*/100));
 
   {
@@ -695,7 +695,7 @@ IN_PROC_BROWSER_TEST_P(HoldingSpaceKeyedServiceFlexibleFsBrowserTest,
   // Create a completed `holding_space_item_to_move`.
   const auto* holding_space_item_to_move = AddHoldingSpaceItem(
       browser()->profile(), CreateTextFile(GetTestMountPoint(),
-                                           /*relative_path=*/absl::nullopt));
+                                           /*relative_path=*/std::nullopt));
 
   // Move its backing file and verify that it is removed from holding space.
   // Note that this guarantees that scheduled validity checks will have run.
@@ -721,7 +721,7 @@ IN_PROC_BROWSER_TEST_P(HoldingSpaceKeyedServiceFlexibleFsBrowserTest,
   const auto* in_progress_holding_space_item_to_complete = AddHoldingSpaceItem(
       browser()->profile(),
       CreateTextFile(GetTestMountPoint(),
-                     /*relative_path=*/absl::nullopt),
+                     /*relative_path=*/std::nullopt),
       HoldingSpaceProgress(/*current_bytes=*/0, /*total_bytes=*/100));
 
   // Complete the item. This should result in a file system watch being

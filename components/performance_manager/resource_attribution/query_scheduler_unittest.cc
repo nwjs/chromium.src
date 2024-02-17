@@ -4,7 +4,6 @@
 
 #include "components/performance_manager/resource_attribution/query_scheduler.h"
 
-#include <bitset>
 #include <memory>
 #include <set>
 #include <utility>
@@ -16,7 +15,6 @@
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
-#include "base/types/variant_util.h"
 #include "components/performance_manager/embedder/graph_features.h"
 #include "components/performance_manager/public/graph/graph.h"
 #include "components/performance_manager/public/graph/process_node.h"
@@ -26,7 +24,6 @@
 #include "components/performance_manager/public/resource_attribution/query_results.h"
 #include "components/performance_manager/public/resource_attribution/resource_contexts.h"
 #include "components/performance_manager/public/resource_attribution/resource_types.h"
-#include "components/performance_manager/public/resource_attribution/scoped_cpu_query.h"
 #include "components/performance_manager/resource_attribution/cpu_measurement_monitor.h"
 #include "components/performance_manager/resource_attribution/query_params.h"
 #include "components/performance_manager/test_support/graph_test_harness.h"
@@ -38,7 +35,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace performance_manager::resource_attribution {
+namespace performance_manager::resource_attribution::internal {
 
 namespace {
 
@@ -46,14 +43,15 @@ using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
 using ::testing::UnorderedElementsAre;
-using QueryParams = internal::QueryParams;
 
 std::unique_ptr<QueryParams> CreateQueryParams(
     ResourceTypeSet resource_types = {},
-    std::set<ResourceContext> resource_contexts = {}) {
+    std::set<ResourceContext> resource_contexts = {},
+    std::set<ResourceContextTypeId> all_context_types = {}) {
   auto params = std::make_unique<QueryParams>();
   params->resource_types = std::move(resource_types);
-  params->resource_contexts = std::move(resource_contexts);
+  params->contexts = ContextCollection::CreateForTesting(
+      std::move(resource_contexts), std::move(all_context_types));
   return params;
 }
 
@@ -128,17 +126,16 @@ TEST_F(ResourceAttrQuerySchedulerTest, AddRemoveQueries) {
   scheduler->AddScopedQuery(cpu_query.get());
   EXPECT_TRUE(scheduler->GetCPUMonitorForTesting().IsMonitoring());
 
-  auto cpu_memory_query = CreateQueryParams(
-      {ResourceType::kCPUTime, ResourceType::kMemorySummary}, {});
-  cpu_memory_query->all_context_types.set(
-      base::VariantIndexOfType<ResourceContext, ProcessContext>());
+  auto cpu_memory_query =
+      CreateQueryParams({ResourceType::kCPUTime, ResourceType::kMemorySummary},
+                        /*resource_contexts=*/{},
+                        {ResourceContextTypeId::ForType<ProcessContext>()});
   scheduler->AddScopedQuery(cpu_memory_query.get());
 
   // Allow some time to pass to measure.
   task_env().FastForwardBy(base::Minutes(1));
 
-  // Only the kCPUTime queries should receive CPU results. `cpu_query` should
-  // only get results for `process`.
+  // Only the kCPUTime queries should receive CPU results.
   ExpectQueryResult(scheduler, no_resource_query.get(), IsEmpty());
   ExpectQueryResult(scheduler, memory_query.get(),
                     ElementsAre(ResultForContextMatches<MemorySummaryResult>(
@@ -153,9 +150,8 @@ TEST_F(ResourceAttrQuerySchedulerTest, AddRemoveQueries) {
               mock_graph.process->GetResourceContext(), _, _),
           ResultForContextMatchesAll<CPUTimeResult, MemorySummaryResult>(
               mock_graph.other_process->GetResourceContext(), _, _),
-          // Only renderer processes get CPU measurements.
-          ResultForContextMatches<MemorySummaryResult>(
-              mock_graph.browser_process->GetResourceContext(), _)));
+          ResultForContextMatchesAll<CPUTimeResult, MemorySummaryResult>(
+              mock_graph.browser_process->GetResourceContext(), _, _)));
 
   // Removing non-CPU query should not affect CPU monitoring.
   scheduler->RemoveScopedQuery(std::move(no_resource_query));
@@ -207,4 +203,4 @@ TEST_F(ResourceAttrQuerySchedulerTest, CallWithScheduler) {
   run_loop.Run();
 }
 
-}  // namespace performance_manager::resource_attribution
+}  // namespace performance_manager::resource_attribution::internal

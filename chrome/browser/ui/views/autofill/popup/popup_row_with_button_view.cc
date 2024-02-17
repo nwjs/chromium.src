@@ -240,7 +240,7 @@ bool PopupRowWithButtonView::HandleKeyPressEvent(
   return PopupRowView::HandleKeyPressEvent(event);
 }
 
-void PopupRowWithButtonView::SetSelectedCell(absl::optional<CellType> cell) {
+void PopupRowWithButtonView::SetSelectedCell(std::optional<CellType> cell) {
   autofill::PopupRowView::SetSelectedCell(cell);
 
   button_->SetVisible(ShouldButtonBeVisible());
@@ -248,8 +248,8 @@ void PopupRowWithButtonView::SetSelectedCell(absl::optional<CellType> cell) {
   // We also update `focused_part_`: it could be set to `kContent` or unfocused
   // from this method, as the method is used by `PopupViewViews`.
   focused_part_ = (cell == CellType::kContent)
-                      ? absl::optional(RowWithButtonPart::kContent)
-                      : absl::nullopt;
+                      ? std::optional(RowWithButtonPart::kContent)
+                      : std::nullopt;
 }
 
 void PopupRowWithButtonView::OnMouseEnteredButton() {
@@ -261,21 +261,25 @@ void PopupRowWithButtonView::OnMouseExitedButton() {
   // could place the mouse cursor outside the whole cell.
   UpdateFocusedPartAndSelectedSuggestion(
       GetContentView().IsMouseHovered()
-          ? absl::optional(RowWithButtonPart::kContent)
-          : absl::nullopt);
+          ? std::optional(RowWithButtonPart::kContent)
+          : std::nullopt);
 }
 
 void PopupRowWithButtonView::UpdateFocusedPartAndSelectedSuggestion(
-    absl::optional<RowWithButtonPart> part) {
+    std::optional<RowWithButtonPart> part) {
   if (focused_part_ == part) {
     return;
   }
 
+  if (!controller()) {
+    return;
+  }
+
   focused_part_ = part;
-  if (controller()) {
-    controller()->SelectSuggestion(focused_part_ == RowWithButtonPart::kContent
-                                       ? absl::optional<size_t>(line_number())
-                                       : absl::nullopt);
+  if (focused_part_ == RowWithButtonPart::kContent) {
+    controller()->SelectSuggestion(line_number());
+  } else {
+    controller()->UnselectSuggestion();
   }
 }
 
@@ -288,7 +292,7 @@ bool PopupRowWithButtonView::ShouldButtonBeVisible() const {
   }
 }
 
-BEGIN_METADATA(PopupRowWithButtonView, autofill::PopupRowView)
+BEGIN_METADATA(PopupRowWithButtonView)
 END_METADATA
 
 }  // namespace autofill

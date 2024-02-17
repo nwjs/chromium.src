@@ -58,14 +58,10 @@ gfx::Size AddAdditionalSize(gfx::Size size) {
 
 class TestBubbleFrameViewWidgetDelegate : public WidgetDelegate {
  public:
-  explicit TestBubbleFrameViewWidgetDelegate(Widget* widget)
-      : widget_(widget) {}
-
+  TestBubbleFrameViewWidgetDelegate() = default;
   ~TestBubbleFrameViewWidgetDelegate() override = default;
 
   // WidgetDelegate:
-  Widget* GetWidget() override { return widget_; }
-  const Widget* GetWidget() const override { return widget_; }
   View* GetContentsView() override {
     if (!contents_view_) {
       StaticSizedView* contents_view =
@@ -76,6 +72,8 @@ class TestBubbleFrameViewWidgetDelegate : public WidgetDelegate {
     }
     return contents_view_;
   }
+  void WindowClosing() override { contents_view_ = nullptr; }
+
   bool ShouldShowCloseButton() const override { return should_show_close_; }
 
   void SetShouldShowCloseButton(bool should_show_close) {
@@ -83,9 +81,7 @@ class TestBubbleFrameViewWidgetDelegate : public WidgetDelegate {
   }
 
  private:
-  const raw_ptr<Widget, DanglingUntriaged> widget_;
-  raw_ptr<View, DanglingUntriaged> contents_view_ =
-      nullptr;  // Owned by |widget_|.
+  raw_ptr<View> contents_view_ = nullptr;  // Owned by the Widget.
   bool should_show_close_ = false;
 };
 
@@ -96,8 +92,7 @@ class TestBubbleFrameView : public BubbleFrameView {
     SetBubbleBorder(
         std::make_unique<BubbleBorder>(kArrow, BubbleBorder::STANDARD_SHADOW));
     widget_ = std::make_unique<Widget>();
-    widget_delegate_ =
-        std::make_unique<TestBubbleFrameViewWidgetDelegate>(widget_.get());
+    widget_delegate_ = std::make_unique<TestBubbleFrameViewWidgetDelegate>();
     Widget::InitParams params =
         test_base->CreateParams(Widget::InitParams::TYPE_BUBBLE);
     params.delegate = widget_delegate_.get();
@@ -959,8 +954,9 @@ TEST_F(BubbleFrameViewTest, MetadataTest) {
 namespace {
 
 class TestBubbleDialogDelegateView : public BubbleDialogDelegateView {
+  METADATA_HEADER(TestBubbleDialogDelegateView, BubbleDialogDelegateView)
+
  public:
-  METADATA_HEADER(TestBubbleDialogDelegateView);
   TestBubbleDialogDelegateView()
       : BubbleDialogDelegateView(nullptr, BubbleBorder::NONE) {
     set_shadow(BubbleBorder::NO_SHADOW);
@@ -1015,7 +1011,7 @@ class TestBubbleDialogDelegateView : public BubbleDialogDelegateView {
   bool should_show_close_ = false;
 };
 
-BEGIN_METADATA(TestBubbleDialogDelegateView, views::BubbleDialogDelegateView)
+BEGIN_METADATA(TestBubbleDialogDelegateView)
 END_METADATA
 
 class TestAnchor {
@@ -1037,6 +1033,8 @@ class TestAnchor {
 
 // BubbleDialogDelegate with no margins to test width snapping.
 class TestWidthSnapDelegate : public TestBubbleDialogDelegateView {
+  METADATA_HEADER(TestWidthSnapDelegate, TestBubbleDialogDelegateView)
+
  public:
   TestWidthSnapDelegate(TestAnchor* anchor, bool should_snap) {
     DialogDelegate::SetButtons(should_snap ? ui::DIALOG_BUTTON_OK
@@ -1050,6 +1048,9 @@ class TestWidthSnapDelegate : public TestBubbleDialogDelegateView {
   TestWidthSnapDelegate(const TestWidthSnapDelegate&) = delete;
   TestWidthSnapDelegate& operator=(const TestWidthSnapDelegate&) = delete;
 };
+
+BEGIN_METADATA(TestWidthSnapDelegate)
+END_METADATA
 
 }  // namespace
 

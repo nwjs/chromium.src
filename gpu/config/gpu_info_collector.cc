@@ -244,9 +244,11 @@ void AddTogglesToDawnInfoList(dawn::native::Instance* instance,
                               std::vector<std::string>* dawn_info_list) {
   for (auto* name : toggle_names) {
     const dawn::native::ToggleInfo* info = instance->GetToggleInfo(name);
-    dawn_info_list->push_back(info->name);
-    dawn_info_list->push_back(info->url);
-    dawn_info_list->push_back(info->description);
+    if (!info) {
+      dawn_info_list->push_back(info->name);
+      dawn_info_list->push_back(info->url);
+      dawn_info_list->push_back(info->description);
+    }
   }
 }
 
@@ -621,7 +623,6 @@ bool CollectGraphicsInfoGL(GPUInfo* gpu_info, gl::GLDisplay* display) {
     glGetIntegerv(GL_MAX_SAMPLES, &max_samples);
   }
   gpu_info->max_msaa_samples = base::NumberToString(max_samples);
-  base::UmaHistogramSparse("GPU.MaxMSAASampleCount", max_samples);
 
 #if BUILDFLAG(IS_ANDROID)
   gpu_info->can_support_threaded_texture_mailbox =

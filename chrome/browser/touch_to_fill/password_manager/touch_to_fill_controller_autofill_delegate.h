@@ -48,16 +48,16 @@ class TouchToFillControllerAutofillDelegate
   //
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused. Needs to stay in sync with
-  // TouchToFill.UserAction in enums.xml and UserAction in
-  // TouchToFillComponent.java.
+  // TouchToFill.UserAction in enums.xml.
   //
-  // TODO(crbug.com/1013134): De-duplicate the Java and C++ enum.
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.touch_to_fill
   enum class UserAction {
     kSelectedCredential = 0,
     kDismissed = 1,
     kSelectedManagePasswords = 2,
     kSelectedPasskeyCredential = 3,
     kSelectedHybrid = 4,
+    kMaxValue = kSelectedHybrid,
   };
 
   // The final outcome that closes the Touch To Fill sheet.
@@ -114,7 +114,7 @@ class TouchToFillControllerAutofillDelegate
   void OnHybridSignInSelected(base::OnceClosure action_completed) override;
   void OnDismiss(base::OnceClosure action_completed) override;
   void OnCredManDismissed(base::OnceClosure action_completed) override;
-  const GURL& GetFrameUrl() override;
+  GURL GetFrameUrl() override;
   bool ShouldTriggerSubmission() override;
   bool ShouldShowHybridOption() override;
   bool ShouldShowNoPasskeysSheetIfRequired() override;

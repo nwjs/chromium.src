@@ -1167,9 +1167,10 @@ GCMClient::Result GCMDriverDesktop::EnsureStarted(
   if (gcm_started_)
     return GCMClient::SUCCESS;
 
+#if defined(NDEBUG)
   if (!nw::gcm_enabled())
     return GCMClient::GCM_DISABLED;
-
+#endif
   // Have any app requested the service?
   if (app_handlers().empty())
     return GCMClient::UNKNOWN_ERROR;

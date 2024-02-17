@@ -60,9 +60,9 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
-#include "chrome/browser/ui/toolbar/chrome_labs_model.h"
-#include "chrome/browser/ui/toolbar/chrome_labs_prefs.h"
-#include "chrome/browser/ui/toolbar/chrome_labs_utils.h"
+#include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_model.h"
+#include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_prefs.h"
+#include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/toolbar/recent_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
@@ -202,7 +202,7 @@ std::u16string GetInstallPWALabel(const Browser* browser) {
 // Returns the appropriate menu label for the IDC_OPEN_IN_PWA_WINDOW command if
 // available.
 std::u16string GetOpenPWALabel(const Browser* browser) {
-  absl::optional<webapps::AppId> app_id =
+  std::optional<webapps::AppId> app_id =
       web_app::GetWebAppForActiveTab(browser);
   if (!app_id.has_value()) {
     return std::u16string();
@@ -430,8 +430,9 @@ bool ProfileSubMenuModel::BuildSyncSection() {
   const std::u16string signed_in_status =
       (IsSyncPaused(profile_) || account_info.IsEmpty())
           ? l10n_util::GetStringUTF16(IDS_PROFILES_LOCAL_PROFILE_STATE)
-          : l10n_util::GetStringFUTF16(IDS_PROFILE_ROW_SIGNED_IN_MESSAGE,
-                                       {base::UTF8ToUTF16(account_info.email)});
+          : l10n_util::GetStringFUTF16(
+                IDS_PROFILE_ROW_SIGNED_IN_MESSAGE_WITH_EMAIL,
+                {base::UTF8ToUTF16(account_info.email)});
 
   AddTitle(signed_in_status);
   signin::IdentityManager* const identity_manager =
@@ -440,7 +441,7 @@ bool ProfileSubMenuModel::BuildSyncSection() {
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync);
   // First, check for sync errors. They may exist even if sync-the-feature is
   // disabled and only sync-the-transport is running.
-  const absl::optional<AvatarSyncErrorType> error =
+  const std::optional<AvatarSyncErrorType> error =
       GetAvatarSyncErrorType(profile_);
   if (error.has_value()) {
     if (error == AvatarSyncErrorType::kSyncPaused) {
@@ -490,8 +491,8 @@ PasswordsAndAutofillSubMenuModel::PasswordsAndAutofillSubMenuModel(
     : SimpleMenuModel(delegate) {
   AddItemWithStringIdAndIcon(
       IDC_SHOW_PASSWORD_MANAGER, IDS_VIEW_PASSWORDS,
-      ui::ImageModel::FromVectorIcon(kKeyChromeRefreshIcon, ui::kColorMenuIcon,
-                                     kDefaultIconSize));
+      ui::ImageModel::FromVectorIcon(vector_icons::kPasswordManagerIcon,
+                                     ui::kColorMenuIcon, kDefaultIconSize));
   SetElementIdentifierAt(GetIndexOfCommandId(IDC_SHOW_PASSWORD_MANAGER).value(),
                          AppMenuModel::kPasswordManagerMenuItem);
   AddItemWithStringIdAndIcon(
@@ -594,6 +595,12 @@ SaveAndShareSubMenuModel::SaveAndShareSubMenuModel(
           ui::ImageModel::FromVectorIcon(kCastChromeRefreshIcon,
                                          ui::kColorMenuIcon, kDefaultIconSize));
     }
+  }
+  if (sharing_hub::DesktopScreenshotsFeatureEnabled(browser->profile())) {
+    AddItemWithStringIdAndIcon(
+        IDC_SHARING_HUB_SCREENSHOT, IDS_SHARING_HUB_SCREENSHOT_LABEL,
+        ui::ImageModel::FromVectorIcon(kSharingHubScreenshotIcon,
+                                       ui::kColorMenuIcon, kDefaultIconSize));
   }
 }
 
@@ -861,31 +868,17 @@ void AppMenuModel::ExecuteCommand(int command_id, int event_flags) {
   chrome::ExecuteCommand(browser_, command_id);
 }
 
+// static
 void AppMenuModel::LogSafetyHubInteractionMetrics(
-    absl::optional<safety_hub::SafetyHubModuleType> expected_module) {
-  // TODO(crbug.com/1443466): Remove when the service is only created when the
-  // feature is enabled.
-  if (!base::FeatureList::IsEnabled(features::kSafetyHub)) {
-    return;
-  }
-  auto* const safety_hub_menu_notification_service =
-      SafetyHubMenuNotificationServiceFactory::GetForProfile(
-          browser_->profile());
-  if (!safety_hub_menu_notification_service) {
-    return;
-  }
-  absl::optional<safety_hub::SafetyHubModuleType> sh_module =
-      safety_hub_menu_notification_service->GetModuleOfActiveNotification();
-  if (sh_module.has_value() && (!expected_module.has_value() ||
-                                expected_module.value() == sh_module.value())) {
-    base::UmaHistogramEnumeration("Settings.SafetyHub.Interaction",
-                                  safety_hub::SafetyHubSurfaces::kThreeDotMenu);
-    base::UmaHistogramEnumeration(
-        "Settings.SafetyHub.EntryPointInteraction",
-        safety_hub::SafetyHubEntryPoint::kMenuNotifications);
-    base::UmaHistogramEnumeration("Settings.SafetyHub.MenuNotificationClicked",
-                                  sh_module.value());
-  }
+    safety_hub::SafetyHubModuleType sh_module,
+    int event_flags) {
+  base::UmaHistogramEnumeration("Settings.SafetyHub.Interaction",
+                                safety_hub::SafetyHubSurfaces::kThreeDotMenu);
+  base::UmaHistogramEnumeration(
+      "Settings.SafetyHub.EntryPointInteraction",
+      safety_hub::SafetyHubEntryPoint::kMenuNotifications);
+  base::UmaHistogramEnumeration("Settings.SafetyHub.MenuNotificationClicked",
+                                sh_module);
 }
 
 void AppMenuModel::LogMenuMetrics(int command_id) {
@@ -896,17 +889,9 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       LogMenuAction(MENU_ACTION_UPGRADE_DIALOG);
       break;
     case IDC_SHOW_PASSWORD_CHECKUP:
-      if (!uma_action_recorded_) {
-        LogSafetyHubInteractionMetrics(
-            safety_hub::SafetyHubModuleType::PASSWORDS);
-      }
       LogMenuAction(MENU_ACTION_SHOW_PASSWORD_CHECKUP);
       break;
     case IDC_OPEN_SAFETY_HUB:
-      if (!uma_action_recorded_) {
-        // Multiple Safety Hub module types can result in opening Safety Hub UI.
-        LogSafetyHubInteractionMetrics();
-      }
       LogMenuAction(MENU_ACTION_SHOW_SAFETY_HUB);
       break;
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1139,17 +1124,6 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
     // Tools menu.
     case IDC_MANAGE_EXTENSIONS:
       if (!uma_action_recorded_) {
-        // TODO(crbug.com/1443466): Use a callback instead to log the metrics to
-        // reduce coupling with Safety Hub notification service.
-        // See crrev.com/c/5012653/comments/4f038126_bb7cb0fe for more details.
-        if (features::IsExtensionMenuInRootAppMenu()) {
-          LogSafetyHubInteractionMetrics();
-        } else {
-          // The command can originate from either Safety Hub notification or
-          // extension menu.
-          LogSafetyHubInteractionMetrics(
-              safety_hub::SafetyHubModuleType::EXTENSIONS);
-        }
         base::UmaHistogramMediumTimes(
             "WrenchMenu.TimeToAction.ManageExtensions", delta);
       }
@@ -1558,7 +1532,7 @@ void AppMenuModel::Build() {
                   kDefaultIconSize)
             : ui::ImageModel::FromVectorIcon(
                   kBrowserToolsUpdateIcon,
-                  app_menu_icon_controller_->GetIconColor(absl::nullopt));
+                  app_menu_icon_controller_->GetIconColor(std::nullopt));
     if (browser_defaults::kShowUpgradeMenuItem) {
       AddItemWithIcon(IDC_UPGRADE_DIALOG, GetUpgradeDialogMenuItemName(),
                       update_icon);
@@ -1575,9 +1549,11 @@ void AppMenuModel::Build() {
     AddSeparator(ui::NORMAL_SEPARATOR);
   }
 
-  AddItemWithStringId(IDC_NEW_TAB, browser_->profile()->IsIncognitoProfile()
-                                       ? IDS_NEW_INCOGNITO_TAB
-                                       : IDS_NEW_TAB);
+  AddItemWithStringId(IDC_NEW_TAB,
+                      browser_->profile()->IsIncognitoProfile() &&
+                              !browser_->profile()->IsGuestSession()
+                          ? IDS_NEW_INCOGNITO_TAB
+                          : IDS_NEW_TAB);
   AddItemWithStringId(IDC_NEW_WINDOW, IDS_NEW_WINDOW);
 
   // This menu item is not visible in Guest Mode. If incognito mode is not
@@ -1753,7 +1729,7 @@ void AppMenuModel::Build() {
     } else if (dom_distiller::ShowReaderModeOption(
                    browser_->profile()->GetPrefs())) {
       // Show the menu option if the page is distillable.
-      absl::optional<dom_distiller::DistillabilityResult> distillability =
+      std::optional<dom_distiller::DistillabilityResult> distillability =
           dom_distiller::GetLatestResult(
               browser()->tab_strip_model()->GetActiveWebContents());
       if (distillability && distillability.value().is_distillable)
@@ -1856,7 +1832,8 @@ void AppMenuModel::Build() {
     SetCommandIcon(this, IDC_RECENT_TABS_MENU, kHistoryIcon);
     SetCommandIcon(this, IDC_SHOW_DOWNLOADS, kDownloadMenuIcon);
     SetCommandIcon(this, IDC_BOOKMARKS_MENU, kBookmarksListsMenuIcon);
-    SetCommandIcon(this, IDC_VIEW_PASSWORDS, kKeyOpenChromeRefreshIcon);
+    SetCommandIcon(this, IDC_VIEW_PASSWORDS,
+                   vector_icons::kPasswordManagerIcon);
     SetCommandIcon(this, IDC_ZOOM_MENU, kZoomInIcon);
     SetCommandIcon(this, IDC_PRINT, kPrintMenuIcon);
     SetCommandIcon(this, IDC_ORGANIZE_TABS, kAutoTabGroupsIcon);
@@ -1864,7 +1841,7 @@ void AppMenuModel::Build() {
     SetCommandIcon(this, IDC_FIND_AND_EDIT_MENU, kSearchMenuIcon);
     SetCommandIcon(this, IDC_SAVE_AND_SHARE_MENU, kFileSaveChromeRefreshIcon);
     SetCommandIcon(this, IDC_PASSWORDS_AND_AUTOFILL_MENU,
-                   kKeyOpenChromeRefreshIcon);
+                   vector_icons::kPasswordManagerIcon);
     SetCommandIcon(this, IDC_MORE_TOOLS_MENU, kMoreToolsMenuIcon);
     SetCommandIcon(this, IDC_OPTIONS, kSettingsMenuIcon);
     SetCommandIcon(this, IDC_PERFORMANCE, kPerformanceIcon);
@@ -1913,7 +1890,7 @@ bool AppMenuModel::AddGlobalErrorMenuItems() {
   const GlobalErrorService::GlobalErrorList& errors =
       GlobalErrorServiceFactory::GetForProfile(browser_->profile())->errors();
   bool menu_items_added = false;
-  for (auto* error : errors) {
+  for (GlobalError* error : errors) {
     DCHECK(error);
     if (error->HasMenuItem()) {
       AddItem(error->MenuItemCommandID(), error->MenuItemLabel());
@@ -1931,13 +1908,13 @@ bool AppMenuModel::AddSafetyHubMenuItem() {
   if (!base::FeatureList::IsEnabled(features::kSafetyHub)) {
     return false;
   }
-  auto* const safety_hub_menu_notification_service =
+  auto* safety_hub_menu_notification_service =
       SafetyHubMenuNotificationServiceFactory::GetForProfile(
           browser_->profile());
   if (!safety_hub_menu_notification_service) {
     return false;
   }
-  absl::optional<MenuNotificationEntry> notification =
+  std::optional<MenuNotificationEntry> notification =
       safety_hub_menu_notification_service->GetNotificationToShow();
   if (!notification.has_value()) {
     return false;
@@ -1947,15 +1924,15 @@ bool AppMenuModel::AddSafetyHubMenuItem() {
   base::UmaHistogramEnumeration(
       "Settings.SafetyHub.EntryPointImpression",
       safety_hub::SafetyHubEntryPoint::kMenuNotifications);
-  absl::optional<safety_hub::SafetyHubModuleType> sh_module =
-      safety_hub_menu_notification_service->GetModuleOfActiveNotification();
-  if (sh_module.has_value()) {
-    base::UmaHistogramEnumeration(
-        "Settings.SafetyHub.MenuNotificationImpression", sh_module.value());
-  }
+  base::UmaHistogramEnumeration("Settings.SafetyHub.MenuNotificationImpression",
+                                notification->module);
   const auto safety_hub_icon = ui::ImageModel::FromVectorIcon(
       kSecurityIcon, ui::kColorMenuIcon, kDefaultIconSize);
   AddItemWithIcon(notification->command, notification->label, safety_hub_icon);
+  SetExecuteCallbackAt(
+      GetIndexOfCommandId(notification->command).value(),
+      base::BindRepeating(&AppMenuModel::LogSafetyHubInteractionMetrics,
+                          notification->module));
   return true;
 }
 
@@ -1966,7 +1943,7 @@ void AppMenuModel::UpdateSettingsItemState() {
           policy::SystemFeature::kBrowserSettings,
           g_browser_process->local_state());
 
-  absl::optional<size_t> index = GetIndexOfCommandId(IDC_OPTIONS);
+  std::optional<size_t> index = GetIndexOfCommandId(IDC_OPTIONS);
   if (index.has_value())
     SetEnabledAt(index.value(), !is_disabled);
 

@@ -38,7 +38,7 @@ import {assertExists, cast, castExists} from '../assert_extras.js';
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {isRevampWayfindingEnabled} from '../common/load_time_booleans.js';
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
-import {DisplayConfigurationObserverReceiver, DisplaySettingsProviderInterface, TabletModeObserverReceiver} from '../mojom-webui/display_settings_provider.mojom-webui.js';
+import {DisplayConfigurationObserverReceiver, DisplaySettingsProviderInterface, DisplaySettingsType, TabletModeObserverReceiver} from '../mojom-webui/display_settings_provider.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import {Route, routes} from '../router.js';
 
@@ -92,6 +92,7 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
         value: () => {
           return isRevampWayfindingEnabled();
         },
+        readOnly: true,
       },
 
       selectedModePref_: {
@@ -262,7 +263,7 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
   private displaySettingsProvider: DisplaySettingsProviderInterface;
   private displayTabNames_: string[];
   private invalidDisplayId_: string;
-  private isRevampWayfindingEnabled_: boolean;
+  private readonly isRevampWayfindingEnabled_: boolean;
   private isTabletMode_: boolean;
   private listAllDisplayModes_: boolean;
   private logicalResolutionText_: string;
@@ -341,6 +342,10 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
     this.displaySettingsProvider.observeDisplayConfiguration(
         new DisplayConfigurationObserverReceiver(this)
             .$.bindNewPipeAndPassRemote());
+
+    // Record metrics that user has opened the display settings page.
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        DisplaySettingsType.kDisplayPage, /*value=*/ {});
   }
 
   override disconnectedCallback(): void {
@@ -1106,6 +1111,8 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
     getDisplayApi()
         .setDisplayProperties(this.selectedDisplay.id, properties)
         .then(() => this.setPropertiesCallback_());
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        DisplaySettingsType.kPrimaryDisplay, /*value=*/ {});
   }
 
   /**
@@ -1183,6 +1190,21 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
     getDisplayApi()
         .setDisplayProperties(this.selectedDisplay.id, properties)
         .then(() => this.setPropertiesCallback_());
+
+    // Compare new mode and current mode to find out if user has changed the
+    // resolution or just the refresh rate.
+    const currentMode =
+        this.selectedDisplay.modes[this.currentSelectedModeIndex_];
+    const newMode = this.selectedDisplay.modes[this.selectedModePref_.value];
+    const displaySettingsType = (currentMode.height === newMode.height &&
+                                 currentMode.width === newMode.width) ?
+        DisplaySettingsType.kRefreshRate :
+        DisplaySettingsType.kResolution;
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        displaySettingsType, {
+          isInternalDisplay: this.selectedDisplay.isInternal,
+          displayId: BigInt(this.selectedDisplay.id),
+        });
   }
 
   /**
@@ -1202,6 +1224,11 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
     getDisplayApi()
         .setDisplayProperties(this.selectedDisplay.id, properties)
         .then(() => this.setPropertiesCallback_());
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        DisplaySettingsType.kScaling, {
+          isInternalDisplay: this.selectedDisplay.isInternal,
+          displayId: BigInt(this.selectedDisplay.id),
+        });
   }
 
   /**
@@ -1226,6 +1253,9 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
     getDisplayApi()
         .setDisplayProperties(this.selectedDisplay.id, properties)
         .then(() => this.setPropertiesCallback_());
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        DisplaySettingsType.kOrientation,
+        {isInternalDisplay: this.selectedDisplay.isInternal});
   }
 
   private onMirroredClick_(event: Event): void {
@@ -1242,6 +1272,8 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
         console.error('setMirrorMode Error: ' + error.message);
       }
     });
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        DisplaySettingsType.kMirrorMode, /*value=*/ {});
   }
 
   private onUnifiedDesktopClick_(): void {
@@ -1251,12 +1283,18 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
     getDisplayApi()
         .setDisplayProperties(this.primaryDisplayId, properties)
         .then(() => this.setPropertiesCallback_());
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        DisplaySettingsType.kUnifiedMode, /*value=*/ {});
   }
 
   private onOverscanClick_(e: Event): void {
     e.preventDefault();
-    this.overscanDisplayId = this.selectedDisplay!.id;
+    assert(this.selectedDisplay);
+    this.overscanDisplayId = this.selectedDisplay.id;
     this.showOverscanDialog_(true);
+    this.displaySettingsProvider.recordChangingDisplaySettings(
+        DisplaySettingsType.kOverscan,
+        {isInternalDisplay: this.selectedDisplay.isInternal});
   }
 
   private onCloseOverscanDialog_(): void {

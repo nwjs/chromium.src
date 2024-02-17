@@ -164,7 +164,7 @@ class VolumeWaiter : public VolumeManagerObserver {
   }
 
  private:
-  raw_ptr<Profile, ExperimentalAsh> profile_;
+  raw_ptr<Profile> profile_;
   base::RepeatingClosure on_mount_;
 };
 }  // namespace
@@ -265,7 +265,7 @@ void AddFakeAppWithIntentFilters(
     const std::string& app_id,
     std::vector<apps::IntentFilterPtr> intent_filters,
     apps::AppType app_type,
-    absl::optional<bool> handles_intents,
+    std::optional<bool> handles_intents,
     apps::AppServiceProxy* app_service_proxy) {
   std::vector<apps::AppPtr> apps;
   auto app = std::make_unique<apps::App>(app_type, app_id);
@@ -283,7 +283,7 @@ void AddFakeWebApp(const std::string& app_id,
                    const std::string& mime_type,
                    const std::string& file_extension,
                    const std::string& activity_label,
-                   absl::optional<bool> handles_intents,
+                   std::optional<bool> handles_intents,
                    apps::AppServiceProxy* app_service_proxy) {
   std::vector<apps::IntentFilterPtr> filters;
   filters.push_back(apps_util::MakeFileFilterForView(mime_type, file_extension,
@@ -400,7 +400,7 @@ FakeProvidedFileSystemOneDrive::GetActions(
     std::move(callback).Run(actions, base::File::FILE_ERROR_NOT_FOUND);
     return ash::file_system_provider::AbortCallback();
   }
-  // Otherwise, return |kODFSSampleUrl|.
+  // Otherwise, return `kODFSSampleUrl`.
   actions.push_back({ash::cloud_upload::kOneDriveUrlActionId, kODFSSampleUrl});
 
   std::move(callback).Run(actions, base::File::FILE_OK);
@@ -419,7 +419,8 @@ FakeExtensionProviderOneDrive::Create(
 std::unique_ptr<ash::file_system_provider::ProvidedFileSystemInterface>
 FakeExtensionProviderOneDrive::CreateProvidedFileSystem(
     Profile* profile,
-    const ash::file_system_provider::ProvidedFileSystemInfo& file_system_info) {
+    const ash::file_system_provider::ProvidedFileSystemInfo& file_system_info,
+    ash::file_system_provider::ContentCache* content_cache) {
   DCHECK(profile);
   std::unique_ptr<FakeProvidedFileSystemOneDrive> fake_provided_file_system =
       std::make_unique<FakeProvidedFileSystemOneDrive>(file_system_info);

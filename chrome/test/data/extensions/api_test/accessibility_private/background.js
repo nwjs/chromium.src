@@ -286,6 +286,60 @@ var availableTests = [
   function testSetCursorPosition() {
     chrome.accessibilityPrivate.setCursorPosition({x: 450, y: 350});
     chrome.test.succeed();
+  },
+
+  function testGetDisplayBoundsSimple() {
+    chrome.accessibilityPrivate.getDisplayBounds(bounds => {
+      chrome.test.assertEq(
+          '[{"height":600,"left":0,"top":0,"width":800}]',
+          JSON.stringify(bounds));
+      chrome.test.succeed();
+    });
+  },
+
+  function testGetDisplayBoundsHighDPI() {
+    chrome.accessibilityPrivate.getDisplayBounds(bounds => {
+      chrome.test.assertEq(
+          '[{"height":400,"left":0,"top":0,"width":500}]',
+          JSON.stringify(bounds));
+      chrome.test.succeed();
+    });
+  },
+
+  function testGetDisplayBoundsMultipleDisplays() {
+    chrome.accessibilityPrivate.getDisplayBounds(bounds => {
+      chrome.test.assertEq(
+          '[{"height":300,"left":0,"top":0,"width":400},' +
+          '{"height":300,"left":400,"top":0,"width":400}]',
+          JSON.stringify(bounds));
+      chrome.test.succeed();
+    });
+  },
+
+  function testInstallFaceGazeAssetsFail() {
+    chrome.accessibilityPrivate.installFaceGazeAssets(() => {
+      chrome.test.assertLastError(`Couldn't retrieve FaceGaze assets.`);
+      chrome.test.succeed();
+    });
+  },
+
+  function testInstallFaceGazeAssetsSuccess() {
+    chrome.accessibilityPrivate.installFaceGazeAssets(assets => {
+      chrome.test.assertTrue(Boolean(assets));
+      chrome.test.assertTrue(Object.keys(assets).length === 2);
+      for (const [key, value] of Object.entries(assets)) {
+        const fileContents = new TextDecoder().decode(value);
+        if (key === 'model') {
+          chrome.test.assertEq('Fake facelandmarker model', fileContents);
+        } else if (key === 'wasm') {
+          chrome.test.assertEq('Fake mediapipe web assembly', fileContents);
+        } else {
+          chrome.test.fail();
+        }
+      }
+
+      chrome.test.succeed();
+    });
   }
 ];
 

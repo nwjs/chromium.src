@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_match_cell_view.h"
 
 #include <algorithm>
+#include <optional>
 
 #include "base/metrics/field_trial_params.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -23,7 +24,6 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "content/public/common/color_parser.h"
 #include "skia/ext/image_operations.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -134,8 +134,9 @@ void PlaceholderImageSource::Draw(gfx::Canvas* canvas) {
 // RoundedCornerImageView:
 
 class RoundedCornerImageView : public views::ImageView {
+  METADATA_HEADER(RoundedCornerImageView, views::ImageView)
+
  public:
-  METADATA_HEADER(RoundedCornerImageView);
   RoundedCornerImageView() = default;
   RoundedCornerImageView(const RoundedCornerImageView&) = delete;
   RoundedCornerImageView& operator=(const RoundedCornerImageView&) = delete;
@@ -158,7 +159,7 @@ void RoundedCornerImageView::OnPaint(gfx::Canvas* canvas) {
   ImageView::OnPaint(canvas);
 }
 
-BEGIN_METADATA(RoundedCornerImageView, views::ImageView)
+BEGIN_METADATA(RoundedCornerImageView)
 END_METADATA
 
 }  // namespace
@@ -593,5 +594,5 @@ void OmniboxMatchCellView::SetTailSuggestCommonPrefixWidth(
   tail_suggest_common_prefix_width_ = render_text->GetStringSize().width();
 }
 
-BEGIN_METADATA(OmniboxMatchCellView, views::View)
+BEGIN_METADATA(OmniboxMatchCellView)
 END_METADATA

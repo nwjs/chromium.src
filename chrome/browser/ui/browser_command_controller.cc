@@ -54,7 +54,7 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
-#include "chrome/browser/ui/toolbar/chrome_labs_utils.h"
+#include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
@@ -366,7 +366,7 @@ void BrowserCommandController::ExtensionStateChanged() {
 }
 
 void BrowserCommandController::TabKeyboardFocusChangedTo(
-    absl::optional<int> index) {
+    std::optional<int> index) {
   UpdateCommandsForTabKeyboardFocus(index);
 }
 
@@ -929,7 +929,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       ash::BrowserDataMigratorImpl::MaybeRestartToMigrateWithDiskCheck(
           user->GetAccountId(), user->username_hash(),
           base::BindOnce(
-              [](bool result, const absl::optional<uint64_t>& required_size) {
+              [](bool result, const std::optional<uint64_t>& required_size) {
                 if (!result && required_size.has_value())
                   ash::OpenBrowserDataMigrationErrorDialog(*required_size);
               }));
@@ -1897,7 +1897,7 @@ void BrowserCommandController::UpdateCommandsForMediaRouter() {
 }
 
 void BrowserCommandController::UpdateCommandsForTabKeyboardFocus(
-    absl::optional<int> target_index) {
+    std::optional<int> target_index) {
   command_updater_.UpdateCommandEnabled(
       IDC_DUPLICATE_TARGET_TAB, !browser_->is_type_app() &&
                                     !browser_->is_type_app_popup() &&

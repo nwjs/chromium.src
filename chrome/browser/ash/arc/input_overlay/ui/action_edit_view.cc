@@ -20,6 +20,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/focus_ring.h"
@@ -59,8 +60,8 @@ ActionEditView::ActionEditView(DisplayOverlayController* controller,
       views::CreateEmptyBorder(gfx::Insets::VH(14, kHorizontalInsets)));
   container->SetBackground(views::CreateThemedRoundedRectBackground(
       cros_tokens::kCrosSysSystemOnBase,
-      /*top_radius=*/kCornerRadius,
-      /*bottom_radius=*/for_editing_list ? kCornerRadius : 0.0f,
+      /*top_radius=*/for_editing_list ? kCornerRadius : 0.0f,
+      /*bottom_radius=*/kCornerRadius,
       /*for_border_thickness=*/0));
   const int padding_width = for_editing_list
                                 ? kNameTagAndLabelsPaddingForEditingList
@@ -86,15 +87,19 @@ ActionEditView::ActionEditView(DisplayOverlayController* controller,
   labels_view_ = container->AddChildView(EditLabels::CreateEditLabels(
       controller_, action_, name_tag_, /*should_update_title=*/true));
 
-  name_tag_->SetMaximumWidth(
+  name_tag_->SetAvailableWidth(
       (for_editing_list ? kEditingListWidth : kButtonOptionsMenuWidth) -
       2 * kEditingListInsideBorderInsets - 2 * kHorizontalInsets -
       padding_width - labels_view_->GetPreferredSize().width());
 
   // Set highlight path.
   views::HighlightPathGenerator::Install(
-      this, std::make_unique<views::RoundRectHighlightPathGenerator>(
-                gfx::Insets(), /*corner_radius=*/kCornerRadius));
+      this,
+      std::make_unique<views::RoundRectHighlightPathGenerator>(
+          gfx::Insets(), for_editing_list
+                             ? gfx::RoundedCornersF(kCornerRadius)
+                             : gfx::RoundedCornersF(0.0f, 0.0f, kCornerRadius,
+                                                    kCornerRadius)));
 }
 
 ActionEditView::~ActionEditView() = default;

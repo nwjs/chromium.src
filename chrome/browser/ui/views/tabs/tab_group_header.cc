@@ -122,7 +122,6 @@ TabGroupHeader::TabGroupHeader(TabSlotController& tab_slot_controller,
   title_->SetAutoColorReadabilityEnabled(false);
   title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   title_->SetElideBehavior(gfx::FADE_TAIL);
-
   if (features::IsChromeRefresh2023()) {
     title_->SetLineHeight(20);
     if (base::FeatureList::IsEnabled(
@@ -386,7 +385,7 @@ void TabGroupHeader::ShowContextMenuForViewImpl(
 #endif
 
   editor_bubble_tracker_.Opened(TabGroupEditorBubbleView::Show(
-      tab_slot_controller_->GetBrowser(), group().value(), this, absl::nullopt,
+      tab_slot_controller_->GetBrowser(), group().value(), this, std::nullopt,
       nullptr, kStopContextMenuPropagation));
 }
 
@@ -590,7 +589,7 @@ void TabGroupHeader::RemoveObserverFromWidget(views::Widget* widget) {
   widget->RemoveObserver(&editor_bubble_tracker_);
 }
 
-BEGIN_METADATA(TabGroupHeader, TabSlotView)
+BEGIN_METADATA(TabGroupHeader)
 ADD_READONLY_PROPERTY_METADATA(int, DesiredWidth)
 END_METADATA
 

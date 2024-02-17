@@ -71,7 +71,7 @@ class AppServiceGuestOSIconTest : public testing::Test {
                               int size_dp,
                               IconType icon_type) {
     base::test::TestFuture<apps::IconValuePtr> result;
-    proxy().LoadIcon(AppType::kCrostini, app_id, icon_type, size_dp,
+    proxy().LoadIcon(app_id, icon_type, size_dp,
                      /*allow_placeholder_icon=*/false, result.GetCallback());
     return result.Take();
   }
@@ -93,7 +93,7 @@ class AppServiceGuestOSIconTest : public testing::Test {
 
   // Manually generates an icon made up of a `solid_color` with applied
   // `effects`, without going through any publisher icon loading code.
-  IconValuePtr GenerateIcon(absl::optional<std::string> app_id,
+  IconValuePtr GenerateIcon(std::optional<std::string> app_id,
                             SkColor solid_color,
                             int size_dp,
                             IconEffects effects) {

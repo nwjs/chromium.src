@@ -16,7 +16,7 @@
 #import "ios/chrome/browser/ntp/model/set_up_list_item.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_item_type.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
-#import "ios/chrome/browser/policy/policy_util.h"
+#import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -252,7 +252,7 @@ TEST_F(SetUpListTest, ObservesPrefs) {
   set_up_list_.delegate = delegate;
   SetUpListItem* item = FindItem(SetUpListItemType::kSignInSync);
   EXPECT_FALSE(item.complete);
-  OCMExpect([delegate setUpListItemDidComplete:item]);
+  OCMExpect([delegate setUpListItemDidComplete:item allItemsCompleted:NO]);
   set_up_list_prefs::MarkItemComplete(local_state_.Get(),
                                       SetUpListItemType::kSignInSync);
   EXPECT_TRUE(item.complete);

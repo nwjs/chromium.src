@@ -5,6 +5,7 @@
 #include "content/browser/interest_group/interest_group_features.h"
 
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 
 namespace features {
 
@@ -15,9 +16,29 @@ BASE_FEATURE(kEnableIFrameAdAuctionHeaders,
              "EnableIFrameAdAuctionHeaders",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enable updating the executionMode to "frozen-context" when updating a user's
+// interests groups.
+BASE_FEATURE(kEnableUpdatingExecutionModeToFrozenContext,
+             "EnableUpdatingExecutionModeToFrozenContext",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable updating userBiddingSignals when updating a user's interests groups.
 BASE_FEATURE(kEnableUpdatingUserBiddingSignals,
              "EnableUpdatingUserBiddingSignals",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable write ahead logging for interest group storage.
+BASE_FEATURE(kFledgeEnableWALForInterestGroupStorage,
+             "FledgeEnableWALForInterestGroupStorage",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kFledgeFacilitatedTestingSignalsHeaders,
+             "FledgeFacilitatedTestingSignalsHeaders",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable prefetching B&A keys on the first joinAdInterestGroup call.
+BASE_FEATURE(kFledgePrefetchBandAKeys,
+             "FledgePrefetchBandAKeys",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

@@ -37,7 +37,7 @@ class SaveCardBubbleControllerImplTest : public DialogBrowserTest {
   }
 
   LegalMessageLines GetTestLegalMessage() {
-    absl::optional<base::Value> value(base::JSONReader::Read(
+    std::optional<base::Value> value(base::JSONReader::Read(
         "{"
         "  \"line\" : [ {"
         "     \"template\": \"The legal documents are: {0} and {1}.\","
@@ -121,6 +121,7 @@ class SaveCardBubbleControllerImplTest : public DialogBrowserTest {
         controller_->ShowBubbleForManageCardsForTesting(test::GetCreditCard());
         break;
       case BubbleType::UPLOAD_IN_PROGRESS:
+      case BubbleType::UPLOAD_COMPLETED:
       case BubbleType::INACTIVE:
         break;
     }

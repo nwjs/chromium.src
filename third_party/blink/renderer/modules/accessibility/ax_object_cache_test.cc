@@ -24,6 +24,7 @@
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/testing/accessibility_test.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
+#include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 
 namespace blink {
@@ -190,6 +191,28 @@ TEST_F(AccessibilityTest, PauseUpdatesAfterMaxNumberQueued) {
   ASSERT_EQ(0u, MockAXObject::num_children_changed_calls_);
 }
 
+TEST_F(AccessibilityTest, UpdateAXForAllDocumentsAfterPausedUpdates) {
+  auto& document = GetDocument();
+  auto* ax_object_cache =
+      To<AXObjectCacheImpl>(document.ExistingAXObjectCache());
+  DCHECK(ax_object_cache);
+
+  wtf_size_t max_updates = 1;
+  ax_object_cache->SetMaxPendingUpdatesForTesting(max_updates);
+
+  UpdateAllLifecyclePhasesForTest();
+  AXObject* root = ax_object_cache->Root();
+  // Queue one update too many.
+  ax_object_cache->DeferTreeUpdate(
+      AXObjectCacheImpl::TreeUpdateReason::kChildrenChanged, root);
+  ax_object_cache->DeferTreeUpdate(
+      AXObjectCacheImpl::TreeUpdateReason::kChildrenChanged, root);
+
+  ax_object_cache->UpdateAXForAllDocuments();
+  ScopedFreezeAXCache freeze(*ax_object_cache);
+  CHECK(!root->NeedsToUpdateCachedValues());
+}
+
 class AXViewTransitionTest : public testing::Test {
  public:
   AXViewTransitionTest() {}
@@ -240,6 +263,7 @@ class AXViewTransitionTest : public testing::Test {
   }
 
  protected:
+  test::TaskEnvironment task_environment_;
   std::unique_ptr<frame_test_helpers::WebViewHelper> web_view_helper_;
 };
 

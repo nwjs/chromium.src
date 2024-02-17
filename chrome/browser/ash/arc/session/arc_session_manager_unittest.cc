@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -82,7 +83,6 @@
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/http/http_status_code.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 // TODO(b/254819616): Replace base::RunLoop().RunUntilIdle() with
 // task_environment_.RunUntilIdle() or Run() & Quit() to make the tests less
@@ -115,7 +115,7 @@ class ArcInitialStartHandler : public ArcSessionManagerObserver {
  private:
   bool was_called_ = false;
 
-  const raw_ptr<ArcSessionManager, ExperimentalAsh> session_manager_;
+  const raw_ptr<ArcSessionManager> session_manager_;
 };
 
 class FileExpansionObserver : public ArcSessionManagerObserver {
@@ -125,7 +125,7 @@ class FileExpansionObserver : public ArcSessionManagerObserver {
   FileExpansionObserver(const FileExpansionObserver&) = delete;
   FileExpansionObserver& operator=(const FileExpansionObserver&) = delete;
 
-  const absl::optional<bool>& property_files_expansion_result() const {
+  const std::optional<bool>& property_files_expansion_result() const {
     return property_files_expansion_result_;
   }
 
@@ -135,7 +135,7 @@ class FileExpansionObserver : public ArcSessionManagerObserver {
   }
 
  private:
-  absl::optional<bool> property_files_expansion_result_;
+  std::optional<bool> property_files_expansion_result_;
 };
 
 class ShowErrorObserver : public ArcSessionManagerObserver {
@@ -150,7 +150,7 @@ class ShowErrorObserver : public ArcSessionManagerObserver {
 
   ~ShowErrorObserver() override { session_manager_->RemoveObserver(this); }
 
-  const absl::optional<ArcSupportHost::ErrorInfo> error_info() const {
+  const std::optional<ArcSupportHost::ErrorInfo> error_info() const {
     return error_info_;
   }
 
@@ -159,8 +159,8 @@ class ShowErrorObserver : public ArcSessionManagerObserver {
   }
 
  private:
-  absl::optional<ArcSupportHost::ErrorInfo> error_info_;
-  const raw_ptr<ArcSessionManager, ExperimentalAsh> session_manager_;
+  std::optional<ArcSupportHost::ErrorInfo> error_info_;
+  const raw_ptr<ArcSessionManager> session_manager_;
 };
 
 class ArcSessionManagerInLoginScreenTest : public testing::Test {
@@ -993,7 +993,7 @@ TEST_F(ArcSessionManagerTest, ArcVmDataMigrationNecessityChecker_Undetermined) {
   SetArcVmDataMigrationStatus(profile()->GetPrefs(),
                               ArcVmDataMigrationStatus::kUnnotified);
   ash::FakeArcVmDataMigratorClient::Get()->set_has_data_to_migrate(
-      absl::nullopt);
+      std::nullopt);
 
   arc_session_manager()->SetProfile(profile());
   arc_session_manager()->Initialize();
@@ -1051,6 +1051,7 @@ TEST_F(ArcSessionManagerTest, SetArcSignedIn) {
   EXPECT_TRUE(prefs->GetBoolean(prefs::kArcSignedIn));
   EXPECT_TRUE(
       arc_session_manager()->GetArcSessionRunnerForTesting()->arc_signed_in());
+  EXPECT_TRUE(arc_session_manager()->skipped_terms_of_service_negotiation());
 
   // Correctly stop service.
   arc_session_manager()->Shutdown();
@@ -1073,6 +1074,7 @@ TEST_F(ArcSessionManagerTest, ClearArcSignedIn) {
   EXPECT_FALSE(prefs->GetBoolean(prefs::kArcSignedIn));
   EXPECT_FALSE(
       arc_session_manager()->GetArcSessionRunnerForTesting()->arc_signed_in());
+  EXPECT_FALSE(arc_session_manager()->skipped_terms_of_service_negotiation());
 
   // Correctly stop service.
   arc_session_manager()->Shutdown();
@@ -1304,6 +1306,7 @@ TEST_F(ArcSessionManagerTest, DataCleanUpOnNextStart) {
             arc_session_manager()->state());
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
+  EXPECT_TRUE(arc_session_manager()->skipped_terms_of_service_negotiation());
 
   arc_session_manager()->Shutdown();
 }
@@ -1415,7 +1418,7 @@ struct ProvisioningErrorDisplayTestParam {
   ArcSupportHost::Error message;
 
   // The error code sent to arc support host.
-  absl::optional<int> arg;
+  std::optional<int> arg;
 };
 
 constexpr ProvisioningErrorDisplayTestParam

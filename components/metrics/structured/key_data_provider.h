@@ -18,6 +18,8 @@ class FilePath;
 
 namespace metrics::structured {
 
+class ChromeStructuredMetricsRecorder;
+
 // Interface to provide key data to be used for hashing projects.
 //
 // There are two types of keys: device keys and profile keys. Device keys will
@@ -62,7 +64,7 @@ class KeyDataProvider {
   // TODO(b/290096302): Refactor event sequence populator so there is no
   // dependency on concepts such as device/profile in //components.
   virtual std::optional<uint64_t> GetSecondaryId(
-      const std::string& project_name) = 0;
+      const std::string& project_name);
 
   // Retrieves the key data to be used for |project_name|. Returns nullptr if
   // the KeyData is not available for given |project_name|.
@@ -76,6 +78,8 @@ class KeyDataProvider {
   void NotifyKeyReady();
 
  private:
+  friend class ChromeStructuredMetricsRecorder;
+
   base::ObserverList<Observer> observers_;
 };
 

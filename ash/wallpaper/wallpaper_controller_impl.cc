@@ -69,6 +69,7 @@
 #include "chromeos/constants/chromeos_features.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
+#include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/data_decoder/public/mojom/image_decoder.mojom-shared.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
@@ -1106,6 +1107,7 @@ bool WallpaperControllerImpl::SetThirdPartyWallpaper(
 void WallpaperControllerImpl::SetSeaPenWallpaper(
     const AccountId& account_id,
     const SeaPenImage& sea_pen_image,
+    const std::string& query_info,
     SetWallpaperCallback callback) {
   CHECK(features::IsSeaPenEnabled());
   DCHECK(callback);
@@ -1124,7 +1126,7 @@ void WallpaperControllerImpl::SetSeaPenWallpaper(
       GetUserSeaPenWallpaperDir(account_id).Append(sea_pen_file_name);
 
   sea_pen_wallpaper_manager_.DecodeAndSaveSeaPenImage(
-      sea_pen_image, GetUserSeaPenWallpaperDir(account_id),
+      sea_pen_image, GetUserSeaPenWallpaperDir(account_id), query_info,
       base::BindOnce(&WallpaperControllerImpl::OnSeaPenWallpaperDecoded,
                      set_wallpaper_weak_factory_.GetWeakPtr(), account_id,
                      sea_pen_wallpaper_path, std::move(callback)));
@@ -1150,6 +1152,32 @@ void WallpaperControllerImpl::SetSeaPenWallpaperFromFile(
       base::BindOnce(&WallpaperControllerImpl::OnSeaPenWallpaperDecoded,
                      set_wallpaper_weak_factory_.GetWeakPtr(), account_id,
                      file_path, std::move(callback)));
+}
+
+void WallpaperControllerImpl::GetSeaPenMetadata(
+    const AccountId& account_id,
+    const base::FilePath& file_path,
+    GetSeaPenMetadataCallback callback) {
+  if (!GetUserSeaPenWallpaperDir(account_id).IsParent(file_path)) {
+    LOG(WARNING) << "Called " << __func__
+                 << " on invalid file path: " << file_path;
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  wallpaper_file_manager_->GetSeaPenMetadata(file_path, std::move(callback));
+}
+
+void WallpaperControllerImpl::DeleteRecentSeaPenImage(
+    const AccountId& account_id,
+    const base::FilePath& file_path,
+    DeleteRecentSeaPenImageCallback callback) {
+  DCHECK(Shell::Get()->session_controller()->IsActiveUserSessionStarted());
+  if (!CanSetUserWallpaper(account_id)) {
+    std::move(callback).Run(/*success=*/false);
+    return;
+  }
+  wallpaper_file_manager_->RemoveImageFromDisk(std::move(callback), file_path);
 }
 
 void WallpaperControllerImpl::ConfirmPreviewWallpaper() {
@@ -2118,7 +2146,8 @@ void WallpaperControllerImpl::OnGooglePhotosPhotoFetched(
   if (photo.is_null()) {
     // The photo doesn't exist, or has been deleted. If this photo is the
     // current wallpaper, we need to reset to the default.
-    if (current_wallpaper_->wallpaper_info().location == params.id) {
+    if (current_wallpaper_ &&
+        current_wallpaper_->wallpaper_info().location == params.id) {
       sequenced_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(&DeleteGooglePhotosCache, params.account_id));
@@ -2467,7 +2496,8 @@ void WallpaperControllerImpl::SaveAndSetWallpaperWithCompletionFilesId(
   if (should_save_to_disk) {
     wallpaper_file_manager_->SaveWallpaperToDisk(
         type, GlobalChromeOSCustomWallpapersDir(), file_name, layout, image,
-        std::move(image_saved_callback), wallpaper_files_id);
+        /*image_metadata=*/"", std::move(image_saved_callback),
+        wallpaper_files_id);
   }
 
   if (show_wallpaper) {

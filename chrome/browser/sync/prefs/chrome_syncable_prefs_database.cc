@@ -205,7 +205,7 @@ enum {
   kDefaultTasksBySuffix = 100148,
   kDevToolsSyncPreferences = 100149,
   kDevToolsSyncedPreferencesSyncEnabled = 100150,
-  kDownloadBubbleIphSuppression = 100151,
+  // kDownloadBubbleIphSuppression = 100151, (deprecated)
   kEnableDoNotTrack = 100152,
   kExtensionCommands = 100153,
   kExtensionsUIDeveloperMode = 100154,
@@ -303,6 +303,21 @@ enum {
   kHttpsFirstModeIncognito = 100245,
   kAccessibilityReadAnythingOmniboxIconLabelShownCount = 100246,
   kApplicationLocale = 100247,
+  kListenToThisPageEnabled = 100248,
+  kIpProtectionEnabled = 100249,
+  kAccessibilityReadAnythingLinksEnabled = 100250,
+  kProfileContentSettingsPartitionedExceptionsAntiAbuse = 100251,
+  kProfileContentSettingsPartitionedExceptionsAutomaticDownloads = 100252,
+  kProfileContentSettingsPartitionedExceptionsCookies = 100253,
+  kProfileContentSettingsPartitionedExceptionsGetDisplayMediaSetSelectAllScreens =
+      100254,
+  kProfileContentSettingsPartitionedExceptionsImages = 100255,
+  kProfileContentSettingsPartitionedExceptionsJavascript = 100256,
+  kProfileContentSettingsPartitionedExceptionsLocalFonts = 100257,
+  kProfileContentSettingsPartitionedExceptionsMouselock = 100258,
+  kProfileContentSettingsPartitionedExceptionsPopups = 100259,
+  kProfileContentSettingsPartitionedExceptionsWindowPlacement = 100260,
+  kStandaloneWindowMigrationNudgeShown = 100261,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -353,6 +368,10 @@ const auto& SyncablePreferences() {
        {syncable_prefs_ids::kReadAloudHighlightingEnabled, syncer::PREFERENCES,
         sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
+      {prefs::kListenToThisPageEnabled,
+       {syncable_prefs_ids::kListenToThisPageEnabled, syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kNone,
+        sync_preferences::MergeBehavior::kNone}},
 #else
       {prefs::kAccessibilityReadAnythingFontName,
        {syncable_prefs_ids::kAccessibilityReadAnythingFontName,
@@ -393,6 +412,10 @@ const auto& SyncablePreferences() {
       {prefs::kAccessibilityReadAnythingOmniboxIconLabelShownCount,
        {syncable_prefs_ids::
             kAccessibilityReadAnythingOmniboxIconLabelShownCount,
+        syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+        sync_preferences::MergeBehavior::kNone}},
+      {prefs::kAccessibilityReadAnythingLinksEnabled,
+       {syncable_prefs_ids::kAccessibilityReadAnythingLinksEnabled,
         syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
       {prefs::kLensRegionSearchEnabled,
@@ -619,6 +642,14 @@ const auto& SyncablePreferences() {
       {ash::prefs::kAppNotificationBadgingEnabled,
        {syncable_prefs_ids::kAppNotificationBadgingEnabled,
         syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+        sync_preferences::MergeBehavior::kNone}},
+      {prefs::kDefaultTasksByMimeType,
+       {syncable_prefs_ids::kDefaultTasksByMimeType, syncer::OS_PREFERENCES,
+        sync_preferences::PrefSensitivity::kNone,
+        sync_preferences::MergeBehavior::kNone}},
+      {prefs::kDefaultTasksBySuffix,
+       {syncable_prefs_ids::kDefaultTasksBySuffix, syncer::OS_PREFERENCES,
+        sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
       {ash::prefs::kDynamicColorColorScheme,
        {syncable_prefs_ids::kDynamicColorColorScheme, syncer::OS_PREFERENCES,
@@ -1060,6 +1091,10 @@ const auto& SyncablePreferences() {
        {syncable_prefs_ids::kApplicationLocale, syncer::OS_PRIORITY_PREFERENCES,
         sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
+      {prefs::kStandaloneWindowMigrationNudgeShown,
+       {syncable_prefs_ids::kStandaloneWindowMigrationNudgeShown,
+        syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+        sync_preferences::MergeBehavior::kNone}},
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
       {performance_manager::user_tuning::prefs::kTabDiscardingExceptions,
        {syncable_prefs_ids::kTabDiscardingExceptions, syncer::PREFERENCES,
@@ -1093,14 +1128,6 @@ const auto& SyncablePreferences() {
        {syncable_prefs_ids::kDefaultCharset, syncer::PREFERENCES,
         sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
-      {prefs::kDefaultTasksByMimeType,
-       {syncable_prefs_ids::kDefaultTasksByMimeType, syncer::PREFERENCES,
-        sync_preferences::PrefSensitivity::kNone,
-        sync_preferences::MergeBehavior::kNone}},
-      {prefs::kDefaultTasksBySuffix,
-       {syncable_prefs_ids::kDefaultTasksBySuffix, syncer::PREFERENCES,
-        sync_preferences::PrefSensitivity::kNone,
-        sync_preferences::MergeBehavior::kNone}},
       {prefs::kDevToolsSyncPreferences,
        {syncable_prefs_ids::kDevToolsSyncPreferences, syncer::PREFERENCES,
         sync_preferences::PrefSensitivity::kNone,
@@ -1108,10 +1135,6 @@ const auto& SyncablePreferences() {
       {prefs::kDevToolsSyncedPreferencesSyncEnabled,
        {syncable_prefs_ids::kDevToolsSyncedPreferencesSyncEnabled,
         syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
-        sync_preferences::MergeBehavior::kNone}},
-      {prefs::kDownloadBubbleIphSuppression,
-       {syncable_prefs_ids::kDownloadBubbleIphSuppression, syncer::PREFERENCES,
-        sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
       {prefs::kEnableDoNotTrack,
        {syncable_prefs_ids::kEnableDoNotTrack, syncer::PREFERENCES,
@@ -1209,6 +1232,7 @@ const auto& SyncablePreferences() {
        {syncable_prefs_ids::kSpellCheckEnable, syncer::PREFERENCES,
         sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
+#if !BUILDFLAG(IS_ANDROID)
       // The following prefs are constructed from a prefix in
       // website_settings_info and are registered in
       // content_settings_registry.
@@ -1264,6 +1288,64 @@ const auto& SyncablePreferences() {
         syncer::PREFERENCES,
         sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
         sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.anti_abuse",
+       {syncable_prefs_ids::
+            kProfileContentSettingsPartitionedExceptionsAntiAbuse,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.automatic_downloads",
+       {syncable_prefs_ids::
+            kProfileContentSettingsPartitionedExceptionsAutomaticDownloads,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.cookies",
+       {syncable_prefs_ids::kProfileContentSettingsPartitionedExceptionsCookies,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.get_display_media_set_"
+       "select_all_screens",
+       {syncable_prefs_ids::
+            kProfileContentSettingsPartitionedExceptionsGetDisplayMediaSetSelectAllScreens,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.images",
+       {syncable_prefs_ids::kProfileContentSettingsPartitionedExceptionsImages,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.javascript",
+       {syncable_prefs_ids::
+            kProfileContentSettingsPartitionedExceptionsJavascript,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.local_fonts",
+       {syncable_prefs_ids::
+            kProfileContentSettingsPartitionedExceptionsLocalFonts,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.mouselock",
+       {syncable_prefs_ids::
+            kProfileContentSettingsPartitionedExceptionsMouselock,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.popups",
+       {syncable_prefs_ids::kProfileContentSettingsPartitionedExceptionsPopups,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
+      {"profile.content_settings.partitioned_exceptions.window_placement",
+       {syncable_prefs_ids::
+            kProfileContentSettingsPartitionedExceptionsWindowPlacement,
+        syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
+        sync_preferences::MergeBehavior::kMergeableDict}},
       {"profile.default_content_setting_values.anti_abuse",
        {syncable_prefs_ids::kProfileDefaultContentSettingValuesAntiAbuse,
         syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
@@ -1307,6 +1389,7 @@ const auto& SyncablePreferences() {
        {syncable_prefs_ids::kProfileDefaultContentSettingValuesWindowPlacement,
         syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
+#endif
       // This is not exposed in a header.
       // TODO(crbug.com/1420978): Declare this in the corresponding header.
       {"webauthn.cablev2_pairings",
@@ -1333,6 +1416,10 @@ const auto& SyncablePreferences() {
        {syncable_prefs_ids::kTrackingProtectionLevel, syncer::PREFERENCES,
         sync_preferences::PrefSensitivity::kNone,
         sync_preferences::MergeBehavior::kNone}},
+      {prefs::kIpProtectionEnabled,
+       {syncable_prefs_ids::kIpProtectionEnabled, syncer::PREFERENCES,
+        sync_preferences::PrefSensitivity::kNone,
+        sync_preferences::MergeBehavior::kNone}},
       {prefs::kHttpsFirstModeIncognito,
        {syncable_prefs_ids::kHttpsFirstModeIncognito, syncer::PREFERENCES,
         sync_preferences::PrefSensitivity::kNone,
@@ -1342,7 +1429,7 @@ const auto& SyncablePreferences() {
 }
 }  // namespace
 
-absl::optional<sync_preferences::SyncablePrefMetadata>
+std::optional<sync_preferences::SyncablePrefMetadata>
 ChromeSyncablePrefsDatabase::GetSyncablePrefMetadata(
     const std::string& pref_name) const {
   const auto* it = SyncablePreferences().find(pref_name);

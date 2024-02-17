@@ -704,26 +704,6 @@ TEST_P(ShoppingServiceTest, TestShoppingListEligible_SignIn) {
                                       kEligibleLocale));
 }
 
-TEST_P(ShoppingServiceTest, TestShoppingListEligible_WAA) {
-  test_features_.InitWithFeatures(
-      {kShoppingList},
-      {kShoppingListRegionLaunched, kShoppingListWAARestrictionRemoval});
-
-  TestingPrefServiceSimple prefs;
-  RegisterPrefs(prefs.registry());
-  SetShoppingListEnterprisePolicyPref(&prefs, true);
-
-  MockAccountChecker checker;
-
-  ASSERT_TRUE(IsShoppingListEligible(&checker, &prefs, kEligibleCountry,
-                                     kEligibleLocale));
-
-  checker.SetWebAndAppActivityEnabled(false);
-
-  ASSERT_FALSE(IsShoppingListEligible(&checker, &prefs, kEligibleCountry,
-                                      kEligibleLocale));
-}
-
 TEST_P(ShoppingServiceTest, TestShoppingListEligible_ChildAccount) {
   test_features_.InitWithFeatures({kShoppingList},
                                   {kShoppingListRegionLaunched});
@@ -1319,8 +1299,7 @@ TEST_P(ShoppingServiceTest, TestIsShoppingPage) {
 }
 
 TEST_P(ShoppingServiceTest, TestDiscountInfoResponse) {
-  test_features_.InitWithFeatures(
-      {kShowDiscountOnNavigation, kEnableDiscountInfoApi}, {});
+  test_features_.InitWithFeatures({kEnableDiscountInfoApi}, {});
 
   std::vector<DiscountInfo> infos;
 
@@ -1395,8 +1374,7 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse) {
 }
 
 TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutId) {
-  test_features_.InitWithFeatures(
-      {kShowDiscountOnNavigation, kEnableDiscountInfoApi}, {});
+  test_features_.InitWithFeatures({kEnableDiscountInfoApi}, {});
 
   std::vector<DiscountInfo> infos;
 
@@ -1441,8 +1419,7 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutId) {
 }
 
 TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutTerms) {
-  test_features_.InitWithFeatures(
-      {kShowDiscountOnNavigation, kEnableDiscountInfoApi}, {});
+  test_features_.InitWithFeatures({kEnableDiscountInfoApi}, {});
 
   std::vector<DiscountInfo> infos;
 
@@ -1484,7 +1461,7 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutTerms) {
 }
 
 TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutDiscountCode) {
-  test_features_.InitAndEnableFeature(kShowDiscountOnNavigation);
+  test_features_.InitWithFeatures({kEnableDiscountInfoApi}, {});
 
   std::vector<DiscountInfo> infos;
 

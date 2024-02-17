@@ -145,6 +145,9 @@ struct NET_EXPORT QuicParams {
   // If true, connection migration v2 will be used to migrate existing
   // sessions to network when the platform indicates that the default network
   // is changing.
+  // Use the value of the flag as the default value. This is needed because unit
+  // tests does not go through network_session_configuration which causes
+  // discrepancy.
   bool migrate_sessions_on_network_change_v2 =
       base::FeatureList::IsEnabled(features::kMigrateSessionsOnNetworkChangeV2);
   // If true, connection migration v2 may be used to migrate active QUIC
@@ -205,6 +208,9 @@ struct NET_EXPORT QuicParams {
   // If true, delay main job even the request can be sent immediately on an
   // available SPDY session.
   bool delay_main_job_with_available_spdy_session = false;
+
+  // If true, ALPS uses new codepoint to negotiates application settings.
+  bool use_new_alps_codepoint = false;
 };
 
 // QuicContext contains QUIC-related variables that are shared across all of the

@@ -23,9 +23,7 @@ public class ContextualSearchFieldTrial {
     // ==========================================================================================
     // Params used elsewhere but gathered here since they may be present in FieldTrial configs.
     // A comma-separated list of lower-case ISO 639 language codes.
-    static final String RELATED_SEARCHES_LANGUAGE_ALLOWLIST_PARAM_NAME = "language_allowlist";
     static final String RELATED_SEARCHES_LANGUAGE_DEFAULT_ALLOWLIST = "en";
-    static final String RELATED_SEARCHES_CONFIG_STAMP_PARAM_NAME = "stamp";
     private static final String RELATED_SEARCHES_CONFIG_DEFAULT_STAMP = "1Rs";
     private static final String RELATED_SEARCHES_ALL_LANGUAGE_CONFIG_DEFAULT_STAMP = "1Rsa";
 
@@ -51,36 +49,9 @@ public class ContextualSearchFieldTrial {
      *         string is returned.
      */
     static String getRelatedSearchesExperimentConfigurationStamp() {
-        String stamp = getRelatedSearchesParam(RELATED_SEARCHES_CONFIG_STAMP_PARAM_NAME);
-        if (TextUtils.isEmpty(stamp)) {
-            stamp =
-                    ChromeFeatureList.isEnabled(ChromeFeatureList.RELATED_SEARCHES_ALL_LANGUAGE)
-                            ? RELATED_SEARCHES_ALL_LANGUAGE_CONFIG_DEFAULT_STAMP
-                            : RELATED_SEARCHES_CONFIG_DEFAULT_STAMP;
-        }
-        return stamp;
-    }
-
-    /**
-     * Gets the given parameter from the RelatedSearches FieldTrial feature.
-     * @param paramName The name of the parameter to get.
-     * @return The value of the parameter from the feature. If no param is present then an empty
-     *         string is returned.
-     */
-    static String getRelatedSearchesParam(String paramName) {
-        return ChromeFeatureList.getFieldTrialParamByFeature(
-                ChromeFeatureList.RELATED_SEARCHES, paramName);
-    }
-
-    /**
-     * Determines whether the specified parameter is present and enabled in the RelatedSearches
-     * Feature.
-     * @param relatedSearchesParamName The name of the param to get from the Feature.
-     * @return Whether the given parameter is enabled or not (has a value of "true").
-     */
-    static boolean isRelatedSearchesParamEnabled(String relatedSearchesParamName) {
-        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                ChromeFeatureList.RELATED_SEARCHES, relatedSearchesParamName, false);
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.RELATED_SEARCHES_ALL_LANGUAGE)
+                ? RELATED_SEARCHES_ALL_LANGUAGE_CONFIG_DEFAULT_STAMP
+                : RELATED_SEARCHES_CONFIG_DEFAULT_STAMP;
     }
 
     /** Return The minimum height dp for the contextual search page. */

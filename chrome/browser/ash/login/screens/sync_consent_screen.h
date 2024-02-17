@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_ASH_LOGIN_SCREENS_SYNC_CONSENT_SCREEN_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/auto_reset.h"
@@ -19,7 +20,6 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_service_observer.h"
 #include "components/user_manager/user.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 class Profile;
 
@@ -203,8 +203,8 @@ class SyncConsentScreen : public BaseScreen,
   std::unique_ptr<ScopedSessionRefresher> session_refresher_;
 
   // Primary user ind his Profile (if screen is shown).
-  raw_ptr<const user_manager::User, ExperimentalAsh> user_ = nullptr;
-  raw_ptr<Profile, ExperimentalAsh> profile_ = nullptr;
+  raw_ptr<const user_manager::User> user_ = nullptr;
+  raw_ptr<Profile> profile_ = nullptr;
   bool is_initialized_ = false;
 
   // Used to record whether sync engine initialization is timed out.
@@ -215,8 +215,7 @@ class SyncConsentScreen : public BaseScreen,
   base::TimeTicks start_time_;
 
   // Notify tests.
-  raw_ptr<SyncConsentScreenTestDelegate, ExperimentalAsh> test_delegate_ =
-      nullptr;
+  raw_ptr<SyncConsentScreenTestDelegate> test_delegate_ = nullptr;
 
   base::WeakPtrFactory<SyncConsentScreen> weak_factory_{this};
 };

@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -83,6 +84,8 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl
       int64_t last_navigation_id) override;
   bool RegisterNavigationDataHost(
       mojo::PendingReceiver<blink::mojom::AttributionDataHost> data_host,
+      const blink::AttributionSrcToken& attribution_src_token) override;
+  bool NotifyNavigationWithBackgroundRegistrationsWillStart(
       const blink::AttributionSrcToken& attribution_src_token,
       size_t expected_registrations) override;
 
@@ -109,8 +112,8 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl
       attribution_reporting::mojom::RegistrationEligibility,
       GlobalRenderFrameHostId render_frame_id,
       int64_t last_navigation_id,
-      absl::optional<blink::AttributionSrcToken> attribution_src_token,
-      std::string devtools_request_id) override;
+      std::optional<blink::AttributionSrcToken> attribution_src_token,
+      std::optional<std::string> devtools_request_id) override;
   bool NotifyBackgroundRegistrationData(
       BackgroundRegistrationsId id,
       const net::HttpResponseHeaders* headers,
@@ -122,7 +125,7 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl
 
   void NotifyFencedFrameReportingBeaconStarted(
       BeaconId beacon_id,
-      absl::optional<int64_t> navigation_id,
+      std::optional<int64_t> navigation_id,
       attribution_reporting::SuitableOrigin source_origin,
       bool is_within_fenced_frame,
       AttributionInputEvent input_event,
@@ -209,7 +212,7 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl
   void OnWebHeaderParsed(
       RegistrationsId,
       attribution_reporting::mojom::RegistrationType,
-      absl::optional<std::vector<network::TriggerVerification>>,
+      std::optional<std::vector<network::TriggerVerification>>,
       data_decoder::DataDecoder::ValueOrError result);
   void HandleParsedWebSource(const Registrations&,
                              const HeaderPendingDecode&,
@@ -230,8 +233,11 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl
   void MaybeOnRegistrationsFinished(
       base::flat_set<Registrations>::const_iterator);
 
-  void MaybeSetupDeferredReceivers(int64_t navigation_id);
+  void MaybeStartNavigation(int64_t navigation_id);
+  void MaybeDoneWithNavigation(int64_t navigation_id, bool due_to_timeout);
+
   void MaybeBindDeferredReceivers(int64_t navigation_id, bool due_to_timeout);
+  void ClearRegistrationsDeferUntilNavigation(int64_t navigation_id);
 
   // In `RegisterNavigationDataHost` which, for a given navigation, will be
   // called before `NotifyNavigationRegistrationStarted`, we receive the number
@@ -335,9 +341,9 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl
   // registrations or via a Fenced Frame Beacon.
   base::flat_set<Registrations> registrations_;
 
-  // Guardrail to ensure a receiver in `deferred_receivers_` always eventually
-  // gets bound.
-  SequentialTimeoutsTimer deferred_receivers_timer_;
+  // Guardrail to ensure that a navigation which can receive registrations is
+  // always eventually considered done.
+  SequentialTimeoutsTimer navigation_registrations_timer_;
 
   data_decoder::DataDecoder data_decoder_;
 

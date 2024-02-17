@@ -12,12 +12,13 @@
 #include "base/cancelable_callback.h"
 #include "base/compiler_specific.h"
 #include "base/functional/callback.h"
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/timer/wall_clock_timer.h"
+#include "base/types/strong_alias.h"
 #include "components/sync/engine/cycle/nudge_tracker.h"
 #include "components/sync/engine/cycle/sync_cycle.h"
 #include "components/sync/engine/cycle/sync_cycle_context.h"
@@ -106,14 +107,12 @@ class SyncSchedulerImpl : public SyncScheduler {
     base::OnceClosure ready_task;
   };
 
-  // TODO(crbug.com/1448012): Rename this to something clearer, e.g.
-  // GlobalBackoffPolicy (with members kRespectBackoff / kIgnoreBackoff).
-  enum JobPriority {
-    // Non-canary jobs respect exponential backoff.
-    NORMAL_PRIORITY,
-    // Canary jobs bypass exponential backoff, so use with extreme caution.
-    CANARY_PRIORITY
-  };
+  // Used as a parameter when triggering sync cycle jobs. Determines whether to
+  // respect or ignore any global backoff. (In the usual case where the client
+  // is NOT backed off, this makes no difference. It also doesn't affect
+  // per-data-type backoff.)
+  using RespectGlobalBackoff =
+      base::StrongAlias<class RespectGlobalBackoffTag, bool>;
 
   enum PollAdjustType {
     // Restart the poll interval.
@@ -123,18 +122,6 @@ class SyncSchedulerImpl : public SyncScheduler {
   };
 
   friend class SyncSchedulerImplTest;
-  friend class SyncerTest;
-
-  FRIEND_TEST_ALL_PREFIXES(SyncSchedulerTest, TransientPollFailure);
-  FRIEND_TEST_ALL_PREFIXES(SyncSchedulerTest,
-                           ServerConnectionChangeDuringBackoff);
-  FRIEND_TEST_ALL_PREFIXES(SyncSchedulerTest,
-                           ConnectionChangeCanaryPreemptedByNudge);
-  FRIEND_TEST_ALL_PREFIXES(BackoffTriggersSyncSchedulerTest,
-                           FailGetEncryptionKey);
-  FRIEND_TEST_ALL_PREFIXES(SyncSchedulerTest, SuccessfulRetry);
-  FRIEND_TEST_ALL_PREFIXES(SyncSchedulerTest, FailedRetry);
-  FRIEND_TEST_ALL_PREFIXES(SyncSchedulerTest, ReceiveNewRetryDelay);
 
   static const char* GetModeString(Mode mode);
 
@@ -142,7 +129,7 @@ class SyncSchedulerImpl : public SyncScheduler {
   void DoNudgeSyncCycleJob();
 
   // Invoke the syncer to perform a configuration job.
-  void DoConfigurationSyncCycleJob(JobPriority priority);
+  void DoConfigurationSyncCycleJob(RespectGlobalBackoff respect_backoff);
 
   // Helper function for Do{Nudge,Configuration,Poll}SyncCycleJob.
   void HandleSuccess();
@@ -171,10 +158,10 @@ class SyncSchedulerImpl : public SyncScheduler {
   void RestartWaiting();
 
   // Determines if we're allowed to contact the server right now.
-  bool CanRunJobNow(JobPriority priority);
+  bool CanRunJobNow(RespectGlobalBackoff respect_backoff);
 
   // Determines if we're allowed to contact the server right now.
-  bool CanRunNudgeJobNow(JobPriority priority);
+  bool CanRunNudgeJobNow(RespectGlobalBackoff respect_backoff);
 
   // If the scheduler's current state supports it, this will create a job based
   // on the passed in parameters and coalesce it with any other pending jobs,
@@ -188,14 +175,13 @@ class SyncSchedulerImpl : public SyncScheduler {
   // Helper to signal listeners about changed throttled or backed off types.
   void NotifyBlockedTypesChanged();
 
-  // Looks for pending work and, if it finds any, runs this work at the given
-  // priority. TrySyncCycleJob just posts a call to TrySyncCycleJobImpl on the
-  // current thread.
-  void TrySyncCycleJob(JobPriority priority);
-  void TrySyncCycleJobImpl(JobPriority priority);
+  // Looks for pending work and, if it finds any, runs it. TrySyncCycleJob just
+  // posts a call to TrySyncCycleJobImpl on the current thread.
+  void TrySyncCycleJob(RespectGlobalBackoff respect_backoff);
+  void TrySyncCycleJobImpl(RespectGlobalBackoff respect_backoff);
 
-  // Transitions out of the THROTTLED WaitInterval then triggers a
-  // CANARY_PRIORITY job. This is used for global throttling.
+  // Transitions out of the THROTTLED WaitInterval then triggers a job which
+  // ignores global backoff. This is used for global throttling.
   void Unthrottle();
 
   // Called when a per-type throttling or backing off interval expires.
@@ -204,8 +190,8 @@ class SyncSchedulerImpl : public SyncScheduler {
   // Runs a normal nudge job when the scheduled timer expires.
   void PerformDelayedNudge();
 
-  // Attempts to exit EXPONENTIAL_BACKOFF by triggering a CANARY_PRIORITY job.
-  // This is used for global backoff.
+  // Attempts to exit global backoff (BlockingMode::kExponentialBackoff) by
+  // triggering a job which ignores global backoff.
   void ExponentialBackoffRetry();
 
   // Called when the root cause of the current connection error is fixed.
@@ -247,9 +233,14 @@ class SyncSchedulerImpl : public SyncScheduler {
   // Timer for polling. Restarted on each successful poll, and when entering
   // normal sync mode or exiting an error state. Not active in configuration
   // mode.
-  // TODO(crbug.com/1497926): Use a WallClockTimer, so that polls happen
-  // consistently even if the device was suspended.
-  base::OneShotTimer poll_timer_;
+  // Depending on the state of kSyncSchedulerUseWallClockTimer, *either* the
+  // OneShotTimer *or* the WallClockTimer is used.
+  // TODO(crbug.com/1497926): Once kSyncSchedulerUseWallClockTimer is launched,
+  // remove poll_timer_ticks_.
+  base::OneShotTimer poll_timer_ticks_;
+  // Note that this is a WallClockTimer (as opposed to a regular OneShotTimer)
+  // so that it continues counting even if the device is suspended.
+  base::WallClockTimer poll_timer_wall_;
 
   // The mode of operation.
   Mode mode_ = CONFIGURATION_MODE;
@@ -280,9 +271,10 @@ class SyncSchedulerImpl : public SyncScheduler {
 
   // The time when the last poll request finished. Used for computing the next
   // poll time.
-  // TODO(crbug.com/1497926): Once `poll_timer_` is a WallClockTimer, this
-  // should become a Time instead of TimeTicks.
-  base::TimeTicks last_poll_reset_;
+  // TODO(crbug.com/1497926): Once kSyncSchedulerUseWallClockTimer is launched,
+  // remove last_poll_reset_ticks_.
+  base::TimeTicks last_poll_reset_ticks_;
+  base::Time last_poll_reset_time_;
 
   // One-shot timer for scheduling GU retry according to delay set by server.
   base::OneShotTimer retry_timer_;

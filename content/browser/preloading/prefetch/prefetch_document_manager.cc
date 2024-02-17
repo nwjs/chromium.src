@@ -217,7 +217,8 @@ void PrefetchDocumentManager::ProcessCandidates(
         case PrefetchContainer::LoadState::kFailedHeldback:
           break;
         case PrefetchContainer::LoadState::kStarted:
-          prefetch->SetPrefetchStatus(PrefetchStatus::kPrefetchEvicted);
+          prefetch->SetPrefetchStatus(
+              PrefetchStatus::kPrefetchEvictedAfterCandidateRemoved);
           break;
       }
       GetPrefetchService()->ResetPrefetch(prefetch);
@@ -283,7 +284,7 @@ void PrefetchDocumentManager::PrefetchUrl(
     return;
   }
 
-  absl::optional<net::HttpNoVarySearchData> no_vary_search_expected;
+  std::optional<net::HttpNoVarySearchData> no_vary_search_expected;
   if (mojo_no_vary_search_expected) {
     no_vary_search_expected =
         no_vary_search::ParseHttpNoVarySearchDataFromMojom(
@@ -337,6 +338,7 @@ bool PrefetchDocumentManager::IsPrefetchAttemptFailedOrDiscarded(
     case PrefetchStatus::kPrefetchIneligibleBatterySaverEnabled:
     case PrefetchStatus::kPrefetchIneligiblePreloadingDisabled:
     case PrefetchStatus::kPrefetchIneligibleExistingProxy:
+    case PrefetchStatus::kPrefetchIsStale:
     case PrefetchStatus::kPrefetchNotUsedProbeFailed:
     case PrefetchStatus::kPrefetchNotStarted:
     case PrefetchStatus::kPrefetchNotFinishedInTime:
@@ -353,7 +355,8 @@ bool PrefetchDocumentManager::IsPrefetchAttemptFailedOrDiscarded(
     case PrefetchStatus::kPrefetchFailedPerPageLimitExceeded:
     case PrefetchStatus::
         kPrefetchIneligibleSameSiteCrossOriginPrefetchRequiredProxy:
-    case PrefetchStatus::kPrefetchEvicted:
+    case PrefetchStatus::kPrefetchEvictedAfterCandidateRemoved:
+    case PrefetchStatus::kPrefetchEvictedForNewerPrefetch:
       return true;
   }
 }

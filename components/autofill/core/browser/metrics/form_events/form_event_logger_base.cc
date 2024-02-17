@@ -143,6 +143,13 @@ void FormEventLoggerBase::OnDidShowSuggestions(
   RecordShowSuggestions();
 }
 
+void FormEventLoggerBase::OnDidRefill(
+    AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
+    const FormStructure& form) {
+  signin_state_for_metrics_ = signin_state_for_metrics;
+  Log(FORM_EVENT_DID_DYNAMIC_REFILL, form);
+}
+
 void FormEventLoggerBase::SetAblationStatus(
     AblationGroup ablation_group,
     AblationGroup conditional_ablation_group) {
@@ -186,6 +193,7 @@ void FormEventLoggerBase::OnWillSubmitForm(
     Log(FORM_EVENT_SUGGESTION_SHOWN_WILL_SUBMIT_ONCE, form);
   }
 
+  RecordUndoMetrics();
   base::RecordAction(base::UserMetricsAction("Autofill_OnWillSubmitForm"));
 }
 
@@ -477,6 +485,17 @@ void FormEventLoggerBase::RecordAblationMetrics() const {
           *time_from_interaction_to_submission_, base::Milliseconds(100),
           base::Minutes(10), 50);
     }
+  }
+}
+
+void FormEventLoggerBase::RecordUndoMetrics() const {
+  if (has_logged_suggestion_filled_) {
+    base::UmaHistogramBoolean("Autofill.UndoAfterFill." + form_type_name_,
+                              has_logged_undo_after_fill_);
+  }
+  if (has_logged_undo_after_fill_) {
+    base::UmaHistogramBoolean("Autofill.FillAfterUndo." + form_type_name_,
+                              has_logged_fill_after_undo_);
   }
 }
 

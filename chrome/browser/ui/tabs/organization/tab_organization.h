@@ -5,13 +5,13 @@
 #ifndef CHROME_BROWSER_UI_TABS_ORGANIZATION_TAB_ORGANIZATION_H_
 #define CHROME_BROWSER_UI_TABS_ORGANIZATION_TAB_ORGANIZATION_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/tabs/organization/tab_data.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 class TabOrganization : public TabData::Observer {

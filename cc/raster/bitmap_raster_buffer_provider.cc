@@ -6,16 +6,10 @@
 
 #include <stddef.h>
 #include <stdint.h>
-
-#include <algorithm>
-#include <limits>
 #include <utility>
 
-#include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/shared_memory_mapping.h"
-#include "base/process/memory.h"
 #include "base/trace_event/process_memory_dump.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
@@ -25,39 +19,21 @@
 #include "components/viz/common/resources/shared_image_format.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
-#include "ui/gfx/buffer_format_util.h"
+#include "gpu/ipc/client/client_shared_image_interface.h"
 #include "ui/gfx/color_space.h"
-#include "ui/gfx/geometry/size.h"
 
 namespace cc {
 namespace {
 
-base::UnsafeSharedMemoryRegion AllocateSharedMemory(
-    const gfx::Size& size,
-    viz::SharedImageFormat format) {
-
-  size_t bytes = 0;
-  if (!viz::ResourceSizes::MaybeSizeInBytes(size, format, &bytes)) {
-    DLOG(ERROR) << "AllocateMappedBitmap with size that overflows";
-    size_t alloc_size = std::numeric_limits<int>::max();
-    base::TerminateBecauseOutOfMemory(alloc_size);
-  }
-
-  auto shared_memory = base::UnsafeSharedMemoryRegion::Create(bytes);
-  if (!shared_memory.IsValid()) {
-    DLOG(ERROR) << "Browser failed to allocate shared memory";
-    base::TerminateBecauseOutOfMemory(bytes);
-  }
-  return shared_memory;
-}
-
 class BitmapSoftwareBacking : public ResourcePool::SoftwareBacking {
  public:
   ~BitmapSoftwareBacking() override {
-    if (shared_bitmap_id.IsSharedImage()) {
-      DCHECK(frame_sink->shared_image_interface());
-      frame_sink->shared_image_interface()->DestroySharedImage(
-          mailbox_sync_token, std::move(shared_image));
+    if (shared_image) {
+      scoped_mapping.reset();
+      if (frame_sink->shared_image_interface()) {
+        frame_sink->shared_image_interface()->DestroySharedImage(
+            mailbox_sync_token, std::move(shared_image));
+      }
     } else {
       frame_sink->DidDeleteSharedBitmap(shared_bitmap_id);
     }
@@ -68,15 +44,20 @@ class BitmapSoftwareBacking : public ResourcePool::SoftwareBacking {
       const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
       uint64_t tracing_process_id,
       int importance) const override {
-    pmd->CreateSharedMemoryOwnershipEdge(buffer_dump_guid, mapping.guid(),
-                                         importance);
+    if (shared_image) {
+      scoped_mapping->OnMemoryDump(pmd, buffer_dump_guid, tracing_process_id,
+                                   importance);
+    } else {
+      pmd->CreateSharedMemoryOwnershipEdge(buffer_dump_guid, mapping.guid(),
+                                           importance);
+    }
   }
 
   raw_ptr<LayerTreeFrameSink> frame_sink;
-  scoped_refptr<gpu::ClientSharedImage> shared_image;
+  // Used for SharedBitmap.
   base::WritableSharedMemoryMapping mapping;
-
-  base::UnsafeSharedMemoryRegion unsafe_region;
+  // Used for SharedImage.
+  std::unique_ptr<gpu::ClientSharedImage::ScopedMapping> scoped_mapping;
 };
 
 class BitmapRasterBufferImpl : public RasterBuffer {
@@ -88,7 +69,8 @@ class BitmapRasterBufferImpl : public RasterBuffer {
                          uint64_t previous_content_id)
       : resource_size_(size),
         color_space_(color_space),
-        pixels_(backing->mapping.memory()),
+        pixels_(backing->shared_image ? backing->scoped_mapping->Memory(0)
+                                      : backing->mapping.memory()),
         resource_has_previous_content_(
             resource_content_id && resource_content_id == previous_content_id),
         backing_(backing) {}
@@ -112,10 +94,9 @@ class BitmapRasterBufferImpl : public RasterBuffer {
         << "Why are we rastering a tile that's not dirty?";
 
     size_t stride = 0u;
-    viz::SharedImageFormat format =
-        backing_->frame_sink->shared_image_interface()
-            ? viz::SinglePlaneFormat::kBGRA_8888
-            : viz::SinglePlaneFormat::kRGBA_8888;
+    viz::SharedImageFormat format = backing_->shared_image
+                                        ? viz::SinglePlaneFormat::kBGRA_8888
+                                        : viz::SinglePlaneFormat::kRGBA_8888;
     RasterBufferProvider::PlaybackToMemory(
         pixels_, format, resource_size_, stride, raster_source,
         raster_full_rect, playback_rect, transform, color_space_,
@@ -123,7 +104,7 @@ class BitmapRasterBufferImpl : public RasterBuffer {
 
     auto* shared_image_interface =
         backing_->frame_sink->shared_image_interface();
-    if (shared_image_interface) {
+    if (backing_->shared_image && shared_image_interface) {
       backing_->mailbox_sync_token =
           shared_image_interface->GenVerifiedSyncToken();
     }
@@ -170,26 +151,14 @@ BitmapRasterBufferProvider::AcquireBufferForRaster(
     backing->frame_sink = frame_sink_;
 
     if (frame_sink_->shared_image_interface()) {
-      constexpr char kDebugLabel[] = "BitmapRasterBufferProvider";
-      backing->unsafe_region =
-          AllocateSharedMemory(size, viz::SinglePlaneFormat::kBGRA_8888);
-      backing->mapping = backing->unsafe_region.Map();
-
-      gfx::GpuMemoryBufferHandle handle;
-      handle.type = gfx::SHARED_MEMORY_BUFFER;
-      handle.offset = 0;
-      handle.stride = static_cast<int32_t>(gfx::RowSizeForBufferFormat(
-          size.width(), gfx::BufferFormat::BGRA_8888, 0));
-      handle.region = backing->unsafe_region.Duplicate();
-
       backing->shared_image =
           frame_sink_->shared_image_interface()->CreateSharedImage(
               viz::SinglePlaneFormat::kBGRA_8888, size, color_space,
               kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
-              gpu::SHARED_IMAGE_USAGE_CPU_WRITE, kDebugLabel,
-              std::move(handle));
+              gpu::SHARED_IMAGE_USAGE_CPU_WRITE, "BitmapRasterBufferProvider");
       CHECK(backing->shared_image);
-      backing->shared_bitmap_id = backing->shared_image->mailbox();
+      backing->scoped_mapping = backing->shared_image->Map();
+      CHECK(backing->scoped_mapping);
     } else {
       backing->shared_bitmap_id = viz::SharedBitmap::GenerateId();
       base::MappedReadOnlyRegion shm =

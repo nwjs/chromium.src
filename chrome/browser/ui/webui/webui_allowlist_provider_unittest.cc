@@ -291,7 +291,7 @@ TEST_F(WebUIAllowlistProviderTest,
   // Allowlisted origin making subresource request (e.g. image) can't use
   // cookies.
   EXPECT_FALSE(cookies_settings->IsFullCookieAccessAllowed(
-      third_party_url, net::SiteForCookies(), absl::nullopt,
+      third_party_url, net::SiteForCookies(), std::nullopt,
       net::CookieSettingOverrides()));
 
   // Allowlisted origin embedded in the wrong WebUI origin can't use cookies.
@@ -350,7 +350,7 @@ TEST_F(WebUIAllowlistProviderTest,
   // Allowlisted origin making subresource request (e.g. image) can't use
   // cookies.
   EXPECT_FALSE(cookies_settings->IsFullCookieAccessAllowed(
-      third_party_url, net::SiteForCookies(), absl::nullopt,
+      third_party_url, net::SiteForCookies(), std::nullopt,
       net::CookieSettingOverrides()));
 
   // Other permissions aren't affected.
@@ -426,10 +426,12 @@ TEST_F(WebUIAllowlistProviderTest, CookieSettings) {
       url::Origin::Create(top_level_url), {}));
   EXPECT_TRUE(cookie_settings->IsCookieSessionOnly(url));
   EXPECT_TRUE(cookie_settings->ShouldDeleteCookieOnExit(
-      cookie_settings->GetCookieSettings(), url.host(), true));
+      cookie_settings->GetCookieSettings(), url.host(),
+      net::CookieSourceScheme::kSecure));
   EXPECT_TRUE(cookie_settings->IsCookieSessionOnly(top_level_url));
   EXPECT_TRUE(cookie_settings->ShouldDeleteCookieOnExit(
-      cookie_settings->GetCookieSettings(), top_level_url.host(), true));
+      cookie_settings->GetCookieSettings(), top_level_url.host(),
+      net::CookieSourceScheme::kSecure));
 
   // Registering a third-party cookie exception should only affect 3p cookies
   // in webui and not change clear on exit behavior of regular cookies.
@@ -445,8 +447,10 @@ TEST_F(WebUIAllowlistProviderTest, CookieSettings) {
       url::Origin::Create(top_level_url), {}));
   EXPECT_TRUE(cookie_settings->IsCookieSessionOnly(url));
   EXPECT_TRUE(cookie_settings->ShouldDeleteCookieOnExit(
-      cookie_settings->GetCookieSettings(), url.host(), true));
+      cookie_settings->GetCookieSettings(), url.host(),
+      net::CookieSourceScheme::kSecure));
   EXPECT_FALSE(cookie_settings->IsCookieSessionOnly(top_level_url));
   EXPECT_FALSE(cookie_settings->ShouldDeleteCookieOnExit(
-      cookie_settings->GetCookieSettings(), top_level_url.host(), true));
+      cookie_settings->GetCookieSettings(), top_level_url.host(),
+      net::CookieSourceScheme::kSecure));
 }

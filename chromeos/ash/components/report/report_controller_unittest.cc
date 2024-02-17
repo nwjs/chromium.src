@@ -244,6 +244,7 @@ class ReportControllerSimpleFlowTest : public ReportControllerTestBase {
  public:
   static constexpr ChromeDeviceMetadataParameters kFakeChromeParameters = {
       version_info::Channel::STABLE /* chromeos_channel */,
+      MarketSegment::MARKET_SEGMENT_CONSUMER /* market_segment */,
   };
 
   void SetUp() override {
@@ -272,10 +273,6 @@ class ReportControllerSimpleFlowTest : public ReportControllerTestBase {
 
     report_controller_ = std::make_unique<ReportController>(
         kFakeChromeParameters, GetLocalState(), GetUrlLoaderFactory(),
-        base::Time(), base::BindRepeating([]() { return base::Minutes(1); }),
-        base::BindRepeating(
-            []() { return policy::DeviceMode::DEVICE_MODE_NOT_SET; }),
-        base::BindRepeating([]() { return policy::MarketSegment::UNKNOWN; }),
         std::make_unique<PsmClientManager>(std::move(psm_client_delegate)));
 
     task_environment_.RunUntilIdle();
@@ -584,7 +581,8 @@ class ReportControllerPreservedFileReadWriteSuccessTest
     : public ReportControllerTestBase {
  public:
   static constexpr ChromeDeviceMetadataParameters kFakeChromeParameters = {
-      version_info::Channel::STABLE /* chromeos_channel */
+      version_info::Channel::STABLE /* chromeos_channel */,
+      MarketSegment::MARKET_SEGMENT_CONSUMER /* market_segment */,
   };
 
   void SetUp() override {
@@ -617,10 +615,6 @@ class ReportControllerPreservedFileReadWriteSuccessTest
 
     report_controller_ = std::make_unique<ReportController>(
         kFakeChromeParameters, GetLocalState(), GetUrlLoaderFactory(),
-        base::Time(), base::BindRepeating([]() { return base::Minutes(1); }),
-        base::BindRepeating(
-            []() { return policy::DeviceMode::DEVICE_MODE_NOT_SET; }),
-        base::BindRepeating([]() { return policy::MarketSegment::UNKNOWN; }),
         std::make_unique<PsmClientManager>(std::move(psm_client_delegate)));
 
     task_environment_.RunUntilIdle();
@@ -688,6 +682,7 @@ class ReportControllerDeviceRecoveryTest : public ReportControllerTestBase {
  public:
   static constexpr ChromeDeviceMetadataParameters kFakeChromeParameters = {
       version_info::Channel::STABLE /* chromeos_channel */,
+      MarketSegment::MARKET_SEGMENT_CONSUMER /* market_segment */,
   };
 
   void SetUp() override {
@@ -720,10 +715,6 @@ class ReportControllerDeviceRecoveryTest : public ReportControllerTestBase {
 
     report_controller_ = std::make_unique<ReportController>(
         kFakeChromeParameters, GetLocalState(), GetUrlLoaderFactory(),
-        base::Time(), base::BindRepeating([]() { return base::Minutes(1); }),
-        base::BindRepeating(
-            []() { return policy::DeviceMode::DEVICE_MODE_NOT_SET; }),
-        base::BindRepeating([]() { return policy::MarketSegment::UNKNOWN; }),
         std::make_unique<PsmClientManager>(std::move(psm_client_delegate)));
 
     task_environment_.RunUntilIdle();

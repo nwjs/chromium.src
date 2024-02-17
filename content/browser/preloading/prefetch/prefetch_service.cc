@@ -5,6 +5,7 @@
 #include "content/browser/preloading/prefetch/prefetch_service.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "base/auto_reset.h"
@@ -64,7 +65,6 @@
 #include "services/network/public/mojom/devtools_observer.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom-shared.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/loader/referrer_utils.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -935,6 +935,7 @@ PrefetchService::PopNextPrefetchContainer() {
 
 void PrefetchService::OnPrefetchTimeout(
     base::WeakPtr<PrefetchContainer> prefetch_container) {
+  prefetch_container->SetPrefetchStatus(PrefetchStatus::kPrefetchIsStale);
   ResetPrefetch(prefetch_container);
 
   if (PrefetchNewLimitsEnabled() &&
@@ -1012,7 +1013,8 @@ void PrefetchService::StartSinglePrefetch(
 
   if (prefetch_to_evict) {
     DCHECK(PrefetchNewLimitsEnabled());
-    prefetch_to_evict->SetPrefetchStatus(PrefetchStatus::kPrefetchEvicted);
+    prefetch_to_evict->SetPrefetchStatus(
+        PrefetchStatus::kPrefetchEvictedForNewerPrefetch);
     ResetPrefetch(prefetch_to_evict);
   }
 
@@ -1037,7 +1039,7 @@ void PrefetchService::StartSinglePrefetch(
   if (devtools_observer && !prefetch_container->IsDecoy()) {
     devtools_observer->OnStartSinglePrefetch(
         prefetch_container->RequestId(),
-        *prefetch_container->GetResourceRequest(), absl::nullopt);
+        *prefetch_container->GetResourceRequest(), std::nullopt);
   }
 
   SendPrefetchRequest(prefetch_container);
@@ -1143,7 +1145,7 @@ void PrefetchService::OnPrefetchRedirect(
       blink::ReferrerUtils::NetToMojoReferrerPolicy(
           redirect_info.new_referrer_policy);
 
-  absl::optional<PrefetchRedirectResult> failure;
+  std::optional<PrefetchRedirectResult> failure;
   if (!base::FeatureList::IsEnabled(features::kPrefetchRedirects)) {
     failure = PrefetchRedirectResult::kFailedRedirectsDisabled;
   } else if (redirect_info.new_method != "GET") {
@@ -1188,7 +1190,7 @@ void PrefetchService::OnPrefetchRedirect(
                      std::move(redirect_head)));
 }
 
-absl::optional<PrefetchErrorOnResponseReceived>
+std::optional<PrefetchErrorOnResponseReceived>
 PrefetchService::OnPrefetchResponseStarted(
     base::WeakPtr<PrefetchContainer> prefetch_container,
     network::mojom::URLResponseHead* head) {
@@ -1249,7 +1251,7 @@ PrefetchService::OnPrefetchResponseStarted(
     return PrefetchErrorOnResponseReceived::kFailedMIMENotSupported;
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void PrefetchService::OnPrefetchResponseCompleted(
@@ -1410,6 +1412,28 @@ std::vector<PrefetchContainer*> PrefetchService::FindPrefetchContainerToServe(
       case PrefetchContainer::ServableState::kServable:
       case PrefetchContainer::ServableState::kShouldBlockUntilHeadReceived:
         break;
+    }
+
+    if (prefetch_container->IsDecoy()) {
+      DVLOG(1)
+          << "PrefetchService::FindPrefetchContainerToServe: skipped because "
+             "prefetch is a decoy: "
+          << *prefetch_container;
+      return true;
+    }
+
+    // Note: This codepath is only be reached in practice if we create a
+    // second NavigationRequest to this prefetch's URL. The first
+    // NavigationRequest would call GetPrefetch, which might set this
+    // PrefetchContainer's status to kPrefetchNotUsedCookiesChanged.
+    CHECK(prefetch_container->HasPrefetchStatus());
+    if (prefetch_container->GetPrefetchStatus() ==
+        PrefetchStatus::kPrefetchNotUsedCookiesChanged) {
+      DVLOG(1)
+          << "PrefetchService::FindPrefetchContainerToServe: skipped because "
+             "cookies for url have changed since prefetch completed: "
+          << *prefetch_container;
+      return true;
     }
 
     DVLOG(1) << "PrefetchService::FindPrefetchContainerToServe: matched: "

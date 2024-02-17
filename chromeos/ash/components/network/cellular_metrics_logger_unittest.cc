@@ -1121,6 +1121,16 @@ TEST_F(CellularMetricsLoggerTest, SwitchActiveNetworkOnManagedDevice) {
   histogram_tester_->ExpectBucketCount(
       CellularMetricsLogger::kRestrictedActiveNetworkSIMLockStatus,
       CellularMetricsLogger::SimPinLockType::kPukLocked, 1);
+
+  service_client_test()->SetServiceProperty(
+      kTestESimCellularServicePath, shill::kStateProperty, kIdleStateValue);
+  SetCellularSimLock(shill::kSIMLockNetworkPin);
+  service_client_test()->SetServiceProperty(
+      kTestPSimCellularServicePath, shill::kStateProperty, kFailedToConnect);
+  base::RunLoop().RunUntilIdle();
+  histogram_tester_->ExpectBucketCount(
+      CellularMetricsLogger::kRestrictedActiveNetworkSIMLockStatus,
+      CellularMetricsLogger::SimPinLockType::kCarrierLocked, 1);
 }
 
 TEST_F(CellularMetricsLoggerTest, SwitchActiveNetworkOnUnmanagedDevice) {
@@ -1361,14 +1371,15 @@ TEST_F(CellularMetricsLoggerTest, CellularDisconnectionsTest) {
 TEST_F(CellularMetricsLoggerTest,
        EnterpriseESimFeatureUsageMetrics_NotEnrolled) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enable_features=*/{{ash::features::kSmdsSupport,
-                            ash::features::kSmdsSupportEuiccUpload}},
-      /*disable_features=*/{{}});
+  feature_list.InitAndEnableFeature(ash::features::kSmdsSupport);
 
   TestingPrefServiceSimple device_prefs;
   CellularESimProfileHandlerImpl::RegisterLocalStatePrefs(
       device_prefs.registry());
+
+  // Any cellular service that is considered enterprise enrolled will result in
+  // enterprise eSIM feature usage being considered enabled.
+  RemoveCellularService(kTestESimPolicyCellularServicePath);
 
   InitMetricsLogger(/*check_esim_feature_eligible=*/false,
                     /*check_enterprise_esim_feature_eligible=*/false);
@@ -1379,10 +1390,7 @@ TEST_F(CellularMetricsLoggerTest,
 TEST_F(CellularMetricsLoggerTest,
        EnterpriseESimFeatureUsageMetrics_NotEligible) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enable_features=*/{{ash::features::kSmdsSupport,
-                            ash::features::kSmdsSupportEuiccUpload}},
-      /*disable_features=*/{{}});
+  feature_list.InitAndEnableFeature(ash::features::kSmdsSupport);
 
   MarkEnterpriseEnrolled();
 
@@ -1391,6 +1399,7 @@ TEST_F(CellularMetricsLoggerTest,
       device_prefs.registry());
 
   RemoveEuicc();
+  RemoveCellularService(kTestESimPolicyCellularServicePath);
 
   InitMetricsLogger(/*check_esim_feature_eligible=*/false,
                     /*check_enterprise_esim_feature_eligible=*/false);
@@ -1398,12 +1407,10 @@ TEST_F(CellularMetricsLoggerTest,
   histogram_tester_->ExpectTotalCount(kEnterpriseESimFeatureUsageMetric, 0);
 }
 
-TEST_F(CellularMetricsLoggerTest, EnterpriseESimFeatureUsageMetrics_Eligible) {
+TEST_F(CellularMetricsLoggerTest,
+       EnterpriseESimFeatureUsageMetrics_EligibleViaEuicc) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enable_features=*/{{ash::features::kSmdsSupport,
-                            ash::features::kSmdsSupportEuiccUpload}},
-      /*disable_features=*/{{}});
+  feature_list.InitAndEnableFeature(ash::features::kSmdsSupport);
 
   MarkEnterpriseEnrolled();
 
@@ -1433,10 +1440,7 @@ TEST_F(CellularMetricsLoggerTest, EnterpriseESimFeatureUsageMetrics_Eligible) {
 TEST_F(CellularMetricsLoggerTest,
        EnterpriseESimFeatureUsageMetrics_Accessible) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enable_features=*/{{ash::features::kSmdsSupport,
-                            ash::features::kSmdsSupportEuiccUpload}},
-      /*disable_features=*/{{}});
+  feature_list.InitAndEnableFeature(ash::features::kSmdsSupport);
 
   MarkEnterpriseEnrolled();
 
@@ -1444,7 +1448,7 @@ TEST_F(CellularMetricsLoggerTest,
   CellularESimProfileHandlerImpl::RegisterLocalStatePrefs(
       device_prefs.registry());
 
-  const absl::optional<base::Value::Dict> policy =
+  const std::optional<base::Value::Dict> policy =
       base::JSONReader::ReadDict(kEnterpriseESimPolicy);
   ASSERT_TRUE(policy.has_value());
 
@@ -1475,12 +1479,9 @@ TEST_F(CellularMetricsLoggerTest,
 }
 
 TEST_F(CellularMetricsLoggerTest,
-       EnterpriseESimFeatureUsageMetrics_EnabledAndUsage) {
+       EnterpriseESimFeatureUsageMetrics_EnabledViaService) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enable_features=*/{{ash::features::kSmdsSupport,
-                            ash::features::kSmdsSupportEuiccUpload}},
-      /*disable_features=*/{{}});
+  feature_list.InitAndEnableFeature(ash::features::kSmdsSupport);
 
   MarkEnterpriseEnrolled();
 
@@ -1488,7 +1489,29 @@ TEST_F(CellularMetricsLoggerTest,
   CellularESimProfileHandlerImpl::RegisterLocalStatePrefs(
       device_prefs.registry());
 
-  const absl::optional<base::Value::Dict> policy =
+  InitCellular();
+
+  InitMetricsLogger(/*check_esim_feature_eligible=*/false,
+                    /*check_enterprise_esim_feature_eligible=*/true);
+
+  histogram_tester_->ExpectTotalCount(kEnterpriseESimFeatureUsageMetric, 3);
+  histogram_tester_->ExpectBucketCount(
+      kEnterpriseESimFeatureUsageMetric,
+      static_cast<int>(feature_usage::FeatureUsageMetrics::Event::kEnabled), 1);
+}
+
+TEST_F(CellularMetricsLoggerTest,
+       EnterpriseESimFeatureUsageMetrics_EnabledAndUsage) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(ash::features::kSmdsSupport);
+
+  MarkEnterpriseEnrolled();
+
+  TestingPrefServiceSimple device_prefs;
+  CellularESimProfileHandlerImpl::RegisterLocalStatePrefs(
+      device_prefs.registry());
+
+  const std::optional<base::Value::Dict> policy =
       base::JSONReader::ReadDict(kEnterpriseESimPolicy);
   ASSERT_TRUE(policy.has_value());
 

@@ -48,15 +48,10 @@ TrayBubbleView* GlanceableTrayBubble::GetBubbleView() const {
 
 views::Widget* GlanceableTrayBubble::GetBubbleWidget() const {
   return bubble_wrapper_->GetBubbleWidget();
-  ;
 }
 
 views::View* GlanceableTrayBubble::GetTasksView() {
   return GetGlanceableTrayBubbleView()->GetTasksView();
-}
-
-ClassroomBubbleTeacherView* GlanceableTrayBubble::GetClassroomTeacherView() {
-  return GetGlanceableTrayBubbleView()->GetClassroomTeacherView();
 }
 
 ClassroomBubbleStudentView* GlanceableTrayBubble::GetClassroomStudentView() {

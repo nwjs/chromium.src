@@ -6,9 +6,10 @@
 
 #include <stdint.h>
 
+#include <optional>
+#include <string_view>
 #include <tuple>
 
-#include <optional>
 #include "base/check.h"
 #include "base/containers/contains.h"
 #include "base/containers/cxx20_erase.h"
@@ -17,6 +18,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
@@ -82,8 +84,10 @@ class ThreadSafeInterfaceEndpointClientProxy : public ThreadSafeProxy {
   ~ThreadSafeInterfaceEndpointClientProxy() override {
     // If there are ongoing sync calls signal their completion now.
     base::AutoLock l(sync_calls_->lock);
-    for (auto* pending_response : sync_calls_->pending_responses)
+    for (ThreadSafeInterfaceEndpointClientProxy::SyncResponseInfo*
+             pending_response : sync_calls_->pending_responses) {
       pending_response->event.Signal();
+    }
   }
 
   // Data that we need to share between the sequences involved in a sync call.
@@ -136,7 +140,8 @@ class ThreadSafeInterfaceEndpointClientProxy : public ThreadSafeProxy {
 
     // |lock| protects access to |pending_responses|.
     base::Lock lock;
-    std::vector<SyncResponseInfo*> pending_responses GUARDED_BY(lock);
+    std::vector<raw_ptr<SyncResponseInfo, VectorExperimental>> pending_responses
+        GUARDED_BY(lock);
 
    private:
     friend class base::RefCountedThreadSafe<InProgressSyncCalls>;

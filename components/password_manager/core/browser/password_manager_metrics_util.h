@@ -454,7 +454,10 @@ enum class MoveToAccountStoreTrigger {
   // After saving a password locally, the user opted in to saving this and
   // future passwords in the account.
   kUserOptedInAfterSavingLocally = 3,
-  kMaxValue = kUserOptedInAfterSavingLocally,
+  // The user explicitly asked to move a password to account store from password
+  // details page.
+  kExplicitlyTriggeredForSinglePasswordInDetailsInSettings = 4,
+  kMaxValue = kExplicitlyTriggeredForSinglePasswordInDetailsInSettings,
 };
 
 // Used to record what exactly was updated during password editing flow.
@@ -571,7 +574,8 @@ enum class PasswordManagementBubbleInteractions {
   kNoteFullySelected = 14,
   kNotePartiallyCopied = 15,
   kNoteFullyCopied = 16,
-  kMaxValue = kNoteFullyCopied,
+  kMovePasswordLinkClicked = 17,
+  kMaxValue = kMovePasswordLinkClicked,
 };
 
 // Represents different causes for showing the password migration warning.
@@ -655,7 +659,8 @@ enum class ProcessIncomingPasswordSharingInvitationResult {
   kSharedCredentialsExistWithSameSenderAndDifferentPassword = 5,
   kSharedCredentialsExistWithDifferentSenderAndSamePassword = 6,
   kSharedCredentialsExistWithDifferentSenderAndDifferentPassword = 7,
-  kMaxValue = kSharedCredentialsExistWithDifferentSenderAndDifferentPassword,
+  kInvalidInvitation = 8,
+  kMaxValue = kInvalidInvitation,
 };
 
 #if BUILDFLAG(IS_ANDROID)
@@ -812,7 +817,8 @@ void LogNewlySavedPasswordMetrics(
     bool is_generated_password,
     bool is_username_empty,
     password_manager::features_util::PasswordAccountStorageUsageLevel
-        account_storage_usage_level);
+        account_storage_usage_level,
+    ukm::SourceId ukm_source_id);
 
 // Log whether the generated password was accepted or rejected for generation of
 // |type| (automatic or manual).
@@ -825,8 +831,7 @@ void LogGaiaPasswordHashChange(GaiaPasswordHashChange event,
                                bool is_sync_password);
 
 // Log whether a sync password hash saved.
-void LogIsSyncPasswordHashSaved(IsSyncPasswordHashSaved state,
-                                bool is_under_advanced_protection);
+void LogIsSyncPasswordHashSaved(IsSyncPasswordHashSaved state);
 
 // Log whether the saved password is protected by Phishguard. To preserve
 // privacy of individual data points, we will log with 10% noise.

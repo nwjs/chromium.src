@@ -679,10 +679,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   // Notifies the embedder about an accessibility event on a WebAXObject.
   virtual void PostAccessibilityEvent(const ui::AXEvent& event) {}
 
-  // Notifies tests that a WebAXObject is dirty and its state needs
-  // to be serialized again.
-  virtual void NotifyWebAXObjectMarkedDirty(const WebAXObject&) {}
-
   // Called when accessibility is ready to serialize.
   virtual void AXReadyCallback() {}
 
@@ -716,8 +712,7 @@ class BLINK_EXPORT WebLocalFrameClient {
     return nullptr;
   }
 
-  virtual std::unique_ptr<WebURLLoaderThrottleProviderForFrame>
-  CreateWebURLLoaderThrottleProviderForFrame() {
+  virtual URLLoaderThrottleProvider* GetURLLoaderThrottleProvider() {
     return nullptr;
   }
 
@@ -824,6 +819,21 @@ class BLINK_EXPORT WebLocalFrameClient {
   // Called when script in the frame (and it subframes) wishes to be printed via
   // a window.print() call.
   virtual void ScriptedPrint() {}
+
+  // This method is ONLY for web tests and is not supposed to be overridden in
+  // classes other than web_frame_test_proxy. It's called from accessibility and
+  // is used as a way to tunnel events to the accessibility_controller in web
+  // tests.
+  virtual void HandleWebAccessibilityEventForTest(
+      const blink::WebAXObject& object,
+      const char* event_name,
+      const std::vector<ui::AXEventIntent>& event_intents) {}
+
+  // This method is ONLY for web tests and is not supposed to be overridden in
+  // classes other than web_frame_test_proxy. It's called from accessibility and
+  // is used as a way to tunnel events to the accessibility_controller in web
+  // tests.
+  virtual void HandleWebAccessibilityEventForTest(const ui::AXEvent& event) {}
 
   // Create a new related WebView.  This method must clone its session storage
   // so any subsequent calls to createSessionStorageNamespace conform to the

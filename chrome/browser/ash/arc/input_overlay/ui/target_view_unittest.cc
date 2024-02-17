@@ -32,14 +32,6 @@ class TargetViewTest : public OverlayViewTestBase {
     return target->GetCircleRadius();
   }
 
-  TargetView* GetTargetView() {
-    auto* target_widget = GetTargetViewWidget();
-    if (!target_widget) {
-      return nullptr;
-    }
-    return views::AsViewClass<TargetView>(target_widget->GetContentsView());
-  }
-
   // Convert the point in `TargetView` coordinates to screen coordinates.
   gfx::Point GetPointInScreenFromTargetView(const gfx::Point& point) const {
     DCHECK(touch_injector_);
@@ -119,8 +111,7 @@ TEST_F(TargetViewTest, TestCenterClamp) {
   auto* event_generator = GetEventGenerator();
   event_generator->MoveMouseTo(target_view->GetBoundsInScreen().CenterPoint());
   // Simulate moving mouse to the outside of the window on the left.
-  const auto content_bounds = touch_injector_->content_bounds();
-  for (int i = 0; i < content_bounds.width(); i++) {
+  for (int i = 0; i < target_view->size().width(); i++) {
     event_generator->MoveMouseBy(/*x=*/-1, /*y=*/0);
   }
   // Stay in the button placement mode and the target center should still stay
@@ -157,6 +148,7 @@ TEST_F(TargetViewTest, TestKeyboardSupport) {
   EXPECT_FALSE(GetTargetView());
   VerifyLastActionPosition(action_view_size + 1,
                            GetPointInScreenFromTargetView(local_center));
+  PressDoneButtonOnButtonOptionsMenu();
 
   // Enter into the button placement mode again and check whether the key `esc`
   // exits the button placement mode without adding anything.
@@ -179,6 +171,7 @@ TEST_F(TargetViewTest, TestGestureSupport) {
   EXPECT_FALSE(GetTargetView());
   // Check if the action is dropped on the expect position.
   VerifyLastActionPosition(action_view_size + 1, global_center);
+  PressDoneButtonOnButtonOptionsMenu();
 
   // Enter into the button placement mode and test the gesture scroll.
   PressAddButton();

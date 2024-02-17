@@ -26,6 +26,7 @@
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/features.h"
+#include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/pref_names.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_feature_status_for_migrations_recorder.h"
@@ -130,6 +131,8 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(kPasswordsPerAccountPrefMigrationDone, false);
 #endif  // BUILDFLAG(IS_IOS)
   registry->RegisterIntegerPref(kSyncToSigninMigrationState, kNotMigrated);
+  registry->RegisterBooleanPref(
+      prefs::internal::kMigrateReadingListFromLocalToAccount, false);
 
   // The passphrase type, determined upon the first engine initialization.
   registry->RegisterIntegerPref(
@@ -146,8 +149,6 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterFilePathPref(prefs::kLocalSyncBackendDir, base::FilePath());
 
   SyncFeatureStatusForMigrationsRecorder::RegisterProfilePrefs(registry);
-
-  registry->RegisterBooleanPref(prefs::kExplicitBrowserSignin, false);
 
   // Obsolete prefs (registered for migrations only).
   registry->RegisterBooleanPref(kObsoleteAutofillWalletImportEnabled, true);
@@ -228,12 +229,21 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
         // Otherwise the type requires a dedicated opt-in. Note: If
         // this changes, also update the migration logic in
         // MigrateGlobalDataTypePrefsToAccount().
-        type_enabled = base::FeatureList::IsEnabled(switches::kUnoDesktop) &&
-                       pref_service_->GetBoolean(prefs::kExplicitBrowserSignin);
+        type_enabled =
+            base::FeatureList::IsEnabled(switches::kUnoDesktop) &&
+            pref_service_->GetBoolean(::prefs::kExplicitBrowserSignin);
+#endif
+      } else if (type == UserSelectableType::kBookmarks ||
+                 type == UserSelectableType::kReadingList) {
+        type_enabled = true;
+#if !BUILDFLAG(IS_IOS)
+        if (!base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos)) {
+          // Consider kBookmarks and kReadingList off by default.
+          type_enabled = false;
+        }
 #endif
       } else {
-        // All types except for History, Tabs and Password are always enabled by
-        // default.
+        // All other types are always enabled by default.
         type_enabled = true;
       }
 
@@ -603,10 +613,14 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
   // Features to be enabled.
   switch (type) {
     case UserSelectableType::kBookmarks:
-      return base::FeatureList::IsEnabled(kEnableBookmarksAccountStorage);
-    case UserSelectableType::kReadingList:
+#if BUILDFLAG(IS_IOS)
+      return true;
+#else
       return base::FeatureList::IsEnabled(
-                 kReadingListEnableSyncTransportModeUponSignIn);
+          kEnableBookmarkFoldersForAccountStorage);
+#endif
+    case UserSelectableType::kReadingList:
+      return syncer::IsReadingListAccountStorageEnabled();
     case UserSelectableType::kPreferences:
       return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos) &&
              base::FeatureList::IsEnabled(kEnablePreferencesAccountStorage);
@@ -926,6 +940,18 @@ void SyncPrefs::MigrateGlobalDataTypePrefsToAccount(
                         history_and_tabs_enabled);
   account_settings->Set(GetPrefNameForType(UserSelectableType::kTabs),
                         history_and_tabs_enabled);
+
+  // Another special case: For custom passphrase users, "Addresses and more"
+  // gets disabled by default. The reason is that for syncing custom passphrase
+  // users, this toggle mapped to the legacy AUTOFILL_PROFILE type (which
+  // supported custom passphrase), but for migrated users it maps to
+  // CONTACT_INFO (which does not).
+  absl::optional<PassphraseType> passphrase_type = ProtoPassphraseInt32ToEnum(
+      pref_service->GetInteger(prefs::internal::kSyncCachedPassphraseType));
+  if (passphrase_type.has_value() && IsExplicitPassphrase(*passphrase_type)) {
+    account_settings->Set(GetPrefNameForType(UserSelectableType::kAutofill),
+                          false);
+  }
 
   // Usually, the "SyncToSignin" migration (aka phase 2) will have completed
   // previously. But just in case it hasn't, make sure it doesn't run in the

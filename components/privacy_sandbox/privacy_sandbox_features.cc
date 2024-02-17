@@ -106,7 +106,7 @@ BASE_FEATURE(kEnforcePrivacySandboxAttestations,
 
 BASE_FEATURE(kDefaultAllowPrivacySandboxAttestations,
              "DefaultAllowPrivacySandboxAttestations",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrivacySandboxAttestationSentinel,
              "PrivacySandboxAttestationsSentinel",
@@ -117,6 +117,10 @@ const char kPrivacySandboxEnrollmentOverrides[] =
 
 BASE_FEATURE(kPrivacySandboxAttestationsHigherComponentRegistrationPriority,
              "PrivacySandboxAttestationsHigherComponentRegistrationPriority",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrivacySandboxAttestationsUserBlockingPriority,
+             "PrivacySandboxAttestationsUserBlockingPriority",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrivacySandboxProactiveTopicsBlocking,
@@ -145,7 +149,15 @@ BASE_FEATURE(kAttributionDebugReportingCookieDeprecationTesting,
 BASE_FEATURE(kPrivateAggregationDebugReportingCookieDeprecationTesting,
              "PrivateAggregationDebugReportingCookieDeprecationTesting",
              base::FEATURE_DISABLED_BY_DEFAULT);
-             
+
+BASE_FEATURE(kPrivacySandboxInternalsDevUI,
+             "PrivacySandboxInternalsDevUI",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIpProtectionV1,
+             "IpProtectionV1",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kTrackingProtectionNoticeRequestTracking,
              "TrackingProtectionNoticeRequestTracking",

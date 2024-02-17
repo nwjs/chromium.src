@@ -56,11 +56,6 @@ bool IsAutoDisableAccessibilityEnabled() {
   return base::FeatureList::IsEnabled(::features::kAutoDisableAccessibility);
 }
 
-BASE_FEATURE(kBacklightOcr, "BacklightOcr", base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsBacklightOcrEnabled() {
-  return base::FeatureList::IsEnabled(features::kBacklightOcr);
-}
-
 BASE_FEATURE(kEnableAccessibilityAriaVirtualContent,
              "AccessibilityAriaVirtualContent",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -221,12 +216,20 @@ bool IsAccessibilityExtraLargeCursorEnabled() {
       ::features::kAccessibilityExtraLargeCursor);
 }
 
+BASE_FEATURE(kAccessibilityMagnifierFollowsSts,
+             "AccessibilityMagnifierFollowsSts",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityMagnifierFollowsStsEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityMagnifierFollowsSts);
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kAccessibilityPerformanceFiltering,
              "AccessibilityPerformanceFiltering",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityPerformanceFilteringEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityPerformanceFiltering);
@@ -307,7 +310,9 @@ BASE_FEATURE(kReadAnythingLocalSidePanel,
              "ReadAnythingLocalSidePanel",
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsReadAnythingLocalSidePanelEnabled() {
-  return base::FeatureList::IsEnabled(::features::kReadAnythingLocalSidePanel);
+  return base::FeatureList::IsEnabled(
+             ::features::kReadAnythingLocalSidePanel) &&
+         base::FeatureList::IsEnabled(::features::kReadAnythingWebUIToolbar);
 }
 
 BASE_FEATURE(kReadAnythingOmniboxIcon,
@@ -354,6 +359,14 @@ BASE_FEATURE(kScreenAIDebugMode,
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsScreenAIDebugModeEnabled() {
   return base::FeatureList::IsEnabled(::features::kScreenAIDebugMode);
+}
+
+// This feature is only used in tests and must not be enabled by default.
+BASE_FEATURE(kScreenAITestMode,
+             "ScreenAITestMode",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsScreenAITestModeEnabled() {
+  return base::FeatureList::IsEnabled(::features::kScreenAITestMode);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

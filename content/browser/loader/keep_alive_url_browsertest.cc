@@ -2,9 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/browser/loader/keep_alive_url_loader_service.h"
-
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <vector>
 
@@ -21,10 +20,12 @@
 #include "base/test/scoped_feature_list.h"
 #include "content/browser/back_forward_cache_test_util.h"
 #include "content/browser/loader/keep_alive_url_loader.h"
+#include "content/browser/loader/keep_alive_url_loader_service.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/network_service_util.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/test/back_forward_cache_util.h"
@@ -42,14 +43,15 @@
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/features.h"
 #include "url/origin.h"
 #include "url/url_util.h"
 
 namespace content {
-
 namespace {
+
+using testing::Contains;
+using testing::Pair;
 
 constexpr char16_t kPromiseResolvedPageTitle[] = u"Resolved";
 
@@ -74,8 +76,7 @@ constexpr char kBeaconId[] = "beacon01";
 
 constexpr char kFetchLaterEndpoint[] = "/fetch-later";
 
-std::string GetKeepAliveEndpoint(
-    absl::optional<std::string> id = absl::nullopt) {
+std::string GetKeepAliveEndpoint(std::optional<std::string> id = std::nullopt) {
   std::string endpoint = kKeepAliveEndpoint;
   if (id.has_value()) {
     endpoint += "?id=" + *id;
@@ -321,7 +322,7 @@ class KeepAliveURLBrowserTest
   GURL GetKeepAlivePageURL(
       const std::string& method,
       size_t num_requests = 1,
-      absl::optional<std::string> headers = absl::nullopt) const {
+      std::optional<std::string> headers = std::nullopt) const {
     std::string url = base::StringPrintf(
         "/set-header-with-file/content/test/data/fetch-keepalive.html?"
         "method=%s&requests=%zu",
@@ -400,6 +401,75 @@ IN_PROC_BROWSER_TEST_P(KeepAliveURLBrowserTest,
   EXPECT_EQ(watcher.WaitAndGetTitle(), kPromiseResolvedPageTitle);
   loaders_observer().WaitForTotalOnReceiveResponseForwarded(2);
   loaders_observer().WaitForTotalOnCompleteForwarded({net::OK, net::OK});
+  EXPECT_EQ(loader_service()->NumLoadersForTesting(), 0u);
+}
+
+IN_PROC_BROWSER_TEST_P(KeepAliveURLBrowserTest, RequestWithCookie) {
+  const std::string cookie = "keepaliveTestCookie=testCookieValue";
+  const std::string method = GetParam();
+  auto request_handler =
+      std::move(RegisterRequestHandlers({kKeepAliveEndpoint})[0]);
+  ASSERT_TRUE(server()->Start());
+
+  // Navigate to an empty page first without making any requests.
+  ASSERT_TRUE(NavigateToURL(web_contents(), server()->GetURL("/empty.html")));
+  // Make a fetch keepalive request, expected to succeed.
+  ASSERT_TRUE(ExecJs(web_contents(),
+                     JsReplace(R"(
+    document.cookie = $1 + '; path=/';
+    fetch($2, {keepalive: true, method: $3});
+  )",
+                               cookie, kKeepAliveEndpoint, method),
+                     content::EXECUTE_SCRIPT_NO_RESOLVE_PROMISES));
+
+  // Ensure the keepalive request is sent, but delay response.
+  request_handler->WaitForRequest();
+  ASSERT_EQ(loader_service()->NumLoadersForTesting(), 1u);
+  // End the keepalive request by sending back response.
+  request_handler->Send(k200TextResponse);
+  request_handler->Done();
+
+  loaders_observer().WaitForTotalOnReceiveResponseForwarded(1);
+  loaders_observer().WaitForTotalOnCompleteForwarded({net::OK});
+  EXPECT_EQ(loader_service()->NumLoadersForTesting(), 0u);
+  // Expect the request to contain the cookie.
+  EXPECT_THAT(request_handler->http_request()->headers,
+              Contains(Pair(net::HttpRequestHeaders::kCookie, cookie)));
+}
+
+IN_PROC_BROWSER_TEST_P(KeepAliveURLBrowserTest,
+                       RequestAfterNetworkServiceCrashes) {
+  // Can't test this on bots that use an in-process network service.
+  if (IsInProcessNetworkService()) {
+    return;
+  }
+
+  const std::string method = GetParam();
+  auto request_handler =
+      std::move(RegisterRequestHandlers({kKeepAliveEndpoint})[0]);
+  ASSERT_TRUE(server()->Start());
+
+  // Navigate to an empty page first without making any requests.
+  ASSERT_TRUE(NavigateToURL(web_contents(), server()->GetURL("/empty.html")));
+  // Crash the NetworkService process on the page.
+  SimulateNetworkServiceCrash();
+  // Make a fetch keepalive request, expected to succeed.
+  ASSERT_TRUE(ExecJs(web_contents(),
+                     JsReplace(R"(
+    fetch($1, {keepalive: true, method: $2});
+  )",
+                               kKeepAliveEndpoint, method),
+                     content::EXECUTE_SCRIPT_NO_RESOLVE_PROMISES));
+
+  // Ensure the keepalive request is sent, but delay response.
+  request_handler->WaitForRequest();
+  ASSERT_EQ(loader_service()->NumLoadersForTesting(), 1u);
+  // End the keepalive request by sending back response.
+  request_handler->Send(k200TextResponse);
+  request_handler->Done();
+
+  loaders_observer().WaitForTotalOnReceiveResponseForwarded(1);
+  loaders_observer().WaitForTotalOnCompleteForwarded({net::OK});
   EXPECT_EQ(loader_service()->NumLoadersForTesting(), 0u);
 }
 
@@ -887,7 +957,7 @@ class SendBeaconBrowserTestBase : public KeepAliveURLBrowserTestBase {
   GURL GetBeaconPageURL(
       const GURL& beacon_url,
       bool with_non_cors_safelisted_content,
-      absl::optional<int> delay_iframe_removal_ms = absl::nullopt) const {
+      std::optional<int> delay_iframe_removal_ms = std::nullopt) const {
     std::vector<std::string> queries = {
         "/send-beacon-in-iframe.html?url=" + EncodeURL(beacon_url),
         "&payload_type=" + beacon_payload_type()};
@@ -916,7 +986,7 @@ class SendBeaconBrowserTestBase : public KeepAliveURLBrowserTestBase {
       net::test_server::ControllableHttpResponse* request_handler,
       const std::string& response,
       int expect_total_redirects,
-      absl::optional<int> delay_iframe_removal_ms = absl::nullopt) {
+      std::optional<int> delay_iframe_removal_ms = std::nullopt) {
     // Navigate to the page that calls sendBeacon with `beacon_url` from an
     // appended iframe.
     ASSERT_TRUE(NavigateToURL(

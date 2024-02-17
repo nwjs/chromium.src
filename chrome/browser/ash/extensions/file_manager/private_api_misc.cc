@@ -15,7 +15,6 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/multi_user_window_manager.h"
 #include "ash/public/cpp/new_window_delegate.h"
-#include "ash/public/cpp/tablet_mode.h"
 #include "ash/webui/settings/public/constants/routes_util.h"
 #include "base/command_line.h"
 #include "base/files/file.h"
@@ -81,6 +80,7 @@
 #include "storage/common/file_system/file_system_types.h"
 #include "storage/common/file_system/file_system_util.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/display/screen.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "url/gurl.h"
 
@@ -91,8 +91,8 @@ namespace fsp = ash::file_system_provider;
 namespace fmp = api::file_manager_private;
 namespace fmpi = api::file_manager_private_internal;
 
-using absl::optional;
 using fmp::ProfileInfo;
+using std::optional;
 
 // Thresholds for mountCrostini() API.
 constexpr base::TimeDelta kMountCrostiniSlowOperationThreshold =
@@ -1063,13 +1063,10 @@ void FileManagerPrivateInternalGetRecentFilesFunction::
   DCHECK(entry_definition_list);
 
   // Remove all directories entries.
-  entry_definition_list->erase(
-      std::remove_if(entry_definition_list->begin(),
-                     entry_definition_list->end(),
-                     [](const file_manager::util::EntryDefinition& e) {
-                       return e.is_directory == true;
-                     }),
-      entry_definition_list->end());
+  std::erase_if(*entry_definition_list,
+                [](const file_manager::util::EntryDefinition& e) {
+                  return e.is_directory;
+                });
 
   Respond(
       WithArguments(file_manager::util::ConvertEntryDefinitionListToListValue(
@@ -1078,9 +1075,8 @@ void FileManagerPrivateInternalGetRecentFilesFunction::
 
 ExtensionFunction::ResponseAction
 FileManagerPrivateIsTabletModeEnabledFunction::Run() {
-  ash::TabletMode* tablet_mode = ash::TabletMode::Get();
   return RespondNow(
-      WithArguments(tablet_mode ? tablet_mode->InTabletMode() : false));
+      WithArguments(display::Screen::GetScreen()->InTabletMode()));
 }
 
 ExtensionFunction::ResponseAction FileManagerPrivateOpenURLFunction::Run() {

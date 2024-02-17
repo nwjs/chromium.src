@@ -7,6 +7,7 @@
 
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -19,7 +20,6 @@
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_type.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace ash {
 
@@ -49,37 +49,29 @@ class LoginManagerMixin : public InProcessBrowserTestMixin,
                               test::kDefaultAuthSetup)
         : TestUserInfo(account_id, factors, user_manager::USER_TYPE_REGULAR) {}
 
+    TestUserInfo(const AccountId& account_id, test::UserAuthConfig auth_config)
+        : TestUserInfo(account_id,
+                       auth_config,
+                       user_manager::USER_TYPE_REGULAR) {}
+
     // Creates test user with `user_type` from the given `account_id`.
     TestUserInfo(const AccountId& account_id,
                  std::initializer_list<ash::AshAuthFactor> factors,
                  user_manager::UserType user_type)
         : TestUserInfo(account_id,
-                       factors,
-                       user_type,
-                       user_manager::User::OAUTH2_TOKEN_STATUS_VALID) {}
-
-    TestUserInfo(const AccountId& account_id,
-                 std::initializer_list<ash::AshAuthFactor> factors,
-                 user_manager::UserType user_type,
-                 user_manager::User::OAuthTokenStatus token_status)
-        : TestUserInfo(account_id,
                        test::UserAuthConfig::Create(factors),
-                       user_type,
-                       token_status) {}
+                       user_type) {}
 
     TestUserInfo(const AccountId& account_id,
                  test::UserAuthConfig auth_config,
-                 user_manager::UserType user_type,
-                 user_manager::User::OAuthTokenStatus token_status)
+                 user_manager::UserType user_type)
         : account_id(account_id),
           auth_config(auth_config),
-          user_type(user_type),
-          token_status(token_status) {}
+          user_type(user_type) {}
 
     const AccountId account_id;
     const test::UserAuthConfig auth_config;
     const user_manager::UserType user_type;
-    const user_manager::User::OAuthTokenStatus token_status;
   };
 
   using UserList = std::vector<TestUserInfo>;
@@ -181,7 +173,7 @@ class LoginManagerMixin : public InProcessBrowserTestMixin,
   // proceeding into the session from the login screen.
   // If |user_context| is not set, built-in default will be used.
   void LoginAsNewRegularUser(
-      absl::optional<UserContext> user_context = absl::nullopt);
+      std::optional<UserContext> user_context = std::nullopt);
 
   // Logs in as a child user with default user context.Should be used for
   // proceeding into the session from the login screen.
@@ -210,8 +202,8 @@ class LoginManagerMixin : public InProcessBrowserTestMixin,
   bool skip_post_login_screens_ = false;
 
   LocalStateMixin local_state_mixin_;
-  raw_ptr<FakeGaiaMixin, ExperimentalAsh> fake_gaia_mixin_;
-  raw_ptr<CryptohomeMixin, ExperimentalAsh> cryptohome_mixin_;
+  raw_ptr<FakeGaiaMixin> fake_gaia_mixin_;
+  raw_ptr<CryptohomeMixin> cryptohome_mixin_;
 };
 
 }  // namespace ash

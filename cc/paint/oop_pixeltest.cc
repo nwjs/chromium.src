@@ -187,7 +187,8 @@ class OopPixelTest : public testing::Test,
     // Create and allocate a shared image on the raster interface.
     auto* ri = raster_context_provider_->RasterInterface();
     auto* sii = raster_context_provider_->SharedImageInterface();
-    uint32_t flags = gpu::SHARED_IMAGE_USAGE_RASTER |
+    uint32_t flags = gpu::SHARED_IMAGE_USAGE_RASTER_READ |
+                     gpu::SHARED_IMAGE_USAGE_RASTER_WRITE |
                      gpu::SHARED_IMAGE_USAGE_OOP_RASTERIZATION;
     auto client_shared_image = sii->CreateSharedImage(
         viz::SinglePlaneFormat::kRGBA_8888, gfx::Size(width, height),
@@ -268,7 +269,8 @@ class OopPixelTest : public testing::Test,
       const RasterOptions& options,
       viz::SharedImageFormat image_format,
       std::optional<gfx::ColorSpace> color_space = std::nullopt) {
-    uint32_t flags = gpu::SHARED_IMAGE_USAGE_RASTER |
+    uint32_t flags = gpu::SHARED_IMAGE_USAGE_RASTER_READ |
+                     gpu::SHARED_IMAGE_USAGE_RASTER_WRITE |
                      gpu::SHARED_IMAGE_USAGE_OOP_RASTERIZATION;
     auto client_shared_image = sii->CreateSharedImage(
         image_format, options.resource_size,
@@ -751,8 +753,8 @@ TEST_F(OopPixelTest, DrawHdrImageWithMetadata) {
   // despite the (still) increased headroom.
   {
     PaintFlags sdr_paint_flags;
-    sdr_paint_flags.setDynamicRangeLimit(
-        PaintFlags::DynamicRangeLimit::kStandard);
+    sdr_paint_flags.setDynamicRangeLimit(PaintFlags::DynamicRangeLimitMixture(
+        PaintFlags::DynamicRangeLimit::kStandard));
     scoped_refptr<DisplayItemList> display_item_list_10k_nits_sdr =
         make_display_item_list(2, 10000.f, &sdr_paint_flags);
     auto actual = Raster(display_item_list_10k_nits_sdr, options);

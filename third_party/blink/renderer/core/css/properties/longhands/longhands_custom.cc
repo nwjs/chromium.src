@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/css/css_counter_value.h"
 #include "third_party/blink/renderer/core/css/css_cursor_image_value.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
+#include "third_party/blink/renderer/core/css/css_dynamic_range_limit_mix_value.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_font_variation_value.h"
 #include "third_party/blink/renderer/core/css/css_function_value.h"
@@ -3169,17 +3170,91 @@ const CSSValue* DominantBaseline::CSSValueFromComputedStyleInternal(
 const CSSValue* DynamicRangeLimit::ParseSingleValue(
     CSSParserTokenRange& range,
     const CSSParserContext& context,
-    const CSSParserLocalContext&) const {
-  return css_parsing_utils::ConsumeIdent<
-      CSSValueID::kStandard, CSSValueID::kHigh, CSSValueID::kConstrainedHigh>(
-      range);
+    const CSSParserLocalContext& local_context) const {
+  if (const CSSValue* const keyword_value = css_parsing_utils::ConsumeIdent<
+          CSSValueID::kStandard, CSSValueID::kHigh,
+          CSSValueID::kConstrainedHigh>(range)) {
+    return keyword_value;
+  }
+
+  if (range.Peek().FunctionId() != CSSValueID::kDynamicRangeLimitMix) {
+    return nullptr;
+  }
+
+  CSSParserTokenRange function_range =
+      css_parsing_utils::ConsumeFunction(range);
+  const CSSValue* const limit1 = DynamicRangeLimit::ParseSingleValue(
+      function_range, context, local_context);
+  if (limit1 == nullptr ||
+      !css_parsing_utils::ConsumeCommaIncludingWhitespace(function_range)) {
+    return nullptr;
+  }
+  const CSSValue* const limit2 = DynamicRangeLimit::ParseSingleValue(
+      function_range, context, local_context);
+  if (limit2 == nullptr ||
+      !css_parsing_utils::ConsumeCommaIncludingWhitespace(function_range)) {
+    return nullptr;
+  }
+  const CSSPrimitiveValue* const percentage = css_parsing_utils::ConsumePercent(
+      function_range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+  if (percentage == nullptr) {
+    return nullptr;
+  }
+
+  return MakeGarbageCollected<cssvalue::CSSDynamicRangeLimitMixValue>(
+      limit1, limit2, percentage);
 }
 
 const CSSValue* DynamicRangeLimit::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool allow_visited_style) const {
-  return CSSIdentifierValue::Create(style.DynamicRangeLimit());
+  const auto& limit = style.GetDynamicRangeLimit();
+  if (limit.standard_mix == 1.f) {
+    return CSSIdentifierValue::Create(CSSValueID::kStandard);
+  }
+  if (limit.constrained_high_mix == 1.f) {
+    return CSSIdentifierValue::Create(CSSValueID::kConstrainedHigh);
+  }
+  if (limit.standard_mix == 0.f && limit.constrained_high_mix == 0.f) {
+    return CSSIdentifierValue::Create(CSSValueID::kHigh);
+  }
+  const float high_mix = 1 - limit.standard_mix - limit.constrained_high_mix;
+  if (limit.standard_mix == 0.f) {
+    return MakeGarbageCollected<cssvalue::CSSDynamicRangeLimitMixValue>(
+        CSSIdentifierValue::Create(CSSValueID::kConstrainedHigh),
+        CSSIdentifierValue::Create(CSSValueID::kHigh),
+        CSSNumericLiteralValue::Create(
+            100 * high_mix, CSSPrimitiveValue::UnitType::kPercentage));
+  }
+  if (limit.constrained_high_mix == 0.f) {
+    return MakeGarbageCollected<cssvalue::CSSDynamicRangeLimitMixValue>(
+        CSSIdentifierValue::Create(CSSValueID::kStandard),
+        CSSIdentifierValue::Create(CSSValueID::kHigh),
+        CSSNumericLiteralValue::Create(
+            100 * high_mix, CSSPrimitiveValue::UnitType::kPercentage));
+  }
+  if (high_mix == 0.f) {
+    return MakeGarbageCollected<cssvalue::CSSDynamicRangeLimitMixValue>(
+        CSSIdentifierValue::Create(CSSValueID::kStandard),
+        CSSIdentifierValue::Create(CSSValueID::kConstrainedHigh),
+        CSSNumericLiteralValue::Create(
+            100 * limit.constrained_high_mix,
+            CSSPrimitiveValue::UnitType::kPercentage));
+  }
+  // If there is a bit of all three, nest two binary mixtures:
+  // mix(standard, mix(constrained-high, high, b%), a%)
+  // where b% must take into account that a% will also be applied to it.
+  return MakeGarbageCollected<cssvalue::CSSDynamicRangeLimitMixValue>(
+      CSSIdentifierValue::Create(CSSValueID::kStandard),
+      MakeGarbageCollected<cssvalue::CSSDynamicRangeLimitMixValue>(
+          CSSIdentifierValue::Create(CSSValueID::kConstrainedHigh),
+          CSSIdentifierValue::Create(CSSValueID::kHigh),
+          CSSNumericLiteralValue::Create(
+              100 * (1 - limit.constrained_high_mix / (1 - limit.standard_mix)),
+              CSSPrimitiveValue::UnitType::kPercentage)),
+      CSSNumericLiteralValue::Create(100 * (1 - limit.standard_mix),
+                                     CSSPrimitiveValue::UnitType::kPercentage));
 }
 
 const CSSValue* EmptyCells::CSSValueFromComputedStyleInternal(
@@ -3737,7 +3812,6 @@ const CSSValue* FontVariantPosition::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool allow_visited_style) const {
-  DCHECK(RuntimeEnabledFeatures::FontVariantPositionEnabled());
   return ComputedStyleUtils::ValueForFontVariantPosition(style);
 }
 
@@ -5359,6 +5433,7 @@ void ListStyleType::ApplyValue(StyleResolverState& state,
 
   DCHECK(value.IsCustomIdentValue());
   const auto& custom_ident_value = To<CSSCustomIdentValue>(value);
+  state.SetHasTreeScopedReference();
   builder.SetListStyleType(ListStyleTypeData::CreateCounterStyle(
       custom_ident_value.Value(), custom_ident_value.GetTreeScope()));
 }
@@ -6820,12 +6895,15 @@ void Resize::ApplyValue(StyleResolverState& state,
   const CSSIdentifierValue& identifier_value = To<CSSIdentifierValue>(value);
 
   EResize r = EResize::kNone;
-  if (identifier_value.GetValueID() == CSSValueID::kAuto) {
+  if (identifier_value.GetValueID() == CSSValueID::kAuto ||
+      identifier_value.GetValueID() == CSSValueID::kInternalTextareaAuto) {
     if (Settings* settings = state.GetDocument().GetSettings()) {
       r = settings->GetTextAreasAreResizable() ? EResize::kBoth
                                                : EResize::kNone;
     }
-    UseCounter::Count(state.GetDocument(), WebFeature::kCSSResizeAuto);
+    if (identifier_value.GetValueID() == CSSValueID::kAuto) {
+      UseCounter::Count(state.GetDocument(), WebFeature::kCSSResizeAuto);
+    }
   } else {
     r = identifier_value.ConvertTo<EResize>();
   }

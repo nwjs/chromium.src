@@ -447,7 +447,8 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
   if (needs_downscale) {
     latency_logs.push_back(lens::mojom::LatencyLog::New(
         lens::mojom::Phase::DOWNSCALE_START, original_size, gfx::Size(),
-        image_format_conversion.at(image_format), base::Time::Now()));
+        image_format_conversion.at(image_format), base::Time::Now(),
+        /*encoded_size_bytes=*/0));
   }
   SkBitmap thumbnail =
       Downscale(image, thumbnail_min_area_pixels, thumbnail_max_size_pixels);
@@ -455,7 +456,8 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
   if (needs_downscale) {
     latency_logs.push_back(lens::mojom::LatencyLog::New(
         lens::mojom::Phase::DOWNSCALE_END, original_size, downscaled_size,
-        image_format_conversion.at(image_format), base::Time::Now()));
+        image_format_conversion.at(image_format), base::Time::Now(),
+        /*encoded_size_bytes=*/0));
   }
 
   SkBitmap bitmap;
@@ -482,7 +484,8 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
   if (needs_encode) {
     latency_logs.push_back(lens::mojom::LatencyLog::New(
         lens::mojom::Phase::ENCODE_START, original_size, downscaled_size,
-        image_format_conversion.at(image_format), base::Time::Now()));
+        image_format_conversion.at(image_format), base::Time::Now(),
+        /*encoded_size_bytes=*/0));
   }
   switch (image_format) {
     case chrome::mojom::ImageFormat::PNG:
@@ -510,7 +513,8 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
   if (needs_encode) {
     latency_logs.push_back(lens::mojom::LatencyLog::New(
         lens::mojom::Phase::ENCODE_END, original_size, downscaled_size,
-        image_format_conversion.at(image_format), base::Time::Now()));
+        image_format_conversion.at(image_format), base::Time::Now(),
+        sizeof(uint8_t) * image_data.size()));
   }
 
   std::move(callback).Run(image_data, original_size, downscaled_size,
@@ -573,6 +577,10 @@ void ChromeRenderFrameObserver::LoadBlockedPlugins(
                           },
                           identifier));
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
+}
+
+void ChromeRenderFrameObserver::SetSupportsAppRegion(bool supports_app_region) {
+  render_frame()->GetWebView()->SetSupportsAppRegion(supports_app_region);
 }
 
 void ChromeRenderFrameObserver::SetClientSidePhishingDetection() {

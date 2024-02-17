@@ -27,7 +27,6 @@
 #include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "components/update_client/action_runner.h"
-#include "components/update_client/component_unpacker.h"
 #include "components/update_client/configurator.h"
 #include "components/update_client/crx_cache.h"
 #include "components/update_client/crx_downloader_factory.h"
@@ -37,9 +36,9 @@
 #include "components/update_client/persisted_data.h"
 #include "components/update_client/protocol_definition.h"
 #include "components/update_client/protocol_serializer.h"
-#include "components/update_client/puffin_component_unpacker.h"
 #include "components/update_client/puffin_patcher.h"
 #include "components/update_client/task_traits.h"
+#include "components/update_client/unpacker.h"
 #include "components/update_client/unzipper.h"
 #include "components/update_client/update_client.h"
 #include "components/update_client/update_client_errors.h"
@@ -250,7 +249,7 @@ void PuffinUnpackCompleteOnBlockingTaskRunner(
     absl::optional<scoped_refptr<update_client::CrxCache>> optional_crx_cache,
     CrxInstaller::ProgressCallback progress_callback,
     InstallOnBlockingTaskRunnerCompleteCallback callback,
-    const PuffinComponentUnpacker::Result& result) {
+    const Unpacker::Result& result) {
   if (result.error != UnpackerError::kNone) {
     update_client::DeleteFileAndEmptyParentDirectory(crx_path);
     DVLOG(2) << "Unpack failed: " << static_cast<int>(result.error);
@@ -268,7 +267,7 @@ void PuffinUnpackCompleteOnBlockingTaskRunner(
       DVLOG(2)
           << "Puffin Patches are disabled, proceeding without crx retention.";
     }
-    update_client::DeleteEmptyDirectory(crx_path.DirName());
+    update_client::DeleteFileAndEmptyParentDirectory(crx_path);
     base::ThreadPool::PostTask(
         FROM_HERE, kTaskTraits,
         base::BindOnce(&InstallOnBlockingTaskRunner, main_task_runner,
@@ -304,7 +303,7 @@ void StartPuffinInstallOnBlockingTaskRunner(
     crx_file::VerifierFormat crx_format,
     CrxInstaller::ProgressCallback progress_callback,
     InstallOnBlockingTaskRunnerCompleteCallback callback) {
-  PuffinComponentUnpacker::Unpack(
+  Unpacker::Unpack(
       pk_hash, crx_path, std::move(unzipper_), crx_format,
       base::BindOnce(&PuffinUnpackCompleteOnBlockingTaskRunner,
                      main_task_runner, crx_path, id, fingerprint,
@@ -315,7 +314,7 @@ void StartPuffinInstallOnBlockingTaskRunner(
 void OnPuffPatchCompleteOnBlockingTaskRunner(
     scoped_refptr<base::SequencedTaskRunner> main_task_runner,
     const std::vector<uint8_t>& pk_hash,
-    const base::FilePath& src_crx_path,
+    const base::FilePath& patch_path,
     const base::FilePath& dest_crx_path,
     const std::string& id,
     const std::string& fingerprint,
@@ -328,8 +327,8 @@ void OnPuffPatchCompleteOnBlockingTaskRunner(
     InstallOnBlockingTaskRunnerCompleteCallback callback,
     UnpackerError error,
     int extra_code) {
+  update_client::DeleteFileAndEmptyParentDirectory(patch_path);
   if (error != UnpackerError::kNone) {
-    update_client::DeleteFileAndEmptyParentDirectory(src_crx_path);
     update_client::DeleteFileAndEmptyParentDirectory(dest_crx_path);
     main_task_runner->PostTask(
         FROM_HERE,
@@ -386,7 +385,7 @@ void StartPuffPatchOnBlockingTaskRunner(
       std::move(crx_file), std::move(puff_patch_file), std::move(dest_file),
       patcher_,
       base::BindOnce(&OnPuffPatchCompleteOnBlockingTaskRunner, main_task_runner,
-                     pk_hash, crx_path, dest_path, id, fingerprint,
+                     pk_hash, puff_patch_path, dest_path, id, fingerprint,
                      std::move(install_params), installer, std::move(unzipper_),
                      crx_cache, crx_format, progress_callback,
                      std::move(callback)));
@@ -922,7 +921,9 @@ void Component::StateCanUpdate::DoHandle() {
   component.is_update_available_ = true;
   component.NotifyObservers(Events::COMPONENT_UPDATE_FOUND);
 
-  if (!component.crx_component()->updates_enabled) {
+  if (!component.crx_component()->updates_enabled ||
+      (!component.crx_component()->allow_updates_on_metered_connection &&
+       component.config()->IsConnectionMetered())) {
     component.error_category_ = ErrorCategory::kService;
     component.error_code_ = static_cast<int>(ServiceError::UPDATE_DISABLED);
     component.extra_code1_ = 0;

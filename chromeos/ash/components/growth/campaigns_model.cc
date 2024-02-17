@@ -15,10 +15,10 @@
 namespace growth {
 namespace {
 
-inline constexpr char kReactiveCampaigns[] = "reactiveCampaigns";
-inline constexpr char kProactiveCampaigns[] = "proactiveCampaigns";
-
 inline constexpr char kTargetings[] = "targetings";
+
+inline constexpr char kId[] = "id";
+inline constexpr char kStudyId[] = "studyId";
 
 // Targetings.
 // Demo Mode targeting paths.
@@ -52,16 +52,6 @@ inline constexpr char kDemoModePayloadPath[] = "demoModeApp";
 
 }  // namespace
 
-const CampaignsPerSlot* GetProactiveCampaigns(
-    const CampaignsStore* campaigns_store) {
-  return campaigns_store->FindDict(kProactiveCampaigns);
-}
-
-const CampaignsPerSlot* GetReactiveCampaigns(
-    const CampaignsStore* campaigns_store) {
-  return campaigns_store->FindDict(kReactiveCampaigns);
-}
-
 const Campaigns* GetCampaignsBySlot(const CampaignsPerSlot* campaigns_per_slot,
                                     Slot slot) {
   if (!campaigns_per_slot) {
@@ -85,6 +75,14 @@ const Payload* GetPayloadBySlot(const Campaign* campaign, Slot slot) {
   return nullptr;
 }
 
+std::optional<int> GetCampaignId(const Campaign* campaign) {
+  return campaign->FindInt(kId);
+}
+
+std::optional<int> GetStudyId(const Campaign* campaign) {
+  return campaign->FindInt(kStudyId);
+}
+
 // Targeting Base.
 TargetingBase::TargetingBase(const Targeting* targeting_dict,
                              const char* targeting_path)
@@ -101,12 +99,12 @@ const base::Value::List* TargetingBase::GetListCriteria(
   return targeting_->FindListByDottedPath(GetCriteriaPath(path_suffix));
 }
 
-const absl::optional<bool> TargetingBase::GetBoolCriteria(
+const std::optional<bool> TargetingBase::GetBoolCriteria(
     const char* path_suffix) const {
   return targeting_->FindBoolByDottedPath(GetCriteriaPath(path_suffix));
 }
 
-const absl::optional<int> TargetingBase::GetIntCriteria(
+const std::optional<int> TargetingBase::GetIntCriteria(
     const char* path_suffix) const {
   return targeting_->FindIntByDottedPath(GetCriteriaPath(path_suffix));
 }
@@ -147,11 +145,11 @@ const std::string* DemoModeTargeting::GetAppMaxVersion() const {
   return GetStringCriteria(kMaxDemoModeAppVersion);
 }
 
-const absl::optional<bool> DemoModeTargeting::TargetCloudGamingDevice() const {
+const std::optional<bool> DemoModeTargeting::TargetCloudGamingDevice() const {
   return GetBoolCriteria(kDemoModeCloudGaming);
 }
 
-const absl::optional<bool> DemoModeTargeting::TargetFeatureAwareDevice() const {
+const std::optional<bool> DemoModeTargeting::TargetFeatureAwareDevice() const {
   return GetBoolCriteria(kDemoModeFeatureAware);
 }
 
@@ -165,11 +163,11 @@ const base::Value::List* DeviceTargeting::GetLocales() const {
   return GetListCriteria(kDeviceLocales);
 }
 
-const absl::optional<int> DeviceTargeting::GetMinMilestone() const {
+const std::optional<int> DeviceTargeting::GetMinMilestone() const {
   return GetIntCriteria(kMinMilestone);
 }
 
-const absl::optional<int> DeviceTargeting::GetMaxMilestone() const {
+const std::optional<int> DeviceTargeting::GetMaxMilestone() const {
   return GetIntCriteria(kMaxMilestone);
 }
 

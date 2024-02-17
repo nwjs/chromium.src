@@ -281,8 +281,7 @@ class WebrtcTransport::PeerConnectionWrapper
     pcf_deps.worker_thread = worker_thread;
     pcf_deps.signaling_thread = rtc::Thread::Current();
     pcf_deps.task_queue_factory = CreateWebRtcTaskQueueFactory();
-    pcf_deps.event_log_factory = std::make_unique<webrtc::RtcEventLogFactory>(
-        pcf_deps.task_queue_factory.get());
+    pcf_deps.event_log_factory = std::make_unique<webrtc::RtcEventLogFactory>();
     pcf_deps.adm = audio_module_;
     pcf_deps.audio_encoder_factory =
         webrtc::CreateAudioEncoderFactory<webrtc::AudioEncoderOpus>();
@@ -813,8 +812,7 @@ void WebrtcTransport::OnLocalSessionDescriptionCreated(
   CHECK(handshake_hmac_.Sign(
       description->type() + " " + sdp_message.NormalizedForSignature(),
       reinterpret_cast<uint8_t*>(&(digest[0])), digest.size()));
-  std::string digest_base64;
-  base::Base64Encode(digest, &digest_base64);
+  std::string digest_base64 = base::Base64Encode(digest);
   offer_tag->SetAttr(QName(std::string(), "signature"), digest_base64);
 
   send_transport_info_callback_.Run(std::move(transport_info));

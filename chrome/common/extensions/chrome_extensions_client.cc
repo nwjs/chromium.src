@@ -237,7 +237,7 @@ void ChromeExtensionsClient::AddOriginAccessPermissions(
   }
 }
 
-absl::optional<int> ChromeExtensionsClient::GetExtensionExtendedErrorCode()
+std::optional<int> ChromeExtensionsClient::GetExtensionExtendedErrorCode()
     const {
   return static_cast<int>(ChromeResourceRequestBlockedReason::kExtension);
 }

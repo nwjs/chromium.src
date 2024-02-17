@@ -176,7 +176,7 @@ void SetDevBootFlag(ash::FakeInstallAttributesClient* client,
   ::user_data_auth::SetFirmwareManagementParametersRequest request;
   request.mutable_fwmp()->set_flags(fwmp_flags);
   base::test::TestFuture<
-      absl::optional<::user_data_auth::SetFirmwareManagementParametersReply>>
+      std::optional<::user_data_auth::SetFirmwareManagementParametersReply>>
       future_fwmp;
   client->SetFirmwareManagementParameters(request, future_fwmp.GetCallback());
   ASSERT_TRUE(future_fwmp.Get());
@@ -184,7 +184,7 @@ void SetDevBootFlag(ash::FakeInstallAttributesClient* client,
 
 void ClearDevBootFlag(ash::FakeInstallAttributesClient* client) {
   base::test::TestFuture<
-      absl::optional<::user_data_auth::RemoveFirmwareManagementParametersReply>>
+      std::optional<::user_data_auth::RemoveFirmwareManagementParametersReply>>
       future_removed_fwmp;
   client->RemoveFirmwareManagementParameters(
       ::user_data_auth::RemoveFirmwareManagementParametersRequest(),
@@ -590,12 +590,14 @@ TEST_F(AutoEnrollmentControllerNetworkTest, RetriesWhenGoesOnline) {
     EXPECT_TRUE(controller.SafeguardTimerForTesting().IsRunning());
   }
 
-  // Stop the client with connection error so the controller can retry.
+  // Stop the client with a response error so the controller can retry.
   {
     mock_auto_enrollment_client_.ReportAutoEnrollmentState(
-        kAutoEnrollmentLegacyConnectionError);
+        base::unexpected(AutoEnrollmentStateRetrievalResponseError{}));
 
-    EXPECT_EQ(controller.state(), kAutoEnrollmentLegacyConnectionError);
+    EXPECT_EQ(controller.state(),
+              AutoEnrollmentState(base::unexpected(
+                  AutoEnrollmentStateRetrievalResponseError{})));
   }
 
   // Flip-flop the network state and check that retry is triggered.

@@ -24,10 +24,9 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
+import org.chromium.base.test.util.Features;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ActionDelegate;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ActionObserver;
@@ -35,7 +34,6 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.Butt
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.IconPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ShowMode;
 import org.chromium.chrome.tab_ui.R;
-import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 
@@ -50,9 +48,7 @@ import java.util.Set;
 public class TabListEditorUngroupActionUnitTest {
     @Rule public TestRule mProcessor = new Features.JUnitProcessor();
 
-    @Mock private TabModelSelector mTabModelSelector;
     @Mock private SelectionDelegate<Integer> mSelectionDelegate;
-    @Mock private TabModelFilterProvider mTabModelFilterProvider;
     @Mock private TabGroupModelFilter mGroupFilter;
     @Mock private ActionDelegate mDelegate;
     @Mock private Profile mProfile;
@@ -69,10 +65,8 @@ public class TabListEditorUngroupActionUnitTest {
                         ButtonType.TEXT,
                         IconPosition.START);
         mTabModel = spy(new MockTabModel(mProfile, null));
-        when(mTabModelFilterProvider.getCurrentTabModelFilter()).thenReturn(mGroupFilter);
-        when(mTabModelSelector.getTabModelFilterProvider()).thenReturn(mTabModelFilterProvider);
-        when(mTabModelSelector.getCurrentModel()).thenReturn(mTabModel);
-        mAction.configure(mTabModelSelector, mSelectionDelegate, mDelegate, false);
+        when(mGroupFilter.getTabModel()).thenReturn(mTabModel);
+        mAction.configure(() -> mGroupFilter, mSelectionDelegate, mDelegate, false);
     }
 
     @Test

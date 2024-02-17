@@ -24,6 +24,7 @@
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -68,6 +69,7 @@
 #include "third_party/pdfium/public/fpdf_searchex.h"
 #include "third_party/pdfium/public/fpdfview.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/cursor/mojom/cursor_type.mojom-shared.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -96,9 +98,7 @@ namespace chrome_pdf {
 
 namespace {
 
-constexpr int32_t kHighlightColorR = 153;
-constexpr int32_t kHighlightColorG = 193;
-constexpr int32_t kHighlightColorB = 218;
+constexpr SkColor kHighlightColor = SkColorSetRGB(153, 193, 218);
 
 constexpr uint32_t kPendingPageColor = 0xFFEEEEEE;
 
@@ -3354,24 +3354,26 @@ void PDFiumEngine::DrawSelections(int progressive_index,
                              layout_.options().default_page_orientation());
     for (const auto& rect : rects) {
       gfx::Rect visible_selection = gfx::IntersectRects(rect, dirty_in_screen);
-      if (visible_selection.IsEmpty())
+      if (visible_selection.IsEmpty()) {
         continue;
+      }
 
       visible_selection.Offset(-dirty_in_screen.OffsetFromOrigin());
-      Highlight(region.value(), visible_selection, kHighlightColorR,
-                kHighlightColorG, kHighlightColorB, highlighted_rects);
+      Highlight(region.value(), visible_selection, kHighlightColor,
+                highlighted_rects);
     }
   }
 
   for (const auto& highlight : form_highlights_) {
     gfx::Rect visible_selection =
         gfx::IntersectRects(highlight, dirty_in_screen);
-    if (visible_selection.IsEmpty())
+    if (visible_selection.IsEmpty()) {
       continue;
+    }
 
     visible_selection.Offset(-dirty_in_screen.OffsetFromOrigin());
-    Highlight(region.value(), visible_selection, kHighlightColorR,
-              kHighlightColorG, kHighlightColorB, highlighted_rects);
+    Highlight(region.value(), visible_selection, kHighlightColor,
+              highlighted_rects);
   }
 }
 
@@ -3409,9 +3411,9 @@ ScopedFPDFBitmap PDFiumEngine::CreateBitmap(const gfx::Rect& rect,
     return nullptr;
   }
   int format = has_alpha ? FPDFBitmap_BGRA : FPDFBitmap_BGRx;
-  return ScopedFPDFBitmap(
-      FPDFBitmap_CreateEx(rect.width(), rect.height(), format,
-                          region.value().buffer.data(), region.value().stride));
+  return ScopedFPDFBitmap(FPDFBitmap_CreateEx(
+      rect.width(), rect.height(), format, region.value().buffer.data(),
+      base::checked_cast<int>(region.value().stride)));
 }
 
 void PDFiumEngine::GetPDFiumRect(int page_index,
@@ -3487,20 +3489,21 @@ gfx::RectF PDFiumEngine::GetPageBoundingBox(int page_index) {
 
 void PDFiumEngine::Highlight(const RegionData& region,
                              const gfx::Rect& rect,
-                             int color_red,
-                             int color_green,
-                             int color_blue,
+                             SkColor color,
                              std::vector<gfx::Rect>& highlighted_rects) const {
   gfx::Rect new_rect = rect;
-  for (const auto& highlighted : highlighted_rects)
+  for (const auto& highlighted : highlighted_rects) {
     new_rect.Subtract(highlighted);
-  if (new_rect.IsEmpty())
+  }
+  if (new_rect.IsEmpty()) {
     return;
+  }
 
   std::vector<size_t> overlapping_rect_indices;
   for (size_t i = 0; i < highlighted_rects.size(); ++i) {
-    if (new_rect.Intersects((highlighted_rects)[i]))
+    if (new_rect.Intersects((highlighted_rects)[i])) {
       overlapping_rect_indices.push_back(i);
+    }
   }
 
   highlighted_rects.push_back(new_rect);
@@ -3508,7 +3511,7 @@ void PDFiumEngine::Highlight(const RegionData& region,
   int t = new_rect.y();
   int w = new_rect.width();
   int h = new_rect.height();
-
+  SkColor4f color_f = SkColor4f::FromColor(color);
   for (int y = t; y < t + h; ++y) {
     base::span<uint8_t> row =
         region.buffer.subspan(y * region.stride, region.stride);
@@ -3521,13 +3524,14 @@ void PDFiumEngine::Highlight(const RegionData& region,
           break;
         }
       }
-      if (overlaps)
+      if (overlaps) {
         continue;
+      }
 
       uint8_t* pixel = row.data() + x * 4;
-      pixel[0] = static_cast<uint8_t>(pixel[0] * (color_blue / 255.0));
-      pixel[1] = static_cast<uint8_t>(pixel[1] * (color_green / 255.0));
-      pixel[2] = static_cast<uint8_t>(pixel[2] * (color_red / 255.0));
+      pixel[0] = static_cast<uint8_t>(pixel[0] * color_f.fB);
+      pixel[1] = static_cast<uint8_t>(pixel[1] * color_f.fG);
+      pixel[2] = static_cast<uint8_t>(pixel[2] * color_f.fR);
     }
   }
 }

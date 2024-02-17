@@ -52,12 +52,16 @@ source_set("push_notification_service") {
     "push_notification_delegate.mm",
     "push_notification_service.h",
     "push_notification_service.mm",
+    "push_notification_settings_util.h",
+    "push_notification_settings_util.mm",
     "push_notification_util.h",
     "push_notification_util.mm",
   ]
   deps = [
+    ":constants",
     ":push_notification_client",
     "//base",
+    "//components/commerce/core:pref_names",
     "//components/optimization_guide/core:features",
     "//components/pref_registry",
     "//components/prefs",
@@ -68,6 +72,7 @@ source_set("push_notification_service") {
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/public/features:features",
+    "//ios/chrome/browser/tips_notifications/model:client",
   ]
 }
 
@@ -80,12 +85,20 @@ source_set("push_notification_client") {
   deps = [ "//base" ]
 }
 
+source_set("constants") {
+  sources = [
+    "constants.h",
+    "constants.mm",
+  ]
+}
+
 source_set("unit_tests") {
   testonly = true
   sources = [
     "push_notification_account_context_manager+testing.h",
     "push_notification_account_context_manager_unittest.mm",
     "push_notification_client_manager_unittest.mm",
+    "push_notification_settings_util_unittest.mm",
     "push_notification_util+testing.h",
     "push_notification_util_unittest.mm",
   ]
@@ -95,9 +108,16 @@ source_set("unit_tests") {
     ":test_support",
     "//base",
     "//base/test:test_support",
+    "//components/commerce/core:pref_names",
+    "//components/prefs",
+    "//components/prefs:test_support",
+    "//ios/chrome/browser/push_notification/model:constants",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/model/browser_state:test_support",
+    "//ios/chrome/browser/shared/model/prefs:pref_names",
+    "//ios/chrome/browser/shared/public/features:features",
+    "//ios/chrome/browser/signin/model:fake_system_identity",
     "//ios/chrome/test:test_support",
     "//ios/web/public/test",
     "//testing/gtest",

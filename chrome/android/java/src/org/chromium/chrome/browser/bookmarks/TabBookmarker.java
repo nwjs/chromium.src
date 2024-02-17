@@ -12,7 +12,6 @@ import androidx.annotation.Nullable;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
-import org.chromium.chrome.browser.read_later.ReadingListUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.bookmarks.BookmarkId;
@@ -124,17 +123,6 @@ public class TabBookmarker {
                     }
 
                     BookmarkId bookmarkId = bookmarkModel.getUserBookmarkIdForTab(tabToBookmark);
-                    boolean isNewBookmark = bookmarkId == null;
-                    if (ReadingListUtils.maybeTypeSwapAndShowSaveFlow(
-                            mActivity,
-                            mBottomSheetControllerSupplier.get(),
-                            bookmarkModel,
-                            bookmarkId,
-                            bookmarkType,
-                            tabToBookmark.getProfile())) {
-                        return;
-                    }
-
                     BookmarkItem currentBookmarkItem =
                             bookmarkId == null ? null : bookmarkModel.getBookmarkById(bookmarkId);
                     onBookmarkModelLoaded(
@@ -142,8 +130,7 @@ public class TabBookmarker {
                             currentBookmarkItem,
                             bookmarkModel,
                             bookmarkType,
-                            fromExplicitTrackUi,
-                            isNewBookmark);
+                            fromExplicitTrackUi);
                 });
     }
 
@@ -152,16 +139,13 @@ public class TabBookmarker {
             @Nullable final BookmarkItem currentBookmarkItem,
             final BookmarkModel bookmarkModel,
             @BookmarkType int bookmarkType,
-            boolean fromExplicitTrackUi,
-            boolean isNewBookmark) {
+            boolean fromExplicitTrackUi) {
         BookmarkUtils.addOrEditBookmark(
                 currentBookmarkItem,
                 bookmarkModel,
                 tabToBookmark,
-                mSnackbarManagerSupplier.get(),
                 mBottomSheetControllerSupplier.get(),
                 mActivity,
-                mIsCustomTab,
                 bookmarkType,
                 (newBookmarkId) -> {
                     BookmarkId currentBookmarkId =

@@ -79,6 +79,9 @@ class ASH_EXPORT LoginUnlockThroughputRecorder : public SessionObserver,
   // This is called when list of ARC++ apps is updated.
   void OnArcAppListReady();
 
+  // This is called when cryptohome was successfully created/unlocked.
+  void OnAuthSuccess();
+
   // This is true if we need to report Ash.ArcAppInitialAppsInstallDuration
   // histogram in this session but it has not been reported yet.
   bool NeedReportArcAppListReady() const;
@@ -95,7 +98,11 @@ class ASH_EXPORT LoginUnlockThroughputRecorder : public SessionObserver,
   void AddLoginTimeMarker(const std::string& marker_name);
 
   // This flag signals that all expected browser windows are already scheduled.
-  void RestoreDataLoaded();
+  void BrowserSessionRestoreDataLoaded();
+
+  // This flag signals that Full Session restore has reported all the expected
+  // windows to be created.
+  void FullSessionRestoreDataLoaded();
 
   // Records that ARC has finished booting.
   void ArcUiAvailableAfterLogin();
@@ -103,6 +110,8 @@ class ASH_EXPORT LoginUnlockThroughputRecorder : public SessionObserver,
   base::SequencedTaskRunner* post_login_deferred_task_runner() const {
     return post_login_deferred_task_runner_.get();
   }
+
+  void SetLoginFinishedReportedForTesting();
 
  private:
   class TimeMarker {
@@ -138,6 +147,13 @@ class ASH_EXPORT LoginUnlockThroughputRecorder : public SessionObserver,
 
   void OnLoginAnimationFinishedTimerFired();
 
+  void MaybeRestoreDataLoaded();
+
+  // We only want to initialize the slice name on certain expected events.
+  // If we miss these, it will ne names "Unordered" and we will know that
+  // we missed the expected event.
+  void EnsureTracingSliceNamed();
+
   UiMetricsRecorder ui_recorder_;
 
   // Set of window IDs ("restore_window_id") that could be restored but
@@ -159,6 +175,19 @@ class ASH_EXPORT LoginUnlockThroughputRecorder : public SessionObserver,
   base::TimeTicks primary_user_logged_in_;
 
   bool shelf_initialized_ = false;
+
+  // Session restore data comes from chrome::SessionRestore and ash::FullRestore
+  // independently.
+
+  // This flag is true after SessionRestore has finished loading its data.
+  bool browser_session_restore_data_loaded_ = false;
+
+  // This flag is true after FullRestore has finished loading its data.
+  bool full_session_restore_data_loaded_ = false;
+
+  // All restored windows are known. If the list is empty we know that windows
+  // will not be restored at this point.
+  bool restore_data_loaded_ = false;
 
   // |has_pending_icon_| is true when last shelf icons update had an item
   // pending icon load.

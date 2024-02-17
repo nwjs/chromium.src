@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.tabbed_mode;
 
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -24,6 +25,7 @@ import org.chromium.base.supplier.OneShotCallback;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.supplier.SupplierUtils;
+import org.chromium.base.version_info.VersionInfo;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
@@ -42,6 +44,7 @@ import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTa
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
+import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.desktop_site.DesktopSiteSettingsIPHController;
 import org.chromium.chrome.browser.dragdrop.ChromeTabbedOnDragListener;
 import org.chromium.chrome.browser.feature_guide.notifications.FeatureNotificationUtils;
@@ -58,6 +61,8 @@ import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
 import org.chromium.chrome.browser.gesturenav.NavigationSheet;
 import org.chromium.chrome.browser.gesturenav.TabbedSheetDelegate;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
+import org.chromium.chrome.browser.hub.HubFieldTrial;
+import org.chromium.chrome.browser.hub.HubManager;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthCoordinatorFactory;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthTopToolbarDelegate;
@@ -101,6 +106,7 @@ import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.tasks.tab_management.UndoGroupSnackbarController;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonInProductHelpController;
 import org.chromium.chrome.browser.toolbar.ToolbarIntentMetadata;
@@ -108,6 +114,8 @@ import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.FullScreenSyncPromoUtil;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController.StatusBarColorProvider;
@@ -118,18 +126,17 @@ import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
 import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
-import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.widget.InsetObserver;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.messages.MessageDispatcherProvider;
-import org.chromium.components.version_info.VersionInfo;
 import org.chromium.components.webapps.bottomsheet.PwaBottomSheetController;
 import org.chromium.components.webapps.bottomsheet.PwaBottomSheetControllerFactory;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.IntentRequestTracker;
+import org.chromium.ui.dragdrop.DragDropGlobalState;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.function.BooleanSupplier;
@@ -158,7 +165,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private NotificationPermissionController mNotificationPermissionController;
     private HistoryNavigationCoordinator mHistoryNavigationCoordinator;
     private NavigationSheet mNavigationSheet;
-    private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
     private LayoutManagerImpl mLayoutManager;
     private CommerceSubscriptionsService mCommerceSubscriptionsService;
     private UndoGroupSnackbarController mUndoGroupSnackbarController;
@@ -170,6 +176,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private Callback<Integer> mOnTabStripHeightChangedCallback;
     private MultiInstanceManager mMultiInstanceManager;
     private int mStatusIndicatorHeight;
+    private TouchEventObserver mDragDropTouchObserver;
+    private final OneshotSupplier<HubManager> mHubManagerSupplier;
 
     /**
      * A common {@link CallbackController} used for being notified when {@link TabSwitcher} or
@@ -225,6 +233,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
      * @param tabModelSelectorSupplier Supplies the {@link TabModelSelector}.
      * @param startSurfaceSupplier Supplier of the {@link StartSurface}.
      * @param tabSwitcherSupplier Supplier of the {@link TabSwitcher}.
+     * @param hubManagerSupplier Supplier for the {@link HubManager}.
+     * @param incognitoTabSwitcherSupplier Supplier of the incognito {@link TabSwitcher}.
      * @param intentMetadataOneshotSupplier Supplier with information about the launching intent.
      * @param layoutStateProviderOneshotSupplier Supplier of the {@link LayoutStateProvider}.
      * @param startSurfaceParentTabSupplier Supplies the parent tab for the StartSurface.
@@ -272,6 +282,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             @NonNull ObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
             @NonNull OneshotSupplier<StartSurface> startSurfaceSupplier,
             @NonNull OneshotSupplier<TabSwitcher> tabSwitcherSupplier,
+            @NonNull OneshotSupplier<TabSwitcher> incognitoTabSwitcherSupplier,
+            @NonNull OneshotSupplier<HubManager> hubManagerSupplier,
             @NonNull OneshotSupplier<ToolbarIntentMetadata> intentMetadataOneshotSupplier,
             @NonNull OneshotSupplier<LayoutStateProvider> layoutStateProviderOneshotSupplier,
             @NonNull Supplier<Tab> startSurfaceParentTabSupplier,
@@ -290,6 +302,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             @NonNull Supplier<CompositorViewHolder> compositorViewHolderSupplier,
             @NonNull Supplier<TabContentManager> tabContentManagerSupplier,
             @NonNull Supplier<SnackbarManager> snackbarManagerSupplier,
+            @NonNull ObservableSupplierImpl<EdgeToEdgeController> edgeToEdgeSupplier,
             @ActivityType int activityType,
             @NonNull Supplier<Boolean> isInOverviewModeSupplier,
             @NonNull Supplier<Boolean> isWarmOnResumeSupplier,
@@ -318,6 +331,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 tabModelSelectorSupplier,
                 startSurfaceSupplier,
                 tabSwitcherSupplier,
+                incognitoTabSwitcherSupplier,
                 intentMetadataOneshotSupplier,
                 layoutStateProviderOneshotSupplier,
                 startSurfaceParentTabSupplier,
@@ -336,6 +350,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 compositorViewHolderSupplier,
                 tabContentManagerSupplier,
                 snackbarManagerSupplier,
+                edgeToEdgeSupplier,
                 activityType,
                 isInOverviewModeSupplier,
                 isWarmOnResumeSupplier,
@@ -373,6 +388,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                     }
                 };
         mMultiInstanceManager = multiInstanceManager;
+        mHubManagerSupplier = hubManagerSupplier;
     }
 
     @Override
@@ -454,6 +470,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         if (mDesktopSiteSettingsIPHController != null) {
             mDesktopSiteSettingsIPHController.destroy();
             mDesktopSiteSettingsIPHController = null;
+        }
+
+        if (mCompositorViewHolderSupplier.get() != null && mDragDropTouchObserver != null) {
+            mCompositorViewHolderSupplier.get().removeTouchEventObserver(mDragDropTouchObserver);
+            mDragDropTouchObserver = null;
         }
 
         super.onDestroy();
@@ -568,7 +589,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         mRootUiTabObserver.swapToTab(mActivityTabProvider.get());
 
         // TODO(crbug.com/1505851): Consider register this drag listener to other views besides CVH.
-        if (ChromeFeatureList.sTabLinkDragDropAndroid.isEnabled()) {
+        if (ChromeFeatureList.sTabLinkDragDropAndroid.isEnabled()
+                && !TabUiFeatureUtilities.DISABLE_STRIP_TO_CONTENT_DD.getValue()) {
             ChromeTabbedOnDragListener chromeTabbedOnDragListener =
                     new ChromeTabbedOnDragListener(
                             mMultiInstanceManager,
@@ -577,6 +599,17 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                             mLayoutStateProviderOneShotSupplier);
 
             mCompositorViewHolderSupplier.get().setOnDragListener(chromeTabbedOnDragListener);
+
+            // Disable touch event while drag is in progress.
+            // TODO(crbug.com/1519687): Move onTouchEventObserver to CoordinatorLayoutForPointer.
+            mDragDropTouchObserver =
+                    new TouchEventObserver() {
+                        @Override
+                        public boolean onInterceptTouchEvent(MotionEvent e) {
+                            return DragDropGlobalState.hasValue();
+                        }
+                    };
+            mCompositorViewHolderSupplier.get().addTouchEventObserver(mDragDropTouchObserver);
         }
 
         if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)) {
@@ -631,6 +664,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 new IncognitoReauthTopToolbarDelegate() {
                     @Override
                     public int disableNewTabButton() {
+                        // Hub handles this at the pane level.
+                        if (HubFieldTrial.isHubEnabled()) return 0;
                         return mToolbarManager
                                 .getTopToolbarInteractabilityManager()
                                 .disableNewTabButton();
@@ -638,6 +673,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
                     @Override
                     public void enableNewTabButton(int clientToken) {
+                        // Hub handles this at the pane level.
+                        if (HubFieldTrial.isHubEnabled()) return;
                         mToolbarManager
                                 .getTopToolbarInteractabilityManager()
                                 .enableNewTabButton(clientToken);
@@ -653,6 +690,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         new SettingsLauncherImpl(),
                         incognitoReauthTopToolbarDelegate,
                         mLayoutManager,
+                        mHubManagerSupplier,
                         /* showRegularOverviewIntent= */ null,
                         /* isTabbedActivity= */ true);
 
@@ -663,9 +701,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                             new OneShotCallback<>(
                                     startSurface.getTabSwitcherCustomViewManagerSupplier(),
                                     (tabSwitcherCustomViewManager) -> {
-                                        if (incognitoReauthCoordinatorFactory
-                                                        .getTabSwitcherCustomViewManager()
-                                                == null) {
+                                        if (!incognitoReauthCoordinatorFactory
+                                                        .getTabSwitcherCustomViewManagerSupplier()
+                                                        .hasValue()
+                                                && tabSwitcherCustomViewManager != null) {
                                             incognitoReauthCoordinatorFactory
                                                     .setTabSwitcherCustomViewManager(
                                                             tabSwitcherCustomViewManager);
@@ -673,13 +712,17 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                                     });
                         }));
 
-        mTabSwitcherSupplier.onAvailable(
+        mIncognitoTabSwitcherSupplier.onAvailable(
                 mTabSwitcherCustomViewManagerCallbackController.makeCancelable(
                         (tabSwitcher) -> {
-                            if (incognitoReauthCoordinatorFactory.getTabSwitcherCustomViewManager()
-                                    == null) {
+                            var tabSwitcherCustomViewManager =
+                                    tabSwitcher.getTabSwitcherCustomViewManager();
+                            if (!incognitoReauthCoordinatorFactory
+                                            .getTabSwitcherCustomViewManagerSupplier()
+                                            .hasValue()
+                                    && tabSwitcherCustomViewManager != null) {
                                 incognitoReauthCoordinatorFactory.setTabSwitcherCustomViewManager(
-                                        tabSwitcher.getTabSwitcherCustomViewManager());
+                                        tabSwitcherCustomViewManager);
                             }
                         }));
 
@@ -709,7 +752,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     }
 
     @Override
-    protected boolean shouldShowMenuUpdateBadge() {
+    protected boolean canShowMenuUpdateBadge() {
         return true;
     }
 
@@ -975,10 +1018,21 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         // TODO(crbug.com/1503029): Remove the reference to toolbar_height_no_shadow.
         final int toolbarHeight =
                 mActivity.getResources().getDimensionPixelSize(R.dimen.toolbar_height_no_shadow);
-        final int topControlsNewHeight =
-                toolbarHeight
-                        + mToolbarManager.getToolbar().getTabStripHeight()
-                        + mStatusIndicatorHeight;
+        final int tabStripHeight = mToolbarManager.getTabStripHeightSupplier().get();
+        final int topControlsNewHeight = toolbarHeight + tabStripHeight + mStatusIndicatorHeight;
+
+        boolean isTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity);
+        if (tabStripHeight > 0 && !isTablet) {
+            String msg =
+                    "Non-zero tab strip height found on non-tablet form factor. tabStripHeight= "
+                            + tabStripHeight
+                            + " toolbarHeight= "
+                            + toolbarHeight
+                            + " statusIndicatorHeight= "
+                            + mStatusIndicatorHeight;
+            ChromePureJavaExceptionReporter.reportJavaException(
+                    new Throwable(msg), /* withLogWarning= */ true);
+        }
 
         browserControlsSizer.setAnimateBrowserControlsHeightChanges(animate);
         browserControlsSizer.setTopControlsHeight(topControlsNewHeight, mStatusIndicatorHeight);
@@ -986,10 +1040,17 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     }
 
     private void initCommerceSubscriptionsService() {
-        CommerceSubscriptionsServiceFactory factory = new CommerceSubscriptionsServiceFactory();
-        mCommerceSubscriptionsService = factory.getForLastUsedProfile();
-        mCommerceSubscriptionsService.initDeferredStartupForActivity(
-                mTabModelSelectorSupplier.get(), mActivityLifecycleDispatcher);
+        SupplierUtils.waitForAll(
+                mCallbackController.makeCancelable(
+                        () -> {
+                            mCommerceSubscriptionsService =
+                                    CommerceSubscriptionsServiceFactory.getInstance()
+                                            .getForProfile(mProfileSupplier.get());
+                            mCommerceSubscriptionsService.initDeferredStartupForActivity(
+                                    mTabModelSelectorSupplier.get(), mActivityLifecycleDispatcher);
+                        }),
+                mTabModelSelectorSupplier,
+                mProfileSupplier);
     }
 
     private void initUndoGroupSnackbarController() {
@@ -1060,23 +1121,17 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     }
 
     private void initTabStripTransitionCoordinator() {
+        // Tab strip transition is only supported for tablets.
+        if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
+                || !ChromeFeatureList.sDynamicTopChrome.isEnabled()) return;
+
         mOnTabStripHeightChangedCallback = (height) -> updateTopControlsHeight();
         mToolbarManager.getTabStripHeightSupplier().addObserver(mOnTabStripHeightChangedCallback);
     }
 
     @Override
     protected boolean supportsEdgeToEdge() {
-        return true;
-    }
-
-    /**
-     * @return {@link ComposedBrowserControlsVisibilityDelegate} object for tabbed activity.
-     */
-    public ComposedBrowserControlsVisibilityDelegate getAppBrowserControlsVisibilityDelegate() {
-        if (mAppBrowserControlsVisibilityDelegate == null) {
-            mAppBrowserControlsVisibilityDelegate = new ComposedBrowserControlsVisibilityDelegate();
-        }
-        return mAppBrowserControlsVisibilityDelegate;
+        return EdgeToEdgeControllerFactory.isSupportedConfiguration(mActivity);
     }
 
     public StatusIndicatorCoordinator getStatusIndicatorCoordinatorForTesting() {

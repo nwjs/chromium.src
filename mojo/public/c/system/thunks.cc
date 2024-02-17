@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string_view>
 #include <vector>
 
 #include "base/check_op.h"
@@ -15,7 +16,6 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
-#include "base/strings/string_piece.h"
 #include "build/build_config.h"
 #include "mojo/public/c/system/core.h"
 #include "mojo/public/c/system/data_pipe.h"
@@ -49,7 +49,6 @@ MojoResult NotImplemented(const char* name) {
       << "Mojo has not been initialized in this process. You must call "
       << "either mojo::core::Init() as an embedder, or |MojoInitialize()| if "
       << "using the mojo_core shared library.";
-  return MOJO_RESULT_UNIMPLEMENTED;
 }
 
 }  // namespace

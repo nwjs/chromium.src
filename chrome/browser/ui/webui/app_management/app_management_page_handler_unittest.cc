@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/webui/app_management/app_management_page_handler.h"
+#include "chrome/browser/ui/webui/app_management/app_management_page_handler_base.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "ash/components/arc/arc_features.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_features.h"
@@ -47,13 +49,13 @@ using ::testing::ElementsAre;
 
 namespace apps {
 namespace {
-class TestDelegate : public AppManagementPageHandler::Delegate {
+class TestDelegate : public AppManagementPageHandlerBase::Delegate {
  public:
   TestDelegate() = default;
   TestDelegate(const TestDelegate&) = delete;
   TestDelegate& operator=(const TestDelegate&) = delete;
 
-  // AppManagementPageHandler::Delegate:
+  // AppManagementPageHandlerBase::Delegate:
 
   ~TestDelegate() override = default;
 
@@ -76,7 +78,7 @@ class AppManagementPageHandlerTestBase
 
     mojo::PendingReceiver<app_management::mojom::Page> page;
     mojo::Remote<app_management::mojom::PageHandler> handler;
-    handler_ = std::make_unique<AppManagementPageHandler>(
+    handler_ = std::make_unique<AppManagementPageHandlerBase>(
         handler.BindNewPipeAndPassReceiver(),
         page.InitWithNewPipeAndPassRemote(), profile(), *delegate_);
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -95,7 +97,7 @@ class AppManagementPageHandlerTestBase
 
   bool LinkCapturingEnabledByDefault() { return GetParam(); }
 
-  AppManagementPageHandler* handler() { return handler_.get(); }
+  AppManagementPageHandlerBase* handler() { return handler_.get(); }
 
  protected:
   void AwaitWebAppCommandsComplete() {
@@ -121,7 +123,7 @@ class AppManagementPageHandlerTestBase
  private:
   data_decoder::test::InProcessDataDecoder in_process_data_decoder_;
   std::unique_ptr<TestDelegate> delegate_;
-  std::unique_ptr<AppManagementPageHandler> handler_;
+  std::unique_ptr<AppManagementPageHandlerBase> handler_;
 #if !BUILDFLAG(IS_CHROMEOS)
   base::test::ScopedFeatureList scoped_feature_list_;
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -873,6 +875,37 @@ TEST_P(AppManagementPageHandlerArcTest, OpenStorePageWebAppPlayStore) {
   EXPECT_EQ(intents[0].activity->package_name, arc::kPlayStorePackage);
   EXPECT_EQ(intents[0].intent->data.value(),
             "https://play.google.com/store/apps/details?id=package_name");
+}
+
+TEST_P(AppManagementPageHandlerArcTest, SetAppLocale) {
+  // Setup.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(arc::kPerAppLanguage);
+  ArcAppListPrefs* prefs = ArcAppListPrefs::Get(profile());
+  ASSERT_NE(nullptr, prefs);
+  // fake_packages[4] is the test package with localeInfo.
+  const std::string& test_package_name =
+      arc_test()->fake_apps()[4]->package_name;
+  const std::string& app_id =
+      prefs->GetAppId(test_package_name, arc_test()->fake_apps()[4]->activity);
+
+  // Setup app.
+  std::vector<arc::mojom::AppInfoPtr> test_app_info_list;
+  test_app_info_list.push_back(arc_test()->fake_apps()[4]->Clone());
+  arc_test()->app_instance()->SendRefreshAppList(test_app_info_list);
+  // Setup package.
+  // Initially pref will be set with "en" as selectedLocale.
+  std::vector<arc::mojom::ArcPackageInfoPtr> test_packages;
+  test_packages.push_back(arc_test()->fake_packages()[4]->Clone());
+  arc_test()->app_instance()->SendRefreshPackageList(
+      ArcAppTest::ClonePackages(test_packages));
+
+  // Run.
+  handler()->SetAppLocale(app_id, "ja");
+
+  // Assert.
+  ASSERT_EQ("ja",
+            arc_test()->app_instance()->selected_locale(test_package_name));
 }
 
 INSTANTIATE_TEST_SUITE_P(,

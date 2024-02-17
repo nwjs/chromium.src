@@ -44,7 +44,6 @@ import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.MOVEM
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Rect;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.SpannableString;
@@ -52,7 +51,6 @@ import android.text.style.LocaleSpan;
 import android.text.style.SuggestionSpan;
 import android.text.style.URLSpan;
 import android.view.View;
-import android.view.accessibility.AccessibilityNodeInfo;
 
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 
@@ -91,6 +89,8 @@ public class AccessibilityNodeInfoBuilder {
     public static final String EXTRAS_KEY_SUPPORTED_ELEMENTS =
             "ACTION_ARGUMENT_HTML_ELEMENT_STRING_VALUES";
     public static final String EXTRAS_KEY_TARGET_URL = "AccessibilityNodeInfo.targetUrl";
+
+    // Keys used for Bundle extras of parent relative bounds values, without screen clipping.
     public static final String EXTRAS_KEY_UNCLIPPED_TOP = "AccessibilityNodeInfo.unclippedTop";
     public static final String EXTRAS_KEY_UNCLIPPED_LEFT = "AccessibilityNodeInfo.unclippedLeft";
     public static final String EXTRAS_KEY_UNCLIPPED_BOTTOM =
@@ -98,6 +98,17 @@ public class AccessibilityNodeInfoBuilder {
     public static final String EXTRAS_KEY_UNCLIPPED_WIDTH = "AccessibilityNodeInfo.unclippedWidth";
     public static final String EXTRAS_KEY_UNCLIPPED_HEIGHT =
             "AccessibilityNodeInfo.unclippedHeight";
+
+    // Keys used for Bundle extras of page absolute bounds values, without screen clipping.
+    public static final String EXTRAS_KEY_PAGE_ABSOLUTE_LEFT =
+            "AccessibilityNodeInfo.pageAbsoluteLeft";
+    public static final String EXTRAS_KEY_PAGE_ABSOLUTE_TOP =
+            "AccessibilityNodeInfo.pageAbsoluteTop";
+    public static final String EXTRAS_KEY_PAGE_ABSOLUTE_WIDTH =
+            "AccessibilityNodeInfo.pageAbsoluteWidth";
+    public static final String EXTRAS_KEY_PAGE_ABSOLUTE_HEIGHT =
+            "AccessibilityNodeInfo.pageAbsoluteHeight";
+
     public static final String EXTRAS_KEY_URL = "url";
 
     // Constants defined for requests to add extra data to AccessibilityNodeInfo objects. These
@@ -176,7 +187,8 @@ public class AccessibilityNodeInfoBuilder {
             boolean password,
             boolean scrollable,
             boolean selected,
-            boolean visibleToUser) {
+            boolean visibleToUser,
+            boolean hasCharacterLocations) {
         node.setCheckable(checkable);
         node.setChecked(checked);
         node.setClickable(clickable);
@@ -215,6 +227,11 @@ public class AccessibilityNodeInfoBuilder {
         if (hasImage) {
             Bundle bundle = node.getExtras();
             bundle.putCharSequence(EXTRAS_KEY_HAS_IMAGE, "true");
+            node.setAvailableExtraData(sRequestImageData);
+        }
+
+        if (hasCharacterLocations) {
+            node.setAvailableExtraData(sTextCharacterLocation);
         }
 
         node.setMovementGranularities(
@@ -368,6 +385,7 @@ public class AccessibilityNodeInfoBuilder {
         }
         bundle.putCharSequence(EXTRAS_KEY_CHROME_ROLE, role);
         bundle.putCharSequence(EXTRAS_KEY_ROLE_DESCRIPTION, roleDescription);
+        // We added the hint Bundle extra pre Android-O, and keep it to not risk breaking changes.
         bundle.putCharSequence(EXTRAS_KEY_HINT, hint);
         if (!display.isEmpty()) {
             bundle.putCharSequence(EXTRAS_KEY_CSS_DISPLAY, display);
@@ -387,6 +405,7 @@ public class AccessibilityNodeInfoBuilder {
         node.setDismissable(false); // No concept of "dismissable" on the web currently.
         node.setMultiLine(multiLine);
         node.setInputType(inputType);
+        node.setHintText(hint);
 
         // Deliberately don't call setLiveRegion because TalkBack speaks
         // the entire region anytime it changes. Instead Chrome will
@@ -518,27 +537,6 @@ public class AccessibilityNodeInfoBuilder {
     protected void setAccessibilityNodeInfoViewIdResourceName(
             AccessibilityNodeInfoCompat node, String viewIdResourceName) {
         node.setViewIdResourceName(viewIdResourceName);
-    }
-
-    @CalledByNative
-    protected void setAccessibilityNodeInfoOAttributes(
-            AccessibilityNodeInfoCompat node,
-            boolean hasCharacterLocations,
-            boolean hasImage,
-            String hint) {
-        node.setHintText(hint);
-
-        // Work-around a gap in the Android API, that |AccessibilityNodeInfoCompat| class does not
-        // have the setAvailableExtraData method, so unwrap the node and call it directly.
-        // TODO(mschillaci): Remove unwrapping and SDK version req once Android API is updated.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (hasCharacterLocations) {
-                ((AccessibilityNodeInfo) node.getInfo())
-                        .setAvailableExtraData(sTextCharacterLocation);
-            } else if (hasImage) {
-                ((AccessibilityNodeInfo) node.getInfo()).setAvailableExtraData(sRequestImageData);
-            }
-        }
     }
 
     @CalledByNative

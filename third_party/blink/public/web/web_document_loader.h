@@ -120,6 +120,7 @@ class BLINK_EXPORT WebDocumentLoader {
   // same number of time than BlockParser().
   virtual void BlockParser() = 0;
   virtual void ResumeParser() = 0;
+  virtual int ParserBlockerCount() = 0;
 
   // Returns true if the document is an MHTML archive. When true,
   // GetArchiveInfo() may be called to find the result of loading and, if
@@ -134,10 +135,11 @@ class BLINK_EXPORT WebDocumentLoader {
   // committed in this WebDocumentLoader had transient activation.
   virtual bool LastNavigationHadTransientUserActivation() const = 0;
 
-  // Sets the CodeCacheHost for this loader.
+  // Sets the CodeCacheHosts for this loader.
   virtual void SetCodeCacheHost(
+      CrossVariantMojoRemote<mojom::CodeCacheHostInterfaceBase> code_cache_host,
       CrossVariantMojoRemote<mojom::CodeCacheHostInterfaceBase>
-          code_cache_host) = 0;
+          code_cache_host_for_background) = 0;
 
   virtual WebString OriginCalculationDebugInfo() const = 0;
 

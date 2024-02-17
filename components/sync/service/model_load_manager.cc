@@ -53,9 +53,7 @@ void ModelLoadManager::Configure(ModelTypeSet preferred_types_without_errors,
       const DataTypeController* dtc = dtc_iter->second.get();
       // Controllers in a FAILED state or with preconditions not met should have
       // been filtered out by the DataTypeManager.
-      // TODO(crbug.com/1507813): update to CHECK once it's clear when it can be
-      // in FAILED state.
-      DUMP_WILL_BE_CHECK_NE(dtc->state(), DataTypeController::FAILED);
+      CHECK_NE(dtc->state(), DataTypeController::FAILED);
       // TODO(crbug.com/1514430): consider removing the following CHECK because
       // data types can change their state and notify DataTypeManager later.
       DUMP_WILL_BE_CHECK_EQ(
@@ -289,7 +287,8 @@ void ModelLoadManager::LoadModelsForType(DataTypeController* dtc) {
   }
 
   CHECK(!loaded_types_.Has(dtc->type()));
-  // TODO(crbug.com/1519487): Investigate the CHECK failure.
+  // TODO(crbug.com/1519487): Avoid calling LoadModelsForType() multiple times
+  // upon stop, and re-introduce a CHECK for state to be NOT_RUNNING only.
   if (dtc->state() == DataTypeController::NOT_RUNNING) {
     dtc->LoadModels(*configure_context_,
                     base::BindRepeating(&ModelLoadManager::ModelLoadCallback,

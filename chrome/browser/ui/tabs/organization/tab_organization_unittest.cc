@@ -73,7 +73,7 @@ class TabOrganizationTest : public testing::Test {
   }
 
   content::WebContents* AddTab(TabStripModel* tab_strip_model = nullptr,
-                               absl::optional<GURL> url = absl::nullopt) {
+                               std::optional<GURL> url = std::nullopt) {
     std::unique_ptr<content::WebContents> contents_unique_ptr =
         CreateWebContents();
     content::WebContentsTester::For(contents_unique_ptr.get())
@@ -531,7 +531,7 @@ TEST_F(TabOrganizationTest,
   content::WebContents* grouped_tab = AddTab();
   tab_strip_model()->AddToNewGroup(
       {tab_strip_model()->GetIndexOfWebContents(grouped_tab)});
-  absl::optional<tab_groups::TabGroupId> non_organized_group_id =
+  std::optional<tab_groups::TabGroupId> non_organized_group_id =
       tab_strip_model()->GetTabGroupForTab(
           tab_strip_model()->GetIndexOfWebContents(grouped_tab));
 
@@ -1031,19 +1031,19 @@ TEST_F(TabOrganizationTest, TabOrganizationSessionCreation) {
   const tab_groups::TabGroupId group_id =
       tab_strip_model()->group_model()->ListTabGroups().at(0);
 
-  absl::optional<tab_groups::TabGroupId> group_for_tab_1 =
+  std::optional<tab_groups::TabGroupId> group_for_tab_1 =
       tab_strip_model()->GetTabGroupForTab(
           tab_strip_model()->GetIndexOfWebContents(tab_to_group_1));
   EXPECT_TRUE(group_for_tab_1.has_value());
   EXPECT_EQ(group_for_tab_1.value(), group_id);
 
-  absl::optional<tab_groups::TabGroupId> group_for_tab_2 =
+  std::optional<tab_groups::TabGroupId> group_for_tab_2 =
       tab_strip_model()->GetTabGroupForTab(
           tab_strip_model()->GetIndexOfWebContents(tab_to_group_2));
   EXPECT_TRUE(group_for_tab_2.has_value());
   EXPECT_EQ(group_for_tab_2.value(), group_id);
 
-  absl::optional<tab_groups::TabGroupId> group_for_tab_to_not_group =
+  std::optional<tab_groups::TabGroupId> group_for_tab_to_not_group =
       tab_strip_model()->GetTabGroupForTab(
           tab_strip_model()->GetIndexOfWebContents(tab_to_not_group));
   EXPECT_FALSE(group_for_tab_to_not_group.has_value());

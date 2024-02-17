@@ -22,7 +22,6 @@ namespace {
 // (e.g. content/, components/, etc).
 const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewConnectionlessSafeBrowsing,
-    &features::kWebViewMetricsFiltering,
     &features::kWebViewDisplayCutout,
     &features::kWebViewExitReasonMetric,
     &features::kWebViewMixedContentAutoupgrades,
@@ -44,6 +43,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &base::features::kCollectAndroidFrameTimelineMetrics,
     &features::kWebViewInjectPlatformJsApis,
     &features::kWebViewMediaIntegrityApi,
+    &safe_browsing::kSafeBrowsingNewGmsApiForBrowseUrlDatabaseCheck,
 };
 
 // static

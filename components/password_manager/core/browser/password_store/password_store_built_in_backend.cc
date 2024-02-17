@@ -134,7 +134,7 @@ void PasswordStoreBuiltInBackend::GetAutofillableLoginsAsync(
 }
 
 void PasswordStoreBuiltInBackend::GetAllLoginsForAccountAsync(
-    std::optional<std::string> account,
+    std::string account,
     LoginsOrErrorReply callback) {
   NOTREACHED();
 }
@@ -288,6 +288,10 @@ PasswordStoreBuiltInBackend::CreateSyncControllerDelegate() {
 
 void PasswordStoreBuiltInBackend::OnSyncServiceInitialized(
     syncer::SyncService* sync_service) {}
+
+base::WeakPtr<PasswordStoreBackend> PasswordStoreBuiltInBackend::AsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
 
 void PasswordStoreBuiltInBackend::AddSiteStats(const InteractionsStats& stats) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);

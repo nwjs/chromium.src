@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "build/chromeos_buildflags.h"
 #include "components/variations/client_filterable_state.h"
+#include "components/variations/service/limited_entropy_synthetic_trial.h"
 #include "components/variations/service/safe_seed_manager.h"
 #include "components/variations/service/ui_string_overrider.h"
 #include "components/variations/service/variations_field_trial_creator.h"
@@ -49,6 +50,7 @@ class PrefRegistrySyncable;
 }
 
 namespace variations {
+struct StudyGroupNames;
 class VariationsSeed;
 }
 
@@ -204,6 +206,10 @@ class VariationsService
           extra_overrides,
       std::unique_ptr<base::FeatureList> feature_list,
       PlatformFieldTrials* platform_field_trials);
+
+  // Returns the names of studies and their groups which could possibly be
+  // forced.
+  std::vector<StudyGroupNames> GetStudiesAvailableToForce();
 
   // The seed type used.
   SeedType GetSeedType() const;
@@ -368,6 +374,9 @@ class VariationsService
   // Used for instantiating entropy providers for variations seed simulation.
   // Weak pointer.
   raw_ptr<metrics::MetricsStateManager> state_manager_;
+
+  // Configurations related to the limited entropy synthetic trial.
+  LimitedEntropySyntheticTrial limited_entropy_synthetic_trial_;
 
   // Used to obtain policy-related preferences. Depending on the platform, will
   // either be Local State or Profile prefs.

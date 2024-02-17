@@ -311,6 +311,10 @@ void AXRelationCache::UpdateReverseOwnsRelations(Element& relation_source) {
 // root, it discovers that any other two objects are repeated in the ancestor
 // chain, this is unexpected, and results in the CHECK(false) condition.
 static bool ContainsCycle(AXObject* owner, AXObject* child) {
+  if (FlatTreeTraversal::IsDescendantOf(*owner->GetNode(), *child->GetNode())) {
+    // A DOM descendant cannot own its ancestor.
+    return true;
+  }
   HashSet<AXID> visited;
   // Walk up the parents of the owner object, make sure that this child
   // doesn't appear there, as that would create a cycle.
@@ -590,7 +594,7 @@ void AXRelationCache::UpdateAriaOwnsWithCleanLayout(AXObject* owner,
   } else if (element && element->HasExplicitlySetAttrAssociatedElements(
                             html_names::kAriaOwnsAttr)) {
     UpdateAriaOwnsFromAttrAssociatedElementsWithCleanLayout(
-        owner, *element->GetElementArrayAttribute(html_names::kAriaOwnsAttr),
+        owner, *element->GetAttrAssociatedElements(html_names::kAriaOwnsAttr),
         owned_children, force);
   } else {
     // Figure out the ids that actually correspond to children that exist
@@ -714,11 +718,7 @@ void AXRelationCache::GetReverseRelated(
 }
 
 AXObject* AXRelationCache::GetOrCreateAriaOwnerFor(Node* node, AXObject* obj) {
-  // In M122 and later, this is a CHECK that can pass, but for now, return
-  // nullptr, so that GetOrCreate() while the tree is frozen does not hit it.
-  if (!object_cache_->IsProcessingDeferredEvents()) {
-    return nullptr;
-  }
+  CHECK(object_cache_->IsProcessingDeferredEvents());
 
   if (!IsA<Element>(node)) {
     return nullptr;
@@ -727,7 +727,7 @@ AXObject* AXRelationCache::GetOrCreateAriaOwnerFor(Node* node, AXObject* obj) {
 #if DCHECK_IS_ON()
   if (obj)
     DCHECK(!obj->IsDetached());
-  AXObject* obj_for_node = object_cache_->SafeGet(node);
+  AXObject* obj_for_node = object_cache_->Get(node);
   DCHECK(!obj || obj_for_node == obj)
       << "Object and node did not match:"
       << "\n* node = " << node << "\n* obj = " << obj->ToString(true, true)
@@ -868,6 +868,10 @@ void AXRelationCache::RemoveAXID(AXID obj_id) {
       for (const auto& child_axid : child_axids) {
         if (AXObject* owned_child = ObjectFromAXID(child_axid)) {
           owned_child->DetachFromParent();
+          DUMP_WILL_BE_CHECK(!object_cache_->UpdatingTree())
+              << "Removing owned child at a bad time, which leads to "
+                 "parentless objects at a bad time: "
+              << owned_child->ToString(true, true);
           MaybeRestoreParentOfOwnedChild(owned_child);
         }
       }
@@ -881,6 +885,7 @@ void AXRelationCache::RemoveAXID(AXID obj_id) {
 void AXRelationCache::RemoveOwnedRelation(AXID obj_id) {
   // Another id owned |obj_id|.
   if (aria_owned_child_to_owner_mapping_.Contains(obj_id)) {
+    DUMP_WILL_BE_CHECK(!object_cache_->UpdatingTree());
     // Previous owner no longer relevant to this child.
     // Also, remove |obj_id| from previous owner's owned child list:
     AXID owner_id = aria_owned_child_to_owner_mapping_.Take(obj_id);
@@ -892,8 +897,16 @@ void AXRelationCache::RemoveOwnedRelation(AXID obj_id) {
         break;
       }
     }
-    if (AXObject* owned_child = ObjectFromAXID(obj_id))
+    if (AXObject* owner = ObjectFromAXID(owner_id)) {
+      if (object_cache_->IsProcessingDeferredEvents()) {
+        object_cache_->ChildrenChangedWithCleanLayout(owner);
+      } else {
+        object_cache_->ChildrenChanged(owner);
+      }
+    }
+    if (AXObject* owned_child = ObjectFromAXID(obj_id)) {
       owned_child->DetachFromParent();
+    }
   }
 }
 

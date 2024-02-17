@@ -17,6 +17,8 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/metrics/login_unlock_throughput_recorder.h"
+#include "ash/shell.h"
 #include "base/base_paths.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
@@ -86,6 +88,8 @@
 #include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/users/chrome_user_manager.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
+#include "chrome/browser/ash/net/alwayson_vpn_pre_connect_url_allowlist_service.h"
+#include "chrome/browser/ash/net/alwayson_vpn_pre_connect_url_allowlist_service_factory.h"
 #include "chrome/browser/ash/notifications/update_notification.h"
 #include "chrome/browser/ash/notifications/update_notification_showing_controller.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
@@ -573,9 +577,7 @@ void MaybeSaveSessionStartedTimeBeforeRestart(Profile* profile) {
 
 // Returns a Base16 encoded SHA1 digest of `data`.
 std::string Sha1Digest(const std::string& data) {
-  const base::SHA1Digest hash =
-      base::SHA1HashSpan(base::as_bytes(base::make_span(data)));
-  return base::HexEncode(hash);
+  return base::HexEncode(base::SHA1HashSpan(base::as_byte_span(data)));
 }
 
 }  // namespace
@@ -1226,7 +1228,7 @@ void UserSessionManager::OnUsersSignInConstraintsChanged() {
       user_manager::UserManager::Get();
   const user_manager::UserList& logged_in_users =
       user_manager->GetLoggedInUsers();
-  for (auto* user : logged_in_users) {
+  for (user_manager::User* user : logged_in_users) {
     if (user->GetType() != user_manager::USER_TYPE_REGULAR &&
         user->GetType() != user_manager::USER_TYPE_GUEST &&
         user->GetType() != user_manager::USER_TYPE_CHILD) {
@@ -1451,7 +1453,7 @@ void UserSessionManager::InitProfilePreferences(
                        user_context.GetPublicSessionInputMethod());
   }
 
-  absl::optional<base::Version> onboarding_completed_version =
+  std::optional<base::Version> onboarding_completed_version =
       user_manager::KnownUser(g_browser_process->local_state())
           .GetOnboardingCompletedVersion(user->GetAccountId());
   if (!onboarding_completed_version.has_value()) {
@@ -1825,9 +1827,22 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     if (user_manager->GetPrimaryUser() == user) {
       StartTetherServiceIfPossible(profile);
 
+      ash::AlwaysOnVpnPreConnectUrlAllowlistService* service =
+          ash::AlwaysOnVpnPreConnectUrlAllowlistServiceFactory::GetInstance()
+              ->GetForProfile(profile);
+
       // PrefService is ready, check whether we need to force a VPN connection.
-      always_on_vpn_manager_ =
-          std::make_unique<arc::AlwaysOnVpnManager>(profile->GetPrefs());
+      always_on_vpn_manager_ = std::make_unique<arc::AlwaysOnVpnManager>(
+          profile->GetPrefs(),
+          /*delay_lockdown_until_vpn_connected=*/service &&
+              service->enforce_alwayson_pre_connect_url_allowlist());
+
+      if (service) {
+        // Configure the `AlwaysOnVpnPreConnectUrlAllowlistService` service to
+        // store a weak ptr reference to `always_on_vpn_manager_` because it
+        // outlives the `always_on_vpn_manager_` instance.
+        service->SetAlwaysOnVpnManager(always_on_vpn_manager_->GetWeakPtr());
+      }
 
       secure_dns_manager_ =
           std::make_unique<SecureDnsManager>(g_browser_process->local_state());
@@ -2055,7 +2070,7 @@ bool UserSessionManager::InitializeUserSession(Profile* profile) {
       known_user.RemovePendingOnboardingScreen(account_id);
     }
 
-    absl::optional<base::Version> onboarding_completed_version =
+    std::optional<base::Version> onboarding_completed_version =
         known_user.GetOnboardingCompletedVersion(account_id);
 
     if (!user_manager->IsCurrentUserNew() && pending_screen.empty() &&
@@ -2212,7 +2227,7 @@ void UserSessionManager::PerformPostBrowserLaunchOOBEActions(Profile* profile) {
 }
 
 void UserSessionManager::OnRestoreActiveSessions(
-    absl::optional<SessionManagerClient::ActiveSessionsMap> sessions) {
+    std::optional<SessionManagerClient::ActiveSessionsMap> sessions) {
   if (!sessions.has_value()) {
     LOG(ERROR) << "Could not get list of active user sessions after crash.";
     // If we could not get list of active user sessions it is safer to just
@@ -2430,6 +2445,13 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
       full_restore::FullRestoreService::GetForProfile(profile)
           ->LaunchBrowserWhenReady();
     }
+  }
+  if (ProfileHelper::IsPrimaryProfile(profile)) {
+    // chrome::SessionRestore is using synchronous mode on Chrome OS,
+    // which means that data is definitely loaded by this moment.
+    Shell::Get()
+        ->login_unlock_throughput_recorder()
+        ->BrowserSessionRestoreDataLoaded();
   }
 
   if (HatsNotificationController::ShouldShowSurveyToProfile(

@@ -2,10 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// clang-format off
 import {I18nBehavior, I18nBehaviorInterface} from '//resources/ash/common/i18n_behavior.js';
 import {SanitizeInnerHtmlOpts} from '//resources/ash/common/parse_html_subset.js';
-// clang-format on
 
 /**
  * @fileoverview
@@ -44,13 +42,6 @@ const OobeI18nBehaviorImpl = {
   },
 };
 
-/**
- * TODO: Replace with an interface. b/24294625
- * @typedef {{
- *   i18nUpdateLocale: function()
- * }}
- */
-OobeI18nBehaviorImpl.Proto;
 /** @polymerBehavior */
 export const OobeI18nBehavior = [I18nBehavior, OobeI18nBehaviorImpl];
 
@@ -61,9 +52,23 @@ export class OobeI18nBehaviorInterface extends I18nBehaviorInterface {
    * @param {...string|number} var_args
    * @return {string}
    */
-  i18n(id, var_args) {}
+  i18n(id, ...var_args) {}
   i18nUpdateLocale() {}
 
+  /**
+   * @param {string} id
+   * @param {SanitizeInnerHtmlOpts=} opts
+   * @return {string}
+   */
+  i18nAdvanced(id, opts) {}
+
+  /**
+   * @param {string} locale
+   * @param {string} id
+   * @param {...string} varArgs
+   * @return {string}
+   */
+  i18nDynamic(locale, id, ...varArgs) {}
   /**
    * @param {string} locale The UI language used.
    * @param {string} id The ID of the string to translate.

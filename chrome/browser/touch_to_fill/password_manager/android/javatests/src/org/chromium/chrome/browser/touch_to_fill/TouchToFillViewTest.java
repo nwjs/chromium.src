@@ -11,7 +11,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -64,7 +63,7 @@ import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterPro
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.common.FillableItemCollectionInfo;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
-import org.chromium.chrome.browser.touch_to_fill.data.WebAuthnCredential;
+import org.chromium.chrome.browser.touch_to_fill.data.WebauthnCredential;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -105,8 +104,8 @@ public class TouchToFillViewTest {
                     "mobile.example.xyz",
                     GetLoginMatchType.PSL,
                     0);
-    private static final WebAuthnCredential CAM =
-            new WebAuthnCredential("example.net", new byte[] {1}, new byte[] {2}, "Cam");
+    private static final WebauthnCredential CAM =
+            new WebauthnCredential("example.net", new byte[] {1}, new byte[] {2}, "Cam");
     private static final Credential NIK =
             new Credential(
                     "Nik", "***", "Nik", "group.xyz", "group.xyz", GetLoginMatchType.AFFILIATED, 0);
@@ -712,8 +711,14 @@ public class TouchToFillViewTest {
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        // The sheet should be expanded to half height.
-        pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HALF);
+        // The sheet should be expanded to half height if possible, the half height state is
+        // disabled on small screens.
+        @BottomSheetController.SheetState
+        int desiredState =
+                mBottomSheetController.isSmallScreen()
+                        ? BottomSheetController.SheetState.FULL
+                        : BottomSheetController.SheetState.HALF;
+        pollUiThread(() -> getBottomSheetState() == desiredState);
     }
 
     @Test
@@ -728,7 +733,7 @@ public class TouchToFillViewTest {
 
         // The sheet should be expanded to half height and suppress scrolling.
         RecyclerView recyclerView = mTouchToFillView.getSheetItemListView();
-        assertTrue(recyclerView.isLayoutSuppressed());
+        assertEquals(!mBottomSheetController.isSmallScreen(), recyclerView.isLayoutSuppressed());
 
         // Expand the sheet to the full height and scrolling .
         TestThreadUtils.runOnUiThreadBlocking(
@@ -874,7 +879,7 @@ public class TouchToFillViewTest {
     }
 
     private MVCListAdapter.ListItem buildWebAuthnCredentialItem(
-            WebAuthnCredential credential, FillableItemCollectionInfo collectionInfo) {
+            WebauthnCredential credential, FillableItemCollectionInfo collectionInfo) {
         return new MVCListAdapter.ListItem(
                 TouchToFillProperties.ItemType.WEBAUTHN_CREDENTIAL,
                 new PropertyModel.Builder(

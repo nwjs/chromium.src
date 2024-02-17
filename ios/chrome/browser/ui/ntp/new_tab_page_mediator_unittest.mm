@@ -14,7 +14,7 @@
 #import "components/search_engines/template_url_data.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
-#import "ios/chrome/browser/discover_feed/discover_feed_service_factory.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -236,7 +236,12 @@ TEST_F(NewTabPageMediatorTest, TestHandleFeedLearnMoreTapped) {
 // Tests that the feed will be hidden when IOSHideFeedWithSearchChoice is
 // enabled and a non-Google search engine is chosen.
 TEST_F(NewTabPageMediatorTest, TestHideFeedWithSearchChoice) {
-  scoped_feature_list_.InitWithFeatures({kIOSHideFeedWithSearchChoice}, {});
+  scoped_feature_list_.InitWithFeaturesAndParameters(
+      {
+          {kIOSHideFeedWithSearchChoice,
+           {{kIOSHideFeedWithSearchChoiceTargeted, "false"}}},
+      },
+      {});
 
   // Test it with the default search engine.
   [mediator_ setUp];

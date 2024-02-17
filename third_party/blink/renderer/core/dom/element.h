@@ -149,8 +149,10 @@ enum class ElementFlags {
   kContainsFullScreenElement = 1 << 3,
   kIsInTopLayer = 1 << 4,
   kContainsPersistentVideo = 1 << 5,
+  kIsEligibleForElementCapture = 1 << 6,
+  kHasCheckedElementCaptureEligibility = 1 << 7,
 
-  kNumberOfElementFlags = 6,  // Size of bitfield used to store the flags.
+  kNumberOfElementFlags = 8,  // Size of bitfield used to store the flags.
 };
 
 enum class ShadowRootType;
@@ -247,11 +249,30 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   bool HasExplicitlySetAttrAssociatedElements(const QualifiedName& name);
   Element* GetElementAttribute(const QualifiedName& name);
   void SetElementAttribute(const QualifiedName&, Element*);
-  HeapVector<Member<Element>>* GetElementArrayAttribute(
+  HeapVector<Member<Element>>* GetAttrAssociatedElements(
       const QualifiedName& name);
-  void SetElementArrayAttribute(
-      const QualifiedName& name,
-      const HeapVector<Member<Element>>* given_elements);
+
+  ScriptValue ariaControlsElements(ScriptState* script_state);
+  void setAriaControlsElements(ScriptState* script_state,
+                               ScriptValue given_elements);
+  ScriptValue ariaDescribedByElements(ScriptState* script_state);
+  void setAriaDescribedByElements(ScriptState* script_state,
+                                  ScriptValue given_elements);
+  ScriptValue ariaDetailsElements(ScriptState* script_state);
+  void setAriaDetailsElements(ScriptState* script_state,
+                              ScriptValue given_elements);
+  ScriptValue ariaErrorMessageElements(ScriptState* script_state);
+  void setAriaErrorMessageElements(ScriptState* script_state,
+                                   ScriptValue given_elements);
+  ScriptValue ariaFlowToElements(ScriptState* script_state);
+  void setAriaFlowToElements(ScriptState* script_state,
+                             ScriptValue given_elements);
+  ScriptValue ariaLabelledByElements(ScriptState* script_state);
+  void setAriaLabelledByElements(ScriptState* script_state,
+                                 ScriptValue given_elements);
+  ScriptValue ariaOwnsElements(ScriptState* script_state);
+  void setAriaOwnsElements(ScriptState* script_state,
+                           ScriptValue given_elements);
 
   // Call this to get the value of an attribute that is known not to be the
   // style attribute or one of the SVG animatable attributes.
@@ -412,7 +433,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   DOMRectList* getClientRects();
   // Returns a rectangle in zoomed pixel units.
   gfx::RectF GetBoundingClientRectNoLifecycleUpdateNoAdjustment() const;
-  // Returns a rectangle in CSS pixel units.  i.e. ignorign zoom.
+  // Returns a rectangle in CSS pixel units.  i.e. ignoring zoom.
   gfx::RectF GetBoundingClientRectNoLifecycleUpdate() const;
   DOMRect* GetBoundingClientRect();
   DOMRect* GetBoundingClientRectForBinding();
@@ -703,19 +724,18 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // Otherwise, returns a nullptr.
   const RestrictionTargetId* GetRestrictionTargetId() const;
 
+  // Set whether the element is eligible for element level capture. This is
+  // based on how the element is painted. Should only be called if the element
+  // has a RestrictionTargetId.
+  void SetIsEligibleForElementCapture(bool value);
+
   ShadowRoot* attachShadow(const ShadowRootInit*, ExceptionState&);
 
   // Returns true if the attachment was successful.
-  bool AttachStreamingDeclarativeShadowRoot(HTMLTemplateElement&,
-                                            ShadowRootType,
-                                            FocusDelegation,
-                                            SlotAssignmentMode);
-  // TODO(crbug.com/1396384) Remove this entire function when the older version
-  // of declarative shadow DOM is removed.
-  bool AttachDeprecatedNonStreamingDeclarativeShadowRoot(HTMLTemplateElement&,
-                                                         ShadowRootType,
-                                                         FocusDelegation,
-                                                         SlotAssignmentMode);
+  bool AttachDeclarativeShadowRoot(HTMLTemplateElement&,
+                                   ShadowRootType,
+                                   FocusDelegation,
+                                   SlotAssignmentMode);
 
   ShadowRoot& CreateUserAgentShadowRoot();
   ShadowRoot& AttachShadowRootInternal(
@@ -837,6 +857,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   enum class UpdateBehavior {
     kStyleAndLayout,
     kNoneForAccessibility,
+    kNoneForIsFocused,
   };
   // IsFocusable is true if the element SupportsFocus(), and is currently
   // focusable (using the mouse). This method can be called when layout is not
@@ -1020,6 +1041,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   virtual bool IsPickerIndicatorElement() const { return false; }
 
   virtual bool IsFormControlElement() const { return false; }
+  virtual bool IsFormControlElementWithState() const { return false; }
   virtual bool IsSpinButtonElement() const { return false; }
   // This returns true for <textarea> and some types of <input>.
   virtual bool IsTextControl() const { return false; }
@@ -1292,6 +1314,17 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void AdjustDirectionalityIfNeededAfterChildrenChanged(
       const ChildrenChange& change);
 
+  // The "nonce" attribute is hidden when:
+  // 1) The Content-Security-Policy is delivered from the HTTP headers.
+  // 2) The Element is part of the active document.
+  // See https://github.com/whatwg/html/pull/2373
+  //
+  // This applies to the element of the HTML and SVG namespaces.
+  //
+  // This function clears the "nonce" attribute whenever conditions (1) and (2)
+  // are met.
+  void HideNonce();
+
  protected:
   bool HasElementData() const { return static_cast<bool>(element_data_); }
   const ElementData* GetElementData() const { return element_data_.Get(); }
@@ -1384,17 +1417,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   virtual void ParserDidSetAttributes() {}
 
-  // The "nonce" attribute is hidden when:
-  // 1) The Content-Security-Policy is delivered from the HTTP headers.
-  // 2) The Element is part of the active document.
-  // See https://github.com/whatwg/html/pull/2373
-  //
-  // This applies to the element of the HTML and SVG namespaces.
-  //
-  // This function clears the "nonce" attribute whenever conditions (1) and (2)
-  // are met.
-  void HideNonce();
-
   // Mark for style invalidation/recalc for :lang() selectors to pick up the
   // changes.
   void LangAttributeChanged();
@@ -1430,7 +1452,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       delete;  // This will catch anyone doing an unnecessary check.
 
   bool CanAttachShadowRoot() const;
-  const char* ErrorMessageForAttachShadow() const;
+  const char* ErrorMessageForAttachShadow(bool for_declarative) const;
 
   void StyleAttributeChanged(const AtomicString& new_style_string,
                              AttributeModificationReason);
@@ -1458,18 +1480,21 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
     kNone,
     // The HighlightData from the old style can be re-used.
     kReuse,
-    // The HighlightData contains font relative units and may need recalc.
-    kFontRelative,
+    // The HighlightData contains relative units and may need recalc.
+    kRelativeUnits,
     // Highlights must be calculated in full.
     kFull,
   };
 
   // Determine whether pseudo highlight style must be recalculated,
-  // either because full recalc is required or the parent has font relative
-  // units and the parent's font size differs from the originating element.
-  bool ShouldRecalcHighlightPseudoStyle(HighlightRecalc,
-                                        const ComputedStyle*,
-                                        const ComputedStyle&);
+  // either because full recalc is required or the parent has relative
+  // units and the parent's relative units source differs from the
+  // originating element (font size, container or writing mode).
+  bool ShouldRecalcHighlightPseudoStyle(
+      HighlightRecalc highlight_recalc,
+      const ComputedStyle* highlight_parent,
+      const ComputedStyle& originating_style,
+      const Element* originating_container) const;
 
   // Recalc those custom highlights that require it.
   void RecalcCustomHighlightPseudoStyle(const StyleRecalcContext&,
@@ -1703,9 +1728,10 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // in the parent, but virtually all existing content uses universal rules
   // like *::selection. To improve runtime and keep copy-on-write inheritance,
   // avoid recalc if neither parent nor child matched any non-universal rules.
-  HighlightRecalc CalculateHighlightRecalc(const ComputedStyle* old_style,
-                                           const ComputedStyle& new_style,
-                                           const ComputedStyle* parent_style);
+  HighlightRecalc CalculateHighlightRecalc(
+      const ComputedStyle* old_style,
+      const ComputedStyle& new_style,
+      const ComputedStyle* parent_style) const;
 
   // This checks that the feature KeyboardFocusableScrollers is enabled and
   // element is a scroller. This will call IsScrollableNode, which might update
@@ -1721,6 +1747,24 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // only be used by a11y code, layout updates will never be performed.
   bool IsKeyboardFocusableScroller(
       UpdateBehavior update_behavior = UpdateBehavior::kStyleAndLayout) const;
+
+  v8::Local<v8::Object> GetCachedAttrAssociatedElementsObject(
+      ScriptState* script_state);
+  v8::Local<v8::Value> GetCachedAttrAssociatedElements(
+      ScriptState* script_state,
+      const QualifiedName& blink_name);
+  void SetCachedAttrAssociatedElements(ScriptState* script_state,
+                                       const QualifiedName& blink_name,
+                                       v8::Local<v8::Value> elements);
+  void DeleteCachedAttrAssociatedElements(ScriptState* script_state,
+                                          const QualifiedName& name);
+  ScriptValue GetElementArrayAttribute(ScriptState* script_state,
+                                       const QualifiedName& name,
+                                       const char* const property_name);
+  void SetElementArrayAttribute(ScriptState* script_state,
+                                const QualifiedName& name,
+                                const ScriptValue given_value,
+                                const char* const property_name);
 
   Member<ElementData> element_data_;
 };

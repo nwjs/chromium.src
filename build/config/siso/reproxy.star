@@ -76,7 +76,13 @@ def __parse_cros_rewrapper_cmdline(ctx, cmd):
         fail("couldn't find rewrapper cfg file in %s" % str(cmd.args))
     rwcfg = rewrapper_cfg.parse(ctx, cfg_file)
     inputs = rwcfg.get("inputs", [])
-    inputs.append(toolchainpath)
+    inputs.extend([
+        path.join(toolchainpath, "bin"),
+        path.join(toolchainpath, "lib"),
+        path.join(toolchainpath, "usr/bin"),
+        # TODO: b/320189180 - Simple Chrome builds should use libraries under usr/lib64.
+        # But, Ninja/Reclient also don't use them unexpectedly.
+    ])
     rwcfg["inputs"] = inputs
     rwcfg["preserve_symlinks"] = True
     return args, rwcfg
@@ -124,7 +130,7 @@ def __parse_clang_code_coverage_wrapper_cmdline(ctx, cmd):
         fail("need to fix handler for cros sdk under code coverage wrapper")
     return clang_command, rewrapper_cfg.parse(ctx, cfg_file)
 
-def __rewrite_rewrapper(ctx, cmd):
+def __rewrite_rewrapper(ctx, cmd, use_large = False):
     # If clang-coverage, needs different handling.
     if len(cmd.args) > 2 and "clang_code_coverage_wrapper.py" in cmd.args[1]:
         args, rwcfg = __parse_clang_code_coverage_wrapper_cmdline(ctx, cmd)
@@ -143,10 +149,27 @@ def __rewrite_rewrapper(ctx, cmd):
         rwcfg.update({
             "exec_timeout": "4m",
         })
+    if use_large:
+        if "platform" in rwcfg:
+            action_key = None
+            for key in rwcfg["platform"]:
+                if key.startswith("label:action_"):
+                    action_key = key
+                    break
+            if action_key:
+                rwcfg["platform"].pop(action_key)
+        else:
+            rwcfg["platform"] = {}
+        rwcfg["platform"].update({
+            "label:action_large": "1",
+        })
     ctx.actions.fix(
         args = args,
         reproxy_config = json.encode(rwcfg),
     )
+
+def __rewrite_rewrapper_large(ctx, cmd):
+    return __rewrite_rewrapper(ctx, cmd, use_large = True)
 
 def __strip_rewrapper(ctx, cmd):
     # If clang-coverage, needs different handling.
@@ -202,6 +225,7 @@ def __rewrite_action_remote_py(ctx, cmd):
 
 __handlers = {
     "rewrite_rewrapper": __rewrite_rewrapper,
+    "rewrite_rewrapper_large": __rewrite_rewrapper_large,
     "strip_rewrapper": __strip_rewrapper,
     "rewrite_action_remote_py": __rewrite_action_remote_py,
 }
@@ -267,19 +291,10 @@ def __step_config(ctx, step_config):
             if not rule.get("action"):
                 fail("clang rule %s found without action" % rule["name"])
 
-            if not config.get(ctx, "reproxy-cros"):
-                # TODO: b/314698010 - use reproxy mode once performance issue is fixed.
-                cros_rule = {
-                    "name": rule["name"] + "/cros",
-                    "action": rule["action"],
-                    "command_prefix": "../../build/cros_cache/",
-                    "use_remote_exec_wrapper": True,
-                }
-                new_rules.append(cros_rule)
-
             new_rule = {
                 "name": rule["name"],
                 "action": rule["action"],
+                "exclude_input_patterns": rule.get("exclude_input_patterns"),
                 "handler": "rewrite_rewrapper",
             }
             new_rules.append(new_rule)

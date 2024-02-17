@@ -14,7 +14,7 @@ var ADDRESS_LEVEL2 = 'Address level 2';
 var ADDRESS_LEVEL3 = 'Address level 3';
 var POSTAL_CODE = 'Postal code';
 var SORTING_CODE = 'Sorting code';
-var COUNTRY_CODE = 'DE';
+var COUNTRY_CODE = 'ES';
 var PHONE = '1 123-123-1234';
 var EMAIL = 'johndoe@gmail.com';
 var CARD_NAME = 'CardName';
@@ -260,43 +260,43 @@ var availableTests = [
           chrome.autofillPrivate.saveAddress({
             fields: [
               {
-                type: chrome.autofillPrivate.ServerFieldType.NAME_FULL,
+                type: chrome.autofillPrivate.FieldType.NAME_FULL,
                 value: NAME
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType.ADDRESS_HOME_STATE,
+                type: chrome.autofillPrivate.FieldType.ADDRESS_HOME_STATE,
                 value: ADDRESS_LEVEL1
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType.ADDRESS_HOME_CITY,
+                type: chrome.autofillPrivate.FieldType.ADDRESS_HOME_CITY,
                 value: ADDRESS_LEVEL2
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType
+                type: chrome.autofillPrivate.FieldType
                           .ADDRESS_HOME_DEPENDENT_LOCALITY,
                 value: ADDRESS_LEVEL3
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType.ADDRESS_HOME_ZIP,
+                type: chrome.autofillPrivate.FieldType.ADDRESS_HOME_ZIP,
                 value: POSTAL_CODE
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType
+                type: chrome.autofillPrivate.FieldType
                           .ADDRESS_HOME_SORTING_CODE,
                 value: SORTING_CODE
               },
               {
                 type:
-                    chrome.autofillPrivate.ServerFieldType.ADDRESS_HOME_COUNTRY,
+                    chrome.autofillPrivate.FieldType.ADDRESS_HOME_COUNTRY,
                 value: COUNTRY_CODE
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType
+                type: chrome.autofillPrivate.FieldType
                           .PHONE_HOME_WHOLE_NUMBER,
                 value: PHONE
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType.EMAIL_ADDRESS,
+                type: chrome.autofillPrivate.FieldType.EMAIL_ADDRESS,
                 value: EMAIL
               },
             ],
@@ -357,11 +357,11 @@ var availableTests = [
             guid: addressGuid,
             fields: [
               {
-                type: chrome.autofillPrivate.ServerFieldType.NAME_FULL,
+                type: chrome.autofillPrivate.FieldType.NAME_FULL,
                 value: UPDATED_NAME
               },
               {
-                type: chrome.autofillPrivate.ServerFieldType
+                type: chrome.autofillPrivate.FieldType
                           .PHONE_HOME_WHOLE_NUMBER,
                 value: UPDATED_PHONE
               },

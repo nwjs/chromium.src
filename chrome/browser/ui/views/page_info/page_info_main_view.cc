@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/page_info/page_info_main_view.h"
 
+#include <optional>
+
 #include "base/feature_list.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -35,7 +37,6 @@
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
@@ -177,7 +178,7 @@ void PageInfoMainView::SetCookieInfo(const CookiesNewInfo& cookie_info) {
     tooltip = l10n_util::GetStringUTF16(
         IDS_PAGE_INFO_TRACKING_PROTECTION_COOKIES_TOOLTIP);
 
-    if (cookie_info.status == CookieControlsStatus::kDisabledForSite) {
+    if (!cookie_info.protections_on) {
       label = l10n_util::GetStringUTF16(
           IDS_PAGE_INFO_TRACKING_PROTECTION_SITE_INFO_BUTTON_LABEL_ALLOWED);
     } else if (cookie_info.blocking_status == CookieBlocking3pcdStatus::kAll) {
@@ -285,10 +286,10 @@ void PageInfoMainView::SetPermissionInfo(
   reset_button_ = content_view->AddChildView(
       std::make_unique<views::MdTextButton>(base::BindRepeating(
           [=](PageInfoMainView* view) {
-            for (auto* toggle_row : view->toggle_rows_) {
+            for (PermissionToggleRowView* toggle_row : view->toggle_rows_) {
               toggle_row->ResetPermission();
             }
-            for (auto* object_row : view->chosen_object_rows_) {
+            for (ChosenObjectView* object_row : view->chosen_object_rows_) {
               object_row->ResetPermission();
             }
             view->chosen_object_rows_.clear();
@@ -341,7 +342,7 @@ void PageInfoMainView::UpdateResetButton(
     }
     num_permissions++;
   }
-  for (auto* object_view : chosen_object_rows_) {
+  for (ChosenObjectView* object_view : chosen_object_rows_) {
     if (object_view->GetVisible()) {
       reset_button_->SetEnabled(true);
       reset_button_->SetVisible(true);
@@ -445,7 +446,7 @@ void PageInfoMainView::SetPageFeatureInfo(const PageFeatureInfo& info) {
           this),
       l10n_util::GetStringUTF16(IDS_PAGE_INFO_VR_TURN_OFF_BUTTON_TEXT));
   exit_button->SetID(PageInfoViewFactory::VIEW_ID_PAGE_INFO_BUTTON_END_VR);
-  exit_button->SetProminent(true);
+  exit_button->SetStyle(ui::ButtonStyle::kProminent);
   // Set views::kInternalPaddingKey for flex layout to account for internal
   // button padding when calculating margins.
   exit_button->SetProperty(views::kInternalPaddingKey,
@@ -653,5 +654,5 @@ PageInfoMainView::CreateAdPersonalizationSection() {
   return ads_personalization_section;
 }
 
-BEGIN_METADATA(PageInfoMainView, views::View)
+BEGIN_METADATA(PageInfoMainView)
 END_METADATA

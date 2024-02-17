@@ -88,7 +88,7 @@ void AppPublisher::LaunchAppWithIntent(const std::string& app_id,
                                        WindowInfoPtr window_info,
                                        LaunchCallback callback) {
   NOTIMPLEMENTED();
-  std::move(callback).Run(LaunchResult(State::FAILED));
+  std::move(callback).Run(LaunchResult(State::kFailed));
 }
 
 void AppPublisher::SetPermission(const std::string& app_id,
@@ -191,8 +191,8 @@ void AppPublisher::Publish(std::vector<AppPtr> apps,
 
 void AppPublisher::ModifyCapabilityAccess(
     const std::string& app_id,
-    absl::optional<bool> accessing_camera,
-    absl::optional<bool> accessing_microphone) {
+    std::optional<bool> accessing_camera,
+    std::optional<bool> accessing_microphone) {
   if (!accessing_camera.has_value() && !accessing_microphone.has_value()) {
     return;
   }

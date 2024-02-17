@@ -33,6 +33,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.BuildInfo;
 import org.chromium.base.MathUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
@@ -40,6 +41,8 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
@@ -58,8 +61,6 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.NewTabPageTestUtils;
-import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
-import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
@@ -102,7 +103,11 @@ public class ShowNtpAtStartupTest {
         StartSurfaceTestUtils.waitForTabModel(mActivityTestRule.getActivity());
 
         verifyTabCountAndActiveTabUrl(
-                mActivityTestRule.getActivity(), 1, TAB_URL, /* expectHomeSurfaceUiShown= */ null);
+                mActivityTestRule.getActivity(),
+                1,
+                TAB_URL,
+                /* expectHomeSurfaceUiShown= */ null,
+                /* magicStackEnabled= */ false);
     }
 
     @Test
@@ -117,7 +122,11 @@ public class ShowNtpAtStartupTest {
         StartSurfaceTestUtils.waitForTabModel(mActivityTestRule.getActivity());
 
         verifyTabCountAndActiveTabUrl(
-                mActivityTestRule.getActivity(), 1, TAB_URL, /* expectHomeSurfaceUiShown= */ null);
+                mActivityTestRule.getActivity(),
+                1,
+                TAB_URL,
+                /* expectHomeSurfaceUiShown= */ null,
+                /* magicStackEnabled= */ false);
     }
 
     @Test
@@ -139,7 +148,8 @@ public class ShowNtpAtStartupTest {
                 mActivityTestRule.getActivity(),
                 2,
                 UrlConstants.NTP_URL,
-                /* expectHomeSurfaceUiShown= */ true);
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ false);
         histogram.assertExpected();
     }
 
@@ -167,7 +177,8 @@ public class ShowNtpAtStartupTest {
                 mActivityTestRule.getActivity(),
                 3,
                 UrlConstants.NTP_URL,
-                /* expectHomeSurfaceUiShown= */ true);
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ false);
         histogram.assertExpected();
     }
 
@@ -196,7 +207,8 @@ public class ShowNtpAtStartupTest {
                 mActivityTestRule.getActivity(),
                 2,
                 modifiedNtpUrl,
-                /* expectHomeSurfaceUiShown= */ false);
+                /* expectHomeSurfaceUiShown= */ false,
+                /* magicStackEnabled= */ false);
         histogram.assertExpected();
     }
 
@@ -213,7 +225,11 @@ public class ShowNtpAtStartupTest {
         StartSurfaceTestUtils.waitForTabModel(cta);
         // Verifies that a NTP is created and set as the current Tab.
         verifyTabCountAndActiveTabUrl(
-                cta, 2, UrlConstants.NTP_URL, /* expectHomeSurfaceUiShown= */ true);
+                cta,
+                2,
+                UrlConstants.NTP_URL,
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ false);
 
         waitForNtpLoaded(cta.getActivityTab());
         NewTabPage ntp = (NewTabPage) cta.getActivityTab().getNativePage();
@@ -254,7 +270,11 @@ public class ShowNtpAtStartupTest {
 
         // Verifies that a new NTP is created and set as the active Tab.
         verifyTabCountAndActiveTabUrl(
-                cta, 3, UrlConstants.NTP_URL, /* expectHomeSurfaceUiShown= */ true);
+                cta,
+                3,
+                UrlConstants.NTP_URL,
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ false);
         waitForNtpLoaded(cta.getActivityTab());
 
         NewTabPage ntp = (NewTabPage) cta.getActivityTab().getNativePage();
@@ -302,12 +322,47 @@ public class ShowNtpAtStartupTest {
 
         // Verifies that a new NTP is created and set as the active Tab.
         verifyTabCountAndActiveTabUrl(
-                cta, 3, UrlConstants.NTP_URL, /* expectHomeSurfaceUiShown= */ true);
+                cta,
+                3,
+                UrlConstants.NTP_URL,
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ false);
         waitForNtpLoaded(cta.getActivityTab());
 
         NewTabPage ntp = (NewTabPage) cta.getActivityTab().getNativePage();
         Assert.assertTrue(ntp.isSingleTabCardVisibleForTesting());
         onViewWaiting(allOf(withId(R.id.single_tab_view), isDisplayed()));
+        View singleTabModule = cta.findViewById(R.id.single_tab_view);
+        Assert.assertEquals(
+                View.VISIBLE, singleTabModule.findViewById(R.id.tab_thumbnail).getVisibility());
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"StartSurface"})
+    @EnableFeatures({
+        ChromeFeatureList.SURFACE_POLISH,
+        ChromeFeatureList.SHOW_NTP_AT_STARTUP_ANDROID,
+        ChromeFeatureList.MAGIC_STACK_ANDROID + "<Study"
+    })
+    @CommandLineFlags.Add({START_SURFACE_ON_TABLET_TEST_PARAMS})
+    public void testSingleTabModule_MagicStack() throws IOException {
+        StartSurfaceTestUtils.prepareTabStateMetadataFile(
+                new int[] {0, 1}, new String[] {TAB_URL, TAB_URL_1}, 0);
+        StartSurfaceTestUtils.startMainActivityFromLauncher(mActivityTestRule);
+        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        StartSurfaceTestUtils.waitForTabModel(cta);
+
+        // Verifies that a new NTP is created and set as the active Tab.
+        verifyTabCountAndActiveTabUrl(
+                cta,
+                3,
+                UrlConstants.NTP_URL,
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ true);
+        waitForNtpLoaded(cta.getActivityTab());
+
+        onViewWaiting(allOf(withId(R.id.home_modules_recycler_view), isDisplayed()));
         View singleTabModule = cta.findViewById(R.id.single_tab_view);
         Assert.assertEquals(
                 View.VISIBLE, singleTabModule.findViewById(R.id.tab_thumbnail).getVisibility());
@@ -636,6 +691,24 @@ public class ShowNtpAtStartupTest {
     @Feature({"StartSurface"})
     @CommandLineFlags.Add({START_SURFACE_ON_TABLET_TEST_PARAMS})
     public void testClickSingleTabCardCloseNtpHomeSurface() throws IOException {
+        testClickSingleTabCardCloseNtpHomeSurfaceImpl(/* magicStackEnabled= */ false);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"StartSurface"})
+    @EnableFeatures({
+        ChromeFeatureList.SURFACE_POLISH,
+        ChromeFeatureList.MAGIC_STACK_ANDROID,
+        ChromeFeatureList.SHOW_NTP_AT_STARTUP_ANDROID
+    })
+    @CommandLineFlags.Add({START_SURFACE_ON_TABLET_TEST_PARAMS})
+    public void testClickSingleTabCardCloseNtpHomeSurface_MagicStack() throws IOException {
+        testClickSingleTabCardCloseNtpHomeSurfaceImpl(/* magicStackEnabled= */ true);
+    }
+
+    private void testClickSingleTabCardCloseNtpHomeSurfaceImpl(boolean magicStackEnabled)
+            throws IOException {
         StartSurfaceTestUtils.prepareTabStateMetadataFile(new int[] {0}, new String[] {TAB_URL}, 0);
         StartSurfaceTestUtils.startMainActivityFromLauncher(mActivityTestRule);
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -643,7 +716,11 @@ public class ShowNtpAtStartupTest {
 
         // Verifies that a new NTP is created and set as the active Tab.
         verifyTabCountAndActiveTabUrl(
-                cta, 2, UrlConstants.NTP_URL, /* expectHomeSurfaceUiShown= */ true);
+                cta,
+                2,
+                UrlConstants.NTP_URL,
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ magicStackEnabled);
         waitForNtpLoaded(cta.getActivityTab());
 
         try {
@@ -654,7 +731,12 @@ public class ShowNtpAtStartupTest {
         }
 
         // Verifies that the last active Tab is showing, and NTP home surface is closed.
-        verifyTabCountAndActiveTabUrl(cta, 1, TAB_URL, /* expectHomeSurfaceUiShown= */ null);
+        verifyTabCountAndActiveTabUrl(
+                cta,
+                1,
+                TAB_URL,
+                /* expectHomeSurfaceUiShown= */ null,
+                /* magicStackEnabled= */ false);
     }
 
     /**
@@ -664,8 +746,8 @@ public class ShowNtpAtStartupTest {
     @Test
     @LargeTest
     @Feature({"StartSurface"})
-    @EnableFeatures({ChromeFeatureList.SHOW_SCROLLABLE_MVT_ON_NTP_PHONE_ANDROID})
-    @CommandLineFlags.Add({START_SURFACE_ON_TABLET_TEST_PARAMS})
+    @CommandLineFlags.Add({START_SURFACE_ON_TABLET_TEST_PARAMS + "/scrollable_mvt/true"})
+    @EnableFeatures({ChromeFeatureList.SURFACE_POLISH})
     public void testThumbnailRecaptureForSingleTabCardAfterMostRecentTabClosed()
             throws IOException {
         StartSurfaceTestUtils.prepareTabStateMetadataFile(new int[] {0}, new String[] {TAB_URL}, 0);
@@ -674,7 +756,11 @@ public class ShowNtpAtStartupTest {
         StartSurfaceTestUtils.waitForTabModel(cta);
         // Verifies that a new NTP is created and set as the active Tab.
         verifyTabCountAndActiveTabUrl(
-                cta, 2, UrlConstants.NTP_URL, /* expectHomeSurfaceUiShown= */ true);
+                cta,
+                2,
+                UrlConstants.NTP_URL,
+                /* expectHomeSurfaceUiShown= */ true,
+                /* magicStackEnabled= */ false);
         waitForNtpLoaded(cta.getActivityTab());
 
         Tab lastActiveTab = cta.getCurrentTabModel().getTabAt(0);
@@ -812,6 +898,23 @@ public class ShowNtpAtStartupTest {
         View mvTileItem1 = ((ViewGroup) mvTilesLayout).getChildAt(0);
         View mvTileItem2 = ((ViewGroup) mvTilesLayout).getChildAt(1);
         int mvTilesItemWidth = mvTileItem1.getWidth();
+
+        // Orientation changes are not supported on automotive.
+        if (BuildInfo.getInstance().isAutomotive) {
+            // Verifies the margins added for the most visited tiles are correct.
+            verifyMostVisitedTileMarginImpl(
+                    ntpLayout,
+                    mvTilesContainer,
+                    mvTilesLayout,
+                    mvTileItem1,
+                    mvTileItem2,
+                    expectedContainerTwoSideMarginLandScape,
+                    expectedContainerRightExtraMargin,
+                    expectedEdgeMarginLandScape,
+                    mvTilesItemWidth,
+                    isScrollable);
+            return;
+        }
 
         // Start off in landscape screen orientation.
         mActivityTestRule
@@ -1026,7 +1129,11 @@ public class ShowNtpAtStartupTest {
     }
 
     private void verifyTabCountAndActiveTabUrl(
-            ChromeTabbedActivity cta, int tabCount, String url, Boolean expectHomeSurfaceUiShown) {
+            ChromeTabbedActivity cta,
+            int tabCount,
+            String url,
+            Boolean expectHomeSurfaceUiShown,
+            boolean magicStackEnabled) {
         Assert.assertEquals(tabCount, cta.getCurrentTabModel().getCount());
         Tab tab = StartSurfaceTestUtils.getCurrentTabFromUIThread(cta);
         TestThreadUtils.runOnUiThreadBlocking(
@@ -1034,9 +1141,15 @@ public class ShowNtpAtStartupTest {
                     Assert.assertTrue(TextUtils.equals(url, tab.getUrl().getSpec()));
                 });
         if (expectHomeSurfaceUiShown != null) {
-            Assert.assertEquals(
-                    expectHomeSurfaceUiShown,
-                    ((NewTabPage) tab.getNativePage()).isSingleTabCardVisibleForTesting());
+            if (magicStackEnabled) {
+                Assert.assertEquals(
+                        expectHomeSurfaceUiShown,
+                        ((NewTabPage) tab.getNativePage()).isMagicStackVisibleForTesting());
+            } else {
+                Assert.assertEquals(
+                        expectHomeSurfaceUiShown,
+                        ((NewTabPage) tab.getNativePage()).isSingleTabCardVisibleForTesting());
+            }
         }
     }
 
@@ -1055,6 +1168,13 @@ public class ShowNtpAtStartupTest {
             int expectedLandScapeWidth, int expectedPortraitWidth, NewTabPage ntp) {
         NewTabPageLayout ntpLayout = ntp.getNewTabPageLayout();
         View searchBoxLayout = ntpLayout.findViewById(R.id.search_box);
+
+        // Orientation changes are not supported on automotive.
+        if (BuildInfo.getInstance().isAutomotive) {
+            verifyFakeSearchBoxWidthForCurrentOrientation(
+                    expectedLandScapeWidth, expectedPortraitWidth, ntpLayout, searchBoxLayout);
+            return;
+        }
 
         // Start off in landscape screen orientation.
         mActivityTestRule
@@ -1075,6 +1195,29 @@ public class ShowNtpAtStartupTest {
                 expectedPortraitWidth, ntpLayout.getWidth() - searchBoxLayout.getWidth());
     }
 
+    private void verifyFakeSearchBoxWidthForCurrentOrientation(
+            int expectedLandScapeWidth,
+            int expectedPortraitWidth,
+            NewTabPageLayout ntpLayout,
+            View searchBoxLayout) {
+        int expectedWidth;
+        try {
+            String orientation = screenOrientation();
+            if ("\"landscape\"".equals(orientation)) {
+                expectedWidth = expectedLandScapeWidth;
+            } else if ("\"portrait\"".equals(orientation)) {
+                expectedWidth = expectedPortraitWidth;
+            } else {
+                throw new IllegalStateException(
+                        "The device should either be in portrait or landscape mode.");
+            }
+        } catch (TimeoutException ex) {
+            throw new CriteriaNotSatisfiedException(ex);
+        }
+
+        Assert.assertEquals(expectedWidth, ntpLayout.getWidth() - searchBoxLayout.getWidth());
+    }
+
     private void verifyMostVisitedTileMarginForSurfacePolish(
             int expectedContainerWidth,
             int expectedEdgeMargin,
@@ -1090,22 +1233,56 @@ public class ShowNtpAtStartupTest {
                 ((MarginLayoutParams) ((ViewGroup) mvTilesLayout).getChildAt(1).getLayoutParams())
                         .leftMargin;
 
+        // Orientation changes are not supported on automotive.
+        if (BuildInfo.getInstance().isAutomotive) {
+            verifyTileMargin(
+                    expectedContainerWidth,
+                    expectedEdgeMargin,
+                    expectedIntervalMargin,
+                    ntpLayout,
+                    mvtContainer,
+                    mvt1LeftMargin,
+                    mvt2LeftMargin);
+            return;
+        }
+
         // Start off in landscape screen orientation.
         mActivityTestRule
                 .getActivity()
                 .setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         waitForScreenOrientation("\"landscape\"");
-        // Verifies there is no additional margins added for the mv tiles container.
-        Assert.assertEquals(expectedContainerWidth, ntpLayout.getWidth() - mvtContainer.getWidth());
-        // Verifies the inner margins of the mv tiles module.
-        assertTrue(mvt1LeftMargin >= expectedEdgeMargin);
-        Assert.assertEquals(expectedIntervalMargin, mvt2LeftMargin);
+        verifyTileMargin(
+                expectedContainerWidth,
+                expectedEdgeMargin,
+                expectedIntervalMargin,
+                ntpLayout,
+                mvtContainer,
+                mvt1LeftMargin,
+                mvt2LeftMargin);
 
         // Start off in portrait screen orientation.
         mActivityTestRule
                 .getActivity()
                 .setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         waitForScreenOrientation("\"portrait\"");
+        verifyTileMargin(
+                expectedContainerWidth,
+                expectedEdgeMargin,
+                expectedIntervalMargin,
+                ntpLayout,
+                mvtContainer,
+                mvt1LeftMargin,
+                mvt2LeftMargin);
+    }
+
+    private void verifyTileMargin(
+            int expectedContainerWidth,
+            int expectedEdgeMargin,
+            int expectedIntervalMargin,
+            NewTabPageLayout ntpLayout,
+            View mvtContainer,
+            int mvt1LeftMargin,
+            int mvt2LeftMargin) {
         // Verifies there is no additional margins added for the mv tiles container.
         Assert.assertEquals(expectedContainerWidth, ntpLayout.getWidth() - mvtContainer.getWidth());
         // Verifies the inner margins of the mv tiles module.

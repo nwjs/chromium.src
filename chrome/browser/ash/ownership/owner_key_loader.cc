@@ -236,7 +236,6 @@ bool UserCanBecomeOwner(const user_manager::User* user) {
     case user_manager::USER_TYPE_KIOSK_APP:
     case user_manager::USER_TYPE_ARC_KIOSK_APP:
     case user_manager::USER_TYPE_WEB_KIOSK_APP:
-    case user_manager::NUM_USER_TYPES:
       return false;
   }
 }
@@ -418,7 +417,7 @@ void OwnerKeyLoader::MaybeGenerateNewKey() {
   }
 
   // If the policies are empty, check the local state PrefService.
-  absl::optional<std::string> owner_email =
+  std::optional<std::string> owner_email =
       user_manager::UserManager::Get()->GetOwnerEmail();
 
   if (owner_email.has_value() &&

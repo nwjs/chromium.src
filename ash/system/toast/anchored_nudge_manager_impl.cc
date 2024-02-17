@@ -8,7 +8,6 @@
 #include <memory>
 #include <string>
 
-#include "ash/constants/ash_features.h"
 #include "ash/public/cpp/ash_view_ids.h"
 #include "ash/public/cpp/system/anchored_nudge_data.h"
 #include "ash/public/cpp/system/scoped_nudge_pause.h"
@@ -26,6 +25,7 @@
 #include "ui/events/event.h"
 #include "ui/events/event_observer.h"
 #include "ui/events/types/event_type.h"
+#include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/event_monitor.h"
@@ -82,7 +82,7 @@ class HideAnimationObserver : public ui::ImplicitAnimationObserver {
 
  private:
   // Owned by the views hierarchy.
-  raw_ptr<AnchoredNudge, ExperimentalAsh> anchored_nudge_;
+  raw_ptr<AnchoredNudge> anchored_nudge_;
 };
 
 }  // namespace
@@ -186,8 +186,7 @@ class AnchoredNudgeManagerImpl::NudgeHoverObserver : public ui::EventObserver {
 
   // `NudgeHoverObserver` is guaranteed to not outlive
   // `anchored_nudge_manager_`, which is owned by `Shell`.
-  const raw_ptr<AnchoredNudgeManagerImpl, ExperimentalAsh>
-      anchored_nudge_manager_;
+  const raw_ptr<AnchoredNudgeManagerImpl> anchored_nudge_manager_;
 };
 
 // A view observer that is used to close the nudge's widget whenever its
@@ -292,7 +291,6 @@ class AnchoredNudgeManagerImpl::NudgeWidgetObserver
 };
 
 AnchoredNudgeManagerImpl::AnchoredNudgeManagerImpl() {
-  DCHECK(features::IsSystemNudgeV2Enabled());
   Shell::Get()->session_controller()->AddObserver(this);
 }
 
@@ -509,8 +507,13 @@ views::LabelButton* AnchoredNudgeManagerImpl::GetNudgeSecondaryButtonForTest(
 
 AnchoredNudge* AnchoredNudgeManagerImpl::GetShownNudgeForTest(
     const std::string& id) {
+  return base::Contains(shown_nudges_, id) ? shown_nudges_[id] : nullptr;
+}
+
+NudgeCatalogName AnchoredNudgeManagerImpl::GetNudgeCatalogNameForTest(
+    const std::string& id) {
   CHECK(base::Contains(shown_nudges_, id));
-  return shown_nudges_[id];
+  return shown_nudges_[id]->catalog_name();
 }
 
 AnchoredNudge* AnchoredNudgeManagerImpl::GetNudgeIfShown(

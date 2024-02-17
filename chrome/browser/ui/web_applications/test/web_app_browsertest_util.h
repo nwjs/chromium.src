@@ -83,14 +83,16 @@ ExternallyManagedAppManager::InstallResult ExternallyManagedAppManagerInstall(
     Profile*,
     ExternalInstallOptions);
 
+// This function simulates loading a given url via a link click.
 // If |proceed_through_interstitial| is true, asserts that a security
 // interstitial is shown, and clicks through it, before returning.
 // Note - this does NOT wait for the given url to load, it just waits for
 // navigation to complete. To ensure the given url is fully loaded, wait for
 // that separately.
-void NavigateToURLAndWait(Browser* browser,
-                          const GURL& url,
-                          bool proceed_through_interstitial = false);
+void NavigateViaLinkClickToURLAndWait(
+    Browser* browser,
+    const GURL& url,
+    bool proceed_through_interstitial = false);
 
 // Performs a navigation and then checks that the toolbar visibility is as
 // expected.
@@ -118,7 +120,7 @@ bool IsBrowserOpen(const Browser* test_browser);
 
 // Install a web policy app with |url|.
 // Returns a valid app ID of the installed app or nullopt.
-absl::optional<webapps::AppId> ForceInstallWebApp(Profile* profile, GURL url);
+std::optional<webapps::AppId> ForceInstallWebApp(Profile* profile, GURL url);
 
 // Helper class that lets you await one Browser added and one Browser removed
 // event. Optionally filters to a specific Browser with |filter|. Useful for

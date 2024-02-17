@@ -22,6 +22,10 @@ ActionViewListItem::ActionViewListItem(DisplayOverlayController* controller,
 
 ActionViewListItem::~ActionViewListItem() = default;
 
+void ActionViewListItem::PerformPulseAnimation() {
+  labels_view_->PerformPulseAnimationOnFirstLabel();
+}
+
 void ActionViewListItem::OnActionNameUpdated() {
   NOTIMPLEMENTED();
 }
@@ -30,13 +34,9 @@ void ActionViewListItem::ClickCallback() {
   controller_->AddButtonOptionsMenuWidget(action_);
 }
 
-void ActionViewListItem::ShowEduNudgeForEditingTip() {
-  labels_view_->ShowEduNudgeForEditingTip();
-}
-
 void ActionViewListItem::OnMouseEntered(const ui::MouseEvent& event) {
-  controller_->AddDeleteEditShortcutWidget(this);
   controller_->AddActionHighlightWidget(action_);
+  controller_->AddDeleteEditShortcutWidget(this);
 }
 
 void ActionViewListItem::OnMouseExited(const ui::MouseEvent& event) {

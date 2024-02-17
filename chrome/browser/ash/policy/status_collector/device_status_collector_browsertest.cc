@@ -11,6 +11,7 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,6 +42,7 @@
 #include "base/values.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/apps/app_service/app_service_test.h"
 #include "chrome/browser/apps/app_service/publisher_host.h"
 #include "chrome/browser/ash/app_mode/arc/arc_kiosk_app_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_data.h"
@@ -122,7 +124,6 @@
 #include "storage/common/file_system/file_system_types.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/aura/env.h"
 #include "ui/aura/test/test_windows.h"
@@ -428,7 +429,7 @@ class TestingDeviceStatusCollector : public DeviceStatusCollector {
   }
 
  private:
-  const raw_ref<base::SimpleTestClock, ExperimentalAsh> test_clock_;
+  const raw_ref<base::SimpleTestClock> test_clock_;
 
   std::unique_ptr<DeviceLocalAccount> kiosk_account_;
 };
@@ -701,8 +702,7 @@ cros_healthd::TpmResultPtr CreatePartialTpmResult() {
       cros_healthd::TpmVersion::New(), cros_healthd::TpmStatus::New(),
       cros_healthd::TpmDictionaryAttack::New(),
       cros_healthd::TpmAttestation::New(),
-      cros_healthd::TpmSupportedFeatures::New(),
-      absl::optional<std::string>()));
+      cros_healthd::TpmSupportedFeatures::New(), std::optional<std::string>()));
 }
 
 cros_healthd::BusResultPtr CreateBusResult() {
@@ -1229,8 +1229,7 @@ class DeviceStatusCollectorTest : public testing::Test {
   const DeviceLocalAccount fake_web_kiosk_device_local_account_;
   base::ScopedPathOverride user_data_dir_override_;
   base::ScopedPathOverride crash_dumps_dir_override_;
-  raw_ptr<ash::FakeUpdateEngineClient, DanglingUntriaged | ExperimentalAsh>
-      update_engine_client_;
+  raw_ptr<ash::FakeUpdateEngineClient, DanglingUntriaged> update_engine_client_;
   std::unique_ptr<base::RunLoop> run_loop_;
   base::test::ScopedFeatureList scoped_feature_list_;
   base::SimpleTestClock test_clock_;
@@ -3814,6 +3813,7 @@ TEST_F(DeviceStatusCollectorTest, GenerateAppInfo) {
   apps.push_back(std::move(app2));
   app_proxy->OnApps(std::move(apps), apps::AppType::kUnknown,
                     /*should_notify_initialized=*/false);
+  apps::WaitForAppServiceProxyReady(app_proxy);
 
   // Start app instance
   base::Time start_time;

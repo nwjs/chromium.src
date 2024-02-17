@@ -11,8 +11,10 @@
 #include "base/containers/enum_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/weak_ptr.h"
 #include "components/browsing_data/content/browsing_data_quota_helper.h"
 #include "components/browsing_data/content/shared_worker_info.h"
+#include "components/webid/federated_identity_data_model.h"
 #include "content/public/browser/attribution_data_model.h"
 #include "content/public/browser/interest_group_manager.h"
 #include "content/public/browser/private_aggregation_data_model.h"
@@ -77,7 +79,8 @@ class BrowsingDataModel {
                         content::SessionStorageUsageInfo,
                         net::SharedDictionaryIsolationKey,
                         browsing_data::SharedWorkerInfo,
-                        net::CanonicalCookie
+                        net::CanonicalCookie,
+                        webid::FederatedIdentityDataModel::DataKey
                         // TODO(crbug.com/1271155): Additional backend keys.
                         >
       DataKey;
@@ -172,6 +175,9 @@ class BrowsingDataModel {
 
     // Returns whether cookie deletion for a given `url` is disabled.
     virtual bool IsCookieDeletionDisabled(const GURL& url) = 0;
+
+    // Get a WeakPtr to the instance.
+    virtual base::WeakPtr<Delegate> AsWeakPtr() = 0;
 
     virtual ~Delegate() = default;
   };
@@ -293,6 +299,12 @@ class BrowsingDataModel {
       std::unique_ptr<Delegate> delegate,
       base::OnceCallback<void(std::unique_ptr<BrowsingDataModel>)>
           complete_callback);
+
+  // Takes a list of `browsing_data_entries` to remove from disk and runs
+  // `completed` callback on completion.
+  virtual void RemoveBrowsingDataEntriesFromDisk(
+      const BrowsingDataModel::DataKeyEntries& browsing_data_entries,
+      base::OnceClosure completed);
 
   // Private as one of the static BuildX functions should be used instead.
   explicit BrowsingDataModel(

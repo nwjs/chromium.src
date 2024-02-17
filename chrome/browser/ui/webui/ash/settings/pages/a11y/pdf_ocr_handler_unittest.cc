@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/webui/ash/settings/pages/a11y/pdf_ocr_handler.h"
+
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
@@ -66,8 +67,7 @@ class TestPdfOcrHandler : public PdfOcrHandler {
   using PdfOcrHandler::set_web_ui;
 
  private:
-  raw_ptr<TestScreenAIInstallState, ExperimentalAsh>
-      test_screen_ai_install_state_ = nullptr;
+  raw_ptr<TestScreenAIInstallState> test_screen_ai_install_state_ = nullptr;
 };
 
 }  // namespace

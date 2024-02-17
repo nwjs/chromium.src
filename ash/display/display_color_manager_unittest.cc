@@ -32,6 +32,7 @@ const char kResetGammaAction[] = "*set_gamma_correction(id=123)";
 const char kSetGammaAction[] =
     "*set_gamma_correction(id=123,gamma[0]*gamma[255]=???????????\?)";
 const char kSetFullCTMAction[] =
+    "set_color_calibration(id=123),"
     "set_color_matrix(id=123,ctm[0]*ctm[8]*),"
     "set_gamma_correction(id=123,degamma[0]*gamma[0]*)";
 const char kValidIccProfile[] =
@@ -112,7 +113,7 @@ class DisplayColorManagerForTest : public DisplayColorManager {
 // Implementation of QuirksManager::Delegate to fake chrome-restricted parts.
 class QuirksManagerDelegateTestImpl : public quirks::QuirksManager::Delegate {
  public:
-  QuirksManagerDelegateTestImpl(base::FilePath color_path)
+  explicit QuirksManagerDelegateTestImpl(base::FilePath color_path)
       : color_path_(color_path) {}
 
   QuirksManagerDelegateTestImpl(const QuirksManagerDelegateTestImpl&) = delete;
@@ -191,24 +192,23 @@ class DisplayColorManagerTest : public testing::Test {
   std::unique_ptr<display::test::ActionLogger> log_;
   display::DisplayConfigurator configurator_;
   display::DisplayConfigurator::TestApi test_api_;
-  raw_ptr<display::test::TestNativeDisplayDelegate, ExperimentalAsh>
+  raw_ptr<display::test::TestNativeDisplayDelegate>
       native_display_delegate_;  // not owned
   std::unique_ptr<DisplayColorManagerForTest> color_manager_;
   system::ScopedFakeStatisticsProvider fake_statistics_provider_;
 };
 
 TEST_F(DisplayColorManagerTest, VCGTOnly) {
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(0x06af5c10)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(0x06af5c10)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -220,17 +220,16 @@ TEST_F(DisplayColorManagerTest, VCGTOnly) {
 }
 
 TEST_F(DisplayColorManagerTest, VCGTOnlyWithPlatformCTM) {
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(true)
-          .SetProductCode(0x06af5c10)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(true)
+                        .SetProductCode(0x06af5c10)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   log_->GetActionsAndClear();
   configurator_.OnConfigurationChanged();
@@ -243,17 +242,16 @@ TEST_F(DisplayColorManagerTest, VCGTOnlyWithPlatformCTM) {
 }
 
 TEST_F(DisplayColorManagerTest, FullWithPlatformCTM) {
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(true)
-          .SetProductCode(0x4c834a42)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(true)
+                        .SetProductCode(0x4c834a42)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -267,17 +265,16 @@ TEST_F(DisplayColorManagerTest, FullWithPlatformCTM) {
 
 TEST_F(DisplayColorManagerTest, SetDisplayColorMatrixNoCTMSupport) {
   constexpr int64_t kDisplayId = 123;
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(kDisplayId)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(0x4c834a42)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(kDisplayId)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(0x4c834a42)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -303,17 +300,16 @@ TEST_F(DisplayColorManagerTest, SetDisplayColorMatrixNoCTMSupport) {
 TEST_F(DisplayColorManagerTest,
        SetDisplayColorMatrixWithCTMSupportNoCalibration) {
   constexpr int64_t kDisplayId = 123;
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(kDisplayId)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(true)
-          .SetProductCode(0x0)  // Non-existent product code.
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(kDisplayId)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(true)
+                        .SetProductCode(0x0)  // Non-existent product code.
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -334,10 +330,10 @@ TEST_F(DisplayColorManagerTest,
   // affected. Color matrix is applied as is.
   EXPECT_TRUE(base::MatchPattern(
       log_->GetActionsAndClear(),
+      "set_color_temperature_adjustment(id=123,cta[1.00,0.70,0.30),"
       "set_color_matrix(id=123,ctm[0]=1*ctm[4]=0.7*ctm[8]=0.3*)"));
 
   // Reconfiguring with the same displays snapshots will reapply the matrix.
-  native_display_delegate_->set_outputs(outputs);
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
   EXPECT_TRUE(base::MatchPattern(
@@ -347,29 +343,25 @@ TEST_F(DisplayColorManagerTest,
 
 TEST_F(DisplayColorManagerTest, SetDisplayColorMatrixWithMixedCTMSupport) {
   constexpr int64_t kDisplayWithCtmId = 123;
-  std::unique_ptr<display::DisplaySnapshot> snapshot1 =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(kDisplayWithCtmId)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(true)
-          .SetProductCode(0x0)  // Non-existent product code.
-          .Build();
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(kDisplayWithCtmId)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(true)
+                        .SetProductCode(0x0)  // Non-existent product code.
+                        .Build());
   constexpr int64_t kDisplayNoCtmId = 456;
-  std::unique_ptr<display::DisplaySnapshot> snapshot2 =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(kDisplayNoCtmId)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_HDMI)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(0x0)  // Non-existent product code.
-          .Build();
-
-  std::vector<display::DisplaySnapshot*> outputs(
-      {snapshot1.get(), snapshot2.get()});
-  native_display_delegate_->set_outputs(outputs);
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(kDisplayNoCtmId)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_HDMI)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(0x0)  // Non-existent product code.
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -390,6 +382,7 @@ TEST_F(DisplayColorManagerTest, SetDisplayColorMatrixWithMixedCTMSupport) {
   // affected. Color matrix is applied as is.
   EXPECT_TRUE(base::MatchPattern(
       log_->GetActionsAndClear(),
+      "set_color_temperature_adjustment(id=123,cta[1.00,0.70,0.30),"
       "set_color_matrix(id=123,ctm[0]=1*ctm[4]=0.7*ctm[8]=0.3*)"));
 
   // No matrix will be applied to this display.
@@ -401,17 +394,16 @@ TEST_F(DisplayColorManagerTest, SetDisplayColorMatrixWithMixedCTMSupport) {
 TEST_F(DisplayColorManagerTest,
        SetDisplayColorMatrixWithCTMSupportWithCalibration) {
   constexpr int64_t kDisplayId = 123;
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(kDisplayId)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(true)
-          .SetProductCode(0x4c834a42)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(kDisplayId)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(true)
+                        .SetProductCode(0x4c834a42)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -431,11 +423,11 @@ TEST_F(DisplayColorManagerTest,
   // calibration matrix. Gamma/degamma won't be affected.
   EXPECT_TRUE(base::MatchPattern(
       log_->GetActionsAndClear(),
+      "set_color_temperature_adjustment(id=123,cta[1.00,0.70,0.30),"
       "set_color_matrix(id=123,ctm[0]=0.01*ctm[4]=0.5*ctm[8]=0.04*)"));
 
   // Reconfiguring with the same displays snapshots will reapply the same
   // product matrix as well as gamma/degamma from the calibration data.
-  native_display_delegate_->set_outputs(outputs);
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
   EXPECT_TRUE(base::MatchPattern(
@@ -445,17 +437,16 @@ TEST_F(DisplayColorManagerTest,
 }
 
 TEST_F(DisplayColorManagerTest, FullWithoutPlatformCTM) {
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(0x4c834a42)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(0x4c834a42)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -472,17 +463,16 @@ TEST_F(DisplayColorManagerTest, NoMatchProductID) {
   encoded_icc_profile += kValidIccProfile;
   fake_statistics_provider_.SetMachineStatistic(system::kDisplayProfilesKey,
                                                 encoded_icc_profile);
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(0)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(0)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -497,17 +487,16 @@ TEST_F(DisplayColorManagerTest, NoMatchProductID) {
 }
 
 TEST_F(DisplayColorManagerTest, NoVCGT) {
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(0x0dae3211)
-          .Build();
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(0x0dae3211)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -534,18 +523,16 @@ TEST_F(DisplayColorManagerTest, NoVpdDisplayProfilesEntry) {
   EXPECT_TRUE(base::CopyFile(icc_path,
                              vpd_dir.Append(quirks::IdToFileName(product_id))));
 
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(product_id)
-          .Build();
-
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(product_id)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -577,18 +564,16 @@ TEST_F(DisplayColorManagerTest, VpdCalibration) {
   EXPECT_TRUE(base::CopyFile(icc_path,
                              vpd_dir.Append(quirks::IdToFileName(product_id))));
 
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(product_id)
-          .Build();
-
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(product_id)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -617,18 +602,16 @@ TEST_F(DisplayColorManagerTest, QuirksCalibration) {
       base::PathService::Get(DIR_DEVICE_DISPLAY_PROFILES_VPD, &quirks_dir));
   EXPECT_TRUE(base::CopyFile(
       icc_path, quirks_dir.Append(quirks::IdToFileName(product_id))));
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(product_id)
-          .Build();
-
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(product_id)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());
@@ -662,18 +645,16 @@ TEST_F(DisplayColorManagerTest, VpdCalibrationWithQuirks) {
   EXPECT_TRUE(base::CopyFile(icc_path,
                              vpd_dir.Append(quirks::IdToFileName(product_id))));
 
-  std::unique_ptr<display::DisplaySnapshot> snapshot =
-      display::FakeDisplaySnapshot::Builder()
-          .SetId(123)
-          .SetNativeMode(kDisplaySize)
-          .SetCurrentMode(kDisplaySize)
-          .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
-          .SetHasColorCorrectionMatrix(false)
-          .SetProductCode(product_id)
-          .Build();
-
-  std::vector<display::DisplaySnapshot*> outputs({snapshot.get()});
-  native_display_delegate_->set_outputs(outputs);
+  std::vector<std::unique_ptr<display::DisplaySnapshot>> outputs;
+  outputs.push_back(display::FakeDisplaySnapshot::Builder()
+                        .SetId(123)
+                        .SetNativeMode(kDisplaySize)
+                        .SetCurrentMode(kDisplaySize)
+                        .SetType(display::DISPLAY_CONNECTION_TYPE_INTERNAL)
+                        .SetHasColorCorrectionMatrix(false)
+                        .SetProductCode(product_id)
+                        .Build());
+  native_display_delegate_->SetOutputs(std::move(outputs));
 
   configurator_.OnConfigurationChanged();
   EXPECT_TRUE(test_api_.TriggerConfigureTimeout());

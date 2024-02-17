@@ -15,6 +15,8 @@ BASE_DECLARE_FEATURE(kAndroidAutofillFormSubmissionCheckById);
 
 BASE_DECLARE_FEATURE(kAndroidAutofillPrefillRequestsForLoginForms);
 
+BASE_DECLARE_FEATURE(kAndroidAutofillUsePwmPredictionsForOverrides);
+
 BASE_DECLARE_FEATURE(kAndroidAutofillSupportVisibilityChanges);
 
 }  // namespace autofill::features

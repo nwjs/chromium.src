@@ -73,6 +73,7 @@
 #include "third_party/blink/renderer/core/inspector/inspector_css_agent.h"
 #include "third_party/blink/renderer/core/inspector/inspector_network_agent.h"
 #include "third_party/blink/renderer/core/inspector/inspector_resource_container.h"
+#include "third_party/blink/renderer/core/inspector/inspector_style_resolver.h"
 #include "third_party/blink/renderer/core/inspector/protocol/css.h"
 #include "third_party/blink/renderer/core/svg/svg_style_element.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -1074,9 +1075,11 @@ InspectorStyle::InspectorStyle(CSSStyleDeclaration* style,
 }
 
 std::unique_ptr<protocol::CSS::CSSStyle> InspectorStyle::BuildObjectForStyle(
-    Element* element) {
+    Element* element,
+    PseudoId pseudo_id,
+    const AtomicString& pseudo_argument) {
   std::unique_ptr<protocol::CSS::CSSStyle> result =
-      StyleWithProperties(element);
+      StyleWithProperties(element, pseudo_id, pseudo_argument);
   if (source_data_) {
     if (parent_style_sheet_ && !parent_style_sheet_->Id().empty())
       result->setStyleSheetId(parent_style_sheet_->Id());
@@ -1140,7 +1143,9 @@ void InspectorStyle::PopulateAllProperties(
 
 bool InspectorStyle::CheckRegisteredPropertySyntaxWithVarSubstitution(
     Element* element,
-    const CSSPropertySourceData& property) const {
+    const CSSPropertySourceData& property,
+    PseudoId pseudo_id,
+    const AtomicString& pseudo_argument) const {
   if (!element) {
     return false;
   }
@@ -1161,7 +1166,9 @@ bool InspectorStyle::CheckRegisteredPropertySyntaxWithVarSubstitution(
   if (!registration) {
     return false;
   }
-  const ComputedStyle* style = element->EnsureComputedStyle();
+
+  const ComputedStyle* style =
+      element->EnsureComputedStyle(pseudo_id, pseudo_argument);
   if (!style) {
     return false;
   }
@@ -1183,7 +1190,7 @@ bool InspectorStyle::CheckRegisteredPropertySyntaxWithVarSubstitution(
   CSSPropertyName property_name(atomic_name);
   // Substitute var()s in the property value from element's computed style.
   const auto* computed_value =
-      StyleResolver::ResolveValue(*element, property_name, *result);
+      StyleResolver::ResolveValue(*element, *style, property_name, *result);
   if (!computed_value) {
     return false;
   }
@@ -1203,7 +1210,9 @@ bool InspectorStyle::CheckRegisteredPropertySyntaxWithVarSubstitution(
 }
 
 std::unique_ptr<protocol::CSS::CSSStyle> InspectorStyle::StyleWithProperties(
-    Element* element) {
+    Element* element,
+    PseudoId pseudo_id,
+    const AtomicString& pseudo_argument) {
   auto properties_object =
       std::make_unique<protocol::Array<protocol::CSS::CSSProperty>>();
   auto shorthand_entries =
@@ -1226,7 +1235,7 @@ std::unique_ptr<protocol::CSS::CSSStyle> InspectorStyle::StyleWithProperties(
     // Default "parsedOk" == true.
     if (!property_entry.parsed_ok) {
       property->setParsedOk(CheckRegisteredPropertySyntaxWithVarSubstitution(
-          element, property_entry));
+          element, property_entry, pseudo_id, pseudo_argument));
     }
 
     String text;
@@ -1372,9 +1381,13 @@ void InspectorStyleSheetBase::OnStyleSheetTextChanged() {
 }
 
 std::unique_ptr<protocol::CSS::CSSStyle>
-InspectorStyleSheetBase::BuildObjectForStyle(CSSStyleDeclaration* style,
-                                             Element* element) {
-  return GetInspectorStyle(style)->BuildObjectForStyle(element);
+InspectorStyleSheetBase::BuildObjectForStyle(
+    CSSStyleDeclaration* style,
+    Element* element,
+    PseudoId pseudo_id,
+    const AtomicString& pseudo_argument) {
+  return GetInspectorStyle(style)->BuildObjectForStyle(element, pseudo_id,
+                                                       pseudo_argument);
 }
 
 const LineEndings* InspectorStyleSheetBase::GetLineEndings() {
@@ -2359,13 +2372,17 @@ static bool CanBind(const String& origin) {
 }
 
 std::unique_ptr<protocol::CSS::CSSRule>
-InspectorStyleSheet::BuildObjectForRuleWithoutAncestorData(CSSStyleRule* rule,
-                                                           Element* element) {
+InspectorStyleSheet::BuildObjectForRuleWithoutAncestorData(
+    CSSStyleRule* rule,
+    Element* element,
+    PseudoId pseudo_id,
+    const AtomicString& pseudo_argument) {
   std::unique_ptr<protocol::CSS::CSSRule> result =
       protocol::CSS::CSSRule::create()
           .setSelectorList(BuildObjectForSelectorList(rule))
           .setOrigin(origin_)
-          .setStyle(BuildObjectForStyle(rule->style(), element))
+          .setStyle(BuildObjectForStyle(rule->style(), element, pseudo_id,
+                                        pseudo_argument))
           .build();
 
   if (CanBind(origin_)) {

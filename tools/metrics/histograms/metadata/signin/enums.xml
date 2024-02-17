@@ -148,6 +148,11 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="With signed in, no match"/>
 </enum>
 
+<enum name="BooleanGetAccountsSucceeded">
+  <int value="0" label="Account fetching failed"/>
+  <int value="1" label="Account fetching succeeded"/>
+</enum>
+
 <enum name="BooleanHadSyncAccount">
   <int value="0" label="Did not have a sync-enabled account before"/>
   <int value="1" label="Had at least one sync-enabled account before"/>
@@ -161,6 +166,11 @@ chromium-metrics-reviews@google.com.
 <enum name="BooleanShouldShow">
   <int value="0" label="Should not show"/>
   <int value="1" label="Should show"/>
+</enum>
+
+<enum name="BooleanWasDeferred">
+  <int value="0" label="Was not deferred"/>
+  <int value="1" label="Was deferred"/>
 </enum>
 
 <enum name="BoundSessionCredentialsCookieRotationResult">
@@ -324,6 +334,15 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Session override"/>
 </enum>
 
+<enum name="ShouldShowChromeSigninBubbleWithReason">
+  <int value="0" label="Should Show"/>
+  <int value="1" label="Should not Show: Max shown count reached"/>
+  <int value="2" label="Should not Show: Already Signed in"/>
+  <int value="3" label="Should not Show: Secondary account"/>
+  <int value="4" label="Should not Show: Unknown access point"/>
+  <int value="5" label="Should not Show: Not from web sign in"/>
+</enum>
+
 <enum name="SigninAccessPoint">
   <int value="0" label="Start page"/>
   <int value="1" label="NTP Link"/>
@@ -383,7 +402,9 @@ chromium-metrics-reviews@google.com.
   <int value="52" label="Password migration warning on Android only"/>
   <int value="53" label="Save to photos iOS"/>
   <int value="54" label="Chrome Sign-in intercept bubble."/>
-  <int value="55" label="Tab organization"/>
+  <int value="55" label="Restore primary account on profile load"/>
+  <int value="56" label="Tab organization"/>
+  <int value="57" label="Save to Drive iOS"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -440,41 +461,6 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Request started"/>
   <int value="1" label="Success"/>
   <int value="2" label="Failure"/>
-</enum>
-
-<enum name="SigninHelperFlow">
-  <int value="0" label="Shown">The signin flow was shown to the user.</int>
-  <int value="1" label="Accepted">The user pressed accept to sign in.</int>
-  <int value="2" label="(Obsolete) Rejected. Deprecated as of 10/2023.">
-    The user pressed the reject to sign in.
-  </int>
-  <int value="3" label="(Obsolete) Dismissed. Deprecated as of 10/2023.">
-    The user pressed the X button to dismiss the signin promo.
-  </int>
-  <int value="4" label="(Obsolete) Ignored. Deprecated as of 10/2023.">
-    The user completely ignored the signin promo. Either they navigated away, or
-    they used the page as is.
-  </int>
-  <int value="5" label="(Obsolete) Learn More. Deprecated as of 10/2023.">
-    The user clicked on the learn more link in the signin promo.
-  </int>
-  <int value="6" label="Accept with Defaults">
-    The sync was started with default settings.
-  </int>
-  <int value="7" label="Accept with Advanced">
-    The sync was started with advanced settings.
-  </int>
-  <int value="8"
-      label="(Obsolete) Auto-Accept with Defaults. Deprecated as of 10/2023.">
-    The sync was started through auto-accept with default settings.
-  </int>
-  <int value="9"
-      label="(Obsolete) Auto-Accept with Advanced. Deprecated as of 10/2023.">
-    The sync was started through auto-accept with advanced settings.
-  </int>
-  <int value="10" label="(Obsolete) Undo. Deprecated as of 10/2023.">
-    The sync was aborted with an undo button.
-  </int>
 </enum>
 
 <enum name="SigninInterceptFREDialogEvent">

@@ -2,7 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// https://github.com/WICG/web-printing
+
 enum WebPrintJobState {
+  "preliminary",
   "pending",
   "processing",
   "completed",
@@ -12,17 +15,22 @@ enum WebPrintJobState {
 
 dictionary WebPrintJobAttributes {
   DOMString jobName;
+  unsigned long jobPages;
+  unsigned long jobPagesCompleted;
   WebPrintJobState jobState;
 };
 
 [
+  ActiveScriptWrappable,
   Exposed=Window,
   RuntimeEnabled=WebPrinting,
   SecureContext,
   IsolatedContext
 ]
-interface WebPrintJob {
+interface WebPrintJob : EventTarget {
   WebPrintJobAttributes attributes();
+
+  attribute EventHandler onjobstatechange;
 
   // TODO(b/302505962): Add remaining methods.
 };

@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <vector>
 
 #include "base/base64.h"
@@ -35,7 +36,6 @@
 #include "content/public/browser/browser_context.h"
 #include "net/cert/asn1_util.h"
 #include "net/cert/x509_util.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 // This will execute the `UpdateStateStatement` and return from the current
 // function if the worker has reached a final state.
@@ -254,7 +254,7 @@ base::Time CertProvisioningWorkerDynamic::GetLastUpdateTime() const {
   return last_update_time_;
 }
 
-const absl::optional<BackendServerError>&
+const std::optional<BackendServerError>&
 CertProvisioningWorkerDynamic::GetLastBackendServerError() const {
   return last_backend_server_error_;
 }
@@ -421,7 +421,7 @@ void CertProvisioningWorkerDynamic::GenerateKeyForVa() {
       GetKeyName(cert_profile_.profile_id), profile_,
       base::BindOnce(&CertProvisioningWorkerDynamic::OnGenerateKeyForVaDone,
                      weak_factory_.GetWeakPtr(), base::TimeTicks::Now()),
-      /*signals=*/absl::nullopt);
+      /*signals=*/std::nullopt);
 }
 
 void CertProvisioningWorkerDynamic::OnGenerateKeyForVaDone(
@@ -835,7 +835,7 @@ bool CertProvisioningWorkerDynamic::ProcessResponseErrors(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (response.has_value()) {
-    last_backend_server_error_ = absl::nullopt;
+    last_backend_server_error_ = std::nullopt;
     return true;
   }
 
@@ -862,7 +862,7 @@ void CertProvisioningWorkerDynamic::ProcessResponseErrors(
   }
 
   // From this point, connection to the DM Server was successful.
-  last_backend_server_error_ = absl::nullopt;
+  last_backend_server_error_ = std::nullopt;
   if (status != policy::DeviceManagementStatus::DM_STATUS_SUCCESS) {
     failure_message_ = base::StrCat(
         {"DM Server returned error: ", base::NumberToString(status),
@@ -932,7 +932,12 @@ void CertProvisioningWorkerDynamic::ScheduleNextStep(base::TimeDelta delay) {
 
 void CertProvisioningWorkerDynamic::OnShouldContinue(ContinueReason reason) {
   switch (reason) {
-    case ContinueReason::kInvalidation:
+    case ContinueReason::kSubscribedToInvalidation:
+      RecordEvent(
+          cert_profile_.protocol_version, cert_scope_,
+          CertProvisioningEvent::kSuccessfullySubscribedToInvalidationTopic);
+      break;
+    case ContinueReason::kInvalidationReceived:
       RecordEvent(cert_profile_.protocol_version, cert_scope_,
                   CertProvisioningEvent::kInvalidationReceived);
       break;
@@ -1113,9 +1118,8 @@ void CertProvisioningWorkerDynamic::RegisterForInvalidationTopic() {
   // |invalidator_| is destroyed.
   invalidator_->Register(
       invalidation_topic_,
-      base::BindRepeating(&CertProvisioningWorkerDynamic::OnShouldContinue,
-                          base::Unretained(this),
-                          ContinueReason::kInvalidation));
+      base::BindRepeating(&CertProvisioningWorkerDynamic::OnInvalidationEvent,
+                          base::Unretained(this)));
 
   RecordEvent(cert_profile_.protocol_version, cert_scope_,
               CertProvisioningEvent::kRegisteredToInvalidationTopic);
@@ -1129,4 +1133,19 @@ void CertProvisioningWorkerDynamic::UnregisterFromInvalidationTopic() {
   invalidator_->Unregister();
 }
 
+void CertProvisioningWorkerDynamic::OnInvalidationEvent(
+    InvalidationEvent invalidation_event) {
+  // This function logs as WARNING so the messages are visible in feedback logs
+  // to monitor for b/307340577 .
+  switch (invalidation_event) {
+    case InvalidationEvent::kSuccessfullySubscribed:
+      LOG(WARNING) << "Successfully subscribed to invalidations";
+      OnShouldContinue(ContinueReason::kSubscribedToInvalidation);
+      break;
+    case InvalidationEvent::kInvalidationReceived:
+      LOG(WARNING) << "Invalidation received";
+      OnShouldContinue(ContinueReason::kInvalidationReceived);
+      break;
+  }
+}
 }  // namespace ash::cert_provisioning

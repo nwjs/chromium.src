@@ -118,7 +118,8 @@ void ApplyTestState(
       user_content_setting_provider->SetWebsiteSetting(
           ContentSettingsPattern::Wildcard(),
           ContentSettingsPattern::Wildcard(), ContentSettingsType::COOKIES,
-          base::Value(content_setting));
+          base::Value(content_setting), /*constraints=*/{},
+          content_settings::PartitionKey::GetDefaultForTesting());
       return;
     }
     case (StateKey::kSiteDataUserExceptions): {
@@ -129,7 +130,8 @@ void ApplyTestState(
         user_content_setting_provider->SetWebsiteSetting(
             ContentSettingsPattern::FromString(primary_pattern),
             ContentSettingsPattern::Wildcard(), ContentSettingsType::COOKIES,
-            base::Value(content_setting));
+            base::Value(content_setting), /*constraints=*/{},
+            content_settings::PartitionKey::GetDefaultForTesting());
       }
       return;
     }
@@ -191,12 +193,6 @@ void ApplyTestState(
           prefs::kPrivacySandboxTopicsConsentLastUpdateReason, 1234);
       testing_pref_service->SetString(
           prefs::kPrivacySandboxTopicsConsentTextAtLastUpdate, "Foo Bar Baz");
-      return;
-    }
-    case (StateKey::kApisEnabledV2): {
-      SCOPED_TRACE("State Setup: Privacy Sandbox Apis enabled");
-      testing_pref_service->SetUserPref(prefs::kPrivacySandboxApisEnabledV2,
-                                        base::Value(GetItemValue<bool>(value)));
       return;
     }
     case (StateKey::kTrialsConsentDecisionMade): {
@@ -910,64 +906,6 @@ MockPrivacySandboxSettingsDelegate::MockPrivacySandboxSettingsDelegate() {
 
 MockPrivacySandboxSettingsDelegate::~MockPrivacySandboxSettingsDelegate() =
     default;
-
-void SetupTestState(
-    sync_preferences::TestingPrefServiceSyncable* testing_pref_service,
-    HostContentSettingsMap* map,
-    bool privacy_sandbox_enabled,
-    bool block_third_party_cookies,
-    ContentSetting default_cookie_setting,
-    const std::vector<CookieContentSettingException>& user_cookie_exceptions,
-    ContentSetting managed_cookie_setting,
-    const std::vector<CookieContentSettingException>&
-        managed_cookie_exceptions) {
-  // Setup block-third-party-cookies settings.
-  testing_pref_service->SetUserPref(
-      prefs::kCookieControlsMode,
-      base::Value(static_cast<int>(
-          block_third_party_cookies
-              ? content_settings::CookieControlsMode::kBlockThirdParty
-              : content_settings::CookieControlsMode::kOff)));
-
-  // Setup cookie content settings.
-  auto user_provider = std::make_unique<content_settings::MockProvider>();
-  auto managed_provider = std::make_unique<content_settings::MockProvider>();
-
-  if (default_cookie_setting != kNoSetting) {
-    user_provider->SetWebsiteSetting(
-        ContentSettingsPattern::Wildcard(), ContentSettingsPattern::Wildcard(),
-        ContentSettingsType::COOKIES, base::Value(default_cookie_setting));
-  }
-
-  for (const auto& exception : user_cookie_exceptions) {
-    user_provider->SetWebsiteSetting(
-        ContentSettingsPattern::FromString(exception.primary_pattern),
-        ContentSettingsPattern::FromString(exception.secondary_pattern),
-        ContentSettingsType::COOKIES, base::Value(exception.content_setting));
-  }
-
-  if (managed_cookie_setting != kNoSetting) {
-    managed_provider->SetWebsiteSetting(
-        ContentSettingsPattern::Wildcard(), ContentSettingsPattern::Wildcard(),
-        ContentSettingsType::COOKIES, base::Value(managed_cookie_setting));
-  }
-
-  for (const auto& exception : managed_cookie_exceptions) {
-    managed_provider->SetWebsiteSetting(
-        ContentSettingsPattern::FromString(exception.primary_pattern),
-        ContentSettingsPattern::FromString(exception.secondary_pattern),
-        ContentSettingsType::COOKIES, base::Value(exception.content_setting));
-  }
-
-  content_settings::TestUtils::OverrideProvider(
-      map, std::move(user_provider), HostContentSettingsMap::DEFAULT_PROVIDER);
-  content_settings::TestUtils::OverrideProvider(
-      map, std::move(managed_provider),
-      HostContentSettingsMap::POLICY_PROVIDER);
-
-  testing_pref_service->SetUserPref(prefs::kPrivacySandboxApisEnabledV2,
-                                    base::Value(privacy_sandbox_enabled));
-}
 
 void RunTestCase(
     content::BrowserTaskEnvironment* task_environment,

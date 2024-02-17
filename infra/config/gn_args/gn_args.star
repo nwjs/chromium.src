@@ -7,6 +7,13 @@
 load("//lib/gn_args.star", "gn_args")
 
 gn_args.config(
+    name = "afl",
+    args = {
+        "use_afl": True,
+    },
+)
+
+gn_args.config(
     name = "also_build_ash_chrome",
     args = {
         "also_build_ash_chrome": True,
@@ -99,6 +106,13 @@ gn_args.config(
     },
 )
 
+gn_args.config(
+    name = "android_low_end_secondary_toolchain",
+    args = {
+        "is_high_end_android_secondary_toolchain": False,
+    },
+)
+
 # TODO(https://crbug.com/1020714): This is temporary. We'd like to run a
 # smoke test on android_binary_sizes to ensure coverage of proguard, at
 # which point we can merge this into android_fastbuild. Until then, only
@@ -180,6 +194,13 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "blink_enable_generated_code_formatting",
+    args = {
+        "blink_enable_generated_code_formatting": True,
+    },
+)
+
+gn_args.config(
     name = "blink_symbol",
     args = {
         "blink_symbol_level": 1,
@@ -190,13 +211,6 @@ gn_args.config(
     name = "cast_android",
     args = {
         "is_cast_android": True,
-    },
-)
-
-gn_args.config(
-    name = "cast_audio",
-    args = {
-        "is_cast_audio_only": True,
     },
 )
 
@@ -336,6 +350,16 @@ gn_args.config(
         "clang",
     ],
 )
+gn_args.config(
+    name = "codesearch_builder",
+    args = {
+        "clang_use_chrome_plugins": False,
+        "enable_kythe_annotations": True,
+    },
+    configs = [
+        "blink_enable_generated_code_formatting",
+    ],
+)
 
 gn_args.config(
     name = "compile_only",
@@ -436,7 +460,6 @@ gn_args.config(
     name = "debug_try_builder",
     configs = [
         "debug_builder",
-        "use_dummy_lastchange",
     ],
 )
 
@@ -672,6 +695,13 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "ios_build_chrome_false",
+    args = {
+        "ios_build_chrome": False,
+    },
+)
+
+gn_args.config(
     name = "ios_catalyst",
     args = {
         "target_environment": "catalyst",
@@ -770,9 +800,23 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "mac",
+    args = {
+        "target_os": "mac",
+    },
+)
+
+gn_args.config(
     name = "mac_strip",
     args = {
         "enable_stripping": True,
+    },
+)
+
+gn_args.config(
+    name = "mbi_mode_per_render_process_host",
+    args = {
+        "mbi_mode": "per_render_process_host",
     },
 )
 
@@ -824,6 +868,13 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "no_com_init_hooks",
+    args = {
+        "com_init_check_hook_disabled": True,
+    },
+)
+
+gn_args.config(
     name = "no_dsyms",
     args = {
         "enable_dsyms": False,
@@ -869,6 +920,13 @@ gn_args.config(
     name = "no_secondary_abi",
     args = {
         "skip_secondary_abi_for_cq": True,
+    },
+)
+
+gn_args.config(
+    name = "no_siso",
+    args = {
+        "use_siso": False,
     },
 )
 
@@ -1055,6 +1113,13 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "skip_generate_fuzzer_owners",
+    args = {
+        "generate_fuzzer_owners": False,
+    },
+)
+
+gn_args.config(
     name = "stable_channel",
     args = {
         "android_channel": "stable",
@@ -1101,7 +1166,6 @@ gn_args.config(
     configs = [
         "dcheck_always_on",
         "minimal_symbols",
-        "use_dummy_lastchange",
     ],
 )
 
@@ -1185,13 +1249,6 @@ gn_args.config(
 )
 
 gn_args.config(
-    name = "use_dummy_lastchange",
-    args = {
-        "use_dummy_lastchange": True,
-    },
-)
-
-gn_args.config(
     name = "use_fake_dbus_clients",
     args = {
         "use_real_dbus_clients": False,
@@ -1244,7 +1301,7 @@ gn_args.config(
 gn_args.config(
     name = "v8_release_branch",
     args = {
-        "is_on_release_branch": True,
+        "v8_is_on_release_branch": True,
     },
 )
 

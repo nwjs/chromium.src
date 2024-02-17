@@ -8,7 +8,6 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/ui/search_engine_choice/search_engine_choice_consumer.h"
-#import "ios/chrome/browser/ui/search_engine_choice/search_engine_choice_table/search_engine_choice_table_consumer.h"
 
 @class SearchEngineChoiceTableViewController;
 
@@ -25,7 +24,6 @@
 // A base view controller for showing a choice screen.
 @interface SearchEngineChoiceViewController
     : UIViewController <SearchEngineChoiceConsumer,
-                        SearchEngineChoiceFaviconUpdateConsumer,
                         UITextViewDelegate>
 
 // Delegate for all the user actions.
@@ -35,7 +33,8 @@
 @property(nonatomic, assign, readwrite) BOOL didUserSelectARow;
 
 - (instancetype)initWithSearchEngineTableViewController:
-    (SearchEngineChoiceTableViewController*)tableViewController
+                    (SearchEngineChoiceTableViewController*)tableViewController
+                                                 forFRE:(BOOL)isForFRE
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithNibName:(NSString*)nibNameOrNil

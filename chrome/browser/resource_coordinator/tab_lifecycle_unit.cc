@@ -5,6 +5,7 @@
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -13,7 +14,6 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/process/process_metrics.h"
 #include "build/chromeos_buildflags.h"
@@ -45,7 +45,6 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/frame/sudden_termination_disabler_type.mojom.h"
 #include "url/gurl.h"
 
@@ -477,10 +476,6 @@ void TabLifecycleUnitSource::TabLifecycleUnit::SetAutoDiscardable(
 void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
     LifecycleUnitDiscardReason discard_reason,
     uint64_t tab_memory_footprint_estimate) {
-  UMA_HISTOGRAM_BOOLEAN(
-      "TabManager.Discarding.DiscardedTabHasBeforeUnloadHandler",
-      web_contents()->NeedToFireBeforeUnloadOrUnloadEvents());
-
   content::WebContents* const old_contents = web_contents();
   content::WebContents::CreateParams create_params(tab_strip_model_->profile());
   // TODO(fdoray): Consider setting |initially_hidden| to true when the tab is

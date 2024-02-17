@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,7 +24,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/ime/ash/input_method_manager.h"
 
 namespace ash {
@@ -81,7 +81,7 @@ std::string CurrentInputMethod() {
 std::string ToExtensionBasedInputMethod(std::string_view method) {
   InputMethodManager& manager = CHECK_DEREF(InputMethodManager::Get());
   std::vector<std::string> extension_based_input_methods{std::string(method)};
-  CHECK(manager.MigrateInputMethods(&extension_based_input_methods));
+  CHECK(manager.GetMigratedInputMethodIDs(&extension_based_input_methods));
   return extension_based_input_methods[0];
 }
 
@@ -95,7 +95,7 @@ bool EnableInputMethods(const std::vector<std::string_view>& methods) {
       CHECK_DEREF(manager.GetActiveIMEState().get());
   std::vector<std::string> extension_based_input_methods(methods.begin(),
                                                          methods.end());
-  return manager.MigrateInputMethods(&extension_based_input_methods) &&
+  return manager.GetMigratedInputMethodIDs(&extension_based_input_methods) &&
          state.ReplaceEnabledInputMethods(extension_based_input_methods);
 }
 

@@ -87,9 +87,7 @@ constexpr char kCredentialId[] = "VGhpcyBpcyBhIHRlc3QgQ3JlZGVudGlhbCBJRC4=";
 constexpr char kGooglePaymentsRpid[] = "google.com";
 
 std::string BytesToBase64(const std::vector<uint8_t> bytes) {
-  std::string base64;
-  base::Base64Encode(std::string(bytes.begin(), bytes.end()), &base64);
-  return base64;
+  return base::Base64Encode(std::string(bytes.begin(), bytes.end()));
 }
 #endif
 
@@ -205,7 +203,8 @@ class CreditCardAccessManagerTest : public testing::Test {
     // Resets all variables related to credit card fetching.
     credit_card_access_manager().is_authentication_in_progress_ = false;
     credit_card_access_manager().can_fetch_unmask_details_ = true;
-    credit_card_access_manager().is_user_verifiable_ = absl::nullopt;
+    credit_card_access_manager().unmask_details_request_in_progress_ = false;
+    credit_card_access_manager().is_user_verifiable_ = std::nullopt;
   }
 
   void ClearCards() { personal_data().ClearCreditCards(); }
@@ -948,9 +947,7 @@ INSTANTIATE_TEST_SUITE_P(
         testing::Bool(),
         testing::Bool(),
         testing::Values(
-#if BUILDFLAG(IS_IOS)
             payments::MandatoryReauthAuthenticationMethod::kUnsupportedMethod,
-#endif
             payments::MandatoryReauthAuthenticationMethod::kBiometric,
             payments::MandatoryReauthAuthenticationMethod::kScreenLock)));
 
@@ -1131,7 +1128,7 @@ TEST_F(CreditCardAccessManagerTest, FetchLocalCardSuccess) {
 
   // There was no interactive authentication in this flow, so check that this
   // is signaled correctly.
-  absl::optional<CreditCard::RecordType> card_identifier =
+  std::optional<CreditCard::RecordType> card_identifier =
       autofill_client_.GetFormDataImporter()
           ->GetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted();
   ASSERT_TRUE(card_identifier.has_value());
@@ -3060,7 +3057,9 @@ class CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest
   base::test::ScopedFeatureList feature_list_{
       features::kAutofillEnableFpanRiskBasedAuthentication};
 
-  void MockRiskBasedAuthSucceedsWithoutPanReturned(CreditCard* card) {
+  void MockRiskBasedAuthSucceedsWithoutPanReturned(
+      CreditCard* card,
+      std::string context_token = "fake_context_token") {
     credit_card_access_manager().FetchCreditCard(
         card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
                              accessor_->GetWeakPtr()));
@@ -3078,7 +3077,7 @@ class CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest
             .with_result(CreditCardRiskBasedAuthenticator::
                              RiskBasedAuthenticationResponse::Result::
                                  kAuthenticationRequired)
-            .with_context_token("fake_context_token"));
+            .with_context_token(context_token));
   }
 };
 
@@ -3123,7 +3122,7 @@ TEST_F(CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
 
   // There was no interactive authentication in this flow, so check that this
   // is signaled correctly.
-  absl::optional<CreditCard::RecordType> card_identifier =
+  std::optional<CreditCard::RecordType> card_identifier =
       autofill_client_.GetFormDataImporter()
           ->GetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted();
   ASSERT_TRUE(card_identifier.has_value());
@@ -3220,6 +3219,24 @@ TEST_F(
 
   // Ensures CreditCardRiskBasedAuthenticator::Authenticate is not invoked.
   ASSERT_FALSE(autofill_client_.risk_based_authentication_invoked());
+}
+
+TEST_F(
+    CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
+    RiskBasedMaskedServerCardUnmasking_CvcAuthenticationRequired_ContextTokenSetCorrectly) {
+  std::string context_token = "context_token";
+  CreditCard* masked_server_card =
+      CreateServerCard(kTestGUID, kTestNumber, /*masked=*/true, kTestServerId);
+
+  MockRiskBasedAuthSucceedsWithoutPanReturned(masked_server_card,
+                                              context_token);
+
+  // Expect the context_token is set in the full card request.
+  EXPECT_EQ(GetCvcAuthenticator()
+                ->GetFullCardRequest()
+                ->GetUnmaskRequestDetailsForTesting()
+                ->context_token,
+            context_token);
 }
 
 // Ensures the authentication is delegated to the CVC authenticator when
@@ -3398,6 +3415,133 @@ TEST_F(
 
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
 
+// Ensures that CVC filling gets logged after masked server card risk-based
+// unmasking success if the card has CVC.
+TEST_F(CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
+       LogCvcFilling_RiskBasedMaskedServerCardUnmaskingSuccess) {
+  base::HistogramTester histogram_tester;
+  CreateServerCard(kTestGUID, kTestNumber, /*masked=*/true, kTestServerId);
+  CreditCard* masked_server_card =
+      personal_data().GetCreditCardByGUID(kTestGUID);
+  masked_server_card->set_cvc(kTestCvc16);
+
+  credit_card_access_manager().FetchCreditCard(
+      masked_server_card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
+                                         accessor_->GetWeakPtr()));
+
+  // Mock CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse to
+  // successfully return the valid card number.
+  CreditCard card = *masked_server_card;
+  card.set_record_type(CreditCard::RecordType::kFullServerCard);
+  // Mock that CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse
+  // indicates a green path with valid card number returned.
+  credit_card_access_manager().OnRiskBasedAuthenticationResponseReceived(
+      CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse()
+          .with_result(CreditCardRiskBasedAuthenticator::
+                           RiskBasedAuthenticationResponse::Result::
+                               kNoAuthenticationRequired)
+          .with_card(card));
+
+  // Expect the metrics are logged correctly.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.CvcStorage.CvcFilling.ServerCard",
+      autofill_metrics::CvcFillingFlowType::kNoInteractiveAuthentication, 1);
+}
+
+// Ensures that CVC filling doesn't get logged after after masked server card
+// risk-based unmasking success if the card doesn't have CVC.
+TEST_F(CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
+       DoNotLogCvcFilling_RiskBasedMaskedServerCardUnmaskingSuccess) {
+  base::HistogramTester histogram_tester;
+  CreateServerCard(kTestGUID, kTestNumber, /*masked=*/true, kTestServerId);
+  CreditCard* masked_server_card =
+      personal_data().GetCreditCardByGUID(kTestGUID);
+  masked_server_card->set_cvc(u"");
+
+  credit_card_access_manager().FetchCreditCard(
+      masked_server_card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
+                                         accessor_->GetWeakPtr()));
+
+  // Mock CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse to
+  // successfully return the valid card number.
+  CreditCard card = *masked_server_card;
+  card.set_record_type(CreditCard::RecordType::kFullServerCard);
+  // Mock that CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse
+  // indicates a green path with valid card number returned.
+  credit_card_access_manager().OnRiskBasedAuthenticationResponseReceived(
+      CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse()
+          .with_result(CreditCardRiskBasedAuthenticator::
+                           RiskBasedAuthenticationResponse::Result::
+                               kNoAuthenticationRequired)
+          .with_card(card));
+
+  // Expect the metrics are logged correctly.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.CvcStorage.CvcFilling.ServerCard",
+      autofill_metrics::CvcFillingFlowType::kNoInteractiveAuthentication, 0);
+}
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+// Params of the
+// CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingPreflightCallReturnedTest:
+// -- bool fido_opted_in;
+// -- bool preflight_call_returned;
+class
+    CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingPreflightCallReturnedTest
+    : public CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
+      public testing::WithParamInterface<std::tuple<bool, bool>> {
+ public:
+  CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingPreflightCallReturnedTest() =
+      default;
+  ~CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingPreflightCallReturnedTest()
+      override = default;
+
+  bool FidoOptedIn() { return std::get<0>(GetParam()); }
+  bool PreflightCallReturned() { return std::get<1>(GetParam()); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingPreflightCallReturnedTest,
+    testing::Combine(testing::Bool(), testing::Bool()));
+
+// Ensures that the metric for if the preflight call's response is received
+// before card selection is logged correctly.
+TEST_P(
+    CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingPreflightCallReturnedTest,
+    Metrics_LogPreflightCallResponseReceivedOnCardSelection) {
+  base::HistogramTester histogram_tester;
+  std::string test_number = "4444333322221111";
+  CreditCard* masked_server_card = CreateServerCard(kTestGUID, test_number);
+  GetFIDOAuthenticator()->SetUserVerifiable(true);
+  if (FidoOptedIn()) {
+    OptUserInToFido();
+  }
+  payments_network_interface().ShouldReturnUnmaskDetailsImmediately(
+      PreflightCallReturned());
+
+  std::string histogram_name =
+      "Autofill.BetterAuth.PreflightCallResponseReceivedOnCardSelection.";
+  histogram_name += FidoOptedIn() ? "OptedIn." : "OptedOut.";
+  histogram_name += "ServerCard";
+
+  credit_card_access_manager().PrepareToFetchCreditCard();
+  credit_card_access_manager().FetchCreditCard(
+      masked_server_card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
+                                         accessor_->GetWeakPtr()));
+  WaitForCallbacks();
+
+  histogram_tester.ExpectUniqueSample(
+      histogram_name,
+      PreflightCallReturned() ? autofill_metrics::PreflightCallEvent::
+                                    kPreflightCallReturnedBeforeCardChosen
+                              : autofill_metrics::PreflightCallEvent::
+                                    kCardChosenBeforePreflightCallReturned,
+      1);
+}
+
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+
 TEST_F(CreditCardAccessManagerTest, IsVirtualCardPresentInUnmaskedCache) {
   CreateServerCard(kTestGUID, kTestNumber, /*masked=*/false, kTestServerId);
   CreditCard* unmasked_card = personal_data().GetCreditCardByGUID(kTestGUID);
@@ -3452,7 +3596,7 @@ TEST_F(CreditCardAccessManagerTest, RiskBasedVirtualCardUnmasking_Success) {
 
   // There was no interactive authentication in this flow, so check that this
   // is signaled correctly.
-  absl::optional<CreditCard::RecordType> card_identifier =
+  std::optional<CreditCard::RecordType> card_identifier =
       autofill_client_.GetFormDataImporter()
           ->GetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted();
   ASSERT_TRUE(card_identifier.has_value());

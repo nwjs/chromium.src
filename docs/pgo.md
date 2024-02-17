@@ -1,6 +1,12 @@
 # Profile-Guided Optimization (PGO)
 
-## Generating PGO Profiles
+## Generating PGO Profiles via Bots
+
+See [go/chrome-pgo-internal] (Googlers only).
+
+[go/chrome-pgo-internal]: https://goto.google.com/chrome-pgo-internal
+
+## Generating PGO Profiles Manually
 
 Normally devs don't need to worry about this and can use the default profile
 for official builds.  The default profile can be fetched by adding
@@ -19,11 +25,10 @@ To produce an executable built with a custom PGO profile:
   use_remoteexec = true
   ```
 
-  For android you may need in addition:
+  For android you need these in addition:
   ```
   target_os = "android"
   target_cpu = "arm64"
-  is_high_end_android = true
   ```
 
 * Run representative benchmarks to produce profiles

@@ -11,9 +11,11 @@
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/strings/escape.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
@@ -33,6 +35,7 @@
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/model_execution/on_device_model_component.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
@@ -63,6 +66,7 @@
 
 namespace {
 
+using optimization_guide::OnDeviceModelComponentStateManager;
 using optimization_guide::proto::OptimizationType;
 
 class ScopedSetMetricsConsent {
@@ -408,7 +412,7 @@ class OptimizationGuideKeyedServiceBrowserTest
   GURL url_that_redirects_;
   GURL url_that_redirects_to_no_hints_;
 
-  absl::optional<ScopedSetMetricsConsent> scoped_metrics_consent_;
+  std::optional<ScopedSetMetricsConsent> scoped_metrics_consent_;
 
   std::unique_ptr<network::TestNetworkConnectionTracker>
       network_connection_tracker_;
@@ -527,7 +531,7 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
   auto entries = ukm_recorder.GetEntriesByName(
       ukm::builders::OptimizationGuide::kEntryName);
   EXPECT_EQ(1u, entries.size());
-  auto* entry = entries[0];
+  auto* entry = entries[0].get();
   EXPECT_TRUE(ukm_recorder.EntryHasMetric(
       entry,
       ukm::builders::OptimizationGuide::kRegisteredOptimizationTypesName));
@@ -566,7 +570,7 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
   auto entries = ukm_recorder.GetEntriesByName(
       ukm::builders::OptimizationGuide::kEntryName);
   EXPECT_EQ(1u, entries.size());
-  auto* entry = entries[0];
+  auto* entry = entries[0].get();
   EXPECT_TRUE(ukm_recorder.EntryHasMetric(
       entry,
       ukm::builders::OptimizationGuide::kRegisteredOptimizationTypesName));
@@ -789,11 +793,14 @@ class TestSettingsEnabledObserver
   explicit TestSettingsEnabledObserver(
       optimization_guide::proto::ModelExecutionFeature feature)
       : SettingsEnabledObserver(feature) {}
-  void PrepareToEnableOnRestart() override {
-    ++count_received_prepare_to_enable_on_restart_notifications_;
+  void PrepareToEnableOnRestart() override {}
+  void OnChangeInFeatureCurrentlyEnabledState(bool is_now_enabled) override {
+    count_feature_enabled_state_changes_++;
+    is_currently_enabled_ = is_now_enabled;
   }
 
-  int count_received_prepare_to_enable_on_restart_notifications_ = 0;
+  int count_feature_enabled_state_changes_ = 0;
+  bool is_currently_enabled_ = false;
 };
 
 IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
@@ -870,15 +877,6 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
               MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH),
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
 
-  EXPECT_FALSE(
-      IsSettingVisible(optimization_guide::proto::ModelExecutionFeature::
-                           MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-
-  OptimizationGuideKeyedService* ogks =
-      OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->profile());
-
-  ogks->SimulateBrowserRestartForControllerTesting();
-
   // Restarting the browser should cause wallpaper setting to be visible since
   // the feature is enabled.
   EXPECT_TRUE(
@@ -899,12 +897,6 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
               MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH),
       static_cast<int>(
           optimization_guide::prefs::FeatureOptInState::kDisabled));
-
-  EXPECT_TRUE(
-      IsSettingVisible(optimization_guide::proto::ModelExecutionFeature::
-                           MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-
-  ogks->SimulateBrowserRestartForControllerTesting();
 
   // Restarting the browser should cause wallpaper setting to be not visible
   // since the feature is no-longer enabled.
@@ -956,16 +948,9 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
           optimization_guide::proto::ModelExecutionFeature::
               MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH),
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
-  EXPECT_EQ(1, wallpaper_search_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-  EXPECT_EQ(0, compose_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-
-  EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
-      optimization_guide::proto::ModelExecutionFeature::
-          MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-
-  ogks->SimulateBrowserRestartForControllerTesting();
+  EXPECT_EQ(1, wallpaper_search_observer.count_feature_enabled_state_changes_);
+  EXPECT_TRUE(wallpaper_search_observer.is_currently_enabled_);
+  EXPECT_EQ(0, compose_observer.count_feature_enabled_state_changes_);
 
   EXPECT_TRUE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::proto::ModelExecutionFeature::
@@ -994,6 +979,9 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
   EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::proto::ModelExecutionFeature::
           MODEL_EXECUTION_FEATURE_COMPOSE));
+
+  EXPECT_EQ(2, wallpaper_search_observer.count_feature_enabled_state_changes_);
+  EXPECT_FALSE(wallpaper_search_observer.is_currently_enabled_);
 #endif
 }
 
@@ -1034,16 +1022,9 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
           optimization_guide::proto::ModelExecutionFeature::
               MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH),
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
-  EXPECT_EQ(1, wallpaper_search_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-  EXPECT_EQ(0, compose_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-
-  EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
-      optimization_guide::proto::ModelExecutionFeature::
-          MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-
-  ogks->SimulateBrowserRestartForControllerTesting();
+  EXPECT_EQ(1, wallpaper_search_observer.count_feature_enabled_state_changes_);
+  EXPECT_TRUE(wallpaper_search_observer.is_currently_enabled_);
+  EXPECT_EQ(0, compose_observer.count_feature_enabled_state_changes_);
 
   EXPECT_TRUE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::proto::ModelExecutionFeature::
@@ -1063,16 +1044,9 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
               MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH),
       static_cast<int>(
           optimization_guide::prefs::FeatureOptInState::kDisabled));
-  EXPECT_EQ(1, wallpaper_search_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-  EXPECT_EQ(0, compose_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-
-  EXPECT_TRUE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
-      optimization_guide::proto::ModelExecutionFeature::
-          MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-
-  ogks->SimulateBrowserRestartForControllerTesting();
+  EXPECT_EQ(2, wallpaper_search_observer.count_feature_enabled_state_changes_);
+  EXPECT_FALSE(wallpaper_search_observer.is_currently_enabled_);
+  EXPECT_EQ(0, compose_observer.count_feature_enabled_state_changes_);
 
   EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::proto::ModelExecutionFeature::
@@ -1130,19 +1104,11 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
   // Visibility of tab organizer feature is enabled via finch. Only tab
   // organizer feature should be enabled.
-  EXPECT_EQ(0, wallpaper_search_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-  EXPECT_EQ(1, compose_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-  EXPECT_EQ(
-      1,
-      tab_observer.count_received_prepare_to_enable_on_restart_notifications_);
-
-  EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
-      optimization_guide::proto::ModelExecutionFeature::
-          MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-
-  ogks->SimulateBrowserRestartForControllerTesting();
+  EXPECT_EQ(0, wallpaper_search_observer.count_feature_enabled_state_changes_);
+  EXPECT_EQ(1, compose_observer.count_feature_enabled_state_changes_);
+  EXPECT_TRUE(compose_observer.is_currently_enabled_);
+  EXPECT_EQ(1, tab_observer.count_feature_enabled_state_changes_);
+  EXPECT_TRUE(tab_observer.is_currently_enabled_);
 
   EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::proto::ModelExecutionFeature::
@@ -1162,19 +1128,13 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
       optimization_guide::prefs::kModelExecutionMainToggleSettingState,
       static_cast<int>(
           optimization_guide::prefs::FeatureOptInState::kDisabled));
-  EXPECT_EQ(0, wallpaper_search_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-  EXPECT_EQ(1, compose_observer
-                   .count_received_prepare_to_enable_on_restart_notifications_);
-  EXPECT_EQ(
-      1,
-      tab_observer.count_received_prepare_to_enable_on_restart_notifications_);
+  base::RunLoop().RunUntilIdle();
 
-  EXPECT_TRUE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
-      optimization_guide::proto::ModelExecutionFeature::
-          MODEL_EXECUTION_FEATURE_TAB_ORGANIZATION));
-
-  ogks->SimulateBrowserRestartForControllerTesting();
+  EXPECT_EQ(1, wallpaper_search_observer.count_feature_enabled_state_changes_);
+  EXPECT_EQ(2, compose_observer.count_feature_enabled_state_changes_);
+  EXPECT_FALSE(compose_observer.is_currently_enabled_);
+  EXPECT_EQ(2, tab_observer.count_feature_enabled_state_changes_);
+  EXPECT_FALSE(tab_observer.is_currently_enabled_);
 
   EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::proto::ModelExecutionFeature::
@@ -1193,6 +1153,8 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
 // profiles.
 IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
                        SettingsVisibilityIncognito) {
+  EnableSignIn();
+
   // Set up incognito browser and incognito OptimizationGuideKeyedService
   // consumer.
   Browser* otr_browser = CreateIncognitoBrowser(browser()->profile());
@@ -1216,11 +1178,33 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
           MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
 }
 
+IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
+                       LogOnDeviceMetricsAfterStart) {
+  OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->profile());
+  OnDeviceModelComponentStateManager* on_device_component_state_manager =
+      OnDeviceModelComponentStateManager::GetInstanceForTesting();
+  ASSERT_TRUE(on_device_component_state_manager);
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester()
+               ->GetAllSamples(
+                   "OptimizationGuide.ModelExecution."
+                   "OnDeviceModelPerformanceClass")
+               .size() > 0;
+  }));
+
+  histogram_tester()->ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.OnDeviceModelPerformanceClass", 1);
+}
+
 // Creating multiple profiles isn't supported easily on ash and android.
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_ASH)
 IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
                        LogOnDeviceMetricsSingleTimeForMultipleProfiles) {
   OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->profile());
+  OnDeviceModelComponentStateManager* on_device_component_state_manager =
+      OnDeviceModelComponentStateManager::GetInstanceForTesting();
+  ASSERT_TRUE(on_device_component_state_manager);
 
   // Add a second profile which should not log performance class.
   ProfileManager* profile_manager = g_browser_process->profile_manager();
@@ -1275,16 +1259,6 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
           optimization_guide::proto::ModelExecutionFeature::
               MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH),
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
-
-  EXPECT_FALSE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
-      optimization_guide::proto::ModelExecutionFeature::
-          MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-  EXPECT_FALSE(guest_ogks->ShouldFeatureBeCurrentlyEnabledForUser(
-      optimization_guide::proto::ModelExecutionFeature::
-          MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH));
-
-  ogks->SimulateBrowserRestartForControllerTesting();
-  guest_ogks->SimulateBrowserRestartForControllerTesting();
 
   EXPECT_TRUE(ogks->ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::proto::ModelExecutionFeature::
@@ -1535,7 +1509,7 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceEnterpriseBrowserTest,
   prefs->SetInteger(
       optimization_guide::prefs::GetSettingEnabledPrefName(compose_feature),
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
-  ogks->SimulateBrowserRestartForControllerTesting();
+  base::RunLoop().RunUntilIdle();
 
   policy::PolicyMap policies;
 
@@ -1590,6 +1564,9 @@ IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceEnterpriseBrowserTest,
                        ModelExecutionEnterprisePolicyValue::kAllow)),
                nullptr);
   policy_provider_.UpdateChromePolicy(policies);
+  prefs->SetInteger(
+      optimization_guide::prefs::GetSettingEnabledPrefName(compose_feature),
+      static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
   base::RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(ogks->ShouldFeatureBeCurrentlyAllowedForLogging(compose_feature));

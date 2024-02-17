@@ -9,10 +9,12 @@
 #include <vector>
 
 #include "base/feature_list.h"
+#include "build/branding_buildflags.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 // Trigger identifiers currently used; duplicates not allowed.
 extern const char kHatsSurveyTriggerAutofillAddress[];
+extern const char kHatsSurveyTriggerAutofillAddressUserPerception[];
 extern const char kHatsSurveyTriggerAutofillCard[];
 extern const char kHatsSurveyTriggerAutofillPassword[];
 extern const char kHatsSurveyTriggerDevToolsIssuesCOEP[];
@@ -20,6 +22,10 @@ extern const char kHatsSurveyTriggerDevToolsIssuesMixedContent[];
 extern const char kHatsSurveyTriggerDevToolsIssuesCookiesSameSite[];
 extern const char kHatsSurveyTriggerDevToolsIssuesHeavyAd[];
 extern const char kHatsSurveyTriggerDevToolsIssuesCSP[];
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+extern const char kHatsSurveyTriggerGetMostChrome[];
+#endif
+extern const char kHatsSurveyTriggerExtensions[];
 extern const char kHatsSurveyTriggerM1AdPrivacyPage[];
 extern const char kHatsSurveyTriggerM1TopicsSubpage[];
 extern const char kHatsSurveyTriggerM1FledgeSubpage[];
@@ -28,10 +34,9 @@ extern const char kHatsSurveyTriggerNtpModules[];
 extern const char kHatsSurveyTriggerNtpPhotosModuleOptOut[];
 extern const char kHatsSurveyTriggerPerformanceControlsPerformance[];
 extern const char kHatsSurveyTriggerPerformanceControlsBatteryPerformance[];
-extern const char kHatsSurveyTriggerPerformanceControlsHighEfficiencyOptOut[];
+extern const char kHatsSurveyTriggerPerformanceControlsMemorySaverOptOut[];
 extern const char kHatsSurveyTriggerPerformanceControlsBatterySaverOptOut[];
 extern const char kHatsSurveyTriggerPrivacyGuide[];
-extern const char kHatsSurveyTriggerPrivacySandbox[];
 extern const char kHatsSurveyTriggerRedWarning[];
 extern const char kHatsSurveyTriggerSettings[];
 extern const char kHatsSurveyTriggerSettingsPrivacy[];
@@ -40,13 +45,7 @@ extern const char kHatsSurveyTriggerTrackingProtectionControlImmediate[];
 extern const char kHatsSurveyTriggerTrackingProtectionTreatmentImmediate[];
 extern const char kHatsSurveyTriggerTrackingProtectionControlDelayed[];
 extern const char kHatsSurveyTriggerTrackingProtectionTreatmentDelayed[];
-extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox3ConsentAccept[];
 extern const char kHatsSurveyTriggerSettingsSecurity[];
-extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox3ConsentDecline[];
-extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox3NoticeDismiss[];
-extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox3NoticeOk[];
-extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox3NoticeSettings[];
-extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox3NoticeLearnMore[];
 extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox4ConsentAccept[];
 extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox4ConsentDecline[];
 extern const char kHatsSurveyTriggerTrustSafetyPrivacySandbox4NoticeOk[];
@@ -92,7 +91,7 @@ struct SurveyConfig {
   SurveyConfig(
       const base::Feature* feature,
       const std::string& trigger,
-      const absl::optional<std::string>& presupplied_trigger_id = absl::nullopt,
+      const std::optional<std::string>& presupplied_trigger_id = std::nullopt,
       const std::vector<std::string>& product_specific_bits_data_fields = {},
       const std::vector<std::string>& product_specific_string_data_fields = {});
 

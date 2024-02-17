@@ -138,7 +138,7 @@ bool HTMLAnchorElement::SupportsFocus(UpdateBehavior update_behavior) const {
 bool HTMLAnchorElement::ShouldHaveFocusAppearance() const {
   // TODO(crbug.com/1444450): Can't this be done with focus-visible now?
   return (GetDocument().LastFocusType() != mojom::blink::FocusType::kMouse) ||
-         HTMLElement::SupportsFocus();
+         HTMLElement::SupportsFocus(UpdateBehavior::kNoneForIsFocused);
 }
 
 bool HTMLAnchorElement::IsFocusable(UpdateBehavior update_behavior) const {
@@ -571,8 +571,8 @@ void HTMLAnchorElement::HandleClick(Event& event) {
                       WebFeature::kAnchorClickDispatchForNonConnectedNode);
   }
 
-  Document& top_document = GetDocument().TopDocument();
-  if (auto* sender = AnchorElementMetricsSender::From(top_document)) {
+  if (auto* sender =
+          AnchorElementMetricsSender::GetForFrame(GetDocument().GetFrame())) {
     sender->MaybeReportClickedMetricsOnClick(*this);
   }
 
@@ -712,8 +712,8 @@ Node::InsertionNotificationRequest HTMLAnchorElement::InsertedInto(
       HTMLElement::InsertedInto(insertion_point);
   LogAddElementIfIsolatedWorldAndInDocument("a", html_names::kHrefAttr);
 
-  Document& top_document = GetDocument().TopDocument();
-  if (auto* sender = AnchorElementMetricsSender::From(top_document)) {
+  if (auto* sender =
+          AnchorElementMetricsSender::GetForFrame(GetDocument().GetFrame())) {
     sender->AddAnchorElement(*this);
   }
 
@@ -726,6 +726,7 @@ Node::InsertionNotificationRequest HTMLAnchorElement::InsertedInto(
       static const bool warm_up_on_inserted_into_dom =
           features::kSpeculativeServiceWorkerWarmUpOnInsertedIntoDom.Get();
       if (warm_up_on_visible || warm_up_on_inserted_into_dom) {
+        Document& top_document = GetDocument().TopDocument();
         if (auto* observer =
                 AnchorElementObserverForServiceWorker::From(top_document)) {
           if (warm_up_on_visible) {

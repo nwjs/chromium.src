@@ -69,10 +69,6 @@ scoped_refptr<base::RefCountedMemory> CreatePNGBytes(int edge_size) {
   return bytes;
 }
 
-gfx::Image CreateImage() {
-  return CreateImage(100, 50);
-}
-
 gfx::Image CreateImage(int size, SkColor color) {
   return CreateImage(size, size, color);
 }
@@ -209,8 +205,7 @@ PlatformImage CreatePlatformImage() {
       skia::SkBitmapToUIImageWithColorSpace(bitmap, scale, color_space.get());
   return image;
 #elif BUILDFLAG(IS_MAC)
-  NSImage* image = skia::SkBitmapToNSImageWithColorSpace(
-      bitmap, base::mac::GetGenericRGBColorSpace());
+  NSImage* image = skia::SkBitmapToNSImage(bitmap);
   return image;
 #else
   return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);

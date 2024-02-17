@@ -39,7 +39,7 @@ source_set("constants") {
     "new_tab_page_header_constants.h",
     "new_tab_page_header_constants.mm",
   ]
-  public_deps = [ "//ios/chrome/browser/discover_feed:constants" ]
+  public_deps = [ "//ios/chrome/browser/discover_feed/model:constants" ]
 }
 
 source_set("component_factory_protocol") {
@@ -57,8 +57,8 @@ source_set("component_factory") {
     "//components/prefs",
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/app/application_delegate:app_state_header",
-    "//ios/chrome/browser/discover_feed",
-    "//ios/chrome/browser/discover_feed:discover_feed_factory",
+    "//ios/chrome/browser/discover_feed/model",
+    "//ios/chrome/browser/discover_feed/model:discover_feed_factory",
     "//ios/chrome/browser/search_engines/model:template_url_service_factory",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
@@ -75,7 +75,7 @@ source_set("component_factory") {
 
 source_set("coordinator") {
   sources = [
-    "new_tab_page_coordinator+private.h",
+    "new_tab_page_coordinator+Testing.h",
     "new_tab_page_coordinator.h",
     "new_tab_page_coordinator.mm",
   ]
@@ -99,9 +99,9 @@ source_set("coordinator") {
     "//components/signin/public/identity_manager/objc",
     "//ios/chrome/app/application_delegate:app_state_header",
     "//ios/chrome/app/strings",
-    "//ios/chrome/browser/discover_feed",
-    "//ios/chrome/browser/discover_feed:constants",
-    "//ios/chrome/browser/discover_feed:discover_feed_factory",
+    "//ios/chrome/browser/discover_feed/model",
+    "//ios/chrome/browser/discover_feed/model:constants",
+    "//ios/chrome/browser/discover_feed/model:discover_feed_factory",
     "//ios/chrome/browser/follow/model:browser_agent",
     "//ios/chrome/browser/follow/model:enums",
     "//ios/chrome/browser/follow/model:service",
@@ -127,6 +127,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/ui/authentication/enterprise:enterprise_utils",
     "//ios/chrome/browser/ui/content_suggestions",
     "//ios/chrome/browser/ui/content_suggestions:content_suggestions_ui_util",
+    "//ios/chrome/browser/ui/content_suggestions:public",
     "//ios/chrome/browser/ui/content_suggestions/cells:constants",
     "//ios/chrome/browser/ui/context_menu/link_preview",
     "//ios/chrome/browser/ui/ntp/feed_management",
@@ -137,6 +138,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/ui/ntp/metrics:constants",
     "//ios/chrome/browser/ui/ntp/metrics:home_metrics",
     "//ios/chrome/browser/ui/overscroll_actions",
+    "//ios/chrome/browser/ui/sharing",
     "//ios/chrome/browser/ui/toolbar/public",
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/common/ui/util",
@@ -195,7 +197,6 @@ source_set("ntp_internal") {
     ":feature_flags",
     ":logo",
     ":ntp",
-    ":ntp_ui_util",
     "resources:fake_omnibox_background_color",
     "resources:fake_omnibox_bottom_gradient_color",
     "resources:fake_omnibox_solid_background_color",
@@ -209,13 +210,13 @@ source_set("ntp_internal") {
     "//components/signin/public/identity_manager/objc",
     "//components/strings",
     "//ios/chrome/app/strings",
-    "//ios/chrome/browser/discover_feed",
-    "//ios/chrome/browser/discover_feed:constants",
-    "//ios/chrome/browser/discover_feed:discover_feed_factory",
+    "//ios/chrome/browser/discover_feed/model",
+    "//ios/chrome/browser/discover_feed/model:constants",
+    "//ios/chrome/browser/discover_feed/model:discover_feed_factory",
     "//ios/chrome/browser/metrics/model:metrics_internal",
     "//ios/chrome/browser/ntp/model",
     "//ios/chrome/browser/ntp/model:util",
-    "//ios/chrome/browser/policy:policy_util",
+    "//ios/chrome/browser/policy/model:policy_util",
     "//ios/chrome/browser/search_engines/model",
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
@@ -233,6 +234,7 @@ source_set("ntp_internal") {
     "//ios/chrome/browser/ui/content_suggestions:content_suggestions_ui",
     "//ios/chrome/browser/ui/content_suggestions:content_suggestions_ui_util",
     "//ios/chrome/browser/ui/content_suggestions:metrics",
+    "//ios/chrome/browser/ui/content_suggestions:public",
     "//ios/chrome/browser/ui/content_suggestions/cells",
     "//ios/chrome/browser/ui/content_suggestions/cells:constants",
     "//ios/chrome/browser/ui/lens:lens_availability",
@@ -292,11 +294,6 @@ source_set("feed_menu") {
   ]
 }
 
-source_set("ntp_ui_util") {
-  sources = [ "new_tab_page_view_delegate.h" ]
-  deps = []
-}
-
 source_set("unit_tests") {
   testonly = true
   sources = [
@@ -323,7 +320,7 @@ source_set("unit_tests") {
     "//components/variations",
     "//components/variations/service",
     "//ios/chrome/app/strings",
-    "//ios/chrome/browser/discover_feed:discover_feed_factory",
+    "//ios/chrome/browser/discover_feed/model:discover_feed_factory",
     "//ios/chrome/browser/favicon",
     "//ios/chrome/browser/ntp/model",
     "//ios/chrome/browser/search_engines/model:template_url_service_factory",
@@ -374,7 +371,7 @@ source_set("eg2_tests") {
     "//components/strings",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/metrics/model:eg_test_support+eg2",
-    "//ios/chrome/browser/policy:eg_test_support+eg2",
+    "//ios/chrome/browser/policy/model:eg_test_support+eg2",
     "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/ui/content_suggestions:content_suggestions_constant",
     "//ios/chrome/browser/ui/popup_menu:constants",

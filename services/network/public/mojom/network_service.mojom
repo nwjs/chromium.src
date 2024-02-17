@@ -34,7 +34,6 @@ import "services/network/public/mojom/parsed_headers.mojom";
 import "services/network/public/mojom/url_loader_network_service_observer.mojom";
 import "services/network/public/mojom/url_response_head.mojom";
 import "services/network/public/mojom/client_security_state.mojom";
-import "services/network/public/mojom/cookie_encryption_provider.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
 
@@ -337,13 +336,9 @@ interface NetworkService {
   [EnableIf=is_ct_supported]
   ConfigureSCTAuditing(SCTAuditingConfiguration configuration);
 
-  // Updates the log list used for CT verification. `update_time` should
-  // contain the timestamp that the log list was considered fresh/current, in
-  // order to ensure that CT is not enforced if the log list is too out of
-  // date.
+  // Updates the log list used for CT auditing.
   [EnableIf=is_ct_supported]
-  UpdateCtLogList(array<CTLogInfo> log_list,
-                  mojo_base.mojom.Time update_time) => ();
+  UpdateCtLogList(array<CTLogInfo> log_list) => ();
 
   // Updates the list of popular SCTs queried during CT hashdance auditing.
   [EnableIf=is_ct_supported]
@@ -414,13 +409,4 @@ interface NetworkService {
   [EnableIf=is_linux]
   SetGssapiLibraryLoadObserver(
     pending_remote<GssapiLibraryLoadObserver> gssapi_library_load_observer);
-
-  // Sets the cookie encryption provider to be used by future network contexts
-  // that have cookie encryption enabled. The `GetEncryptor` method on the
-  // supplied `provider` is called to obtain a valid set of keys for cookie
-  // encryption.
-  // This only affects any network contexts created after the provider has been
-  // set and existing ones are not affected.
-  SetCookieEncryptionProvider(
-    pending_remote<CookieEncryptionProvider> provider);
 };

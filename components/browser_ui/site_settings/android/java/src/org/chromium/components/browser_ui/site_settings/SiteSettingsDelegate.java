@@ -55,9 +55,6 @@ public interface SiteSettingsDelegate {
     /** @return true if the PrivacySandboxFirstPartySetsUI Feature is enabled. */
     boolean isPrivacySandboxFirstPartySetsUIFeatureEnabled();
 
-    /** @return true if the UserBypassUI feature is enabled. */
-    boolean isUserBypassUIEnabled();
-
     /** @return The id of the notification channel associated with the given origin. */
     // TODO(crbug.com/1069895): Remove this once WebLayer supports notifications.
     String getChannelIdForOrigin(String origin);
@@ -70,14 +67,14 @@ public interface SiteSettingsDelegate {
      *     origin and content setting type.
      */
     @Nullable
-    String getDelegateAppNameForOrigin(Origin origin, @ContentSettingsType int type);
+    String getDelegateAppNameForOrigin(Origin origin, @ContentSettingsType.EnumType int type);
 
     /**
      * @return The package name of the app that should handle permission delegation for the origin
      *     and content setting type.
      */
     @Nullable
-    String getDelegatePackageNameForOrigin(Origin origin, @ContentSettingsType int type);
+    String getDelegatePackageNameForOrigin(Origin origin, @ContentSettingsType.EnumType int type);
 
     /** @return true if Help and Feedback links and menu items should be shown to the user. */
     boolean isHelpAndFeedbackEnabled();

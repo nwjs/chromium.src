@@ -494,11 +494,6 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="No result within timout"/>
 </enum>
 
-<enum name="ExitConcurrentPlaybackContents">
-  <int value="0" label="Most recently audible web contents"/>
-  <int value="1" label="Older audible web contents"/>
-</enum>
-
 <enum name="FFmpegCodecHashes">
   <int value="-2140893972" label="bfi"/>
   <int value="-2126016986" label="vp3"/>
@@ -1239,12 +1234,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="MediaStream"/>
 </enum>
 
-<enum name="MediaNotificationClickSource">
-  <int value="0" label="Media"/>
-  <int value="1" label="Presentation"/>
-  <int value="2" label="MediaFling"/>
-</enum>
-
 <enum name="MediaNotificationDisplayPage">
   <int value="0" label="Unknown"/>
   <int value="1" label="Quick settings media view"/>
@@ -1674,6 +1663,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="RGBA, 8:8:8:8 RGBA in one GMB"/>
   <int value="7" label="BGRA, 8:8:8:8 BGRA in one GMB"/>
   <int value="8" label="P010, one P010 GMB"/>
+  <int value="9" label="YV12, one YV12 GMB"/>
 </enum>
 
 <enum name="PepperVideoDecoderHardwareAccelerationBehavior">
@@ -1843,6 +1833,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="PreviousErrorOnDecode"/>
   <int value="4" label="PreviousErrorOnRegisterCallback"/>
   <int value="5" label="ConsecutivePendingBufferOverflowDuringInit"/>
+  <int value="6" label="ParseErrorOnResolutionCheck"/>
+  <int value="7" label="TooManyInstancesAndSmallResolution"/>
 </enum>
 
 <enum name="ScreenCaptureKitFullscreenModuleMode">
@@ -2278,11 +2270,6 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Read-only shared memory region"/>
   <int value="5" label="Dmabuf file descriptor"/>
   <int value="6" label="GpuMemoryBuffer"/>
-</enum>
-
-<enum name="VideoPersistenceControlsType">
-  <int value="0" label="Native controls"/>
-  <int value="1" label="Custom controls"/>
 </enum>
 
 <enum name="VideoPixelFormatUnion">

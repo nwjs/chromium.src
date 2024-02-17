@@ -81,7 +81,10 @@ public class SharedBookmarkModelMocks {
         doReturn(DESKTOP_BOOKMARK_ID).when(bookmarkModel).getDesktopFolderId();
         doReturn(OTHER_BOOKMARK_ID).when(bookmarkModel).getOtherFolderId();
         doReturn(MOBILE_BOOKMARK_ID).when(bookmarkModel).getMobileFolderId();
-        doReturn(READING_LIST_BOOKMARK_ID).when(bookmarkModel).getReadingListFolder();
+        // TODO(crbug.com/1501998): Add account reading list folder support here.
+        doReturn(READING_LIST_BOOKMARK_ID)
+                .when(bookmarkModel)
+                .getLocalOrSyncableReadingListFolder();
         doReturn(PARTNER_BOOKMARK_ID).when(bookmarkModel).getPartnerFolderId();
         doReturn(
                         Arrays.asList(
@@ -144,13 +147,23 @@ public class SharedBookmarkModelMocks {
         long dateAdded = id.getId();
         long dateLastOpened = id.getId();
         return new BookmarkItem(
-                id, title, url, false, parentId, false, false, dateAdded, read, dateLastOpened);
+                id,
+                title,
+                url,
+                false,
+                parentId,
+                false,
+                false,
+                dateAdded,
+                read,
+                dateLastOpened,
+                false);
     }
 
     private static BookmarkItem makeFolderItem(BookmarkId id, String title, BookmarkId parentId) {
         boolean isEditable = !ROOT_BOOKMARK_ID.equals(parentId);
         long dateAdded = id.getId();
         return new BookmarkItem(
-                id, title, null, true, parentId, isEditable, false, dateAdded, false, 0);
+                id, title, null, true, parentId, isEditable, false, dateAdded, false, 0, false);
     }
 }

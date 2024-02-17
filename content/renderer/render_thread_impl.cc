@@ -24,6 +24,7 @@
 #include "base/logging.h"
 #include "base/memory/discardable_memory_allocator.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/message_loop/message_pump.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
@@ -131,8 +132,6 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/url_util.h"
 #include "ppapi/buildflags/buildflags.h"
-#include "services/metrics/public/cpp/mojo_ukm_recorder.h"
-#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
@@ -143,9 +142,8 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/origin_trials/origin_trials_settings_provider.h"
 #include "third_party/blink/public/common/page/launching_process_state.h"
-#include "third_party/blink/public/common/privacy_budget/active_sampling.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
 #include "third_party/blink/public/common/switches.h"
+#include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom.h"
 #include "third_party/blink/public/platform/modules/video_capture/web_video_capture_impl_manager.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
@@ -166,7 +164,6 @@
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/skia/include/core/SkFontMgr.h"
 #include "third_party/skia/include/core/SkGraphics.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/ui_base_switches_util.h"
 #include "ui/display/display_switches.h"
@@ -236,14 +233,6 @@ using ::blink::WebRuntimeFeatures;
 using ::blink::WebSecurityPolicy;
 using ::blink::WebString;
 using ::blink::WebView;
-
-// An implementation of mojom::RenderMessageFilter which can be mocked out
-// for tests which may indirectly send messages over this interface.
-mojom::RenderMessageFilter* g_render_message_filter_for_testing;
-
-// An implementation of RendererBlinkPlatformImpl which can be mocked out
-// for tests.
-RendererBlinkPlatformImpl* g_current_blink_platform_impl_for_testing;
 
 // Keep the global RenderThreadImpl in a TLS slot so it is impossible to access
 // incorrectly from the wrong thread.
@@ -441,34 +430,6 @@ RenderThreadImpl* RenderThreadImpl::current() {
 }
 
 // static
-mojom::RenderMessageFilter* RenderThreadImpl::current_render_message_filter() {
-  if (g_render_message_filter_for_testing)
-    return g_render_message_filter_for_testing;
-  DCHECK(current());
-  return current()->render_message_filter();
-}
-
-// static
-RendererBlinkPlatformImpl* RenderThreadImpl::current_blink_platform_impl() {
-  if (g_current_blink_platform_impl_for_testing)
-    return g_current_blink_platform_impl_for_testing;
-  DCHECK(current());
-  return current()->blink_platform_impl();
-}
-
-// static
-void RenderThreadImpl::SetRenderMessageFilterForTesting(
-    mojom::RenderMessageFilter* render_message_filter) {
-  g_render_message_filter_for_testing = render_message_filter;
-}
-
-// static
-void RenderThreadImpl::SetRendererBlinkPlatformImplForTesting(
-    RendererBlinkPlatformImpl* blink_platform_impl) {
-  g_current_blink_platform_impl_for_testing = blink_platform_impl;
-}
-
-// static
 scoped_refptr<base::SingleThreadTaskRunner>
 RenderThreadImpl::DeprecatedGetMainTaskRunner() {
   return g_main_task_runner.Get();
@@ -517,6 +478,11 @@ RenderThreadImpl::RenderThreadImpl(
               .ConnectToBrowser(true)
               .IPCTaskRunner(scheduler->DeprecatedDefaultTaskRunner())
               .ExposesInterfacesToBrowser()
+              .SetUrgentMessageObserver(
+                  base::FeatureList::IsEnabled(
+                      blink::features::kBlinkSchedulerPrioritizeNavigationIPCs)
+                      ? scheduler.get()
+                      : nullptr)
               .Build()),
       main_thread_scheduler_(std::move(scheduler)),
       client_id_(GetClientIdFromCommandLine()) {
@@ -537,11 +503,6 @@ void RenderThreadImpl::Init() {
 
 #if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
   // On Mac and Android Java UI, the select popups are rendered by the browser.
-#if BUILDFLAG(IS_MAC)
-  // When UseCommonSelectPopup is enabled, the internal popup menu should be
-  // used.
-  if (!features::IsUseCommonSelectPopupEnabled())
-#endif
     blink::WebView::SetUseExternalPopupMenus(true);
 #endif
 
@@ -676,33 +637,6 @@ void RenderThreadImpl::Init() {
   base::ThreadPool::PostTask(FROM_HERE,
                              base::BindOnce([] { skia::DefaultFontMgr(); }));
 
-  bool should_actively_sample_fonts =
-      command_line.HasSwitch(kFirstRendererProcess) &&
-      blink::IdentifiabilityStudySettings::Get()->ShouldActivelySample() &&
-      !blink::IdentifiabilityStudySettings::Get()
-           ->FontFamiliesToActivelySample()
-           .empty();
-  if (should_actively_sample_fonts) {
-    mojo::PendingRemote<ukm::mojom::UkmRecorderFactory> pending_factory;
-    RenderThread::Get()->BindHostReceiver(
-        pending_factory.InitWithNewPipeAndPassReceiver());
-    scoped_refptr<base::SequencedTaskRunner> sequenced_task_runner =
-        base::ThreadPool::CreateSequencedTaskRunner(
-            {base::TaskPriority::BEST_EFFORT, base::MayBlock(),
-             base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
-    sequenced_task_runner->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            [](mojo::PendingRemote<ukm::mojom::UkmRecorderFactory>
-                   pending_factory) {
-              mojo::Remote<ukm::mojom::UkmRecorderFactory> factory(
-                  std::move(pending_factory));
-              auto ukm_recorder = ukm::MojoUkmRecorder::Create(*factory);
-              blink::IdentifiabilityActiveSampler::ActivelySampleAvailableFonts(
-                  ukm_recorder.get());
-            },
-            std::move(pending_factory)));
-  }
   UpdateForegroundCrashKey(
       /*foreground=*/!blink::kLaunchingProcessIsBackgrounded);
 }
@@ -762,6 +696,7 @@ std::string RenderThreadImpl::GetLocale() {
   return lang;
 }
 
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
 IPC::SyncMessageFilter* RenderThreadImpl::GetSyncMessageFilter() {
   return sync_message_filter();
 }
@@ -781,6 +716,16 @@ void RenderThreadImpl::RemoveRoute(int32_t routing_id) {
   GetChannel()->RemoveListenerTaskRunner(routing_id);
 }
 
+void RenderThreadImpl::AddFilter(IPC::MessageFilter* filter) {
+  channel()->AddFilter(filter);
+}
+
+void RenderThreadImpl::RemoveFilter(IPC::MessageFilter* filter) {
+  channel()->RemoveFilter(filter);
+}
+
+#endif
+
 mojom::RendererHost* RenderThreadImpl::GetRendererHost() {
   if (!renderer_host_) {
     DCHECK(GetChannel());
@@ -796,14 +741,6 @@ bool RenderThreadImpl::GenerateFrameRoutingID(
     blink::DocumentToken& document_token) {
   return render_message_filter()->GenerateFrameRoutingID(
       &routing_id, &frame_token, &devtools_frame_token, &document_token);
-}
-
-void RenderThreadImpl::AddFilter(IPC::MessageFilter* filter) {
-  channel()->AddFilter(filter);
-}
-
-void RenderThreadImpl::RemoveFilter(IPC::MessageFilter* filter) {
-  channel()->RemoveFilter(filter);
 }
 
 void RenderThreadImpl::AddObserver(RenderThreadObserver* observer) {
@@ -851,20 +788,12 @@ void RenderThreadImpl::InitializeWebKit(mojo::BinderMap* binders) {
   blink::Initialize(blink_platform_impl_.get(), binders,
                     main_thread_scheduler_.get());
 
-  v8::Isolate* isolate = blink::MainThreadIsolate();
-
   if (!command_line.HasSwitch(switches::kDisableThreadedCompositing))
     InitializeCompositorThread();
 
   RenderThreadImpl::RegisterSchemes();
 
   RenderMediaClient::Initialize();
-
-  if (!GetContentClient()->renderer()->RunIdleHandlerWhenWidgetsHidden()) {
-    // If we do not track widget visibility, then assume conservatively that
-    // the isolate is in background. This reduces memory usage.
-    isolate->IsolateInBackgroundNotification();
-  }
 
   // Hook up blink's codecs so skia can call them. Since only the renderer
   // processes should be doing image decoding, this is not done in the common
@@ -1352,6 +1281,7 @@ void RenderThreadImpl::OnProcessFinalRelease() {
   NOTREACHED();
 }
 
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
 bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
   for (auto& observer : observers_) {
     if (observer.OnControlMessageReceived(msg))
@@ -1360,6 +1290,7 @@ bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
 
   return false;
 }
+#endif
 
 void RenderThreadImpl::SetProcessState(
     mojom::RenderProcessBackgroundState background_state,
@@ -1391,6 +1322,16 @@ void RenderThreadImpl::SetProcessState(
 
   background_state_ = background_state;
   visible_state_ = visible_state;
+}
+
+void RenderThreadImpl::SetBatterySaverMode(bool battery_saver_mode_enabled) {
+  if (battery_saver_mode_enabled) {
+    base::MessagePump::OverrideAlignWakeUpsState(true, base::Milliseconds(32));
+  } else {
+    base::MessagePump::ResetAlignWakeUpsState();
+  }
+
+  blink::SetBatterySaverModeForAllIsolates(battery_saver_mode_enabled);
 }
 
 void RenderThreadImpl::SetIsLockedToSite() {
@@ -1460,8 +1401,10 @@ RenderThreadImpl::GetAssociatedInterfaceRegistry() {
 }
 
 mojom::RenderMessageFilter* RenderThreadImpl::render_message_filter() {
-  if (!render_message_filter_)
-    GetChannel()->GetRemoteAssociatedInterface(&render_message_filter_);
+  if (!render_message_filter_) {
+    blink::Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
+        render_message_filter_.BindNewPipeAndPassReceiver());
+  }
   return render_message_filter_.get();
 }
 
@@ -1523,11 +1466,11 @@ void RenderThreadImpl::UpdateScrollbarTheme(
 #if BUILDFLAG(IS_MAC)
   blink::WebScrollbarTheme::UpdateScrollbarsWithNSDefaults(
       params->has_initial_button_delay
-          ? absl::make_optional(params->initial_button_delay)
-          : absl::nullopt,
+          ? std::make_optional(params->initial_button_delay)
+          : std::nullopt,
       params->has_autoscroll_button_delay
-          ? absl::make_optional(params->autoscroll_button_delay)
-          : absl::nullopt,
+          ? std::make_optional(params->autoscroll_button_delay)
+          : std::nullopt,
       params->preferred_scroller_style, params->redraw,
       params->jump_on_track_click);
 #endif  // BUILDFLAG(IS_MAC)

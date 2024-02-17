@@ -161,6 +161,14 @@ BASE_FEATURE(kCacheControlNoStoreEnterBackForwardCache,
              "CacheControlNoStoreEnterBackForwardCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// This killswitch is distinct from the OT.
+// It allows us to remotely disable the feature, and get it to stop working even
+// on sites that are in possession of a valid token. When that happens, all API
+// calls gated by the killswitch will fail graceully.
+BASE_FEATURE(kCapturedSurfaceControlKillswitch,
+             "CapturedSurfaceControlKillswitch",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // This serves as an overall kill switch to kill CdmStorageDatabase. If
 // disabled, which it is by default, no operations will be routed through the
 // CdmStorage* path, even in the migration code that lives in MediaLicense* code
@@ -354,6 +362,14 @@ BASE_FEATURE(kEnableServiceWorkersForChromeScheme,
              "EnableServiceWorkersForChromeScheme",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_WIN)
+// If enabled use the expanded range for the prefetch cmd line option.
+BASE_FEATURE(kExpandedPrefetchRange,
+             "ExpandedPrefetchRange",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+#endif  // BUILDFLAG(IS_WIN)
+
 // Enables JavaScript API to intermediate federated identity requests.
 // Note that actual exposure of the FedCM API to web content is controlled
 // by the flag in RuntimeEnabledFeatures on the blink side. See also
@@ -374,6 +390,15 @@ BASE_FEATURE(kFedCmAuthz, "FedCmAuthz", base::FEATURE_DISABLED_BY_DEFAULT);
 // ChromeStatus entry: https://chromestatus.com/feature/5384360374566912
 BASE_FEATURE(kFedCmAutoSelectedFlag,
              "FedCmAutoSelectedFlag",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables usage of the FedCM ButtonMode feature.
+// Note that actual exposure of the API to web content is controlled by
+// the flag in RuntimeEnabledFeatures on the blink side. See also the use
+// of kSetOnlyIfOverridden in content/child/runtime_features.cc. We enable
+// it here by default to support use in origin trials.
+BASE_FEATURE(kFedCmButtonMode,
+             "FedCmButtonMode",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM DomainHint feature. ChromeStatus entry:
@@ -419,11 +444,23 @@ BASE_FEATURE(kFedCmDisconnect,
              "FedCmDisconnect",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables setting login status from same-site subresources (instead of
+// same-origin)
+BASE_FEATURE(kFedCmSameSiteLoginStatus,
+             "FedCmSameSiteLoginStatus",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables usage of the FedCM API with the Selective Disclosure API at the same
 // time.
 BASE_FEATURE(kFedCmSelectiveDisclosure,
              "FedCmSelectiveDisclosure",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Skips the .well-known file checks if the RP and IDP are under the same
+// eTLD+1.
+BASE_FEATURE(kFedCmSkipWellKnownForSameSite,
+             "FedCmSkipWellKnownForSameSite",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables bypassing the well-known file enforcement.
 BASE_FEATURE(kFedCmWithoutWellKnownEnforcement,
@@ -439,29 +476,6 @@ BASE_FEATURE(kFencedFramesEnforceFocus,
 BASE_FEATURE(kWebIdentityDigitalCredentials,
              "WebIdentityDigitalCredentials",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables usage of First Party Sets to determine cookie availability.
-BASE_FEATURE(kFirstPartySets,
-             "FirstPartySets",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether to clear sites data on FPS transitions.
-const base::FeatureParam<bool> kFirstPartySetsClearSiteDataOnChangedSets{
-    &kFirstPartySets, "FirstPartySetsClearSiteDataOnChangedSets", true};
-
-// Controls how many sites are allowed to be in the Associated subset (ignoring
-// ccTLD aliases).
-const base::FeatureParam<int> kFirstPartySetsMaxAssociatedSites{
-    &kFirstPartySets, "FirstPartySetsMaxAssociatedSites", 5};
-
-// Controls the maximum time duration an outermost frame navigation should be
-// deferred by FPS initialization.
-// Using 2s as the starting default timeout. This is based on the UMA metric
-// `History.ClearBrowsingData.Duration.OriginDeletion`.
-const base::FeatureParam<base::TimeDelta>
-    kFirstPartySetsNavigationThrottleTimeout{
-        &kFirstPartySets, "FirstPartySetsNavigationThrottleTimeout",
-        base::Seconds(0)};
 
 // Enables scrollers inside Blink to store scroll offsets in fractional
 // floating-point numbers rather than truncating to integers.
@@ -610,12 +624,6 @@ BASE_FEATURE(kNavigationNetworkResponseQueue,
 #endif
 );
 
-// When enabled, RenderFrameHostManager::CommitPending will also update the
-// visibility of all child views, not just that of the main frame.
-BASE_FEATURE(kNavigationUpdatesChildViewsVisibility,
-             "NavigationUpdatesChildViewsVisibility",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If the network service is enabled, runs it in process.
 BASE_FEATURE(kNetworkServiceInProcess,
              "NetworkServiceInProcess2",
@@ -659,7 +667,12 @@ BASE_FEATURE(kOverscrollHistoryNavigation,
 // Setting to control overscroll history navigation.
 BASE_FEATURE(kOverscrollHistoryNavigationSetting,
              "OverscrollHistoryNavigationSetting",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // Whether web apps can run periodic tasks upon network connectivity.
 BASE_FEATURE(kPeriodicBackgroundSync,
@@ -690,6 +703,11 @@ BASE_FEATURE(kPersistentOriginTrials,
 BASE_FEATURE(kPrefetchNewLimits,
              "PrefetchNewLimits",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, then redirects will be followed when prefetching.
+BASE_FEATURE(kPrefetchRedirects,
+             "PrefetchRedirects",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables exposure of ads APIs in the renderer: Attribution Reporting,
 // FLEDGE, Topics, along with a number of other features actively in development
@@ -1257,6 +1275,12 @@ BASE_FEATURE(kAccessibilityPageZoom,
 const base::FeatureParam<bool> kAccessibilityPageZoomOSLevelAdjustment{
     &kAccessibilityPageZoom, "AdjustForOSLevel", true};
 
+// Enables the use of enhancements to the Page Zoom feature based on user
+// feedback from the v1 version (e.g. reset button, better IPH, etc).
+BASE_FEATURE(kAccessibilityPageZoomEnhancements,
+             "AccessibilityPageZoomEnhancements",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Allows the use of "Smart Zoom", an alternative form of page zoom, and
 // enables the associated UI.
 BASE_FEATURE(kSmartZoom, "SmartZoom", base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1265,7 +1289,7 @@ BASE_FEATURE(kSmartZoom, "SmartZoom", base::FEATURE_DISABLED_BY_DEFAULT);
 // technologies are present
 BASE_FEATURE(kAutoDisableAccessibilityV2,
              "AutoDisableAccessibilityV2",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the mojo based gin java bridge implementation.
 BASE_FEATURE(kGinJavaBridgeMojo,
@@ -1284,16 +1308,10 @@ BASE_FEATURE(kMouseAndTrackpadDropdownMenu,
              "MouseAndTrackpadDropdownMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Request Desktop Site secondary settings for Android; including display
-// setting and peripheral setting.
-BASE_FEATURE(kRequestDesktopSiteAdditions,
-             "RequestDesktopSiteAdditions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Request Desktop Site based on window width for Android.
 BASE_FEATURE(kRequestDesktopSiteWindowSetting,
              "RequestDesktopSiteWindowSetting",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Request Desktop Site zoom for Android. Apply a pre-defined page zoom level
 // when desktop user agent is used.
@@ -1323,12 +1341,24 @@ BASE_FEATURE(kUserMediaScreenCapturing,
 // https://w3c.github.io/web-nfc/
 BASE_FEATURE(kWebNfc, "WebNFC", base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Kill switch for allowing webview to suppress tap immediately after fling,
+// matching chrome behavior.
+BASE_FEATURE(kWebViewSuppressTapDuringFling,
+             "WebViewSuppressTapDuringFling",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_MAC)
 // Enables backgrounding hidden renderers on Mac.
 BASE_FEATURE(kMacAllowBackgroundingRenderProcesses,
              "MacAllowBackgroundingRenderProcesses",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables a fix for a macOS IME Live Conversion issue. crbug.com/1328530 and
+// crbug.com/1342551
+BASE_FEATURE(kMacImeLiveConversionFix,
+             "MacImeLiveConversionFix",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMacSyscallSandbox,

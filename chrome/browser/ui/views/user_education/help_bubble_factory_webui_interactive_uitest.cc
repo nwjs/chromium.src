@@ -39,6 +39,7 @@
 #include "content/public/test/browser_test.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/test/widget_test.h"
 
@@ -51,14 +52,15 @@ DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kReadLaterWebContentsElementId);
 
 class HelpBubbleFactoryWebUIInteractiveUiTest : public InteractiveBrowserTest {
  public:
-  HelpBubbleFactoryWebUIInteractiveUiTest() = default;
+  HelpBubbleFactoryWebUIInteractiveUiTest() {
+    feature_list_.InitWithFeatures(
+        {features::kSidePanelPinning, features::kChromeRefresh2023}, {});
+  }
   ~HelpBubbleFactoryWebUIInteractiveUiTest() override = default;
 
   // Opens the side panel and instruments the Read Later WebContents as
   // kReadLaterWebContentsElementId.
   auto OpenReadingListSidePanel() {
-    if (features::IsChromeRefresh2023() &&
-        base::FeatureList::IsEnabled(features::kSidePanelPinning)) {
       return Steps(
           PressButton(kToolbarAppMenuButtonElementId),
           SelectMenuItem(AppMenuModel::kBookmarksMenuItem),
@@ -69,43 +71,14 @@ class HelpBubbleFactoryWebUIInteractiveUiTest : public InteractiveBrowserTest {
           // Ensure that the Reading List side panel loads properly.
           InstrumentNonTabWebView(kReadLaterWebContentsElementId,
                                   kReadLaterSidePanelWebViewElementId));
-    }
-
-    return Steps(
-        // Remove delays in switching side panels to prevent possible race
-        // conditions when selecting items from the side panel dropdown.
-        Do([this]() {
-          SidePanelUtil::GetSidePanelCoordinatorForBrowser(browser())
-              ->SetNoDelaysForTesting(true);
-        }),
-        // Click the Side Panel button and wait for the side panel to appear.
-        PressButton(kToolbarSidePanelButtonElementId),
-        WaitForShow(kSidePanelElementId), FlushEvents(),
-        // Select the Reading List side panel and wait for the WebView to
-        // appear.
-        SelectDropdownItem(kSidePanelComboboxElementId,
-                           static_cast<int>(SidePanelEntry::Id::kReadingList)),
-        WaitForShow(kReadLaterSidePanelWebViewElementId),
-        // Ensure that the Reading List side panel loads properly.
-        InstrumentNonTabWebView(kReadLaterWebContentsElementId,
-                                kReadLaterSidePanelWebViewElementId));
   }
 
   auto OpenBookmarksSidePanel() {
-    if (features::IsChromeRefresh2023() &&
-        base::FeatureList::IsEnabled(features::kSidePanelPinning)) {
       return Steps(
           PressButton(kToolbarAppMenuButtonElementId),
           SelectMenuItem(AppMenuModel::kBookmarksMenuItem),
           SelectMenuItem(BookmarkSubMenuModel::kShowBookmarkSidePanelItem),
           WaitForShow(kSidePanelElementId), FlushEvents());
-    }
-
-    // Yes, this assumes the side panel is already open.
-    return Steps(
-        EnsurePresent(kSidePanelElementId),
-        SelectDropdownItem(kSidePanelComboboxElementId,
-                           static_cast<int>(SidePanelEntry::Id::kBookmarks)));
   }
 
   auto ShowHelpBubble(ElementSpecifier element) {
@@ -144,6 +117,10 @@ class HelpBubbleFactoryWebUIInteractiveUiTest : public InteractiveBrowserTest {
                           has_help_bubble ? "true" : "false"))));
   }
 
+  auto Cleanup() {
+    return Do(base::BindLambdaForTesting([this]() { help_bubble_.reset(); }));
+  }
+
  protected:
   std::unique_ptr<user_education::HelpBubble> help_bubble_;
 
@@ -165,6 +142,8 @@ class HelpBubbleFactoryWebUIInteractiveUiTest : public InteractiveBrowserTest {
     return static_cast<BrowserFeaturePromoController*>(controller)
         ->bubble_factory_registry();
   }
+
+  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
@@ -210,7 +189,9 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
       // Verify that the anchor element is no longer marked.
       CheckJsResultAt(
           kReadLaterWebContentsElementId, kPathToAddCurrentTabElement,
-          "el => el.classList.contains('help-anchor-highlight')", false));
+          "el => el.classList.contains('help-anchor-highlight')", false),
+
+      Cleanup());
 }
 
 IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
@@ -234,7 +215,9 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
 
       // Verify that the handler no longer believes that the anchor has a help
       // bubble.
-      CheckHandlerHasHelpBubble(kWebUIIPHDemoElementIdentifier, false));
+      CheckHandlerHasHelpBubble(kWebUIIPHDemoElementIdentifier, false),
+
+      Cleanup());
 }
 
 IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
@@ -261,7 +244,9 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
 
       // Verify that the handler no longer believes that the anchor has a help
       // bubble.
-      CheckHandlerHasHelpBubble(kWebUIIPHDemoElementIdentifier, false));
+      CheckHandlerHasHelpBubble(kWebUIIPHDemoElementIdentifier, false),
+
+      Cleanup());
 }
 
 // Regression test for item (1) in crbug.com/1422875.
@@ -276,7 +261,8 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
       // from its widget and effectively hides the WebContents.
       OpenBookmarksSidePanel(),
       WaitForHide(
-          user_education::HelpBubbleView::kHelpBubbleElementIdForTesting));
+          user_education::HelpBubbleView::kHelpBubbleElementIdForTesting),
+      Cleanup());
 }
 
 namespace {
@@ -314,5 +300,6 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryRtlWebUIInteractiveUiTest,
                  side_panel->GetWidget()->LayoutRootViewIfNecessary();
                }),
       WaitForEvent(kSidePanelElementName,
-                   user_education::kHelpBubbleAnchorBoundsChangedEvent));
+                   user_education::kHelpBubbleAnchorBoundsChangedEvent),
+      Cleanup());
 }

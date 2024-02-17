@@ -32,7 +32,8 @@
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
 #import "ios/chrome/browser/drag_and_drop/model/table_view_url_drag_drop_handler.h"
 #import "ios/chrome/browser/metrics/model/new_tab_page_uma.h"
-#import "ios/chrome/browser/net/crurl.h"
+#import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/live_tab_context_browser_agent.h"
 #import "ios/chrome/browser/sessions/session_util.h"
@@ -113,7 +114,6 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeRecentlyClosedHeader = kItemTypeEnumZero,
   ItemTypeRecentlyClosed,
-  ItemTypeOtherDevicesHeader,
   ItemTypeOtherDevicesSyncOff,
   ItemTypeOtherDevicesNoSessions,
   ItemTypeOtherDevicesSignedOut,
@@ -122,7 +122,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeSessionHeader,
   ItemTypeSessionTabData,
   ItemTypeShowFullHistory,
-  ItemTypeSigninDisabled,
   ItemTypeSuggestedActionsHeader,
   ItemTypeSuggestedActionSearchOpenTabs,
   ItemTypeSuggestedActionSearchWeb,
@@ -176,6 +175,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 @property(nonatomic, assign) sessions::TabRestoreService* tabRestoreService;
 // The sync state.
 @property(nonatomic, assign) SessionsSyncUserState sessionState;
+// Mediator in charge of inviting the user to sign-in with a Google account.
 @property(nonatomic, strong) SigninPromoViewMediator* signinPromoViewMediator;
 // The browser state used for many operations, derived from the one provided by
 // `self.browser`.
@@ -282,7 +282,9 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
   }
 
   if (self.syncService->GetUserSettings()->IsTypeManagedByPolicy(
-          syncer::UserSelectableType::kTabs)) {
+          syncer::UserSelectableType::kTabs) ||
+      self.syncService->GetUserSettings()->IsTypeManagedByPolicy(
+          syncer::UserSelectableType::kHistory)) {
     // Return YES if the data type is disabled by the SyncTypesListDisabled
     // policy.
     return YES;
@@ -1227,10 +1229,8 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
       itemTypeSelected == ItemTypeSessionTabData) {
     [self loadFaviconForCell:cell indexPath:indexPath];
   }
-  // ItemTypeOtherDevicesNoSessions and ItemTypeSigninDisabled should not be
-  // selectable.
-  if (itemTypeSelected == ItemTypeOtherDevicesNoSessions ||
-      itemTypeSelected == ItemTypeSigninDisabled) {
+  // ItemTypeOtherDevicesNoSessions should not be selectable.
+  if (itemTypeSelected == ItemTypeOtherDevicesNoSessions) {
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
   }
   // Set button action method for ItemTypeOtherDevicesSyncOff.
@@ -1346,14 +1346,12 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
     }
 
     case ItemTypeRecentlyClosedHeader:
-    case ItemTypeOtherDevicesHeader:
     case ItemTypeOtherDevicesSyncOff:
     case ItemTypeOtherDevicesNoSessions:
     case ItemTypeOtherDevicesSigninPromo:
     case ItemTypeOtherDevicesSyncInProgressHeader:
     case ItemTypeSessionHeader:
     case ItemTypeShowFullHistory:
-    case ItemTypeSigninDisabled:
       break;
   }
   return nil;
@@ -1558,17 +1556,23 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
           "MobileRecentTabManagerTabFromOtherDeviceOpenedSearchResult"));
       self.searchTerms = @"";
     }
+    web::WebState* currentWebState = self.webStateList->GetActiveWebState();
     new_tab_page_uma::RecordAction(
-        self.isIncognito, self.webStateList->GetActiveWebState(),
+        self.isIncognito, currentWebState,
         new_tab_page_uma::ACTION_OPENED_FOREIGN_SESSION);
     std::unique_ptr<web::WebState> web_state =
         session_util::CreateWebStateWithNavigationEntries(
             self.browserState, toLoad->current_navigation_index,
             toLoad->navigations);
-    self.webStateList->InsertWebState(
-        self.webStateList->count(), std::move(web_state),
-        (WebStateList::INSERT_FORCE_INDEX | WebStateList::INSERT_ACTIVATE),
-        WebStateOpener());
+    if (IsNTPWithoutHistory(currentWebState)) {
+      self.webStateList->ReplaceWebStateAt(self.webStateList->active_index(),
+                                           std::move(web_state));
+    } else {
+      self.webStateList->InsertWebState(
+          self.webStateList->count(), std::move(web_state),
+          (WebStateList::INSERT_FORCE_INDEX | WebStateList::INSERT_ACTIVATE),
+          WebStateOpener());
+    }
   }
   [self.presentationDelegate showActiveRegularTabFromRecentTabs];
 }
@@ -1596,7 +1600,11 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
       self.isIncognito, self.webStateList->GetActiveWebState(),
       new_tab_page_uma::ACTION_OPENED_RECENTLY_CLOSED_ENTRY);
 
-  RestoreTab(entry_id, WindowOpenDisposition::NEW_FOREGROUND_TAB, self.browser);
+  WindowOpenDisposition disposition =
+      IsNTPWithoutHistory(self.webStateList->GetActiveWebState())
+          ? WindowOpenDisposition::CURRENT_TAB
+          : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  RestoreTab(entry_id, disposition, self.browser);
   [self.presentationDelegate showActiveRegularTabFromRecentTabs];
 }
 
@@ -1774,45 +1782,53 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 #pragma mark - SyncPresenter
 
 - (void)showPrimaryAccountReauth {
-  [self.handler showSignin:[[ShowSigninCommand alloc]
-                               initWithOperation:AuthenticationOperation::
-                                                     kPrimaryAccountReauth
-                                     accessPoint:signin_metrics::AccessPoint::
-                                                     ACCESS_POINT_RECENT_TABS]
-        baseViewController:self];
+  [self.applicationHandler
+              showSignin:[[ShowSigninCommand alloc]
+                             initWithOperation:AuthenticationOperation::
+                                                   kPrimaryAccountReauth
+                                   accessPoint:signin_metrics::AccessPoint::
+                                                   ACCESS_POINT_RECENT_TABS]
+      baseViewController:self];
 }
 
 - (void)showSyncPassphraseSettings {
-  [self.handler showSyncPassphraseSettingsFromViewController:self];
+  [self.settingsHandler showSyncPassphraseSettingsFromViewController:self];
 }
 
 - (void)showGoogleServicesSettings {
-  [self.handler showGoogleServicesSettingsFromViewController:self];
+  [self.settingsHandler showGoogleServicesSettingsFromViewController:self];
 }
 
 - (void)showAccountSettings {
-  [self.handler showAccountsSettingsFromViewController:self
-                                  skipIfUINotAvailable:NO];
+  [self.settingsHandler showAccountsSettingsFromViewController:self
+                                          skipIfUINotAvailable:NO];
 }
 
 - (void)showTrustedVaultReauthForFetchKeysWithTrigger:
     (syncer::TrustedVaultUserActionTriggerForUMA)trigger {
-  [self.handler showTrustedVaultReauthForFetchKeysFromViewController:self
-                                                             trigger:trigger];
+  [self.applicationHandler
+      showTrustedVaultReauthForFetchKeysFromViewController:self
+                                                   trigger:trigger
+                                               accessPoint:
+                                                   signin_metrics::AccessPoint::
+                                                       ACCESS_POINT_RECENT_TABS];
 }
 
 - (void)showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:
     (syncer::TrustedVaultUserActionTriggerForUMA)trigger {
-  [self.handler
+  [self.applicationHandler
       showTrustedVaultReauthForDegradedRecoverabilityFromViewController:self
-                                                                trigger:
-                                                                    trigger];
+                                                                trigger:trigger
+                                                            accessPoint:
+                                                                signin_metrics::
+                                                                    AccessPoint::
+                                                                        ACCESS_POINT_RECENT_TABS];
 }
 
 #pragma mark - SigninPresenter
 
 - (void)showSignin:(ShowSigninCommand*)command {
-  [self.handler showSignin:command baseViewController:self];
+  [self.applicationHandler showSignin:command baseViewController:self];
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate
@@ -1868,7 +1884,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
   } else if ([self shouldShowHistorySyncOnPromoAction]) {
     [self.presentationDelegate showHistorySyncOptInAfterDedicatedSignIn:NO];
   } else if (ShouldShowSyncSettings(error)) {
-    [self.handler showSyncSettingsFromViewController:self];
+    [self.settingsHandler showSyncSettingsFromViewController:self];
   } else if (error ==
              syncer::SyncService::UserActionableError::kNeedsPassphrase) {
     [self showSyncPassphraseSettings];

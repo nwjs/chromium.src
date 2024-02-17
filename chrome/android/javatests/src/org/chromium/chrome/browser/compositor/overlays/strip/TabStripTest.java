@@ -25,6 +25,7 @@ import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -39,10 +40,10 @@ import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.batch.BlankCTATabInitialStateRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.TabStripUtils;
-import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.base.LocalizationUtils;
+import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.UiRestriction;
 
 import java.util.concurrent.Callable;
@@ -425,7 +426,10 @@ public class TabStripTest {
     /** Tests that the tab menu is dismissed when the orientation changes and no tabs are closed. */
     @Test
     @LargeTest
-    @Restriction(UiRestriction.RESTRICTION_TYPE_TABLET)
+    @Restriction({
+        UiRestriction.RESTRICTION_TYPE_TABLET,
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO
+    })
     @Feature({"TabStrip"})
     public void testTabMenuDismissedOnOrientationChange() {
         // 1. Set orientation to portrait
@@ -1173,17 +1177,33 @@ public class TabStripTest {
                 "Hover card should be visible.", View.VISIBLE, hoverCardView.getVisibility());
 
         // Simulate activity pause.
+        // Note: This doesn't really pause the activity; it just triggers the code
+        // that *would* be called if the activity were to be paused. We'll need to
+        // balance this with an onResumeWithNative call before ending the test.
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     sActivityTestRule.getActivity().onPauseWithNative();
                 });
 
+        // Validate that the hover card disappears when notified that the activity
+        // was paused.
         CriteriaHelper.pollInstrumentationThread(
                 () -> {
                     Criteria.checkThat(
                             "Hover card should be hidden.",
                             hoverCardView.getVisibility(),
                             Matchers.is(View.GONE));
+                });
+
+        // Simulate activity resume.
+        // Note: This doesn't really resume the activity; it just triggers the code
+        // that *would* be called if the activity were to be resumed. The code above
+        // pretended to pause the activity. We need this simulated resume so that
+        // any book-keeping being performed by the activity balances out when the
+        // activity is paused, and ultimately destroyed, as this test shuts down.
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    sActivityTestRule.getActivity().onResumeWithNative();
                 });
     }
 

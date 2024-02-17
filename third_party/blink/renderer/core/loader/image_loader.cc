@@ -27,6 +27,7 @@
 
 #include "services/network/public/mojom/attribution.mojom-blink.h"
 #include "services/network/public/mojom/web_client_hints_types.mojom-blink.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
@@ -358,20 +359,6 @@ static void ConfigureRequest(
            network::mojom::WebClientHintsType::kResourceWidth)) &&
       html_image_element) {
     params.SetResourceWidth(html_image_element->GetResourceWidth());
-  }
-
-  if (html_image_element) {
-    constexpr WebFeature kCountOrbBlockAs[2][2] = {
-        {WebFeature::kORBBlockWithoutAnyEventHandler,
-         WebFeature::kORBBlockWithOnErrorButWithoutOnLoadEventHandler},
-        {WebFeature::kORBBlockWithOnLoadButWithoutOnErrorEventHandler,
-         WebFeature::kORBBlockWithOnLoadAndOnErrorEventHandler}};
-
-    auto event_path = EventPath(element);
-    params.SetCountORBBlockAs(
-        kCountOrbBlockAs
-            [event_path.HasEventListenersInPath(event_type_names::kLoad)]
-            [event_path.HasEventListenersInPath(event_type_names::kError)]);
   }
 }
 
@@ -744,7 +731,7 @@ bool ImageLoader::ShouldLoadImmediately(const KURL& url) const {
   }
 
   return (IsA<HTMLObjectElement>(*element_) ||
-          IsA<HTMLEmbedElement>(*element_));
+          IsA<HTMLEmbedElement>(*element_) || IsA<HTMLVideoElement>(*element_));
 }
 
 void ImageLoader::ImageChanged(ImageResourceContent* content,
@@ -866,6 +853,21 @@ LayoutImageResource* ImageLoader::GetLayoutImageResource() const {
   return nullptr;
 }
 
+void ImageLoader::OnAttachLayoutTree() {
+  LayoutImageResource* image_resource = GetLayoutImageResource();
+  if (!image_resource) {
+    return;
+  }
+  // If the LayoutImageResource already has an image, it either means that it
+  // hasn't been freshly created or that it is generated content ("content:
+  // url(...)") - in which case we don't need to do anything or shouldn't do
+  // anything respectively.
+  if (image_resource->HasImage()) {
+    return;
+  }
+  image_resource->SetImageResource(image_content_);
+}
+
 void ImageLoader::UpdateLayoutObject() {
   LayoutImageResource* image_resource = GetLayoutImageResource();
 
@@ -888,6 +890,14 @@ ResourcePriority ImageLoader::ComputeResourcePriority() const {
 
   ResourcePriority priority = image_resource->ComputeResourcePriority();
   priority.source = ResourcePriority::Source::kImageLoader;
+  if (features::
+          kLCPCriticalPathPredictorImageLoadPriorityEnabledForHTMLImageElement
+              .Get()) {
+    auto* html_image_element = DynamicTo<HTMLImageElement>(element_.Get());
+    if (html_image_element) {
+      priority.is_lcp_resource = html_image_element->IsPredictedLcpElement();
+    }
+  }
   return priority;
 }
 

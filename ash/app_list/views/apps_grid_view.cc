@@ -225,8 +225,8 @@ class AppsGridView::FolderIconItemHider : public AppListItemObserver,
 
  private:
   // The item view of `folder_item_`;
-  raw_ptr<AppListItemView, ExperimentalAsh> item_view_;
-  raw_ptr<AppListFolderItem, ExperimentalAsh> folder_item_;
+  raw_ptr<AppListItemView> item_view_;
+  raw_ptr<AppListFolderItem> folder_item_;
 
   base::ScopedObservation<AppListItem, AppListItemObserver>
       folder_item_observer_{this};
@@ -259,7 +259,7 @@ class AppsGridView::DragViewHider : public views::ViewObserver {
   const views::View* drag_view() const { return drag_view_; }
 
  private:
-  raw_ptr<AppListItemView, ExperimentalAsh> drag_view_;
+  raw_ptr<AppListItemView> drag_view_;
 
   base::ScopedObservation<views::View, views::ViewObserver> view_observer_{
       this};
@@ -300,7 +300,7 @@ class AppsGridView::ScopedModelUpdate {
   }
 
  private:
-  const raw_ptr<AppsGridView, ExperimentalAsh> apps_grid_view_;
+  const raw_ptr<AppsGridView> apps_grid_view_;
   const gfx::Size initial_grid_size_;
 };
 
@@ -385,6 +385,8 @@ AppsGridView::~AppsGridView() {
   if (item_list_) {
     item_list_->RemoveObserver(this);
   }
+
+  set_context_menu_controller(nullptr);
 
   // Abort reorder animation before `view_model_` is cleared.
   MaybeAbortWholeGridAnimation();
@@ -1184,6 +1186,9 @@ void AppsGridView::OnDragExited() {
     dragging_for_reparent_item_ = true;
     folder_delegate_->Close();
   }
+  if (drag_view_) {
+    drag_view_->ClearItemDraggingState();
+  }
   CancelDragWithNoDropAnimation();
 }
 
@@ -1622,7 +1627,7 @@ void AppsGridView::AnimateToIdealBounds(bool is_animating_top_to_bottom) {
     item_reorder_animation_tracker_ =
         layer()->GetCompositor()->RequestNewThroughputTracker();
     item_reorder_animation_tracker_->Start(
-        metrics_util::ForSmoothness(base::BindRepeating(
+        metrics_util::ForSmoothnessV3(base::BindRepeating(
             &ReportItemDragReorderAnimationSmoothness, IsTabletMode())));
   }
 
@@ -2450,7 +2455,7 @@ views::AnimationBuilder AppsGridView::FadeOutVisibleItemsForReorder(
   grid_animation_status_ = AppListGridAnimationStatus::kReorderFadeOut;
   reorder_animation_tracker_.emplace(
       layer()->GetCompositor()->RequestNewThroughputTracker());
-  reorder_animation_tracker_->Start(metrics_util::ForSmoothness(
+  reorder_animation_tracker_->Start(metrics_util::ForSmoothnessV3(
       base::BindRepeating(&ReportReorderAnimationSmoothness, IsTabletMode())));
 
   views::AnimationBuilder animation_builder;
@@ -2726,7 +2731,7 @@ void AppsGridView::StartDragAndDropHostDrag() {
                                     : drag_view_->GetDragImage().size();
   drag_icon_proxy_ = std::make_unique<AppDragIconProxy>(
       GetWidget()->GetNativeWindow()->GetRootWindow(),
-      drag_view_->GetDragImage(), location_in_screen,
+      drag_view_->GetDragImage(), gfx::ImageSkia(), location_in_screen,
       location_in_screen - icon_location_in_screen,
       is_folder ? kDragAndDropProxyScale : 1.0f, is_folder, shadow_size);
   drag_view_hider_ = std::make_unique<DragViewHider>(drag_view_);
@@ -3245,7 +3250,7 @@ AppListItemView* AppsGridView::GetViewDisplayedAtSlotOnCurrentPage(
 
   const auto& entries = view_model_.entries();
   const auto iter = base::ranges::find_if(entries, [&](const auto& entry) {
-    return entry.view->bounds() == tile_rect && entry.view != drag_view_;
+    return entry.view->bounds() == tile_rect && entry.view.get() != drag_view_;
   });
   return iter == entries.end() ? nullptr
                                : static_cast<AppListItemView*>(iter->view);

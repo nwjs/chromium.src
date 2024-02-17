@@ -15,6 +15,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test.pb.h"
+#include "base/types/cxx23_to_underlying.h"
 #include "components/optimization_guide/core/model_quality/feature_type_map.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/core/optimization_guide_constants.h"
@@ -105,7 +106,7 @@ class ModelQualityLogsUploaderServiceTest : public testing::Test {
         shared_url_loader_factory_(
             base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
                 &test_url_loader_factory_)) {
-    prefs::RegisterProfilePrefs(pref_service_.registry());
+    prefs::RegisterLocalStatePrefs(pref_service_.registry());
     model_quality_logs_uploader_service_ =
         std::make_unique<ModelQualityLogsUploaderService>(
             shared_url_loader_factory_, &pref_service_);
@@ -120,6 +121,12 @@ class ModelQualityLogsUploaderServiceTest : public testing::Test {
       const ModelQualityLogsUploaderServiceTest&) = delete;
 
   ~ModelQualityLogsUploaderServiceTest() override = default;
+
+  void WritePerformanceClassToPref(OnDeviceModelPerformanceClass perf_class) {
+    pref_service_.SetInteger(
+        prefs::localstate::kOnDevicePerformanceClass,
+        base::to_underlying(OnDeviceModelPerformanceClass::kVeryHigh));
+  }
 
   void UploadModelQualityLogs(
       std::unique_ptr<proto::LogAiDataRequest> log_ai_data_request) {
@@ -199,6 +206,8 @@ class ModelQualityLogsUploaderServiceTest : public testing::Test {
 };
 
 TEST_F(ModelQualityLogsUploaderServiceTest, TestSuccessfulResponse) {
+  WritePerformanceClassToPref(OnDeviceModelPerformanceClass::kVeryHigh);
+
   auto ai_data_request = BuildComposeLogAiDataReuqest();
   UploadModelQualityLogs(std::move(ai_data_request));
   VerifyHasPendingLogsUploadRequest();
@@ -209,6 +218,11 @@ TEST_F(ModelQualityLogsUploaderServiceTest, TestSuccessfulResponse) {
   auto pending_request = GetPendingLogsUploadRequest();
   EXPECT_EQ(proto::LogAiDataRequest::FeatureCase::kCompose,
             pending_request->feature_case());
+  // Performance class should be attached.
+  EXPECT_EQ(proto::PERFORMANCE_CLASS_VERY_HIGH,
+            pending_request->logging_metadata()
+                .on_device_system_profile()
+                .performance_class());
   EXPECT_EQ(
       12345,
       pending_request->logging_metadata().system_profile().build_timestamp());
@@ -353,6 +367,32 @@ TEST_F(ModelQualityLogsUploaderServiceTest, TabOrganizationUserFeedbackUMA) {
   histogram_tester_.ExpectBucketCount(
       "OptimizationGuide.ModelQuality.UserFeedback.TabOrganization",
       proto::USER_FEEDBACK_THUMBS_DOWN, 1);
+}
+
+TEST_F(ModelQualityLogsUploaderServiceTest,
+       TabOrganizationUserFeedbackNullCheck) {
+  // Set TabOrganization ModelQualityLogEntry without any quality data tab
+  // organization.
+  std::unique_ptr<proto::LogAiDataRequest> log_ai_data_request_1(
+      new proto::LogAiDataRequest());
+
+  proto::TabOrganizationLoggingData tab_organization_logging_data;
+
+  proto::TabOrganizationRequest tab_request;
+
+  *(tab_organization_logging_data.mutable_request_data()) = tab_request;
+  *(log_ai_data_request_1->mutable_tab_organization()) =
+      tab_organization_logging_data;
+  std::unique_ptr<ModelQualityLogEntry> log_entry_1 =
+      std::make_unique<ModelQualityLogEntry>(std::move(log_ai_data_request_1));
+
+  // Upload logs without quality data set this should mark user_feedback as
+  // unspecified.
+  UploadModelQualityLogsWithLogEntry(std::move(log_entry_1));
+
+  histogram_tester_.ExpectBucketCount(
+      "OptimizationGuide.ModelQuality.UserFeedback.TabOrganization",
+      proto::USER_FEEDBACK_UNSPECIFIED, 1);
 }
 
 TEST_F(ModelQualityLogsUploaderServiceTest, ComposeUserFeedbackUMA) {

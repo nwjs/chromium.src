@@ -18,6 +18,7 @@
 #include "base/debug/crash_logging.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "ui/accessibility/ax_common.h"
@@ -256,7 +257,8 @@ struct AX_EXPORT ClientTreeNode {
   bool IsDirty() { return in_dirty_subtree || is_dirty; }
   AXNodeID id;
   raw_ptr<ClientTreeNode, DanglingUntriaged> parent;
-  std::vector<ClientTreeNode*> children;
+  // Not a vector<raw_ptr> due to regressions in blink_perf.accessibility tests.
+  RAW_PTR_EXCLUSION std::vector<ClientTreeNode*> children;
   bool ignored : 1;
   // Additional nodes that must be serialized. When a dirty subtree is reached,
   // the entire subtree will be added to the current serialization.

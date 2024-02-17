@@ -162,22 +162,6 @@ class ArcMetricsService : public KeyedService,
   void ReportProvisioningPreSignIn() override;
   void ReportWaylandLateTimingEvent(mojom::WaylandTimingEvent event,
                                     base::TimeDelta duration) override;
-  void ReportNonAndroidPlayFilesCount(
-      uint32_t number_of_directories,
-      uint32_t number_of_non_directories) override;
-  void ReportPerAppFileStatsOfAndroidDataDirs(
-      uint32_t number_of_directories,
-      uint32_t number_of_non_directories,
-      uint32_t size_in_kilobytes) override;
-  void ReportTotalFileStatsOfAndroidDataDirs(uint32_t number_of_directories,
-                                             uint32_t number_of_non_directories,
-                                             uint32_t size_in_kilobytes,
-                                             base::TimeDelta duration) override;
-  void ReportTotalFileStatsOfAndroidDataSubdir(
-      mojom::AndroidDataSubdirectory target,
-      uint32_t number_of_directories,
-      uint32_t number_of_non_directories,
-      uint32_t size_in_kilobytes) override;
   void ReportWebViewProcessStarted() override;
   void ReportArcKeyMintError(mojom::ArcKeyMintError error) override;
 
@@ -257,7 +241,7 @@ class ArcMetricsService : public KeyedService,
     void OnConnectionReady() override;
     void OnConnectionClosed() override;
 
-    raw_ptr<ArcMetricsService, ExperimentalAsh> arc_metrics_service_;
+    raw_ptr<ArcMetricsService> arc_metrics_service_;
   };
 
   class ArcBridgeServiceObserver : public arc::ArcBridgeService::Observer {
@@ -295,9 +279,8 @@ class ArcMetricsService : public KeyedService,
     // overrides.
     void OnConnectionClosed() override;
 
-    raw_ptr<ArcMetricsService, ExperimentalAsh> arc_metrics_service_;
-    raw_ptr<ArcBridgeServiceObserver, ExperimentalAsh>
-        arc_bridge_service_observer_;
+    raw_ptr<ArcMetricsService> arc_metrics_service_;
+    raw_ptr<ArcBridgeServiceObserver> arc_bridge_service_observer_;
   };
 
   class AppLauncherObserver : public ConnectionObserver<mojom::AppInstance> {
@@ -315,9 +298,8 @@ class ArcMetricsService : public KeyedService,
     // overrides.
     void OnConnectionClosed() override;
 
-    raw_ptr<ArcMetricsService, ExperimentalAsh> arc_metrics_service_;
-    raw_ptr<ArcBridgeServiceObserver, ExperimentalAsh>
-        arc_bridge_service_observer_;
+    raw_ptr<ArcMetricsService> arc_metrics_service_;
+    raw_ptr<ArcBridgeServiceObserver> arc_bridge_service_observer_;
   };
 
   void RecordArcUserInteraction(UserInteractionType type);
@@ -354,7 +336,7 @@ class ArcMetricsService : public KeyedService,
 
   THREAD_CHECKER(thread_checker_);
 
-  const raw_ptr<ArcBridgeService, ExperimentalAsh>
+  const raw_ptr<ArcBridgeService>
       arc_bridge_service_;  // Owned by ArcServiceManager.
 
   // Helper class for tracking engagement metrics.
@@ -390,7 +372,7 @@ class ArcMetricsService : public KeyedService,
   base::ObserverList<UserInteractionObserver> user_interaction_observers_;
   base::ObserverList<BootTypeObserver> boot_type_observers_;
 
-  raw_ptr<PrefService, ExperimentalAsh> prefs_ = nullptr;
+  raw_ptr<PrefService> prefs_ = nullptr;
   std::unique_ptr<ArcMetricsAnr> metrics_anr_;
 
   // Tracks window management related metrics.

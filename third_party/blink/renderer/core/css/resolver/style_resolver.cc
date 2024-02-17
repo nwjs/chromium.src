@@ -259,9 +259,6 @@ String ComputeBaseComputedStyleDiff(const ComputedStyle* base_computed_style,
     exclusions.insert(DebugField::font_);
   }
 
-  // See crbug.com/1469327. (This is a real bug, which we're hiding here.)
-  exclusions.insert(DebugField::filter_);
-
   // Images use instance equality rather than value equality (see
   // crbug.com/781461).
   if (!CSSPropertyEquality::PropertiesEqual(
@@ -407,6 +404,9 @@ void ApplyLengthConversionFlags(StyleResolverState& state) {
   }
   if (flags & static_cast<Flags>(Flag::kAnchorRelative)) {
     state.SetHasTreeScopedReference();
+  }
+  if (flags & static_cast<Flags>(Flag::kLogicalDirectionRelative)) {
+    builder.SetHasLogicalDirectionRelativeUnits();
   }
 }
 
@@ -1252,6 +1252,8 @@ void StyleResolver::InitStyle(Element& element,
         style_request.originating_element_style->GetFont());
     state.StyleBuilder().SetLineHeight(
         style_request.originating_element_style->LineHeight());
+    state.StyleBuilder().SetWritingMode(
+        style_request.originating_element_style->GetWritingMode());
   }
 
   if (!style_request.IsPseudoStyleRequest() && element.IsLink()) {
@@ -1538,6 +1540,8 @@ void StyleResolver::ApplyBaseStyleNoCache(
       match_result.HasNonUniversalHighlightPseudoStyles());
   state.StyleBuilder().SetHasNonUaHighlightPseudoStyles(
       match_result.HasNonUaHighlightPseudoStyles());
+  state.StyleBuilder().SetHighlightsDependOnSizeContainerQueries(
+      match_result.HighlightsDependOnSizeContainerQueries());
 
   if (match_result.HasFlag(MatchFlag::kAffectedByDrag)) {
     state.StyleBuilder().SetAffectedByDrag();
@@ -2399,14 +2403,11 @@ const CSSValue* StyleResolver::ComputeValue(
 
 const CSSValue* StyleResolver::ResolveValue(
     Element& element,
+    const ComputedStyle& style,
     const CSSPropertyName& property_name,
     const CSSValue& value) {
-  const ComputedStyle* style = element.GetComputedStyle();
-  if (!style) {
-    return nullptr;
-  }
   StyleResolverState state(element.GetDocument(), element);
-  state.SetStyle(*style);
+  state.SetStyle(style);
   return StyleCascade::Resolve(state, property_name, value);
 }
 
@@ -2512,6 +2513,11 @@ void StyleResolver::ApplyPropertiesFromCascade(StyleResolverState& state,
     }
   };
 
+  const ComputedStyle* old_style = nullptr;
+  if (count_computed_style_bytes_) {
+    old_style = state.StyleBuilder().CloneStyle();
+  }
+
   // In order to use-count whether or not legacy overlapping properties
   // made a real difference to the ComputedStyle, we first apply the cascade
   // while filtering out such properties. If the filter did reject
@@ -2525,6 +2531,17 @@ void StyleResolver::ApplyPropertiesFromCascade(StyleResolverState& state,
     apply(CascadeFilter(CSSProperty::kOverlapping, false));
     UseCountLegacyOverlapping(GetDocument(), *non_legacy_style,
                               state.StyleBuilder());
+  }
+
+  if (count_computed_style_bytes_) {
+    constexpr size_t kOilpanOverheadBytes =
+        sizeof(void*);  // See cppgc::internal::HeapObjectHeader.
+    const ComputedStyle* new_style = state.StyleBuilder().CloneStyle();
+    for (const auto& [group_name, size] :
+         old_style->FindChangedGroups(*new_style)) {
+      computed_style_bytes_used_ += size + kOilpanOverheadBytes;
+    }
+    computed_style_bytes_used_ += sizeof(*new_style) + kOilpanOverheadBytes;
   }
 
   // NOTE: This flag (and the length conversion flags) need to be set before the

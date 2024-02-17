@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_ASH_FILEAPI_RECENT_ARC_MEDIA_SOURCE_H_
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/gtest_prod_util.h"
@@ -13,7 +14,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/ash/fileapi/recent_source.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 class Profile;
 
@@ -54,7 +54,7 @@ class RecentArcMediaSource : public RecentSource {
 
   bool WillArcFileSystemOperationsRunImmediately();
 
-  const raw_ptr<Profile, ExperimentalAsh> profile_;
+  const raw_ptr<Profile> profile_;
   std::vector<std::unique_ptr<MediaRoot>> roots_;
 
   // Time when the build started.

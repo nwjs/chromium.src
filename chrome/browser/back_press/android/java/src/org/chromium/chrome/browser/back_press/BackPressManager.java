@@ -5,19 +5,22 @@
 package org.chromium.chrome.browser.back_press;
 
 import android.annotation.SuppressLint;
-import android.text.format.DateUtils;
 import android.util.SparseIntArray;
+import android.view.Window;
 
 import androidx.activity.BackEventCompat;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.graphics.Insets;
+import androidx.core.view.WindowInsetsCompat;
 
 import org.chromium.base.Callback;
-import org.chromium.base.TimeUtils;
+import org.chromium.base.cached_flags.BooleanCachedFieldTrialParameter;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.chrome.browser.flags.BooleanCachedFieldTrialParameter;
+import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
@@ -39,11 +42,8 @@ import java.util.List;
  */
 public class BackPressManager implements Destroyable {
     public static final BooleanCachedFieldTrialParameter TAB_HISTORY_RECOVER =
-            new BooleanCachedFieldTrialParameter(
+            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
                     ChromeFeatureList.BACK_GESTURE_REFACTOR, "tab_history_recover", false);
-    public static final BooleanCachedFieldTrialParameter START_UP_MOVE_TO_BACK =
-            new BooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.BACK_GESTURE_REFACTOR, "move_task_to_back", true);
     private static final SparseIntArray sMetricsMap;
     private static final int sMetricsMaxValue;
 
@@ -51,7 +51,7 @@ public class BackPressManager implements Destroyable {
         // Max value is 22 - 1 obsolete value +1 for 0 indexing = 21 elements.
         SparseIntArray map = new SparseIntArray(20);
         map.put(Type.TEXT_BUBBLE, 0);
-        map.put(Type.VR_DELEGATE, 1);
+        // map.put(Type.VR_DELEGATE, 1);
         // map.put(Type.AR_DELEGATE, 2);
         map.put(Type.SCENE_OVERLAY, 3);
         map.put(Type.START_SURFACE, 4);
@@ -87,10 +87,15 @@ public class BackPressManager implements Destroyable {
                 @SuppressLint("WrongConstant") // Suppress mLastCalledHandlerType assignment warning
                 @Override
                 public void handleOnBackPressed() {
+                    if (mOnBackPressed != null) mOnBackPressed.run();
+                    recordSystemBackCountIfBeforeFirstVisibleContent();
                     mLastCalledHandlerType = -1;
                     BackPressManager.this.handleBackPress();
+
                     // This means this back is triggered by a gesture rather than the back button.
-                    if (mLastBackEvent != null && mLastCalledHandlerType != -1) {
+                    if (mLastBackEvent != null
+                            && mLastCalledHandlerType != -1
+                            && mIsGestureNavEnabledSupplier.get()) {
                         BackPressMetrics.recordBackPressFromEdge(
                                 mLastCalledHandlerType, mLastBackEvent.getSwipeEdge());
 
@@ -99,6 +104,7 @@ public class BackPressManager implements Destroyable {
                                     mLastBackEvent.getSwipeEdge());
                         }
                     }
+
                     mActiveHandler = null;
                     mLastBackEvent = null;
                 }
@@ -129,7 +135,6 @@ public class BackPressManager implements Destroyable {
 
     static final String HISTOGRAM = "Android.BackPress.Intercept";
     static final String FAILURE_HISTOGRAM = "Android.BackPress.Failure";
-    static final String INTERVAL_HISTOGRAM = "Android.BackPress.Interval";
 
     private final BackPressHandler[] mHandlers = new BackPressHandler[Type.NUM_TYPES];
     private final boolean mUseSystemBack;
@@ -138,21 +143,16 @@ public class BackPressManager implements Destroyable {
     private final Callback<Boolean>[] mObserverCallbacks = new Callback[Type.NUM_TYPES];
     private Runnable mFallbackOnBackPressed;
     private int mLastCalledHandlerType = -1;
-    // Do not use static; otherwise the data might be corrupted because of multi-window usage.
-    private long mLastPressMs = -1;
+    private boolean mBackBeforeFirstVisibleContentRecorded;
+    private Supplier<Boolean> mIsFirstVisibleContentDrawnSupplier;
+    private Runnable mOnBackPressed;
+    private Supplier<Boolean> mIsGestureNavEnabledSupplier = () -> false;
 
     /**
      * @return True if the back gesture refactor is enabled.
      */
     public static boolean isEnabled() {
         return ChromeFeatureList.sBackGestureRefactorAndroid.isEnabled();
-    }
-
-    /**
-     * @return True if the back gesture refactor is enabled for secondary activities.
-     */
-    public static boolean isSecondaryActivityEnabled() {
-        return ChromeFeatureList.sBackGestureRefactorActivityAndroid.isEnabled();
     }
 
     /**
@@ -174,7 +174,7 @@ public class BackPressManager implements Destroyable {
      *     pressed during start up. Otherwise, call `onBackPressed` to trigger default behavior.
      */
     public static boolean shouldMoveToBackDuringStartup() {
-        return START_UP_MOVE_TO_BACK.getValue();
+        return ChromeFeatureList.sBackGestureMoveToBackDuringStartup.isEnabled();
     }
 
     /**
@@ -195,16 +195,21 @@ public class BackPressManager implements Destroyable {
     }
 
     /**
-     * Record the interval between two consecutive back press events. Should be called when
-     * a back press event is intercepted.
+     * TODO(crbug.com/1523293): move to UiUtils once crbug.com/1522985 is fixed.
+     *
+     * @param window The application window which includes the decor view.
+     * @return True if gesture navigation mode is on.
      */
-    public void recordLastPressInterval() {
-        long now = TimeUtils.elapsedRealtimeMillis();
-        if (mLastPressMs != -1) {
-            RecordHistogram.recordCustomTimesHistogram(
-                    INTERVAL_HISTOGRAM, now - mLastPressMs, 1, DateUtils.SECOND_IN_MILLIS * 3, 50);
-        }
-        mLastPressMs = now;
+    public static boolean isGestureNavigationMode(Window window) {
+        // https://stackoverflow.com/a/70514883
+        WindowInsetsCompat windowInsets =
+                WindowInsetsCompat.toWindowInsetsCompat(
+                        window.getDecorView().getRootWindowInsets());
+        // Use systemGestures rather than tappableElements.
+        // In some devices, like Samsung Fold, which has a dock, the bottom inset of
+        // tappableElements is non-zero even when gesture mode is on.
+        Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemGestures());
+        return insets.left > 0;
     }
 
     private static void recordFailure(@Type int type) {
@@ -281,6 +286,15 @@ public class BackPressManager implements Destroyable {
     }
 
     /**
+     * Set a callback fired when a back press is triggered. This is introduced to investigate data
+     * inconsistency between experimental groups. and is not intended to be re-used.
+     * TODO(crbug.com/1504020): remove after sufficient data is collected.
+     */
+    public void setOnBackPressedListener(Runnable callback) {
+        mOnBackPressed = callback;
+    }
+
+    /**
      * Turn on more checks if a system back arm is available, such as when running on tabbed
      * activity.
      * @param hasSystemBackArm True if system back arm is feasible.
@@ -289,12 +303,26 @@ public class BackPressManager implements Destroyable {
         mHasSystemBackArm = hasSystemBackArm;
     }
 
+    /** Set a supplier to provide whether first visible content has been drawn. */
+    public void setIsFirstVisibleContentDrawnSupplier(Supplier<Boolean> supplier) {
+        mIsFirstVisibleContentDrawnSupplier = supplier;
+    }
+
+    /** Set a supplier to provide whether gesture nav mode is on when called. */
+    public void setIsGestureNavEnabledSupplier(Supplier<Boolean> supplier) {
+        mIsGestureNavEnabledSupplier = supplier;
+    }
+
     /**
-     * Get the timestamp of when the latest back press occurs.
-     * @return The timestamp of when the latest back press occurs. -1 if no previous back press.
+     * Record if back press occurs before first visible content is drawn. TODO(crbug.com/1504020):
+     * remove after it is fixed.
      */
-    public long getLastPressMs() {
-        return mLastPressMs;
+    public void recordSystemBackCountIfBeforeFirstVisibleContent() {
+        if (mBackBeforeFirstVisibleContentRecorded) return;
+        if (mIsFirstVisibleContentDrawnSupplier != null
+                && mIsFirstVisibleContentDrawnSupplier.get()) return;
+        mBackBeforeFirstVisibleContentRecorded = true;
+        RecordUserAction.record("SystemBackBeforeFirstVisibleContent");
     }
 
     private void backPressStateChanged() {
@@ -339,7 +367,6 @@ public class BackPressManager implements Destroyable {
                     recordFailure(i);
                 } else {
                     record(i);
-                    recordLastPressInterval();
                     assertListOfFailedHandlers(failed, i);
                     return;
                 }

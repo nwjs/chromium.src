@@ -6,7 +6,6 @@
 
 #include <algorithm>
 
-#include "ash/constants/ash_features.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/public/cpp/shell_window_ids.h"
@@ -58,6 +57,23 @@ void AdjustWorkAreaBoundsForHotseatState(const HotseatWidget* hotseat_widget,
   }
 }
 
+// Returns true if the provided arrow is located at a corner.
+bool CalculateIsCornerAnchored(views::BubbleBorder::Arrow arrow) {
+  switch (arrow) {
+    case views::BubbleBorder::Arrow::TOP_LEFT:
+    case views::BubbleBorder::Arrow::TOP_RIGHT:
+    case views::BubbleBorder::Arrow::BOTTOM_LEFT:
+    case views::BubbleBorder::Arrow::BOTTOM_RIGHT:
+    case views::BubbleBorder::Arrow::LEFT_TOP:
+    case views::BubbleBorder::Arrow::RIGHT_TOP:
+    case views::BubbleBorder::Arrow::LEFT_BOTTOM:
+    case views::BubbleBorder::Arrow::RIGHT_BOTTOM:
+      return true;
+    default:
+      return false;
+  }
+}
+
 }  // namespace
 
 AnchoredNudge::AnchoredNudge(AnchoredNudgeData& nudge_data)
@@ -65,11 +81,11 @@ AnchoredNudge::AnchoredNudge(AnchoredNudgeData& nudge_data)
                                       nudge_data.arrow,
                                       views::BubbleBorder::NO_SHADOW),
       id_(nudge_data.id),
+      catalog_name_(nudge_data.catalog_name),
       anchored_to_shelf_(nudge_data.anchored_to_shelf),
+      is_corner_anchored_(CalculateIsCornerAnchored(nudge_data.arrow)),
       click_callback_(std::move(nudge_data.click_callback)),
       dismiss_callback_(std::move(nudge_data.dismiss_callback)) {
-  DCHECK(features::IsSystemNudgeV2Enabled());
-
   SetButtons(ui::DIALOG_BUTTON_NONE);
   set_color(SK_ColorTRANSPARENT);
   set_margins(gfx::Insets());
@@ -233,13 +249,23 @@ void AnchoredNudge::OnShelfAlignmentChanged(aura::Window* root_window,
 
 void AnchoredNudge::OnDisplayMetricsChanged(const display::Display& display,
                                             uint32_t changed_metrics) {
-  OnAnchorBoundsChanged();
+  if (GetAnchorView()) {
+    OnAnchorBoundsChanged();
+  } else {
+    SetDefaultAnchorRect();
+  }
 }
 
 void AnchoredNudge::SetArrowFromShelf(Shelf* shelf) {
-  SetArrow(shelf->SelectValueForShelfAlignment(
-      views::BubbleBorder::BOTTOM_CENTER, views::BubbleBorder::LEFT_CENTER,
-      views::BubbleBorder::RIGHT_CENTER));
+  if (is_corner_anchored_) {
+    SetArrow(shelf->SelectValueForShelfAlignment(
+        views::BubbleBorder::BOTTOM_RIGHT, views::BubbleBorder::LEFT_BOTTOM,
+        views::BubbleBorder::RIGHT_BOTTOM));
+  } else {
+    SetArrow(shelf->SelectValueForShelfAlignment(
+        views::BubbleBorder::BOTTOM_CENTER, views::BubbleBorder::LEFT_CENTER,
+        views::BubbleBorder::RIGHT_CENTER));
+  }
 }
 
 void AnchoredNudge::SetDefaultAnchorRect() {

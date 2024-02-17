@@ -1064,17 +1064,6 @@ void X11Window::SizeConstraintsChanged() {
   X11Window::UpdateMinAndMaxSize();
 }
 
-bool X11Window::IsTranslucentWindowOpacitySupported() const {
-  // If this function may be called before InitX11Window() (which
-  // initializes |visual_has_alpha_|), return whether it is possible
-  // to create windows with ARGB visuals.
-  if (xwindow_ == x11::Window::None) {
-    connection_->GetOrCreateVisualManager().ArgbVisualAvailable();
-  }
-
-  return visual_has_alpha_;
-}
-
 void X11Window::SetOpacity(float opacity) {
   // X server opacity is in terms of 32 bit unsigned int space, and counts from
   // the opposite direction.
@@ -1258,7 +1247,7 @@ void X11Window::SetWorkspaceExtensionDelegate(
 }
 
 bool X11Window::IsSyncExtensionAvailable() const {
-  return ui::IsSyncExtensionAvailable();
+  return connection_->sync_version() > std::pair<uint32_t, uint32_t>{0, 0};
 }
 
 bool X11Window::IsWmTiling() const {
@@ -1506,6 +1495,14 @@ void X11Window::OnXWindowStateChanged() {
     state_ = new_state;
     platform_window_delegate_->OnWindowStateChanged(old_state, state_);
   }
+
+  WindowTiledEdges tiled_state = GetTiledState();
+  if (tiled_state != tiled_state_) {
+    tiled_state_ = tiled_state;
+#if BUILDFLAG(IS_LINUX)
+    platform_window_delegate_->OnWindowTiledStateChanged(tiled_state);
+#endif
+  }
 }
 
 void X11Window::OnXWindowDamageEvent(const gfx::Rect& damage_rect) {
@@ -1659,9 +1656,12 @@ int X11Window::UpdateDrag(const gfx::Point& connection_point) {
   gfx::PointF local_point_in_dip =
       platform_window_delegate_->ConvertScreenPointToLocalDIP(connection_point);
   if (!notified_enter_) {
-    drop_handler->OnDragEnter(local_point_in_dip, std::move(data),
-                              suggested_operations,
+    drop_handler->OnDragEnter(local_point_in_dip, suggested_operations,
                               GetKeyModifiers(source_client));
+
+    // TODO(crbug.com/1487784): Factor DataFetched out of Enter callback.
+    drop_handler->OnDragDataAvailable(std::move(data));
+
     notified_enter_ = true;
   }
   allowed_drag_operations_ = drop_handler->OnDragMotion(
@@ -1703,8 +1703,8 @@ DragOperation X11Window::PerformDrop() {
   // should have it since then.
   auto* target_current_context = drag_drop_client_->target_current_context();
   DCHECK(target_current_context);
-  drop_handler->OnDragDrop({}, GetKeyModifiers(XDragDropClient::GetForWindow(
-                                   target_current_context->source_window())));
+  drop_handler->OnDragDrop(GetKeyModifiers(
+      XDragDropClient::GetForWindow(target_current_context->source_window())));
   notified_enter_ = false;
   return PreferredDragOperation(allowed_drag_operations_);
 }
@@ -2508,6 +2508,14 @@ void X11Window::OnWMStateUpdated() {
     UpdateWindowProperties(
         base::flat_set<x11::Atom>(std::begin(atom_list), std::end(atom_list)));
   }
+}
+
+WindowTiledEdges X11Window::GetTiledState() const {
+  const bool vert = HasWMSpecProperty(
+      window_properties_, x11::GetAtom("_NET_WM_STATE_MAXIMIZED_VERT"));
+  const bool horz = HasWMSpecProperty(
+      window_properties_, x11::GetAtom("_NET_WM_STATE_MAXIMIZED_HORZ"));
+  return WindowTiledEdges{vert, vert, horz, horz};
 }
 
 void X11Window::UpdateWindowProperties(

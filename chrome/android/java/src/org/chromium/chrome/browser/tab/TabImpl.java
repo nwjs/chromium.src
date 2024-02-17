@@ -4,12 +4,11 @@
 
 package org.chromium.chrome.browser.tab;
 
-import static org.chromium.components.content_settings.PrefNames.DESKTOP_SITE_PERIPHERAL_SETTING_ENABLED;
-
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Rect;
+import android.net.Uri;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
@@ -32,6 +31,7 @@ import org.chromium.base.UserDataHost;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.base.version_info.VersionInfo;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityUtils;
 import org.chromium.chrome.browser.WarmupManager;
@@ -54,12 +54,9 @@ import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.view.ContentView;
-import org.chromium.components.prefs.PrefService;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.components.url_formatter.UrlFormatter;
-import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.components.version_info.VersionInfo;
 import org.chromium.content_public.browser.ChildProcessImportance;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
@@ -223,6 +220,15 @@ class TabImpl implements Tab {
      * Tab#getLaunchType()} will be overridden to "FROM_RESTORE" during tab restoration.
      */
     private @Nullable @TabLaunchType Integer mTabLaunchTypeAtCreation;
+
+    /**
+     * Variables used to track native page creation prior to mNativePage assignment. Avoids the case
+     * where native pages can unintentionally re-create themselves by calling {@link
+     * NativePage#onStateChange} during the creation process.
+     */
+    private boolean mIsAlreadyCreatingNativePage;
+
+    private String mPendingNativePageHost;
 
     /**
      * Creates an instance of a {@link TabImpl}. Package-private. Use {@link TabBuilder} to create
@@ -1229,8 +1235,24 @@ class TabImpl implements Tab {
         WebContents webContents = getWebContents();
         assert webContents != null;
         if (webContents == null) return false;
+        // If the given url is null, there's no work to do.
+        if (url == null) return false;
+
+        // We might be in the middle of loading a native page, in that case we should bail to avoid
+        // recreating another instance.
+        String nativePageHost = Uri.parse(url).getHost();
+        if (mIsAlreadyCreatingNativePage
+                && TextUtils.equals(mPendingNativePageHost, nativePageHost)) {
+            return true;
+        }
+
+        mPendingNativePageHost = nativePageHost;
+        mIsAlreadyCreatingNativePage = true;
         NativePage candidateForReuse = forceReload ? null : getNativePage();
         NativePage nativePage = mDelegateFactory.createNativePage(url, candidateForReuse, this);
+        mIsAlreadyCreatingNativePage = false;
+        mPendingNativePageHost = null;
+
         if (nativePage != null) {
             showNativePage(nativePage);
             notifyPageTitleChanged();
@@ -1871,14 +1893,6 @@ class TabImpl implements Tab {
                                 && !RequestDesktopUtils.shouldApplyWindowSetting(
                                         mProfile, url, getContext()));
 
-        if (!shouldRequestDesktopSite
-                && ContentFeatureMap.isEnabled(ContentFeatureList.REQUEST_DESKTOP_SITE_ADDITIONS)) {
-            // TODO(shuyng): Make additional setting compatible with site level setting.
-            PrefService prefService = UserPrefs.get(mProfile);
-            boolean peripheralPref =
-                    prefService.getBoolean(DESKTOP_SITE_PERIPHERAL_SETTING_ENABLED);
-            shouldRequestDesktopSite = TabUtils.isHardwareKeyboardAvailable(this) && peripheralPref;
-        }
         if (shouldRequestDesktopSite != currentRequestDesktopSite) {
             // The user is not forcing any mode and we determined that we need to
             // change, therefore we are using TRUE or FALSE option. On Android TRUE mean

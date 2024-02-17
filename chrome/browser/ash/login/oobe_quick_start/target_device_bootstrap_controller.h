@@ -46,6 +46,7 @@ class TargetDeviceBootstrapController
     GOOGLE_ACCOUNT_INFO_RECEIVED,
     TRANSFERRING_GOOGLE_ACCOUNT_DETAILS,
     TRANSFERRED_GOOGLE_ACCOUNT_DETAILS,
+    SETUP_COMPLETE,
   };
 
   enum class ErrorCode {
@@ -59,16 +60,32 @@ class TargetDeviceBootstrapController
     FETCHING_REFRESH_TOKEN_FAILED,
   };
 
+  // Result of the exchange between ChromeOS, Android and the SecondDevice API.
+  // It contains the user's email and an OAuth authorization code that can be
+  // exchanged for a access/refresh token.
+  struct GaiaCredentials {
+    GaiaCredentials();
+    GaiaCredentials(const GaiaCredentials&);
+    ~GaiaCredentials();
+
+    std::string email;
+    std::string auth_code;
+    std::string gaia_id;
+    // TODO(b/318664950) - Remove once the server starts sending the gaia_id.
+    std::string access_token;
+    std::string refresh_token;
+  };
+
   using ConnectionClosedReason =
       TargetDeviceConnectionBroker::ConnectionClosedReason;
-  using Pin = std::string;
 
   using Payload = absl::variant<absl::monostate,
                                 ErrorCode,
                                 QRCode::PixelData,
-                                Pin,
+                                PinString,
+                                EmailString,
                                 mojom::WifiCredentials,
-                                FidoAssertionInfo>;
+                                GaiaCredentials>;
 
   struct Status {
     Status();
@@ -144,8 +161,7 @@ class TargetDeviceBootstrapController
       base::WeakPtr<TargetDeviceConnectionBroker::AuthenticatedConnection>
           authenticated_connection) override;
   void OnConnectionRejected() override;
-  void OnConnectionClosed(
-      TargetDeviceConnectionBroker::ConnectionClosedReason reason) override;
+  void OnConnectionClosed(ConnectionClosedReason reason) override;
 
   std::string GetDiscoverableName();
   void AttemptWifiCredentialTransfer();
@@ -162,6 +178,9 @@ class TargetDeviceBootstrapController
   // Called when the flow is aborted due to an error, or cancelled by the user.
   void Cleanup();
 
+  // Called when account transfer is complete.
+  void OnSetupComplete();
+
  private:
   friend class TargetDeviceBootstrapControllerTest;
 
@@ -171,7 +190,7 @@ class TargetDeviceBootstrapController
   void OnStopAdvertising();
 
   void WaitForUserVerification();
-  void OnUserVerificationResult(absl::optional<mojom::UserVerificationResponse>
+  void OnUserVerificationResult(std::optional<mojom::UserVerificationResponse>
                                     user_verification_response);
 
   // If the target device successfully receives an ack message, it prepares to
@@ -181,9 +200,9 @@ class TargetDeviceBootstrapController
   void OnNotifySourceOfUpdateResponse(bool ack_successful);
 
   void OnWifiCredentialsReceived(
-      absl::optional<mojom::WifiCredentials> credentials);
+      std::optional<mojom::WifiCredentials> credentials);
   void OnGoogleAccountInfoReceived(std::string account_email);
-  void OnFidoAssertionReceived(absl::optional<FidoAssertionInfo> assertion);
+  void OnFidoAssertionReceived(std::optional<FidoAssertionInfo> assertion);
 
   void OnChallengeBytesReceived(
       quick_start::SecondDeviceAuthBroker::ChallengeBytesOrError);
@@ -236,6 +255,10 @@ class TargetDeviceBootstrapController
 
 std::ostream& operator<<(std::ostream& stream,
                          const TargetDeviceBootstrapController::Step& step);
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const TargetDeviceBootstrapController::ErrorCode& error_code);
 
 }  // namespace ash::quick_start
 

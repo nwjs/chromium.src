@@ -105,7 +105,7 @@ ArcAppQueueRestoreHandler::ArcAppQueueRestoreHandler() {
 
   auto* manager = GetSchedulerConfigurationManager();
   if (manager) {
-    absl::optional<std::pair<bool, size_t>> scheduler_configuration =
+    std::optional<std::pair<bool, size_t>> scheduler_configuration =
         manager->GetLastReply();
     if (scheduler_configuration) {
       // Logical CPU core number should consider system HyperThread status.
@@ -494,7 +494,7 @@ void ArcAppQueueRestoreHandler::PrepareAppLaunching(const std::string& app_id) {
 
 void ArcAppQueueRestoreHandler::OnMemoryPressure(
     ResourcedClient::PressureLevel level,
-    uint64_t reclaim_target_kb) {
+    memory_pressure::ReclaimTarget) {
   pressure_level_ = level;
 }
 

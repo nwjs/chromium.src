@@ -5,9 +5,13 @@
 #import "ios/chrome/browser/download/model/download_manager_tab_helper.h"
 
 #import "base/check_op.h"
+#import "base/feature_list.h"
 #import "base/memory/ptr_util.h"
 #import "base/notreached.h"
 #import "ios/chrome/browser/download/model/download_manager_tab_helper_delegate.h"
+#import "ios/chrome/browser/drive/model/drive_tab_helper.h"
+#import "ios/chrome/browser/drive/model/upload_task.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/web/public/download/download_task.h"
 
 DownloadManagerTabHelper::DownloadManagerTabHelper(web::WebState* web_state)
@@ -28,10 +32,13 @@ DownloadManagerTabHelper::~DownloadManagerTabHelper() {
   }
 }
 
-void DownloadManagerTabHelper::Download(
+#pragma mark - Public methods
+
+void DownloadManagerTabHelper::SetCurrentDownload(
     std::unique_ptr<web::DownloadTask> task) {
   // If downloads are persistent, they cannot be lost once completed.
-  if (!task_ || task_->GetState() == web::DownloadTask::State::kComplete) {
+  if (!task_ || (task_->GetState() == web::DownloadTask::State::kComplete &&
+                 !WillDownloadTaskBeSavedToDrive())) {
     // The task is the first download for this web state.
     DidCreateDownload(std::move(task));
     return;
@@ -59,6 +66,13 @@ void DownloadManagerTabHelper::SetDelegate(
   delegate_ = delegate;
 }
 
+void DownloadManagerTabHelper::StartDownload(web::DownloadTask* task) {
+  DCHECK_EQ(task, task_.get());
+  [delegate_ downloadManagerTabHelper:this wantsToStartDownload:task_.get()];
+}
+
+#pragma mark - web::WebStateObserver
+
 void DownloadManagerTabHelper::WasShown(web::WebState* web_state) {
   if (task_ && delegate_) {
     delegate_started_ = true;
@@ -83,6 +97,8 @@ void DownloadManagerTabHelper::WebStateDestroyed(web::WebState* web_state) {
   }
 }
 
+#pragma mark - web::DownloadTaskObserver
+
 void DownloadManagerTabHelper::OnDownloadUpdated(web::DownloadTask* task) {
   DCHECK_EQ(task, task_.get());
   switch (task->GetState()) {
@@ -101,6 +117,8 @@ void DownloadManagerTabHelper::OnDownloadUpdated(web::DownloadTask* task) {
   }
 }
 
+#pragma mark - Private
+
 void DownloadManagerTabHelper::DidCreateDownload(
     std::unique_ptr<web::DownloadTask> task) {
   if (task_) {
@@ -115,6 +133,17 @@ void DownloadManagerTabHelper::DidCreateDownload(
                       didCreateDownload:task_.get()
                       webStateIsVisible:true];
   }
+}
+
+bool DownloadManagerTabHelper::WillDownloadTaskBeSavedToDrive() const {
+  if (!base::FeatureList::IsEnabled(kIOSSaveToDrive)) {
+    return false;
+  }
+  DriveTabHelper* drive_tab_helper =
+      DriveTabHelper::FromWebState(task_->GetWebState());
+  UploadTask* upload_task =
+      drive_tab_helper->GetUploadTaskForDownload(task_.get());
+  return upload_task && !upload_task->IsDone();
 }
 
 WEB_STATE_USER_DATA_KEY_IMPL(DownloadManagerTabHelper)

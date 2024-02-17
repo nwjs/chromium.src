@@ -4,6 +4,7 @@
 
 #include "extensions/common/manifest.h"
 
+#include <string_view>
 #include <utility>
 
 #include "base/containers/contains.h"
@@ -288,11 +289,7 @@ Manifest::Manifest(ManifestLocation location,
 
 Manifest::~Manifest() = default;
 
-bool Manifest::ValidateManifest(
-    std::string* error,
-    std::vector<InstallWarning>* warnings) const {
-  *error = "";
-
+void Manifest::ValidateManifest(std::vector<InstallWarning>* warnings) const {
   // Check every feature to see if it's in the manifest. Note that this means
   // we will ignore keys that are not features; we do this for forward
   // compatibility.
@@ -325,30 +322,29 @@ bool Manifest::ValidateManifest(
                            manifest_keys::kDifferentialFingerprint);
   }
 #endif
-  return true;
 }
 
-const base::Value* Manifest::FindKey(base::StringPiece key) const {
+const base::Value* Manifest::FindKey(std::string_view key) const {
   return available_values_.Find(key);
 }
 
-const base::Value* Manifest::FindPath(base::StringPiece path) const {
+const base::Value* Manifest::FindPath(std::string_view path) const {
   return available_values_.FindByDottedPath(path);
 }
 
-std::optional<bool> Manifest::FindBoolPath(base::StringPiece path) const {
+std::optional<bool> Manifest::FindBoolPath(std::string_view path) const {
   return available_values_.FindBoolByDottedPath(path);
 }
 
-std::optional<int> Manifest::FindIntPath(base::StringPiece path) const {
+std::optional<int> Manifest::FindIntPath(std::string_view path) const {
   return available_values_.FindIntByDottedPath(path);
 }
 
-const std::string* Manifest::FindStringPath(base::StringPiece path) const {
+const std::string* Manifest::FindStringPath(std::string_view path) const {
   return available_values_.FindStringByDottedPath(path);
 }
 
-const base::Value::Dict* Manifest::FindDictPath(base::StringPiece path) const {
+const base::Value::Dict* Manifest::FindDictPath(std::string_view path) const {
   return available_values_.FindDictByDottedPath(path);
 }
 

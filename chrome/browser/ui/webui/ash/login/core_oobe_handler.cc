@@ -94,7 +94,7 @@ ui::EventSink* CoreOobeHandler::GetEventSink() {
 
 void CoreOobeHandler::ShowScreenWithData(
     const OobeScreenId& screen,
-    absl::optional<base::Value::Dict> data) {
+    std::optional<base::Value::Dict> data) {
   const bool is_safe_priority_call =
       ui_init_state_ == UiState::kPriorityScreensLoaded &&
       PriorityScreenChecker::IsPriorityScreen(screen);
@@ -226,7 +226,7 @@ void CoreOobeHandler::HandleUpdateOobeUIState(int state) {
 void CoreOobeHandler::HandleRaiseTabKeyEvent(bool reverse) {
   ui::KeyEvent event(ui::ET_KEY_PRESSED, ui::VKEY_TAB, ui::EF_NONE);
   if (reverse) {
-    event.set_flags(ui::EF_SHIFT_DOWN);
+    event.SetFlags(ui::EF_SHIFT_DOWN);
   }
   SendEventToSink(&event);
 }

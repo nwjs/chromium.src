@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/bruschetta/bruschetta_installer_view.h"
 
 #include <memory>
+#include <optional>
 
 #include "ash/public/cpp/new_window_delegate.h"
 #include "ash/public/cpp/style/dark_light_mode_controller.h"
@@ -20,7 +21,6 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_thread.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -75,10 +75,10 @@ BruschettaInstallerView* BruschettaInstallerView::GetActiveViewForTesting() {
 // We need a separate class so that we can alert screen readers appropriately
 // when the text changes.
 class BruschettaInstallerView::TitleLabel : public views::Label {
+  METADATA_HEADER(TitleLabel, views::Label)
+
  public:
   using Label::Label;
-
-  METADATA_HEADER(TitleLabel);
 
   TitleLabel() = default;
   ~TitleLabel() override = default;
@@ -219,7 +219,7 @@ bool BruschettaInstallerView::Accept() {
          state_ == State::kFailedCleanup);
 
   if (state_ == State::kConfirmInstall) {
-    absl::optional<std::string> selected_config;
+    std::optional<std::string> selected_config;
     for (const auto& it : radio_buttons_) {
       if (it.second->GetChecked()) {
         selected_config = it.first;
@@ -484,7 +484,7 @@ void BruschettaInstallerView::UninstallBruschettaFinished(bool success) {
   }
 }
 
-BEGIN_METADATA(BruschettaInstallerView, views::DialogDelegateView)
+BEGIN_METADATA(BruschettaInstallerView)
 ADD_READONLY_PROPERTY_METADATA(std::u16string, PrimaryMessage)
 ADD_READONLY_PROPERTY_METADATA(std::u16string, SecondaryMessage)
 ADD_READONLY_PROPERTY_METADATA(int, CurrentDialogButtons)

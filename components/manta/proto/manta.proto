@@ -16,16 +16,24 @@ enum FeatureName {
 }
 
 enum ImageResolution {
-  reserved 0, 4, 5, 6, 7;
+  reserved 0, 4, 5, 6, 7, 8, 9, 10, 11;
 
   RESOLUTION_64 = 1;
   RESOLUTION_256 = 2;
   RESOLUTION_1024 = 3;
+  RESOLUTION_LARGE = 12;
 }
 
 message ImageDimensions {
   optional uint32 width = 1;
   optional uint32 height = 2;
+}
+
+enum AspectRatio {
+  ASPECT_RATIO_UNSPECIFIED = 0;  // Defaults to 1:1
+  ASPECT_RATIO_16_9 = 1;
+  ASPECT_RATIO_16_10 = 2;
+  ASPECT_RATIO_4_3 = 3;
 }
 
 message RequestConfig {
@@ -49,6 +57,8 @@ message RequestConfig {
   optional Tone tone = 5;
 
   optional ImageDimensions image_dimensions = 7;
+
+  optional AspectRatio aspect_ratio = 8;
 }
 
 message InputData {

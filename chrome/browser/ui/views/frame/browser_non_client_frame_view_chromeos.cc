@@ -11,6 +11,8 @@
 #include "base/metrics/user_metrics.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_properties.h"
@@ -18,7 +20,6 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
-#include "chrome/browser/ui/sad_tab_helper.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
@@ -26,7 +27,6 @@
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/profiles/profile_indicator_icon.h"
-#include "chrome/browser/ui/views/sad_tab_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/tab_icon_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -40,6 +40,7 @@
 #include "chromeos/ui/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "chromeos/ui/frame/default_frame_header.h"
 #include "chromeos/ui/frame/frame_utils.h"
+#include "components/services/app_service/public/cpp/app_update.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
@@ -181,6 +182,13 @@ void BrowserNonClientFrameViewChromeOS::Init() {
 
   window_observation_.Observe(GetFrameWindow());
 
+  if (apps::AppServiceProxyFactory::IsAppServiceAvailableForProfile(
+          browser->profile())) {
+    app_registry_cache_observation_.Observe(
+        &apps::AppServiceProxyFactory::GetForProfile(browser->profile())
+             ->AppRegistryCache());
+  }
+
   // To preserve privacy, tag incognito windows so that they won't be included
   // in screenshot sent to assistant server.
   if (browser->profile()->IsOffTheRecord()) {
@@ -291,7 +299,7 @@ bool BrowserNonClientFrameViewChromeOS::CanUserExitFullscreen() const {
 SkColor BrowserNonClientFrameViewChromeOS::GetCaptionColor(
     BrowserFrameActiveState active_state) const {
   // Web apps apply a theme color if specified by the extension/manifest.
-  absl::optional<SkColor> frame_theme_color =
+  std::optional<SkColor> frame_theme_color =
       browser_view()->browser()->app_controller()->GetThemeColor();
   const SkColor frame_color =
       frame_theme_color.value_or(GetFrameColor(active_state));
@@ -312,7 +320,7 @@ SkColor BrowserNonClientFrameViewChromeOS::GetFrameColor(
   if (!UsePackagedAppHeaderStyle(browser_view()->browser()))
     return BrowserNonClientFrameView::GetFrameColor(active_state);
 
-  absl::optional<SkColor> color;
+  std::optional<SkColor> color;
   if (browser_view()->GetIsWebAppType())
     color = browser_view()->browser()->app_controller()->GetThemeColor();
 
@@ -822,6 +830,25 @@ void BrowserNonClientFrameViewChromeOS::OnImmersiveFullscreenExited() {
   OnImmersiveRevealEnded();
 }
 
+void BrowserNonClientFrameViewChromeOS::OnAppUpdate(
+    const apps::AppUpdate& update) {
+  Browser* browser = browser_view()->browser();
+
+  if (!browser->app_controller() ||
+      browser->app_controller()->app_id() != update.AppId() ||
+      !caption_button_container_) {
+    return;
+  }
+
+  caption_button_container_->SetCloseButtonEnabled(
+      update.AllowClose().value_or(true));
+}
+
+void BrowserNonClientFrameViewChromeOS::OnAppRegistryCacheWillBeDestroyed(
+    apps::AppRegistryCache* cache) {
+  app_registry_cache_observation_.Reset();
+}
+
 void BrowserNonClientFrameViewChromeOS::PaintAsActiveChanged() {
   BrowserNonClientFrameView::PaintAsActiveChanged();
 
@@ -1015,7 +1042,6 @@ void BrowserNonClientFrameViewChromeOS::UpdateProfileIcons() {
 }
 
 void BrowserNonClientFrameViewChromeOS::UpdateWindowRoundedCorners() {
-  using DevToolsDockedPlacement = BrowserView::DevToolsDockedPlacement;
   const int corner_radius =
       chromeos::GetFrameCornerRadius(frame()->GetNativeWindow());
 
@@ -1023,83 +1049,8 @@ void BrowserNonClientFrameViewChromeOS::UpdateWindowRoundedCorners() {
     frame_header_->SetHeaderCornerRadius(corner_radius);
   }
 
-  if (!chromeos::features::IsRoundedWindowsEnabled()) {
-    return;
-  }
-
-  SidePanel* side_panel = browser_view()->unified_side_panel();
-  const bool right_aligned_side_panel_showing =
-      side_panel->GetVisible() && side_panel->IsRightAligned();
-  const bool left_aligned_side_panel_showing =
-      side_panel->GetVisible() && !side_panel->IsRightAligned();
-
-  // If side panel is visible, round one of the bottom two corners of the side
-  // panel based on its alignment w.r.t to web contents.
-  side_panel->SetBackgroundRadii(gfx::RoundedCornersF(
-      0, 0, right_aligned_side_panel_showing ? corner_radius : 0,
-      left_aligned_side_panel_showing ? corner_radius : 0));
-
-  views::WebView* devtools_webview = browser_view()->devtools_web_view();
-  CHECK(devtools_webview);
-  CHECK(devtools_webview->holder());
-
-  // If devtools are visible, round one of the bottom two corners of the
-  // the devtools context based on the alignment of the side panel. Since
-  // devtools cover the full bounds of the web contents container, if the side
-  // panel is not visible, we have to round the bottom two corners of side panel
-  // irrespective of its docked placement.
-  devtools_webview->holder()->SetCornerRadii(gfx::RoundedCornersF(
-      0, 0, right_aligned_side_panel_showing ? 0 : corner_radius,
-      left_aligned_side_panel_showing ? 0 : corner_radius));
-
-  const DevToolsDockedPlacement devtools_placement =
-      browser_view()->devtools_docked_placement();
-  CHECK_NE(devtools_placement, DevToolsDockedPlacement::kUnknown);
-
-  // Rounded the contents webview.
-  ContentsWebView* contents_webview = browser_view()->contents_web_view();
-  const views::View* contents_container = browser_view()->contents_container();
-
-  const bool devtools_showing =
-      contents_webview->bounds() != contents_container->GetLocalBounds();
-
-  const gfx::RoundedCornersF contents_webview_radii(
-      0, 0,
-      right_aligned_side_panel_showing ||
-              (devtools_showing &&
-               devtools_placement != DevToolsDockedPlacement::kLeft)
-          ? 0
-          : corner_radius,
-      left_aligned_side_panel_showing ||
-              (devtools_showing &&
-               devtools_placement != DevToolsDockedPlacement::kRight)
-          ? 0
-          : corner_radius);
-
-  // SideTabView is shown when the renderer crashes. Initially the SabTabView
-  // gets the same corners as the contents webview it gets attached to but its
-  // radii needs to be updated as it is unaware of the client view layout
-  // changes.
-  bool sad_tab_showing = false;
-  if (contents_webview->web_contents()) {
-    if (auto* sad_tab_helper =
-            SadTabHelper::FromWebContents(contents_webview->web_contents());
-        sad_tab_helper->sad_tab()) {
-      static_cast<SadTabView*>(sad_tab_helper->sad_tab())
-          ->SetBackgroundRadii(contents_webview_radii);
-      sad_tab_showing = true;
-    }
-  }
-
-  CHECK(contents_webview);
-  CHECK(contents_webview->holder());
-
-  contents_webview->SetBackgroundRadii(contents_webview_radii);
-
-  // We do not need to round contents_webview, if SadTabView is shown instead of
-  // contents_webview.
-  if (!sad_tab_showing) {
-    contents_webview->holder()->SetCornerRadii(contents_webview_radii);
+  if (chromeos::features::IsRoundedWindowsEnabled()) {
+    GetWidget()->client_view()->UpdateWindowRoundedCorners();
   }
 }
 
@@ -1291,7 +1242,7 @@ aura::Window* BrowserNonClientFrameViewChromeOS::GetFrameWindow() {
   return frame()->GetNativeWindow();
 }
 
-BEGIN_METADATA(BrowserNonClientFrameViewChromeOS, BrowserNonClientFrameView)
+BEGIN_METADATA(BrowserNonClientFrameViewChromeOS)
 ADD_READONLY_PROPERTY_METADATA(bool, ShowCaptionButtons)
 ADD_READONLY_PROPERTY_METADATA(bool, ShowCaptionButtonsWhenNotInOverview)
 ADD_READONLY_PROPERTY_METADATA(int, ToolbarLeftInset)

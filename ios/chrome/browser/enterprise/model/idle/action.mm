@@ -19,17 +19,19 @@
 #import "components/browsing_data/core/browsing_data_utils.h"
 #import "components/browsing_data/core/pref_names.h"
 #import "components/enterprise/idle/idle_pref_names.h"
+#import "components/enterprise/idle/metrics.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remover_factory.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remover_observer.h"
-#import "ios/chrome/browser/discover_feed/discover_feed_service.h"
-#import "ios/chrome/browser/discover_feed/discover_feed_service_factory.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 
 namespace enterprise_idle {
 
@@ -53,6 +55,9 @@ class CloseTabsAction : public Action {
       browser->GetWebStateList()->CloseAllWebStates(
           WebStateList::CLOSE_NO_FLAGS);
     }
+
+    metrics::RecordActionsSuccess(metrics::IdleTimeoutActionType::kCloseTabs,
+                                  true);
     std::move(continuation).Run(true);
   }
 };
@@ -68,15 +73,30 @@ class SignOutAction : public Action {
         AuthenticationServiceFactory::GetForBrowserState(browser_state);
     if (authentication_service->HasPrimaryIdentity(
             signin::ConsentLevel::kSignin)) {
+      signout_start_time_ = base::TimeTicks::Now();
       authentication_service->SignOut(
           signin_metrics::ProfileSignout::kIdleTimeoutPolicyTriggeredSignOut,
           /*force_clear_browsing_data=*/false,
-          base::CallbackToBlock(base::BindOnce(std::move(continuation), true)));
+          base::CallbackToBlock(
+              base::BindOnce(&SignOutAction::OnSignOutCompleted,
+                             base::Unretained(this), std::move(continuation))));
       return;
     }
     // Run continuation right away if user is not signed in.
     std::move(continuation).Run(true);
   }
+
+  void OnSignOutCompleted(Continuation continuation) {
+    metrics::RecordIdleTimeoutActionTimeTaken(
+        metrics::IdleTimeoutActionType::kSignOut,
+        base::TimeTicks::Now() - signout_start_time_);
+    metrics::RecordActionsSuccess(metrics::IdleTimeoutActionType::kSignOut,
+                                  true);
+    std::move(continuation).Run(true);
+  }
+
+ private:
+  base::TimeTicks signout_start_time_;
 };
 
 // Action that clears one or more types of data via BrowsingDataRemover.
@@ -101,6 +121,7 @@ class ClearBrowsingDataAction : public Action,
            Continuation continuation) override {
     continuation_ = std::move(continuation);
     mask_ = GetRemoveMask();
+    browser_list_ = BrowserListFactory::GetForBrowserState(browser_state);
 
     if (IsRemoveDataMaskSet(mask_, BrowsingDataRemoveMask::REMOVE_HISTORY)) {
       // If browsing History will be cleared set the kLastClearBrowsingDataTime.
@@ -113,7 +134,12 @@ class ClearBrowsingDataAction : public Action,
           ->BrowsingHistoryCleared();
     }
 
-    ClearDataForBrowserState(browser_state);
+    // Disable web usage for browsers before clearing starts. This forces page
+    // reload when the clearing is done.
+    SetWebUsageEnabledIfReloadNeeded(false);
+
+    deletion_start_time_ = base::TimeTicks::Now();
+    ClearBrowsingData();
   }
 
   // BrowsingDataRemoverObserver:
@@ -129,15 +155,22 @@ class ClearBrowsingDataAction : public Action,
         removals_completed_count_ == 2) {
       main_scoped_observer_.Reset();
       incognito_scoped_observer_.Reset();
+
+      metrics::RecordActionsSuccess(
+          metrics::IdleTimeoutActionType::kClearBrowsingData, removal_sucess_);
+      metrics::RecordIdleTimeoutActionTimeTaken(
+          metrics::IdleTimeoutActionType::kClearBrowsingData,
+          base::TimeTicks::Now() - deletion_start_time_);
+
+      // Re-enable web usage for browsers if needed.
+      SetWebUsageEnabledIfReloadNeeded(true);
+
       std::move(continuation_).Run(removal_sucess_);
     }
   }
 
  private:
-  // TODO(b/301676922): make sure to set and unset the scenes'
-  // userInteractionEnabled before and after calling run actions respectively if
-  // remove site data is to be cleared.
-  void ClearDataForBrowserState(ChromeBrowserState* browser_state) {
+  void ClearBrowsingData() {
     incognito_scoped_observer_.Observe(incognito_browsing_data_remover_);
     incognito_browsing_data_remover_->Remove(
         browsing_data::TimePeriod::ALL_TIME, mask_, {});
@@ -167,7 +200,24 @@ class ClearBrowsingDataAction : public Action,
     return result;
   }
 
+  void SetWebUsageEnabledIfReloadNeeded(bool enabled) {
+    if (!IsRemoveDataMaskSet(mask_, BrowsingDataRemoveMask::REMOVE_SITE_DATA)) {
+      return;
+    }
+
+    for (Browser* browser : browser_list_->AllIncognitoBrowsers()) {
+      WebUsageEnablerBrowserAgent::FromBrowser(browser)->SetWebUsageEnabled(
+          enabled);
+    }
+    for (Browser* browser : browser_list_->AllIncognitoBrowsers()) {
+      WebUsageEnablerBrowserAgent::FromBrowser(browser)->SetWebUsageEnabled(
+          enabled);
+    }
+  }
+
+  base::TimeTicks deletion_start_time_;
   base::flat_set<ActionType> action_types_;
+  BrowserList* browser_list_;
   base::ScopedObservation<BrowsingDataRemover, BrowsingDataRemoverObserver>
       main_scoped_observer_{this};
   base::ScopedObservation<BrowsingDataRemover, BrowsingDataRemoverObserver>

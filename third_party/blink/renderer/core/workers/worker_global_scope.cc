@@ -260,7 +260,7 @@ ScriptValue WorkerGlobalScope::importNWBin(ScriptState* state, DOMArrayBuffer* b
   v8::Context::Scope cscope (state->GetContext());
   v8::FixSourceNWBin(isolate, script);
   std::ignore = script->BindToCurrentContext()->Run(state->GetContext()).ToLocal(&result);
-  return ScriptValue::From(state, result);
+  return ScriptValue(isolate, result);
 }
 
 // Implementation of the "import scripts into worker global scope" algorithm:
@@ -417,12 +417,6 @@ void WorkerGlobalScope::AddConsoleMessageImpl(ConsoleMessage* console_message,
       console_message->Message(), console_message->Location());
   GetThread()->GetConsoleMessageStorage()->AddConsoleMessage(
       this, console_message, discard_duplicates);
-}
-
-void WorkerGlobalScope::AddInspectorIssue(
-    mojom::blink::InspectorIssueInfoPtr info) {
-  GetThread()->GetInspectorIssueStorage()->AddInspectorIssue(this,
-                                                             std::move(info));
 }
 
 void WorkerGlobalScope::AddInspectorIssue(AuditsIssue issue) {
@@ -621,11 +615,8 @@ WorkerGlobalScope::WorkerGlobalScope(
               (creation_params->agent_cluster_id.is_empty()
                    ? base::UnguessableToken::Create()
                    : creation_params->agent_cluster_id),
-              base::FeatureList::IsEnabled(
-                  scheduler::kMicrotaskQueuePerWorkerAgent)
-                  ? v8::MicrotaskQueue::New(thread->GetIsolate(),
-                                            v8::MicrotasksPolicy::kScoped)
-                  : nullptr),
+              v8::MicrotaskQueue::New(thread->GetIsolate(),
+                                      v8::MicrotasksPolicy::kScoped)),
           creation_params->global_scope_name,
           creation_params->parent_devtools_token,
           creation_params->v8_cache_options,

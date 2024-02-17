@@ -75,9 +75,9 @@ class TestMenuItemView;
 // (show) the menu as well as for details on the life time of the menu.
 
 class VIEWS_EXPORT MenuItemView : public View {
- public:
-  METADATA_HEADER(MenuItemView);
+  METADATA_HEADER(MenuItemView, View)
 
+ public:
   // Different types of menu items.
   enum class Type {
     kNormal,             // Performs an action when selected.
@@ -593,7 +593,7 @@ class VIEWS_EXPORT MenuItemView : public View {
   bool canceled_ = false;
 
   // Our parent.
-  raw_ptr<MenuItemView, DanglingUntriaged> parent_menu_item_ = nullptr;
+  const raw_ptr<MenuItemView> parent_menu_item_ = nullptr;
 
   // Type of menu. NOTE: MenuItemView doesn't itself represent SEPARATOR,
   // that is handled by an entirely different view class.
@@ -646,7 +646,7 @@ class VIEWS_EXPORT MenuItemView : public View {
   mutable MenuItemDimensions dimensions_;
 
   // Removed items to be deleted in ChildrenChanged().
-  std::vector<View*> removed_items_;
+  std::vector<raw_ptr<View, VectorExperimental>> removed_items_;
 
   absl::optional<int> vertical_margin_;
 
@@ -713,9 +713,9 @@ class VIEWS_EXPORT MenuItemView : public View {
 // EmptyMenuMenuItem is used when a menu has no menu items.
 
 class VIEWS_EXPORT EmptyMenuMenuItem : public MenuItemView {
- public:
-  METADATA_HEADER(EmptyMenuMenuItem);
+  METADATA_HEADER(EmptyMenuMenuItem, MenuItemView)
 
+ public:
   explicit EmptyMenuMenuItem(MenuItemView* parent);
   EmptyMenuMenuItem(const EmptyMenuMenuItem&) = delete;
   EmptyMenuMenuItem& operator=(const EmptyMenuMenuItem&) = delete;

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/login/app_mode/test/kiosk_base_test.h"
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -16,7 +17,6 @@
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/notreached.h"
-#include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
@@ -45,24 +45,8 @@
 #include "extensions/components/native_app_window/native_app_window_views.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace ash {
-
-namespace {
-
-// Helper function for GetConsumerKioskAutoLaunchStatusCallback.
-void ConsumerKioskAutoLaunchStatusCheck(
-    KioskChromeAppManager::ConsumerKioskAutoLaunchStatus* out_status,
-    base::OnceClosure runner_quit_task,
-    KioskChromeAppManager::ConsumerKioskAutoLaunchStatus in_status) {
-  LOG(INFO) << "KioskChromeAppManager::ConsumerKioskModeStatus = "
-            << static_cast<int>(in_status);
-  *out_status = in_status;
-  std::move(runner_quit_task).Run();
-}
-
-}  // namespace
 
 const char kTestEnterpriseKioskAppId[] = "gcpjojfkologpegommokeppihdbcnahn";
 const char kTestEnterpriseAccountId[] = "enterprise-kiosk-app@localhost";
@@ -71,15 +55,9 @@ const test::UIPath kConfigNetwork = {"app-launch-splash", "configNetwork"};
 const char kSizeChangedMessage[] = "size_changed";
 
 bool DidSessionCloseNewWindow(KioskSystemSession* session) {
-  base::RunLoop waiter;
-  bool result = false;
-  session->SetOnHandleBrowserCallbackForTesting(
-      base::BindLambdaForTesting([&waiter, &result](bool is_closing) {
-        result = is_closing;
-        waiter.Quit();
-      }));
-  waiter.Run();
-  return result;
+  base::test::TestFuture<bool> future;
+  session->SetOnHandleBrowserCallbackForTesting(future.GetRepeatingCallback());
+  return future.Take();
 }
 
 Browser* OpenA11ySettingsBrowser(KioskSystemSession* session) {
@@ -105,12 +83,13 @@ KioskBaseTest::~KioskBaseTest() = default;
 // static
 KioskChromeAppManager::ConsumerKioskAutoLaunchStatus
 KioskBaseTest::GetConsumerKioskModeStatus() {
-  KioskChromeAppManager::ConsumerKioskAutoLaunchStatus status =
-      static_cast<KioskChromeAppManager::ConsumerKioskAutoLaunchStatus>(-1);
-  base::RunLoop loop;
-  KioskChromeAppManager::Get()->GetConsumerKioskAutoLaunchStatus(base::BindOnce(
-      &ConsumerKioskAutoLaunchStatusCheck, &status, loop.QuitClosure()));
-  loop.Run();
+  base::test::TestFuture<KioskChromeAppManager::ConsumerKioskAutoLaunchStatus>
+      future;
+  KioskChromeAppManager::Get()->GetConsumerKioskAutoLaunchStatus(
+      future.GetCallback());
+  KioskChromeAppManager::ConsumerKioskAutoLaunchStatus status = future.Take();
+  LOG(INFO) << "KioskChromeAppManager::ConsumerKioskModeStatus = "
+            << static_cast<int>(status);
   EXPECT_NE(
       status,
       static_cast<KioskChromeAppManager::ConsumerKioskAutoLaunchStatus>(-1));
@@ -122,7 +101,7 @@ int KioskBaseTest::WaitForWidthChange(content::DOMMessageQueue* message_queue,
                                       int current_width) {
   std::string message;
   while (message_queue->WaitForMessage(&message)) {
-    absl::optional<base::Value> message_value = base::JSONReader::Read(message);
+    std::optional<base::Value> message_value = base::JSONReader::Read(message);
     if (!message_value || !message_value->is_dict()) {
       continue;
     }
@@ -133,7 +112,7 @@ int KioskBaseTest::WaitForWidthChange(content::DOMMessageQueue* message_queue,
       continue;
     }
 
-    const absl::optional<int> data = message_dict.FindInt("data");
+    const std::optional<int> data = message_dict.FindInt("data");
     if (!data || data == current_width) {
       continue;
     }

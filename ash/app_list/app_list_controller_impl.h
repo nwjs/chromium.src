@@ -39,6 +39,7 @@
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
+#include "chromeos/ash/services/assistant/public/cpp/assistant_enums.h"
 #include "ui/aura/window_observer.h"
 #include "ui/display/display_observer.h"
 #include "ui/display/types/display_constants.h"
@@ -114,7 +115,6 @@ class ASH_EXPORT AppListControllerImpl
   aura::Window* GetWindow() override;
   bool IsVisible(const std::optional<int64_t>& display_id) override;
   bool IsVisible() override;
-  bool IsImageSearchToggleable() override;
 
   // SessionObserver:
   void OnActiveUserPrefServiceChanged(PrefService* pref_service) override;
@@ -156,7 +156,8 @@ class ASH_EXPORT AppListControllerImpl
   AppListNotifier* GetNotifier() override;
   std::unique_ptr<ash::ScopedIphSession> CreateLauncherSearchIphSession()
       override;
-  void StartAssistant() override;
+  void StartAssistant(assistant::AssistantEntryPoint entry_point) override;
+  void EndAssistant(assistant::AssistantExitPoint exit_point) override;
   std::vector<AppListSearchControlCategory> GetToggleableCategories()
       const override;
   void StartSearch(const std::u16string& raw_query) override;
@@ -431,7 +432,7 @@ class ASH_EXPORT AppListControllerImpl
   // gesture is reversed).
   HomeLauncherTransitionState home_launcher_transition_state_ = kFinished;
 
-  raw_ptr<AppListClient, ExperimentalAsh> client_ = nullptr;
+  raw_ptr<AppListClient> client_ = nullptr;
 
   // Tracks the most recent show source for the app list.
   std::optional<AppListShowSource> last_open_source_;
@@ -487,7 +488,7 @@ class ASH_EXPORT AppListControllerImpl
   // last calculated.
   // This window changing it's visibility to false is used as a signal that the
   // home launcher visibility should be recalculated.
-  raw_ptr<aura::Window, ExperimentalAsh> tracked_app_window_ = nullptr;
+  raw_ptr<aura::Window> tracked_app_window_ = nullptr;
 
   // A callback that can be registered by a test to wait for the app list state
   // transition animation to finish.

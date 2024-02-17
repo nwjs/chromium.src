@@ -15,6 +15,7 @@
 #include "base/barrier_closure.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
@@ -329,12 +330,12 @@ IN_PROC_BROWSER_TEST_P(PrivacyBudgetBrowserTestForWorkersClientAdded,
   // Test succeeds if there is no timeout.
   // Both surfaces should come from the same source but have different client
   // ids.
-  std::vector<const ukm::mojom::UkmEntry*> entries =
+  std::vector<raw_ptr<const ukm::mojom::UkmEntry, VectorExperimental>> entries =
       recorder().GetEntriesByName(ukm::builders::Identifiability::kEntryName);
 
   base::flat_set<uint64_t> source_ids;
   base::flat_set<uint64_t> client_source_ids;
-  for (const auto* entry : entries) {
+  for (const ukm::mojom::UkmEntry* entry : entries) {
     for (const auto& metric : entry->metrics) {
       if (metric.first == expected_key) {
         source_ids.insert(entry->source_id);
@@ -518,14 +519,12 @@ IN_PROC_BROWSER_TEST_F(PrivacyBudgetBrowserTestWithTestRecorder,
   recorder().SetOnAddEntryCallback(
       ukm::builders::Identifiability::kEntryName,
       base::BindLambdaForTesting([this, &run_loop]() {
-        // (kCanvasReadback | input_digest << kTypeBits) = one of the
-        // merged_entries. If the value of the relevant merged entry changes,
-        // input_digest needs to change. The new input_digest can be calculated
-        // by: new_input_digest = new_ukm_entry >> kTypeBits;
-        constexpr uint64_t input_digest = UINT64_C(33457614533296512);
+        // Key of the entry metric to look for.
+        constexpr uint64_t input_digest = UINT64_C(3701609392929341475);
         const uint64_t canvas_key =
             blink::IdentifiableSurface::FromTypeAndToken(
-                blink::IdentifiableSurface::Type::kCanvasReadback, input_digest)
+                blink::IdentifiableSurface::Type::kCanvasReadback,
+                input_digest >> blink::IdentifiableSurface::kTypeBits)
                 .ToUkmMetricHash();
 
         for (const ukm::mojom::UkmEntry* entry : recorder().GetEntriesByName(
@@ -725,87 +724,4 @@ IN_PROC_BROWSER_TEST_F(PrivacyBudgetAssignedBlockSamplingConfigTest,
       blink::IdentifiableSurface::Type::kLocalFontLookupByFallbackCharacter));
   EXPECT_FALSE(settings->ShouldSampleType(
       blink::IdentifiableSurface::Type::kMediaCapabilities_DecodingInfo));
-}
-
-namespace {
-
-class PrivacyBudgetBrowserTestActiveSampling : public PlatformBrowserTest {
- public:
-  PrivacyBudgetBrowserTestActiveSampling() {
-    test::ScopedPrivacyBudgetConfig::Parameters params;
-    params.enabled = true;
-    params.enable_active_sampling = true;
-    params.actively_sampled_fonts = {"Arial", "Helvetica"};
-    privacy_budget_config_.Apply(params);
-
-    expected_keys_ = {
-        blink::IdentifiableSurface::FromTypeAndToken(
-            blink::IdentifiableSurface::Type::
-                kNavigatorUAData_GetHighEntropyValues,
-            blink::IdentifiableToken("model"))
-            .ToUkmMetricHash(),
-        blink::IdentifiableSurface::FromTypeAndToken(
-            blink::IdentifiableSurface::Type::kFontFamilyAvailable,
-            blink::IdentifiableToken("arial"))
-            .ToUkmMetricHash(),
-        blink::IdentifiableSurface::FromTypeAndToken(
-            blink::IdentifiableSurface::Type::kFontFamilyAvailable,
-            blink::IdentifiableToken("helvetica"))
-            .ToUkmMetricHash()};
-  }
-
-  void CreatedBrowserMainParts(content::BrowserMainParts* parts) override {
-    PlatformBrowserTest::CreatedBrowserMainParts(parts);
-    ukm_recorder_ = std::make_unique<ukm::TestAutoSetUkmRecorder>();
-
-    // We wait for the expected metrics to be reported. Since some of the
-    // metrics are reported from the renderer process, this is the only reliable
-    // way to be sure we waited long enough.
-    run_loop_ = std::make_unique<base::RunLoop>();
-    ukm_recorder_->SetOnAddEntryCallback(
-        ukm::builders::Identifiability::kEntryName,
-        base::BindLambdaForTesting([this]() {
-          if (GetReportedSurfaceKeys().size() == expected_keys_.size())
-            run_loop_->Quit();
-        }));
-  }
-
-  base::flat_set<uint64_t> GetReportedSurfaceKeys() {
-    std::map<ukm::SourceId, ukm::mojom::UkmEntryPtr> merged_entries =
-        ukm_recorder_->GetMergedEntriesByName(
-            ukm::builders::Identifiability::kEntryName);
-
-    base::flat_set<uint64_t> reported_surface_keys;
-    for (const auto& entry : merged_entries) {
-      for (const auto& metric : entry.second->metrics) {
-        if (base::Contains(expected_keys_, metric.first))
-          reported_surface_keys.insert(metric.first);
-      }
-    }
-    return reported_surface_keys;
-  }
-
-  base::RunLoop& run_loop() { return *run_loop_; }
-
-  const std::vector<uint64_t> expected_keys() const { return expected_keys_; }
-
- private:
-  test::ScopedPrivacyBudgetConfig privacy_budget_config_;
-  std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_;
-  std::unique_ptr<base::RunLoop> run_loop_;
-
-  std::vector<uint64_t> expected_keys_;
-};
-
-}  // namespace
-
-IN_PROC_BROWSER_TEST_F(PrivacyBudgetBrowserTestActiveSampling,
-                       ActiveSamplingIsPerformed) {
-  run_loop().Run();
-
-  // Test succeeds if there is no timeout. However, let's recheck the metrics
-  // here, so that if there is a timeout we get an output of which metrics are
-  // missing.
-  EXPECT_THAT(GetReportedSurfaceKeys(),
-              UnorderedElementsAreArray(expected_keys()));
 }

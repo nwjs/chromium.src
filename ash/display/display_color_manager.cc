@@ -220,7 +220,8 @@ void ColorMatrixVectorFromSrgbToDeviceAndColorMatrix(
 
 bool HasColorCorrectionMatrix(display::DisplayConfigurator* configurator,
                               int64_t display_id) {
-  for (const auto* display_snapshot : configurator->cached_displays()) {
+  for (const display::DisplaySnapshot* display_snapshot :
+       configurator->cached_displays()) {
     if (display_snapshot->display_id() != display_id)
       continue;
 
@@ -254,6 +255,7 @@ bool DisplayColorManager::SetDisplayColorTemperatureAdjustment(
     // This display doesn't support setting a CRTC matrix.
     return false;
   }
+  configurator_->SetColorTemperatureAdjustment(display_id, cta);
 
   // Always overwrite any existing matrix for this display.
   SkM44 color_matrix = gfx::SkM44FromSkcmsMatrix3x3(cta.srgb_matrix);
@@ -262,7 +264,8 @@ bool DisplayColorManager::SetDisplayColorTemperatureAdjustment(
   // Look up the calibration matrix, if one exists.
   SkM44 srgb_to_device_matrix;
   {
-    for (const auto* display_snapshot : configurator_->cached_displays()) {
+    for (const display::DisplaySnapshot* display_snapshot :
+         configurator_->cached_displays()) {
       if (display_snapshot->display_id() != display_id) {
         continue;
       }
@@ -318,6 +321,8 @@ void DisplayColorManager::OnDisplayRemoved(
 void DisplayColorManager::ApplyDisplayColorCalibration(
     int64_t display_id,
     const display::ColorCalibration& calibration) {
+  configurator_->SetColorCalibration(display_id, calibration);
+
   if (HasColorCorrectionMatrix(configurator_, display_id)) {
     SkM44 srgb_to_device_matrix =
         gfx::SkM44FromSkcmsMatrix3x3(calibration.srgb_to_device_matrix);

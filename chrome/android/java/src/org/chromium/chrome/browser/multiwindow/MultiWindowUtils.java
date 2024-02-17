@@ -39,8 +39,7 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ChromeTabbedActivity2;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.tabmodel.TabWindowManagerSingleton;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
+import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
@@ -70,6 +69,7 @@ public class MultiWindowUtils implements ActivityStateListener {
     private static Integer sMaxInstancesForTesting;
 
     private final boolean mMultiInstanceApi31Enabled;
+    private static Boolean sMultiInstanceApi31EnabledForTesting;
 
     // Used to keep track of whether ChromeTabbedActivity2 is running. A tri-state Boolean is
     // used in case both activities die in the background and MultiWindowUtils is recreated.
@@ -126,7 +126,7 @@ public class MultiWindowUtils implements ActivityStateListener {
         // Instance switcher is supported on S, and on some R platforms where the new
         // launch mode is backported.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false;
-        return ChromeFeatureList.sInstanceSwitcher.isEnabled();
+        return true;
     }
 
     /**
@@ -134,6 +134,9 @@ public class MultiWindowUtils implements ActivityStateListener {
      *         multiple instantiation of Chrome instance.
      */
     public static boolean isMultiInstanceApi31Enabled() {
+        if (sMultiInstanceApi31EnabledForTesting != null) {
+            return sMultiInstanceApi31EnabledForTesting;
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false;
         Context context = ContextUtils.getApplicationContext();
         String packageName = context.getPackageName();
@@ -204,17 +207,31 @@ public class MultiWindowUtils implements ActivityStateListener {
         // Not supported on automotive devices.
         if (BuildInfo.getInstance().isAutomotive) return false;
 
-        boolean hasAtMostOneTab = tabModelSelector.getTotalTabCount() <= 1;
-        boolean partnerHomepageEnabled =
-                PartnerBrowserCustomizations.getInstance().isHomepageProviderAvailableAndEnabled();
-        // Do not allow move for last tab when partner homepage enabled.
-        if (hasAtMostOneTab && partnerHomepageEnabled) return false;
-        if (instanceSwitcherEnabled()) {
+        // Do not allow move for last tab when homepage enabled and is set to a custom url.
+        if (hasAtMostOneTabWithHomepageEnabled(tabModelSelector)) {
+            return false;
+        }
+        if (instanceSwitcherEnabled() && isMultiInstanceApi31Enabled()) {
             // Moving tabs should be possible to any other instance.
             return getInstanceCount() > 1;
         } else {
             return isOpenInOtherWindowSupported(activity);
         }
+    }
+
+    /**
+     * @param tabModelSelector Used to pull total tab count.
+     * @return whether it is last tab with homepage enabled and set to an custom url.
+     */
+    public boolean hasAtMostOneTabWithHomepageEnabled(TabModelSelector tabModelSelector) {
+        boolean hasAtMostOneTab = tabModelSelector.getTotalTabCount() <= 1;
+
+        // Chrome app is set to close with zero tabs when homepage is enabled and set to a custom
+        // url other than the NTP. We should not allow dragging the last tab or display 'Move to
+        // other window' in this scenario as the source window might be closed before drag n drop
+        // completes properly and thus cause other complications.
+        boolean shouldAppCloseWithZeroTabs = HomepageManager.shouldCloseAppWithZeroTabs();
+        return hasAtMostOneTab && shouldAppCloseWithZeroTabs;
     }
 
     /**
@@ -818,9 +835,11 @@ public class MultiWindowUtils implements ActivityStateListener {
 
     public static void setMaxInstancesForTesting(int maxInstances) {
         sMaxInstancesForTesting = maxInstances;
-        ResettersForTesting.register(
-                () -> {
-                    sMaxInstancesForTesting = null;
-                });
+        ResettersForTesting.register(() -> sMaxInstancesForTesting = null);
+    }
+
+    public static void setMultiInstanceApi31EnabledForTesting(boolean value) {
+        sMultiInstanceApi31EnabledForTesting = value;
+        ResettersForTesting.register(() -> sMultiInstanceApi31EnabledForTesting = null);
     }
 }

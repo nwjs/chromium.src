@@ -45,7 +45,9 @@ class MockUploader : public feedback::FeedbackUploader {
   MockUploader& operator=(const MockUploader&) = delete;
 
   // feedback::FeedbackUploader:
-  void QueueReport(std::unique_ptr<std::string> data, bool has_email) override {
+  void QueueReport(std::unique_ptr<std::string> data,
+                   bool has_email,
+                   int product_id) override {
     if (data != nullptr) {
       userfeedback::ExtensionSubmit feedback_data;
       feedback_data.ParseFromString(*data);
@@ -53,9 +55,14 @@ class MockUploader : public feedback::FeedbackUploader {
     }
   }
 
+  base::WeakPtr<FeedbackUploader> AsWeakPtr() override {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
  private:
   network::TestURLLoaderFactory test_url_loader_factory_;
   OnReportSentCallback on_report_sent_;
+  base::WeakPtrFactory<MockUploader> weak_ptr_factory_{this};
 };
 
 std::unique_ptr<KeyedService> CreateMockUploader(

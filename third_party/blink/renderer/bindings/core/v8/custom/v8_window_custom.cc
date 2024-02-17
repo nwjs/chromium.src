@@ -77,10 +77,10 @@ static void ParentAttributeGet(const CallbackInfo& info)
     LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToWrappableUnsafe(info.Holder()));
     LocalFrame* frame = imp->GetFrame();
     if (frame && frame->isNwFakeTop()) {
-      V8SetReturnValue(info, ToV8(imp, info.Holder(), info.GetIsolate()));
+      V8SetReturnValue(info, imp, blink_win, bindings::V8ReturnValue::kMaybeCrossOrigin);
       return;
     }
-    V8SetReturnValue(info, ToV8(imp->parent(), info.Holder(), info.GetIsolate()));
+    V8SetReturnValue(info, imp->parent(), blink_win, bindings::V8ReturnValue::kMaybeCrossOrigin);
   } else {
     V8SetReturnValue(info, return_value, blink_win,
                      bindings::V8ReturnValue::kMaybeCrossOrigin);

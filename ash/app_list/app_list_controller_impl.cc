@@ -163,7 +163,7 @@ class WindowAnimationsCallback : public ui::LayerAnimationObserver {
   }
 
   base::OnceClosure callback_;
-  raw_ptr<ui::LayerAnimator, ExperimentalAsh>
+  raw_ptr<ui::LayerAnimator>
       animator_;  // Owned by the layer that is animating.
   base::CallbackListSubscription subscription_;
 };
@@ -211,10 +211,10 @@ PrefService* GetLastActiveUserPrefService() {
 // Gets the MRU window shown over the applist when in tablet mode.
 // Returns nullptr if no windows are shown over the applist.
 aura::Window* GetTopVisibleWindow() {
-  std::vector<aura::Window*> window_list =
+  std::vector<raw_ptr<aura::Window, VectorExperimental>> window_list =
       Shell::Get()->mru_window_tracker()->BuildWindowListIgnoreModal(
           DesksMruType::kActiveDesk);
-  for (auto* window : window_list) {
+  for (aura::Window* window : window_list) {
     if (!window->TargetVisibility() || WindowState::Get(window)->IsMinimized())
       continue;
 
@@ -259,6 +259,17 @@ void MaybeLogWelcomeTourInteraction(AppListShowSource show_source) {
     welcome_tour_metrics::RecordInteraction(
         welcome_tour_metrics::Interaction::kLauncher);
   }
+}
+
+bool IsAssistantExitPointScreenshot(
+    std::optional<assistant::AssistantExitPoint> exit_point) {
+  return exit_point == AssistantExitPoint::kScreenshot;
+}
+
+bool IsAssistantExitPointInsideLauncher(
+    std::optional<assistant::AssistantExitPoint> exit_point) {
+  return exit_point == AssistantExitPoint::kBackInLauncher ||
+         exit_point == AssistantExitPoint::kLauncherSearchIphChip;
 }
 
 }  // namespace
@@ -411,12 +422,6 @@ bool AppListControllerImpl::IsVisible(
 
 bool AppListControllerImpl::IsVisible() {
   return IsVisible(std::nullopt);
-}
-
-bool AppListControllerImpl::IsImageSearchToggleable() {
-  // Hide the image search from the category filter menu if the privacy notice
-  // hasn't been accepted or timeout yet.
-  return !SearchNotifierController::ShouldShowPrivacyNotice();
 }
 
 void AppListControllerImpl::OnActiveUserPrefServiceChanged(
@@ -602,8 +607,13 @@ bool AppListControllerImpl::GoHome(int64_t display_id) {
 
   DCHECK(IsInTabletMode());
 
-  if (fullscreen_presenter_->IsShowingEmbeddedAssistantUI())
+  if (fullscreen_presenter_->IsShowingEmbeddedAssistantUI()) {
+    // OnHomeLauncherAnimationComplete() may not be called if the
+    // `foreground_windows` is empty. Call AssistantUiController::CloseUi() here
+    // directly.
+    AssistantUiController::Get()->CloseUi(AssistantExitPoint::kLauncherClose);
     fullscreen_presenter_->ShowEmbeddedAssistantUI(false);
+  }
 
   SplitViewController* split_view_controller =
       SplitViewController::Get(Shell::GetPrimaryRootWindow());
@@ -617,7 +627,7 @@ bool AppListControllerImpl::GoHome(int64_t display_id) {
   // The foreground window or windows (for split mode) - the windows that will
   // not be minimized without animations (instead they will be animated into the
   // home screen).
-  std::vector<aura::Window*> foreground_windows;
+  std::vector<raw_ptr<aura::Window, VectorExperimental>> foreground_windows;
   if (split_view_active) {
     foreground_windows = {split_view_controller->primary_window(),
                           split_view_controller->secondary_window()};
@@ -667,7 +677,7 @@ bool AppListControllerImpl::GoHome(int64_t display_id) {
     // TODO(https://crbug.com/1019531): This can be removed once transitions
     // between in-app state and home do not cause work area updates.
     std::vector<std::unique_ptr<ScopedAnimationDisabler>> animation_disablers;
-    for (auto* window : foreground_windows) {
+    for (aura::Window* window : foreground_windows) {
       animation_disablers.push_back(
           std::make_unique<ScopedAnimationDisabler>(window));
     }
@@ -684,7 +694,7 @@ bool AppListControllerImpl::GoHome(int64_t display_id) {
 
   // Minimize currently active windows, but this time, using animation.
   // Home screen will show when all the windows are done minimizing.
-  for (auto* foreground_window : foreground_windows) {
+  for (aura::Window* foreground_window : foreground_windows) {
     if (::wm::WindowAnimationsDisabled(foreground_window)) {
       WindowState::Get(foreground_window)->Minimize();
       window_transforms_callback.Run();
@@ -1023,7 +1033,7 @@ void AppListControllerImpl::OnUiVisibilityChanged(
         // |SetActiveStateInternal|, which are called from
         // |ShowEmbeddedAssistantUI(false)| and
         // |ClearSearchAndDeactivateSearchBox()|.
-        if (exit_point == AssistantExitPoint::kScreenshot) {
+        if (IsAssistantExitPointScreenshot(exit_point)) {
           set_active_state_animation_disabler.emplace(
               fullscreen_presenter_->GetView()
                   ->app_list_main_view()
@@ -1032,18 +1042,18 @@ void AppListControllerImpl::OnUiVisibilityChanged(
 
         fullscreen_presenter_->ShowEmbeddedAssistantUI(false);
 
-        if (exit_point != AssistantExitPoint::kBackInLauncher) {
+        if (!IsAssistantExitPointInsideLauncher(exit_point)) {
           fullscreen_presenter_->GetView()
               ->search_box_view()
               ->ClearSearchAndDeactivateSearchBox();
         }
-      } else if (exit_point != AssistantExitPoint::kBackInLauncher) {
+      } else if (!IsAssistantExitPointInsideLauncher(exit_point)) {
         // Similarly, when taking a screenshot by Assistant in clamshell mode,
         // we do not want to dismiss launcher with animation. Otherwise the
         // screenshot may have transient state during the animation.
         base::AutoReset<bool> auto_reset(
             &should_dismiss_immediately_,
-            exit_point == AssistantExitPoint::kScreenshot);
+            IsAssistantExitPointScreenshot(exit_point));
         DismissAppList();
       }
       break;
@@ -1167,9 +1177,15 @@ void AppListControllerImpl::RecordShelfAppLaunched() {
 ////////////////////////////////////////////////////////////////////////////////
 // Methods of |client_|:
 
-void AppListControllerImpl::StartAssistant() {
-  AssistantUiController::Get()->ShowUi(
-      AssistantEntryPoint::kLauncherSearchBoxIcon);
+void AppListControllerImpl::StartAssistant(
+    assistant::AssistantEntryPoint entry_point) {
+  AssistantUiController::Get()->ShowUi(entry_point);
+  UpdateSearchBoxUiVisibilities();
+}
+
+void AppListControllerImpl::EndAssistant(
+    assistant::AssistantExitPoint exit_point) {
+  AssistantUiController::Get()->CloseUi(exit_point);
 }
 
 std::vector<AppListSearchControlCategory>
@@ -1819,7 +1835,7 @@ void AppListControllerImpl::UpdateForOverviewModeChange(bool show_home_launcher,
   aura::Window* app_list_window =
       Shell::Get()->app_list_controller()->GetHomeScreenWindow();
   if (app_list_window) {
-    for (auto* child : wm::GetTransientChildren(app_list_window)) {
+    for (aura::Window* child : wm::GetTransientChildren(app_list_window)) {
       if (show_home_launcher)
         child->Show();
       else
@@ -1952,7 +1968,7 @@ void AppListControllerImpl::StartTrackingAnimationSmoothness(
   auto* compositor = root_window->layer()->GetCompositor();
   smoothness_tracker_ = compositor->RequestNewThroughputTracker();
   smoothness_tracker_->Start(
-      metrics_util::ForSmoothness(base::BindRepeating([](int smoothness) {
+      metrics_util::ForSmoothnessV3(base::BindRepeating([](int smoothness) {
         UMA_HISTOGRAM_PERCENTAGE(kHomescreenAnimationHistogram, smoothness);
       })));
 }

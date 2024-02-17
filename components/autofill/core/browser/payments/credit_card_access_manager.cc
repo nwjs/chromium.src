@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 
+#include <functional>
 #include <memory>
 #include <set>
 #include <string>
@@ -11,7 +12,6 @@
 #include <vector>
 
 #include "base/functional/bind.h"
-#include "base/functional/not_fn.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/sequenced_task_runner.h"
@@ -38,7 +38,6 @@
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/autofill/core/common/autofill_tick_clock.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -79,7 +78,7 @@ CreditCardAccessManager::~CreditCardAccessManager() {
     if (auto* form_data_importer = client_->GetFormDataImporter()) {
       form_data_importer
           ->SetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted(
-              absl::nullopt);
+              std::nullopt);
     }
   }
 }
@@ -127,7 +126,7 @@ void CreditCardAccessManager::PrepareToFetchCreditCard() {
 #if !BUILDFLAG(IS_IOS)
   // No need to fetch details if there are no server cards.
   if (!base::ranges::any_of(personal_data_manager_->GetCreditCardsToSuggest(),
-                            base::not_fn(&CreditCard::IsLocalCard))) {
+                            std::not_fn(&CreditCard::IsLocalCard))) {
     return;
   }
 
@@ -148,7 +147,7 @@ void CreditCardAccessManager::PrepareToFetchCreditCard() {
   if (is_user_verifiable_.has_value()) {
     GetUnmaskDetailsIfUserIsVerifiable(is_user_verifiable_.value());
   } else {
-    is_user_verifiable_called_timestamp_ = AutofillTickClock::NowTicks();
+    is_user_verifiable_called_timestamp_ = base::TimeTicks::Now();
 
     GetOrCreateFidoAuthenticator()->IsUserVerifiable(base::BindOnce(
         &CreditCardAccessManager::GetUnmaskDetailsIfUserIsVerifiable,
@@ -164,8 +163,7 @@ void CreditCardAccessManager::GetUnmaskDetailsIfUserIsVerifiable(
 
   if (is_user_verifiable_called_timestamp_.has_value()) {
     autofill_metrics::LogUserVerifiabilityCheckDuration(
-        AutofillTickClock::NowTicks() -
-        is_user_verifiable_called_timestamp_.value());
+        base::TimeTicks::Now() - is_user_verifiable_called_timestamp_.value());
   }
 
   // If there is already an unmask details request in progress, do not initiate
@@ -182,7 +180,7 @@ void CreditCardAccessManager::GetUnmaskDetailsIfUserIsVerifiable(
   // require any.
   if (is_user_verifiable_.value_or(false)) {
     unmask_details_request_in_progress_ = true;
-    preflight_call_timestamp_ = AutofillTickClock::NowTicks();
+    preflight_call_timestamp_ = base::TimeTicks::Now();
     payments_network_interface_->GetUnmaskDetails(
         base::BindOnce(&CreditCardAccessManager::OnDidGetUnmaskDetails,
                        weak_ptr_factory_.GetWeakPtr()),
@@ -239,7 +237,7 @@ void CreditCardAccessManager::OnDidGetUnmaskDetails(
   // Log latency for preflight call.
   if (preflight_call_timestamp_.has_value()) {
     autofill_metrics::LogCardUnmaskPreflightDuration(
-        AutofillTickClock::NowTicks() - *preflight_call_timestamp_);
+        base::TimeTicks::Now() - *preflight_call_timestamp_);
   }
 
   unmask_details_request_in_progress_ = false;
@@ -253,7 +251,7 @@ void CreditCardAccessManager::OnDidGetUnmaskDetails(
   // Set delay as fido request timeout if available, otherwise set to default.
   int delay_ms = kDelayForGetUnmaskDetails;
   if (unmask_details_.fido_request_options.has_value()) {
-    const absl::optional<int> request_timeout =
+    const std::optional<int> request_timeout =
         unmask_details_.fido_request_options->FindInt("timeout_millis");
     if (request_timeout.has_value()) {
       delay_ms = *request_timeout;
@@ -283,7 +281,7 @@ void CreditCardAccessManager::FetchCreditCard(
   // autofill non-interactive flow successfully completes.
   client_->GetFormDataImporter()
       ->SetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted(
-          absl::nullopt);
+          std::nullopt);
 
   // Return error if authentication is already in progress, but don't reset
   // status.
@@ -528,7 +526,7 @@ void CreditCardAccessManager::Authenticate(
       // UnmaskResponseDetails while for masked server cards, it comes from the
       // UnmaskDetails.
       base::Value::Dict fido_request_options;
-      absl::optional<std::string> context_token;
+      std::optional<std::string> context_token;
       if (card_->record_type() == CreditCard::RecordType::kVirtualCard) {
         context_token = virtual_card_unmask_response_details_.context_token;
         fido_request_options = std::move(
@@ -579,6 +577,11 @@ void CreditCardAccessManager::Authenticate(
             card_.get(), weak_ptr_factory_.GetWeakPtr(), personal_data_manager_,
             virtual_card_unmask_response_details_.context_token,
             *selected_challenge_option_);
+      } else if (IsMaskedServerCardRiskBasedAuthAvailable()) {
+        CHECK(!risk_based_authentication_response_.context_token.empty());
+        client_->GetCvcAuthenticator()->Authenticate(
+            card_.get(), weak_ptr_factory_.GetWeakPtr(), personal_data_manager_,
+            risk_based_authentication_response_.context_token);
       } else {
         client_->GetCvcAuthenticator()->Authenticate(
             card_.get(), weak_ptr_factory_.GetWeakPtr(),
@@ -653,7 +656,7 @@ void CreditCardAccessManager::OnCvcAuthenticationComplete(
     unmask_auth_flow_type_ = UnmaskAuthFlowType::kNone;
   } else if (should_register_card_with_fido) {
 #if !BUILDFLAG(IS_IOS)
-    absl::optional<base::Value::Dict> request_options = absl::nullopt;
+    std::optional<base::Value::Dict> request_options = std::nullopt;
     if (unmask_details_.fido_request_options.has_value()) {
       // For opted-in user (CVC then FIDO case), request options are returned in
       // unmask detail response.
@@ -984,8 +987,6 @@ bool CreditCardAccessManager::ShouldOfferFidoOptInDialog(
     return false;
   }
 
-  // If the strike limit was reached for the FIDO opt-in dialog, we should not
-  // offer it.
   if (auto* strike_database =
           GetOrCreateFidoAuthenticator()
               ->GetOrCreateFidoAuthenticationStrikeDatabase();
@@ -1069,7 +1070,25 @@ std::string CreditCardAccessManager::GetKeyForUnmaskedCardsCache(
 void CreditCardAccessManager::FetchMaskedServerCard() {
   is_authentication_in_progress_ = true;
 
+  bool get_unmask_details_returned =
+      ready_to_start_authentication_.IsSignaled();
+
   if (IsMaskedServerCardRiskBasedAuthAvailable()) {
+    // Preflight call response time metrics should only be logged if the user is
+    // verifiable.
+#if !BUILDFLAG(IS_IOS)
+    if (is_user_verifiable_.value_or(false)) {
+      autofill_metrics::LogPreflightCallResponseReceivedOnCardSelection(
+          get_unmask_details_returned
+              ? autofill_metrics::PreflightCallEvent::
+                    kPreflightCallReturnedBeforeCardChosen
+              : autofill_metrics::PreflightCallEvent::
+                    kCardChosenBeforePreflightCallReturned,
+          GetOrCreateFidoAuthenticator()->IsUserOptedIn(),
+          CreditCard::RecordType::kMaskedServerCard);
+    }
+#endif
+
     client_->ShowAutofillProgressDialog(
         AutofillProgressDialogType::kServerCardUnmaskProgressDialog,
         /*cancel_callback=*/base::BindOnce(
@@ -1083,11 +1102,6 @@ void CreditCardAccessManager::FetchMaskedServerCard() {
     // CreditCardAccessManager::OnRiskBasedAuthenticationResponseReceived.
     return;
   }
-
-  bool get_unmask_details_returned =
-      ready_to_start_authentication_.IsSignaled();
-  bool should_wait_to_authenticate =
-      IsUserOptedInToFidoAuth() && !get_unmask_details_returned;
 
   // Latency metrics should only be logged if the user is verifiable.
 #if !BUILDFLAG(IS_IOS)
@@ -1111,9 +1125,11 @@ void CreditCardAccessManager::FetchMaskedServerCard() {
   }
 #endif
 
+  bool should_wait_to_authenticate =
+      IsUserOptedInToFidoAuth() && !get_unmask_details_returned;
+
   if (should_wait_to_authenticate) {
-    card_selected_without_unmask_details_timestamp_ =
-        AutofillTickClock::NowTicks();
+    card_selected_without_unmask_details_timestamp_ = base::TimeTicks::Now();
 
     // Wait for |ready_to_start_authentication_| to be signaled by
     // OnDidGetUnmaskDetails() or until timeout before calling
@@ -1375,6 +1391,12 @@ void CreditCardAccessManager::OnNonInteractiveAuthenticationSuccess(
             : AutofillClient::PaymentsRpcCardType::kServerCard,
         autofill_metrics::ServerCardUnmaskFlowType::kRiskBased);
 
+    if (!card_->cvc().empty()) {
+      autofill_metrics::LogCvcFilling(
+          autofill_metrics::CvcFillingFlowType::kNoInteractiveAuthentication,
+          record_type);
+    }
+
     // `OnCreditCardFetchedCallback` makes a copy of `card` and `cvc` before it
     // asynchronously fills them into the form. Thus we can safely call
     // `Reset()` here, and we should as from this class' point of view the
@@ -1388,11 +1410,11 @@ void CreditCardAccessManager::OnStopWaitingForUnmaskDetails(
   // If the user had to wait for Unmask Details, log the latency.
   if (card_selected_without_unmask_details_timestamp_.has_value()) {
     autofill_metrics::LogUserPerceivedLatencyOnCardSelectionDuration(
-        AutofillTickClock::NowTicks() -
+        base::TimeTicks::Now() -
         card_selected_without_unmask_details_timestamp_.value());
     autofill_metrics::LogUserPerceivedLatencyOnCardSelectionTimedOut(
         /*did_time_out=*/!get_unmask_details_returned);
-    card_selected_without_unmask_details_timestamp_ = absl::nullopt;
+    card_selected_without_unmask_details_timestamp_ = std::nullopt;
   }
 
   // Start the authentication after the wait ends.
@@ -1490,9 +1512,9 @@ void CreditCardAccessManager::Reset() {
   weak_ptr_factory_.InvalidateWeakPtrs();
   unmask_auth_flow_type_ = UnmaskAuthFlowType::kNone;
   is_authentication_in_progress_ = false;
-  preflight_call_timestamp_ = absl::nullopt;
-  card_selected_without_unmask_details_timestamp_ = absl::nullopt;
-  is_user_verifiable_called_timestamp_ = absl::nullopt;
+  preflight_call_timestamp_ = std::nullopt;
+  card_selected_without_unmask_details_timestamp_ = std::nullopt;
+  is_user_verifiable_called_timestamp_ = std::nullopt;
 #if !BUILDFLAG(IS_IOS)
   opt_in_intention_ = UserOptInIntention::kUnspecified;
 #endif
@@ -1574,7 +1596,6 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
       client_->GetOrCreatePaymentsMandatoryReauthManager()
           ->GetAuthenticationMethod();
 
-#if BUILDFLAG(IS_IOS)
   // If there is no supported auth method on the device, we should skip re-auth
   // and fill the form. Otherwise the user removing authentication on the
   // device will prevent them from using payments autofill. In the settings
@@ -1591,7 +1612,6 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
         .Run(CreditCardFetchResult::kSuccess, card);
     return;
   }
-#endif
 
   autofill_metrics::LogMandatoryReauthCheckoutFlowUsageEvent(
       card->record_type(), authentication_method,

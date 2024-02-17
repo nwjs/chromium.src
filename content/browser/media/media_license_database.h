@@ -25,14 +25,16 @@ class MediaLicenseDatabase {
   MediaLicenseStorageHost::MediaLicenseStorageHostOpenError OpenFile(
       const media::CdmType& cdm_type,
       const std::string& file_name);
-  absl::optional<std::vector<uint8_t>> ReadFile(const media::CdmType& cdm_type,
-                                                const std::string& file_name);
+  std::optional<std::vector<uint8_t>> ReadFile(const media::CdmType& cdm_type,
+                                               const std::string& file_name);
   bool WriteFile(const media::CdmType& cdm_type,
                  const std::string& file_name,
                  const std::vector<uint8_t>& data);
   bool DeleteFile(const media::CdmType& cdm_type, const std::string& file_name);
 
   bool ClearDatabase();
+
+  uint64_t GetDatabaseSize();
 
  private:
   // Opens and sets up a database if one is not already set up.
@@ -47,11 +49,11 @@ class MediaLicenseDatabase {
   const base::FilePath path_;
 
   // A descriptor of the last SQL statement that was executed, used for metrics.
-  absl::optional<std::string> last_operation_;
+  std::optional<std::string> last_operation_;
 
   // Integer of last file size that the CDM sent to be written, used for
   // metrics.
-  absl::optional<int> last_write_file_size_;
+  std::optional<int> last_write_file_size_;
 
   sql::Database db_ GUARDED_BY_CONTEXT(sequence_checker_);
 };

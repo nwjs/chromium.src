@@ -22,6 +22,7 @@
 #include "cc/paint/paint_op_buffer_serializer.h"
 #include "cc/paint/paint_op_reader.h"
 #include "cc/paint/paint_op_writer.h"
+#include "cc/paint/refcounted_buffer.h"
 #include "cc/paint/shader_transfer_cache_entry.h"
 #include "cc/paint/skottie_resource_metadata.h"
 #include "cc/paint/skottie_text_property_value.h"
@@ -1268,6 +1269,7 @@ std::vector<PaintImage> test_images = {
 };
 
 #if BUILDFLAG(SKIA_SUPPORT_SKOTTIE)
+
 bool kIsSkottieSupported = true;
 #else
 bool kIsSkottieSupported = false;
@@ -1571,6 +1573,36 @@ void PushDrawRRectOps(PaintOpBuffer* buffer) {
   EXPECT_THAT(*buffer, Each(PaintOpIs<DrawRRectOp>()));
 }
 
+void PushDrawVerticesOps(PaintOpBuffer* buffer) {
+  struct VerticesTest {
+    std::vector<SkPoint> verts;
+    std::vector<SkPoint> uvs;
+    std::vector<uint16_t> indices;
+  };
+
+  std::vector<VerticesTest> test_vertices = {
+      {.verts = {{0, 0}}, .uvs = {{0, 0}}, .indices = {0, 0, 0}},
+      {.verts = {{0, 0}, {0, 100}},
+       .uvs = {{0, 0}, {0, 1}},
+       .indices = {0, 1, 0}},
+      {.verts = {{0, 0}, {0, 100}, {100, 100}},
+       .uvs = {{0, 0}, {0, 1}, {1, 1}},
+       .indices = {0, 1, 2}},
+  };
+
+  size_t len = std::min(test_vertices.size(), test_flags.size());
+  for (size_t i = 0; i < len; ++i) {
+    buffer->push<DrawVerticesOp>(
+        base::MakeRefCounted<RefCountedBuffer<SkPoint>>(test_vertices[i].verts),
+        base::MakeRefCounted<RefCountedBuffer<SkPoint>>(test_vertices[i].uvs),
+        base::MakeRefCounted<RefCountedBuffer<uint16_t>>(
+            test_vertices[i].indices),
+        test_flags[i]);
+  }
+
+  EXPECT_THAT(*buffer, Each(PaintOpIs<DrawVerticesOp>()));
+}
+
 SkottieFrameDataMap GetTestImagesForSkottie(SkottieWrapper& skottie,
                                             const SkRect& skottie_rect,
                                             PaintFlags::FilterQuality quality,
@@ -1868,6 +1900,9 @@ class PaintOpSerializationTest : public ::testing::TestWithParam<uint8_t> {
       case PaintOpType::kDrawTextBlob:
         // TODO(crbug.com/1321150): fix the test for kDrawtextblobs
         // PushDrawTextBlobOps(&buffer_);
+        break;
+      case PaintOpType::kDrawVertices:
+        PushDrawVerticesOps(&buffer_);
         break;
       case PaintOpType::kNoop:
         PushNoopOps(&buffer_);
@@ -3451,7 +3486,7 @@ TEST(PaintOpBufferTest, DrawSkottieOpRasterWithoutImageAssets) {
   PlaybackParams playback_params(/*image_provider=*/nullptr);
   {
     NiceMock<MockCanvas> canvas;
-    EXPECT_CALL(canvas, onDrawImage2(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(canvas, onDrawImageRect2(_, _, _, _, _, _)).Times(0);
     DrawSkottieOp::Raster(&skottie_op, &canvas, playback_params);
   }
 }
@@ -3468,7 +3503,7 @@ TEST(PaintOpBufferTest, DrawSkottieOpRasterWithNullImages) {
   PlaybackParams playback_params(/*image_provider=*/nullptr);
   {
     NiceMock<MockCanvas> canvas;
-    EXPECT_CALL(canvas, onDrawImage2(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(canvas, onDrawImageRect2(_, _, _, _, _, _)).Times(0);
     DrawSkottieOp::Raster(&skottie_op, &canvas, playback_params);
   }
 }
@@ -3489,7 +3524,8 @@ TEST(PaintOpBufferTest, DrawSkottieOpRasterWithoutImageProvider) {
     // many "draw image" calls are made, and what the arguments are. But it's
     // fair to say that it has to make at least one "draw image" call for a
     // frame in the animation that renders one of the assets.
-    EXPECT_CALL(canvas, onDrawImage2(NotNull(), _, _, _, _)).Times(AtLeast(1));
+    EXPECT_CALL(canvas, onDrawImageRect2(NotNull(), _, _, _, _, _))
+        .Times(AtLeast(1));
     DrawSkottieOp::Raster(&skottie_op, &canvas, playback_params);
   }
 }
@@ -3515,7 +3551,8 @@ TEST(PaintOpBufferTest, DrawSkottieOpRasterWithImageProvider) {
     DrawSkottieOp skottie_op(skottie, skottie_rect, /*t=*/0.25, images_in,
                              SkottieColorMap(), SkottieTextPropertyValueMap());
     NiceMock<MockCanvas> canvas;
-    EXPECT_CALL(canvas, onDrawImage2(NotNull(), _, _, _, _)).Times(AtLeast(1));
+    EXPECT_CALL(canvas, onDrawImageRect2(NotNull(), _, _, _, _, _))
+        .Times(AtLeast(1));
     DrawSkottieOp::Raster(&skottie_op, &canvas, playback_params);
     ASSERT_EQ(image_provider.decoded_images().size(), 1u);
     EXPECT_THAT(image_provider.decoded_images(),
@@ -3529,7 +3566,8 @@ TEST(PaintOpBufferTest, DrawSkottieOpRasterWithImageProvider) {
     DrawSkottieOp skottie_op(skottie, skottie_rect, /*t=*/0.75, images_in,
                              SkottieColorMap(), SkottieTextPropertyValueMap());
     NiceMock<MockCanvas> canvas;
-    EXPECT_CALL(canvas, onDrawImage2(NotNull(), _, _, _, _)).Times(AtLeast(1));
+    EXPECT_CALL(canvas, onDrawImageRect2(NotNull(), _, _, _, _, _))
+        .Times(AtLeast(1));
     DrawSkottieOp::Raster(&skottie_op, &canvas, playback_params);
     ASSERT_EQ(image_provider.decoded_images().size(), 2u);
     EXPECT_THAT(image_provider.decoded_images(),

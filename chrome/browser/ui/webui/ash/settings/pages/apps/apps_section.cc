@@ -23,7 +23,6 @@
 #include "chrome/browser/ui/webui/ash/settings/pages/system_preferences/startup_section.h"
 #include "chrome/browser/ui/webui/ash/settings/search/search_tag_registry.h"
 #include "chrome/browser/ui/webui/webui_util.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/os_settings_resources.h"
@@ -79,7 +78,9 @@ const std::vector<SearchConcept>& GetAppNotificationsSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
       {IDS_OS_SETTINGS_TAG_APP_NOTIFICATIONS,
        mojom::kAppNotificationsSubpagePath,
-       mojom::SearchResultIcon::kAppsGrid,
+       ash::features::IsOsSettingsRevampWayfindingEnabled()
+           ? mojom::SearchResultIcon::kNotifications
+           : mojom::SearchResultIcon::kAppsGrid,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSubpage,
        {.subpage = mojom::Subpage::kAppNotifications}},
@@ -91,7 +92,9 @@ const std::vector<SearchConcept>& GetAppNotificationsManagerSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
       {IDS_OS_SETTINGS_TAG_APP_NOTIFICATIONS_MANAGER,
        mojom::kAppNotificationsManagerSubpagePath,
-       mojom::SearchResultIcon::kAppsGrid,
+       ash::features::IsOsSettingsRevampWayfindingEnabled()
+           ? mojom::SearchResultIcon::kNotifications
+           : mojom::SearchResultIcon::kAppsGrid,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSubpage,
        {.subpage = mojom::Subpage::kAppNotificationsManager}},
@@ -103,7 +106,9 @@ const std::vector<SearchConcept>& GetAppBadgingSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags(
       {{IDS_OS_SETTINGS_TAG_APP_BADGING,
         mojom::kAppNotificationsSubpagePath,
-        mojom::SearchResultIcon::kAppsGrid,
+        ash::features::IsOsSettingsRevampWayfindingEnabled()
+            ? mojom::SearchResultIcon::kNotifications
+            : mojom::SearchResultIcon::kAppsGrid,
         mojom::SearchResultDefaultRank::kMedium,
         mojom::SearchResultType::kSetting,
         {.setting = mojom::Setting::kAppBadgingOnOff}}});
@@ -114,7 +119,9 @@ const std::vector<SearchConcept>& GetTurnOffAppNotificationSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags(
       {{IDS_OS_SETTINGS_TAG_DO_NOT_DISTURB_TURN_OFF,
         mojom::kAppNotificationsSubpagePath,
-        mojom::SearchResultIcon::kAppsGrid,
+        ash::features::IsOsSettingsRevampWayfindingEnabled()
+            ? mojom::SearchResultIcon::kNotifications
+            : mojom::SearchResultIcon::kAppsGrid,
         mojom::SearchResultDefaultRank::kMedium,
         mojom::SearchResultType::kSetting,
         {.setting = mojom::Setting::kDoNotDisturbOnOff},
@@ -127,7 +134,9 @@ const std::vector<SearchConcept>& GetTurnOnAppNotificationSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags(
       {{IDS_OS_SETTINGS_TAG_DO_NOT_DISTURB_TURN_ON,
         mojom::kAppNotificationsSubpagePath,
-        mojom::SearchResultIcon::kAppsGrid,
+        ash::features::IsOsSettingsRevampWayfindingEnabled()
+            ? mojom::SearchResultIcon::kNotifications
+            : mojom::SearchResultIcon::kAppsGrid,
         mojom::SearchResultDefaultRank::kMedium,
         mojom::SearchResultType::kSetting,
         {.setting = mojom::Setting::kDoNotDisturbOnOff},
@@ -385,9 +394,8 @@ AppsSection::AppsSection(Profile* profile,
     : OsSettingsSection(profile, search_tag_registry),
       startup_subsection_(
           !ash::features::IsOsSettingsRevampWayfindingEnabled()
-              ? absl::make_optional<StartupSection>(profile,
-                                                    search_tag_registry)
-              : absl::nullopt),
+              ? std::make_optional<StartupSection>(profile, search_tag_registry)
+              : std::nullopt),
       pref_service_(pref_service),
       arc_app_list_prefs_(arc_app_list_prefs),
       app_service_proxy_(app_service_proxy) {
@@ -474,10 +482,6 @@ void AppsSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       {"appManagementAppLanguageLabel", IDS_APP_MANAGEMENT_APP_LANGUAGE_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
-
-  html_source->AddBoolean(
-      "appManagementAppDetailsEnabled",
-      base::FeatureList::IsEnabled(::features::kAppManagementAppDetails));
 
   html_source->AddBoolean("appManagementArcReadOnlyPermissions",
                           arc::IsReadOnlyPermissionsEnabled());

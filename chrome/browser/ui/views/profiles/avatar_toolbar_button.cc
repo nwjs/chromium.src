@@ -145,7 +145,7 @@ void AvatarToolbarButton::Layout() {
 }
 
 void AvatarToolbarButton::UpdateText() {
-  absl::optional<SkColor> color;
+  std::optional<SkColor> color;
   std::u16string text;
 
   const auto* const color_provider = GetColorProvider();
@@ -240,9 +240,9 @@ void AvatarToolbarButton::UpdateText() {
   InvalidateLayout();
 }
 
-absl::optional<SkColor> AvatarToolbarButton::GetHighlightTextColor() const {
+std::optional<SkColor> AvatarToolbarButton::GetHighlightTextColor() const {
   if (features::IsChromeRefresh2023()) {
-    absl::optional<SkColor> color;
+    std::optional<SkColor> color;
     const auto* const color_provider = GetColorProvider();
     CHECK(color_provider);
 
@@ -279,17 +279,17 @@ absl::optional<SkColor> AvatarToolbarButton::GetHighlightTextColor() const {
     return color;
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
-absl::optional<SkColor> AvatarToolbarButton::GetHighlightBorderColor() const {
+std::optional<SkColor> AvatarToolbarButton::GetHighlightBorderColor() const {
   if (features::IsChromeRefresh2023()) {
     const auto* const color_provider = GetColorProvider();
     CHECK(color_provider);
     return color_provider->GetColor(kColorToolbarButtonBorder);
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void AvatarToolbarButton::UpdateInkdrop() {
@@ -352,51 +352,15 @@ void AvatarToolbarButton::ShowSignInText() {
 void AvatarToolbarButton::HideSignInText() {
   delegate_->HideSignInText();
 }
-
-void AvatarToolbarButton::DisabledStateHelper::Init(
-    bool previous_enable_state,
-    SkColor previous_disabled_text_color) {
-  CHECK(!init_);
-
-  previous_enable_state_ = previous_enable_state;
-  previous_disabled_text_color_ = previous_disabled_text_color;
-
-  init_ = true;
-}
-
-bool AvatarToolbarButton::DisabledStateHelper::GetPreviousEnableState() const {
-  CHECK(init_);
-  return previous_enable_state_;
-}
-
-SkColor AvatarToolbarButton::DisabledStateHelper::GetPreviousDisabledTextColor()
-    const {
-  CHECK(init_);
-  return previous_disabled_text_color_;
-}
-
-void AvatarToolbarButton::DisableActionButton() {
-  SkColor active_text_color = GetCurrentTextColor();
-
-  // Disable the button and remember the disabled text color/state.
-  bool previous_enable_state = GetEnabled();
-  SetEnabled(false);
-  disabled_state_helper_.Init(previous_enable_state, GetCurrentTextColor());
-
-  // Override the disable state color with the active text color.
-  SetTextColor(ButtonState::STATE_DISABLED, active_text_color);
-}
-
-void AvatarToolbarButton::ResetActionButton() {
-  SetEnabled(disabled_state_helper_.GetPreviousEnableState());
-  SetTextColor(ButtonState::STATE_DISABLED,
-               disabled_state_helper_.GetPreviousDisabledTextColor());
-
-  // Reset the helper instance.
-  disabled_state_helper_ = {};
-}
-
 #endif
+
+void AvatarToolbarButton::SetButtonActionDisabled(bool disabled) {
+  button_action_disabled_ = disabled;
+}
+
+bool AvatarToolbarButton::IsButtonActionDisabled() const {
+  return button_action_disabled_;
+}
 
 void AvatarToolbarButton::AddObserver(Observer* observer) {
   observer_list_.AddObserver(observer);
@@ -451,6 +415,7 @@ void AvatarToolbarButton::OnBlur() {
 
 void AvatarToolbarButton::OnThemeChanged() {
   ToolbarButton::OnThemeChanged();
+  delegate_->OnThemeChanged(GetColorProvider());
   UpdateText();
   if (features::IsChromeRefresh2023()) {
     UpdateInkdrop();
@@ -464,6 +429,10 @@ void AvatarToolbarButton::SetIPHMinDelayAfterCreationForTesting(
 }
 
 void AvatarToolbarButton::ButtonPressed() {
+  if (button_action_disabled_) {
+    return;
+  }
+
   browser_->window()->ShowAvatarBubbleFromAvatarButton(
       /*is_source_accelerator=*/false);
 }
@@ -488,7 +457,7 @@ std::u16string AvatarToolbarButton::GetAvatarTooltipText() const {
     // still use GetAvatarSyncErrorDescription() as tooltip.
     case State::kSyncError:
     case State::kSyncPaused: {
-      absl::optional<AvatarSyncErrorType> error =
+      std::optional<AvatarSyncErrorType> error =
           delegate_->GetAvatarSyncErrorType();
       DCHECK(error);
       return l10n_util::GetStringFUTF16(
@@ -514,7 +483,7 @@ SkColor AvatarToolbarButton::GetForegroundColor(ButtonState state) const {
   // the color would be same as the label color.
   if (features::IsChromeRefresh2023() && !has_custom_theme &&
       IsLabelPresentAndVisible()) {
-    const absl::optional<SkColor> foreground_color = GetHighlightTextColor();
+    const std::optional<SkColor> foreground_color = GetHighlightTextColor();
     const auto* const color_provider = GetColorProvider();
     return foreground_color.has_value()
                ? foreground_color.value()
@@ -592,5 +561,5 @@ int AvatarToolbarButton::GetIconSize() const {
                                          : kIconSizeForNonTouchUi;
 }
 
-BEGIN_METADATA(AvatarToolbarButton, ToolbarButton)
+BEGIN_METADATA(AvatarToolbarButton)
 END_METADATA

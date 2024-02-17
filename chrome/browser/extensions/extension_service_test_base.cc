@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/extensions/extension_service_test_base.h"
+#include "base/memory/raw_ptr.h"
 
 #include <utility>
 
@@ -184,7 +185,9 @@ std::unique_ptr<TestingProfile> BuildTestingProfile(
       TrustedVaultServiceFactory::GetDefaultFactory());
   profile_builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                                     SyncServiceFactory::GetDefaultFactory());
-
+  profile_builder.AddTestingFactory(
+      ExtensionGarbageCollectorFactory::GetInstance(),
+      base::BindRepeating(&ExtensionGarbageCollectorFactory::BuildInstanceFor));
   profile_builder.SetPath(profile_dir);
   return profile_builder.Build();
 }
@@ -241,7 +244,9 @@ ExtensionServiceTestBase::ExtensionServiceTestBase(
   data_dir_ = test_data_dir.AppendASCII("extensions");
 
   policy_service_ = std::make_unique<policy::PolicyServiceImpl>(
-      std::vector<policy::ConfigurationPolicyProvider*>{&policy_provider_});
+      std::vector<
+          raw_ptr<policy::ConfigurationPolicyProvider, VectorExperimental>>{
+          &policy_provider_});
 }
 
 ExtensionServiceTestBase::~ExtensionServiceTestBase() {
@@ -262,11 +267,6 @@ void ExtensionServiceTestBase::InitializeExtensionService(
 
   CreateExtensionService(params);
   registry_ = ExtensionRegistry::Get(profile());
-
-  // Garbage collector is typically NULL during tests, so give it a build.
-  ExtensionGarbageCollectorFactory::GetInstance()->SetTestingFactoryAndUse(
-      profile(),
-      base::BindRepeating(&ExtensionGarbageCollectorFactory::BuildInstanceFor));
 }
 
 void ExtensionServiceTestBase::InitializeEmptyExtensionService() {
@@ -323,7 +323,7 @@ testing::AssertionResult ExtensionServiceTestBase::ValidateBooleanPref(
            << "extension pref does not exist " << msg;
   }
 
-  absl::optional<bool> val = pref->FindBoolByDottedPath(pref_path);
+  std::optional<bool> val = pref->FindBoolByDottedPath(pref_path);
   if (!val.has_value()) {
     return testing::AssertionFailure()
            << pref_path << " pref not found " << msg;

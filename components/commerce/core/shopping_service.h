@@ -74,10 +74,6 @@ class SyncService;
 
 namespace commerce {
 
-// The conversion multiplier to go from standard currency units to
-// micro-currency units.
-extern const long kToMicroCurrency;
-
 extern const char kImageAvailabilityHistogramName[];
 extern const char kProductInfoLocalExtractionTime[];
 
@@ -376,12 +372,6 @@ class ShoppingService : public KeyedService,
   // be passed to the callback.
   virtual void WaitForReady(
       base::OnceCallback<void(ShoppingService*)> callback);
-
-  // Check whether a product (based on cluster ID) is explicitly price tracked
-  // by the user.
-  virtual void IsClusterIdTrackedByUser(
-      uint64_t cluster_id,
-      base::OnceCallback<void(bool)> callback);
 
   // This is a feature check for the "merchant viewer", which will return true
   // if the user has the feature flag enabled or (if applicable) is in an

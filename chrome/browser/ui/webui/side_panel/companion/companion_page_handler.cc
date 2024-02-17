@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/side_panel/companion/companion_page_handler.h"
 
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/companion/core/companion_metrics_logger.h"
@@ -15,6 +16,7 @@
 #include "chrome/browser/companion/text_finder/text_finder_manager.h"
 #include "chrome/browser/companion/text_finder/text_highlighter_manager.h"
 #include "chrome/browser/companion/visual_query/visual_query_suggestions_service_factory.h"
+#include "chrome/browser/content_extraction/inner_html.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
@@ -157,9 +159,18 @@ void CompanionPageHandler::DidFinishNavigation(
 void CompanionPageHandler::DidFinishLoad(
     content::RenderFrameHost* render_frame_host,
     const GURL& validated_url) {
-  // We only want to classify images in the main frame.
+  // We only want to classify images and capture the page title and inner-html
+  // in the main frame.
   if (!render_frame_host->IsInPrimaryMainFrame()) {
     return;
+  }
+
+  auto* pref_service = GetProfile()->GetPrefs();
+  if (IsUserPermittedToSharePageContentWithCompanion(pref_service)) {
+    content_extraction::GetInnerHtml(
+        *render_frame_host,
+        base::BindOnce(&CompanionPageHandler::HandleInnerHtmlResponse,
+                       weak_ptr_factory_.GetWeakPtr()));
   }
 
   // TODO(b/284640445) - Add browser test to verify side effect of feature
@@ -184,10 +195,10 @@ void CompanionPageHandler::SendVisualQueryResult(
   page_->OnDeviceVisualClassificationResult(std::move(final_results));
   base::UmaHistogramTimes(
       "Companion.VisualQuery.ResultLatency",
-      base::TimeTicks::Now() - ui_loading_start_time_.value());
+      base::TimeTicks::Now() - ui_ready_for_visual_queries_time_.value());
   base::UmaHistogramBoolean("Companion.VisualQuery.SendVisualResultSuccess",
                             true);
-  ui_loading_start_time_.reset();
+  ui_ready_for_visual_queries_time_.reset();
 }
 
 void CompanionPageHandler::HandleVisualQueryResult(
@@ -199,19 +210,52 @@ void CompanionPageHandler::HandleVisualQueryResult(
   // independent of whether or not the result is shown to user.
   metrics_logger_->OnVisualSuggestionsResult(metrics);
 
-  // Check to see if |ui_loading_start_time_| is set as indication that
-  // we received the kStartedLoading signal from side panel. If set, we send the
-  // visual query suggestions to the side. If it is not set, then we don't send
-  // the request in hopes that when it is set in the future, we can send
-  // the cached result from |visual_query_host_|.
-  if (ui_loading_start_time_) {
+  // Check to see if |ui_ready_for_visual_queries_time_| is set as indication
+  // that we received the kStartedLoading signal from side panel. If set, we
+  // send the visual query suggestions to the side. If it is not set, then we
+  // don't send the request in hopes that when it is set in the future, we can
+  // send the cached result from |visual_query_host_|.
+  if (ui_ready_for_visual_queries_time_) {
     SendVisualQueryResult(results);
+  }
+}
+
+void CompanionPageHandler::HandleInnerHtmlResponse(
+    const std::optional<std::string>& result) {
+  inner_html_ = result;
+  if (ui_ready_for_page_content_time_.has_value()) {
+    SendPageContent();
+  }
+}
+
+void CompanionPageHandler::SendPageContent() {
+  CHECK(ui_ready_for_page_content_time_.has_value());
+  // TODO(b/298449509): Add histograms to measure latency and page content size.
+  if (inner_html_.has_value()) {
+    page_->UpdatePageContent(base::UTF16ToUTF8(web_contents()->GetTitle()),
+                             std::move(*inner_html_));
+    inner_html_.reset();
   }
 }
 
 void CompanionPageHandler::OnLoadingState(
     side_panel::mojom::LoadingState loading_state) {
-  // We only care about loading state, if VQS is enabled.
+  if (loading_state == side_panel::mojom::LoadingState::kStartedLoading) {
+    auto* pref_service = GetProfile()->GetPrefs();
+    if (IsUserPermittedToSharePageContentWithCompanion(pref_service)) {
+      ui_ready_for_page_content_time_ = base::TimeTicks::Now();
+      if (inner_html_.has_value()) {
+        SendPageContent();
+      } else {
+        content_extraction::GetInnerHtml(
+            *web_contents()->GetPrimaryMainFrame(),
+            base::BindOnce(&CompanionPageHandler::HandleInnerHtmlResponse,
+                           weak_ptr_factory_.GetWeakPtr()));
+      }
+    }
+  }
+
+  // Only continue if VQS is enabled.
   if (!visual_query_host_) {
     return;
   }
@@ -223,7 +267,7 @@ void CompanionPageHandler::OnLoadingState(
   // the WebUI to handle cases where we obtain the |VisualQueryResult| before
   // the UI is ready to render it.
   if (loading_state == side_panel::mojom::LoadingState::kStartedLoading) {
-    ui_loading_start_time_ = base::TimeTicks::Now();
+    ui_ready_for_visual_queries_time_ = base::TimeTicks::Now();
     if (visual_result) {
       SendVisualQueryResult(visual_result.value());
     } else {
@@ -320,7 +364,6 @@ bool CompanionPageHandler::OnSearchTextQuery() {
 }
 
 void CompanionPageHandler::NotifyURLChanged(bool is_full_reload) {
-  ui_loading_start_time_.reset();
   if (is_full_reload) {
     GURL companion_url =
         url_builder_->BuildCompanionURL(web_contents()->GetVisibleURL());
@@ -333,8 +376,10 @@ void CompanionPageHandler::NotifyURLChanged(bool is_full_reload) {
     page_->UpdateCompanionPage(companion_update_proto);
   }
   if (visual_query_host_) {
+    ui_ready_for_visual_queries_time_.reset();
     visual_query_host_->CancelClassification(web_contents()->GetVisibleURL());
   }
+  ui_ready_for_page_content_time_.reset();
 }
 
 void CompanionPageHandler::NotifyLinkOpened(
@@ -456,8 +501,12 @@ void CompanionPageHandler::OnCqJumptagClicked(
       text_directive);
 }
 
+void CompanionPageHandler::OnServerSideUrlFilterEvent() {
+  metrics_logger_->OnServerSideUrlFilterEvent();
+}
+
 void CompanionPageHandler::OpenUrlInBrowser(
-    const absl::optional<GURL>& url_to_open,
+    const std::optional<GURL>& url_to_open,
     bool use_new_tab) {
   if (!url_to_open.has_value() || !url_to_open.value().is_valid()) {
     return;

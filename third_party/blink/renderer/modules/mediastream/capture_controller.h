@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
@@ -31,14 +32,14 @@ class MODULES_EXPORT CaptureController final : public EventTarget,
   // https://w3c.github.io/mediacapture-screen-share/#dom-capturecontroller-setfocusbehavior
   void setFocusBehavior(V8CaptureStartFocusBehavior, ExceptionState&);
 
-  // IDL interface, APIs related to Captured Surface Control
-  // TODO(crbug.com/1466247): Link to spec.
+  // Captured Surface Control IDL interface - scrolling
   ScriptPromise sendWheel(ScriptState* script_state,
                           CapturedWheelAction* action);
-  int getMinZoomLevel();
-  int getMaxZoomLevel();
+
+  // Captured Surface Control IDL interface - zooming
+  static Vector<int> getSupportedZoomLevels();
   ScriptPromise getZoomLevel(ScriptState* script_state);
-  ScriptPromise setZoomLevel(int zoom_level);
+  ScriptPromise setZoomLevel(ScriptState* script_state, int zoom_level);
 
   void SetIsBound(bool value) { is_bound_ = value; }
   bool IsBound() const { return is_bound_; }
@@ -54,10 +55,6 @@ class MODULES_EXPORT CaptureController final : public EventTarget,
   // https://screen-share.github.io/mouse-events/#capture-controller-extensions
   DEFINE_ATTRIBUTE_EVENT_LISTENER(capturedmousechange, kCapturedmousechange)
 
-  // TODO(crbug.com/1466247): Link to spec.
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(capturedzoomlevelchange,
-                                  kCapturedzoomlevelchange)
-
   // Close the window of opportunity to make the focus decision.
   // Further calls to setFocusBehavior() will raise an exception.
   // https://w3c.github.io/mediacapture-screen-share/#dfn-finalize-focus-decision-algorithm
@@ -66,6 +63,8 @@ class MODULES_EXPORT CaptureController final : public EventTarget,
   void Trace(Visitor* visitor) const override;
 
  private:
+  std::pair<bool, DOMException*> ValidateCapturedSurfaceControlCall() const;
+
   // Whether this CaptureController has been passed to a getDisplayMedia() call.
   // This helps enforce the requirement that any CaptureController may only
   // be used with a single getDisplayMedia() call.

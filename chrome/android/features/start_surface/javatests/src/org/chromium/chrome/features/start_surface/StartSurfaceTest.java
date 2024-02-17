@@ -71,6 +71,8 @@ import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeInactivityTracker;
@@ -95,8 +97,6 @@ import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ChromeTabUtils;
-import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
-import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -209,39 +209,6 @@ public class StartSurfaceTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
-    public void testShow_SingleAsHomepage() {
-        if (!mImmediateReturn) {
-            StartSurfaceTestUtils.pressHomePageButton(mActivityTestRule.getActivity());
-        }
-        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
-        StartSurfaceTestUtils.waitForStartSurfaceVisible(
-                mLayoutChangedCallbackHelper, mCurrentlyActiveLayout, cta);
-
-        onViewWaiting(withId(R.id.primary_tasks_surface_view));
-        onViewWaiting(withId(R.id.search_box_text)).check(matches(isDisplayed()));
-        onViewWaiting(withId(R.id.mv_tiles_container)).check(matches(isDisplayed()));
-        onViewWaiting(withId(R.id.tab_switcher_title)).check(matches(isDisplayed()));
-        onViewWaiting(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
-        onView(withId(R.id.tasks_surface_body)).check(matches(isDisplayed()));
-
-        StartSurfaceTestUtils.clickMoreTabs(cta);
-        StartSurfaceTestUtils.waitForTabSwitcherVisible(cta);
-        ViewUtils.waitForVisibleView(
-                allOf(
-                        withParent(withId(TabUiTestHelper.getTabSwitcherParentId(cta))),
-                        withId(R.id.tab_list_recycler_view)));
-
-        StartSurfaceTestUtils.pressBack(mActivityTestRule);
-        onViewWaiting(allOf(withId(R.id.primary_tasks_surface_view), isDisplayed()));
-
-        StartSurfaceTestUtils.clickFirstTabInCarousel();
-        LayoutTestUtils.waitForLayout(cta.getLayoutManager(), LayoutType.BROWSING);
-    }
-
-    @Test
-    @MediumTest
-    @Feature({"StartSurface"})
     @CommandLineFlags.Add({
         START_SURFACE_TEST_SINGLE_ENABLED_PARAMS + "/hide_switch_when_no_incognito_tabs/false"
     })
@@ -258,14 +225,13 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.primary_tasks_surface_view));
         onViewWaiting(withId(R.id.search_box_text));
         onViewWaiting(withId(R.id.mv_tiles_container)).check(matches(isDisplayed()));
-        onViewWaiting(withId(R.id.tab_switcher_title)).check(matches(isDisplayed()));
         onViewWaiting(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
         onView(withId(R.id.tasks_surface_body)).check(matches(isDisplayed()));
 
         // TODO(crbug.com/1076274): fix toolbar to make incognito switch part of the view.
         onView(withId(R.id.incognito_toggle_tabs)).check(matches(withEffectiveVisibility(GONE)));
 
-        StartSurfaceTestUtils.clickMoreTabs(cta);
+        StartSurfaceTestUtils.clickTabSwitcherButton(cta);
         StartSurfaceTestUtils.waitForTabSwitcherVisible(cta);
         onView(withId(R.id.incognito_toggle_tabs)).check(matches(withEffectiveVisibility(VISIBLE)));
 
@@ -282,7 +248,7 @@ public class StartSurfaceTest {
 
         onView(withId(R.id.incognito_toggle_tabs)).check(matches(withEffectiveVisibility(GONE)));
 
-        StartSurfaceTestUtils.clickFirstTabInCarousel();
+        onViewWaiting(withId(R.id.single_tab_view)).perform(click());
         LayoutTestUtils.waitForLayout(cta.getLayoutManager(), LayoutType.BROWSING);
     }
 
@@ -315,7 +281,6 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.primary_tasks_surface_view));
         onViewWaiting(withId(R.id.search_box_text));
         onView(withId(R.id.mv_tiles_container)).check(matches(isDisplayed()));
-        onView(withId(R.id.tab_switcher_title)).check(matches(withEffectiveVisibility(GONE)));
         onView(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
         onView(withId(R.id.single_tab_view)).check(matches(isDisplayed()));
         onView(withId(R.id.tasks_surface_body)).check(matches(isDisplayed()));
@@ -525,27 +490,6 @@ public class StartSurfaceTest {
         FeedPlaceholderLayout.DISABLE_ANIMATION_SWITCH
     })
     public void startSurfaceRecordHistogramsTest_SingleTab() {
-        startSurfaceRecordHistogramsTest(true);
-    }
-
-    @Test
-    @MediumTest
-    @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
-    @EnableFeatures({
-        ChromeFeatureList.START_SURFACE_RETURN_TIME + "<Study",
-        ChromeFeatureList.START_SURFACE_ANDROID + "<Study"
-    })
-    @CommandLineFlags.Add({
-        START_SURFACE_TEST_SINGLE_ENABLED_PARAMS,
-        // Disable feed placeholder animation because it causes waitForDeferredStartup() to time
-        // out.
-        FeedPlaceholderLayout.DISABLE_ANIMATION_SWITCH
-    })
-    public void startSurfaceRecordHistogramsTest_CarouselTab() {
-        startSurfaceRecordHistogramsTest(false);
-    }
-
-    private void startSurfaceRecordHistogramsTest(boolean isSingleTabSwitcher) {
         if (!mImmediateReturn) {
             assertNotEquals(0, START_SURFACE_RETURN_TIME_SECONDS.getValue());
             StartSurfaceTestUtils.pressHomePageButton(mActivityTestRule.getActivity());
@@ -553,9 +497,6 @@ public class StartSurfaceTest {
             assertEquals(0, START_SURFACE_RETURN_TIME_SECONDS.getValue());
         }
 
-        Assert.assertEquals(
-                isSingleTabSwitcher,
-                StartSurfaceConfiguration.START_SURFACE_LAST_ACTIVE_TAB_ONLY.getValue());
         StartSurfaceTestUtils.waitForStartSurfaceVisible(
                 mLayoutChangedCallbackHelper,
                 mCurrentlyActiveLayout,
@@ -586,14 +527,12 @@ public class StartSurfaceTest {
 
         // Histograms should be only recorded when StartSurface is shown immediately after
         // launch.
-        if (isSingleTabSwitcher) {
-            Assert.assertEquals(
-                    expectedRecordCount,
-                    RecordHistogram.getHistogramTotalCountForTesting(
-                            StartSurfaceConfiguration.getHistogramName(
-                                    SingleTabSwitcherMediator.SINGLE_TAB_TITLE_AVAILABLE_TIME_UMA,
-                                    isInstantStart)));
-        }
+        Assert.assertEquals(
+                expectedRecordCount,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        StartSurfaceConfiguration.getHistogramName(
+                                SingleTabSwitcherMediator.SINGLE_TAB_TITLE_AVAILABLE_TIME_UMA,
+                                isInstantStart)));
 
         Assert.assertEquals(
                 expectedRecordCount,
@@ -695,7 +634,7 @@ public class StartSurfaceTest {
         }
 
         /** Verifies the case of start surface -> a tab -> tab switcher -> start surface. */
-        StartSurfaceTestUtils.clickFirstTabInCarousel();
+        onViewWaiting(withId(R.id.single_tab_view)).perform(click());
         assertFalse(bottomSheetTestSupport.hasSuppressionTokens());
 
         TabUiTestHelper.enterTabSwitcher(cta);
@@ -707,7 +646,7 @@ public class StartSurfaceTest {
         assertFalse(bottomSheetTestSupport.hasSuppressionTokens());
 
         /** Verifies the case of navigating to a tab -> start surface -> tab switcher. */
-        StartSurfaceTestUtils.clickFirstTabInCarousel();
+        onViewWaiting(withId(R.id.single_tab_view)).perform(click());
         assertFalse(bottomSheetTestSupport.hasSuppressionTokens());
 
         StartSurfaceTestUtils.pressHomePageButton(cta);
@@ -934,11 +873,15 @@ public class StartSurfaceTest {
         StartSurfaceTestUtils.waitForStartSurfaceVisible(
                 mLayoutChangedCallbackHelper, mCurrentlyActiveLayout, cta);
         TabUiTestHelper.verifyTabModelTabCount(cta, 1, 0);
-        Assert.assertEquals(0, RenderProcessHostUtils.getCurrentRenderProcessCount());
+
+        // The spareTab initializes a renderer process.
+        Assert.assertEquals(1, RenderProcessHostUtils.getCurrentRenderProcessCount());
 
         StartSurfaceTestUtils.launchFirstMVTile(cta, /* currentTabCount= */ 1);
         TabUiTestHelper.verifyTabModelTabCount(cta, 2, 0);
         StartSurfaceTestUtils.waitForCurrentTabLoaded(mActivityTestRule);
+
+        // The renderer process initialized by spareTab is used.
         Assert.assertEquals(1, RenderProcessHostUtils.getCurrentRenderProcessCount());
     }
 
@@ -954,7 +897,6 @@ public class StartSurfaceTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({ChromeFeatureList.SPARE_TAB, ChromeFeatureList.START_SURFACE_SPARE_TAB})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
     public void test_UsesSpareTabForNavigationFromMVTiles() {
         if (!mImmediateReturn) return;
@@ -974,9 +916,8 @@ public class StartSurfaceTest {
                     WarmupManager.getInstance().hasSpareTab(Profile.getLastUsedRegularProfile());
                 });
 
-        // The renderer process count should be 0 as spareTab doesn't initialize renderer by
-        // default.
-        Assert.assertEquals(0, RenderProcessHostUtils.getCurrentRenderProcessCount());
+        // The spareTab initializes a renderer process.
+        Assert.assertEquals(1, RenderProcessHostUtils.getCurrentRenderProcessCount());
 
         StartSurfaceTestUtils.launchFirstMVTile(cta, 1);
         TabUiTestHelper.verifyTabModelTabCount(cta, 2, 0);
@@ -993,13 +934,15 @@ public class StartSurfaceTest {
                         HISTOGRAM_SPARE_TAB_FINAL_STATUS,
                         WarmupManager.SpareTabFinalStatus.TAB_USED));
         histogramWatcher.assertExpected();
+
+        // The renderer process initialized by spareTab is used.
+        Assert.assertEquals(1, RenderProcessHostUtils.getCurrentRenderProcessCount());
     }
 
     /** Tests that on navigation from start surface using search box should use spare tab. */
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({ChromeFeatureList.SPARE_TAB, ChromeFeatureList.START_SURFACE_SPARE_TAB})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
     @DisabledTest(message = "https://crbug.com/1470714")
     public void test_UsesSpareTabForNavigationFromSearchBox() {
@@ -1038,15 +981,14 @@ public class StartSurfaceTest {
     }
 
     /**
-     * Tests that on navigation from start surface using carousel tab switcher shouldn't use spare
+     * Tests that on navigation from start surface using single tab switcher shouldn't use spare
      * tab.
      */
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({ChromeFeatureList.SPARE_TAB, ChromeFeatureList.START_SURFACE_SPARE_TAB})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
-    public void test_DoesntUseSpareTabForNavigationFromCarouselTabSwitcher() {
+    public void test_DoesntUseSpareTabForNavigationFromSingleTabSwitcher() {
         if (!mImmediateReturn) return;
 
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -1061,7 +1003,7 @@ public class StartSurfaceTest {
                 });
 
         // Navigate from StartSurface using carousel tab switcher.
-        StartSurfaceTestUtils.clickFirstTabInCarousel();
+        onViewWaiting(withId(R.id.single_tab_view)).perform(click());
         LayoutTestUtils.waitForLayout(cta.getLayoutManager(), LayoutType.BROWSING);
 
         // This shouldn't use spare tab and deletes spare tab once the start surface gets hidden.
@@ -1083,13 +1025,9 @@ public class StartSurfaceTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({ChromeFeatureList.SPARE_TAB, ChromeFeatureList.START_SURFACE_SPARE_TAB})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
     public void test_SpareTabCreatesNewRendererProcessWithParamEnabled() {
         if (!mImmediateReturn) return;
-
-        // Set the param to true allowing renderer initialization.
-        WarmupManager.SPARE_TAB_INITIALIZE_RENDERER.setForTesting(true);
 
         // Show Start Surface.
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -1116,7 +1054,6 @@ public class StartSurfaceTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({ChromeFeatureList.SPARE_TAB, ChromeFeatureList.START_SURFACE_SPARE_TAB})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
     public void test_SpareTabNotUsedOnOtherSurface() {
         if (!mImmediateReturn) return;
@@ -1163,7 +1100,6 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.tab_switcher_toolbar));
         onViewWaiting(withId(R.id.search_box_text)).check(matches(isDisplayed()));
         onViewWaiting(withId(R.id.mv_tiles_container)).check(matches(isDisplayed()));
-        onViewWaiting(withId(R.id.tab_switcher_title)).check(matches(isDisplayed()));
         onViewWaiting(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
         onViewWaiting(withId(R.id.tasks_surface_body));
 

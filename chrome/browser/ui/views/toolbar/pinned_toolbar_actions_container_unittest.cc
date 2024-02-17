@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/toolbar/pinned_toolbar_actions_model.h"
-#include "chrome/browser/ui/toolbar/pinned_toolbar_actions_model_factory.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model_factory.h"
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -87,12 +87,14 @@ class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
     if (should_be_popped_out) {
       ASSERT_NE(base::ranges::find(
                     container->popped_out_buttons_, id,
-                    [](auto* button) { return button->GetActionId(); }),
+                    [](PinnedToolbarActionsContainer::PinnedActionToolbarButton*
+                           button) { return button->GetActionId(); }),
                 container->popped_out_buttons_.end());
     } else {
       ASSERT_EQ(base::ranges::find(
                     container->popped_out_buttons_, id,
-                    [](auto* button) { return button->GetActionId(); }),
+                    [](PinnedToolbarActionsContainer::PinnedActionToolbarButton*
+                           button) { return button->GetActionId(); }),
                 container->popped_out_buttons_.end());
     }
   }
@@ -103,12 +105,14 @@ class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
     if (should_be_pinned) {
       ASSERT_NE(base::ranges::find(
                     container->pinned_buttons_, id,
-                    [](auto* button) { return button->GetActionId(); }),
+                    [](PinnedToolbarActionsContainer::PinnedActionToolbarButton*
+                           button) { return button->GetActionId(); }),
                 container->pinned_buttons_.end());
     } else {
       ASSERT_EQ(base::ranges::find(
                     container->pinned_buttons_, id,
-                    [](auto* button) { return button->GetActionId(); }),
+                    [](PinnedToolbarActionsContainer::PinnedActionToolbarButton*
+                           button) { return button->GetActionId(); }),
                 container->pinned_buttons_.end());
     }
   }
@@ -131,7 +135,7 @@ class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
     base::Value::List& list_of_values = update.Get();
     list_of_values.clear();
     for (auto id : updated_list) {
-      const absl::optional<std::string>& id_string =
+      const std::optional<std::string>& id_string =
           actions::ActionIdMap::ActionIdToString(id);
       // The ActionId should have a string equivalent.
       CHECK(id_string.has_value());
@@ -144,6 +148,15 @@ class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
   }
 
   PinnedToolbarActionsModel* model() { return model_.get(); }
+
+  void SendKeyPress(views::View* view,
+                    ui::KeyboardCode code,
+                    int flags = ui::EF_NONE) {
+    view->OnKeyPressed(
+        ui::KeyEvent(ui::ET_KEY_PRESSED, code, flags, ui::EventTimeForNow()));
+    view->OnKeyReleased(
+        ui::KeyEvent(ui::ET_KEY_PRESSED, code, flags, ui::EventTimeForNow()));
+  }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -317,7 +330,7 @@ TEST_F(PinnedToolbarActionsContainerTest, DividerVisibleWhileButtonPoppedOut) {
   ASSERT_TRUE(child_views[1]->GetVisible());
 }
 
-TEST_F(PinnedToolbarActionsContainerTest, MovingActionsUpdateOrder) {
+TEST_F(PinnedToolbarActionsContainerTest, MovingActionsUpdateOrderUsingDrag) {
   actions::ActionItem* browser_action_item =
       BrowserActions::FromBrowser(browser_view()->browser())
           ->root_action_item();
@@ -435,4 +448,99 @@ TEST_F(PinnedToolbarActionsContainerTest, UpdatesFromSyncUpdateContainer) {
   ASSERT_EQ(toolbar_buttons.size(), 2u);
   ASSERT_EQ(toolbar_buttons[0]->GetActionId(), actions::kActionCopy);
   ASSERT_EQ(toolbar_buttons[1]->GetActionId(), actions::kActionPaste);
+}
+
+TEST_F(PinnedToolbarActionsContainerTest,
+       MovingActionsUpdateOrderUsingKeyboard) {
+  actions::ActionItem* browser_action_item =
+      BrowserActions::FromBrowser(browser_view()->browser())
+          ->root_action_item();
+  auto cut_action =
+      actions::ActionItem::Builder()
+          .SetText(u"Test Action")
+          .SetTooltipText(u"Test Action")
+          .SetActionId(actions::kActionCut)
+          .SetImage(ui::ImageModel::FromVectorIcon(vector_icons::kDogfoodIcon))
+          .SetVisible(true)
+          .SetEnabled(true)
+          .SetInvokeActionCallback(base::DoNothing())
+          .Build();
+  auto copy_action =
+      actions::ActionItem::Builder()
+          .SetText(u"Test Action")
+          .SetTooltipText(u"Test Action")
+          .SetActionId(actions::kActionCopy)
+          .SetImage(ui::ImageModel::FromVectorIcon(vector_icons::kDogfoodIcon))
+          .SetVisible(true)
+          .SetEnabled(true)
+          .SetInvokeActionCallback(base::DoNothing())
+          .Build();
+  auto paste_action =
+      actions::ActionItem::Builder()
+          .SetText(u"Test Action")
+          .SetTooltipText(u"Test Action")
+          .SetActionId(actions::kActionPaste)
+          .SetImage(ui::ImageModel::FromVectorIcon(vector_icons::kDogfoodIcon))
+          .SetVisible(true)
+          .SetEnabled(true)
+          .SetInvokeActionCallback(base::DoNothing())
+          .Build();
+
+  browser_action_item->AddChild(std::move(cut_action));
+  browser_action_item->AddChild(std::move(copy_action));
+  browser_action_item->AddChild(std::move(paste_action));
+
+  auto* model = PinnedToolbarActionsModel::Get(profile());
+  ASSERT_TRUE(model);
+  // Verify there are no pinned buttons.
+  auto toolbar_buttons = GetChildToolbarButtons();
+  ASSERT_EQ(toolbar_buttons.size(), 0u);
+  // Pin both and verify order matches the order they were added.
+  model->UpdatePinnedState(actions::kActionCut, true);
+  model->UpdatePinnedState(actions::kActionCopy, true);
+  model->UpdatePinnedState(actions::kActionPaste, true);
+  toolbar_buttons = GetChildToolbarButtons();
+  ASSERT_EQ(toolbar_buttons.size(), 3u);
+  ASSERT_EQ(toolbar_buttons[0]->GetActionId(), actions::kActionCut);
+  ASSERT_EQ(toolbar_buttons[1]->GetActionId(), actions::kActionCopy);
+  ASSERT_EQ(toolbar_buttons[2]->GetActionId(), actions::kActionPaste);
+
+  constexpr int kModifiedFlag =
+#if BUILDFLAG(IS_MAC)
+      ui::EF_COMMAND_DOWN;
+#else
+      ui::EF_CONTROL_DOWN;
+#endif
+
+  // Reorder the first actions to the right using keyboard.
+  SendKeyPress(toolbar_buttons[0], ui::VKEY_RIGHT, kModifiedFlag);
+  toolbar_buttons = GetChildToolbarButtons();
+  ASSERT_EQ(toolbar_buttons.size(), 3u);
+  ASSERT_EQ(toolbar_buttons[0]->GetActionId(), actions::kActionCopy);
+  ASSERT_EQ(toolbar_buttons[1]->GetActionId(), actions::kActionCut);
+  ASSERT_EQ(toolbar_buttons[2]->GetActionId(), actions::kActionPaste);
+
+  // Reorder the second actions to the right using keyboard.
+  SendKeyPress(toolbar_buttons[1], ui::VKEY_RIGHT, kModifiedFlag);
+  toolbar_buttons = GetChildToolbarButtons();
+  ASSERT_EQ(toolbar_buttons.size(), 3u);
+  ASSERT_EQ(toolbar_buttons[0]->GetActionId(), actions::kActionCopy);
+  ASSERT_EQ(toolbar_buttons[1]->GetActionId(), actions::kActionPaste);
+  ASSERT_EQ(toolbar_buttons[2]->GetActionId(), actions::kActionCut);
+
+  // Reorder the last actions to the right using keyboard.
+  SendKeyPress(toolbar_buttons[2], ui::VKEY_RIGHT, kModifiedFlag);
+  toolbar_buttons = GetChildToolbarButtons();
+  ASSERT_EQ(toolbar_buttons.size(), 3u);
+  ASSERT_EQ(toolbar_buttons[0]->GetActionId(), actions::kActionCopy);
+  ASSERT_EQ(toolbar_buttons[1]->GetActionId(), actions::kActionPaste);
+  ASSERT_EQ(toolbar_buttons[2]->GetActionId(), actions::kActionCut);
+
+  // Reorder the last actions to the left using keyboard.
+  SendKeyPress(toolbar_buttons[2], ui::VKEY_LEFT, kModifiedFlag);
+  toolbar_buttons = GetChildToolbarButtons();
+  ASSERT_EQ(toolbar_buttons.size(), 3u);
+  ASSERT_EQ(toolbar_buttons[0]->GetActionId(), actions::kActionCopy);
+  ASSERT_EQ(toolbar_buttons[1]->GetActionId(), actions::kActionCut);
+  ASSERT_EQ(toolbar_buttons[2]->GetActionId(), actions::kActionPaste);
 }

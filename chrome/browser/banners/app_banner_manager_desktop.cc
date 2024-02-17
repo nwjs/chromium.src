@@ -4,6 +4,7 @@
 
 #include "chrome/browser/banners/app_banner_manager_desktop.h"
 
+#include <optional>
 #include <string>
 
 #include "base/command_line.h"
@@ -23,7 +24,6 @@
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_install_manager_observer.h"
 #include "chrome/browser/web_applications/web_app_pref_guardrails.h"
-#include "chrome/browser/web_applications/web_app_prefs_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "components/webapps/browser/banners/app_banner_metrics.h"
@@ -33,7 +33,6 @@
 #include "components/webapps/browser/installable/ml_installability_promoter.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/constants.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/manifest/manifest_util.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
@@ -281,7 +280,7 @@ void AppBannerManagerDesktop::ShowBannerUi(WebappInstallSource install_source) {
 
 void AppBannerManagerDesktop::OnWebAppInstalled(
     const webapps::AppId& installed_app_id) {
-  absl::optional<webapps::AppId> app_id =
+  std::optional<webapps::AppId> app_id =
       registrar().FindAppWithUrlInScope(validated_url_);
   if (app_id.has_value() && *app_id == installed_app_id &&
       registrar().GetAppUserDisplayMode(*app_id) ==

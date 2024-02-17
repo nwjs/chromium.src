@@ -90,6 +90,8 @@ enum class Method {
   kGetAvailableTokens,
   kGetTokenInfo,
   kGetKeyInfo,
+  kGetKeyPermissions,
+  kGetCertProvisioningProfileId,
   kSetKeyNickname,
   kSetKeyPermissions,
   kSetCertProvisioningProfileId,
@@ -111,7 +113,7 @@ struct Environment {
     base::test::AllowCheckIsTestForTesting();
     base::CommandLine::Init(0, nullptr);
     TestTimeouts::Initialize();
-    logging::SetMinLogLevel(logging::LOG_FATAL);
+    logging::SetMinLogLevel(logging::LOGGING_FATAL);
   }
 };
 
@@ -172,7 +174,7 @@ struct FuzzKey {
   FuzzKey(PublicKey pub_key,
           Token token,
           KeyType type,
-          absl::optional<RsaModulusLength> rsa_key_size,
+          std::optional<RsaModulusLength> rsa_key_size,
           bool can_be_listed)
       : public_key(std::move(pub_key)),
         token(token),
@@ -195,7 +197,7 @@ struct FuzzKey {
   PublicKey public_key;
   Token token;
   KeyType key_type;
-  absl::optional<RsaModulusLength> rsa_key_size;
+  std::optional<RsaModulusLength> rsa_key_size;
   // Contains imported net::X509Certificate certs. The corresponding kcer::Cert
   // certs will be found on the next ListCerts (from the related token) and
   // pending certs will be "converted" into kcer::Cert certs and stored in
@@ -213,9 +215,9 @@ struct FuzzKey {
   // cases. Kcer-without-NSS won't do that. For now for simplicity the nickname
   // is only checked after a SetNickname() call, and not after importing certs.
   bool nickname_known = false;
-  absl::optional<std::string> nickname;
-  absl::optional<chaps::KeyPermissions> key_permissions;
-  absl::optional<std::string> cert_provisioning_profile_id;
+  std::optional<std::string> nickname;
+  std::optional<chaps::KeyPermissions> key_permissions;
+  std::optional<std::string> cert_provisioning_profile_id;
 };
 
 //==============================================================================
@@ -481,11 +483,11 @@ void CertGenerator::GenerateCert() {
     cert_builder_->SetPolicyMappings(policy_mappings);
   }
   if (GetBool()) {
-    absl::optional<uint64_t> require_explicit_policy;
+    std::optional<uint64_t> require_explicit_policy;
     if (GetBool()) {
       require_explicit_policy = GetUint64();
     }
-    absl::optional<uint64_t> inhibit_policy_mapping;
+    std::optional<uint64_t> inhibit_policy_mapping;
     if (GetBool()) {
       inhibit_policy_mapping = GetUint64();
     }
@@ -551,6 +553,8 @@ class KcerFuzzer {
   void RunGetAvailableTokens();
   void RunGetTokenInfo();
   void RunGetKeyInfo();
+  void RunGetKeyPermissions();
+  void RunGetCertProvisioningProfileId();
   void RunSetKeyNickname();
   void RunSetKeyPermissions();
   void RunSetCertProvisioningProfileId();
@@ -670,6 +674,10 @@ void KcerFuzzer::RunNextMethod() {
       return RunGetTokenInfo();
     case Method::kGetKeyInfo:
       return RunGetKeyInfo();
+    case Method::kGetKeyPermissions:
+      return RunGetKeyPermissions();
+    case Method::kGetCertProvisioningProfileId:
+      return RunGetCertProvisioningProfileId();
     case Method::kSetKeyNickname:
       return RunSetKeyNickname();
     case Method::kSetKeyPermissions:
@@ -738,7 +746,7 @@ void KcerFuzzer::RunGenerateEcKey() {
 
   kcer_data_.emplace(std::move(spki),
                      FuzzKey(std::move(public_key), token, KeyType::kEcc,
-                             /*rsa_key_size=*/absl::nullopt,
+                             /*rsa_key_size=*/std::nullopt,
                              /*can_be_listed=*/true));
 }
 
@@ -748,8 +756,7 @@ void KcerFuzzer::RunImportKey() {
   std::vector<uint8_t> pkcs8_key;
   bool good_key_is_used = false;
   if (!example_pkcs8_key_used_ && data_provider_.ConsumeBool()) {
-    absl::optional<std::vector<uint8_t>> key_der =
-        base::Base64Decode(kPkcs8Key);
+    std::optional<std::vector<uint8_t>> key_der = base::Base64Decode(kPkcs8Key);
     ASSERT_TRUE(key_der.has_value());
     pkcs8_key = std::move(key_der).value();
     example_pkcs8_key_used_ = true;
@@ -775,7 +782,7 @@ void KcerFuzzer::RunImportKey() {
 
     kcer_data_.emplace(std::move(spki),
                        FuzzKey(std::move(public_key), token, KeyType::kRsa,
-                               /*rsa_key_size=*/absl::nullopt,
+                               /*rsa_key_size=*/std::nullopt,
                                /*can_be_listed=*/false));
     return;
   }
@@ -1278,13 +1285,11 @@ void KcerFuzzer::RunGetKeyInfo() {
                        key_handle.GetTokenInternal().value()))) {
     ASSERT_FALSE(key_info_waiter.Get().has_value());
     EXPECT_EQ(key_info_waiter.Get().error(), Error::kTokenIsNotAvailable);
-
     return;
   }
 
   if (!expected_key) {
     EXPECT_FALSE(key_info_waiter.Get().has_value());
-
     return;
   }
   ASSERT_TRUE(key_info_waiter.Get().has_value());
@@ -1297,9 +1302,60 @@ void KcerFuzzer::RunGetKeyInfo() {
   if (expected_key->nickname_known) {
     EXPECT_EQ(key_info.nickname, expected_key->nickname);
   }
-  EXPECT_TRUE(KeyPermissionsEqual(key_info.key_permissions,
+}
+
+void KcerFuzzer::RunGetKeyPermissions() {
+  FuzzKey* expected_key = nullptr;
+  PrivateKeyHandle key_handle = GeneratePrivateKeyHandle(&expected_key);
+
+  base::test::TestFuture<
+      base::expected<std::optional<chaps::KeyPermissions>, Error>>
+      key_permissions_waiter;
+  kcer_->GetKeyPermissions(key_handle, key_permissions_waiter.GetCallback());
+
+  if (available_tokens_.empty() ||
+      (key_handle.GetTokenInternal().has_value() &&
+       !base::Contains(available_tokens_,
+                       key_handle.GetTokenInternal().value()))) {
+    ASSERT_FALSE(key_permissions_waiter.Get().has_value());
+    EXPECT_EQ(key_permissions_waiter.Get().error(),
+              Error::kTokenIsNotAvailable);
+    return;
+  }
+
+  if (!expected_key) {
+    EXPECT_FALSE(key_permissions_waiter.Get().has_value());
+    return;
+  }
+  ASSERT_TRUE(key_permissions_waiter.Get().has_value());
+  EXPECT_TRUE(KeyPermissionsEqual(key_permissions_waiter.Get().value(),
                                   expected_key->key_permissions));
-  EXPECT_EQ(key_info.cert_provisioning_profile_id,
+}
+
+void KcerFuzzer::RunGetCertProvisioningProfileId() {
+  FuzzKey* expected_key = nullptr;
+  PrivateKeyHandle key_handle = GeneratePrivateKeyHandle(&expected_key);
+
+  base::test::TestFuture<base::expected<std::optional<std::string>, Error>>
+      cert_prov_waiter;
+  kcer_->GetCertProvisioningProfileId(key_handle,
+                                      cert_prov_waiter.GetCallback());
+
+  if (available_tokens_.empty() ||
+      (key_handle.GetTokenInternal().has_value() &&
+       !base::Contains(available_tokens_,
+                       key_handle.GetTokenInternal().value()))) {
+    ASSERT_FALSE(cert_prov_waiter.Get().has_value());
+    EXPECT_EQ(cert_prov_waiter.Get().error(), Error::kTokenIsNotAvailable);
+    return;
+  }
+
+  if (!expected_key) {
+    EXPECT_FALSE(cert_prov_waiter.Get().has_value());
+    return;
+  }
+  ASSERT_TRUE(cert_prov_waiter.Get().has_value());
+  EXPECT_EQ(cert_prov_waiter.Get().value(),
             expected_key->cert_provisioning_profile_id);
 }
 

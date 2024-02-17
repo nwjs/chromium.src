@@ -52,14 +52,6 @@ class AutocompleteRowWithDeleteButtonTest : public ChromeViewsTestBase {
     ChromeViewsTestBase::TearDown();
   }
 
-  void SimulateKeyPress(int windows_key_code) {
-    content::NativeWebKeyboardEvent event(
-        blink::WebKeyboardEvent::Type::kRawKeyDown,
-        blink::WebInputEvent::kNoModifiers, ui::EventTimeForNow());
-    event.windows_key_code = windows_key_code;
-    view().HandleKeyPressEvent(event);
-  }
-
   void ShowSuggestion(Suggestion suggestion) {
     // Show the button.
     controller().set_suggestions({std::move(suggestion)});
@@ -102,53 +94,22 @@ class AutocompleteRowWithDeleteButtonTest : public ChromeViewsTestBase {
 };
 
 TEST_F(AutocompleteRowWithDeleteButtonTest,
-       AutocompleteDeleteRecordsMetricOnDeletion) {
+       AutocompleteDeleteInvokesController) {
   ShowAutocompleteSuggestion();
   views::ImageButton* button = view().GetButtonForTest();
-  base::HistogramTester histogram_tester;
   view().SetSelectedCell(PopupRowView::CellType::kContent);
   // In test env we have to manually set the bounds when a view becomes visible.
   button->parent()->SetBoundsRect(gfx::Rect(0, 0, 30, 30));
 
-  EXPECT_CALL(controller(), RemoveSuggestion(0)).WillOnce(Return(true));
+  EXPECT_CALL(
+      controller(),
+      RemoveSuggestion(
+          0, AutofillMetrics::SingleEntryRemovalMethod::kDeleteButtonClicked))
+      .WillOnce(Return(true));
 
   generator().MoveMouseTo(button->GetBoundsInScreen().CenterPoint());
   generator().ClickLeftButton();
   task_environment()->RunUntilIdle();
-
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Autocomplete.SingleEntryRemovalMethod",
-      AutofillMetrics::AutocompleteSingleEntryRemovalMethod::
-          kDeleteButtonClicked,
-      1);
-  histogram_tester.ExpectUniqueSample(
-      "Autocomplete.Events2",
-      AutofillMetrics::AutocompleteEvent::AUTOCOMPLETE_SUGGESTION_DELETED, 1);
-}
-
-TEST_F(AutocompleteRowWithDeleteButtonTest,
-       AutocompleteDeleteRecordsNoMetricOnFailedDeletion) {
-  ShowAutocompleteSuggestion();
-  views::ImageButton* button = view().GetButtonForTest();
-  base::HistogramTester histogram_tester;
-  view().SetSelectedCell(PopupRowView::CellType::kContent);
-  // In test env we have to manually set the bounds when a view becomes visible.
-  button->parent()->SetBoundsRect(gfx::Rect(0, 0, 30, 30));
-
-  EXPECT_CALL(controller(), RemoveSuggestion(0)).WillOnce(Return(false));
-
-  generator().MoveMouseTo(button->GetBoundsInScreen().CenterPoint());
-  generator().ClickLeftButton();
-  task_environment()->RunUntilIdle();
-
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Autocomplete.SingleEntryRemovalMethod",
-      AutofillMetrics::AutocompleteSingleEntryRemovalMethod::
-          kDeleteButtonClicked,
-      0);
-  histogram_tester.ExpectUniqueSample(
-      "Autocomplete.Events2",
-      AutofillMetrics::AutocompleteEvent::AUTOCOMPLETE_SUGGESTION_DELETED, 0);
 }
 
 TEST_F(AutocompleteRowWithDeleteButtonTest,
@@ -164,11 +125,6 @@ TEST_F(AutocompleteRowWithDeleteButtonTest,
        AutocompleteDeleteButtonSetsAccessibility) {
   ShowAutocompleteSuggestion();
   views::ImageButton* button = view().GetButtonForTest();
-  // We only set the accessible name once the user navigates to the button.
-  // TODO(crbug.com/1417187): Delete this once we find out why calling
-  // NotifyAccessibilityEvent in the content is including the button's
-  // accessible name attribute value.
-  SimulateKeyPress(ui::VKEY_RIGHT);
   ui::AXNodeData node_data;
   button->GetAccessibleNodeData(&node_data);
 

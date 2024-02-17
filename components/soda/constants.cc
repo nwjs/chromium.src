@@ -28,7 +28,7 @@ const constexpr char* const kDefaultEnabledLanguages[] = {"fr-FR", "it-IT",
 const char kUsEnglishLocale[] = "en-US";
 
 const char kEnglishLocaleNoCountry[] = "en";
-const char kChineseLocaleNoCountry[] = "zh";
+const char kChineseLocaleNoCountry[] = "cmn";
 
 const char kSodaBinaryInstallationResult[] =
     "SodaInstaller.BinaryInstallationResult";
@@ -159,6 +159,20 @@ absl::optional<SodaLanguagePackComponentConfig> GetLanguageComponentConfig(
   return absl::nullopt;
 }
 
+absl::optional<SodaLanguagePackComponentConfig>
+GetLanguageComponentConfigMatchingLanguageSubtag(
+    const std::string& language_name) {
+  for (const SodaLanguagePackComponentConfig& config :
+       kLanguageComponentConfigs) {
+    if (l10n_util::GetLanguage(base::ToLowerASCII(config.language_name)) ==
+        l10n_util::GetLanguage(base::ToLowerASCII(language_name))) {
+      return config;
+    }
+  }
+
+  return absl::nullopt;
+}
+
 LanguageCode GetLanguageCodeByComponentId(const std::string& component_id) {
   for (const SodaLanguagePackComponentConfig& config :
        kLanguageComponentConfigs) {
@@ -195,9 +209,9 @@ LanguageCode GetLanguageCode(const std::string& language_name) {
 
 const std::u16string GetLanguageDisplayName(const std::string& language_name,
                                             const std::string& display_locale) {
-  if (language_name.substr(0, 2) == kChineseLocaleNoCountry) {
-    return l10n_util::GetDisplayNameForLocale(language_name, display_locale,
-                                              true);
+  if (language_name.substr(0, 3) == kChineseLocaleNoCountry) {
+    return l10n_util::GetDisplayNameForLocale(language_name.substr(0, 8),
+                                              display_locale, true);
 
   } else {
     return l10n_util::GetDisplayNameForLocaleWithoutCountry(

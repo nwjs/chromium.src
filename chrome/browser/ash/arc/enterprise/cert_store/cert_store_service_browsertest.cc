@@ -110,9 +110,7 @@ struct InstalledTestCert {
 std::string GetDerCert64(CERTCertificate* cert) {
   std::string der_cert;
   EXPECT_TRUE(net::x509_util::GetDEREncoded(cert, &der_cert));
-  std::string der_cert64;
-  base::Base64Encode(der_cert, &der_cert64);
-  return der_cert64;
+  return base::Base64Encode(der_cert);
 }
 
 class FakeArcCertInstaller : public ArcCertInstaller {
@@ -370,7 +368,7 @@ class CertStoreServiceTest
   Profile* profile();
 
   // Owned by the CertStoreService instance.
-  raw_ptr<FakeArcCertInstaller, DanglingUntriaged | ExperimentalAsh> installer_;
+  raw_ptr<FakeArcCertInstaller, DanglingUntriaged> installer_;
 
   std::vector<InstalledTestCert> installed_certs_;
 
@@ -410,10 +408,8 @@ class CertStoreServiceTest
   std::unique_ptr<crypto::ScopedTestSystemNSSKeySlot> test_system_slot_;
 
   // Owned by the CertStoreService instance.
-  raw_ptr<FakeArcKeymasterBridge, DanglingUntriaged | ExperimentalAsh>
-      keymaster_bridge_;
-  raw_ptr<FakeArcKeyMintBridge, DanglingUntriaged | ExperimentalAsh>
-      keymint_bridge_;
+  raw_ptr<FakeArcKeymasterBridge, DanglingUntriaged> keymaster_bridge_;
+  raw_ptr<FakeArcKeyMintBridge, DanglingUntriaged> keymint_bridge_;
 
   ash::CryptohomeMixin cryptohome_mixin_{&mixin_host_};
 

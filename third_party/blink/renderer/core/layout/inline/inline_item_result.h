@@ -81,7 +81,7 @@ struct CORE_EXPORT InlineItemResult {
 
   // ShapeResult for text items. Maybe different from InlineItem if re-shape
   // is needed in the line breaker.
-  scoped_refptr<const ShapeResultView> shape_result;
+  Member<const ShapeResultView> shape_result;
 
   // Hyphen character and its |ShapeResult|.
   // Use |is_hyphenated| to determine whether this item is hyphenated or not.
@@ -96,6 +96,7 @@ struct CORE_EXPORT InlineItemResult {
   // within the BFC.
   GC_PLUGIN_IGNORE("crbug.com/1146383")
   absl::optional<PositionedFloat> positioned_float;
+  ExclusionSpace exclusion_space_before_position_float;
 
   // Margins, borders, and padding for open tags.
   // Margins are set for atomic inlines too.

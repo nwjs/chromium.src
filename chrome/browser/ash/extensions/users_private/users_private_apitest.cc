@@ -43,7 +43,7 @@ class TestPrefsUtil : public PrefsUtil {
  public:
   explicit TestPrefsUtil(Profile* profile) : PrefsUtil(profile) {}
 
-  absl::optional<api::settings_private::PrefObject> GetPref(
+  std::optional<api::settings_private::PrefObject> GetPref(
       const std::string& name) override {
     if (name != "cros.accounts.users")
       return PrefsUtil::GetPref(name);
@@ -113,7 +113,7 @@ class TestDelegate : public UsersPrivateDelegate {
   }
 
  private:
-  raw_ptr<Profile, LeakedDanglingUntriaged | ExperimentalAsh> profile_;  // weak
+  raw_ptr<Profile, LeakedDanglingUntriaged> profile_;  // weak
   std::unique_ptr<TestPrefsUtil> prefs_util_;
 };
 

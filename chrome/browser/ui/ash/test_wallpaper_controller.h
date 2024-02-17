@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_ASH_TEST_WALLPAPER_CONTROLLER_H_
 
 #include <map>
+#include <optional>
 #include <string>
 
 #include "ash/public/cpp/wallpaper/google_photos_wallpaper_params.h"
@@ -19,7 +20,6 @@
 #include "base/strings/string_util.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user_type.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gfx/image/image_skia.h"
 
 // Simulates WallpaperController in ash.
@@ -77,13 +77,14 @@ class TestWallpaperController : public ash::WallpaperController {
     return wallpaper_info_.has_value() ? wallpaper_info_->collection_id
                                        : base::EmptyString();
   }
-  const absl::optional<ash::WallpaperInfo>& wallpaper_info() const {
+  const std::optional<ash::WallpaperInfo>& wallpaper_info() const {
     return wallpaper_info_;
   }
+  const std::string& sea_pen_metadata() const { return sea_pen_metadata_; }
   int update_current_wallpaper_layout_count() const {
     return update_current_wallpaper_layout_count_;
   }
-  const absl::optional<ash::WallpaperLayout>&
+  const std::optional<ash::WallpaperLayout>&
   update_current_wallpaper_layout_layout() const {
     return update_current_wallpaper_layout_layout_;
   }
@@ -155,10 +156,18 @@ class TestWallpaperController : public ash::WallpaperController {
                               const gfx::ImageSkia& image) override;
   void SetSeaPenWallpaper(const AccountId& account_id,
                           const ash::SeaPenImage& sea_pen_image,
+                          const std::string& query_info,
                           SetWallpaperCallback callback) override;
   void SetSeaPenWallpaperFromFile(const AccountId& account_id,
                                   const base::FilePath& sea_pen_file_path,
                                   SetWallpaperCallback callback) override;
+  void GetSeaPenMetadata(const AccountId& account_id,
+                         const base::FilePath& sea_pen_file_path,
+                         GetSeaPenMetadataCallback callback) override;
+  void DeleteRecentSeaPenImage(
+      const AccountId& account_id,
+      const base::FilePath& sea_pen_file_path,
+      DeleteRecentSeaPenImageCallback callback) override;
   void ConfirmPreviewWallpaper() override;
   void CancelPreviewWallpaper() override;
   void UpdateCurrentWallpaperLayout(const AccountId& account_id,
@@ -186,8 +195,7 @@ class TestWallpaperController : public ash::WallpaperController {
   bool IsActiveUserWallpaperControlledByPolicy() override;
   bool IsWallpaperControlledByPolicy(
       const AccountId& account_id) const override;
-  absl::optional<ash::WallpaperInfo> GetActiveUserWallpaperInfo()
-      const override;
+  std::optional<ash::WallpaperInfo> GetActiveUserWallpaperInfo() const override;
   bool ShouldShowWallpaperSetting() override;
   void SetDailyRefreshCollectionId(const AccountId& account_id,
                                    const std::string& collection_id) override;
@@ -212,9 +220,10 @@ class TestWallpaperController : public ash::WallpaperController {
   int update_daily_refresh_wallpaper_count_ = 0;
   int one_shot_wallpaper_count_ = 0;
   int sea_pen_wallpaper_count_ = 0;
-  absl::optional<ash::WallpaperInfo> wallpaper_info_;
+  std::optional<ash::WallpaperInfo> wallpaper_info_;
+  std::string sea_pen_metadata_;
   int update_current_wallpaper_layout_count_ = 0;
-  absl::optional<ash::WallpaperLayout> update_current_wallpaper_layout_layout_;
+  std::optional<ash::WallpaperLayout> update_current_wallpaper_layout_layout_;
   DailyGooglePhotosIdCache id_cache_;
 
   base::ObserverList<ash::WallpaperControllerObserver>::Unchecked observers_;

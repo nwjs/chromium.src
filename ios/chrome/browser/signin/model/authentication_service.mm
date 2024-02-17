@@ -12,6 +12,7 @@
 #import "base/metrics/histogram_macros.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/single_thread_task_runner.h"
+#import "components/browser_sync/sync_to_signin_migration.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/ios/browser/features.h"
@@ -26,7 +27,7 @@
 #import "google_apis/gaia/gaia_auth_util.h"
 #import "ios/chrome/browser/bookmarks/model/bookmarks_utils.h"
 #import "ios/chrome/browser/crash_report/model/crash_keys_helper.h"
-#import "ios/chrome/browser/policy/policy_util.h"
+#import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
@@ -75,7 +76,6 @@ AuthenticationService::AuthenticationService(
       account_manager_service_(account_manager_service),
       identity_manager_(identity_manager),
       sync_service_(sync_service),
-      user_approved_account_list_manager_(pref_service),
       weak_pointer_factory_(this) {
   DCHECK(pref_service_);
   DCHECK(sync_setup_service_);
@@ -92,8 +92,6 @@ void AuthenticationService::RegisterPrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kSigninShouldPromptForSigninAgain,
                                 false);
-  registry->RegisterListPref(prefs::kSigninLastAccounts);
-  registry->RegisterBooleanPref(prefs::kSigninLastAccountsMigrated, false);
 }
 
 void AuthenticationService::Initialize(
@@ -111,13 +109,6 @@ void AuthenticationService::Initialize(
   identity_manager_observation_.Observe(identity_manager_);
   HandleForgottenIdentity(nil, /*should_prompt=*/true,
                           device_restore_session == signin::Tribool::kTrue);
-  if (!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
-    // If the user is signed out, the list is supposed to be empty. To avoid
-    // any issue if a crash happened between the sign-out and clearing out
-    // the list, it is better to clear out this list.
-    // See crbug.com/3862523.
-    user_approved_account_list_manager_.ClearApprovedAccountList();
-  }
 
   // Clean up account-scoped settings, in case any accounts were removed from
   // the device while Chrome wasn't running.
@@ -145,10 +136,9 @@ void AuthenticationService::Initialize(
                                    browser_signin_policy_callback);
 
   // Reload credentials to ensure the accounts from the token service are
-  // up-to-date.
-  // As UpdateHaveAccountsChangedAtColdStart is only called while the
-  // application is cold starting, `keychain_reload` must be set to true.
-  ReloadCredentialsFromIdentities(/*keychain_reload=*/true);
+  // up-to-date. As this is called while the application is started,
+  // `should_prompt` must be set to true.
+  ReloadCredentialsFromIdentities(/*should_prompt=*/true);
 
   OnApplicationWillEnterForeground();
   bool has_primary_account_after_initialize =
@@ -181,7 +171,6 @@ void AuthenticationService::Initialize(
 }
 
 void AuthenticationService::Shutdown() {
-  user_approved_account_list_manager_.Shutdown();
   identity_manager_observation_.Reset();
   account_manager_service_observation_.Reset();
   delegate_.reset();
@@ -258,24 +247,6 @@ void AuthenticationService::ResetReauthPromptForSignInAndSync() {
 
 bool AuthenticationService::ShouldReauthPromptForSignInAndSync() const {
   return pref_service_->GetBoolean(prefs::kSigninShouldPromptForSigninAgain);
-}
-
-bool AuthenticationService::IsAccountListApprovedByUser() const {
-  DCHECK(HasPrimaryIdentity(signin::ConsentLevel::kSignin));
-  std::vector<CoreAccountInfo> accounts_info =
-      identity_manager_->GetAccountsWithRefreshTokens();
-  return user_approved_account_list_manager_.IsAccountListApprouvedByUser(
-      accounts_info);
-}
-
-void AuthenticationService::ApproveAccountList() {
-  DCHECK(HasPrimaryIdentity(signin::ConsentLevel::kSignin));
-  if (IsAccountListApprovedByUser())
-    return;
-  std::vector<CoreAccountInfo> current_accounts_info =
-      identity_manager_->GetAccountsWithRefreshTokens();
-  user_approved_account_list_manager_.SetApprovedAccountList(
-      current_accounts_info);
 }
 
 bool AuthenticationService::HasPrimaryIdentity(
@@ -364,6 +335,7 @@ void AuthenticationService::SignIn(id<SystemIdentity> identity,
       identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
   CHECK(!primary_account.empty());
   CHECK_EQ(account_id, primary_account);
+  pref_service_->SetTime(prefs::kLastSigninTimestamp, base::Time::Now());
   crash_keys::SetCurrentlySignedIn(true);
 }
 
@@ -437,7 +409,10 @@ void AuthenticationService::SignOut(
 
   const bool is_managed =
       HasPrimaryIdentityManaged(signin::ConsentLevel::kSignin);
-  // Get first setup complete value before to stop the sync service.
+  const bool is_migrated_from_syncing =
+      browser_sync::WasPrimaryAccountMigratedFromSyncingToSignedIn(
+          identity_manager_, pref_service_);
+  // Get first setup complete value before stopping the sync service.
   const bool is_initial_sync_feature_setup_complete =
       sync_service_->GetUserSettings()->IsInitialSyncFeatureSetupComplete();
 
@@ -451,9 +426,11 @@ void AuthenticationService::SignOut(
   cached_mdm_errors_.clear();
 
   // Browsing data for managed account needs to be cleared only if sync has
-  // started at least once.
+  // started at least once. This also includes the case where a
+  // previously-syncing user was migrated to signed-in.
   if (force_clear_browsing_data ||
-      (is_managed && is_initial_sync_feature_setup_complete)) {
+      (is_managed && is_initial_sync_feature_setup_complete) ||
+      (is_managed && is_migrated_from_syncing)) {
     delegate_->ClearBrowsingData(completion);
   } else if (completion) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -504,25 +481,12 @@ base::WeakPtr<AuthenticationService> AuthenticationService::GetWeakPtr() {
 
 void AuthenticationService::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
-  switch (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
-    case signin::PrimaryAccountChangeEvent::Type::kSet:
-      DCHECK(user_approved_account_list_manager_.GetApprovedAccountIDList()
-                 .empty());
-      ApproveAccountList();
-      break;
-    case signin::PrimaryAccountChangeEvent::Type::kCleared:
-      user_approved_account_list_manager_.ClearApprovedAccountList();
-      break;
-    case signin::PrimaryAccountChangeEvent::Type::kNone:
-      break;
-  }
-
   for (auto& observer : observer_list_) {
     observer.OnPrimaryIdentityChanged();
   }
 }
 
-void AuthenticationService::OnIdentityListChanged(bool need_user_approval) {
+void AuthenticationService::OnIdentityListChanged(bool notify_user) {
   ClearAccountSettingsPrefsOfRemovedAccounts();
 
   if (!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
@@ -542,7 +506,7 @@ void AuthenticationService::OnIdentityListChanged(bool need_user_approval) {
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(&AuthenticationService::ReloadCredentialsFromIdentities,
-                     GetWeakPtr(), need_user_approval));
+                     GetWeakPtr(), /*should_prompt=*/notify_user));
 }
 
 bool AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
@@ -704,27 +668,20 @@ void AuthenticationService::HandleForgottenIdentity(
 }
 
 void AuthenticationService::ReloadCredentialsFromIdentities(
-    bool keychain_reload) {
+    bool should_prompt) {
   if (is_reloading_credentials_)
     return;
 
   base::AutoReset<bool> auto_reset(&is_reloading_credentials_, true);
 
-  HandleForgottenIdentity(nil, keychain_reload, /*device_restore=*/false);
+  HandleForgottenIdentity(nil, should_prompt, /*device_restore=*/false);
   if (!HasPrimaryIdentity(signin::ConsentLevel::kSignin))
     return;
 
-  DCHECK(
-      !user_approved_account_list_manager_.GetApprovedAccountIDList().empty());
   identity_manager_->GetDeviceAccountsSynchronizer()
       ->ReloadAllAccountsFromSystemWithPrimaryAccount(
           identity_manager_->GetPrimaryAccountId(
               signin::ConsentLevel::kSignin));
-  if (!keychain_reload) {
-    // The changes come from Chrome, so we can approve this new account list,
-    // since this change comes from the user.
-    ApproveAccountList();
-  }
 }
 
 void AuthenticationService::FirePrimaryAccountRestricted() {

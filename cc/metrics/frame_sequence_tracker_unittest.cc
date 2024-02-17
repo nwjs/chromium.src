@@ -223,6 +223,9 @@ class FrameSequenceTrackerTest : public testing::Test {
             DCHECK_EQ(last_activated_main_args.frame_id.sequence_number,
                       last_activated_main);
           collection_.NotifyFrameEnd(args, last_activated_main_args);
+          FrameInfo frame_info;
+          frame_info.final_state = FrameInfo::FrameFinalState::kPresentedAll;
+          collection_.AddSortedFrame(args, frame_info);
           break;
         }
 
@@ -384,6 +387,9 @@ TEST_F(FrameSequenceTrackerTest, ReportMetricsAtFixedInterval) {
   collection_.NotifyBeginImplFrame(args);
   collection_.NotifyImplFrameCausedNoDamage(viz::BeginFrameAck(args, false));
   collection_.NotifyFrameEnd(args, args);
+  FrameInfo frame_info;
+  frame_info.final_state = FrameInfo::FrameFinalState::kPresentedAll;
+  collection_.AddSortedFrame(args, frame_info);
   EXPECT_EQ(NumberOfTrackers(), 1u);
   // At NotifyFrameEnd, the tracker is removed from removal_tracker_ list.
   EXPECT_EQ(NumberOfRemovalTrackers(), 0u);
@@ -736,38 +742,6 @@ TEST_F(FrameSequenceTrackerTest, TerminationWithNullPresentationTimeStamp) {
   EXPECT_EQ(NumberOfRemovalTrackers(), 0u);
 }
 
-// Test that a tracker is terminated after 3 submitted frames, remove this
-// once crbug.com/1072482 is fixed.
-TEST_F(FrameSequenceTrackerTest, TerminationAfterThreeSubmissions1) {
-  GenerateSequence("b(1)s(1)e(1,0)");
-  collection_.StopSequence(FrameSequenceTrackerType::kTouchScroll);
-  EXPECT_EQ(NumberOfRemovalTrackers(), 1u);
-  GenerateSequence("b(2)s(2)e(2,0)b(3)s(3)e(3,0)b(4)s(4)e(4,0)b(5)s(5)e(5,0)");
-  EXPECT_EQ(NumberOfRemovalTrackers(), 0u);
-}
-
-TEST_F(FrameSequenceTrackerTest, TerminationAfterThreeSubmissions2) {
-  GenerateSequence("b(1)");
-  auto args = CreateBeginFrameArgs(1u, 1u);
-  // Ack to an impl frame that doesn't exist in this tracker.
-  collection_.NotifySubmitFrame(UINT32_MAX, /*has_missing_content=*/false,
-                                viz::BeginFrameAck(args, true), args);
-  GenerateSequence("e(1,0)");
-  collection_.StopSequence(FrameSequenceTrackerType::kTouchScroll);
-  EXPECT_EQ(NumberOfRemovalTrackers(), 1u);
-  GenerateSequence("b(2)s(1)e(2,0)b(3)s(2)e(3,0)b(4)s(3)e(4,0)");
-  EXPECT_EQ(NumberOfRemovalTrackers(), 0u);
-}
-
-TEST_F(FrameSequenceTrackerTest, TerminationAfterThreeSubmissions3) {
-  GenerateSequence(
-      "b(1)s(1)e(1,0)P(1)b(2)s(2)e(2,0)P(2)b(3)s(3)e(3,0)P(3)b(4)");
-  collection_.StopSequence(FrameSequenceTrackerType::kTouchScroll);
-  EXPECT_EQ(NumberOfRemovalTrackers(), 1u);
-  GenerateSequence("s(4)");
-  EXPECT_EQ(NumberOfRemovalTrackers(), 1u);
-}
-
 TEST_F(FrameSequenceTrackerTest, OffScreenMainDamage1) {
   const char sequence[] =
       "b(1)B(0,1)n(1)e(1,0)b(2)E(1)B(1,2)n(2)e(2,1)b(3)E(2)B(2,3)n(3)e(3,2)";
@@ -940,7 +914,7 @@ TEST_F(FrameSequenceTrackerTest, CustomTrackers) {
   // Tracker 2 has zero expected frames.
   collection_.NotifyFramePresented(frame_token, {});
   EXPECT_EQ(1u, results.size());
-  EXPECT_EQ(0u, results[2].frames_expected);
+  EXPECT_EQ(0u, results[2].frames_expected_v3);
 
   // Simple sequence of one frame.
   const char sequence[] = "b(1)B(0,1)s(1)S(1)e(1,0)P(1)";
@@ -954,12 +928,12 @@ TEST_F(FrameSequenceTrackerTest, CustomTrackers) {
   // Tracker 1 and 3 and should report.
   collection_.NotifyFramePresented(frame_token, {});
   EXPECT_EQ(3u, results.size());
-  EXPECT_EQ(1u, results[1].frames_produced);
-  EXPECT_EQ(1u, results[1].frames_expected);
-  EXPECT_EQ(0u, results[2].frames_produced);
-  EXPECT_EQ(0u, results[2].frames_expected);
-  EXPECT_EQ(1u, results[3].frames_produced);
-  EXPECT_EQ(1u, results[3].frames_expected);
+  EXPECT_EQ(0u, results[1].frames_dropped_v3);
+  EXPECT_EQ(1u, results[1].frames_expected_v3);
+  EXPECT_EQ(0u, results[2].frames_dropped_v3);
+  EXPECT_EQ(0u, results[2].frames_expected_v3);
+  EXPECT_EQ(0u, results[3].frames_dropped_v3);
+  EXPECT_EQ(1u, results[3].frames_expected_v3);
 }
 
 TEST_F(FrameSequenceTrackerTest, CustomTrackerOutOfOrderFramesMissingV3Data) {

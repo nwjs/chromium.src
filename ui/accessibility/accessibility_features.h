@@ -7,6 +7,7 @@
 #define UI_ACCESSIBILITY_ACCESSIBILITY_FEATURES_H_
 
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "ui/accessibility/ax_base_export.h"
@@ -65,12 +66,6 @@ AX_BASE_EXPORT bool IsAugmentExistingImageLabelsEnabled();
 // accessibility API usage in that time.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAutoDisableAccessibility);
 AX_BASE_EXPORT bool IsAutoDisableAccessibilityEnabled();
-
-// Make PDFs displayed in the ChromeOS Media App (AKA Backlight)
-// accessible by performing OCR on the images for each page.
-// TODO(nektar): Should this be moved to ChromeOS section?
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kBacklightOcr);
-AX_BASE_EXPORT bool IsBacklightOcrEnabled();
 
 // Recognize "aria-virtualcontent" as a valid aria property.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityAriaVirtualContent);
@@ -178,6 +173,10 @@ AX_BASE_EXPORT bool IsExperimentalAccessibilityGoogleTtsLanguagePacksEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityExtraLargeCursor);
 AX_BASE_EXPORT bool IsAccessibilityExtraLargeCursorEnabled();
 
+// Whether the screen magnifier can follow the Select to Speak focus.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMagnifierFollowsSts);
+AX_BASE_EXPORT bool IsAccessibilityMagnifierFollowsStsEnabled();
+
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -189,6 +188,13 @@ AX_BASE_EXPORT bool IsAccessibilityPerformanceFilteringEnabled();
 // AXTreeSnapshotter's Snapshot method, and track related histograms.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySnapshotStressTests);
 AX_BASE_EXPORT bool IsAccessibilitySnapshotStressTestsEnabled();
+// Controls the maximum amount of nodes in a given snapshot. We set an
+// arbitrarily high value as the default to simulate there being no max nodes
+// limit.
+AX_BASE_EXPORT const base::FeatureParam<int>
+    kAccessibilitySnapshotStressTestsMaxNodes{
+        &kAccessibilitySnapshotStressTests,
+        "AccessibilitySnapshotStressTestsMaxNodes", 100000};
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -256,6 +262,11 @@ AX_BASE_EXPORT bool IsReadAnythingWithAlgorithmEnabled();
 // Write some ScreenAI library debug data in /tmp.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kScreenAIDebugMode);
 AX_BASE_EXPORT bool IsScreenAIDebugModeEnabled();
+
+// Enables to use the Screen AI component available for testing.
+// If enabled, ScreenAI library will be loaded from //third_party/screen-ai.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kScreenAITestMode);
+AX_BASE_EXPORT bool IsScreenAITestModeEnabled();
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_MAC)

@@ -11,6 +11,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/ui/toolbar/reading_list_sub_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/show_promo_in_page.h"
+#include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_icon_view.h"
 #include "chrome/browser/ui/views/user_education/browser_help_bubble.h"
@@ -36,7 +38,9 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/compose/core/browser/compose_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/user_education/common/feature_promo_handle.h"
 #include "components/user_education/common/feature_promo_registry.h"
@@ -70,6 +74,7 @@
 namespace {
 
 const char kTabGroupTutorialMetricPrefix[] = "TabGroup";
+const char kSavedTabGroupTutorialMetricPrefix[] = "SavedTabGroup";
 const char kCustomizeChromeTutorialMetricPrefix[] = "CustomizeChromeSidePanel";
 const char kSideSearchTutorialMetricPrefix[] = "SideSearch";
 const char kPasswordManagerTutorialMetricPrefix[] = "PasswordManager";
@@ -89,6 +94,26 @@ class IfView : public user_education::TutorialDescription::If {
                      el->AsA<views::TrackedElementViews>()->view()));
                },
                std::move(if_condition))) {}
+};
+
+class ScopedSavedTabGroupTutorialState
+    : public user_education::ScopedTutorialState {
+ public:
+  explicit ScopedSavedTabGroupTutorialState(ui::ElementContext ctx)
+      : user_education::ScopedTutorialState(ctx),
+        browser_(chrome::FindBrowserWithUiElementContext(ctx)) {
+    CHECK(browser_);
+    browser_->SetForceShowBookmarkBarFlag(
+        Browser::ForceShowBookmarkBarFlag::kTabGroupsTutorialActive);
+  }
+
+  ~ScopedSavedTabGroupTutorialState() override {
+    browser_->ClearForceShowBookmarkBarFlag(
+        Browser::ForceShowBookmarkBarFlag::kTabGroupsTutorialActive);
+  }
+
+ private:
+  raw_ptr<Browser> browser_;
 };
 
 bool HasTabGroups(const BrowserView* browser_view) {
@@ -133,6 +158,7 @@ void RegisterChromeHelpBubbleFactories(
 void MaybeRegisterChromeFeaturePromos(
     user_education::FeaturePromoRegistry& registry) {
   using user_education::FeaturePromoSpecification;
+  using Metadata = user_education::FeaturePromoSpecification::Metadata;
   using user_education::HelpBubbleArrow;
 
   // This icon got updated, so select which is used based on whether refresh is
@@ -144,20 +170,22 @@ void MaybeRegisterChromeFeaturePromos(
           : &vector_icons::kLightbulbOutlineIcon;
 
   // Verify that we haven't already registered the expected features.
-  // TODO(dfried): figure out if we should do something more sophisticated here.
+  // Use a known test feature that is unlikely to change.
   if (registry.IsFeatureRegistered(
-          feature_engagement::kIPHDesktopPwaInstallFeature))
+          feature_engagement::kIPHWebUiHelpBubbleTestFeature)) {
     return;
+  }
 
   // TODO(1432894): Use toast or snooze instead of legacy promo.
   // kIPHAutofillExternalAccountProfileSuggestionFeature:
-  registry.RegisterFeature(
-      std::move(FeaturePromoSpecification::CreateForLegacyPromo(
-                    &feature_engagement::
-                        kIPHAutofillExternalAccountProfileSuggestionFeature,
-                    kAutofillSuggestionElementId,
-                    IDS_AUTOFILL_IPH_EXTERNAL_ACCOUNT_PROFILE_SUGGESTION)
-                    .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)));
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForLegacyPromo(
+          &feature_engagement::
+              kIPHAutofillExternalAccountProfileSuggestionFeature,
+          kAutofillSuggestionElementId,
+          IDS_AUTOFILL_IPH_EXTERNAL_ACCOUNT_PROFILE_SUGGESTION)
+          .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)
+          .SetMetadata(115, "vykochko@google.com", "Autofill popup appears.")));
 
   // kIPHAutofillVirtualCardCVCSuggestionFeature:
   registry.RegisterFeature(std::move(
@@ -167,7 +195,9 @@ void MaybeRegisterChromeFeaturePromos(
           IDS_AUTOFILL_VIRTUAL_CARD_STANDALONE_CVC_SUGGESTION_IPH_BUBBLE_LABEL,
           IDS_AUTOFILL_VIRTUAL_CARD_STANDALONE_CVC_SUGGESTION_IPH_BUBBLE_LABEL_SCREENREADER,
           FeaturePromoSpecification::AcceleratorInfo())
-          .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)));
+          .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)
+          .SetMetadata(118, "alexandertekle@google.com",
+                       "Autofill popup appears.")));
 
   // kIPHAutofillVirtualCardSuggestionFeature:
   registry.RegisterFeature(std::move(
@@ -175,13 +205,17 @@ void MaybeRegisterChromeFeaturePromos(
           &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature,
           kAutofillCreditCardSuggestionEntryElementId,
           IDS_AUTOFILL_VIRTUAL_CARD_SUGGESTION_IPH_BUBBLE_LABEL)
-          .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)));
+          .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)
+          .SetMetadata(100, "siyua@chromium.org", "Autofill popup appears.")));
 
   // kIPHDesktopPwaInstallFeature:
   registry.RegisterFeature(
-      user_education::FeaturePromoSpecification::CreateForLegacyPromo(
-          &feature_engagement::kIPHDesktopPwaInstallFeature,
-          kInstallPwaElementId, IDS_DESKTOP_PWA_INSTALL_PROMO));
+      std::move(user_education::FeaturePromoSpecification::CreateForLegacyPromo(
+                    &feature_engagement::kIPHDesktopPwaInstallFeature,
+                    kInstallPwaElementId, IDS_DESKTOP_PWA_INSTALL_PROMO)
+                    .SetMetadata(Metadata(
+                        89, "phillis@chromium.org",
+                        "User navigates to a page with a promotable PWA."))));
 
   // kIPHDesktopTabGroupsNewGroupFeature:
   registry.RegisterFeature(
@@ -650,7 +684,14 @@ void MaybeRegisterChromeFeaturePromos(
           .SetBubbleTitleText(IDS_PASSWORD_MANAGER_IPH_TITLE_SAVE_TO_ACCOUNT)
           .SetInAnyContext(true)
           .SetBubbleArrow(HelpBubbleArrow::kBottomRight)
-          .SetBubbleIcon(&vector_icons::kCelebrationIcon)));
+          .SetBubbleIcon(&vector_icons::kCelebrationIcon)
+          .SetMetadata(
+              90, "dfried@google.com", "Test IPH.",
+              // These are not required features; they are just an example to
+              // ensure that the tester page formats this data correctly.
+              FeaturePromoSpecification::Metadata::FeatureSet{
+                  &feature_engagement::kIPHWebUiHelpBubbleTestFeature,
+                  &feature_engagement::kIPHDesktopTabGroupsNewGroupFeature})));
 
   // kIPHBatterySaverModeFeature:
   registry.RegisterFeature(std::move(
@@ -663,32 +704,35 @@ void MaybeRegisterChromeFeaturePromos(
               [](ui::ElementContext ctx,
                  user_education::FeaturePromoHandle promo_handle) {
                 auto* browser = chrome::FindBrowserWithUiElementContext(ctx);
-                if (browser)
+                if (browser) {
                   chrome::ShowSettingsSubPage(browser,
                                               chrome::kPerformanceSubPage);
+                }
                 RecordBatterySaverIPHOpenSettings(browser != nullptr);
               }))
           .SetBubbleTitleText(IDS_BATTERY_SAVER_MODE_PROMO_TITLE)
           .SetBubbleArrow(HelpBubbleArrow::kTopRight)));
 
-  // kIPHHighEfficiencyModeFeature:
+  // kIPHMemorySaverModeFeature:
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForCustomAction(
-          feature_engagement::kIPHHighEfficiencyModeFeature,
-          kToolbarAppMenuButtonElementId, IDS_HIGH_EFFICIENCY_MODE_PROMO_TEXT,
-          IDS_HIGH_EFFICIENCY_MODE_PROMO_ACTION_TEXT,
+          feature_engagement::kIPHMemorySaverModeFeature,
+          kToolbarAppMenuButtonElementId, IDS_MEMORY_SAVER_MODE_PROMO_TEXT,
+          IDS_MEMORY_SAVER_MODE_PROMO_ACTION_TEXT,
           base::BindRepeating(
               [](ui::ElementContext context,
                  user_education::FeaturePromoHandle promo_handle) {
                 performance_manager::user_tuning::UserPerformanceTuningManager::
                     GetInstance()
-                        ->SetHighEfficiencyModeEnabled(true);
-                RecordHighEfficiencyIPHEnableMode(true);
+                        ->SetMemorySaverModeEnabled(true);
+                RecordMemorySaverIPHEnableMode(true);
               }))
           .SetCustomActionIsDefault(true)
           .SetCustomActionDismissText(IDS_NO_THANKS)
-          .SetBubbleTitleText(IDS_HIGH_EFFICIENCY_MODE_PROMO_TITLE)
-          .SetHighlightedMenuItem(ToolsMenuModel::kPerformanceMenuItem)));
+          .SetBubbleTitleText(IDS_MEMORY_SAVER_MODE_PROMO_TITLE)
+          .SetHighlightedMenuItem(ToolsMenuModel::kPerformanceMenuItem)
+          .SetPromoSubtype(
+              FeaturePromoSpecification::PromoSubtype::kActionableAlert)));
 
   // kIPHPriceTrackingInSidePanelFeature;
   if (!features::IsSidePanelPinningEnabled()) {
@@ -697,15 +741,32 @@ void MaybeRegisterChromeFeaturePromos(
         kToolbarSidePanelButtonElementId, IDS_PRICE_TRACKING_SIDE_PANEL_IPH));
   }
 
-  // kIPHDownloadToolbarButtonFeature:
-  registry.RegisterFeature(
-      std::move(FeaturePromoSpecification::CreateForToastPromo(
-                    feature_engagement::kIPHDownloadToolbarButtonFeature,
-                    kToolbarDownloadButtonElementId, IDS_DOWNLOAD_BUBBLE_PROMO,
-                    IDS_DOWNLOAD_BUBBLE_PROMO_SCREENREADER,
-                    FeaturePromoSpecification::AcceleratorInfo())
-                    .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-                    .SetBubbleTitleText(IDS_DOWNLOAD_BUBBLE_PROMO_TITLE)));
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  // kIPHDownloadEsbPromoFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForCustomAction(
+          feature_engagement::kIPHDownloadEsbPromoFeature,
+          kToolbarDownloadButtonElementId, IDS_DOWNLOAD_BUBBLE_ESB_PROMO,
+          IDS_DOWNLOAD_BUBBLE_ESB_PROMO_CUSTOM_ACTION,
+          base::BindRepeating(
+              [](ui::ElementContext ctx,
+                 user_education::FeaturePromoHandle promo_handle) {
+                auto* browser = chrome::FindBrowserWithUiElementContext(ctx);
+                if (!browser) {
+                  return;
+                }
+                chrome::ShowSafeBrowsingEnhancedProtectionWithIph(
+                    browser, safe_browsing::SafeBrowsingSettingReferralMethod::
+                                 kDownloadButtonIphPromo);
+              }))
+          .SetCustomActionIsDefault(true)
+          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+          .SetBubbleTitleText(IDS_DOWNLOAD_BUBBLE_ESB_PROMO_TITLE)
+          .SetCustomActionDismissText(IDS_DOWNLOAD_BUBBLE_ESB_PROMO_DISMISS)
+          .SetBubbleIcon(&vector_icons::kGshieldIcon)
+          .SetPromoSubtype(
+              FeaturePromoSpecification::PromoSubtype::kActionableAlert)));
+#endif
 
   // kIPHBackNavigationMenuFeature:
   registry.RegisterFeature(
@@ -758,6 +819,17 @@ void MaybeRegisterChromeFeaturePromos(
           .SetPromoSubtype(user_education::FeaturePromoSpecification::
                                PromoSubtype::kPerApp)));
 
+  if (base::FeatureList::IsEnabled(compose::features::kEnableCompose)) {
+    // kIPHComposeMSBBSettingsFeature:
+    registry.RegisterFeature(
+        std::move(FeaturePromoSpecification::CreateForToastPromo(
+                      feature_engagement::kIPHComposeMSBBSettingsFeature,
+                      kAnonymizedUrlCollectionPersonalizationSettingId,
+                      IDS_COMPOSE_MSBB_IPH_BUBBLE_TEXT,
+                      IDS_COMPOSE_MSBB_IPH_BUBBLE_TEXT_SCREENREADER,
+                      FeaturePromoSpecification::AcceleratorInfo())
+                      .SetBubbleArrow(HelpBubbleArrow::kBottomRight)));
+  }
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 }
 
@@ -771,8 +843,9 @@ void MaybeRegisterChromeTutorials(
 
   // TODO (dfried): we might want to do something more sophisticated in the
   // future.
-  if (tutorial_registry.IsTutorialRegistered(kTabGroupTutorialId))
+  if (tutorial_registry.IsTutorialRegistered(kTabGroupTutorialId)) {
     return;
+  }
 
   {  // Menu item bubble test.
     TutorialDescription test_description;
@@ -833,6 +906,84 @@ void MaybeRegisterChromeTutorials(
           BubbleStep(kTabStripRegionElementId)
               .SetBubbleTitleText(IDS_TUTORIAL_GENERIC_SUCCESS_TITLE)
               .SetBubbleBodyText(IDS_TUTORIAL_TAB_GROUP_SUCCESS_DESCRIPTION)));
+
+  {  // Saved Tab Group tutorial.
+    auto saved_tab_group_tutorial =
+        TutorialDescription::Create<kSavedTabGroupTutorialMetricPrefix>(
+            IfView(kBrowserViewElementId, base::BindRepeating(&HasTabGroups))
+                .Then(
+                    // Point at the tab group header and say rick-click on
+                    // group name to open the editor bubble.
+                    BubbleStep(kTabGroupHeaderElementId)
+                        .SetBubbleBodyText(
+                            IDS_TUTORIAL_SAVED_TAB_GROUP_OPEN_EDITOR)
+                        .SetBubbleArrow(HelpBubbleArrow::kTopCenter))
+                .Else(
+                    // Point at the tab strip and say right-click a tab and
+                    // choose "Add tab to new group".
+                    BubbleStep(kTabStripRegionElementId)
+                        .SetBubbleBodyText(
+                            IDS_TUTORIAL_SAVED_TAB_GROUP_ADD_TAB_TO_GROUP),
+
+                    // Wait for the tab group to be created.
+                    HiddenStep::WaitForShowEvent(kTabGroupHeaderElementId)),
+
+            // Wait for the editor bubble to appear.
+            HiddenStep::WaitForShowEvent(kTabGroupEditorBubbleId),
+
+            // Point at editor bubble "Name your group, turn on save".
+            BubbleStep(kTabGroupEditorBubbleSaveToggleId)
+                .SetBubbleBodyText(IDS_TUTORIAL_SAVED_TAB_GROUP_NAME_SAVE_GROUP)
+                .SetBubbleArrow(HelpBubbleArrow::kLeftCenter),
+
+            // Wait for save group sync to be enabled.
+            EventStep(kTabGroupSavedCustomEventId).AbortIfVisibilityLost(true),
+
+            // Point at editor bubble "Hide group" to save it for later in the
+            // bookmarks bar.
+            BubbleStep(kTabGroupEditorBubbleCloseGroupButtonId)
+                .SetBubbleBodyText(IDS_TUTORIAL_SAVED_TAB_GROUP_HIDE_GROUP)
+                .SetBubbleArrow(HelpBubbleArrow::kLeftCenter),
+
+            // Wait for the hide group to be pressed.
+            HiddenStep::WaitForActivated(
+                kTabGroupEditorBubbleCloseGroupButtonId),
+
+            // Wait for the bookmarks bar to show.
+            HiddenStep::WaitForShown(kBookmarkBarElementId),
+
+            // Point at bookmark bar with message to open the previously
+            // closed saved tab group.
+            BubbleStep(kSavedTabGroupButtonElementId)
+                .SetBubbleBodyText(IDS_TUTORIAL_SAVED_TAB_GROUP_REOPEN_GROUP)
+                .SetBubbleArrow(HelpBubbleArrow::kTopLeft),
+
+            // Wait for the saved tab groups button in bookmarks bar to be
+            // activated.
+            HiddenStep::WaitForActivated(kSavedTabGroupButtonElementId),
+
+            // Wait for saved tabs groups to be reopened.
+            HiddenStep::WaitForShowEvent(kTabGroupHeaderElementId)
+                .NameElement(kTabGroupHeaderElementName),
+
+            // Point at tab group header and show the success message for the
+            // tutorial.
+            BubbleStep(kTabGroupHeaderElementName)
+                .SetBubbleTitleText(IDS_TUTORIAL_GENERIC_SUCCESS_TITLE)
+                .SetBubbleBodyText(
+                    IDS_TUTORIAL_SAVED_TAB_GROUP_SUCCESS_DESCRIPTION)
+                .SetBubbleArrow(HelpBubbleArrow::kTopCenter));
+    // Attach a temporary state callback to force show bookmarks bar
+    // during the lifetime of the tutorial.
+    saved_tab_group_tutorial.temporary_state_callback = base::BindRepeating(
+        [](ui::ElementContext context)
+            -> std::unique_ptr<user_education::ScopedTutorialState> {
+          return base::WrapUnique(
+              new ScopedSavedTabGroupTutorialState(context));
+        });
+    tutorial_registry.AddTutorial(kSavedTabGroupTutorialId,
+                                  std::move(saved_tab_group_tutorial));
+  }
 
   // Side panel customize chrome
   tutorial_registry.AddTutorial(

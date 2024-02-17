@@ -26,7 +26,6 @@
 #include "base/trace_event/trace_event.h"
 #include "media/base/color_plane_layout.h"
 #include "media/base/media_util.h"
-#include "media/base/scopedfd_helper.h"
 #include "media/gpu/chromeos/fourcc.h"
 #include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/macros.h"
@@ -572,7 +571,8 @@ void V4L2ImageProcessorBackend::ProcessJobs() {
     if (input_memory_type_ == V4L2_MEMORY_DMABUF) {
       const VideoFrame& input_frame =
           *(input_job_queue_.front()->input_frame.get());
-      input_buffer = input_queue_->GetFreeBufferForFrame(input_frame);
+      input_buffer =
+          input_queue_->GetFreeBufferForFrame(GetSharedMemoryId(input_frame));
     }
     if (!input_buffer)
       input_buffer = input_queue_->GetFreeBuffer();
@@ -582,7 +582,8 @@ void V4L2ImageProcessorBackend::ProcessJobs() {
     if (output_memory_type_ == V4L2_MEMORY_DMABUF) {
       const VideoFrame& output_frame =
           *(input_job_queue_.front()->output_frame.get());
-      output_buffer = output_queue_->GetFreeBufferForFrame(output_frame);
+      output_buffer =
+          output_queue_->GetFreeBufferForFrame(GetSharedMemoryId(output_frame));
     }
     if (!output_buffer)
       output_buffer = output_queue_->GetFreeBuffer();

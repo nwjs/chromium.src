@@ -404,9 +404,7 @@ void PopulateConsumerItems(id<TabCollectionConsumer> consumer,
   NOTREACHED_NORETURN();
 }
 
-#pragma mark - TabCollectionCommands
-
-- (void)selectItemWithID:(web::WebStateID)itemID {
+- (void)selectItemWithID:(web::WebStateID)itemID pinned:(BOOL)pinned {
   NOTREACHED_NORETURN();
 }
 
@@ -428,7 +426,9 @@ void PopulateConsumerItems(id<TabCollectionConsumer> consumer,
 
 - (TabGridToolbarsConfiguration*)toolbarsConfiguration {
   TabGridToolbarsConfiguration* toolbarsConfiguration =
-      [[TabGridToolbarsConfiguration alloc] init];
+      [[TabGridToolbarsConfiguration alloc]
+          initWithPage:TabGridPageRegularTabs];
+  toolbarsConfiguration.mode = TabGridModeInactive;
   toolbarsConfiguration.closeAllButton = [self canCloseTabs];
   toolbarsConfiguration.searchButton = YES;
   toolbarsConfiguration.undoButton = [self canUndoCloseAllTabs];

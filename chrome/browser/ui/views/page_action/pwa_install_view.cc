@@ -40,7 +40,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/metrics/structured/event_logging_features.h"
-// TODO(crbug/4925196): enable gn check once it learn about conditional includes
+// TODO(crbug.com/1125897): Enable gn check once it handles conditional includes
 #include "components/metrics/structured/structured_events.h"  // nogncheck
 #endif
 
@@ -119,7 +119,7 @@ void PwaInstallView::UpdateImpl() {
 
   bool is_probably_promotable = manager->IsProbablyPromotableWebApp();
   if (is_probably_promotable && manager->MaybeConsumeInstallAnimation()) {
-    AnimateIn(absl::nullopt);
+    AnimateIn(std::nullopt);
   } else {
     ResetSlideAnimation(false);
   }
@@ -237,5 +237,5 @@ bool PwaInstallView::ShouldShowIph(content::WebContents* web_contents,
               .IsBlockedByGuardrails(app_id);
 }
 
-BEGIN_METADATA(PwaInstallView, PageActionIconView)
+BEGIN_METADATA(PwaInstallView)
 END_METADATA

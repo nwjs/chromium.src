@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -57,7 +58,6 @@
 #include "printing/printing_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
@@ -236,7 +236,7 @@ class TestLocalPrinterAshWithPrinterConfigurer : public TestLocalPrinterAsh {
   ~TestLocalPrinterAshWithPrinterConfigurer() override = default;
 
  private:
-  const raw_ptr<ash::FakeCupsPrintersManager, ExperimentalAsh> manager_;
+  const raw_ptr<ash::FakeCupsPrintersManager> manager_;
 };
 
 // Base testing class for `LocalPrinterAsh`.  Contains the base
@@ -435,8 +435,7 @@ class LocalPrinterAshTestBase : public testing::Test {
   TestingProfile profile_;
   scoped_refptr<TestPrintBackend> sandboxed_test_backend_;
   scoped_refptr<TestPrintBackend> unsandboxed_test_backend_;
-  raw_ptr<ash::FakeCupsPrintersManager, ExperimentalAsh> printers_manager_ =
-      nullptr;
+  raw_ptr<ash::FakeCupsPrintersManager> printers_manager_ = nullptr;
   scoped_refptr<FakePpdProvider> ppd_provider_;
   std::unique_ptr<crosapi::LocalPrinterAsh> local_printer_ash_;
   base::test::ScopedFeatureList feature_list_;
@@ -1053,11 +1052,10 @@ TEST_F(LocalPrinterAshTest, GetPolicies_Pin) {
 TEST_F(LocalPrinterAshTest, GetUsernamePerPolicy_Allowed) {
   SetUsername("user@email.com");
   GetPrefs()->SetBoolean(prefs::kPrintingSendUsernameAndFilenameEnabled, true);
-  absl::optional<std::string> username;
-  local_printer_ash()->GetUsernamePerPolicy(base::BindOnce(
-      base::BindLambdaForTesting([&](const absl::optional<std::string>& uname) {
-        username = uname;
-      })));
+  std::optional<std::string> username;
+  local_printer_ash()->GetUsernamePerPolicy(
+      base::BindOnce(base::BindLambdaForTesting(
+          [&](const std::optional<std::string>& uname) { username = uname; })));
   ASSERT_TRUE(username);
   EXPECT_EQ("user@email.com", *username);
 }
@@ -1065,12 +1063,11 @@ TEST_F(LocalPrinterAshTest, GetUsernamePerPolicy_Allowed) {
 TEST_F(LocalPrinterAshTest, GetUsernamePerPolicy_Denied) {
   SetUsername("user@email.com");
   GetPrefs()->SetBoolean(prefs::kPrintingSendUsernameAndFilenameEnabled, false);
-  absl::optional<std::string> username;
-  local_printer_ash()->GetUsernamePerPolicy(base::BindOnce(
-      base::BindLambdaForTesting([&](const absl::optional<std::string>& uname) {
-        username = uname;
-      })));
-  EXPECT_EQ(absl::nullopt, username);
+  std::optional<std::string> username;
+  local_printer_ash()->GetUsernamePerPolicy(
+      base::BindOnce(base::BindLambdaForTesting(
+          [&](const std::optional<std::string>& uname) { username = uname; })));
+  EXPECT_EQ(std::nullopt, username);
 }
 
 // Verify the LocalPrintersObserver receives the full set of local printers
@@ -1229,11 +1226,9 @@ class LocalPrinterAshWithOAuth2Test : public testing::Test {
 
   // Must outlive `printers_manager_`.
   TestingProfile profile_;
-  raw_ptr<ash::FakeCupsPrintersManager, ExperimentalAsh> printers_manager_ =
-      nullptr;
+  raw_ptr<ash::FakeCupsPrintersManager> printers_manager_ = nullptr;
   raw_ptr<
-      testing::StrictMock<ash::printing::oauth2::MockAuthorizationZoneManager>,
-      ExperimentalAsh>
+      testing::StrictMock<ash::printing::oauth2::MockAuthorizationZoneManager>>
       auth_manager_ = nullptr;
   scoped_refptr<FakePpdProvider> ppd_provider_;
   std::unique_ptr<crosapi::LocalPrinterAsh> local_printer_ash_;
@@ -1354,8 +1349,7 @@ class TestLocalPrinterAshWithClientInfoCalculator : public TestLocalPrinterAsh {
   }
 
  private:
-  raw_ptr<ash::printing::IppClientInfoCalculator, ExperimentalAsh>
-      client_info_calculator_;
+  raw_ptr<ash::printing::IppClientInfoCalculator> client_info_calculator_;
 };
 
 struct MockIppClientInfoCalculator : ash::printing::IppClientInfoCalculator {
@@ -1415,8 +1409,7 @@ class LocalPrinterAshWithIppClientInfoTest : public LocalPrinterAshTest {
  private:
   // Must outlive `printers_manager_`.
   TestingProfile profile_;
-  raw_ptr<ash::FakeCupsPrintersManager, ExperimentalAsh> printers_manager_ =
-      nullptr;
+  raw_ptr<ash::FakeCupsPrintersManager> printers_manager_ = nullptr;
   NiceMock<MockIppClientInfoCalculator> client_info_calculator_;
   std::unique_ptr<crosapi::LocalPrinterAsh> local_printer_ash_;
 };
@@ -1447,7 +1440,7 @@ TEST_F(LocalPrinterAshWithIppClientInfoTest, GetIppClientInfoInsecurePrinter) {
   base::RunLoop loop;
   const mojom::IppClientInfoPtr expected = mojom::IppClientInfo::New(
       mojom::IppClientInfo::ClientType::kOperatingSystem, "ChromeOS",
-      absl::nullopt, "1.2.3", absl::nullopt);
+      std::nullopt, "1.2.3", std::nullopt);
   EXPECT_CALL(client_info_calculator(), GetOsInfo)
       .WillOnce(Return(ByMove(expected.Clone())));
   local_printer_ash()->GetIppClientInfo(
@@ -1472,7 +1465,7 @@ TEST_F(LocalPrinterAshWithIppClientInfoTest, GetIppClientInfoUnaffiliatedUser) {
   base::RunLoop loop;
   const mojom::IppClientInfoPtr expected = mojom::IppClientInfo::New(
       mojom::IppClientInfo::ClientType::kOperatingSystem, "ChromeOS",
-      absl::nullopt, "1.2.3", absl::nullopt);
+      std::nullopt, "1.2.3", std::nullopt);
   EXPECT_CALL(client_info_calculator(), GetOsInfo)
       .WillOnce(Return(ByMove(expected.Clone())));
   local_printer_ash()->GetIppClientInfo(
@@ -1497,7 +1490,7 @@ TEST_F(LocalPrinterAshWithIppClientInfoTest, GetIppClientInfoUnmanagedPrinter) {
   base::RunLoop loop;
   const mojom::IppClientInfoPtr expected = mojom::IppClientInfo::New(
       mojom::IppClientInfo::ClientType::kOperatingSystem, "ChromeOS",
-      absl::nullopt, "1.2.3", absl::nullopt);
+      std::nullopt, "1.2.3", std::nullopt);
   EXPECT_CALL(client_info_calculator(), GetOsInfo)
       .WillOnce(Return(ByMove(expected.Clone())));
   local_printer_ash()->GetIppClientInfo(
@@ -1524,10 +1517,10 @@ TEST_F(LocalPrinterAshWithIppClientInfoTest,
   base::RunLoop loop;
   const mojom::IppClientInfo expected_os_info =
       mojom::IppClientInfo(mojom::IppClientInfo::ClientType::kOperatingSystem,
-                           "ChromeOS", absl::nullopt, "1.2.3", absl::nullopt);
+                           "ChromeOS", std::nullopt, "1.2.3", std::nullopt);
   const mojom::IppClientInfo expected_device_info =
       mojom::IppClientInfo(mojom::IppClientInfo::ClientType::kOther, "abc",
-                           absl::nullopt, "", absl::nullopt);
+                           std::nullopt, "", std::nullopt);
   EXPECT_CALL(client_info_calculator(), GetOsInfo)
       .WillOnce(Return(ByMove(expected_os_info.Clone())));
   EXPECT_CALL(client_info_calculator(), GetDeviceInfo)

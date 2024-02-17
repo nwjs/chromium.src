@@ -11,7 +11,6 @@
 #include "base/functional/function_ref.h"
 #include "base/json/json_reader.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/strings/string_piece.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
 #include "base/values.h"
@@ -72,7 +71,7 @@ ParseAggregationCoordinator(const base::Value* value) {
 
 template <typename T>
 void SerializeListIfNotEmpty(base::Value::Dict& dict,
-                             base::StringPiece key,
+                             std::string_view key,
                              const std::vector<T>& vec) {
   if (vec.empty()) {
     return;
@@ -105,7 +104,7 @@ base::expected<std::vector<T>, TriggerRegistrationError> ParseList(
 
   for (auto& value : *list) {
     ASSIGN_OR_RETURN(T element, build_element(value));
-    vec.push_back(std::move(element));
+    vec.emplace_back(std::move(element));
   }
 
   return vec;
@@ -115,51 +114,54 @@ base::expected<std::vector<T>, TriggerRegistrationError> ParseList(
 
 // static
 base::expected<TriggerRegistration, TriggerRegistrationError>
-TriggerRegistration::Parse(base::Value::Dict registration) {
-  ASSIGN_OR_RETURN(FilterPair filters, FilterPair::FromJSON(registration));
+TriggerRegistration::Parse(base::Value::Dict dict) {
+  TriggerRegistration registration;
+
+  ASSIGN_OR_RETURN(registration.filters, FilterPair::FromJSON(dict));
+
   ASSIGN_OR_RETURN(
-      std::vector<AggregatableDedupKey> aggregatable_dedup_keys,
+      registration.aggregatable_dedup_keys,
       ParseList<AggregatableDedupKey>(
-          registration.Find(kAggregatableDeduplicationKeys),
+          dict.Find(kAggregatableDeduplicationKeys),
           TriggerRegistrationError::kAggregatableDedupKeyListWrongType,
           &AggregatableDedupKey::FromJSON));
-  ASSIGN_OR_RETURN(std::vector<EventTriggerData> event_triggers,
+
+  ASSIGN_OR_RETURN(registration.event_triggers,
                    ParseList<EventTriggerData>(
-                       registration.Find(kEventTriggerData),
+                       dict.Find(kEventTriggerData),
                        TriggerRegistrationError::kEventTriggerDataListWrongType,
                        &EventTriggerData::FromJSON));
+
   ASSIGN_OR_RETURN(
-      std::vector<AggregatableTriggerData> aggregatable_trigger_data,
+      registration.aggregatable_trigger_data,
       ParseList<AggregatableTriggerData>(
-          registration.Find(kAggregatableTriggerData),
+          dict.Find(kAggregatableTriggerData),
           TriggerRegistrationError::kAggregatableTriggerDataListWrongType,
           &AggregatableTriggerData::FromJSON));
+
   ASSIGN_OR_RETURN(
-      AggregatableValues aggregatable_values,
-      AggregatableValues::FromJSON(registration.Find(kAggregatableValues)));
-  absl::optional<SuitableOrigin> aggregation_coordinator;
+      registration.aggregatable_values,
+      AggregatableValues::FromJSON(dict.Find(kAggregatableValues)));
+
   if (base::FeatureList::IsEnabled(
           aggregation_service::kAggregationServiceMultipleCloudProviders)) {
-    ASSIGN_OR_RETURN(aggregation_coordinator,
-                     ParseAggregationCoordinator(
-                         registration.Find(kAggregationCoordinatorOrigin)));
+    ASSIGN_OR_RETURN(
+        registration.aggregation_coordinator_origin,
+        ParseAggregationCoordinator(dict.Find(kAggregationCoordinatorOrigin)));
   }
-  absl::optional<uint64_t> debug_key = ParseDebugKey(registration);
-  bool debug_reporting = ParseDebugReporting(registration);
 
-  ASSIGN_OR_RETURN(auto aggregatable_trigger_config,
-                   AggregatableTriggerConfig::Parse(registration));
+  registration.debug_key = ParseDebugKey(dict);
+  registration.debug_reporting = ParseDebugReporting(dict);
 
-  return TriggerRegistration(
-      std::move(filters), debug_key, std::move(aggregatable_dedup_keys),
-      std::move(event_triggers), std::move(aggregatable_trigger_data),
-      std::move(aggregatable_values), debug_reporting, aggregation_coordinator,
-      std::move(aggregatable_trigger_config));
+  ASSIGN_OR_RETURN(registration.aggregatable_trigger_config,
+                   AggregatableTriggerConfig::Parse(dict));
+
+  return registration;
 }
 
 // static
 base::expected<TriggerRegistration, TriggerRegistrationError>
-TriggerRegistration::Parse(base::StringPiece json) {
+TriggerRegistration::Parse(std::string_view json) {
   base::expected<TriggerRegistration, TriggerRegistrationError> trigger =
       base::unexpected(TriggerRegistrationError::kInvalidJson);
 
@@ -188,26 +190,6 @@ TriggerRegistration::Parse(base::StringPiece json) {
 }
 
 TriggerRegistration::TriggerRegistration() = default;
-
-TriggerRegistration::TriggerRegistration(
-    FilterPair filters,
-    absl::optional<uint64_t> debug_key,
-    std::vector<AggregatableDedupKey> aggregatable_dedup_keys,
-    std::vector<EventTriggerData> event_triggers,
-    std::vector<AggregatableTriggerData> aggregatable_trigger_data,
-    AggregatableValues aggregatable_values,
-    bool debug_reporting,
-    absl::optional<SuitableOrigin> aggregation_coordinator_origin,
-    AggregatableTriggerConfig aggregatable_trigger_config)
-    : filters(std::move(filters)),
-      debug_key(debug_key),
-      aggregatable_dedup_keys(std::move(aggregatable_dedup_keys)),
-      event_triggers(std::move(event_triggers)),
-      aggregatable_trigger_data(aggregatable_trigger_data),
-      aggregatable_values(std::move(aggregatable_values)),
-      debug_reporting(debug_reporting),
-      aggregation_coordinator_origin(std::move(aggregation_coordinator_origin)),
-      aggregatable_trigger_config(std::move(aggregatable_trigger_config)) {}
 
 TriggerRegistration::~TriggerRegistration() = default;
 

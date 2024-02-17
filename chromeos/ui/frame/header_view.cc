@@ -36,6 +36,8 @@ using ::chromeos::kFrameInactiveColorKey;
 // different scaling strategy than the rest of the frame such
 // as caption buttons.
 class HeaderView::HeaderContentView : public views::View {
+  METADATA_HEADER(HeaderContentView, views::View)
+
  public:
   explicit HeaderContentView(HeaderView* header_view)
       : header_view_(header_view) {}
@@ -58,10 +60,13 @@ class HeaderView::HeaderContentView : public views::View {
   }
 
  private:
-  raw_ptr<HeaderView, ExperimentalAsh> header_view_;
+  raw_ptr<HeaderView> header_view_;
   views::PaintInfo::ScaleType scale_type_ =
       views::PaintInfo::ScaleType::kScaleWithEdgeSnapping;
 };
+
+BEGIN_METADATA(HeaderView, HeaderContentView, views::View)
+END_METADATA
 
 HeaderView::HeaderView(views::Widget* target_widget,
                        views::NonClientFrameView* frame_view)
@@ -381,7 +386,7 @@ void HeaderView::UpdateCaptionButtonsVisibility() {
   caption_button_container_->SetVisible(should_paint_);
 }
 
-BEGIN_METADATA(HeaderView, views::View)
+BEGIN_METADATA(HeaderView)
 END_METADATA
 
 }  // namespace chromeos

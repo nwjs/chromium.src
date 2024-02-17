@@ -6,7 +6,6 @@ import './icons.html.js';
 import './strings.m.js';
 import './textarea.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
-import '//resources/cr_elements/cr_hidden_style.css.js';
 import '//resources/cr_elements/cr_feedback_buttons/cr_feedback_buttons.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_loading_gradient/cr_loading_gradient.js';
@@ -21,10 +20,11 @@ import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import {Debouncer, microTask, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {Debouncer, microTask, PolymerElement, timeOut} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {ComposeAppAnimator} from './animations/app_animator.js';
 import {getTemplate} from './app.html.js';
-import {CloseReason, ComposeDialogCallbackRouter, ComposeResponse, ComposeStatus, ConfigurableParams, ConsentState, Length, StyleModifiers, Tone, UserFeedback} from './compose.mojom-webui.js';
+import {CloseReason, ComposeDialogCallbackRouter, ComposeResponse, ComposeStatus, ConfigurableParams, Length, PartialComposeResponse, StyleModifiers, Tone, UserFeedback} from './compose.mojom-webui.js';
 import {ComposeApiProxy, ComposeApiProxyImpl} from './compose_api_proxy.js';
 import {ComposeTextareaElement} from './textarea.js';
 
@@ -40,26 +40,29 @@ export interface ComposeAppState {
 
 export interface ComposeAppElement {
   $: {
-    consentDialog: HTMLElement,
-    consentFooter: HTMLElement,
-    consentNoThanksButton: CrButtonElement,
-    consentYesButton: CrButtonElement,
-    disclaimerFooter: HTMLElement,
-    disclaimerLetsGoButton: CrButtonElement,
+    firstRunDialog: HTMLElement,
+    firstRunFooter: HTMLElement,
+    firstRunOkButton: CrButtonElement,
+    freMsbbDialog: HTMLElement,
     appDialog: HTMLElement,
     body: HTMLElement,
+    bodyAndFooter: HTMLElement,
     cancelEditButton: CrButtonElement,
     closeButton: HTMLElement,
-    closeButtonConsent: HTMLElement,
+    firstRunCloseButton: HTMLElement,
+    closeButtonMSBB: HTMLElement,
     editTextarea: ComposeTextareaElement,
     errorFooter: HTMLElement,
-    insertButton: CrButtonElement,
+    acceptButton: CrButtonElement,
     loading: HTMLElement,
     undoButton: CrButtonElement,
     refreshButton: HTMLElement,
     resultContainer: HTMLElement,
+    partialResultText: HTMLElement,
     submitButton: CrButtonElement,
     submitEditButton: CrButtonElement,
+    submitFooter: HTMLElement,
+    onDeviceUsedFooter: HTMLElement,
     textarea: ComposeTextareaElement,
     lengthMenu: HTMLSelectElement,
     toneMenu: HTMLSelectElement,
@@ -67,6 +70,16 @@ export interface ComposeAppElement {
 }
 
 const ComposeAppElementBase = I18nMixin(CrScrollableMixin(PolymerElement));
+
+// Enumerates trigger points of compose or regenerate calls.
+// Used to mark where a compose call was made so focus
+// can be restored to the respective element afterwards.
+enum TriggerElement {
+  SUBMIT_INPUT,  // For initial input or editing input.
+  TONE,
+  LENGTH,
+  REFRESH
+}
 
 export class ComposeAppElement extends ComposeAppElementBase {
   static get is() {
@@ -83,7 +96,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
         type: String,
         observer: 'onEditedInputChanged_',
       },
-      enableAnimations_: {
+      enableAnimations: {
         type: Boolean,
         value: loadTimeData.getBoolean('enableAnimations'),
         reflectToAttribute: true,
@@ -113,8 +126,18 @@ export class ComposeAppElement extends ComposeAppElementBase {
       loading_: {
         type: Boolean,
         value: false,
+        reflectToAttribute: true,
+      },
+      loadingIndicatorShown_: {
+        type: Boolean,
+        reflectToAttribute: true,
+        computed: 'isLoadingIndicatorShown_(loading_, partialResponse_)',
       },
       response_: {
+        type: Object,
+        value: null,
+      },
+      partialResponse_: {
         type: Object,
         value: null,
       },
@@ -130,13 +153,10 @@ export class ComposeAppElement extends ComposeAppElementBase {
         type: Boolean,
         value: false,
       },
-      showDisclaimerFooter_: {
-        type: Boolean,
-        value: false,
-      },
       submitted_: {
         type: Boolean,
         value: false,
+        reflectToAttribute: true,
       },
       undoEnabled_: {
         type: Boolean,
@@ -149,7 +169,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
             {
               value: Length.kUnset,
               label: loadTimeData.getString('lengthMenuTitle'),
-              hidden: true,
+              isDefault: true,
             },
             {
               value: Length.kShorter,
@@ -169,7 +189,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
             {
               value: Tone.kUnset,
               label: loadTimeData.getString('toneMenuTitle'),
-              hidden: true,
+              isDefault: true,
             },
             {
               value: Tone.kCasual,
@@ -192,12 +212,17 @@ export class ComposeAppElement extends ComposeAppElementBase {
     ];
   }
 
+  private animator_: ComposeAppAnimator;
   private apiProxy_: ComposeApiProxy = ComposeApiProxyImpl.getInstance();
-  private enableAnimations_: boolean;
+  private bodyResizeObserver_: ResizeObserver;
+  enableAnimations: boolean;
   private eventTracker_: EventTracker = new EventTracker();
   private router_: ComposeDialogCallbackRouter = this.apiProxy_.getRouter();
+  private showFirstRunDialog_: boolean;
   private showMainAppDialog_: boolean;
-  private showDisclaimerFooter_: boolean;
+  private showSavedStateDialog_: boolean;
+  private showMSBBDialog_: boolean;
+  private shouldShowMSBBDialog_: boolean;
   private editedInput_: string;
   private feedbackState_: CrFeedbackOption;
   private input_: string;
@@ -207,20 +232,31 @@ export class ComposeAppElement extends ComposeAppElementBase {
   private isSubmitEnabled_: boolean;
   private loading_: boolean;
   private response_: ComposeResponse|undefined;
+  private partialResponse_: PartialComposeResponse|undefined;
   private saveAppStateDebouncer_: Debouncer;
+  private scrollCheckDebouncer_: Debouncer;
   private selectedLength_: Length;
   private selectedTone_: Tone;
+  private textSelected_: boolean;
   private submitted_: boolean;
   private undoEnabled_: boolean;
   private userHasModifiedState_: boolean = false;
+  private lastTriggerElement_: TriggerElement;
+  private savedStateNotificationTimeout_: number;
 
   constructor() {
     super();
     ColorChangeUpdater.forDocument().start();
+    this.animator_ = new ComposeAppAnimator(
+        this, loadTimeData.getBoolean('enableAnimations'));
     this.getInitialState_();
     this.router_.responseReceived.addListener((response: ComposeResponse) => {
       this.composeResponseReceived_(response);
     });
+    this.router_.partialResponseReceived.addListener(
+        (partialResponse: PartialComposeResponse) => {
+          this.partialComposeResponseReceived_(partialResponse);
+        });
   }
 
   override connectedCallback() {
@@ -231,11 +267,23 @@ export class ComposeAppElement extends ComposeAppElementBase {
         this.saveComposeAppState_();
       }
     });
+    // For detecting when to show the Saved State Notification.
+    this.eventTracker_.add(window, 'blur', () => {
+      this.onWindowBlur_();
+    });
+    this.bodyResizeObserver_ = new ResizeObserver(() => {
+      this.scrollCheckDebouncer_ = Debouncer.debounce(
+          this.scrollCheckDebouncer_, timeOut.after(20), () => {
+            this.requestUpdateScroll();
+          });
+    });
+    this.bodyResizeObserver_.observe(this.$.body);
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.eventTracker_.removeAll();
+    this.bodyResizeObserver_.disconnect();
   }
 
   private debounceSaveComposeAppState_() {
@@ -247,19 +295,23 @@ export class ComposeAppElement extends ComposeAppElementBase {
   private getInitialState_() {
     this.apiProxy_.requestInitialState().then(initialState => {
       this.inputParams_ = initialState.configurableParams;
-      // The dialog can initially be in one of three view states. The consent
-      // view is shown if consent is not currently granted. If consent was
-      // granted but not through Compose use, the disclaimer view is shown.
-      // Otherwise, full consent causes the dialog to show at the main app
-      // state.
+      // The dialog can initially be in one of three view states. Completion of
+      // the FRE causes the dialog to show the MSBB state if MSBB is not
+      // enabled, and the main app state otherwise.
+      this.showFirstRunDialog_ = !initialState.freComplete;
+      this.showMSBBDialog_ =
+          initialState.freComplete && !initialState.msbbState;
+      this.shouldShowMSBBDialog_ = !initialState.msbbState;
+
       this.showMainAppDialog_ =
-          initialState.consentState === ConsentState.kConsented;
-      this.showDisclaimerFooter_ =
-          initialState.consentState === ConsentState.kExternalConsented;
+          initialState.freComplete && initialState.msbbState;
+      this.showSavedStateDialog_ = false;
 
       if (initialState.initialInput) {
         this.input_ = initialState.initialInput;
       }
+      this.textSelected_ = initialState.textSelected;
+      this.partialResponse_ = undefined;
       const composeState = initialState.composeState;
       this.feedbackState_ = userFeedbackToFeedbackOption(composeState.feedback);
       this.loading_ = composeState.hasPendingRequest;
@@ -281,6 +333,13 @@ export class ComposeAppElement extends ComposeAppElementBase {
           this.editedInput_ = appState.editedInput!;
         }
       }
+
+      if (this.showFirstRunDialog_) {
+        this.animator_.transitionToFirstRun();
+      } else {
+        this.animator_.transitionInDialog();
+      }
+
       // Wait for one timeout to flush Polymer tasks, then wait for the next
       // render.
       setTimeout(() => {
@@ -289,30 +348,56 @@ export class ComposeAppElement extends ComposeAppElementBase {
     });
   }
 
-  private onConsentNoThanksButtonClick_() {
-    this.apiProxy_.closeUi(CloseReason.kPageContentConsentDeclined);
+  private getTrimmedResult_(): string|undefined {
+    return this.response_?.result.trim();
   }
 
-  private onConsentYesButtonClick_() {
-    this.apiProxy_.approveConsent();
-    this.showMainAppDialog_ = true;
+  private getTrimmedPartialResult_(): string|undefined {
+    return this.partialResponse_?.result.trim();
   }
 
-  private onDisclaimerLetsGoButtonClick_() {
-    this.apiProxy_.acknowledgeConsentDisclaimer();
-    this.showDisclaimerFooter_ = false;
-    this.showMainAppDialog_ = true;
+  private onFirstRunOkButtonClick_() {
+    this.apiProxy_.completeFirstRun();
+
+    if (this.shouldShowMSBBDialog_) {
+      this.showMSBBDialog_ = true;
+    } else {
+      this.showMainAppDialog_ = true;
+      this.animator_.transitionToInput();
+    }
+
+    this.showFirstRunDialog_ = false;
+  }
+
+  private onFirstRunBottomTextClick_(e: Event) {
+    e.preventDefault();
+    // Embedded links do not work in WebUI so handle in the parent event
+    // listener.
+    if ((e.target as HTMLElement).tagName === 'A') {
+      this.apiProxy_.openComposeLearnMorePage();
+    }
   }
 
   private onCancelEditClick_() {
     this.isEditingSubmittedInput_ = false;
+    this.$.textarea.focusEditButton();
   }
 
   private onClose_(e: Event) {
-    const closeReason = (e.target as HTMLElement).id === 'closeButtonConsent' ?
-        CloseReason.kConsentCloseButton :
-        CloseReason.kCloseButton;
-    this.apiProxy_.closeUi(closeReason);
+    switch ((e.target as HTMLElement).id) {
+      case 'firstRunCloseButton': {
+        this.apiProxy_.closeUi(CloseReason.kFirstRunCloseButton);
+        break;
+      }
+      case 'closeButtonMSBB': {
+        this.apiProxy_.closeUi(CloseReason.kMSBBCloseButton);
+        break;
+      }
+      case 'closeButton': {
+        this.apiProxy_.closeUi(CloseReason.kCloseButton);
+        break;
+      }
+    }
   }
 
   private onEditedInputChanged_() {
@@ -323,8 +408,13 @@ export class ComposeAppElement extends ComposeAppElementBase {
   }
 
   private onEditClick_() {
+    const fullBodyHeight = this.$.body.offsetHeight;
+    const resultContainerHeight = this.$.resultContainer.offsetHeight;
     this.editedInput_ = this.input_;
     this.isEditingSubmittedInput_ = true;
+    this.animator_.transitionFromResultToEditing(resultContainerHeight);
+    this.$.textarea.transitionToEditing(fullBodyHeight);
+    this.$.editTextarea.transitionToEditing(fullBodyHeight);
   }
 
   private onIsEditingSubmittedInputChanged_() {
@@ -336,7 +426,8 @@ export class ComposeAppElement extends ComposeAppElementBase {
   }
 
   private onRefresh_() {
-    this.rewrite_(/*style=*/ {});
+    this.rewrite_(/*style=*/ null);
+    this.lastTriggerElement_ = TriggerElement.REFRESH;
   }
 
   private onSubmit_() {
@@ -346,8 +437,14 @@ export class ComposeAppElement extends ComposeAppElementBase {
       return;
     }
 
+    this.$.textarea.scrollInputToTop();
+    const bodyHeight = this.$.body.offsetHeight;
+    const footerHeight = this.$.submitFooter.offsetHeight;
     this.submitted_ = true;
+    this.animator_.transitionOutSubmitFooter(bodyHeight, footerHeight);
+    this.$.textarea.transitionToReadonly();
     this.compose_();
+    this.lastTriggerElement_ = TriggerElement.SUBMIT_INPUT;
   }
 
   private onSubmitEdit_() {
@@ -357,11 +454,17 @@ export class ComposeAppElement extends ComposeAppElementBase {
       return;
     }
 
+    const bodyHeight = this.$.bodyAndFooter.offsetHeight;
+    const editTextareaHeight = this.$.editTextarea.offsetHeight;
     this.isEditingSubmittedInput_ = false;
     this.input_ = this.editedInput_;
     this.selectedLength_ = Length.kUnset;
     this.selectedTone_ = Tone.kUnset;
+    this.animator_.transitionFromEditingToLoading(bodyHeight);
+    this.$.textarea.transitionToReadonly(editTextareaHeight);
+    this.$.editTextarea.transitionToReadonly(editTextareaHeight);
     this.compose_(true);
+    this.lastTriggerElement_ = TriggerElement.SUBMIT_INPUT;
   }
 
   private onAccept_() {
@@ -382,18 +485,24 @@ export class ComposeAppElement extends ComposeAppElementBase {
   private onLengthChanged_() {
     this.selectedLength_ = Number(this.$.lengthMenu.value) as Length;
     this.rewrite_(/*style=*/ {length: this.selectedLength_});
+    this.lastTriggerElement_ = TriggerElement.LENGTH;
   }
 
   private onToneChanged_() {
     this.selectedTone_ = Number(this.$.toneMenu.value) as Tone;
     this.rewrite_(/*style=*/ {tone: this.selectedTone_});
+    this.lastTriggerElement_ = TriggerElement.TONE;
   }
 
   private onFooterClick_(e: Event) {
+    if ((e.target as HTMLElement).tagName !== 'A') {
+      // Do nothing if a link is not clicked.
+      return;
+    }
     e.preventDefault();
-    // The "File a bug" and "survey" links are embedded into the string.
-    // Embededd links do not work in WebUI so handle each click in the parent
-    // event listener.
+    // The "File a bug", "survey", and "sign in" links are embedded into the
+    // string. Embedded links do not work in WebUI so handle each click in the
+    // parent event listener.
     switch ((e.target as HTMLElement).id) {
       case 'bugLink':
         this.apiProxy_.openBugReportingLink();
@@ -401,49 +510,127 @@ export class ComposeAppElement extends ComposeAppElementBase {
       case 'surveyLink':
         this.apiProxy_.openFeedbackSurveyLink();
         break;
+      case 'signInLink':
+        this.apiProxy_.openSignInPage();
+        break;
+      default:
+        this.apiProxy_.openComposeLearnMorePage();
     }
   }
 
-  private onConsentTopTextClick_(e: Event) {
+  private onMsbbSettingsClick_(e: Event) {
     e.preventDefault();
-    // The "settings" link is embedded into the string used here as it may need
-    // to be localized as part of the sentence. However, such embedded links do
-    // not function in WebUI. Handle the event by using this parent event
-    // listener to target the link and instruct the browser to open the
-    // corresponding settings page.
-    if ((e.target as HTMLElement).tagName === 'A') {
-      this.apiProxy_.openComposeSettings();
+    // Instruct the browser to open the corresponding settings page.
+    this.apiProxy_.openComposeSettings();
+  }
+
+  private onWindowBlur_() {
+    if (!loadTimeData.getBoolean('enableSavedStateNotification')) {
+      return;
     }
+
+    // When pressing tab from the last focusable element on the page, the
+    // browser seems to reset focus onto document.body and cause a temporary
+    // window blur. Do not show the saved state notification in this case
+    // since this allows users to hit tab from the last focusable element
+    // to loop focus back to the first focusable element.
+    if (document.activeElement === document.body) {
+      return;
+    }
+
+    // Show Saved State Notification if losing focus from the main app dialog.
+    if (this.showMainAppDialog_) {
+      this.showMainAppDialog_ = false;
+      this.showSavedStateDialog_ = true;
+
+      this.savedStateNotificationTimeout_ = setTimeout(() => {
+        this.apiProxy_.closeUi(CloseReason.kLostFocus);
+      }, loadTimeData.getInteger('savedStateTimeoutInMilliseconds'));
+    }
+  }
+
+  private onSavedStateDialogClick_() {
+    clearTimeout(this.savedStateNotificationTimeout_);
+    this.showMainAppDialog_ = true;
+    this.showSavedStateDialog_ = false;
   }
 
   private compose_(inputEdited: boolean = false) {
     assert(this.$.textarea.validate());
     assert(this.submitted_);
+    this.$.body.scrollTop = 0;
     this.loading_ = true;
+    this.animator_.transitionInLoading();
     this.response_ = undefined;
+    this.partialResponse_ = undefined;
     this.saveComposeAppState_();  // Ensure state is saved before compose call.
     this.apiProxy_.compose(this.input_, inputEdited);
   }
 
-  private rewrite_(style: StyleModifiers) {
+  private rewrite_(style: StyleModifiers|null) {
     assert(this.$.textarea.validate());
     assert(this.submitted_);
+    const bodyHeight = this.$.body.offsetHeight;
+    const resultHeight = this.$.resultContainer.offsetHeight;
+    this.$.body.scrollTop = 0;
     this.loading_ = true;
     this.response_ = undefined;
+    this.partialResponse_ = undefined;
     this.saveComposeAppState_();  // Ensure state is saved before compose call.
     this.apiProxy_.rewrite(style);
+    this.animator_.transitionFromResultToLoading(bodyHeight, resultHeight);
   }
 
   private composeResponseReceived_(response: ComposeResponse) {
     this.response_ = response;
+    const loadingHeight = this.$.loading.offsetHeight;
     this.loading_ = false;
     this.undoEnabled_ = response.undoAvailable;
     this.feedbackState_ = CrFeedbackOption.UNSPECIFIED;
-    this.requestUpdateScroll();
+    this.$.textarea.transitionToEditable();
+    if (this.partialResponse_) {
+      this.animator_.transitionFromPartialToCompleteResult();
+    } else if (this.hasSuccessfulResponse_()) {
+      this.animator_.transitionFromLoadingToCompleteResult(loadingHeight);
+    }
+    this.partialResponse_ = undefined;
+
+    switch (this.lastTriggerElement_) {
+      case TriggerElement.SUBMIT_INPUT:
+        this.$.textarea.focusEditButton();
+        break;
+      case TriggerElement.REFRESH:
+        this.$.refreshButton.focus({preventScroll: true});
+        break;
+      case TriggerElement.LENGTH:
+        this.$.lengthMenu.focus({preventScroll: true});
+        break;
+      case TriggerElement.TONE:
+        this.$.toneMenu.focus({preventScroll: true});
+    }
+  }
+
+  private partialComposeResponseReceived_(partialResponse:
+                                              PartialComposeResponse) {
+    assert(!this.response_);
+    this.partialResponse_ = partialResponse;
+  }
+
+  private isLoadingIndicatorShown_(): boolean {
+    return this.loading_ && !this.partialResponse_;
   }
 
   private hasSuccessfulResponse_(): boolean {
     return this.response_?.status === ComposeStatus.kOk;
+  }
+
+  private hasPartialResponse_(): boolean {
+    return Boolean(this.partialResponse_);
+  }
+
+
+  private hasPartialOrCompleteResponse_(): boolean {
+    return Boolean(this.partialResponse_) || this.hasSuccessfulResponse_();
   }
 
   private hasFailedResponse_(): boolean {
@@ -454,20 +641,60 @@ export class ComposeAppElement extends ComposeAppElementBase {
     return this.response_.status !== ComposeStatus.kOk;
   }
 
+  private hasErrorWithLink_(): boolean {
+    return this.hasUnsupportedLanguageResponse_() ||
+        this.hasPermissionDeniedResponse_();
+  }
+
+  private hasUnsupportedLanguageResponse_(): boolean {
+    if (!this.response_) {
+      return false;
+    }
+
+    return this.response_.status === ComposeStatus.kUnsupportedLanguage;
+  }
+
+  private hasPermissionDeniedResponse_(): boolean {
+    if (!this.response_) {
+      return false;
+    }
+
+    return this.response_.status === ComposeStatus.kPermissionDenied;
+  }
+
+  private onDeviceEvaluationUsed_(): boolean {
+    return Boolean(this.response_?.onDeviceEvaluationUsed);
+  }
+
+  private showOnDeviceDogfoodFooter_(): boolean {
+    return Boolean(this.response_?.onDeviceEvaluationUsed) &&
+        loadTimeData.getBoolean('enableOnDeviceDogfoodFooter');
+  }
+
+  private acceptButtonText_(): string {
+    return this.textSelected_ ? this.i18n('replaceButton') :
+                                this.i18n('insertButton');
+  }
+
   private failedResponseErrorText_(): string {
     switch (this.response_?.status) {
-      case ComposeStatus.kNotSuccessful:
-        return this.i18n('errorRequestNotSuccessful');
-      case ComposeStatus.kTryAgain:
-        return this.i18n('errorTryAgain');
-      case ComposeStatus.kTryAgainLater:
-        return this.i18n('errorTryAgainLater');
-      case ComposeStatus.kPermissionDenied:
-        return this.i18n('errorPermissionDenied');
-      case ComposeStatus.kError:
+      case ComposeStatus.kFiltered:
+        return this.i18n('errorFiltered');
+      case ComposeStatus.kRequestThrottled:
+        return this.i18n('errorRequestThrottled');
+      case ComposeStatus.kOffline:
+        return this.i18n('errorOffline');
+      case ComposeStatus.kClientError:
       case ComposeStatus.kMisconfiguration:
+      case ComposeStatus.kServerError:
+      case ComposeStatus.kInvalidRequest:
+      case ComposeStatus.kRetryableError:
+      case ComposeStatus.kNonRetryableError:
+      case ComposeStatus.kDisabled:
+      case ComposeStatus.kCancelled:
+      case ComposeStatus.kNoResponse:
       default:
-        return this.i18n('errorGeneric');
+        return this.i18n('errorTryAgain');
     }
   }
 
@@ -506,6 +733,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
       }
       // Restore state to the state returned by Undo.
       this.response_ = state.response;
+      this.partialResponse_ = undefined;
       this.undoEnabled_ = Boolean(state.response?.undoAvailable);
       this.feedbackState_ = userFeedbackToFeedbackOption(state.feedback);
 
@@ -515,6 +743,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
         this.selectedLength_ = appState.selectedLength ?? Length.kUnset;
         this.selectedTone_ = appState.selectedTone ?? Tone.kUnset;
       }
+      this.$.undoButton.focus();
     } catch (error) {
       // Error (e.g., disconnected mojo pipe) from a rejected Promise.
       // Previously, we received a true `undo_available` field in either

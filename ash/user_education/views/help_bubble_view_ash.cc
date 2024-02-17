@@ -398,12 +398,6 @@ HelpBubbleViewAsh::HelpBubbleViewAsh(
   for (views::Label* label : labels_) {
     label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     label->SetMultiLine(true);
-    // There is a problem with FlexLayout under the current layout, CloseButton
-    // cannot stretch its width to achieve kEnd alignment behavior. Let's
-    // temporarily disable the bounded layout of views::Label. Waiting for
-    // FlexLayout to be fixed.
-    // TODO(crbug.com/1495581): Remove this.
-    label->SetUseLegacyPreferredSize(true);
     label->SetElideBehavior(gfx::NO_ELIDE);
   }
 
@@ -758,7 +752,7 @@ void HelpBubbleViewAsh::OnThemeChanged() {
         foreground_color, icon_view_->GetPreferredSize().height() / 2));
   }
 
-  for (auto* label : labels_) {
+  for (views::Label* label : labels_) {
     label->SetBackgroundColor(background_color);
     label->SetEnabledColor(foreground_color);
   }

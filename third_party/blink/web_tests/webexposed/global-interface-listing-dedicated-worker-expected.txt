@@ -472,6 +472,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method addEventListener
 [Worker]     method constructor
 [Worker]     method dispatchEvent
+[Worker]     method on
 [Worker]     method removeEventListener
 [Worker] interface FaceDetector
 [Worker]     attribute @@toStringTag
@@ -1177,6 +1178,8 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     method abs
 [Worker]     method add
+[Worker]     method argMax
+[Worker]     method argMin
 [Worker]     method averagePool2d
 [Worker]     method batchNormalization
 [Worker]     method buildSync
@@ -1191,16 +1194,25 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method cos
 [Worker]     method div
 [Worker]     method elu
+[Worker]     method equal
 [Worker]     method erf
 [Worker]     method exp
 [Worker]     method expand
 [Worker]     method floor
 [Worker]     method gather
 [Worker]     method gemm
+[Worker]     method greater
+[Worker]     method greaterOrEqual
+[Worker]     method hardSigmoid
 [Worker]     method hardSwish
 [Worker]     method identity
 [Worker]     method input
+[Worker]     method instanceNormalization
+[Worker]     method layerNormalization
 [Worker]     method leakyRelu
+[Worker]     method lesser
+[Worker]     method lesserOrEqual
+[Worker]     method linear
 [Worker]     method log
 [Worker]     method logicalNot
 [Worker]     method matmul
@@ -1230,6 +1242,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method sin
 [Worker]     method slice
 [Worker]     method softmax
+[Worker]     method softplus
 [Worker]     method softsign
 [Worker]     method split
 [Worker]     method sqrt
@@ -1271,6 +1284,15 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     setter onsourceended
 [Worker]     setter onsourceopen
 [Worker] interface MediaSourceHandle
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker] interface Mesh2DIndexBuffer
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker] interface Mesh2DUVBuffer
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker] interface Mesh2DVertexBuffer
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker] interface MessageChannel
@@ -1414,6 +1436,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker]     method subscribe
+[Worker]     method toArray
 [Worker] interface OffscreenCanvas : EventTarget
 [Worker]     attribute @@toStringTag
 [Worker]     getter height

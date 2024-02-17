@@ -36,7 +36,6 @@ class MerchantPromoCodeManager : public SingleFieldFormFiller,
 
   // SingleFieldFormFiller overrides:
   [[nodiscard]] bool OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource trigger_source,
       const FormFieldData& field,
       const AutofillClient& client,
       OnSuggestionsReturnedCallback on_suggestions_returned,
@@ -55,10 +54,6 @@ class MerchantPromoCodeManager : public SingleFieldFormFiller,
   // local autofill table. |is_off_the_record| indicates whether the user is
   // currently operating in an off-the-record context (i.e. incognito).
   void Init(PersonalDataManager* personal_data_manager, bool is_off_the_record);
-
-  // Returns a weak pointer to the current MerchantPromoCodeManager
-  // instance.
-  base::WeakPtr<MerchantPromoCodeManager> GetWeakPtr();
 
  private:
   friend class MerchantPromoCodeManagerTest;
@@ -100,16 +95,13 @@ class MerchantPromoCodeManager : public SingleFieldFormFiller,
   void SendPromoCodeSuggestions(
       std::vector<const AutofillOfferData*> promo_code_offers,
       const FormFieldData& field,
-      OnSuggestionsReturnedCallback on_suggestions_returned,
-      AutofillSuggestionTriggerSource trigger_source);
+      OnSuggestionsReturnedCallback on_suggestions_returned);
 
   raw_ptr<PersonalDataManager> personal_data_manager_ = nullptr;
 
   bool is_off_the_record_ = false;
 
   UMARecorder uma_recorder_;
-
-  base::WeakPtrFactory<MerchantPromoCodeManager> weak_ptr_factory_{this};
 };
 
 }  // namespace autofill

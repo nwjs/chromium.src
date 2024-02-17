@@ -3,34 +3,33 @@
 // found in the LICENSE file.
 
 import {dispatchSimpleEvent} from 'chrome://resources/ash/common/cr_deprecated.js';
-import {NativeEventTarget as EventTarget} from 'chrome://resources/ash/common/event_target.js';
 import {assert} from 'chrome://resources/js/assert.js';
 
+import type {VolumeInfo} from '../../background/js/volume_info.js';
+import type {VolumeManager} from '../../background/js/volume_manager.js';
+import type {SpliceEvent} from '../../common/js/array_data_model.js';
 import {Aggregator, AsyncQueue} from '../../common/js/async_util.js';
 import {isModal} from '../../common/js/dialog_type.js';
 import {convertURLsToEntries, entriesToURLs, getRootType, isFakeEntry, isGuestOs, isNativeEntry, isOneDriveId, isRecentRootType, isSameEntry, urlToEntry} from '../../common/js/entry_utils.js';
-import type {GuestOsPlaceholder} from '../../common/js/files_app_entry_types.js';
+import type {FakeEntry, FilesAppDirEntry, FilesAppEntry, GuestOsPlaceholder} from '../../common/js/files_app_entry_types.js';
+import {type CustomEventMap, FilesEventTarget} from '../../common/js/files_event_target.js';
 import {isDlpEnabled, isDriveFsBulkPinningEnabled} from '../../common/js/flags.js';
 import {recordMediumCount, recordUserAction} from '../../common/js/metrics.js';
 import {getEntryLabel} from '../../common/js/translations.js';
 import {testSendMessage} from '../../common/js/util.js';
 import {FileSystemType, getVolumeTypeFromRootType, isNative, RootType, Source, VolumeType} from '../../common/js/volume_manager_types.js';
-import type {ArrayDataModelSpliceEvent} from '../../definitions/array_data_model_events.js';
-import type {FakeEntry, FilesAppDirEntry, FilesAppEntry} from '../../externs/files_app_entry_interfaces.js';
-import {PropStatus, SearchLocation, SearchOptions, State, Volume, VolumeId} from '../../externs/ts/state.js';
-import type {SearchData} from '../../externs/ts/state.js';
-import type {Store} from '../../externs/ts/store.js';
-import type {VolumeInfo} from '../../externs/volume_info.js';
-import type {VolumeManager} from '../../externs/volume_manager.js';
 import {getMyFiles} from '../../state/ducks/all_entries.js';
 import {changeDirectory} from '../../state/ducks/current_directory.js';
 import {clearSearch, getDefaultSearchOptions, updateSearch} from '../../state/ducks/search.js';
-import {getFileData, getStore, getVolume} from '../../state/store.js';
+import type {SearchData} from '../../state/state.js';
+import {PropStatus, SearchLocation, type SearchOptions, type State, type Volume, type VolumeId} from '../../state/state.js';
+import {getFileData, getStore, getVolume, type Store} from '../../state/store.js';
 
-import {constants} from './constants.js';
+import {CROSTINI_CONNECT_ERR, DLP_METADATA_PREFETCH_PROPERTY_NAMES, LIST_CONTAINER_METADATA_PREFETCH_PROPERTY_NAMES} from './constants.js';
 import {ContentScanner, CrostiniMounter, DirectoryContents, DirectoryContentScanner, DriveMetadataSearchContentScanner, EmptyContentScanner, FileFilter, FileListContext, GuestOsMounter, MediaViewContentScanner, RecentContentScanner, SearchV2ContentScanner, TrashContentScanner} from './directory_contents.js';
 import {FileListModel} from './file_list_model.js';
 import {FileWatcher, type WatcherDirectoryChangedEvent} from './file_watcher.js';
+import type {MetadataKey} from './metadata/metadata_item.js';
 import type {MetadataModel} from './metadata/metadata_model.js';
 import {FileListSelectionModel, FileListSingleSelectionModel} from './ui/file_list_selection_model.js';
 import type {ListSelectionModel} from './ui/list_selection_model.js';
@@ -100,10 +99,20 @@ function getFileCategory(
   return entry.fileCategory;
 }
 
+export type DirectoryChangeEvent = CustomEvent<{
+  previousDirEntry: DirectoryEntry | FilesAppDirEntry,
+  newDirEntry: DirectoryEntry | FilesAppDirEntry,
+  volumeChanged: boolean,
+}>;
+
+interface DirectoryModelEventMap extends CustomEventMap {
+  'directory-changed': DirectoryChangeEvent;
+}
+
 /**
  * Data model of the file manager.
  */
-export class DirectoryModel extends EventTarget {
+export class DirectoryModel extends FilesEventTarget<DirectoryModelEventMap> {
   private fileListSelection_: FileListSingleSelectionModel|
       FileListSelectionModel;
   private runningScan_: DirectoryContents|null = null;
@@ -320,7 +329,7 @@ export class DirectoryModel extends EventTarget {
   /**
    * Metadata property names that are expected to be Prefetched.
    */
-  getPrefetchPropertyNames(): string[] {
+  getPrefetchPropertyNames(): MetadataKey[] {
     return this.currentFileListContext_.prefetchPropertyNames;
   }
 
@@ -386,7 +395,7 @@ export class DirectoryModel extends EventTarget {
    */
   isOnNative(): boolean {
     const rootType = this.getCurrentRootType();
-    return rootType != null && !isRecentRootType(rootType) &&
+    return rootType !== null && !isRecentRootType(rootType) &&
         isNative(getVolumeTypeFromRootType(rootType));
   }
 
@@ -407,7 +416,7 @@ export class DirectoryModel extends EventTarget {
    */
   private isCurrentRootVolumeType_(volumeType: VolumeType): boolean {
     const rootType = this.getCurrentRootType();
-    return rootType != null && !isRecentRootType(rootType) &&
+    return rootType !== null && !isRecentRootType(rootType) &&
         getVolumeTypeFromRootType(rootType) === volumeType;
   }
 
@@ -581,11 +590,11 @@ export class DirectoryModel extends EventTarget {
   /**
    * @return Array of selected entries.
    */
-  private getSelectedEntries_(): Entry[] {
+  private getSelectedEntries_(): Array<Entry|FilesAppEntry> {
     const indexes = this.fileListSelection_.selectedIndexes;
     const fileList = this.getFileList();
     if (fileList) {
-      return indexes.map(i => fileList.item(i));
+      return indexes.map(i => fileList.item(i)!);
     }
     return [];
   }
@@ -593,13 +602,13 @@ export class DirectoryModel extends EventTarget {
   /**
    * @param value List of selected entries.
    */
-  private setSelectedEntries_(value: Entry[]) {
+  private setSelectedEntries_(value: Array<Entry|FilesAppEntry>) {
     const indexes = [];
     const fileList = this.getFileList();
     const urls = entriesToURLs(value);
 
     for (let i = 0; i < fileList.length; i++) {
-      if (urls.indexOf(fileList.item(i).toURL()) !== -1) {
+      if (urls.indexOf(fileList.item(i)!.toURL()) !== -1) {
         indexes.push(i);
       }
     }
@@ -609,15 +618,15 @@ export class DirectoryModel extends EventTarget {
   /**
    * @return Lead entry.
    */
-  private getLeadEntry_(): Entry {
+  private getLeadEntry_(): Entry|FilesAppEntry|null {
     const index = this.fileListSelection_.leadIndex;
-    return index >= 0 ? this.getFileList().item(index) : null;
+    return index >= 0 ? this.getFileList().item(index)! : null;
   }
 
   /**
    * @param value The new lead entry.
    */
-  private setLeadEntry_(value: Entry) {
+  private setLeadEntry_(value: Entry|FilesAppEntry|null) {
     const fileList = this.getFileList();
     for (let i = 0; i < fileList.length; i++) {
       if (isSameEntry(fileList.item(i), value)) {
@@ -812,7 +821,7 @@ export class DirectoryModel extends EventTarget {
     const fileList = this.getFileList();
     const removedUrls = [];
     for (let i = 0; i < fileList.length; i++) {
-      removedUrls.push(fileList.item(i).toURL());
+      removedUrls.push(fileList.item(i)!.toURL());
     }
     this.metadataModel_.notifyEntriesRemoved(removedUrls);
 
@@ -828,10 +837,10 @@ export class DirectoryModel extends EventTarget {
         chrome.fileManagerPrivate.pollDriveHostedFilePinStates();
       }
       if (!isFakeEntry(currentEntry)) {
-        this.metadataModel_.get(
-            [currentEntry],
-            constants.LIST_CONTAINER_METADATA_PREFETCH_PROPERTY_NAMES.concat(
-                constants.DLP_METADATA_PREFETCH_PROPERTY_NAMES));
+        this.metadataModel_.get([currentEntry], [
+          ...LIST_CONTAINER_METADATA_PREFETCH_PROPERTY_NAMES,
+          ...DLP_METADATA_PREFETCH_PROPERTY_NAMES,
+        ]);
       }
     }
 
@@ -854,7 +863,7 @@ export class DirectoryModel extends EventTarget {
         callback();
         return;
       }
-      const currentDirEntry = this.getCurrentDirEntry();
+      const currentDirEntry = this.getCurrentDirEntry()!;
       assert(currentDirEntry);
       const newDirContents = this.createDirectoryContents_(
           this.currentFileListContext_, currentDirEntry, this.lastSearchQuery_);
@@ -979,30 +988,30 @@ export class DirectoryModel extends EventTarget {
       maybeRunPendingRescan();
     };
 
-    const onFailure =
-        ((event: CustomEvent<{error: DOMError}>) => {
-          onFinished();
+    const onFailure = ((event: CustomEvent<{error: DOMError}>) => {
+                        onFinished();
 
-          this.runningScan_ = null;
-          this.scanFailures_++;
-          failureCallback(event.detail.error);
+                        this.runningScan_ = null;
+                        this.scanFailures_++;
+                        failureCallback(event.detail.error);
 
-          if (maybeRunPendingRescan()) {
-            return;
-          }
+                        if (maybeRunPendingRescan()) {
+                          return;
+                        }
 
-          // Do not rescan for Guest OS (including Crostini) errors.
-          // TODO(crbug/1293229): Guest OS currently reuses the Crostini error
-          // string, but once it gets its own strings this needs to include
-          // both.
-          if (event.detail.error.name === constants.CROSTINI_CONNECT_ERR) {
-            return;
-          }
+                        // Do not rescan for Guest OS (including Crostini)
+                        // errors.
+                        // TODO(crbug/1293229): Guest OS currently reuses the
+                        // Crostini error string, but once it gets its own
+                        // strings this needs to include both.
+                        if (event.detail.error.name === CROSTINI_CONNECT_ERR) {
+                          return;
+                        }
 
-          if (this.scanFailures_ <= 1) {
-            this.rescanLater(refresh);
-          }
-        }) as EventListenerOrEventListenerObject;
+                        if (this.scanFailures_ <= 1) {
+                          this.rescanLater(refresh);
+                        }
+                      }) as EventListenerOrEventListenerObject;
 
     const onCancelled = () => {
       onFinished();
@@ -1046,8 +1055,8 @@ export class DirectoryModel extends EventTarget {
       // If nothing is selected after update, then select file next to the
       // latest selection
       let forceChangeEvent = false;
-      if (this.fileListSelection_.selectedIndexes.length == 0 &&
-          selectedIndices.length != 0) {
+      if (this.fileListSelection_.selectedIndexes.length === 0 &&
+          selectedIndices.length !== 0) {
         const maxIdx = Math.max.apply(null, selectedIndices);
         this.selectIndex(
             Math.min(
@@ -1077,7 +1086,8 @@ export class DirectoryModel extends EventTarget {
    * @param newEntry The new entry.
    * @return Resolves on completion.
    */
-  onRenameEntry(oldEntry: Entry, newEntry: Entry|FilesAppEntry): Promise<void> {
+  onRenameEntry(oldEntry: Entry|FilesAppEntry, newEntry: Entry|FilesAppEntry):
+      Promise<void> {
     return new Promise(resolve => {
       this.currentDirContents_.prefetchMetadata([newEntry], true, () => {
         // If the current directory is the old entry, then quietly change to the
@@ -1097,7 +1107,7 @@ export class DirectoryModel extends EventTarget {
         const newEntryUrl = newEntry.toURL();
 
         for (let i = 0; i < list.length; i++) {
-          const item = list.item(i);
+          const item = list.item(i)!;
           const url = item.toURL();
           if (url === oldEntryUrl) {
             list.replaceItem(item, newEntry);
@@ -1243,6 +1253,7 @@ export class DirectoryModel extends EventTarget {
           volumeChanged: (previousVolumeInfo !== currentVolumeInfo),
         },
       });
+      await currentVolumeInfo?.resolveDisplayRoot();
       this.dispatchEvent(event);
       if (previousDirEntry) {
         // If we changed from a directory to another directory always clear
@@ -1334,7 +1345,7 @@ export class DirectoryModel extends EventTarget {
   selectEntry(entry: Entry) {
     const fileList = this.getFileList();
     for (let i = 0; i < fileList.length; i++) {
-      if (fileList.item(i).toURL() === entry.toURL()) {
+      if (fileList.item(i)!.toURL() === entry.toURL()) {
         this.selectIndex(i);
         return;
       }
@@ -1351,7 +1362,7 @@ export class DirectoryModel extends EventTarget {
     this.fileListSelection_.beginChange();
     this.fileListSelection_.unselectAll();
     for (let i = 0; i < fileList.length; i++) {
-      if (urls.indexOf(fileList.item(i).toURL()) >= 0) {
+      if (urls.indexOf(fileList.item(i)!.toURL()) >= 0) {
         this.fileListSelection_.setIndexSelected(i, true);
       }
     }
@@ -1374,7 +1385,7 @@ export class DirectoryModel extends EventTarget {
    * Handles update of VolumeInfoList.
    * @param event Event of VolumeInfoList's 'splice'.
    */
-  private onVolumeInfoListUpdated_(event: ArrayDataModelSpliceEvent) {
+  private onVolumeInfoListUpdated_(event: SpliceEvent) {
     const spliceEventDetail = event.detail;
     // Fallback to the default volume's root if the current volume is unmounted.
     if (this.hasCurrentDirEntryBeenUnmounted_(spliceEventDetail.removed)) {
@@ -1484,11 +1495,11 @@ export class DirectoryModel extends EventTarget {
   isSearchDirectory(entry: DirectoryEntry|FilesAppEntry, query?: string):
       boolean {
     const rootType = getRootType(entry);
-    if (isRecentRootType(rootType) || rootType == RootType.CROSTINI ||
-        rootType == RootType.DRIVE_FAKE_ROOT) {
+    if (isRecentRootType(rootType) || rootType === RootType.CROSTINI ||
+        rootType === RootType.DRIVE_FAKE_ROOT) {
       return true;
     }
-    if (rootType == RootType.MY_FILES) {
+    if (rootType === RootType.MY_FILES) {
       return false;
     }
 
@@ -1498,7 +1509,7 @@ export class DirectoryModel extends EventTarget {
 
     const locationInfo = this.volumeManager_.getLocationInfo(entry);
     if (locationInfo &&
-        (locationInfo.rootType == RootType.MEDIA_VIEW ||
+        (locationInfo.rootType === RootType.MEDIA_VIEW ||
          locationInfo.isSpecialSearchRoot)) {
       return true;
     }
@@ -1529,27 +1540,27 @@ export class DirectoryModel extends EventTarget {
     // TODO(b/271485133): Make sure the entry here is a fake entry, not real
     // volume entry.
     const rootType = getRootType(entry);
-    if (rootType == RootType.CROSTINI) {
+    if (rootType === RootType.CROSTINI) {
       return () => {
         return new CrostiniMounter();
       };
     }
-    if (rootType == RootType.GUEST_OS) {
+    if (rootType === RootType.GUEST_OS) {
       return () => {
         return new GuestOsMounter((entry as GuestOsPlaceholder).guest_id);
       };
     }
-    if (rootType == RootType.MY_FILES) {
+    if (rootType === RootType.MY_FILES) {
       return () => {
         return new DirectoryContentScanner(entry as FilesAppDirEntry);
       };
     }
-    if (rootType == RootType.DRIVE_FAKE_ROOT) {
+    if (rootType === RootType.DRIVE_FAKE_ROOT) {
       return () => {
         return new EmptyContentScanner();
       };
     }
-    if (rootType == RootType.TRASH) {
+    if (rootType === RootType.TRASH) {
       return () => {
         return new TrashContentScanner(this.volumeManager_);
       };
@@ -1563,7 +1574,7 @@ export class DirectoryModel extends EventTarget {
             options || getDefaultSearchOptions());
       };
     }
-    if (locationInfo && locationInfo.rootType == RootType.MEDIA_VIEW) {
+    if (locationInfo && locationInfo.rootType === RootType.MEDIA_VIEW) {
       return () => {
         return new MediaViewContentScanner(entry as DirectoryEntry);
       };
@@ -1727,7 +1738,7 @@ export class DirectoryModel extends EventTarget {
       return;
     }
     const isIOTaskFinished =
-        event.state === chrome.fileManagerPrivate.IOTaskState.SUCCESS;
+        event.state === chrome.fileManagerPrivate.IoTaskState.SUCCESS;
     if (isIOTaskFinished) {
       this.rescanLater(/* refresh= */ false, /* invalidateCache= */ true);
     }

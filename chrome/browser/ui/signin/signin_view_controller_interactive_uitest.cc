@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <optional>
 #include <utility>
 
 #include "base/functional/callback.h"
@@ -33,7 +34,6 @@
 #include "content/public/test/test_utils.h"
 #include "google_apis/gaia/core_account_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
 namespace {
@@ -67,7 +67,7 @@ class SyncConfirmationClosedObserver : public LoginUIService::Observer {
   base::RunLoop run_loop_;
   base::ScopedObservation<LoginUIService, LoginUIService::Observer>
       login_ui_service_observation_{this};
-  absl::optional<LoginUIService::SyncConfirmationUIClosedResult> result_;
+  std::optional<LoginUIService::SyncConfirmationUIClosedResult> result_;
 };
 
 }  // namespace
@@ -236,11 +236,12 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
       GetIdentityManager(), "alice@gmail.com", signin::ConsentLevel::kSync);
 #endif
   content::TestNavigationObserver content_observer(
-      GURL("chrome://enterprise-profile-welcome/"));
+      (GURL(chrome::kChromeUIManagedUserProfileNoticeUrl)));
   content_observer.StartWatchingNewWebContents();
   signin::SigninChoice result;
-  browser()->signin_view_controller()->ShowModalEnterpriseConfirmationDialog(
-      account_info, /*force_new_profile=*/true, /*show_link_data_option=*/true,
+  browser()->signin_view_controller()->ShowModalManagedUserNoticeDialog(
+      account_info, /*force_new_profile=*/true,
+      /*show_link_data_option=*/true,
       base::BindOnce(
           [](Browser* browser, signin::SigninChoice* result,
              signin::SigninChoice choice) {

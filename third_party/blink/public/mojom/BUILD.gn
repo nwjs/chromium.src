@@ -125,7 +125,6 @@ mojom("mojom_platform") {
     "loader/pause_subresource_loading_handle.mojom",
     "loader/referrer.mojom",
     "loader/request_context_frame_type.mojom",
-    "loader/resource_cache.mojom",
     "loader/resource_load_info.mojom",
     "loader/resource_load_info_notifier.mojom",
     "loader/same_document_navigation_type.mojom",
@@ -147,6 +146,8 @@ mojom("mojom_platform") {
     "mediastream/media_devices.mojom",
     "mediastream/media_stream.mojom",
     "mime/mime_registry.mojom",
+    "model_execution/model_manager.mojom",
+    "model_execution/model_session.mojom",
     "navigation/navigation_api_history_entry_arrays.mojom",
     "navigation/navigation_initiator_activation_and_ad_status.mojom",
     "navigation/navigation_policy.mojom",
@@ -267,13 +268,7 @@ mojom("mojom_platform") {
   }
 
   if (use_blink_extensions_chromeos) {
-    sources += [
-      "chromeos/diagnostics/cros_diagnostics.mojom",
-      "chromeos/system_extensions/hid/cros_hid.mojom",
-      "chromeos/system_extensions/managed_device_health_services/telemetry/cros_telemetry.mojom",
-      "chromeos/system_extensions/managed_device_health_services/telemetry/nullable_primitives.mojom",
-      "chromeos/system_extensions/window_management/cros_window_management.mojom",
-    ]
+    sources += [ "chromeos/diagnostics/cros_diagnostics.mojom" ]
   }
 
   public_deps = [
@@ -370,6 +365,9 @@ mojom("mojom_platform") {
   }
   if (is_android || is_apple) {
     enabled_features += [ "is_using_open_color_chooser" ]
+  }
+  if (is_android || is_ios) {
+    enabled_features += [ "is_android_or_ios" ]
   }
 
   shared_cpp_typemaps = [
@@ -1043,6 +1041,14 @@ mojom("mojom_platform") {
           {
             mojom = "blink.mojom.WebPrintingSides"
             cpp = "::printing::mojom::DuplexMode"
+          },
+          {
+            mojom = "blink.mojom.WebPrinterState"
+            cpp = "ipp_pstate_t"
+          },
+          {
+            mojom = "blink.mojom.WebPrinterStateReason"
+            cpp = "::printing::PrinterStatus::PrinterReason::Reason"
           },
         ]
         traits_headers =

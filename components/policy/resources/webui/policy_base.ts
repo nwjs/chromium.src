@@ -50,6 +50,14 @@ export class Page {
    * Main initialization function. Called by the browser on page load.
    */
   initialize() {
+    // The default path is loaded when one path is not supported, so simple
+    // redirect to the home path
+    if (!loadTimeData.getString('acceptedPaths')
+             .split('|')
+             .includes(window.location.pathname)) {
+      window.history.replaceState({}, '', '/');
+    }
+
     FocusOutlineManager.forDocument(document);
 
     this.mainSection = getRequiredElement('main-section');
@@ -77,8 +85,7 @@ export class Page {
         getRequiredElement('reload-policies') as HTMLButtonElement;
     reloadPoliciesButton.onclick = () => {
       reloadPoliciesButton!.disabled = true;
-      getRequiredElement('screen-reader-message').textContent =
-          loadTimeData.getString('loadingPolicies');
+      this.createToast(loadTimeData.getString('reloadingPolicies'));
       sendWithPromise('reloadPolicies');
     };
 
@@ -118,18 +125,17 @@ export class Page {
     uploadReportButton.style.display = 'none';
     uploadReportButton.onclick = () => {
       uploadReportButton.disabled = true;
-      getRequiredElement('screen-reader-message').textContent =
-          loadTimeData.getString('reportUploading');
+      this.createToast(loadTimeData.getString('reportUploading'));
       sendWithPromise('uploadReport').then(() => {
         uploadReportButton.disabled = false;
-        getRequiredElement('screen-reader-message').textContent =
-            loadTimeData.getString('reportUploaded');
+        this.createToast(loadTimeData.getString('reportUploaded'));
       });
     };
     // </if>
 
     getRequiredElement('copy-policies').onclick = () => {
       sendWithPromise('copyPoliciesJSON');
+      this.createToast(loadTimeData.getString('copyPoliciesDone'));
     };
 
     getRequiredElement('show-unset').onchange = () => {
@@ -202,6 +208,23 @@ export class Page {
     this.reloadPoliciesDone();
   }
 
+  /**
+   * Creates a toast notification with 2 second timeout at bottom of the page.
+   * The notification is also announced to screen readers.
+   */
+  createToast(content: string): void {
+    const toast = document.createElement('div');
+    toast.textContent = content;
+    toast.classList.add('toast');
+    toast.setAttribute('role', 'alert');
+    const container = getRequiredElement('toast-container');
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      container.removeChild(toast);
+    }, 2000);
+  }
+
   // Triggers the download of the policies as a JSON file.
   downloadJson(json: string) {
     const jsonObject = JSON.parse(json);
@@ -226,6 +249,7 @@ export class Page {
         'click', {bubbles: true, cancelable: true, view: window}));
 
     document.body.removeChild(link);
+    this.createToast(loadTimeData.getString('exportPoliciesDone'));
   }
 
   createOrUpdatePolicyTable(dataModel: PolicyTableModel) {
@@ -271,10 +295,12 @@ export class Page {
    * policies values has completed.
    */
   reloadPoliciesDone() {
-    (getRequiredElement('reload-policies') as HTMLButtonElement).disabled =
-        false;
-    getRequiredElement('screen-reader-message').textContent =
-        loadTimeData.getString('loadPoliciesDone');
+    const reloadButton =
+        getRequiredElement('reload-policies') as HTMLButtonElement;
+    if (reloadButton!.disabled) {
+      reloadButton!.disabled = false;
+      this.createToast(loadTimeData.getString('reloadPoliciesDone'));
+    }
   }
 
   // <if expr="not is_chromeos">

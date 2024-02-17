@@ -17,14 +17,18 @@
 #include "ash/public/cpp/holding_space/holding_space_controller.h"
 #include "ash/public/cpp/holding_space/holding_space_controller_observer.h"
 #include "ash/public/cpp/holding_space/holding_space_model.h"
+#include "ash/public/cpp/holding_space/holding_space_prefs.h"
 #include "ash/public/cpp/holding_space/holding_space_util.h"
+#include "ash/public/cpp/session/session_observer.h"
 #include "ash/public/cpp/wallpaper/wallpaper_controller.h"
 #include "ash/root_window_controller.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/system/holding_space/holding_space_tray.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/user_education/holding_space_wallpaper_nudge/holding_space_wallpaper_nudge_prefs.h"
+#include "ash/user_education/user_education_controller.h"
 #include "ash/user_education/user_education_help_bubble_controller.h"
 #include "ash/user_education/user_education_ping_controller.h"
 #include "ash/user_education/user_education_types.h"
@@ -41,6 +45,7 @@
 #include "ui/base/clipboard/custom_data_helper.h"
 #include "ui/base/dragdrop/drop_target_event.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
@@ -85,13 +90,16 @@ const ui::ClipboardFormatType& FilesAppFormatType() {
   return ui::ClipboardFormatType::WebCustomDataType();
 }
 
-// TODO(http://b/283169365): Finalize strings.
 std::u16string GetBubbleBodyText() {
-  return features::IsHoldingSpaceWallpaperNudgeDropToPinEnabled()
-             ? u"[i18n] Drop files on the desktop to add them to Tote. You "
-               u"can't add files to desktop."
-             : u"[i18n] Keep important files in Tote instead of on the "
-               u"desktop. Just drag files to Tote.";
+  auto string_id =
+      features::IsHoldingSpaceWallpaperNudgeDropToPinEnabled()
+          ? IDS_ASH_HOLDING_SPACE_WALLPAPER_NUDGE_DROP_ENABLED_TEXT
+          : IDS_ASH_HOLDING_SPACE_WALLPAPER_NUDGE_DROP_DISABLED_TEXT;
+  return l10n_util::GetStringFUTF16(
+      string_id,
+      features::IsHoldingSpaceRefreshEnabled()
+          ? l10n_util::GetStringUTF16(IDS_ASH_HOLDING_SPACE_TITLE_REFRESH)
+          : l10n_util::GetStringUTF16(IDS_ASH_HOLDING_SPACE_TITLE));
 }
 
 aura::Window* GetRootWindowForDisplayId(int64_t display_id) {
@@ -129,28 +137,6 @@ WallpaperView* GetWallpaperViewNearestPoint(
                  GetDisplayNearestPoint(location_in_screen).id()))
       ->wallpaper_widget_controller()
       ->wallpaper_view();
-}
-
-// Indicates whether the nudge should be shown based on when it was last shown
-// and how many times total it's been shown. It should be no more than once
-// in a 24 hour period, and no more than 3 times total.
-bool NudgeShouldBeShown() {
-  if (!features::IsHoldingSpaceWallpaperNudgeRateLimitingEnabled()) {
-    return true;
-  }
-
-  PrefService* const prefs =
-      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
-  const auto time_of_last_nudge =
-      holding_space_wallpaper_nudge_prefs::GetLastTimeNudgeWasShown(prefs);
-  const auto nudge_shown_count =
-      holding_space_wallpaper_nudge_prefs::GetNudgeShownCount(prefs);
-
-  bool nudge_shown_recently =
-      time_of_last_nudge.has_value() &&
-      base::Time::Now() - time_of_last_nudge.value() < base::Hours(24);
-
-  return nudge_shown_count < 3u && !nudge_shown_recently;
 }
 
 // Highlight -------------------------------------------------------------------
@@ -223,7 +209,15 @@ class Highlight : public ui::LayerOwner, public views::ViewObserver {
 //
 // While the observed drag-and-drop sequence is in progress.
 class DragDropDelegate : public WallpaperDragDropDelegate,
-                         public HoldingSpaceControllerObserver {
+                         public HoldingSpaceControllerObserver,
+                         public SessionObserver {
+ public:
+  explicit DragDropDelegate(
+      UserEducationPrivateApiKey user_education_private_api_key)
+      : user_education_private_api_key_(user_education_private_api_key) {
+    session_observer_.Observe(Shell::Get()->session_controller());
+  }
+
  private:
   // WallpaperDragDropDelegate:
   void GetDropFormats(int* formats,
@@ -405,22 +399,35 @@ class DragDropDelegate : public WallpaperDragDropDelegate,
           std::make_unique<Shelf::ScopedDisableAutoHide>(shelf);
     }
 
+    const bool nudge_should_be_shown = NudgeShouldBeShown();
+
+    // The user should be directed to the tray during drag operations iff the
+    // nudge will be shown or drop-to-pin is disabled. This is because we want
+    // to direct users to drag to the holding space when drop-to-pin is
+    // disabled, but encourage dropping on the desktop when it's enabled.
+    const bool should_direct_users_to_tray =
+        nudge_should_be_shown ||
+        !features::IsHoldingSpaceWallpaperNudgeDropToPinEnabled();
+
     // Ensure that holding space is visible in the shelf on all displays while
-    // the observed drag-and-drop sequence is in progress.
-    if (!force_holding_space_show_in_shelf_for_drag_) {
+    // the observed drag-and-drop sequence is in progress when we're trying to
+    // encourage users to drag files there.
+    if (!force_holding_space_show_in_shelf_for_drag_ &&
+        should_direct_users_to_tray) {
       force_holding_space_show_in_shelf_for_drag_ =
           std::make_unique<HoldingSpaceController::ScopedForceShowInShelf>();
     }
 
-    if (!NudgeShouldBeShown() || help_bubble_anchor_) {
-      return;
-    }
-
     // Ensure the shelf is visible on the active display while the observed
-    // drag-and-drop sequence is in progress.
-    if (!disable_shelf_auto_hide_) {
+    // drag-and-drop sequence is in progress when we're trying to encourage
+    // users to drag files there.
+    if (!disable_shelf_auto_hide_ && should_direct_users_to_tray) {
       disable_shelf_auto_hide_ =
           std::make_unique<Shelf::ScopedDisableAutoHide>(shelf);
+    }
+
+    if (!nudge_should_be_shown || help_bubble_anchor_) {
+      return;
     }
 
     // Cache the `holding_space_tray` nearest the `location_in_screen` so that
@@ -501,6 +508,127 @@ class DragDropDelegate : public WallpaperDragDropDelegate,
     }
   }
 
+  // SessionObserver:
+  void OnChromeTerminating() override { session_observer_.Reset(); }
+
+  void OnSessionStateChanged(session_manager::SessionState state) override {
+    // This override is only meant to happen right after session start.
+    if (state != session_manager::SessionState::ACTIVE) {
+      return;
+    }
+
+    // Determine (and store) eligibility. If the user is eligible, then attempt
+    // to mark this as the first eligible session.
+    if (DetermineEligibility()) {
+      holding_space_wallpaper_nudge_prefs::MarkTimeOfFirstEligibleSession(
+          Shell::Get()->session_controller()->GetLastActiveUserPrefService());
+    }
+  }
+
+  // Calculates and persists the user's eligibility for the nudge based on
+  // account type and new-ness. This is a simple pref fetch once the eligibility
+  // is persisted. Returns true if the user is eligible.
+  bool DetermineEligibility() {
+    const auto* const session_controller = Shell::Get()->session_controller();
+    PrefService* const prefs =
+        session_controller->GetLastActiveUserPrefService();
+
+    auto eligibility =
+        holding_space_wallpaper_nudge_prefs::GetUserEligibility(prefs);
+
+    // If there isn't a cached eligibility value for the user, determine and
+    // cache it now.
+    if (eligibility == std::nullopt) {
+      eligibility = true;
+
+      // The nudge is supported for regular users only.
+      if (const auto user_type = session_controller->GetUserType();
+          user_type != user_manager::UserType::USER_TYPE_REGULAR) {
+        eligibility = false;
+      }
+
+      // The nudge is not supported for managed accounts.
+      if (session_controller->IsActiveAccountManaged()) {
+        eligibility = false;
+      }
+
+      // For sanity, confirm that the user is also considered "new" locally in
+      // case the proxy check proves to be erroneous.
+      if (!session_controller->IsUserFirstLogin()) {
+        eligibility = false;
+      }
+
+      const std::optional<bool>& is_new_user =
+          UserEducationController::Get()->IsNewUser(
+              user_education_private_api_key_);
+
+      // If we were unable to fetch cross device user new-ness, assume the user
+      // is not new.
+      if (!is_new_user.value_or(false)) {
+        eligibility = false;
+      }
+
+      // Persist eligibility.
+      holding_space_wallpaper_nudge_prefs::SetUserEligibility(
+          prefs, eligibility.value());
+    }
+
+    return eligibility.value();
+  }
+
+  // Indicates whether the nudge should be shown based on when it was last
+  // shown, how many times total it's been shown, and whether the user has
+  // pinned a file before. It should be no more than once in a 24 hour period,
+  // no more than 3 times total, and never if the user has pinned a file before.
+  bool NudgeShouldBeShown() {
+    // NOTE: User education in Ash is currently only supported for the primary
+    // user profile. This is a self-imposed restriction.
+    if (!user_education_util::IsPrimaryAccountActive()) {
+      return false;
+    }
+
+    const bool forced_eligibility =
+        features::IsHoldingSpaceWallpaperNudgeForceEligibilityEnabled();
+    const bool accelerated_rate_limiting = features::
+        IsHoldingSpaceWallpaperNudgeForceEligibilityAcceleratedRateLimitingEnabled();
+
+    if (forced_eligibility && !accelerated_rate_limiting) {
+      return true;
+    }
+
+    const auto* const session_controller = Shell::Get()->session_controller();
+    PrefService* const prefs =
+        session_controller->GetLastActiveUserPrefService();
+
+    // If the user has ever pinned a file, don't show the nudge.
+    if (!forced_eligibility &&
+        holding_space_prefs::GetTimeOfFirstPin(prefs).has_value()) {
+      return false;
+    }
+
+    if (!(forced_eligibility || DetermineEligibility())) {
+      return false;
+    }
+
+    const bool should_limit_count =
+        !forced_eligibility || accelerated_rate_limiting;
+
+    // If the user has seen the nudge 3 times, don't show it again.
+    if (should_limit_count &&
+        holding_space_wallpaper_nudge_prefs::GetNudgeShownCount(prefs) >= 3u) {
+      return false;
+    }
+
+    const base::TimeDelta timeout =
+        accelerated_rate_limiting ? base::Minutes(1) : base::Hours(24);
+    const auto time_of_last_nudge =
+        holding_space_wallpaper_nudge_prefs::GetLastTimeNudgeWasShown(prefs);
+
+    // Show the nudge if it has not been shown within the timeout period.
+    return !time_of_last_nudge.has_value() ||
+           base::Time::Now() - time_of_last_nudge.value() >= timeout;
+  }
+
   // A pointer to the `HoldingSpaceTray` anchoring the currently open help
   // bubble. Used to determine if the help bubble should be dismissed to prevent
   // overlap between the help bubble and `HoldingSpaceTrayBubble`. NOTE: Do not
@@ -529,6 +657,9 @@ class DragDropDelegate : public WallpaperDragDropDelegate,
   // Used to close the help bubble on drop-to-pin.
   base::ScopedClosureRunner scoped_help_bubble_closer_;
 
+  // The key that allows access to restricted `UserEducationController` APIs.
+  UserEducationPrivateApiKey user_education_private_api_key_;
+
   // Used to highlight the wallpaper when data is dragged over it so that the
   // user better understands the wallpaper is a drop target.
   std::unique_ptr<Highlight> wallpaper_highlight_;
@@ -537,6 +668,10 @@ class DragDropDelegate : public WallpaperDragDropDelegate,
   base::ScopedObservation<HoldingSpaceController,
                           HoldingSpaceControllerObserver>
       holding_space_controller_observer_{this};
+
+  // Observes session changes so that user eligibility can be saved after login.
+  base::ScopedObservation<SessionController, SessionObserver> session_observer_{
+      this};
 };
 
 }  // namespace
@@ -550,7 +685,7 @@ HoldingSpaceWallpaperNudgeController::HoldingSpaceWallpaperNudgeController() {
   // Register our implementation as the singleton delegate for drag-and-drop
   // events over the wallpaper.
   WallpaperController::Get()->SetDragDropDelegate(
-      std::make_unique<DragDropDelegate>());
+      std::make_unique<DragDropDelegate>(UserEducationPrivateApiKey()));
 }
 
 HoldingSpaceWallpaperNudgeController::~HoldingSpaceWallpaperNudgeController() {

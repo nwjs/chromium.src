@@ -269,12 +269,47 @@ enum class OnDeviceModelEligibilityReason {
   kTooManyRecentCrashes = 6,
   // The on-device model took too long too many times for this version.
   kTooManyRecentTimeouts = 7,
+  // The on-device safety model was required but not available.
+  kSafetyModelNotAvailable = 8,
+  // The on-device safety model was available but there was not a safety config
+  // available for the feature.
+  kSafetyConfigNotAvailableForFeature = 9,
+  // The on-device language detection model was required but not available.
+  kLanguageDetectionModelNotAvailable = 10,
 
   // This must be kept in sync with
   // OptimizationGuideOnDeviceModelEligibilityReason in optimization/enums.xml.
 
   // Insert new values before this line.
-  kMaxValue = kTooManyRecentTimeouts,
+  kMaxValue = kLanguageDetectionModelNotAvailable,
+};
+
+// Status of the on-device model.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class OnDeviceModelStatus {
+  // Model is installed and ready to use.
+  kReady = 0,
+  // Criteria to install model have not been met.
+  kNotEligible = 1,
+  // Criteria to install are met, but model not installed yet.
+  kInstallNotComplete = 2,
+  // The model installer was not registered, even though the client would be
+  // eligible to install right now. This likely means the state of the system
+  // has changed recently.
+  kModelInstallerNotRegisteredForUnknownReason = 3,
+  // The model is ready, but it wasn't ready early enough for
+  // OnDeviceModelServiceController to use it.
+  kModelInstalledTooLate = 4,
+  // The model is not ready, and the reason is unknown.
+  kNotReadyForUnknownReason = 5,
+
+  // This must be kept in sync with
+  // OptimizationGuideOnDeviceModelStatus in optimization/enums.xml.
+
+  // Insert new values before this line.
+  kMaxValue = kNotReadyForUnknownReason,
 };
 
 // Status of a model quality logs upload request.
@@ -300,9 +335,9 @@ enum class ModelQualityLogsUploadStatus {
 
 // Performance class of this device.
 //
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class OnDeviceModelPerformanceClass {
+// These values are persisted to logs and prefs. Entries should not be
+// renumbered and numeric values should never be reused.
+enum class OnDeviceModelPerformanceClass : int {
   kUnknown = 0,
 
   // See on_device_model::mojom::PerformanceClass for explanation of these.
@@ -312,6 +347,9 @@ enum class OnDeviceModelPerformanceClass {
   kMedium = 4,
   kHigh = 5,
   kVeryHigh = 6,
+
+  // WARNING!: If you add a new performance class, please be aware of
+  // `IsPerformanceClassCompatibleWithOnDeviceModel`.
 
   // The service crashed, so a valid value was not returned.
   kServiceCrash = 7,
@@ -350,6 +388,31 @@ enum class OnDeviceModelLoadResult {
 
   // Insert new values before this line.
   kMaxValue = kFailedToLoadLibrary,
+};
+
+// The validity of the model metadata packaged with the text safety model.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class TextSafetyModelMetadataValidity {
+  kUnknown = 0,
+
+  // No metadata packaged with model.
+  kNoMetadata = 1,
+
+  // Metadata packaged with model is of the wrong type.
+  kMetadataWrongType = 2,
+
+  // Metadata packaged with model has no feature configs.
+  kNoFeatureConfigs = 3,
+
+  // Metadata was valid.
+  kValid = 4,
+
+  // This must be kept in sync with TextSafetyModelMetadataValidity in
+  // optimization/enums.xml.
+
+  kMaxValue = kValid,
 };
 
 }  // namespace optimization_guide

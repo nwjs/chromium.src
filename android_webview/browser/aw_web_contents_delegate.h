@@ -77,6 +77,10 @@ class AwWebContentsDelegate
       const content::WebContents* web_contents) override;
   void UpdateUserGestureCarryoverInfo(
       content::WebContents* web_contents) override;
+  content::PreloadingEligibility IsPrerender2Supported(
+      content::WebContents& web_contents) override;
+  content::NavigationController::UserAgentOverrideOption
+  ShouldOverrideUserAgentForPrerender2() override;
 
   scoped_refptr<content::FileSelectListener> TakeFileSelectListener();
 

@@ -21,7 +21,7 @@ PermissionPromptBubble::PermissionPromptBubble(
   LocationBarView* lbv = GetLocationBarView();
   if (lbv && lbv->IsDrawn() &&
       delegate->Requests()[0]->IsConfirmationChipSupported()) {
-    lbv->chip_controller()->InitializePermissionPrompt(
+    lbv->GetChipController()->InitializePermissionPrompt(
         delegate->GetWeakPtr(),
         base::BindOnce(&PermissionPromptBubble::ShowBubble,
                        weak_factory_.GetWeakPtr()));
@@ -79,12 +79,11 @@ void PermissionPromptBubble::OnWidgetActivationChanged(views::Widget* widget,
       GetPromptBubble()->GetWidget()->GetPrimaryWindowWidget()->IsVisible();
 }
 
-absl::optional<gfx::Rect> PermissionPromptBubble::GetViewBoundsInScreen()
-    const {
+std::optional<gfx::Rect> PermissionPromptBubble::GetViewBoundsInScreen() const {
   return GetPromptBubble()
-             ? absl::make_optional<gfx::Rect>(
+             ? std::make_optional<gfx::Rect>(
                    GetPromptBubble()->GetWidget()->GetWindowBoundsInScreen())
-             : absl::nullopt;
+             : std::nullopt;
 }
 
 bool PermissionPromptBubble::UpdateAnchor() {
@@ -115,7 +114,7 @@ bool PermissionPromptBubble::UpdateAnchor() {
 
     if (lbv && lbv->IsDrawn() && !lbv->GetWidget()->IsFullscreen() &&
         !lbv->IsEditingOrEmpty()) {
-      auto* chip_controller = lbv->chip_controller();
+      auto* chip_controller = lbv->GetChipController();
       chip_controller->InitializePermissionPrompt(delegate()->GetWeakPtr());
     }
   }

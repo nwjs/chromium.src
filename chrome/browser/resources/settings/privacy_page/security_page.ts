@@ -311,6 +311,10 @@ export class SettingsSecurityPageElement extends
    */
   override currentRouteChanged(route: Route) {
     if (route !== routes.SECURITY) {
+      // If the user navigates to other settings page from security page, call
+      // onBeforeUnload_ method to check if the security page survey should be
+      // shown.
+      this.onBeforeUnload_();
       this.isRouteSecurity_ = false;
       this.eventTracker_.removeAll();
       return;
@@ -516,6 +520,10 @@ export class SettingsSecurityPageElement extends
 
   private onAdvancedProtectionProgramLinkClick_() {
     window.open(loadTimeData.getString('advancedProtectionURL'));
+  }
+
+  private onV8SettingsClick_() {
+    Router.getInstance().navigateTo(routes.SITE_SETTINGS_JAVASCRIPT_JIT);
   }
 
   private onSecurityKeysClick_() {

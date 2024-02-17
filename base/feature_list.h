@@ -25,6 +25,7 @@
 #include "base/strings/string_piece.h"
 #include "base/synchronization/lock.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace base {
@@ -32,6 +33,10 @@ namespace base {
 class FieldTrial;
 class FieldTrialList;
 class PersistentMemoryAllocator;
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+class FeatureVisitor;
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 // Specifies whether a given feature is enabled or disabled by default.
 // NOTE: The actual runtime state may be different, due to a field trial or a
@@ -61,7 +66,7 @@ enum FeatureState {
 //
 //   COMPONENT_EXPORT(MY_COMPONENT) BASE_DECLARE_FEATURE(kMyFeature);
 #define BASE_DECLARE_FEATURE(kFeature) \
-  extern CONSTINIT const base::Feature kFeature
+  extern constinit const base::Feature kFeature
 
 // Provides a definition for `kFeature` with `name` and `default_state`, e.g.
 //
@@ -70,7 +75,7 @@ enum FeatureState {
 // Features should *not* be defined in header files; do not use this macro in
 // header files.
 #define BASE_FEATURE(feature, name, default_state) \
-  CONSTINIT const base::Feature feature(name, default_state)
+  constinit const base::Feature feature(name, default_state)
 
 // The Feature struct is used to define the default state for a feature. There
 // must only ever be one struct instance for a given feature name—generally
@@ -491,8 +496,6 @@ class BASE_EXPORT FeatureList {
   // processes that never register a FeatureList.
   static void FailOnFeatureAccessWithoutFeatureList();
 
-  void SetCachingContextForTesting(uint16_t caching_context);
-
   // Returns the first feature that was accessed before a FeatureList was
   // registered that allows accessing the feature.
   static const Feature* GetEarlyAccessedFeatureForTesting();
@@ -503,6 +506,16 @@ class BASE_EXPORT FeatureList {
   // Adds a feature to the early allowed feature access list for tests. Should
   // only be called on a FeatureList that was set with SetEarlyAccessInstance().
   void AddEarlyAllowedFeatureForTesting(std::string feature_name);
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // Allows a visitor to record override state, parameters, and field trial
+  // associated with each feature.
+  //
+  // NOTE: This is intended only for the special case of needing to get all
+  // overrides. This use case is specific to CrOS-Ash. Most users should call
+  // IsEnabled() to query a feature's state.
+  static void VisitFeaturesAndParams(FeatureVisitor& visitor);
+#endif  // BULDFLAG(IS_CHROMEOS_ASH)
 
  private:
   FRIEND_TEST_ALL_PREFIXES(FeatureListTest, CheckFeatureIdentity);
@@ -641,7 +654,7 @@ class BASE_EXPORT FeatureList {
   // Used when querying `base::Feature` state to determine if the cached value
   // in the `Feature` object is populated and valid. See the comment on
   // `base::Feature::cached_value` for more details.
-  uint16_t caching_context_ = 1;
+  const uint16_t caching_context_;
 
   // If this instance was set with SetEarlyAccessInstance(), this set contains
   // the names of the features whose state is allowed to be checked. Attempting

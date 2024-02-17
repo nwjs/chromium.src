@@ -4,6 +4,8 @@
 
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_service.h"
 
+#include <optional>
+
 #include "ash/constants/ash_features.h"
 #include "base/functional/callback_helpers.h"
 #include "base/scoped_observation.h"
@@ -32,7 +34,6 @@
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/image/image_skia.h"
@@ -52,13 +53,10 @@ class PromiseAppServiceTest : public testing::Test,
     testing::Test::SetUp();
     TestingProfile::Builder profile_builder;
     profile_builder.SetSharedURLLoaderFactory(
-        base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
-            url_loader_factory_.get()));
+        url_loader_factory_->GetSafeWeakWrapper());
     profile_ = profile_builder.Build();
     arc_test_.SetUp(profile_.get());
-    test_shared_loader_factory_ =
-        base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
-            url_loader_factory_.get());
+    test_shared_loader_factory_ = url_loader_factory_->GetSafeWeakWrapper();
     service_ = proxy()->PromiseAppService();
     service_->SetSkipApiKeyCheckForTesting(true);
     service_->SetSkipAlmanacForTesting(false);
@@ -129,7 +127,7 @@ class PromiseAppServiceTest : public testing::Test,
   void FinishApkWebAppInstall(const std::string& package_name,
                               const std::string& app_id) {
     apk_web_app_service()->OnDidFinishInstall(
-        package_name, app_id, true, absl::nullopt,
+        package_name, app_id, true, std::nullopt,
         webapps::InstallResultCode::kWriteDataFailed);
   }
 

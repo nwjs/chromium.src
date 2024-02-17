@@ -49,7 +49,7 @@ AccountInfo SignInWithAccount(
     signin::IdentityTestEnvironment& identity_test_env,
     AccountManagementStatus management_status =
         AccountManagementStatus::kNonManaged,
-    absl::optional<signin::ConsentLevel> consent_level =
+    std::optional<signin::ConsentLevel> consent_level =
         signin::ConsentLevel::kSignin);
 
 // Sets up the parameters that are passed to the command line. For example,
@@ -73,9 +73,7 @@ void InitPixelTestFeatures(const PixelTestParam& params,
 //   constructor, removing the need to call `SetUpPixelTestCommandLine()` and
 //   `InitPixelTestFeatures()`.
 // - providing helpers to set up the account, see `SignInWithAccount()`.
-template <typename T,
-          typename =
-              std::enable_if_t<std::is_base_of_v<InProcessBrowserTest, T>>>
+template <typename T>
 class ProfilesPixelTestBaseT : public SigninBrowserTestBaseT<T> {
  public:
   template <typename... Args>
@@ -92,7 +90,7 @@ class ProfilesPixelTestBaseT : public SigninBrowserTestBaseT<T> {
   AccountInfo SignInWithAccount(
       AccountManagementStatus management_status =
           AccountManagementStatus::kNonManaged,
-      absl::optional<signin::ConsentLevel> consent_level =
+      std::optional<signin::ConsentLevel> consent_level =
           signin::ConsentLevel::kSignin) {
     return ::SignInWithAccount(*this->identity_test_env(), management_status,
                                consent_level);

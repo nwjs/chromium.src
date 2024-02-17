@@ -9,7 +9,6 @@
 #include "base/task/thread_pool.h"
 #include "gpu/vulkan/init/vulkan_factory.h"
 #include "gpu/vulkan/vulkan_function_pointers.h"
-#include "media/base/scopedfd_helper.h"
 #include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/chromeos/shaders/shaders.h"
 #include "media/gpu/macros.h"
@@ -706,6 +705,11 @@ VulkanImageProcessor::VulkanDeviceQueueWrapper::Create(
       implementation,
       gpu::VulkanDeviceQueue::DeviceQueueOption::GRAPHICS_QUEUE_FLAG);
 
+  if (!vulkan_device_queue) {
+    LOG(ERROR) << "Could not create VulkanDeviceQueue";
+    return nullptr;
+  }
+
   return base::WrapUnique(
       new VulkanDeviceQueueWrapper(std::move(vulkan_device_queue)));
 }
@@ -761,7 +765,12 @@ VulkanImageProcessor::~VulkanImageProcessor() {
 std::unique_ptr<VulkanImageProcessor> VulkanImageProcessor::Create() {
   auto vulkan_implementation = gpu::CreateVulkanImplementation(
       /*use_swiftshader=*/false, /*allow_protected_memory=*/false);
-  vulkan_implementation->InitializeVulkanInstance(/*using_surface=*/false);
+
+  if (!vulkan_implementation->InitializeVulkanInstance(
+          /*using_surface=*/false)) {
+    LOG(ERROR) << "Error initializing Vulkan instance";
+    return nullptr;
+  }
 
   auto vulkan_device_queue =
       VulkanDeviceQueueWrapper::Create(vulkan_implementation.get());

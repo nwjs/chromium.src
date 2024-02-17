@@ -4,11 +4,14 @@
 
 #include "chromeos/ash/components/language_packs/language_pack_manager.h"
 
+#include <optional>
 #include <string_view>
 
+#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -16,13 +19,13 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
+#include "base/sequence_checker.h"
 #include "base/strings/string_split.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice.pb.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
 #include "chromeos/ash/components/language_packs/handwriting.h"
 #include "chromeos/ash/components/language_packs/language_packs_util.h"
 #include "components/prefs/pref_service.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/cros_system_api/dbus/dlcservice/dbus-constants.h"
 
 using ::ash::input_method::InputMethodManager;
@@ -43,14 +46,14 @@ const base::flat_map<std::string, std::string>& GetAllBasePackDlcIds() {
 }
 
 // Finds the ID of the DLC corresponding to the Base Pack for a feature.
-// Returns the DLC ID if the feature has a Base Pack or absl::nullopt
+// Returns the DLC ID if the feature has a Base Pack or std::nullopt
 // otherwise.
-absl::optional<std::string> GetDlcIdForBasePack(const std::string& feature_id) {
+std::optional<std::string> GetDlcIdForBasePack(const std::string& feature_id) {
   // We search in the static list for the given |feature_id|.
   const auto it = GetAllBasePackDlcIds().find(feature_id);
 
   if (it == GetAllBasePackDlcIds().end()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return it->second;
@@ -312,7 +315,7 @@ const base::flat_map<PackSpecPair, std::string>& GetAllLanguagePackDlcIds() {
 // down to one string copy per argument, use heterogeneous lookup
 // (https://abseil.io/tips/144) to reduce it down to zero string copies, or
 // rewrite this function completely.
-absl::optional<std::string> GetDlcIdForLanguagePack(
+std::optional<std::string> GetDlcIdForLanguagePack(
     const std::string& feature_id,
     const std::string& locale) {
   // We search in the static list for the given Pack spec.
@@ -320,7 +323,7 @@ absl::optional<std::string> GetDlcIdForLanguagePack(
   const auto it = GetAllLanguagePackDlcIds().find(spec);
 
   if (it == GetAllLanguagePackDlcIds().end()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return it->second;
@@ -350,7 +353,7 @@ void LanguagePackManager::InstallPack(const std::string& feature_id,
                                       const std::string& input_locale,
                                       OnInstallCompleteCallback callback) {
   const std::string locale = ResolveLocale(feature_id, input_locale);
-  const absl::optional<std::string> dlc_id =
+  const std::optional<std::string> dlc_id =
       GetDlcIdForLanguagePack(feature_id, locale);
 
   // If the given Language Pack doesn't exist, run callback and don't reach the
@@ -368,7 +371,7 @@ void LanguagePackManager::GetPackState(const std::string& feature_id,
                                        const std::string& input_locale,
                                        GetPackStateCallback callback) {
   const std::string locale = ResolveLocale(feature_id, input_locale);
-  const absl::optional<std::string> dlc_id =
+  const std::optional<std::string> dlc_id =
       GetDlcIdForLanguagePack(feature_id, locale);
 
   // If the given Language Pack doesn't exist, run callback and don't reach the
@@ -392,7 +395,7 @@ void LanguagePackManager::RemovePack(const std::string& feature_id,
                                      const std::string& input_locale,
                                      OnUninstallCompleteCallback callback) {
   const std::string locale = ResolveLocale(feature_id, input_locale);
-  const absl::optional<std::string> dlc_id =
+  const std::optional<std::string> dlc_id =
       GetDlcIdForLanguagePack(feature_id, locale);
 
   // If the given Language Pack doesn't exist, run callback and don't reach the
@@ -410,7 +413,7 @@ void LanguagePackManager::RemovePack(const std::string& feature_id,
 void LanguagePackManager::InstallBasePack(
     const std::string& feature_id,
     OnInstallBasePackCompleteCallback callback) {
-  const absl::optional<std::string> dlc_id = GetDlcIdForBasePack(feature_id);
+  const std::optional<std::string> dlc_id = GetDlcIdForBasePack(feature_id);
 
   // If the given |feature_id| doesn't have a Base Pack, run callback and
   // don't reach the DLC Service.
@@ -439,7 +442,7 @@ void LanguagePackManager::UpdatePacksForOobe(
   // In the future we'll have a function that returns the list of features to
   // install.
   const std::string locale = ResolveLocale(kTtsFeatureId, input_locale);
-  const absl::optional<std::string> dlc_id =
+  const std::optional<std::string> dlc_id =
       GetDlcIdForLanguagePack(kTtsFeatureId, locale);
 
   if (dlc_id) {
@@ -455,18 +458,32 @@ void LanguagePackManager::UpdatePacksForOobe(
 }
 
 void LanguagePackManager::CheckAndUpdateDlcsForInputMethods(
-    PrefService* prefs) {
+    PrefService* pref_service) {
   // The list of input methods have changed. We need to get the list of current
   // DLCs installed on device, which is an asynchronous method.
   DlcserviceClient::Get()->GetExistingDlcs(
-      base::BindOnce(&OnGetExistingDlcs, prefs));
+      base::BindOnce(&OnGetExistingDlcs, pref_service));
+}
+
+void LanguagePackManager::ObservePrefs(PrefService* pref_service) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // This is the main gate for the functionality of observing Prefs.
+  // If this flag is false, all of the cascading logic is disabled.
+  if (base::FeatureList::IsEnabled(features::kLanguagePacksInSettings)) {
+    pref_change_registrar_.Init(pref_service);
+    base::RepeatingClosure callback = base::BindRepeating(
+        &LanguagePackManager::CheckAndUpdateDlcsForInputMethods, pref_service);
+    pref_change_registrar_.Add(ash::prefs::kLanguagePreloadEngines, callback);
+  }
 }
 
 void LanguagePackManager::AddObserver(Observer* const observer) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   observers_.AddObserver(observer);
 }
 
 void LanguagePackManager::RemoveObserver(Observer* const observer) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   observers_.RemoveObserver(observer);
 }
 
@@ -484,9 +501,10 @@ void LanguagePackManager::NotifyPackStateChanged(
 
 void LanguagePackManager::OnDlcStateChanged(
     const dlcservice::DlcState& dlc_state) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // As of now, we only have Handwriting as a client.
   // We will check the full list once we have more than one DLC.
-  const absl::optional<std::string> handwriting_locale =
+  const std::optional<std::string> handwriting_locale =
       DlcToHandwritingLocale(dlc_state.id());
   if (!handwriting_locale.has_value()) {
     return;
@@ -496,13 +514,16 @@ void LanguagePackManager::OnDlcStateChanged(
 }
 
 LanguagePackManager::LanguagePackManager() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(!g_instance);
   g_instance = this;
   obs_.Observe(DlcserviceClient::Get());
 }
 
 LanguagePackManager::~LanguagePackManager() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK_EQ(g_instance, this);
+  pref_change_registrar_.RemoveAll();
   g_instance = nullptr;
 }
 

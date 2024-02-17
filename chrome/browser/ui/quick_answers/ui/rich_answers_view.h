@@ -10,14 +10,14 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/ui/quick_answers/ui/quick_answers_text_label.h"
 #include "chrome/browser/ui/quick_answers/ui/rich_answers_pre_target_handler.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
 #include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/events/event_handler.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/link.h"
-#include "ui/views/controls/scroll_view.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/layout/box_layout_view.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/unique_widget_ptr.h"
 
@@ -56,7 +56,8 @@ class RichAnswersView : public views::View {
   static views::UniqueWidgetPtr CreateWidget(
       const gfx::Rect& anchor_view_bounds,
       base::WeakPtr<QuickAnswersUiController> controller,
-      const quick_answers::QuickAnswer& result);
+      const QuickAnswer& quick_answer,
+      const StructuredResult& result);
 
   // views::View:
   void OnFocus() override;
@@ -71,7 +72,10 @@ class RichAnswersView : public views::View {
                   base::WeakPtr<QuickAnswersUiController> controller,
                   const ResultType result_type);
 
-  void AddSettingsButtonTo(views::View* container_view);
+  views::View* AddSettingsButtonTo(views::View* container_view);
+
+  void AddHeaderViewsTo(views::View* container_view,
+                        const std::string& header_text);
 
   // FocusSearch::GetFocusableViewsCallback to poll currently focusable views.
   std::vector<views::View*> GetFocusableViews();
@@ -82,6 +86,9 @@ class RichAnswersView : public views::View {
 
  private:
   void InitLayout();
+  void SetUpBaseView();
+  void SetUpMainView();
+  void SetUpContentView();
   void AddResultTypeIcon();
   void AddGoogleSearchLink();
   void OnGoogleSearchLinkClicked();
@@ -94,14 +101,13 @@ class RichAnswersView : public views::View {
   const ResultType result_type_;
 
   raw_ptr<views::View> base_view_ = nullptr;
-  raw_ptr<views::View> main_view_ = nullptr;
-  raw_ptr<views::View> content_view_ = nullptr;
+  raw_ptr<views::BoxLayoutView> main_view_ = nullptr;
+  raw_ptr<views::BoxLayoutView> content_view_ = nullptr;
   raw_ptr<views::ImageButton> settings_button_ = nullptr;
   raw_ptr<views::ImageView> vector_icon_ = nullptr;
   raw_ptr<views::Link> search_link_label_ = nullptr;
 
-  std::unique_ptr<quick_answers::RichAnswersPreTargetHandler>
-      rich_answers_view_handler_;
+  std::unique_ptr<RichAnswersPreTargetHandler> rich_answers_view_handler_;
   std::unique_ptr<chromeos::editor_menu::FocusSearch> focus_search_;
   base::WeakPtrFactory<RichAnswersView> weak_factory_{this};
 };

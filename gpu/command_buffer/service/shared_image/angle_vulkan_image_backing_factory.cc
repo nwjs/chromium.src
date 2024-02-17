@@ -24,8 +24,9 @@ constexpr uint32_t kSupportedUsage =
 #if BUILDFLAG(IS_LINUX)
     SHARED_IMAGE_USAGE_SCANOUT |
 #endif
-    SHARED_IMAGE_USAGE_GLES2 | SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
-    SHARED_IMAGE_USAGE_RASTER | SHARED_IMAGE_USAGE_DISPLAY_READ |
+    SHARED_IMAGE_USAGE_GLES2_READ | SHARED_IMAGE_USAGE_GLES2_WRITE |
+    SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT | SHARED_IMAGE_USAGE_RASTER_READ |
+    SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ |
     SHARED_IMAGE_USAGE_DISPLAY_WRITE | SHARED_IMAGE_USAGE_OOP_RASTERIZATION |
     SHARED_IMAGE_USAGE_CPU_UPLOAD;
 
@@ -158,7 +159,7 @@ bool AngleVulkanImageBackingFactory::CanUseAngleVulkanImageBacking(
   // contain GLES2, unless it is created from GPU memory buffer.
   // TODO(penghuang): use AngleVulkan backing for non GL & Vulkan interop usage?
   if (gmb_type == gfx::EMPTY_BUFFER)
-    return usage & SHARED_IMAGE_USAGE_GLES2;
+    return HasGLES2ReadOrWriteUsage(usage);
 
   return true;
 }

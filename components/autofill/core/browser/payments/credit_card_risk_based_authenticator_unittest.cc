@@ -64,8 +64,9 @@ class CreditCardRiskBasedAuthenticatorTest : public testing::Test {
         autofill_client_.GetPaymentsNetworkInterface());
   }
 
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<TestAuthenticationRequester> requester_;
-  base::test::TaskEnvironment task_environment_;
   TestAutofillClient autofill_client_;
   TestPersonalDataManager personal_data_manager_;
   std::unique_ptr<CreditCardRiskBasedAuthenticator> authenticator_;
@@ -91,6 +92,25 @@ TEST_F(CreditCardRiskBasedAuthenticatorTest,
 
   histogram_tester.ExpectUniqueSample(
       "Autofill.RiskBasedAuth.ServerCard.Attempt", true, 1);
+}
+
+// Ensures the ServerCard authentication latency is logged correctly.
+TEST_F(CreditCardRiskBasedAuthenticatorTest,
+       AuthServerCardLatencyLoggedCorrectly) {
+  base::HistogramTester histogram_tester;
+  authenticator_->Authenticate(card_, requester_->GetWeakPtr());
+
+  // Mock server response with valid masked server card information.
+  payments::PaymentsNetworkInterface::UnmaskResponseDetails response;
+  response.card_type = AutofillClient::PaymentsRpcCardType::kServerCard;
+  response.real_pan = kTestNumber;
+
+  task_environment_.FastForwardBy(base::Minutes(1));
+  authenticator_->OnUnmaskResponseReceivedForTesting(
+      AutofillClient::PaymentsRpcResult::kSuccess, response);
+
+  histogram_tester.ExpectTimeBucketCount(
+      "Autofill.RiskBasedAuth.ServerCard.Latency", base::Minutes(1), 1);
 }
 
 // Test that risk-based authentication returns the full PAN upon success.

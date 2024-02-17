@@ -293,6 +293,7 @@ SharedContextState::~SharedContextState() {
 bool SharedContextState::IsGraphiteDawnVulkan() const {
 #if BUILDFLAG(SKIA_USE_DAWN)
   return gr_context_type_ == GrContextType::kGraphiteDawn &&
+         dawn_context_provider_ &&
          dawn_context_provider_->backend_type() == wgpu::BackendType::Vulkan;
 #else
   return false;
@@ -302,6 +303,7 @@ bool SharedContextState::IsGraphiteDawnVulkan() const {
 bool SharedContextState::IsGraphiteDawnVulkanSwiftShader() const {
 #if BUILDFLAG(SKIA_USE_DAWN)
   return gr_context_type_ == GrContextType::kGraphiteDawn &&
+         dawn_context_provider_ &&
          dawn_context_provider_->is_vulkan_swiftshader_adapter();
 #else
   return false;
@@ -423,7 +425,10 @@ bool SharedContextState::InitializeGanesh(
   }
 
   gr_context_->setResourceCacheLimit(max_resource_cache_bytes);
-  transfer_cache_ = std::make_unique<ServiceTransferCache>(gpu_preferences);
+  transfer_cache_ = std::make_unique<ServiceTransferCache>(
+      gpu_preferences,
+      base::BindRepeating(&SharedContextState::ScheduleSkiaCleanup,
+                          base::Unretained(this)));
   gr_cache_controller_ = std::make_unique<raster::GrCacheController>(this);
   return true;
 }
@@ -473,7 +478,10 @@ bool SharedContextState::InitializeGraphite(
   viz_compositor_graphite_recorder_ =
       MakeGraphiteRecorderWithImageProvider(graphite_context_);
 
-  transfer_cache_ = std::make_unique<ServiceTransferCache>(gpu_preferences);
+  transfer_cache_ = std::make_unique<ServiceTransferCache>(
+      gpu_preferences,
+      base::BindRepeating(&SharedContextState::ScheduleSkiaCleanup,
+                          base::Unretained(this)));
   return true;
 }
 
@@ -1005,6 +1013,9 @@ bool SharedContextState::CheckResetStatus(bool need_gl) {
 }
 
 void SharedContextState::ScheduleSkiaCleanup() {
+  if (!MakeCurrent(nullptr)) {
+    return;
+  }
   if (gr_cache_controller_) {
     gr_cache_controller_->ScheduleGrContextCleanup();
   }

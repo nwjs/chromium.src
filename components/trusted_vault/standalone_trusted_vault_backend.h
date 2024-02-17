@@ -54,6 +54,8 @@ class StandaloneTrustedVaultBackend
     Delegate& operator=(const Delegate&) = delete;
 
     virtual void NotifyRecoverabilityDegradedChanged() = 0;
+    // Called whenever persisted state changes.
+    virtual void NotifyStateChanged() = 0;
   };
 
   enum class RefreshTokenErrorState {
@@ -70,8 +72,7 @@ class StandaloneTrustedVaultBackend
   // interaction with vault service (such as device registration, keys
   // downloading, etc.) will be disabled.
   StandaloneTrustedVaultBackend(
-      const base::FilePath& md5_hashed_file_path,
-      const base::FilePath& deprecated_encrypted_file_path,
+      const base::FilePath& file_path,
       std::unique_ptr<Delegate> delegate,
       std::unique_ptr<TrustedVaultConnection> connection);
   StandaloneTrustedVaultBackend(const StandaloneTrustedVaultBackend& other) =
@@ -94,7 +95,6 @@ class StandaloneTrustedVaultBackend
   // Otherwise, attempts to download new keys from the server. In case of
   // failure or if current state isn't sufficient it will populate locally
   // available keys regardless of their freshness.
-  // Concurrent calls are not supported.
   void FetchKeys(const CoreAccountInfo& account_info,
                  FetchKeysCallback callback);
 
@@ -223,12 +223,9 @@ class StandaloneTrustedVaultBackend
   // for deletion due to accounts in cookie jar changes.
   void RemoveNonPrimaryAccountKeysIfMarkedForDeletion();
 
-  void VerifyDeviceRegistrationForUMA(const std::string& gaia_id);
-
   void WriteDataToDisk();
 
-  const base::FilePath md5_hashed_file_path_;
-  const base::FilePath deprecated_encrypted_file_path_;
+  const base::FilePath file_path_;
 
   const std::unique_ptr<Delegate> delegate_;
 
@@ -291,8 +288,6 @@ class StandaloneTrustedVaultBackend
   // Destroying this will cancel the ongoing request.
   std::unique_ptr<TrustedVaultConnection::Request>
       ongoing_device_registration_request_;
-  std::unique_ptr<TrustedVaultConnection::Request>
-      ongoing_verify_registration_request_;
 
   // Same as above, but specifically used for recoverability-related requests.
   // TODO(crbug.com/1201659): Move elsewhere.

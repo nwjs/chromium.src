@@ -159,7 +159,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientCommonSyncTest,
   // Set the preference to false initially which should get synced.
   GetProfile(0)->GetPrefs()->SetBoolean(prefs::kHomePageIsNewTabPage, false);
   ASSERT_TRUE(SetupSync());
-  absl::optional<sync_pb::PreferenceSpecifics> server_value =
+  std::optional<sync_pb::PreferenceSpecifics> server_value =
       preferences_helper::GetPreferenceInFakeServer(
           syncer::ModelType::PREFERENCES, prefs::kHomePageIsNewTabPage,
           GetFakeServer());
@@ -263,9 +263,13 @@ std::unique_ptr<syncer::LoopbackServerEntity> CreateTestReadingListEntity(
 class SingleClientFeatureToTransportSyncTest : public SyncTest {
  public:
   SingleClientFeatureToTransportSyncTest() : SyncTest(SINGLE_CLIENT) {
+    // Note: kReplaceSyncPromosWithSignInPromos is required so that bookmarks
+    // and reading list are considered selected-by-default for non-syncing
+    // users.
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {syncer::kReadingListEnableSyncTransportModeUponSignIn},
+        {syncer::kReadingListEnableSyncTransportModeUponSignIn,
+         syncer::kReplaceSyncPromosWithSignInPromos},
         /*disabled_features=*/{});
   }
 
@@ -277,14 +281,13 @@ class SingleClientFeatureToTransportSyncTest : public SyncTest {
       base::FilePath prefs_path = profile_path.AppendASCII("Preferences");
       std::string prefs_string;
       ASSERT_TRUE(base::ReadFileToString(prefs_path, &prefs_string));
-      absl::optional<base::Value> prefs = base::JSONReader::Read(prefs_string);
+      std::optional<base::Value> prefs = base::JSONReader::Read(prefs_string);
       ASSERT_TRUE(prefs);
       ASSERT_TRUE(prefs->is_dict());
       prefs->GetDict().SetByDottedPath(prefs::kGoogleServicesConsentedToSync,
                                        base::Value(false));
 
-      absl::optional<std::string> updated_prefs_string =
-          base::WriteJson(*prefs);
+      std::optional<std::string> updated_prefs_string = base::WriteJson(*prefs);
       ASSERT_TRUE(updated_prefs_string);
       ASSERT_TRUE(base::WriteFile(prefs_path, *updated_prefs_string));
     }
@@ -339,12 +342,12 @@ IN_PROC_BROWSER_TEST_F(SingleClientFeatureToTransportSyncTest,
 
   ASSERT_TRUE(SetupClients());
   // BeforeSetupClient() in the fixture has mangled the prefs so that
-  // Sync-the-feature is *not* active anymore, and Sync will start up in
+  // Sync-the-feature is *not* enabled anymore, and Sync will start up in
   // transport mode instead.
   // Note that this means the persisted metadata is now in an inconsistent
   // state: There is persisted metadata for Sync-the-feature mode, even though
   // Sync is not actually in that mode anymore.
-  ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureActive());
+  ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   // Sync re-downloaded the ReadingList entry into the account store, so it now

@@ -69,6 +69,8 @@ constexpr const char kTestAndroidRealm[] =
     "android://hash@com.example.android/";
 constexpr char kBackendErrorCodeMetric[] =
     "PasswordManager.PasswordStoreAndroidBackend.ErrorCode";
+constexpr char kBackendApiErrorMetric[] =
+    "PasswordManager.PasswordStoreAndroidBackend.APIError";
 constexpr char kUnenrollmentHistogram[] =
     "PasswordManager.UnenrolledFromUPMDueToErrors";
 constexpr char kUPMActiveHistogram[] =
@@ -90,23 +92,6 @@ MATCHER_P2(ExpectError, error_type, recovery_type, "") {
          error_type == absl::get<PasswordStoreBackendError>(arg).type &&
          recovery_type ==
              absl::get<PasswordStoreBackendError>(arg).recovery_type;
-}
-
-MATCHER_P(ExpectSyncingAccount, expectation, "") {
-  return absl::holds_alternative<
-             PasswordStoreAndroidBackendDispatcherBridge::SyncingAccount>(
-             arg) &&
-         expectation ==
-             absl::get<
-                 PasswordStoreAndroidBackendDispatcherBridge::SyncingAccount>(
-                 arg)
-                 .value();
-}
-
-MATCHER(ExpectLocalAccount, "") {
-  return absl::holds_alternative<PasswordStoreOperationTarget>(arg) &&
-         (PasswordStoreOperationTarget::kLocalStorage ==
-          absl::get<PasswordStoreOperationTarget>(arg));
 }
 
 PasswordForm CreateEntry(const std::string& username,
@@ -185,19 +170,25 @@ class MockPasswordStoreAndroidBackendBridgeHelper
   MOCK_METHOD(bool, CanUseGetAllLoginsWithBrandingInfoAPI, (), (override));
   MOCK_METHOD(bool, CanRemoveUnenrollment, (), (override));
   MOCK_METHOD(void, SetConsumer, (base::WeakPtr<Consumer>), (override));
-  MOCK_METHOD(JobId, GetAllLogins, (Account), (override));
-  MOCK_METHOD(JobId, GetAllLoginsWithBrandingInfo, (Account), (override));
-  MOCK_METHOD(JobId, GetAutofillableLogins, (Account), (override));
+  MOCK_METHOD(JobId, GetAllLogins, (std::string), (override));
+  MOCK_METHOD(JobId, GetAllLoginsWithBrandingInfo, (std::string), (override));
+  MOCK_METHOD(JobId, GetAutofillableLogins, (std::string), (override));
   MOCK_METHOD(JobId,
               GetLoginsForSignonRealm,
-              (const std::string&, Account),
+              (const std::string&, std::string),
               (override));
-  MOCK_METHOD(JobId, AddLogin, (const PasswordForm&, Account), (override));
-  MOCK_METHOD(JobId, UpdateLogin, (const PasswordForm&, Account), (override));
-  MOCK_METHOD(JobId, RemoveLogin, (const PasswordForm&, Account), (override));
+  MOCK_METHOD(JobId, AddLogin, (const PasswordForm&, std::string), (override));
+  MOCK_METHOD(JobId,
+              UpdateLogin,
+              (const PasswordForm&, std::string),
+              (override));
+  MOCK_METHOD(JobId,
+              RemoveLogin,
+              (const PasswordForm&, std::string),
+              (override));
   MOCK_METHOD(JobId,
               GetAffiliatedLoginsForSignonRealm,
-              (const std::string&, Account),
+              (const std::string&, std::string),
               (override));
 };
 
@@ -224,11 +215,7 @@ class PasswordStoreAndroidBackendTest : public testing::Test {
     prefs_.registry()->RegisterDoublePref(prefs::kTimeOfLastMigrationAttempt,
                                           20.22);
 
-    backend_ = std::make_unique<PasswordStoreAndroidBackend>(
-        base::PassKey<class PasswordStoreAndroidBackendTest>(),
-        CreateMockBridgeHelper(), CreateFakeLifecycleHelper(),
-        CreatePasswordSyncControllerDelegate(), &prefs_,
-        affiliations_prefetcher_.get());
+    ResetBackend(/*try_fix_passphrase_error_cb=*/base::NullCallback());
   }
 
   ~PasswordStoreAndroidBackendTest() override {
@@ -274,6 +261,16 @@ class PasswordStoreAndroidBackendTest : public testing::Test {
       base::test::TaskEnvironment::MainThreadType::UI,
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 
+  // Prefer using the already created `backend()` when possible.
+  void ResetBackend(const PasswordStoreAndroidBackend::TryFixPassphraseErrorCb&
+                        try_fix_passphrase_error_cb) {
+    backend_ = std::make_unique<PasswordStoreAndroidBackend>(
+        base::PassKey<class PasswordStoreAndroidBackendTest>(),
+        CreateMockBridgeHelper(), CreateFakeLifecycleHelper(),
+        CreatePasswordSyncControllerDelegate(), &prefs_,
+        try_fix_passphrase_error_cb, affiliations_prefetcher_.get());
+  }
+
  private:
   std::unique_ptr<PasswordStoreAndroidBackendBridgeHelper>
   CreateMockBridgeHelper() {
@@ -310,12 +307,14 @@ class PasswordStoreAndroidBackendTest : public testing::Test {
   TestingPrefServiceSimple prefs_;
 };
 
-TEST_F(PasswordStoreAndroidBackendTest, CallsCompletionCallbackAfterInit) {
+TEST_F(PasswordStoreAndroidBackendTest,
+       CallsCompletionCallbackAfterSyncServiceInitialized) {
   base::MockCallback<base::OnceCallback<void(bool)>> completion_callback;
-  EXPECT_CALL(completion_callback, Run(true));
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), completion_callback.Get());
+  EXPECT_CALL(completion_callback, Run(true));
+  backend().OnSyncServiceInitialized(sync_service());
 }
 
 TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForLogins) {
@@ -326,8 +325,7 @@ TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForLogins) {
   backend().OnSyncServiceInitialized(sync_service());
 
   base::MockCallback<LoginsOrErrorReply> mock_reply;
-  EXPECT_CALL(*bridge_helper(),
-              GetAllLogins(ExpectSyncingAccount(kTestAccount)))
+  EXPECT_CALL(*bridge_helper(), GetAllLogins(kTestAccount))
       .WillOnce(Return(kJobId));
   backend().GetAllLoginsAsync(mock_reply.Get());
 
@@ -343,6 +341,7 @@ TEST_F(PasswordStoreAndroidBackendTest, FillMatchingLoginsNoPSL) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
 
   const JobId kFirstJobId{1337};
@@ -395,6 +394,7 @@ TEST_F(PasswordStoreAndroidBackendTest, FillMatchingLoginsPSL) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
 
   const JobId kFirstJobId{1337};
@@ -446,6 +446,7 @@ TEST_F(PasswordStoreAndroidBackendTest, FillMatchingLoginsGooglePSLMatch) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
 
   const JobId kFirstJobId{1337};
@@ -479,6 +480,7 @@ TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForAutofillableLogins) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
   EXPECT_CALL(*bridge_helper(), GetAutofillableLogins).WillOnce(Return(kJobId));
   backend().GetAutofillableLoginsAsync(mock_reply.Get());
@@ -494,9 +496,10 @@ TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForLoginsForAccount) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
   EXPECT_CALL(*bridge_helper(), GetAllLogins).WillOnce(Return(kJobId));
-  std::optional<std::string> account = "mytestemail@gmail.com";
+  std::string account = "mytestemail@gmail.com";
   backend().GetAllLoginsForAccountAsync(account, mock_reply.Get());
 
   EXPECT_CALL(
@@ -511,12 +514,13 @@ TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForRemoveLogin) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   const JobId kRemoveLoginJobId{13388};
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
 
   PasswordForm form =
       CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
-  EXPECT_CALL(*bridge_helper(), RemoveLogin(form, ExpectLocalAccount()))
+  EXPECT_CALL(*bridge_helper(), RemoveLogin(form, /*account=*/""))
       .WillOnce(Return(kRemoveLoginJobId));
   backend().RemoveLoginAsync(form, mock_reply.Get());
 
@@ -535,6 +539,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<PasswordChangesOrErrorReply> mock_deletion_reply;
   base::RepeatingCallback<bool(const GURL&)> url_filter = base::BindRepeating(
       [](const GURL& url) { return url == GURL(kTestUrl); });
@@ -588,6 +593,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<PasswordChangesOrErrorReply> mock_deletion_reply;
   base::Time delete_begin = base::Time::FromTimeT(1000);
   base::Time delete_end = base::Time::FromTimeT(2000);
@@ -642,8 +648,38 @@ TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForAddLogin) {
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
   PasswordForm form =
       CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
-  EXPECT_CALL(*bridge_helper(),
-              AddLogin(form, ExpectSyncingAccount(kTestAccount)))
+  EXPECT_CALL(*bridge_helper(), AddLogin(form, kTestAccount))
+      .WillOnce(Return(kAddLoginJobId));
+  backend().AddLoginAsync(form, mock_reply.Get());
+
+  PasswordStoreChangeList expected_changes;
+  expected_changes.emplace_back(
+      PasswordStoreChange(PasswordStoreChange::ADD, form));
+  EXPECT_CALL(mock_reply,
+              Run(VariantWith<PasswordChanges>(Optional(expected_changes))));
+  consumer().OnLoginsChanged(kAddLoginJobId, expected_changes);
+  RunUntilIdle();
+}
+
+TEST_F(PasswordStoreAndroidBackendTest,
+       SanitizedFormBeforeCallingBridgeAddLogin) {
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        PasswordStoreAndroidBackend::RemoteChangesReceived(),
+                        base::NullCallback(), base::DoNothing());
+  EnableSyncForTestAccount();
+  backend().OnSyncServiceInitialized(sync_service());
+
+  const JobId kAddLoginJobId{13388};
+  base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
+  PasswordForm form =
+      CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
+  form.blocked_by_user = true;
+
+  PasswordForm expected_form = form;
+  expected_form.username_value.clear();
+  expected_form.password_value.clear();
+
+  EXPECT_CALL(*bridge_helper(), AddLogin(expected_form, kTestAccount))
       .WillOnce(Return(kAddLoginJobId));
   backend().AddLoginAsync(form, mock_reply.Get());
 
@@ -661,17 +697,49 @@ TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForUpdateLogin) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   const JobId kUpdateLoginJobId{13388};
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
   PasswordForm form =
       CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
-  EXPECT_CALL(*bridge_helper(), UpdateLogin(form, ExpectLocalAccount()))
+  EXPECT_CALL(*bridge_helper(), UpdateLogin(form, /*account=*/""))
       .WillOnce(Return(kUpdateLoginJobId));
   backend().UpdateLoginAsync(form, mock_reply.Get());
 
   PasswordStoreChangeList expected_changes;
   expected_changes.emplace_back(
       PasswordStoreChange(PasswordStoreChange::UPDATE, form));
+  EXPECT_CALL(mock_reply,
+              Run(VariantWith<PasswordChanges>(Optional(expected_changes))));
+  consumer().OnLoginsChanged(kUpdateLoginJobId, expected_changes);
+  RunUntilIdle();
+}
+
+TEST_F(PasswordStoreAndroidBackendTest,
+       SanitizedFormBeforeCallingBridgeUpdateLogin) {
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        PasswordStoreAndroidBackend::RemoteChangesReceived(),
+                        base::NullCallback(), base::DoNothing());
+  EnableSyncForTestAccount();
+  backend().OnSyncServiceInitialized(sync_service());
+
+  const JobId kUpdateLoginJobId{13388};
+  base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
+  PasswordForm form =
+      CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
+  form.blocked_by_user = true;
+
+  PasswordForm expected_form = form;
+  expected_form.username_value.clear();
+  expected_form.password_value.clear();
+
+  EXPECT_CALL(*bridge_helper(), UpdateLogin(expected_form, kTestAccount))
+      .WillOnce(Return(kUpdateLoginJobId));
+  backend().UpdateLoginAsync(form, mock_reply.Get());
+
+  PasswordStoreChangeList expected_changes;
+  expected_changes.emplace_back(
+      PasswordStoreChange(PasswordStoreChange::ADD, form));
   EXPECT_CALL(mock_reply,
               Run(VariantWith<PasswordChanges>(Optional(expected_changes))));
   consumer().OnLoginsChanged(kUpdateLoginJobId, expected_changes);
@@ -713,13 +781,9 @@ TEST_F(PasswordStoreAndroidBackendTest,
             0);
   EXPECT_EQ(prefs()->GetDouble(prefs::kTimeOfLastMigrationAttempt), 0.0);
 
-  const char kErrorCodeMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.ErrorCode";
-  const char kAPIErrorMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.APIError";
-
-  histogram_tester.ExpectBucketCount(kErrorCodeMetric, 7, 1);
-  histogram_tester.ExpectBucketCount(kAPIErrorMetric, kInternalErrorCode, 1);
+  histogram_tester.ExpectBucketCount(kBackendErrorCodeMetric, 7, 1);
+  histogram_tester.ExpectBucketCount(kBackendApiErrorMetric, kInternalErrorCode,
+                                     1);
   histogram_tester.ExpectBucketCount(kUnenrollmentHistogram, true, 1);
 }
 
@@ -757,14 +821,9 @@ TEST_F(PasswordStoreAndroidBackendTest,
             0);
   EXPECT_NE(prefs()->GetDouble(prefs::kTimeOfLastMigrationAttempt), 0.0);
 
-  const char kErrorCodeMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.ErrorCode";
-  const char kAPIErrorMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.APIError";
-
-  histogram_tester.ExpectBucketCount(kErrorCodeMetric, 7, 1);
-  histogram_tester.ExpectBucketCount(kAPIErrorMetric, kAuthErrorResolvableCode,
-                                     1);
+  histogram_tester.ExpectBucketCount(kBackendErrorCodeMetric, 7, 1);
+  histogram_tester.ExpectBucketCount(kBackendApiErrorMetric,
+                                     kAuthErrorResolvableCode, 1);
 }
 
 TEST_F(
@@ -810,14 +869,10 @@ TEST_F(
             0);
   EXPECT_EQ(prefs()->GetDouble(prefs::kTimeOfLastMigrationAttempt), 0.0);
 
-  const char kErrorCodeMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.ErrorCode";
-  const char kAPIErrorMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.APIError";
-
   histogram_tester.ExpectBucketCount(
-      kErrorCodeMetric, AndroidBackendErrorType::kExternalError, 1);
-  histogram_tester.ExpectBucketCount(kAPIErrorMetric, kNetworkErrorCode, 1);
+      kBackendErrorCodeMetric, AndroidBackendErrorType::kExternalError, 1);
+  histogram_tester.ExpectBucketCount(kBackendApiErrorMetric, kNetworkErrorCode,
+                                     1);
   histogram_tester.ExpectBucketCount(kUnenrollmentHistogram, true, 1);
 
   // Per-operation retry histograms
@@ -861,7 +916,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
   EXPECT_CALL(
       mock_reply,
       Run(ExpectError(PasswordStoreBackendErrorType::kUncategorized,
-                      PasswordStoreBackendErrorRecoveryType::kRetriable)));
+                      PasswordStoreBackendErrorRecoveryType::kRecoverable)));
   consumer().OnError(kJobId, CreateNetworkError());
 
   RunUntilIdle();
@@ -878,14 +933,9 @@ TEST_F(PasswordStoreAndroidBackendTest,
             0);
   EXPECT_NE(prefs()->GetDouble(prefs::kTimeOfLastMigrationAttempt), 0.0);
 
-  const char kErrorCodeMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.ErrorCode";
-  const char kAPIErrorMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.APIError";
-
-  histogram_tester.ExpectBucketCount(kErrorCodeMetric, 7, 1);
+  histogram_tester.ExpectBucketCount(kBackendErrorCodeMetric, 7, 1);
   histogram_tester.ExpectBucketCount(
-      kAPIErrorMetric,
+      kBackendApiErrorMetric,
       static_cast<int>(AndroidBackendAPIErrorCode::kNetworkError), 1);
 
   // Per-operation retry histograms
@@ -1025,7 +1075,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
 }
 
 TEST_F(PasswordStoreAndroidBackendTest,
-       OnExternalPassphraseRequiredCausingExperimentUnenrollment) {
+       PassphraseRequiredErrorCausesUnenrollmentIfFixUnsupported) {
   base::HistogramTester histogram_tester;
 
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
@@ -1040,12 +1090,11 @@ TEST_F(PasswordStoreAndroidBackendTest,
       mock_reply,
       Run(ExpectError(PasswordStoreBackendErrorType::kUncategorized,
                       PasswordStoreBackendErrorRecoveryType::kUnrecoverable)));
-  AndroidBackendError error{AndroidBackendErrorType::kExternalError};
   // Simulate receiving PASSPHRASE_REQUIRED code.
   int kPassphraseRequiredErrorCode =
       static_cast<int>(AndroidBackendAPIErrorCode::kPassphraseRequired);
-  error.api_error_code = std::optional<int>(kPassphraseRequiredErrorCode);
-  consumer().OnError(kJobId, std::move(error));
+  consumer().OnError(kJobId, {.type = AndroidBackendErrorType::kExternalError,
+                              .api_error_code = kPassphraseRequiredErrorCode});
   RunUntilIdle();
 
   EXPECT_TRUE(prefs()->GetBoolean(
@@ -1056,17 +1105,55 @@ TEST_F(PasswordStoreAndroidBackendTest,
   EXPECT_EQ(prefs()->GetInteger(
                 prefs::kCurrentMigrationVersionToGoogleMobileServices),
             0);
+  EXPECT_FALSE(prefs()->GetBoolean(prefs::kSavePasswordsSuspendedByError));
   EXPECT_EQ(prefs()->GetDouble(prefs::kTimeOfLastMigrationAttempt), 0.0);
-
-  const char kErrorCodeMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.ErrorCode";
-  const char kAPIErrorMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.APIError";
-
-  histogram_tester.ExpectBucketCount(kErrorCodeMetric, 7, 1);
-  histogram_tester.ExpectBucketCount(kAPIErrorMetric,
+  histogram_tester.ExpectBucketCount(kBackendErrorCodeMetric, 7, 1);
+  histogram_tester.ExpectBucketCount(kBackendApiErrorMetric,
                                      kPassphraseRequiredErrorCode, 1);
   histogram_tester.ExpectBucketCount(kUnenrollmentHistogram, true, 1);
+}
+
+TEST_F(PasswordStoreAndroidBackendTest,
+       PassphraseRequiredErrorCausesNoUnenrollmentIfFixSupported) {
+  base::HistogramTester histogram_tester;
+
+  base::MockCallback<PasswordStoreAndroidBackend::TryFixPassphraseErrorCb>
+      try_fix_passphrase_error_cb;
+  ResetBackend(try_fix_passphrase_error_cb.Get());
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        PasswordStoreAndroidBackend::RemoteChangesReceived(),
+                        base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
+
+  base::MockCallback<LoginsOrErrorReply> mock_reply;
+  EXPECT_CALL(*bridge_helper(), GetAllLogins).WillOnce(Return(kJobId));
+  backend().GetAllLoginsAsync(mock_reply.Get());
+  EXPECT_CALL(
+      mock_reply,
+      Run(ExpectError(PasswordStoreBackendErrorType::kUncategorized,
+                      PasswordStoreBackendErrorRecoveryType::kRecoverable)));
+  EXPECT_CALL(try_fix_passphrase_error_cb, Run);
+  // Simulate receiving PASSPHRASE_REQUIRED code.
+  int kPassphraseRequiredErrorCode =
+      static_cast<int>(AndroidBackendAPIErrorCode::kPassphraseRequired);
+  consumer().OnError(kJobId, {.type = AndroidBackendErrorType::kExternalError,
+                              .api_error_code = kPassphraseRequiredErrorCode});
+  RunUntilIdle();
+
+  EXPECT_FALSE(prefs()->GetBoolean(
+      prefs::kUnenrolledFromGoogleMobileServicesDueToErrors));
+  EXPECT_EQ(prefs()->GetInteger(
+                prefs::kUnenrolledFromGoogleMobileServicesAfterApiErrorCode),
+            0);
+  EXPECT_NE(prefs()->GetInteger(
+                prefs::kCurrentMigrationVersionToGoogleMobileServices),
+            0);
+  EXPECT_NE(prefs()->GetDouble(prefs::kTimeOfLastMigrationAttempt), 0.0);
+  EXPECT_TRUE(prefs()->GetBoolean(prefs::kSavePasswordsSuspendedByError));
+  histogram_tester.ExpectBucketCount(kBackendErrorCodeMetric, 7, 1);
+  histogram_tester.ExpectBucketCount(kBackendApiErrorMetric,
+                                     kPassphraseRequiredErrorCode, 1);
+  histogram_tester.ExpectTotalCount(kUnenrollmentHistogram, 0);
 }
 
 TEST_F(PasswordStoreAndroidBackendTest,
@@ -1158,9 +1245,9 @@ TEST_F(PasswordStoreAndroidBackendTest, DisableAutoSignInForOrigins) {
 
   const JobId kUpdateJobId1{13388};
   // Forms are updated in reverse order.
-  EXPECT_CALL(*bridge_helper(),
-              UpdateLogin(FormWithDisabledAutoSignIn(form_to_update2),
-                          ExpectSyncingAccount(kTestAccount)))
+  EXPECT_CALL(
+      *bridge_helper(),
+      UpdateLogin(FormWithDisabledAutoSignIn(form_to_update2), kTestAccount))
       .WillOnce(Return(kUpdateJobId1));
 
   consumer().OnCompleteWithLogins(
@@ -1179,9 +1266,9 @@ TEST_F(PasswordStoreAndroidBackendTest, DisableAutoSignInForOrigins) {
       PasswordStoreChange(PasswordStoreChange::UPDATE,
                           FormWithDisabledAutoSignIn(form_to_update2)));
   const JobId kUpdateJobId2{13389};
-  EXPECT_CALL(*bridge_helper(),
-              UpdateLogin(FormWithDisabledAutoSignIn(form_to_update1),
-                          ExpectSyncingAccount(kTestAccount)))
+  EXPECT_CALL(
+      *bridge_helper(),
+      UpdateLogin(FormWithDisabledAutoSignIn(form_to_update1), kTestAccount))
       .WillOnce(Return(kUpdateJobId2));
   consumer().OnLoginsChanged(kUpdateJobId1, change1);
   RunUntilIdle();
@@ -1245,6 +1332,7 @@ TEST_F(PasswordStoreAndroidBackendTest, RecordClearedZombieTaskWithoutLatency) {
                         /*remote_form_changes_received=*/base::DoNothing(),
                         /*sync_enabled_or_disabled_cb=*/base::NullCallback(),
                         /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
   EXPECT_CALL(*bridge_helper(), AddLogin).WillOnce(Return(kJobId));
@@ -1292,6 +1380,7 @@ TEST_F(PasswordStoreAndroidBackendTest, RecordsRequestStartAndEndMetric) {
                         /*remote_form_changes_received=*/base::DoNothing(),
                         /*sync_enabled_or_disabled_cb=*/base::NullCallback(),
                         /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
   EXPECT_CALL(*bridge_helper(), AddLogin).WillOnce(Return(kJobId));
@@ -1317,6 +1406,9 @@ TEST_F(PasswordStoreAndroidBackendTest, RecordsRequestStartAndEndMetric) {
 
 TEST_F(PasswordStoreAndroidBackendTest,
        RecordActiveStatusOnSyncServiceInitialized) {
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        PasswordStoreAndroidBackend::RemoteChangesReceived(),
+                        base::NullCallback(), base::DoNothing());
   base::HistogramTester histogram_tester;
   sync_service()->GetUserSettings()->SetSelectedTypes(
       false, {syncer::UserSelectableType::kPasswords});
@@ -1327,6 +1419,9 @@ TEST_F(PasswordStoreAndroidBackendTest,
 
 TEST_F(PasswordStoreAndroidBackendTest, RecordInactiveStatusSyncOff) {
   base::HistogramTester histogram_tester;
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        PasswordStoreAndroidBackend::RemoteChangesReceived(),
+                        base::NullCallback(), base::DoNothing());
   sync_service()->GetUserSettings()->SetSelectedTypes(false, {});
   backend().OnSyncServiceInitialized(sync_service());
   histogram_tester.ExpectUniqueSample(
@@ -1335,6 +1430,9 @@ TEST_F(PasswordStoreAndroidBackendTest, RecordInactiveStatusSyncOff) {
 }
 
 TEST_F(PasswordStoreAndroidBackendTest, RecordInactiveStatusUnenrolled) {
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        PasswordStoreAndroidBackend::RemoteChangesReceived(),
+                        base::NullCallback(), base::DoNothing());
   base::HistogramTester histogram_tester;
   sync_service()->GetUserSettings()->SetSelectedTypes(
       false, {syncer::UserSelectableType::kPasswords});
@@ -1354,6 +1452,7 @@ TEST_F(PasswordStoreAndroidBackendTest, FillMatchingLoginsWithSchemeMismatch) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
 
   const JobId kFirstJobId{1337};
@@ -1389,6 +1488,7 @@ TEST_F(PasswordStoreAndroidBackendTest, GetGroupedMatchingLoginsAsync) {
   backend().InitBackend(&mock_affiliated_match_helper,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
 
   const JobId kFirstJobId{1337};
@@ -1443,6 +1543,7 @@ TEST_F(PasswordStoreAndroidBackendTest, CallsBridgeForGroupedMatchingLogins) {
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
   std::string TestURL1("https://example.com/");
   PasswordFormDigest form_digest(PasswordForm::Scheme::kHtml, TestURL1,
@@ -1499,6 +1600,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
   backend().InitBackend(&mock_affiliated_match_helper,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   std::vector<MockAffiliatedMatchHelper::AffiliationAndBrandingInformation>
       affiliation_info_for_results = {
           {kTestUrl, kTestAndroidName, GURL(kTestAndroidIconURL)},
@@ -1545,6 +1647,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
   backend().InitBackend(/*affiliated_match_helper=*/nullptr,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         base::NullCallback(), base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
   base::MockCallback<LoginsOrErrorReply> mock_reply;
   std::string TestURL1("https://example.com/");
   PasswordFormDigest form_digest(PasswordForm::Scheme::kHtml, TestURL1,
@@ -1583,7 +1686,7 @@ TEST_F(PasswordStoreAndroidBackendTest, DisablesAffiliationsPrefetching) {
   backend().OnSyncServiceInitialized(sync_service());
 }
 
-// Test suit to verify there is no unenrollment for most of the errors except
+// Test suite to verify there is no unenrollment for most of the errors except
 // Passphrase. Each backend operation is checked by a separate test.
 class PasswordStoreAndroidBackendWithoutUnenrollmentTest
     : public PasswordStoreAndroidBackendTest,
@@ -1607,8 +1710,13 @@ class PasswordStoreAndroidBackendWithoutUnenrollmentTest
   }
 
   bool IsRetriableError() {
-    return password_manager_upm_eviction::ShouldRetryOnApiError(
-        static_cast<int>(GetParam().first));
+    const base::flat_set<AndroidBackendAPIErrorCode> kRetriableErrors = {
+        AndroidBackendAPIErrorCode::kNetworkError,
+        AndroidBackendAPIErrorCode::kApiNotConnected,
+        AndroidBackendAPIErrorCode::kConnectionSuspendedDuringCall,
+        AndroidBackendAPIErrorCode::kReconnectionTimedOut,
+        AndroidBackendAPIErrorCode::kBackendGeneric};
+    return kRetriableErrors.contains(GetParam().first);
   }
 
   PasswordStoreBackendErrorRecoveryType RecoveryType() {
@@ -1865,9 +1973,10 @@ INSTANTIATE_TEST_SUITE_P(
                         PasswordStoreBackendErrorType::kUncategorized),
          std::make_pair(AndroidBackendAPIErrorCode::kAuthErrorResolvable,
                         PasswordStoreBackendErrorType::kAuthErrorResolvable),
-         std::make_pair(
-             AndroidBackendAPIErrorCode::kAuthErrorUnresolvable,
-             PasswordStoreBackendErrorType::kAuthErrorUnresolvable)}),
+         std::make_pair(AndroidBackendAPIErrorCode::kAuthErrorUnresolvable,
+                        PasswordStoreBackendErrorType::kAuthErrorUnresolvable),
+         std::make_pair(AndroidBackendAPIErrorCode::kKeyRetrievalRequired,
+                        PasswordStoreBackendErrorType::kKeyRetrievalRequired)}),
     [](const ::testing::TestParamInfo<
         std::pair<AndroidBackendAPIErrorCode, PasswordStoreBackendErrorType>>&
            info) {
@@ -1889,6 +1998,7 @@ TEST_P(PasswordStoreAndroidBackendTestForMetrics, GetAllLoginsAsyncMetrics) {
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         /*sync_enabled_or_disabled_cb=*/base::NullCallback(),
                         /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
 
   const char kGetAllLoginsMethodName[] = "GetAllLoginsAsync";
   const std::string kDurationMetric =
@@ -1935,6 +2045,7 @@ TEST_P(PasswordStoreAndroidBackendTestForMetrics, AddLoginAsyncMetrics) {
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         /*sync_enabled_or_disabled_cb=*/base::NullCallback(),
                         /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
 
   const char kAddLoginMethodName[] = "AddLoginAsync";
   const std::string kDurationMetric = DurationMetricName(kAddLoginMethodName);
@@ -1981,6 +2092,7 @@ TEST_P(PasswordStoreAndroidBackendTestForMetrics, UpdateLoginAsyncMetrics) {
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         /*sync_enabled_or_disabled_cb=*/base::NullCallback(),
                         /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
 
   const char kUpdateLoginMethodName[] = "UpdateLoginAsync";
   const std::string kDurationMetric =
@@ -2029,6 +2141,7 @@ TEST_P(PasswordStoreAndroidBackendTestForMetrics, RemoveLoginAsyncMetrics) {
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         /*sync_enabled_or_disabled_cb=*/base::NullCallback(),
                         /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
 
   const char kRemoveLoginMethodName[] = "RemoveLoginAsync";
   const std::string kDurationMetric =
@@ -2077,6 +2190,7 @@ TEST_P(PasswordStoreAndroidBackendTestForMetrics,
                         PasswordStoreAndroidBackend::RemoteChangesReceived(),
                         /*sync_enabled_or_disabled_cb=*/base::NullCallback(),
                         /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
 
   const char kGetAutofillableLoginsMethodName[] = "GetAutofillableLoginsAsync";
   const std::string kDurationMetric =

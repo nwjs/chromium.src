@@ -18,12 +18,22 @@ import '../../settings_shared.css.js';
 
 import {App, Locale} from 'chrome://resources/cr_components/app_management/app_management.mojom-webui.js';
 import {getAppIcon} from 'chrome://resources/cr_components/app_management/util.js';
+import {PrefsMixin} from 'chrome://resources/cr_components/settings_prefs/prefs_mixin.js';
 import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
 import {CrSearchFieldElement} from 'chrome://resources/cr_elements/cr_search_field/cr_search_field.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {DomRepeatEvent, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {AppManagementBrowserProxy} from '../app_management/browser_proxy.js';
+
 import {getTemplate} from './app_language_selection_dialog.html.js';
+
+// Keep this in sync with tools/metrics/histograms/metadata/arc/histograms.xml
+// Arc.AppLanguageSwitch.{SettingsPage}.TargetLanguage.
+export enum AppLanguageSelectionDialogEntryPoint {
+  APPS_MANAGEMENT_PAGE = 'AppsManagementPage',
+  LANGUAGES_PAGE = 'LanguagesPage',
+}
 
 export interface AppLanguageSelectionDialogElement {
   $: {
@@ -32,7 +42,8 @@ export interface AppLanguageSelectionDialogElement {
   };
 }
 
-const AppLanguageSelectionDialogElementBase = I18nMixin(PolymerElement);
+const AppLanguageSelectionDialogElementBase =
+    PrefsMixin(I18nMixin(PolymerElement));
 
 export class AppLanguageSelectionDialogElement extends
     AppLanguageSelectionDialogElementBase {
@@ -52,11 +63,16 @@ export class AppLanguageSelectionDialogElement extends
         computed:
             'getFilteredLanguages_(searchQuery_.length, suggestedLanguages_)',
       },
+      entryPoint: String,
     };
   }
 
+  // Public API: Bidirectional data flow.
+  // prefs is provided by PrefsMixin.
+
   // App must be present when this dialog is shown.
   app: App;
+  entryPoint: AppLanguageSelectionDialogEntryPoint;
   private suggestedLanguages_: Locale[] = [];
   private filteredLanguages_: Locale[] = [];
   private selectedLanguage_?: Locale;
@@ -72,7 +88,13 @@ export class AppLanguageSelectionDialogElement extends
   }
 
   private onActionButtonClick_(): void {
-    // TODO(b/261200827): Sends `selectedLanguage_` data to ARC.
+    AppManagementBrowserProxy.getInstance().handler.setAppLocale(
+        this.app.id,
+        this.selectedLanguage_!.localeTag,
+    );
+    chrome.metricsPrivate.recordSparseValueWithHashMetricName(
+        `Arc.AppLanguageSwitch.${this.entryPoint}.TargetLanguage`,
+        this.selectedLanguage_!.localeTag);
     this.$.dialog.close();
   }
 
@@ -149,7 +171,16 @@ export class AppLanguageSelectionDialogElement extends
       // Set device language as selected if no other locale selected.
       this.selectedLanguage_ = defaultDeviceLanguage;
     }
-    // TODO(b/261200827): Add last-selected-language from other apps.
+    const lastSetAppLocaleTag = this.getPref('arc.last_set_app_locale').value;
+    // Add last-set-app-locale into suggestions if it's supported by app and
+    // hasn't been included yet.
+    const lastSetAppLocale = this.app.supportedLocales.find(
+        locale => locale.localeTag === lastSetAppLocaleTag);
+    if (lastSetAppLocale &&
+        !suggestedLanguages.find(
+            locale => locale.localeTag === lastSetAppLocale.localeTag)) {
+      suggestedLanguages.push(lastSetAppLocale);
+    }
 
     this.suggestedLanguages_ = suggestedLanguages;
   }

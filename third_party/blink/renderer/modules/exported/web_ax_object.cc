@@ -215,14 +215,14 @@ void WebAXObject::MarkSerializerSubtreeDirty() const {
   private_->AXObjectCache().MarkSerializerSubtreeDirty(*private_);
 }
 
-void WebAXObject::MarkAXObjectDirtyWithDetails(
+void WebAXObject::AddDirtyObjectToSerializationQueue(
     bool subtree,
     ax::mojom::blink::EventFrom event_from,
     ax::mojom::blink::Action event_from_action,
     std::vector<ui::AXEventIntent> event_intents) const {
   if (IsDetached())
     return;
-  private_->AXObjectCache().MarkAXObjectDirtyWithDetails(
+  private_->AXObjectCache().AddDirtyObjectToSerializationQueue(
       private_.Get(), subtree, event_from, event_from_action, event_intents);
 }
 
@@ -573,8 +573,9 @@ bool WebAXObject::SetSelection(const WebAXObject& anchor_object,
                                int anchor_offset,
                                const WebAXObject& focus_object,
                                int focus_offset) const {
-  if (IsDetached() || anchor_object.IsDetached() || focus_object.IsDetached())
+  if (IsDetached() || anchor_object.IsDetached() || focus_object.IsDetached()) {
     return false;
+  }
 
   ScopedActionAnnotator annotater(private_.Get(),
                                   ax::mojom::blink::Action::kSetSelection);
@@ -1085,7 +1086,7 @@ WebAXObject WebAXObject::FromWebDocument(const WebDocument& web_document) {
   DCHECK(cache);
   if (!cache->Root())
     return WebAXObject();  // Accessibility not yet active in this cache.
-  return WebAXObject(cache->GetOrCreate(document));
+  return WebAXObject(cache->Get(document));
 }
 
 // static

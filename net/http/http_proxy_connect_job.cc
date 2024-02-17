@@ -30,7 +30,7 @@
 #include "net/nqe/network_quality_estimator.h"
 #include "net/quic/quic_http_utils.h"
 #include "net/quic/quic_proxy_client_socket.h"
-#include "net/quic/quic_stream_factory.h"
+#include "net/quic/quic_session_pool.h"
 #include "net/socket/client_socket_handle.h"
 #include "net/socket/next_proto.h"
 #include "net/socket/ssl_client_socket.h"
@@ -246,14 +246,16 @@ LoadState HttpProxyConnectJob::GetLoadState() const {
 }
 
 bool HttpProxyConnectJob::HasEstablishedConnection() const {
-  if (has_established_connection_)
+  if (has_established_connection_) {
     return true;
+  }
 
   // It's possible the nested connect job has established a connection, but
   // hasn't completed yet (For example, an SSLConnectJob may be negotiating
   // SSL).
-  if (nested_connect_job_)
+  if (nested_connect_job_) {
     return nested_connect_job_->HasEstablishedConnection();
+  }
   return false;
 }
 
@@ -300,13 +302,15 @@ base::TimeDelta HttpProxyConnectJob::AlternateNestedConnectionTimeout(
 
   bool is_https = params.proxy_server().is_https();
 
-  if (!network_quality_estimator)
+  if (!network_quality_estimator) {
     return default_alternate_timeout;
+  }
 
   absl::optional<base::TimeDelta> http_rtt_estimate =
       network_quality_estimator->GetHttpRTT();
-  if (!http_rtt_estimate)
+  if (!http_rtt_estimate) {
     return default_alternate_timeout;
+  }
 
   int32_t multiplier =
       is_https ? GetProxyTimeoutExperiments()->ssl_http_rtt_multiplier()
@@ -581,15 +585,17 @@ int HttpProxyConnectJob::DoHttpProxyConnectComplete(int result) {
     return ERR_IO_PENDING;
   }
 
-  if (result == ERR_HTTP_1_1_REQUIRED)
+  if (result == ERR_HTTP_1_1_REQUIRED) {
     return ERR_PROXY_HTTP_1_1_REQUIRED;
+  }
 
   // In TLS 1.2 with False Start or TLS 1.3, alerts from the server rejecting
   // our client certificate are received at the first Read(), not Connect(), so
   // the error mapping in DoTransportConnectComplete does not apply. Repeat the
   // mapping here.
-  if (result == ERR_BAD_SSL_CLIENT_AUTH_CERT)
+  if (result == ERR_BAD_SSL_CLIENT_AUTH_CERT) {
     return ERR_PROXY_CONNECTION_FAILED;
+  }
 
   if (result == OK) {
     SetSocket(std::move(transport_socket_), /*dns_aliases=*/absl::nullopt);
@@ -643,8 +649,9 @@ int HttpProxyConnectJob::DoSpdyProxyCreateStreamComplete(int result) {
     // typically also fail here, as a result of SpdyProxyClientSocket::Connect()
     // below, but the error may surface out of SpdyStreamRequest if there were
     // enough requests in parallel that stream creation became asynchronous.
-    if (result == ERR_BAD_SSL_CLIENT_AUTH_CERT)
+    if (result == ERR_BAD_SSL_CLIENT_AUTH_CERT) {
       result = ERR_PROXY_CONNECTION_FAILED;
+    }
 
     spdy_stream_request_.reset();
     return result;
@@ -676,13 +683,13 @@ int HttpProxyConnectJob::DoQuicProxyCreateSession() {
 
   next_state_ = STATE_QUIC_PROXY_CREATE_STREAM;
   const HostPortPair& proxy_server = params_->proxy_server().host_port_pair();
-  quic_stream_request_ = std::make_unique<QuicStreamRequest>(
-      common_connect_job_params()->quic_stream_factory);
+  quic_session_request_ = std::make_unique<QuicSessionRequest>(
+      common_connect_job_params()->quic_session_pool);
 
   // Use default QUIC version, which is the version listed supported version.
   quic::ParsedQuicVersion quic_version =
       common_connect_job_params()->quic_supported_versions->front();
-  return quic_stream_request_->Request(
+  return quic_session_request_->Request(
       // TODO(crbug.com/1206799) Pass the destination directly once it's
       // converted to contain scheme.
       url::SchemeHostPort(url::kHttpsScheme, proxy_server.host(),
@@ -701,13 +708,13 @@ int HttpProxyConnectJob::DoQuicProxyCreateSession() {
 
 int HttpProxyConnectJob::DoQuicProxyCreateStream(int result) {
   if (result < 0) {
-    quic_stream_request_.reset();
+    quic_session_request_.reset();
     return result;
   }
 
   next_state_ = STATE_QUIC_PROXY_CREATE_STREAM_COMPLETE;
-  quic_session_ = quic_stream_request_->ReleaseSessionHandle();
-  quic_stream_request_.reset();
+  quic_session_ = quic_session_request_->ReleaseSessionHandle();
+  quic_session_request_.reset();
 
   return quic_session_->RequestStream(
       false,
@@ -717,8 +724,9 @@ int HttpProxyConnectJob::DoQuicProxyCreateStream(int result) {
 }
 
 int HttpProxyConnectJob::DoQuicProxyCreateStreamComplete(int result) {
-  if (result < 0)
+  if (result < 0) {
     return result;
+  }
 
   next_state_ = STATE_HTTP_PROXY_CONNECT_COMPLETE;
   std::unique_ptr<QuicChromiumClientStream::Handle> quic_stream =
@@ -751,8 +759,9 @@ int HttpProxyConnectJob::DoRestartWithAuth() {
 int HttpProxyConnectJob::DoRestartWithAuthComplete(int result) {
   DCHECK_NE(ERR_IO_PENDING, result);
 
-  if (result == OK && !transport_socket_->IsConnected())
+  if (result == OK && !transport_socket_->IsConnected()) {
     result = ERR_UNABLE_TO_REUSE_CONNECTION_FOR_PROXY_AUTH;
+  }
 
   // If the connection could not be reused to attempt to send proxy auth
   // credentials, try reconnecting. Do not reset the HttpAuthController in this
@@ -772,8 +781,9 @@ int HttpProxyConnectJob::DoRestartWithAuthComplete(int result) {
 
     // Release any auth state bound to the connection. The new connection will
     // start the current scheme and identity from scratch.
-    if (http_auth_controller_)
+    if (http_auth_controller_) {
       http_auth_controller_->OnConnectionClosed();
+    }
   }
 
   if (reconnect) {
@@ -792,13 +802,15 @@ int HttpProxyConnectJob::DoRestartWithAuthComplete(int result) {
 
 void HttpProxyConnectJob::ChangePriorityInternal(RequestPriority priority) {
   // Do not set the priority on |spdy_stream_request_| or
-  // |quic_stream_request_|, since those should always use
+  // |quic_session_request_|, since those should always use
   // kH2QuicTunnelPriority.
-  if (nested_connect_job_)
+  if (nested_connect_job_) {
     nested_connect_job_->ChangePriority(priority);
+  }
 
-  if (transport_socket_)
+  if (transport_socket_) {
     transport_socket_->SetStreamPriority(priority);
+  }
 }
 
 void HttpProxyConnectJob::OnTimedOutInternal() {
@@ -823,8 +835,9 @@ void HttpProxyConnectJob::OnAuthChallenge() {
 }
 
 std::string HttpProxyConnectJob::GetUserAgent() const {
-  if (!http_user_agent_settings())
+  if (!http_user_agent_settings()) {
     return std::string();
+  }
   return http_user_agent_settings()->GetUserAgent();
 }
 

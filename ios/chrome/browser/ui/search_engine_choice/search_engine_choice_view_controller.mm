@@ -20,26 +20,21 @@
 #import "ios/chrome/common/ui/util/device_util.h"
 #import "ios/chrome/common/ui/util/sdk_forward_declares.h"
 #import "net/base/mac/url_conversions.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
 
 namespace {
 
-// Accessibility Identifier.
-NSString* const kSearchEngineChoiceTitleAccessibilityIdentifier =
-    @"SearchEngineChoiceTitleAccessibilityIdentifier";
 // Line width for the bottom separator.
 constexpr CGFloat kLineWidth = 1.;
 // The horizontal space between the safe area edges and the view elements.
 constexpr CGFloat kHorizontalInsets = -48.;
 // Space between the Chrome logo and the top of the screen.
 constexpr CGFloat kTopSpacing = 40.;
-// Spacing between the elements of the top stack view.
-constexpr CGFloat kTopStackViewSpacing = 16.;
-// Space above and below the primary button.
-constexpr CGFloat kPrimaryButtonPadding = 14.;
-// Primary button height.
-constexpr CGFloat kPrimaryButtonHeight = 50.;
+// Space between the elements of the top stack view and around the primary
+// button.
+constexpr CGFloat kDefaultMargin = 16.;
 // Logo dimensions.
 constexpr CGFloat kLogoSize = 50.;
 // The minimum height of the search engines table.
@@ -84,15 +79,18 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
   // Scrollable content containing everything above the primary button.
   UIScrollView* _scrollView;
   UIView* _scrollContentView;
+  // Whether the choice screen is being displayed for the FRE.
+  BOOL _isForFRE;
 }
 
 - (instancetype)initWithSearchEngineTableViewController:
-    (SearchEngineChoiceTableViewController*)tableViewController {
-  DCHECK(tableViewController);
-
+                    (SearchEngineChoiceTableViewController*)tableViewController
+                                                 forFRE:(BOOL)isForFRE {
+  CHECK(tableViewController);
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
     _searchEngineTableViewController = tableViewController;
+    _isForFRE = isForFRE;
   }
   return self;
 }
@@ -118,7 +116,7 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
   _topZoneStackView = [[UIStackView alloc] init];
   [_scrollContentView addSubview:_topZoneStackView];
   _topZoneStackView.axis = UILayoutConstraintAxisVertical;
-  _topZoneStackView.spacing = kTopStackViewSpacing;
+  _topZoneStackView.spacing = kDefaultMargin;
   _topZoneStackView.distribution = UIStackViewDistributionEqualSpacing;
   _topZoneStackView.alignment = UIStackViewAlignmentCenter;
   _topZoneStackView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -139,6 +137,10 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
   _logoView.translatesAutoresizingMaskIntoConstraints = NO;
 
   _titleLabel = [[UILabel alloc] init];
+  // Add semantic group to have a coherent behaviour with the table view and
+  // the primary button, this is related to VoiceOver.
+  _titleLabel.accessibilityContainerType =
+      UIAccessibilityContainerTypeSemanticGroup;
   [_topZoneStackView addArrangedSubview:_titleLabel];
   [_titleLabel
       setText:l10n_util::GetNSString(IDS_SEARCH_ENGINE_CHOICE_PAGE_TITLE)];
@@ -155,8 +157,8 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
   _fakeEmptyOmniboxView =
       [[FakeOmniboxView alloc] initWithSearchEngineName:nil faviconImage:nil];
   [_topZoneStackView addArrangedSubview:_fakeEmptyOmniboxView];
-  if (self.traitCollection.verticalSizeClass ==
-      UIUserInterfaceSizeClassCompact) {
+  if ([self shouldHideFakeOmniboxForVerticalSizeClass:self.traitCollection
+                                                          .verticalSizeClass]) {
     _fakeEmptyOmniboxView.hidden = YES;
   }
   _fakeEmptyOmniboxView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -219,6 +221,11 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
   [_primaryButton addTarget:self
                      action:@selector(primaryButtonAction)
            forControlEvents:UIControlEventTouchUpInside];
+  // Add semantic group, so the user can skip all the table view cells, and
+  // jump to the primary button, using VoiceOver. This requires to set
+  // `semantic group` to the button too.
+  _primaryButton.accessibilityContainerType =
+      UIAccessibilityContainerTypeSemanticGroup;
 
   [NSLayoutConstraint activateConstraints:@[
     // Scroll view constraints.
@@ -256,17 +263,15 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
 
     [_primaryButton.bottomAnchor
         constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor
-                       constant:-kPrimaryButtonPadding],
+                       constant:-kDefaultMargin],
     [_primaryButton.widthAnchor constraintEqualToAnchor:self.view.widthAnchor
                                                constant:kHorizontalInsets],
-    [_primaryButton.heightAnchor
-        constraintEqualToConstant:kPrimaryButtonHeight],
 
     [_separatorView.widthAnchor constraintEqualToAnchor:self.view.widthAnchor],
     [_separatorView.heightAnchor constraintEqualToConstant:kLineWidth],
     [_separatorView.bottomAnchor
         constraintEqualToAnchor:_primaryButton.topAnchor
-                       constant:-kPrimaryButtonPadding],
+                       constant:-kDefaultMargin],
 
     [searchEngineTableView.widthAnchor
         constraintEqualToAnchor:_scrollContentView.widthAnchor],
@@ -308,8 +313,8 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
   _fakeOmniboxView.translatesAutoresizingMaskIntoConstraints = NO;
   [_topZoneStackView addSubview:_fakeOmniboxView];
   AddSameConstraints(_fakeOmniboxView, _fakeEmptyOmniboxView);
-  if (self.traitCollection.verticalSizeClass ==
-      UIUserInterfaceSizeClassCompact) {
+  if ([self shouldHideFakeOmniboxForVerticalSizeClass:self.traitCollection
+                                                          .verticalSizeClass]) {
     // If the vertical size is compact, the new fake omnibox should be added but
     // hidden (just in case the user rotate the device in portrait mode).
     // And the previous fake omnibox should be removed.
@@ -355,12 +360,6 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
                    completion:nil];
 }
 
-#pragma mark - SearchEngineChoiceFaviconUpdateConsumer
-
-- (void)updateFaviconImageForItem:(SnippetSearchEngineItem*)item {
-  _fakeOmniboxView.faviconImage = item.faviconImage;
-}
-
 #pragma mark - Private
 
 - (void)primaryButtonAction {
@@ -373,6 +372,15 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
                                               _scrollView.contentInset.bottom);
     [_scrollView setContentOffset:bottomOffset animated:YES];
   }
+}
+
+// Whether the choice screen should hide the fake omnibox illustration.
+- (BOOL)shouldHideFakeOmniboxForVerticalSizeClass:
+    (UIUserInterfaceSizeClass)sizeClass {
+  // Hide the fake omnibox for the FRE on iPads or in landscape mode on iPhones.
+  return sizeClass == UIUserInterfaceSizeClassCompact ||
+         (_isForFRE && (ui::GetDeviceFormFactor() ==
+                        ui::DeviceFormFactor::DEVICE_FORM_FACTOR_TABLET));
 }
 
 #pragma mark - UITextViewDelegate
@@ -398,10 +406,14 @@ const char* const kLearnMoreURL = "internal://choice-screen-learn-more";
     case UIUserInterfaceSizeClassRegular:
       _logoView.alpha = 1;
       _logoView.hidden = NO;
-      _fakeEmptyOmniboxView.alpha = 1;
-      _fakeEmptyOmniboxView.hidden = NO;
-      _fakeOmniboxView.alpha = 1;
-      _fakeOmniboxView.hidden = NO;
+      // The fake omnibox stays hidden in the FRE for iPads.
+      if (![self shouldHideFakeOmniboxForVerticalSizeClass:
+                     UIUserInterfaceSizeClassRegular]) {
+        _fakeEmptyOmniboxView.alpha = 1;
+        _fakeEmptyOmniboxView.hidden = NO;
+        _fakeOmniboxView.alpha = 1;
+        _fakeOmniboxView.hidden = NO;
+      }
       break;
 
     case UIUserInterfaceSizeClassCompact:

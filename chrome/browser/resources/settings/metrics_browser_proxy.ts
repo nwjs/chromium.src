@@ -577,6 +577,37 @@ export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
         [histogramName, state, SafetyHubCardState.MAX_VALUE]);
   }
 
+  recordSafetyHubEntryPointShown(page: SafetyHubEntryPoint) {
+    chrome.send('metricsHandler:recordInHistogram', [
+      'Settings.SafetyHub.EntryPointImpression',
+      page,
+      SafetyHubEntryPoint.MAX_VALUE,
+    ]);
+  }
+
+  recordSafetyHubEntryPointClicked(page: SafetyHubEntryPoint) {
+    chrome.send('metricsHandler:recordInHistogram', [
+      'Settings.SafetyHub.EntryPointInteraction',
+      page,
+      SafetyHubEntryPoint.MAX_VALUE,
+    ]);
+  }
+
+  recordSafetyHubModuleWarningImpression(module: SafetyHubModuleType) {
+    chrome.send('metricsHandler:recordInHistogram', [
+      'Settings.SafetyHub.DashboardWarning',
+      module,
+      SafetyHubModuleType.MAX_VALUE,
+    ]);
+  }
+
+  recordSafetyHubDashboardAnyWarning(visible: boolean) {
+    chrome.send('metricsHandler:recordBooleanHistogram', [
+      'Settings.SafetyHub.HasDashboardShowAnyWarning',
+      visible,
+    ]);
+  }
+
   recordSafetyHubNotificationPermissionsModuleInteractionsHistogram(
       interaction: SafetyCheckNotificationsModuleInteractions) {
     chrome.send('metricsHandler:recordInHistogram', [
@@ -610,37 +641,6 @@ export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
       'Settings.SafetyHub.UnusedSitePermissionsModule.ListCount',
       suggestions,
       99 /*max value for Unused Site Permissions suggestions*/,
-    ]);
-  }
-
-  recordSafetyHubEntryPointShown(page: SafetyHubEntryPoint) {
-    chrome.send('metricsHandler:recordInHistogram', [
-      'Settings.SafetyHub.EntryPointImpression',
-      page,
-      SafetyHubEntryPoint.MAX_VALUE,
-    ]);
-  }
-
-  recordSafetyHubEntryPointClicked(page: SafetyHubEntryPoint) {
-    chrome.send('metricsHandler:recordInHistogram', [
-      'Settings.SafetyHub.EntryPointInteraction',
-      page,
-      SafetyHubEntryPoint.MAX_VALUE,
-    ]);
-  }
-
-  recordSafetyHubModuleWarningImpression(module: SafetyHubModuleType) {
-    chrome.send('metricsHandler:recordInHistogram', [
-      'Settings.SafetyHub.DashboardWarning',
-      module,
-      SafetyHubModuleType.MAX_VALUE,
-    ]);
-  }
-
-  recordSafetyHubDashboardAnyWarning(visible: boolean) {
-    chrome.send('metricsHandler:recordBooleanHistogram', [
-      'Settings.SafetyHub.HasDashboardShowAnyWarning',
-      visible,
     ]);
   }
 

@@ -30,11 +30,11 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
 
-#if !BUILDFLAG(IS_IOS)
+#if BUILDFLAG(USE_BLINK)
 #include "base/process/launch.h"
 #endif
 
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_POSIX)
 #include "base/posix/global_descriptors.h"
 #endif
 
@@ -45,6 +45,11 @@
 namespace base {
 
 namespace {
+
+#if BUILDFLAG(USE_BLINK)
+// Pick an arbitrary FD number to use for the shmem FD in the child.
+const uint32_t kFDKey = 42;
+#endif
 
 // Default group name used by several tests.
 const char kDefaultGroupName[] = "DefaultGroup";
@@ -916,35 +921,6 @@ class FieldTrialListTest : public ::testing::Test {
   test::ScopedFeatureList scoped_feature_list_;
 };
 
-#if !BUILDFLAG(IS_IOS)
-// LaunchOptions is not available on iOS.
-TEST_F(FieldTrialListTest, TestCopyFieldTrialStateToFlags) {
-  test::ScopedFeatureList scoped_feature_list1;
-  scoped_feature_list1.InitWithEmptyFeatureAndFieldTrialLists();
-  std::unique_ptr<FeatureList> feature_list(new FeatureList);
-  feature_list->InitFromCommandLine("A,B", "C");
-
-  FieldTrial* trial = FieldTrialList::CreateFieldTrial("Trial1", "Group1");
-  feature_list->RegisterFieldTrialOverride(
-      "MyFeature", FeatureList::OVERRIDE_ENABLE_FEATURE, trial);
-
-  test::ScopedFeatureList scoped_feature_list2;
-  scoped_feature_list2.InitWithFeatureList(std::move(feature_list));
-
-  FilePath test_file_path = FilePath(FILE_PATH_LITERAL("Program"));
-  CommandLine command_line = CommandLine(test_file_path);
-  LaunchOptions launch_options;
-
-  FieldTrialList::PopulateLaunchOptionsWithFieldTrialState(&command_line,
-                                                           &launch_options);
-  EXPECT_TRUE(command_line.HasSwitch(switches::kFieldTrialHandle));
-
-  // Explicitly specified enabled/disabled features should be specified.
-  EXPECT_EQ("A,B", command_line.GetSwitchValueASCII(switches::kEnableFeatures));
-  EXPECT_EQ("C", command_line.GetSwitchValueASCII(switches::kDisableFeatures));
-}
-#endif  // !BUILDFLAG(IS_IOS)
-
 TEST_F(FieldTrialListTest, InstantiateAllocator) {
   test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithEmptyFeatureAndFieldTrialLists();
@@ -1177,19 +1153,42 @@ MULTIPROCESS_TEST_MAIN(SerializeSharedMemoryRegionMetadata) {
   std::string guid_string =
       CommandLine::ForCurrentProcess()->GetSwitchValueASCII("guid");
 
-  int fd = 42;
-#if BUILDFLAG(IS_ANDROID)
-  fd = base::GlobalDescriptors::GetInstance()->MaybeGet(42);
-  CHECK_NE(fd, -1);
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID)
+  // Since the fd value will be mapped from the global descriptors singleton,
+  // set it there. We use the same value both for the key and the actual fd for
+  // simplicity.
+  // Note: On Android, the launch service already sets up the mapping.
+  base::GlobalDescriptors::GetInstance()->Set(kFDKey, kFDKey);
 #endif
 
-  base::ReadOnlySharedMemoryRegion deserialized =
-      FieldTrialList::DeserializeSharedMemoryRegionMetadata(serialized, fd);
+  auto result =
+      FieldTrialList::DeserializeSharedMemoryRegionMetadata(serialized, kFDKey);
+  CHECK(result.has_value());
+  base::ReadOnlySharedMemoryRegion& deserialized = result.value();
   CHECK(deserialized.IsValid());
   CHECK_EQ(deserialized.GetGUID().ToString(), guid_string);
   CHECK(!deserialized.GetGUID().is_empty());
 
   return 0;
+}
+
+// Verify that the field trial shared memory handle is really read-only, and
+// does not allow writable mappings.
+TEST_F(FieldTrialListTest, CheckReadOnlySharedMemoryRegion) {
+  test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithEmptyFeatureAndFieldTrialLists();
+
+  FieldTrialList::CreateFieldTrial("Trial1", "Group1");
+
+  FieldTrialList::InstantiateFieldTrialAllocatorIfNeeded();
+
+  base::ReadOnlySharedMemoryRegion region =
+      FieldTrialList::DuplicateFieldTrialSharedMemoryForTesting();
+  ASSERT_TRUE(region.IsValid());
+
+  ASSERT_TRUE(CheckReadOnlyPlatformSharedMemoryRegionForTesting(
+      base::ReadOnlySharedMemoryRegion::TakeHandleForSerialization(
+          std::move(region))));
 }
 
 TEST_F(FieldTrialListTest, SerializeSharedMemoryRegionMetadata) {
@@ -1207,8 +1206,7 @@ TEST_F(FieldTrialListTest, SerializeSharedMemoryRegionMetadata) {
 #else
   int shm_fd = shm.region.GetPlatformHandle().fd;
 #endif  // BUILDFLAG(IS_ANDROID)
-  // Pick an arbitrary FD number to use for the shmem FD in the child.
-  options.fds_to_remap.emplace_back(std::make_pair(shm_fd, 42));
+  options.fds_to_remap.emplace_back(std::make_pair(shm_fd, kFDKey));
 #endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE)
 
   CommandLine cmd_line = GetMultiProcessTestChildBaseCommandLine();
@@ -1223,26 +1221,32 @@ TEST_F(FieldTrialListTest, SerializeSharedMemoryRegionMetadata) {
       process, TestTimeouts::action_timeout(), &exit_code));
   EXPECT_EQ(0, exit_code);
 }
-#endif  // BUILDFLAG(USE_BLINK)
 
-// Verify that the field trial shared memory handle is really read-only, and
-// does not allow writable mappings.
-#if BUILDFLAG(USE_BLINK)
-TEST_F(FieldTrialListTest, CheckReadOnlySharedMemoryRegion) {
-  test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithEmptyFeatureAndFieldTrialLists();
+// LaunchOptions is not available on iOS for WebKit.
+TEST_F(FieldTrialListTest, TestCopyFieldTrialStateToFlags) {
+  test::ScopedFeatureList scoped_feature_list1;
+  scoped_feature_list1.InitWithEmptyFeatureAndFieldTrialLists();
+  std::unique_ptr<FeatureList> feature_list(new FeatureList);
+  feature_list->InitFromCommandLine("A,B", "C");
 
-  FieldTrialList::CreateFieldTrial("Trial1", "Group1");
+  FieldTrial* trial = FieldTrialList::CreateFieldTrial("Trial1", "Group1");
+  feature_list->RegisterFieldTrialOverride(
+      "MyFeature", FeatureList::OVERRIDE_ENABLE_FEATURE, trial);
 
-  FieldTrialList::InstantiateFieldTrialAllocatorIfNeeded();
+  test::ScopedFeatureList scoped_feature_list2;
+  scoped_feature_list2.InitWithFeatureList(std::move(feature_list));
 
-  base::ReadOnlySharedMemoryRegion region =
-      FieldTrialList::DuplicateFieldTrialSharedMemoryForTesting();
-  ASSERT_TRUE(region.IsValid());
+  FilePath test_file_path = FilePath(FILE_PATH_LITERAL("Program"));
+  CommandLine command_line = CommandLine(test_file_path);
+  LaunchOptions launch_options;
 
-  ASSERT_TRUE(CheckReadOnlyPlatformSharedMemoryRegionForTesting(
-      base::ReadOnlySharedMemoryRegion::TakeHandleForSerialization(
-          std::move(region))));
+  FieldTrialList::PopulateLaunchOptionsWithFieldTrialState(&command_line,
+                                                           &launch_options);
+  EXPECT_TRUE(command_line.HasSwitch(switches::kFieldTrialHandle));
+
+  // Explicitly specified enabled/disabled features should be specified.
+  EXPECT_EQ("A,B", command_line.GetSwitchValueASCII(switches::kEnableFeatures));
+  EXPECT_EQ("C", command_line.GetSwitchValueASCII(switches::kDisableFeatures));
 }
 #endif  // BUILDFLAG(USE_BLINK)
 
@@ -1374,7 +1378,8 @@ TEST_F(FieldTrialTest, ObserveIncludingLowAnonymity) {
 
 TEST_F(FieldTrialTest, ParseFieldTrialsString) {
   std::vector<FieldTrial::State> entries;
-  ASSERT_TRUE(FieldTrial::ParseFieldTrialsString("Trial1/Group1", entries));
+  ASSERT_TRUE(FieldTrial::ParseFieldTrialsString(
+      "Trial1/Group1", /*override_trials=*/false, entries));
 
   ASSERT_EQ(entries.size(), 1ul);
   const FieldTrial::State& entry = entries[0];
@@ -1387,7 +1392,7 @@ TEST_F(FieldTrialTest, ParseFieldTrialsString) {
 TEST_F(FieldTrialTest, ParseFieldTrialsStringTwoStudies) {
   std::vector<FieldTrial::State> entries;
   ASSERT_TRUE(FieldTrial::ParseFieldTrialsString(
-      "Trial1/Group1/*Trial2/Group2/", entries));
+      "Trial1/Group1/*Trial2/Group2/", /*override_trials=*/false, entries));
 
   ASSERT_EQ(entries.size(), 2ul);
   const FieldTrial::State& entry1 = entries[0];
@@ -1405,17 +1410,22 @@ TEST_F(FieldTrialTest, ParseFieldTrialsStringTwoStudies) {
 
 TEST_F(FieldTrialTest, ParseFieldTrialsStringEmpty) {
   std::vector<FieldTrial::State> entries;
-  ASSERT_TRUE(FieldTrial::ParseFieldTrialsString("", entries));
+  ASSERT_TRUE(FieldTrial::ParseFieldTrialsString("", /*override_trials=*/false,
+                                                 entries));
 
   ASSERT_EQ(entries.size(), 0ul);
 }
 
 TEST_F(FieldTrialTest, ParseFieldTrialsStringInvalid) {
   std::vector<FieldTrial::State> entries;
-  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString("A/", entries));
-  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString("/A", entries));
-  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString("//", entries));
-  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString("///", entries));
+  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString(
+      "A/", /*override_trials=*/false, entries));
+  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString(
+      "/A", /*override_trials=*/false, entries));
+  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString(
+      "//", /*override_trials=*/false, entries));
+  EXPECT_FALSE(FieldTrial::ParseFieldTrialsString(
+      "///", /*override_trials=*/false, entries));
 }
 
 TEST_F(FieldTrialTest, BuildFieldTrialStateString) {

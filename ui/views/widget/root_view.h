@@ -54,9 +54,9 @@ class VIEWS_EXPORT RootView : public View,
                               public ViewTargeterDelegate,
                               public FocusTraversable,
                               public ui::EventProcessor {
- public:
-  METADATA_HEADER(RootView);
+  METADATA_HEADER(RootView, View)
 
+ public:
   // Creation and lifetime -----------------------------------------------------
   explicit RootView(Widget* widget);
   RootView(const RootView&) = delete;
@@ -200,7 +200,7 @@ class VIEWS_EXPORT RootView : public View,
   // Tree operations -----------------------------------------------------------
 
   // The host Widget
-  raw_ptr<Widget, DanglingUntriaged> widget_;
+  const raw_ptr<Widget> widget_;
 
   // Input ---------------------------------------------------------------------
 

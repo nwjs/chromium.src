@@ -527,9 +527,6 @@ void ChromeVirtualKeyboardDelegate::OnHasInputDevices(
   features.Append(GenerateFeatureFlag(
       "handwritinggesture",
       base::FeatureList::IsEnabled(features::kHandwritingGesture)));
-  features.Append(GenerateFeatureFlag(
-      "handwritinggestureediting",
-      base::FeatureList::IsEnabled(ash::features::kHandwritingGestureEditing)));
   features.Append(GenerateFeatureFlag("handwritinglegacyrecognition",
                                       IsHandwritingLegacyRecognitionEnabled()));
   features.Append(GenerateFeatureFlag(
@@ -564,9 +561,6 @@ void ChromeVirtualKeyboardDelegate::OnHasInputDevices(
   features.Append(GenerateFeatureFlag(
       "japanesefunctionrow",
       base::FeatureList::IsEnabled(ash::features::kJapaneseFunctionRow)));
-  features.Append(GenerateFeatureFlag(
-      "virtualkeyboardremovenacl",
-      base::FeatureList::IsEnabled(ash::features::kVirtualKeyboardRemoveNacl)));
 
   results.Set("features", std::move(features));
 
@@ -574,7 +568,7 @@ void ChromeVirtualKeyboardDelegate::OnHasInputDevices(
 }
 
 void ChromeVirtualKeyboardDelegate::DispatchConfigChangeEvent(
-    absl::optional<base::Value::Dict> settings) {
+    std::optional<base::Value::Dict> settings) {
   DCHECK(settings);
 
   EventRouter* router = GetRouterForEventName(

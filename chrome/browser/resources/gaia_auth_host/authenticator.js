@@ -68,7 +68,6 @@ export let SyncTrustedVaultKeys;
  *   password: string,
  *   usingSAML: boolean,
  *   publicSAML: boolean,
- *   chooseWhatToSync: boolean,
  *   skipForNow: boolean,
  *   sessionIndex: string,
  *   trusted: boolean,
@@ -106,6 +105,7 @@ export let AuthCompletedCredentials;
  *   samlAclUrl: string,
  *   isSupervisedUser: boolean,
  *   isDeviceOwner: boolean,
+ *   needPassword: (boolean|undefined),
  *   ssoProfile: string,
  *   urlParameterToAutofillSAMLUsername: string,
  *   frameUrl: URL,
@@ -117,7 +117,6 @@ export let AuthParams;
 
 const SIGN_IN_HEADER = 'google-accounts-signin';
 const EMBEDDED_FORM_HEADER = 'google-accounts-embedded';
-const LOCATION_HEADER = 'location';
 const SERVICE_ID = 'chromeoslogin';
 const BLANK_PAGE_URL = 'about:blank';
 
@@ -267,7 +266,6 @@ const messageHandlers = {
       this.password_ = msg.password;
     }
 
-    this.chooseWhatToSync_ = msg.chooseWhatToSync;
     // We need to dispatch only first event, before user enters password.
     this.dispatchEvent(new CustomEvent('attemptLogin', {detail: msg.email}));
   },
@@ -409,7 +407,6 @@ export class Authenticator extends EventTarget {
     this.email_ = null;
     this.password_ = null;
     this.gaiaId_ = null, this.sessionIndex_ = null;
-    this.chooseWhatToSync_ = false;
     this.skipForNow_ = false;
     /** @type {AuthMode} */
     this.authMode = AuthMode.DEFAULT;
@@ -445,7 +442,7 @@ export class Authenticator extends EventTarget {
     this.onePasswordCallback = null;
     this.insecureContentBlockedCallback = null;
     this.samlApiUsedCallback = null;
-    this.recordSAMLProviderCallback = null;
+    this.recordSamlProviderCallback = null;
     this.missingGaiaInfoCallback = null;
     this.needPassword = true;
     this.services_ = null;
@@ -551,7 +548,6 @@ export class Authenticator extends EventTarget {
     this.gaiaId_ = null;
     this.password_ = null;
     this.readyFired_ = false;
-    this.chooseWhatToSync_ = false;
     this.skipForNow_ = false;
     this.sessionIndex_ = null;
     this.trusted_ = true;
@@ -1022,13 +1018,6 @@ export class Authenticator extends EventTarget {
         this.setEmail_(email);
         this.gaiaId_ = signinDetails['obfuscatedid'].slice(1, -1);
         this.sessionIndex_ = signinDetails['sessionindex'];
-      } else if (headerName === LOCATION_HEADER) {
-        // If the "choose what to sync" checkbox was clicked, then the
-        // continue URL will contain a source=3 field.
-        assert(header.value !== undefined);
-        const location =
-            decodeURIComponent(/** @type {string} */ (header.value));
-        this.chooseWhatToSync_ = !!location.match(/(\?|&)source=3($|&)/);
       }
     }
   }
@@ -1153,9 +1142,9 @@ export class Authenticator extends EventTarget {
       return;
     }
 
-    if (this.recordSAMLProviderCallback && this.authFlow === AuthFlow.SAML) {
+    if (this.recordSamlProviderCallback && this.authFlow === AuthFlow.SAML) {
       // Makes distinction between different SAML providers
-      this.recordSAMLProviderCallback(this.samlHandler_.x509certificate || '');
+      this.recordSamlProviderCallback(this.samlHandler_.x509certificate || '');
     }
 
     if (this.samlHandler_.samlApiUsed) {
@@ -1280,7 +1269,6 @@ export class Authenticator extends EventTarget {
             usingSAML: this.authFlow === AuthFlow.SAML,
             scrapedSAMLPasswords: scrapedPasswords,
             publicSAML: this.samlAclUrl_ || false,
-            chooseWhatToSync: this.chooseWhatToSync_,
             skipForNow: this.skipForNow_,
             sessionIndex: this.sessionIndex_ || '',
             trusted: this.trusted_,

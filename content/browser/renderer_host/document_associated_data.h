@@ -9,11 +9,13 @@
 #include <optional>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/supports_user_data.h"
 #include "base/types/pass_key.h"
 #include "base/unguessable_token.h"
+#include "content/browser/loader/keep_alive_url_loader_service.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "url/gurl.h"
 
@@ -101,7 +103,10 @@ class DocumentAssociatedData : public base::SupportsUserData {
 
   // "Owned" but not with std::unique_ptr, as a DocumentServiceBase is
   // allowed to delete itself directly.
-  std::vector<internal::DocumentServiceBase*>& services() { return services_; }
+  std::vector<raw_ptr<internal::DocumentServiceBase, VectorExperimental>>&
+  services() {
+    return services_;
+  }
 
   // This handle supports a seamless transfer from a navigation to a committed
   // document.
@@ -114,7 +119,7 @@ class DocumentAssociatedData : public base::SupportsUserData {
 
   // See comments for |RenderFrameHostImpl::GetDevToolsNavigationToken()| for
   // more details.
-  const absl::optional<base::UnguessableToken>& devtools_navigation_token()
+  const std::optional<base::UnguessableToken>& devtools_navigation_token()
       const {
     return devtools_navigation_token_;
   }
@@ -122,6 +127,21 @@ class DocumentAssociatedData : public base::SupportsUserData {
   void set_devtools_navigation_token(
       const base::UnguessableToken& devtools_navigation_token) {
     devtools_navigation_token_ = devtools_navigation_token;
+  }
+
+  // fetch keepalive handing:
+  //
+  // Contains the weak pointer to the FactoryContext of the in-browser
+  // URLLoaderFactory implementation used by this document.
+  base::WeakPtr<KeepAliveURLLoaderService::FactoryContext>
+  keep_alive_url_loader_factory_context() const {
+    return keep_alive_url_loader_factory_context_;
+  }
+  void set_keep_alive_url_loader_factory_context(
+      base::WeakPtr<KeepAliveURLLoaderService::FactoryContext>
+          factory_context) {
+    DCHECK(!keep_alive_url_loader_factory_context_);
+    keep_alive_url_loader_factory_context_ = factory_context;
   }
 
   // Produces weak pointers to the hosting RenderFrameHostImpl. This is
@@ -136,9 +156,12 @@ class DocumentAssociatedData : public base::SupportsUserData {
   std::unique_ptr<PageImpl> owned_page_;
   bool dom_content_loaded_ = false;
   std::optional<GURL> pending_did_finish_load_url_for_prerendering_;
-  std::vector<internal::DocumentServiceBase*> services_;
+  std::vector<raw_ptr<internal::DocumentServiceBase, VectorExperimental>>
+      services_;
   scoped_refptr<NavigationOrDocumentHandle> navigation_or_document_handle_;
   std::optional<base::UnguessableToken> devtools_navigation_token_;
+  base::WeakPtr<KeepAliveURLLoaderService::FactoryContext>
+      keep_alive_url_loader_factory_context_;
 
   base::WeakPtrFactory<RenderFrameHostImpl> weak_factory_;
 };

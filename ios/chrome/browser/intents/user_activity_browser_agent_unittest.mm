@@ -27,7 +27,7 @@
 #import "ios/chrome/app/spotlight/spotlight_util.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
 #import "ios/chrome/browser/intents/intents_constants.h"
-#import "ios/chrome/browser/policy/policy_util.h"
+#import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/connection_information.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -357,6 +357,39 @@ TEST_F(UserActivityBrowserAgentTest,
 
   // Tests.
   EXPECT_FALSE(result);
+}
+
+// Tests that ContinueUserActivity returns YES if the activity is a
+// Spotlight action different from DOMAIN_ACTIONS and if there is no
+// webpage_url.
+TEST_F(UserActivityBrowserAgentTest,
+       ContinueUserActivitySpotlightActionWithNoWebPageUrl) {
+  // Only test Spotlight if it is enabled and available on the device.
+  if (!spotlight::IsSpotlightAvailable()) {
+    return;
+  }
+  // Setup.
+  NSUserActivity* user_activity =
+      [[NSUserActivity alloc] initWithActivityType:CSSearchableItemActionType];
+  NSString* invalid_action =
+      [NSString stringWithFormat:@"%@.invalidAction",
+                                 spotlight::StringFromSpotlightDomain(
+                                     spotlight::DOMAIN_BOOKMARKS)];
+  NSDictionary* user_info =
+      @{CSSearchableItemActivityIdentifier : invalid_action};
+  [user_activity addUserInfoEntriesFromDictionary:user_info];
+
+  // Enable the SpotlightActions experiment.
+  base::test::ScopedCommandLine scoped_command_line;
+  scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+      switches::kEnableSpotlightActions);
+
+  // Action.
+  BOOL result =
+      user_activity_browser_agent_->ContinueUserActivity(user_activity, NO);
+
+  // Tests.
+  EXPECT_TRUE(result);
 }
 
 // Tests that Chrome continues the activity if the application is in background

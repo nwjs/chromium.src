@@ -23,6 +23,7 @@
 #include "base/trace_event/trace_event.h"
 #include "media/base/media_log.h"
 #include "media/gpu/macros.h"
+#include "media/gpu/v4l2/v4l2_framerate_control.h"
 #include "media/gpu/v4l2/v4l2_queue.h"
 #include "media/gpu/v4l2/v4l2_utils.h"
 #include "media/video/h264_parser.h"
@@ -373,13 +374,17 @@ void V4L2StatefulVideoDecoder::Initialize(const VideoDecoderConfig& config,
     // Invalidate pointers from and cancel all hypothetical in-flight requests
     // to the WaitOnceForEvents() routine.
     weak_ptr_factory_for_events_.InvalidateWeakPtrs();
-    weak_ptr_factory_for_frame_pool_.InvalidateWeakPtrs();
+    weak_ptr_factory_for_CAPTURE_availability_.InvalidateWeakPtrs();
     cancelable_task_tracker_.TryCancelAll();
 
     // This will also Deallocate() all buffers and issue a VIDIOC_STREAMOFF.
     OUTPUT_queue_.reset();
     CAPTURE_queue_.reset();
   }
+
+  framerate_control_ = std::make_unique<V4L2FrameRateControl>(
+      base::BindRepeating(&HandledIoctl, device_fd_.get()),
+      base::SequencedTaskRunner::GetCurrentDefault());
 
   // At this point we initialize the |OUTPUT_queue_| only, following
   // instructions in e.g. [1]. The decoded video frames queue configuration
@@ -454,7 +459,7 @@ void V4L2StatefulVideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
                                       DecodeCB decode_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(IsInitialized()) << "V4L2StatefulVideoDecoder must be Initialize()d";
-  DVLOGF(3) << buffer->AsHumanReadableString(/*verbose=*/false);
+  VLOGF(3) << buffer->AsHumanReadableString(/*verbose=*/false);
 
   if (buffer->end_of_stream()) {
     if (!event_task_runner_) {
@@ -645,7 +650,7 @@ V4L2StatefulVideoDecoder::V4L2StatefulVideoDecoder(
                         std::move(task_runner),
                         std::move(client)),
       weak_ptr_factory_for_events_(this),
-      weak_ptr_factory_for_frame_pool_(this) {
+      weak_ptr_factory_for_CAPTURE_availability_(this) {
   DCHECK(decoder_task_runner_->RunsTasksInCurrentSequence());
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DVLOGF(1);
@@ -656,7 +661,7 @@ V4L2StatefulVideoDecoder::~V4L2StatefulVideoDecoder() {
   DVLOGF(1);
 
   weak_ptr_factory_for_events_.InvalidateWeakPtrs();
-  weak_ptr_factory_for_frame_pool_.InvalidateWeakPtrs();
+  weak_ptr_factory_for_CAPTURE_availability_.InvalidateWeakPtrs();
   cancelable_task_tracker_.TryCancelAll();  // Not needed, but good explicit.
 
   if (wake_event_.is_valid()) {
@@ -752,19 +757,22 @@ bool V4L2StatefulVideoDecoder::InitializeCAPTUREQueue() {
                                       ? num_codec_reference_frames + 2
                                       : VIDEO_MAX_FRAME;
 
-  if (use_v4l2_allocated_buffers) {
+  if (!use_v4l2_allocated_buffers) {
     absl::optional<GpuBufferLayout> layout =
         client_->GetVideoFramePool()->GetGpuBufferLayout();
-    if (layout.has_value() && layout->modifier() &&
-        layout->modifier() == DRM_FORMAT_MOD_QCOM_COMPRESSED &&
-        // V4L2 has no API to set DRM modifiers; instead we translate here to
-        // the corresponding V4L2 pixel format.
-        !CAPTURE_queue_
-             ->SetFormat(V4L2_PIX_FMT_QC08C, chosen_size, /*buffer_size=*/0)
-             .has_value()) {
+    if (!layout.has_value()) {
       return false;
     }
-    chosen_fourcc = Fourcc::FromV4L2PixFmt(V4L2_PIX_FMT_QC08C).value();
+    if (layout->modifier() == DRM_FORMAT_MOD_QCOM_COMPRESSED) {
+      // V4L2 has no API to set DRM modifiers; instead we translate here to
+      // the corresponding V4L2 pixel format.
+      if (!CAPTURE_queue_
+              ->SetFormat(V4L2_PIX_FMT_QC08C, chosen_size, /*buffer_size=*/0)
+              .has_value()) {
+        return false;
+      }
+      chosen_fourcc = Fourcc::FromV4L2PixFmt(V4L2_PIX_FMT_QC08C).value();
+    }
   }
   VLOG(2) << "Chosen |CAPTURE_queue_| format: " << chosen_fourcc.ToString()
           << " " << chosen_size.ToString() << " (modifier: 0x" << std::hex
@@ -965,14 +973,26 @@ void V4L2StatefulVideoDecoder::TryAndDequeueCAPTUREQueueBuffers() {
         // |wrapped_frame| is destroyed, allowing -maybe- for it to get back to
         // |CAPTURE_queue_|s free buffers.
         wrapped_frame->AddDestructionObserver(
-            base::BindPostTaskToCurrentDefault(
-                base::BindOnce([](scoped_refptr<V4L2ReadableBuffer> buffer) {},
-                               std::move(dequeued_buffer))));
+            base::BindPostTaskToCurrentDefault(base::BindOnce(
+                [](scoped_refptr<V4L2ReadableBuffer> buffer,
+                   base::WeakPtr<V4L2StatefulVideoDecoder> weak_this) {
+                  // See also TryAndEnqueueCAPTUREQueueBuffers(), V4L2Queue is
+                  // funny: We need to "enqueue" released buffers in the driver
+                  // in order to use them (otherwise they would stay as "free").
+                  if (weak_this) {
+                    weak_this->TryAndEnqueueCAPTUREQueueBuffers();
+                    weak_this->PrintAndTraceQueueStates(FROM_HERE);
+                  }
+                },
+                std::move(dequeued_buffer),
+                weak_ptr_factory_for_CAPTURE_availability_.GetWeakPtr())));
         CHECK(wrapped_frame);
         VLOGF(3) << wrapped_frame->AsHumanReadableString();
         output_cb_.Run(std::move(wrapped_frame));
       } else {
+        DCHECK_EQ(queue_type, V4L2_MEMORY_DMABUF);
         VLOGF(3) << video_frame->AsHumanReadableString();
+        framerate_control_->AttachToVideoFrame(video_frame);
         output_cb_.Run(std::move(video_frame));
       }
 
@@ -1029,7 +1049,7 @@ void V4L2StatefulVideoDecoder::TryAndEnqueueCAPTUREQueueBuffers() {
             base::SequencedTaskRunner::GetCurrentDefault(), FROM_HERE,
             base::BindOnce(
                 &V4L2StatefulVideoDecoder::TryAndEnqueueCAPTUREQueueBuffers,
-                weak_ptr_factory_for_frame_pool_.GetWeakPtr())));
+                weak_ptr_factory_for_CAPTURE_availability_.GetWeakPtr())));
         return;
       }
       auto video_frame = client_->GetVideoFramePool()->GetFrame();
@@ -1163,7 +1183,7 @@ H264FrameReassembler::Process(scoped_refptr<DecoderBuffer> buffer,
         base::checked_cast<size_t>(nalu_info->nalu_size);
 
     if (nalu_info->is_start_of_new_frame && HasFragments()) {
-      VLOGF(3) << frame_fragments_.size()
+      VLOGF(4) << frame_fragments_.size()
                << " currently stored frame fragment(s) can be reassembled.";
       whole_frames.emplace_back(std::make_pair(
           ReassembleFragments(frame_fragments_), base::DoNothing()));
@@ -1174,15 +1194,17 @@ H264FrameReassembler::Process(scoped_refptr<DecoderBuffer> buffer,
       whole_frames.emplace_back(std::make_pair(
           DecoderBuffer::CopyFrom(buffer_pointer, found_nalu_size),
           base::DoNothing()));
+      whole_frames.back().first->set_timestamp(buffer->timestamp());
 
       buffer_pointer += found_nalu_size;
       remaining_buffer_size -= found_nalu_size;
       continue;
     }
 
-    VLOGF(3) << "This was a frame fragment; storing it for later reassembly.";
+    VLOGF(4) << "This was a frame fragment; storing it for later reassembly.";
     frame_fragments_.emplace_back(
         DecoderBuffer::CopyFrom(buffer_pointer, found_nalu_size));
+    frame_fragments_.back()->set_timestamp(buffer->timestamp());
 
     buffer_pointer += found_nalu_size;
     remaining_buffer_size -= found_nalu_size;

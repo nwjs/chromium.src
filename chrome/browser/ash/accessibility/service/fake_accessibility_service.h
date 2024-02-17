@@ -17,8 +17,8 @@
 #include "services/accessibility/public/mojom/accessibility_service.mojom.h"
 #include "services/accessibility/public/mojom/autoclick.mojom.h"
 #include "services/accessibility/public/mojom/automation.mojom.h"
+#include "services/accessibility/public/mojom/automation_client.mojom.h"
 #include "services/accessibility/public/mojom/file_loader.mojom.h"
-#include "services/accessibility/public/mojom/speech_recognition.mojom-forward.h"
 #include "services/accessibility/public/mojom/speech_recognition.mojom.h"
 #include "services/accessibility/public/mojom/tts.mojom.h"
 #include "services/accessibility/public/mojom/user_input.mojom.h"
@@ -70,7 +70,7 @@ class FakeAccessibilityService
       const ui::AXRelativeBounds& bounds) override;
   void DispatchGetTextLocationResult(
       const ui::AXActionData& data,
-      const absl::optional<gfx::Rect>& rect) override;
+      const std::optional<gfx::Rect>& rect) override;
 
   // ax::mojom::AssistiveTechnologyController:
   void EnableAssistiveTechnology(
@@ -101,6 +101,7 @@ class FakeAccessibilityService
   // Allows tests to bind APIs multiple times, mimicking multiple
   // V8 instances in the service.
   void BindAnotherAutomation();
+  void BindAnotherAutomationClient();
   void BindAnotherAutoclickClient();
   void BindAnotherSpeechRecognition();
   void BindAnotherTts();
@@ -127,7 +128,7 @@ class FakeAccessibilityService
           callback);
   void RequestSpeechRecognitionStop(
       ax::mojom::StopOptionsPtr options,
-      base::OnceCallback<void(const absl::optional<std::string>&)> callback);
+      base::OnceCallback<void(const std::optional<std::string>&)> callback);
 
   //
   // Methods to pretend a TTS request came from the service.
@@ -179,7 +180,7 @@ class FakeAccessibilityService
   void RequestShowConfirmationDialog(
       const std::string& title,
       const std::string& description,
-      const absl::optional<std::string>& cancel_name,
+      const std::optional<std::string>& cancel_name,
       ax::mojom::UserInterface::ShowConfirmationDialogCallback callback);
 
   void RequestSetFocusRings(

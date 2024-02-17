@@ -413,7 +413,7 @@ bool PermissionManager::IsPermissionOverridable(
 }
 
 PermissionManager::SubscriptionId
-PermissionManager::SubscribePermissionStatusChange(
+PermissionManager::SubscribeToPermissionStatusChange(
     PermissionType permission,
     content::RenderProcessHost* render_process_host,
     content::RenderFrameHost* render_frame_host,
@@ -476,7 +476,7 @@ PermissionManager::SubscribePermissionStatusChange(
   return id;
 }
 
-void PermissionManager::UnsubscribePermissionStatusChange(
+void PermissionManager::UnsubscribeFromPermissionStatusChange(
     SubscriptionId subscription_id) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (is_shutting_down_)

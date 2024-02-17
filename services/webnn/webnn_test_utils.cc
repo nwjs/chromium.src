@@ -63,6 +63,23 @@ uint64_t GraphInfoBuilder::BuildOutput(const std::string& name,
   return operand_id;
 }
 
+void GraphInfoBuilder::BuildArgMinMax(mojom::ArgMinMax::Kind kind,
+                                      uint64_t input_operand_id,
+                                      uint64_t output_operand_id,
+                                      std::vector<uint32_t> axes,
+                                      bool keep_dimensions,
+                                      bool select_last_index) {
+  mojom::ArgMinMaxPtr arg_min_max = mojom::ArgMinMax::New();
+  arg_min_max->kind = kind;
+  arg_min_max->input_operand_id = input_operand_id;
+  arg_min_max->output_operand_id = output_operand_id;
+  arg_min_max->axes = axes;
+  arg_min_max->keep_dimensions = keep_dimensions;
+  arg_min_max->select_last_index = select_last_index;
+  graph_info_->operations.push_back(
+      mojom::Operation::NewArgMinMax(std::move(arg_min_max)));
+}
+
 void GraphInfoBuilder::BuildElu(uint64_t input_operand_id,
                                 uint64_t output_operand_id,
                                 float alpha) {
@@ -82,6 +99,19 @@ void GraphInfoBuilder::BuildLeakyRelu(uint64_t input_operand_id,
   leaky_relu->alpha = alpha;
   graph_info_->operations.push_back(
       mojom::Operation::NewLeakyRelu(std::move(leaky_relu)));
+}
+
+void GraphInfoBuilder::BuildLinear(uint64_t input_operand_id,
+                                   uint64_t output_operand_id,
+                                   float alpha,
+                                   float beta) {
+  mojom::LinearPtr linear = mojom::Linear::New();
+  linear->input_operand_id = input_operand_id;
+  linear->output_operand_id = output_operand_id;
+  linear->alpha = alpha;
+  linear->beta = beta;
+  graph_info_->operations.push_back(
+      mojom::Operation::NewLinear(std::move(linear)));
 }
 
 void GraphInfoBuilder::BuildPad(uint64_t input_operand_id,
@@ -210,6 +240,23 @@ void GraphInfoBuilder::BuildGather(uint64_t input_operand_id,
       mojom::Operation::NewGather(std::move(gather)));
 }
 
+void GraphInfoBuilder::BuildHardSigmoid(uint64_t input_operand_id,
+                                        uint64_t output_operand_id,
+                                        absl::optional<float> alpha,
+                                        absl::optional<float> beta) {
+  mojom::HardSigmoidPtr hard_sigmoid = mojom::HardSigmoid::New();
+  hard_sigmoid->input_operand_id = input_operand_id;
+  hard_sigmoid->output_operand_id = output_operand_id;
+  if (alpha.has_value()) {
+    hard_sigmoid->alpha = alpha.value();
+  }
+  if (beta.has_value()) {
+    hard_sigmoid->beta = beta.value();
+  }
+  graph_info_->operations.push_back(
+      mojom::Operation::NewHardSigmoid(std::move(hard_sigmoid)));
+}
+
 void GraphInfoBuilder::BuildPrelu(uint64_t input_operand_id,
                                   uint64_t slope_operand_id,
                                   uint64_t output_operand_id) {
@@ -269,6 +316,26 @@ void GraphInfoBuilder::BuildSoftmax(uint64_t input_operand_id,
   softmax->output_operand_id = output_operand_id;
   graph_info_->operations.push_back(
       mojom::Operation::NewSoftmax(std::move(softmax)));
+}
+
+void GraphInfoBuilder::BuildSoftplus(uint64_t input_operand_id,
+                                     uint64_t output_operand_id,
+                                     float steepness) {
+  mojom::SoftplusPtr softplus = mojom::Softplus::New();
+  softplus->input_operand_id = input_operand_id;
+  softplus->output_operand_id = output_operand_id;
+  softplus->steepness = steepness;
+  graph_info_->operations.push_back(
+      mojom::Operation::NewSoftplus(std::move(softplus)));
+}
+
+void GraphInfoBuilder::BuildSoftsign(uint64_t input_operand_id,
+                                     uint64_t output_operand_id) {
+  mojom::SoftsignPtr softsign = mojom::Softsign::New();
+  softsign->input_operand_id = input_operand_id;
+  softsign->output_operand_id = output_operand_id;
+  graph_info_->operations.push_back(
+      mojom::Operation::NewSoftsign(std::move(softsign)));
 }
 
 void GraphInfoBuilder::BuildTanh(uint64_t input_operand_id,

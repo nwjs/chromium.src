@@ -68,7 +68,7 @@ class ContextRecyclerTest : public testing::Test {
   v8::Local<v8::UnboundScript> Compile(const std::string& code) {
     v8::Local<v8::UnboundScript> script;
     v8::Context::Scope ctx(helper_->scratch_context());
-    absl::optional<std::string> error_msg;
+    std::optional<std::string> error_msg;
     EXPECT_TRUE(helper_
                     ->Compile(code, GURL("https://example.org/script.js"),
                               /*debug_id=*/nullptr, error_msg)
@@ -311,11 +311,12 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);  // Initialize context
     context_recycler.AddSetBidBindings();
   }
-
-  base::RepeatingCallback<bool(const GURL&)> matches_ad1 = base::BindRepeating(
-      [](const GURL& url) { return url == GURL("https://example.com/ad1"); });
-  base::RepeatingCallback<bool(const GURL&)> ignore_arg_return_false =
-      base::BindRepeating([](const GURL& ignored) { return false; });
+  base::RepeatingCallback<bool(const std::string&)> matches_ad1 =
+      base::BindRepeating([](const std::string& url) {
+        return url == "https://example.com/ad1";
+      });
+  base::RepeatingCallback<bool(const std::string&)> ignore_arg_return_false =
+      base::BindRepeating([](const std::string& ignored) { return false; });
 
   {
     mojom::BidderWorkletNonSharedParamsPtr params =
@@ -323,11 +324,11 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad1"),
-                                     absl::nullopt);
+                                     std::nullopt);
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
         /*has_top_level_seller_origin=*/false, params.get(),
-        /*per_buyer_currency=*/absl::nullopt,
+        /*per_buyer_currency=*/std::nullopt,
         /*is_ad_excluded=*/ignore_arg_return_false,
         /*is_component_ad_excluded=*/ignore_arg_return_false);
 
@@ -359,12 +360,12 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/notad1"),
-                                     absl::nullopt);
+                                     std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
         /*has_top_level_seller_origin=*/false, params.get(),
-        /*per_buyer_currency=*/absl::nullopt,
+        /*per_buyer_currency=*/std::nullopt,
         /*is_ad_excluded=*/ignore_arg_return_false,
         /*is_component_ad_excluded=*/ignore_arg_return_false);
 
@@ -395,17 +396,17 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad3"),
-                                     absl::nullopt);
+                                     std::nullopt);
     params->ad_components.emplace();
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion1"), absl::nullopt);
+        GURL("https://example.com/portion1"), std::nullopt);
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion2"), absl::nullopt);
+        GURL("https://example.com/portion2"), std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
         /*has_top_level_seller_origin=*/true, params.get(),
-        /*per_buyer_currency=*/absl::nullopt,
+        /*per_buyer_currency=*/std::nullopt,
         /*is_ad_excluded=*/ignore_arg_return_false,
         /*is_component_ad_excluded=*/ignore_arg_return_false);
 
@@ -434,19 +435,19 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad5"),
-                                     absl::nullopt);
+                                     std::nullopt);
     params->ad_components.emplace();
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion3"), absl::nullopt);
+        GURL("https://example.com/portion3"), std::nullopt);
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion4"), absl::nullopt);
+        GURL("https://example.com/portion4"), std::nullopt);
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion5"), absl::nullopt);
+        GURL("https://example.com/portion5"), std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
         /*has_top_level_seller_origin=*/true, params.get(),
-        /*per_buyer_currency=*/absl::nullopt,
+        /*per_buyer_currency=*/std::nullopt,
         /*is_ad_excluded=*/ignore_arg_return_false,
         /*is_component_ad_excluded=*/ignore_arg_return_false);
 
@@ -488,19 +489,19 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad5"),
-                                     absl::nullopt);
+                                     std::nullopt);
     params->ad_components.emplace();
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion6"), absl::nullopt);
+        GURL("https://example.com/portion6"), std::nullopt);
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion7"), absl::nullopt);
+        GURL("https://example.com/portion7"), std::nullopt);
     params->ad_components.value().emplace_back(
-        GURL("https://example.com/portion8"), absl::nullopt);
+        GURL("https://example.com/portion8"), std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
         /*has_top_level_seller_origin=*/false, params.get(),
-        /*per_buyer_currency=*/absl::nullopt,
+        /*per_buyer_currency=*/std::nullopt,
         /*is_ad_excluded=*/ignore_arg_return_false,
         /*is_component_ad_excluded=*/ignore_arg_return_false);
 
@@ -537,12 +538,12 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad1"),
-                                     absl::nullopt);
+                                     std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
         /*has_top_level_seller_origin=*/false, params.get(),
-        /*per_buyer_currency=*/absl::nullopt,
+        /*per_buyer_currency=*/std::nullopt,
         /*is_ad_excluded=*/matches_ad1,
         /*is_component_ad_excluded=*/matches_ad1);
 
@@ -570,12 +571,12 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad2"),
-                                     absl::nullopt);
+                                     std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
         /*has_top_level_seller_origin=*/false, params.get(),
-        /*per_buyer_currency=*/absl::nullopt,
+        /*per_buyer_currency=*/std::nullopt,
         /*is_ad_excluded=*/matches_ad1,
         /*is_component_ad_excluded=*/matches_ad1);
 
@@ -605,7 +606,7 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad2"),
-                                     absl::nullopt);
+                                     std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
@@ -642,7 +643,7 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad2"),
-                                     absl::nullopt);
+                                     std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
@@ -677,7 +678,7 @@ TEST_F(ContextRecyclerTest, SetBidBindings) {
     ContextRecyclerScope scope(context_recycler);
     params->ads.emplace();
     params->ads.value().emplace_back(GURL("https://example.com/ad2"),
-                                     absl::nullopt);
+                                     std::nullopt);
 
     context_recycler.set_bid_bindings()->ReInitialize(
         base::TimeTicks::Now(),
@@ -1395,14 +1396,14 @@ class ContextRecyclerPrivateAggregationEnabledTest
   }
 
   // Expects that pa_requests has one request, and the request has the given
-  // bucket, value and debug_key (or none, if absl::nullopt). Also expects that
-  // debug mode is enabled if debug_key is not absl::nullopt.
+  // bucket, value and debug_key (or none, if std::nullopt). Also expects that
+  // debug mode is enabled if debug_key is not std::nullopt.
   void ExpectOneHistogramRequestEqualTo(
       std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>
           pa_requests,
       absl::uint128 bucket,
       int value,
-      absl::optional<blink::mojom::DebugKeyPtr> debug_key = absl::nullopt) {
+      std::optional<blink::mojom::DebugKeyPtr> debug_key = std::nullopt) {
     blink::mojom::AggregatableReportHistogramContribution expected_contribution(
         bucket, value);
 

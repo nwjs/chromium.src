@@ -9,11 +9,14 @@ import android.content.Context;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileKey;
 import org.chromium.chrome.browser.touch_to_fill.common.BottomSheetFocusHelper;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
-import org.chromium.chrome.browser.touch_to_fill.data.WebAuthnCredential;
+import org.chromium.chrome.browser.touch_to_fill.data.WebauthnCredential;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.favicon.LargeIconBridge;
+import org.chromium.components.image_fetcher.ImageFetcherConfig;
+import org.chromium.components.image_fetcher.ImageFetcherFactory;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.url.GURL;
@@ -21,11 +24,15 @@ import org.chromium.url.GURL;
 import java.util.List;
 
 /**
- * Creates the TouchToFill component. TouchToFill uses a bottom sheet to let the
- * user select a set of credentials and fills it into the focused form.
+ * Creates the TouchToFill component. TouchToFill uses a bottom sheet to let the user select a set
+ * of credentials and fills it into the focused form.
  */
 public class TouchToFillCoordinator implements TouchToFillComponent {
-    private final TouchToFillMediator mMediator = new TouchToFillMediator();
+    private final TouchToFillMediator mMediator =
+            new TouchToFillMediator(
+                    ImageFetcherFactory.createImageFetcher(
+                            ImageFetcherConfig.DISK_CACHE_ONLY,
+                            ProfileKey.getLastUsedRegularProfileKey()));
     private final PropertyModel mModel =
             TouchToFillProperties.createDefaultModel(mMediator::onDismissed);
 
@@ -53,7 +60,7 @@ public class TouchToFillCoordinator implements TouchToFillComponent {
     public void showCredentials(
             GURL url,
             boolean isOriginSecure,
-            List<WebAuthnCredential> webAuthnCredentials,
+            List<WebauthnCredential> webAuthnCredentials,
             List<Credential> credentials,
             boolean triggerSubmission,
             boolean managePasskeysHidesPasswords,
@@ -72,6 +79,7 @@ public class TouchToFillCoordinator implements TouchToFillComponent {
 
     /**
      * Connects the given model with the given view using Model Change Processors.
+     *
      * @param model A {@link PropertyModel} built with {@link TouchToFillProperties}.
      * @param view A {@link TouchToFillView}.
      */

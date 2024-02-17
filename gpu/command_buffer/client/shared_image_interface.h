@@ -82,6 +82,7 @@ class GPU_EXPORT SharedImageInterface {
   // which is used to populate the SharedImage.  |pixel_data| should have the
   // same format which would be passed to glTexImage2D to populate a similarly
   // specified texture.
+  // May return null if |pixel_data| is too big for IPC.
   // TODO(crbug.com/1447106): Have the caller specify a row span for
   // |pixel_data| explicitly. Some backings have different row alignment
   // requirements which the caller has to match exactly or it won't work.
@@ -100,6 +101,7 @@ class GPU_EXPORT SharedImageInterface {
   // native buffer (if supported) or shared memory which are CPU mappable.
   // We are currently passing BufferUsage to this method for simplicity since
   // as of now we dont have a clear way to map BufferUsage to SharedImageUsage.
+  // May return null if GPU memory buffer creation fails.
   // TODO(crbug.com/1467584): Merge this method to above existing methods once
   // we figure out mapping between BufferUsage and SharedImageUsage and
   // eliminate all usages of BufferUsage.
@@ -155,6 +157,19 @@ class GPU_EXPORT SharedImageInterface {
       uint32_t usage,
       base::StringPiece debug_label,
       gfx::GpuMemoryBufferHandle buffer_handle) = 0;
+
+  // Creates a shared image with the usage of gpu::SHARED_IMAGE_USAGE_CPU_WRITE
+  // only. A shared memory buffer is created internally and a shared image is
+  // created out this buffer. This method is used by the software compositor
+  // only.
+  virtual scoped_refptr<ClientSharedImage> CreateSharedImage(
+      viz::SharedImageFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
+      SkAlphaType alpha_type,
+      uint32_t usage,
+      base::StringPiece debug_label) = 0;
 
   // NOTE: The below method is DEPRECATED for `gpu_memory_buffer` only with
   // single planar eg. RGB BufferFormats. Please use the equivalent method above
@@ -227,26 +242,33 @@ class GPU_EXPORT SharedImageInterface {
   // gpu channel and each can have only single reference.
   // Note: `usage` must be the same value as passed to CreateSharedImage call
   // and is just stored without validation.
-  virtual void AddReferenceToSharedImage(const SyncToken& sync_token,
-                                         const Mailbox& mailbox,
-                                         uint32_t usage) = 0;
+  virtual scoped_refptr<ClientSharedImage> AddReferenceToSharedImage(
+      const SyncToken& sync_token,
+      const Mailbox& mailbox,
+      uint32_t usage) = 0;
 
-  struct SwapChainMailboxes {
-    Mailbox front_buffer;
-    Mailbox back_buffer;
+  struct GPU_EXPORT SwapChainSharedImages {
+    SwapChainSharedImages(scoped_refptr<gpu::ClientSharedImage> front_buffer,
+                          scoped_refptr<gpu::ClientSharedImage> back_buffer);
+    SwapChainSharedImages(const SwapChainSharedImages& shared_images);
+    ~SwapChainSharedImages();
+
+    scoped_refptr<gpu::ClientSharedImage> front_buffer;
+    scoped_refptr<gpu::ClientSharedImage> back_buffer;
   };
 
   // Creates a swap chain.
-  // Returns mailboxes for front and back buffers of a DXGI Swap Chain that can
-  // be imported into GL command buffer using shared image functions (e.g.
+  // Returns shared images for front and back buffers of a DXGI Swap Chain that
+  // can be imported into GL command buffer using shared image functions (e.g.
   // GLES2Interface::CreateAndTexStorage2DSharedImageCHROMIUM) or (deprecated)
   // mailbox functions (e.g. GLES2Interface::CreateAndConsumeTextureCHROMIUM).
-  virtual SwapChainMailboxes CreateSwapChain(viz::SharedImageFormat format,
-                                             const gfx::Size& size,
-                                             const gfx::ColorSpace& color_space,
-                                             GrSurfaceOrigin surface_origin,
-                                             SkAlphaType alpha_type,
-                                             uint32_t usage) = 0;
+  virtual SwapChainSharedImages CreateSwapChain(
+      viz::SharedImageFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
+      SkAlphaType alpha_type,
+      uint32_t usage) = 0;
 
   // Swaps front and back buffer of a swap chain. Back buffer mailbox still
   // refers to the back buffer of the swap chain after calling PresentSwapChain.
@@ -320,7 +342,9 @@ class GPU_EXPORT SharedImageInterface {
 
   // Informs that existing |mailbox| with |usage| can be passed to
   // DestroySharedImage().
-  virtual void NotifyMailboxAdded(const Mailbox& mailbox, uint32_t usage);
+  virtual scoped_refptr<ClientSharedImage> NotifyMailboxAdded(
+      const Mailbox& mailbox,
+      uint32_t usage);
 
   virtual const SharedImageCapabilities& GetCapabilities() = 0;
 };

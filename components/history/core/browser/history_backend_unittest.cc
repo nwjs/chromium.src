@@ -217,6 +217,7 @@ class TestHistoryBackend : public HistoryBackend {
   using HistoryBackend::UpdateVisitDuration;
 
   using HistoryBackend::db_;
+  using HistoryBackend::expirer_;
   using HistoryBackend::favicon_backend_;
   using HistoryBackend::recent_redirects_;
 
@@ -2851,6 +2852,7 @@ TEST_F(HistoryBackendTest, CloneFaviconMappingsForPages) {
 // Check that UpdateFaviconMappingsAndFetch() call back to the UI when there is
 // no valid favicon database.
 TEST_F(HistoryBackendTest, UpdateFaviconMappingsAndFetchNoDB) {
+  backend_->expirer_.SetDatabases(/*main_db=*/nullptr, /*favicon_db=*/nullptr);
   // Make the favicon database invalid.
   backend_->favicon_backend_.reset();
 
@@ -3911,7 +3913,8 @@ TEST_F(HistoryBackendTest, AddPageWithContextAnnotations) {
       /*did_replace_entry=*/false, /*consider_for_ntp_most_visited=*/true,
       /*title=*/absl::nullopt, /*top_level_url*/ absl::nullopt,
       /*opener=*/absl::nullopt,
-      /*bookmark_id=*/absl::nullopt, context_annotations);
+      /*bookmark_id=*/absl::nullopt, /*app_id=*/absl::nullopt,
+      context_annotations);
   backend_->AddPage(request);
 
   // Read the visit back from the DB and make sure the annotations are there.

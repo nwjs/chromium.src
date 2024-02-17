@@ -30,6 +30,8 @@ import {OobeAdaptiveDialog} from '../../components/dialogs/oobe_adaptive_dialog.
 import {OobeA11yOption} from '../../components/oobe_a11y_option.js';
 import {getSelectedTitle, getSelectedValue, SelectListType, setupSelect} from '../../components/oobe_select.js';
 
+import {getTemplate} from './offline_ad_login.html.js';
+
 
 // The definitions below (JoinConfigType, ActiveDirectoryErrorState) are
 // used in enterprise_enrollment.js as well.
@@ -91,13 +93,13 @@ OfflineAdLoginBase.$;
 /**
  * @polymer
  */
-class OfflineAdLogin extends OfflineAdLoginBase {
+export class OfflineAdLogin extends OfflineAdLoginBase {
   static get is() {
     return 'offline-ad-login-element';
   }
 
   static get template() {
-    return html`{__html_template__}`;
+    return getTemplate();
   }
 
   static get properties() {
@@ -205,6 +207,8 @@ class OfflineAdLogin extends OfflineAdLoginBase {
 
   constructor() {
     super();
+
+    this.machineName = '';
 
     /**
      * Used for 'More options' dialog.
@@ -488,6 +492,11 @@ class OfflineAdLogin extends OfflineAdLoginBase {
     this.backToUnlockButtonVisible_ = true;
     this.setUIStep(ADLoginStep.CREDS);
     this.focus();
+  }
+
+  // TODO(b/314761865): Remove this method once this file is migrated to TS.
+  setUIStep(step) {
+    super.setUIStep(step);
   }
 
   /** @private */

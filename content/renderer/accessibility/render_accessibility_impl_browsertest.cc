@@ -267,8 +267,6 @@ class RenderAccessibilityImplTest : public RenderViewTest {
     return static_cast<RenderFrameImpl*>(RenderViewTest::GetMainRenderFrame());
   }
 
-  IPC::TestSink* sink() { return sink_; }
-
   RenderAccessibilityImpl* GetRenderAccessibilityImpl() {
     auto* accessibility_manager = frame()->GetRenderAccessibilityManager();
     DCHECK(accessibility_manager);
@@ -296,8 +294,6 @@ class RenderAccessibilityImplTest : public RenderViewTest {
     blink::WebRuntimeFeatures::EnableAccessibilityExposeHTMLElement(true);
 
     RenderViewTest::SetUp();
-
-    sink_ = &render_thread_->sink();
 
     // Ensure that a valid RenderAccessibilityImpl object is created and
     // associated to the RenderFrame, so that calls from tests to methods of
@@ -355,9 +351,6 @@ class RenderAccessibilityImplTest : public RenderViewTest {
     GetRenderAccessibilityImpl()->GetAXContext()->UpdateAXForAllDocuments();
     task_environment_.RunUntilIdle();
   }
-
- private:
-  raw_ptr<IPC::TestSink, ExperimentalRenderer> sink_;
 };
 
 TEST_F(RenderAccessibilityImplTest, SendFullAccessibilityTreeOnReload) {
@@ -985,9 +978,9 @@ TEST_F(RenderAccessibilityImplTest, SendPendingAccessibilityEventsPostLoad) {
   // No logs initially.
   base::HistogramTester histogram_tester;
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 0);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 0);
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad", 0);
+      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad2", 0);
 
   // A load started event pauses logging.
   WebDocument document = GetMainFrame()->GetDocument();
@@ -996,33 +989,33 @@ TEST_F(RenderAccessibilityImplTest, SendPendingAccessibilityEventsPostLoad) {
       ui::AXEvent(root_obj.AxID(), ax::mojom::Event::kLoadStart));
   SendPendingAccessibilityEvents();
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 1);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 1);
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad", 0);
+      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad2", 0);
 
   // Do not log in the serialization immediately following load completion.
   GetRenderAccessibilityImpl()->HandleAXEvent(
       ui::AXEvent(root_obj.AxID(), ax::mojom::Event::kLoadComplete));
   SendPendingAccessibilityEvents();
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 2);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 2);
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad", 0);
+      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad2", 0);
 
   // Now we start logging.
   GetRenderAccessibilityImpl()->MarkWebAXObjectDirty(root_obj, false);
   SendPendingAccessibilityEvents();
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 3);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 3);
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad", 1);
+      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad2", 1);
 
   GetRenderAccessibilityImpl()->MarkWebAXObjectDirty(root_obj, false);
   SendPendingAccessibilityEvents();
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 4);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 4);
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad", 2);
+      "Accessibility.Performance.SendPendingAccessibilityEvents.PostLoad2", 2);
 }
 
 class BlinkAXActionTargetTest : public RenderAccessibilityImplTest {
@@ -1354,7 +1347,7 @@ TEST_F(AXImageAnnotatorTest, MAYBE_OnImageAdded) {
   // Show node "B".
   ExecuteJavaScriptForTests(
       "document.getElementById('B').style.visibility = 'visible';");
-  GetRenderAccessibilityImpl()->GetAXContext()->UpdateAXForAllDocuments();
+  SendPendingAccessibilityEvents();
   ClearHandledUpdates();
 
   // This should update the annotations of all images on the page, including the
@@ -1362,7 +1355,6 @@ TEST_F(AXImageAnnotatorTest, MAYBE_OnImageAdded) {
   GetRenderAccessibilityImpl()->MarkWebAXObjectDirty(root_obj,
                                                      true /* subtree */);
   SendPendingAccessibilityEvents();
-  task_environment_.RunUntilIdle();
 
   EXPECT_THAT(mock_annotator().image_ids_,
               ElementsAre("test1.jpg", "test2.jpg", "test1.jpg", "test2.jpg"));
@@ -1401,7 +1393,6 @@ TEST_F(AXImageAnnotatorTest, OnImageUpdated) {
   GetRenderAccessibilityImpl()->MarkWebAXObjectDirty(root_obj,
                                                      true /* subtree */);
   SendPendingAccessibilityEvents();
-  task_environment_.RunUntilIdle();
 
   EXPECT_THAT(mock_annotator().image_ids_,
               ElementsAre("test1.jpg", "test1.jpg"));
@@ -1412,7 +1403,7 @@ TEST_F(AXImageAnnotatorTest, OnImageUpdated) {
 
   // Update node "A".
   ExecuteJavaScriptForTests("document.querySelector('img').src = 'test2.jpg';");
-  GetRenderAccessibilityImpl()->GetAXContext()->UpdateAXForAllDocuments();
+  SendPendingAccessibilityEvents();
 
   ClearHandledUpdates();
   // This should update the annotations of all images on the page, including the
@@ -1420,7 +1411,6 @@ TEST_F(AXImageAnnotatorTest, OnImageUpdated) {
   GetRenderAccessibilityImpl()->MarkWebAXObjectDirty(root_obj,
                                                      true /* subtree */);
   SendPendingAccessibilityEvents();
-  task_environment_.RunUntilIdle();
 
   EXPECT_THAT(mock_annotator().image_ids_,
               ElementsAre("test1.jpg", "test1.jpg", "test2.jpg"));
@@ -1480,7 +1470,7 @@ TEST_F(RenderAccessibilityImplUKMTest, TestFireUKMs) {
   EXPECT_EQ(0, ukm_recorder()->calls());
   base::HistogramTester histogram_tester;
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 0);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 0);
 
   // No URL-keyed metrics should be fired after we send one event.
   WebDocument document = GetMainFrame()->GetDocument();
@@ -1489,7 +1479,7 @@ TEST_F(RenderAccessibilityImplUKMTest, TestFireUKMs) {
   SendPendingAccessibilityEvents();
   EXPECT_EQ(0, ukm_recorder()->calls());
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 1);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 1);
 
   // No URL-keyed metrics should be fired even after an event that takes
   // 300 ms, but we should now have something to send.
@@ -1499,7 +1489,7 @@ TEST_F(RenderAccessibilityImplUKMTest, TestFireUKMs) {
   SetTimeDelayForNextSerialize(base::Milliseconds(300));
   EXPECT_EQ(0, ukm_recorder()->calls());
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 2);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 2);
 
   // After 1000 seconds have passed, the next time we send an event we should
   // send URL-keyed metrics.
@@ -1508,7 +1498,7 @@ TEST_F(RenderAccessibilityImplUKMTest, TestFireUKMs) {
   SendPendingAccessibilityEvents();
   EXPECT_EQ(1, ukm_recorder()->calls());
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 3);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 3);
 
   // Send another event that takes a long (simulated) time to serialize.
   // This must be >= kMinSerializationTimeToSend
@@ -1516,7 +1506,7 @@ TEST_F(RenderAccessibilityImplUKMTest, TestFireUKMs) {
   GetRenderAccessibilityImpl()->MarkWebAXObjectDirty(root_obj, false);
   SendPendingAccessibilityEvents();
   histogram_tester.ExpectTotalCount(
-      "Accessibility.Performance.SendPendingAccessibilityEvents", 4);
+      "Accessibility.Performance.SendPendingAccessibilityEvents2", 4);
 
   // We shouldn't have a new call to the UKM recorder yet, not enough
   // time has elapsed.

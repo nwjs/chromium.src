@@ -5,14 +5,14 @@
 #ifndef CHROME_BROWSER_COMPONENT_UPDATER_PRIVACY_SANDBOX_ATTESTATIONS_COMPONENT_INSTALLER_TEST_UTIL_H_
 #define CHROME_BROWSER_COMPONENT_UPDATER_PRIVACY_SANDBOX_ATTESTATIONS_COMPONENT_INSTALLER_TEST_UTIL_H_
 
-#include "chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.h"
-
 #include <string_view>
+
+#include "chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.h"
 
 namespace base {
 class FilePath;
 class Version;
-}
+}  // namespace base
 
 namespace privacy_sandbox {
 class PrivacySandboxAttestationsProto;
@@ -30,6 +30,15 @@ bool WritePrivacySandboxAttestationsFileForTesting(
 // contents `proto`.
 bool InstallPrivacySandboxAttestationsComponentForTesting(
     const privacy_sandbox::PrivacySandboxAttestationsProto& proto,
+    const base::Version& version);
+
+// Install attestations component under DIR_COMPONENT_USER directory.
+bool InstallPrivacySandboxAttestationsComponentForTesting(
+    std::string_view contents,
+    const base::Version& version);
+
+// Returns attestations component installation directory.
+base::FilePath GetPrivacySandboxAtteststionsComponentInstallDir(
     const base::Version& version);
 
 }  // namespace component_updater

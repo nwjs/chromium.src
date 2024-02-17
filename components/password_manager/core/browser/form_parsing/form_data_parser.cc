@@ -27,6 +27,7 @@
 #include "components/autofill/core/common/autofill_regex_constants.h"
 #include "components/autofill/core/common/autofill_regexes.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -412,7 +413,7 @@ void ParseUsingPredictions(std::vector<ProcessedField>* processed_fields,
   for (const PasswordFieldPrediction& prediction : predictions.fields) {
     ProcessedField* processed_field = nullptr;
 
-    CredentialFieldType field_type = DeriveFromServerFieldType(prediction.type);
+    CredentialFieldType field_type = DeriveFromFieldType(prediction.type);
     bool is_password_prediction = IsPasswordPrediction(field_type);
     if (mode == FormDataParser::Mode::kSaving && is_password_prediction &&
         !base::FeatureList::IsEnabled(
@@ -438,12 +439,10 @@ void ParseUsingPredictions(std::vector<ProcessedField>* processed_fields,
         if (processed_field) {
           result->username = processed_field->field;
           result->is_single_username = true;
-          result->ClearAllPasswordFields();
           base::UmaHistogramBoolean(
               "PasswordManager.SingleUsername."
               "ForgotPasswordServerPredictionUsed",
               prediction.type == autofill::SINGLE_USERNAME_FORGOT_PASSWORD);
-          return;
         }
         break;
       case CredentialFieldType::kCurrentPassword:
@@ -486,6 +485,20 @@ void ParseUsingPredictions(std::vector<ProcessedField>* processed_fields,
         break;
       case CredentialFieldType::kNone:
         break;
+    }
+  }
+
+  if (result->is_single_username) {
+    if (mode == FormDataParser::Mode::kSaving &&
+        (result->password || result->new_password)) {
+      // Contradicting predictions were received: the form was predicted to be
+      // both a single username form and a password form. Prioritize saving
+      // the password.
+      result->username = nullptr;
+      result->is_single_username = false;
+    } else {
+      result->ClearAllPasswordFields();
+      return;
     }
   }
 
@@ -1071,6 +1084,10 @@ std::unique_ptr<PasswordForm> AssemblePasswordForm(
   return result;
 }
 
+bool FieldValueIsTooShortForSaving(const FormFieldData* field) {
+  return field && GetFieldValue(*field).size() <= 1;
+}
+
 }  // namespace
 
 FormDataParser::FormDataParser() = default;
@@ -1195,6 +1212,15 @@ FormDataParser::ParseAndReturnUsernameDetection(
 
   base::UmaHistogramEnumeration("PasswordManager.UsernameDetectionMethod",
                                 method);
+
+  // OTPs and PIN codes are usually split across several 1-digit fields.
+  // Don't automatically show Save/Update prompt in such case.
+  if (mode == Mode::kSaving &&
+      ((!significant_fields.new_password &&
+        FieldValueIsTooShortForSaving(significant_fields.password)) ||
+       FieldValueIsTooShortForSaving(significant_fields.new_password))) {
+    significant_fields.is_fallback = true;
+  }
 
   return {
       AssemblePasswordForm(form_data, significant_fields,

@@ -339,7 +339,6 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool RequestedMainFramePending() override;
   ukm::UkmRecorder* MainFrameUkmRecorder() override;
   ukm::SourceId MainFrameUkmSourceId() override;
-  bool IsMainFrameFullyLoaded() const override;
 
   // WebFrameWidget overrides.
   void InitializeNonCompositing(WebNonCompositedWidgetClient* client) override;
@@ -614,6 +613,9 @@ class CORE_EXPORT WebFrameWidgetImpl
   // Called when the widget should get targeting input.
   void SetMouseCapture(bool capture);
 
+  // Called when the widget's main frame has ongoing autoscroll selection.
+  void NotifyAutoscrollForSelectionInMainFrame(bool autoscroll_selection);
+
   // Sets the current page scale factor and minimum / maximum limits. Both
   // limits are initially 1 (no page scale allowed).
   void SetPageScaleStateAndLimits(float page_scale_factor,
@@ -695,6 +697,9 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool WillBeDestroyed() const;
 
   bool IsScrollGestureActive() const;
+
+  // Request a new `viz::LocalSurfaceId` on the compositor thread.
+  void RequestNewLocalSurfaceId();
 
  protected:
   // WidgetBaseClient overrides:
@@ -890,12 +895,12 @@ class CORE_EXPORT WebFrameWidgetImpl
   void ForEachRemoteFrameControlledByWidget(
       base::FunctionRef<void(RemoteFrame*)> callback);
 
-  void SetWindowRectSynchronously(const gfx::Rect& new_window_rect);
-
   void SendOverscrollEventFromImplSide(const gfx::Vector2dF& overscroll_delta,
                                        cc::ElementId scroll_latched_element_id);
   void SendEndOfScrollEvents(bool affects_outer_viewport,
                              cc::ElementId scroll_latched_element_id);
+  void SendSnapChangingEventIfNeeded(
+      const cc::CompositorCommitData& commit_data);
   void RecordManipulationTypeCounts(cc::ManipulationInfo info);
 
   enum DragAction { kDragEnter, kDragOver };
@@ -987,6 +992,9 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   // True when `this` should ignore input events.
   bool ShouldIgnoreInputEvents();
+
+  // Triggers onmove event for window.
+  void EnqueueMoveEvent();
 
   // Stores the current composition line bounds. These bounds are rectangles
   // which surround each line of text in a currently focused input or textarea

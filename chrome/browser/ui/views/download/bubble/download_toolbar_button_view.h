@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_DOWNLOAD_BUBBLE_DOWNLOAD_TOOLBAR_BUTTON_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_DOWNLOAD_BUBBLE_DOWNLOAD_TOOLBAR_BUTTON_VIEW_H_
 
+#include <optional>
+
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -15,7 +17,6 @@
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "components/offline_items_collection/core/offline_item.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/events/event_observer.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
@@ -60,6 +61,10 @@ class DownloadBubbleNavigationHandler {
   // or by focusing (on the partial view).
   virtual void OnDialogInteracted() = 0;
 
+  virtual void OnSecurityDialogButtonPress(
+      const DownloadUIModel& model,
+      DownloadCommands::Command command) = 0;
+
   // Returns a CloseOnDeactivatePin for the download bubble. For the lifetime of
   // the returned pin (if non-null), the download bubble will not close on
   // deactivate. Returns nullptr if the bubble is not open.
@@ -79,9 +84,9 @@ class DownloadToolbarButtonView : public ToolbarButton,
                                   public DownloadBubbleNavigationHandler,
                                   public BrowserListObserver,
                                   public DownloadBubbleRowListViewInfoObserver {
- public:
-  METADATA_HEADER(DownloadToolbarButtonView);
+  METADATA_HEADER(DownloadToolbarButtonView, ToolbarButton)
 
+ public:
   // Identifies the bubble dialog widget for testing.
   static constexpr char kBubbleName[] = "DownloadBubbleDialog";
 
@@ -119,6 +124,8 @@ class DownloadToolbarButtonView : public ToolbarButton,
   void OpenSecurityDialog(
       const offline_items_collection::ContentId& content_id) override;
   void CloseDialog(views::Widget::ClosedReason reason) override;
+  void OnSecurityDialogButtonPress(const DownloadUIModel& model,
+                                   DownloadCommands::Command command) override;
   void ResizeDialog() override;
   void OnDialogInteracted() override;
   std::unique_ptr<views::BubbleDialogDelegate::CloseOnDeactivatePin>
@@ -127,6 +134,7 @@ class DownloadToolbarButtonView : public ToolbarButton,
 
   // BrowserListObserver
   void OnBrowserSetLastActive(Browser* browser) override;
+  void OnBrowserNoLongerActive(Browser* browser) override;
 
   // Deactivates the automatic closing of the partial bubble.
   void DeactivateAutoClose();
@@ -200,10 +208,13 @@ class DownloadToolbarButtonView : public ToolbarButton,
   // Opens primary dialog and shows the item with given id, if found. Returns
   // pointer to the row if found, or nullptr if not found.
   DownloadBubbleRowView* ShowPrimaryDialogRow(
-      absl::optional<offline_items_collection::ContentId> content_id);
+      std::optional<offline_items_collection::ContentId> content_id);
 
   // Callback invoked when the partial view is closed.
   void OnPartialViewClosed();
+
+  // Helper function to show an IPH promo.
+  void ShowIphPromo();
 
   // Called to automatically close the partial view, if such closing has not
   // been deactivated.
@@ -225,6 +236,10 @@ class DownloadToolbarButtonView : public ToolbarButton,
 
   SkColor GetProgressColor(bool is_disabled, bool is_active) const;
 
+  // Makes the required visual changes to set/unset the button into a dormant
+  // or normal state.
+  void UpdateIconDormant();
+
   // DownloadBubbleRowListViewInfoObserver implementation:
   void OnAnyRowRemoved() override;
 
@@ -236,6 +251,21 @@ class DownloadToolbarButtonView : public ToolbarButton,
   std::unique_ptr<DownloadBubbleUIController> bubble_controller_;
   raw_ptr<views::BubbleDialogDelegate> bubble_delegate_ = nullptr;
   raw_ptr<DownloadBubbleContentsView> bubble_contents_ = nullptr;
+
+  // Whether the progress ring in the icon should be updated continuously
+  // (false), or the icon should be displayed as dormant (true). This is a
+  // performance optimization to avoid redrawing the progress ring too many
+  // times when a download is occurring. If the button is dormant, the progress
+  // ring is drawn as a solid circle, and the icon color is the inactive color.
+  // The badge is still drawn, and the icon shape is still updated. (These
+  // change relatively infrequently, so it's ok to update them when they
+  // change.) Buttons on browsers other than the most recent active browser for
+  // the profile are generally dormant.
+  bool is_dormant_ = false;
+
+  // Following 3 fields are updated by the display controller and determine the
+  // visual characteristics of the button icon. Note that they are still updated
+  // as if the button is normal, even when the button is in a dormant state.
 
   // Current or pending state of the icon. If changing these, trigger
   // UpdateIcon() afterwards.

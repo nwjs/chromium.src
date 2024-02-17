@@ -21,7 +21,6 @@
 #include "components/autofill/core/browser/test_autofill_manager_waiter.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/autofill_tick_clock.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/optimization_guide/core/test_optimization_guide_model_provider.h"
 #include "components/translate/core/common/language_detection_details.h"
@@ -75,15 +74,6 @@ class MockAutofillManager : public AutofillManager {
   }
 
   MOCK_METHOD(bool, ShouldClearPreviewedForm, (), (override));
-  MOCK_METHOD(void,
-              FillOrPreviewField,
-              (mojom::ActionPersistence action_persistence,
-               mojom::TextReplacement text_replacement,
-               const FormData& form,
-               const FormFieldData& field,
-               const std::u16string& value,
-               PopupItemId popup_item_id),
-              (override));
   MOCK_METHOD(void,
               OnFocusNoLongerOnFormImpl,
               (bool had_interacted_form),
@@ -243,11 +233,6 @@ void OnFormsSeenWithExpectations(MockAutofillManager& manager,
 
 class AutofillManagerTest : public testing::Test {
  public:
-  AutofillManagerTest() {
-    scoped_feature_list_async_parse_form_.InitWithFeatureState(
-        features::kAutofillParseAsync, true);
-  }
-
   void SetUp() override {
     client_.SetPrefs(test::PrefServiceForTesting());
     driver_ = std::make_unique<NiceMock<MockAutofillDriver>>();
@@ -269,7 +254,6 @@ class AutofillManagerTest : public testing::Test {
   }
 
  protected:
-  base::test::ScopedFeatureList scoped_feature_list_async_parse_form_;
   base::test::TaskEnvironment task_environment_;
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   TestAutofillClient client_;

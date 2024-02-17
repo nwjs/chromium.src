@@ -705,9 +705,11 @@ void LayoutObject::AddChild(LayoutObject* new_child,
     children->InsertChildNode(this, new_child, before_child);
   }
 
-  if (new_child->IsText() &&
-      new_child->StyleRef().TextTransform() == ETextTransform::kCapitalize)
-    To<LayoutText>(new_child)->TransformText();
+  if (auto* text = DynamicTo<LayoutText>(new_child)) {
+    if (new_child->StyleRef().TextTransform() == ETextTransform::kCapitalize) {
+      text->TransformAndSecureOriginalText();
+    }
+  }
 }
 
 void LayoutObject::RemoveChild(LayoutObject* old_child) {
@@ -1368,15 +1370,20 @@ static inline bool ObjectIsRelayoutBoundary(const LayoutObject* object) {
     return false;
   }
 
-  // Inside multicol it's generally problematic to allow relayout roots. The
-  // multicol container itself may be scheduled for relayout as well (due to
-  // other changes that may have happened since the previous layout pass),
-  // which might affect the column heights, which may affect how this object
-  // breaks across columns). Spanners may also have been added or removed since
-  // the previous layout pass, which is just another way of affecting the column
-  // heights (and the number of rows). Instead of identifying cases where it's
-  // safe to allow relayout roots, just disallow them inside multicol.
-  if (box->IsInsideFlowThread()) {
+  // Inside block fragmentation it's generally problematic to allow relayout
+  // roots. A multicol container ancestor may be scheduled for relayout as well
+  // (due to other changes that may have happened since the previous layout
+  // pass), which might affect the column heights, which may affect how this
+  // object breaks across columns). Column spanners may also have been added or
+  // removed since the previous layout pass, which is just another way of
+  // affecting the column heights (and the number of rows). Another problematic
+  // case is out-of-flow positioned objects, since they are being laid out by
+  // the fragmentation context root (to become direct fragmentainer children),
+  // rather than being laid out by their actual CSS containing block.
+  //
+  // Instead of identifying cases where it's safe to allow relayout roots, just
+  // disallow them inside block fragmentation.
+  if (box->MightBeInsideFragmentationContext()) {
     return false;
   }
 
@@ -2113,20 +2120,45 @@ String LayoutObject::DecoratedName() const {
   StringBuilder name;
   name.Append(GetName());
 
-  if (IsAnonymous())
-    name.Append(" (anonymous)");
+  Vector<const char*> attributes;
+  if (IsAnonymous()) {
+    attributes.push_back("anonymous");
+  }
   // FIXME: Remove the special case for LayoutView here (requires rebaseline of
   // all tests).
-  if (IsOutOfFlowPositioned() && !IsA<LayoutView>(this))
-    name.Append(" (positioned)");
-  if (IsRelPositioned())
-    name.Append(" (relative positioned)");
-  if (IsStickyPositioned())
-    name.Append(" (sticky positioned)");
-  if (IsFloating())
-    name.Append(" (floating)");
-  if (SpannerPlaceholder())
-    name.Append(" (column spanner)");
+  if (IsOutOfFlowPositioned() && !IsA<LayoutView>(this)) {
+    attributes.push_back("positioned");
+  }
+  if (IsRelPositioned()) {
+    attributes.push_back("relative positioned");
+  }
+  if (IsStickyPositioned()) {
+    attributes.push_back("sticky positioned");
+  }
+  if (IsFloating()) {
+    attributes.push_back("floating");
+  }
+  if (SpannerPlaceholder()) {
+    attributes.push_back("column spanner");
+  }
+  if (IsLayoutBlock() && IsInline()) {
+    attributes.push_back("inline");
+  }
+  if (IsLayoutReplaced() && !IsInline()) {
+    attributes.push_back("block");
+  }
+  if (IsLayoutBlockFlow() && ChildrenInline() && SlowFirstChild()) {
+    attributes.push_back("children-inline");
+  }
+  if (!attributes.empty()) {
+    name.Append(" (");
+    name.Append(attributes[0]);
+    for (wtf_size_t i = 1; i < attributes.size(); ++i) {
+      name.Append(", ");
+      name.Append(attributes[i]);
+    }
+    name.Append(")");
+  }
 
   return name.ToString();
 }
@@ -2163,7 +2195,6 @@ void LayoutObject::InvalidateDisplayItemClients(
   NOT_DESTROYED();
   // This default implementation invalidates only the object itself as a
   // DisplayItemClient.
-  DCHECK(!GetSelectionDisplayItemClient());
   ObjectPaintInvalidator(*this).InvalidateDisplayItemClient(*this, reason);
 }
 
@@ -2419,7 +2450,7 @@ void LayoutObject::DumpLayoutObject(StringBuilder& string_builder,
 
   if (IsText() && To<LayoutText>(this)->IsTextFragment()) {
     string_builder.AppendFormat(
-        " \"%s\" ", To<LayoutText>(this)->GetText().Ascii().c_str());
+        " \"%s\" ", To<LayoutText>(this)->TransformedText().Ascii().c_str());
   }
 
   if (GetNode()) {
@@ -4331,8 +4362,9 @@ bool LayoutObject::WillRenderImage() {
   }
   // If paint invalidation of this object is delayed, animations can be
   // suspended. When the object is painted the next time, the animations will
-  // be started again.
-  if (ShouldDelayFullPaintInvalidation()) {
+  // be started again. Only suspend if the object is marked for paint
+  // invalidation in the future, or else may not end up being painted.
+  if (ShouldDelayFullPaintInvalidation() && ShouldCheckForPaintInvalidation()) {
     return false;
   }
   return true;
@@ -4537,7 +4569,7 @@ bool LayoutObject::CanUpdateSelectionOnRootLineBoxes() const {
 void LayoutObject::SetNeedsBoundariesUpdate() {
   NOT_DESTROYED();
   DCHECK(!GetDocument().InPostLifecycleSteps());
-  InvalidateIntersectionObserverCachedRects();
+  DeprecatedInvalidateIntersectionObserverCachedRects();
   if (LayoutObject* layout_object = Parent())
     layout_object->SetNeedsBoundariesUpdate();
 }
@@ -4599,7 +4631,7 @@ void LayoutObject::SetShouldDoFullPaintInvalidation(
   DCHECK(IsLayoutFullPaintInvalidationReason(reason));
   SetShouldCheckForPaintInvalidation();
   SetShouldDoFullPaintInvalidationWithoutLayoutChangeInternal(reason);
-  InvalidateIntersectionObserverCachedRects();
+  DeprecatedInvalidateIntersectionObserverCachedRects();
 }
 
 void LayoutObject::SetShouldDoFullPaintInvalidationWithoutLayoutChange(

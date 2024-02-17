@@ -31,6 +31,7 @@ declare namespace chrome {
     // Items in the ReadAnythingTheme struct, see read_anything.mojom for info.
     let fontName: string;
     let fontSize: number;
+    let linksEnabled: boolean;
     let foregroundColor: number;
     let backgroundColor: number;
     let lineSpacing: number;
@@ -204,12 +205,16 @@ declare namespace chrome {
 
     // Set the theme. Used by tests only.
     function setThemeForTesting(
-        fontName: string, fontSize: number, foregroundColor: number,
-        backgroundColor: number, lineSpacing: number,
+        fontName: string, fontSize: number, linksEnabled: boolean,
+        foregroundColor: number, backgroundColor: number, lineSpacing: number,
         letterSpacing: number): void;
 
     // Sets the default language. Used by tests only.
     function setLanguageForTesting(code: string): void;
+
+    // Called when the side panel has finished loading and it's safe to call
+    // SidePanelWebUIView::ShowUI
+    function shouldShowUI(): boolean;
 
     ////////////////////////////////////////////////////////////////
     // Implemented in read_anything/app.ts and called by native c++.
@@ -236,12 +241,30 @@ declare namespace chrome {
     // preferences and can be used to set up the page.
     function restoreSettingsFromPrefs(): void;
 
-    // Returns the index of the next sentence of the given text, such that the
-    // next sentence is equivalent to text.substr(0, <returned_index>).
-    // If the sentence exceeds the maximum text length, the sentence will be
-    // cropped to the nearest word boundary that doesn't exceed the maximum
-    // text length.
-    function getNextSentence(value: string, maxTextLength: number): number;
+    // Inits the AXPosition instance in ReadAnythingAppController with the
+    // starting node. Currently needed to orient the AXPosition to the correct
+    // position, but we should be able to remove this in the future.
+    function initAXPositionWithNode(startingNodeId: number): void;
+
+    // Gets the starting text index for the current Read Aloud text segment
+    // for the given node. nodeId should be a node returned by getNextText or
+    // getPreviousText. Returns -1 if the node is invalid.
+    function getNextTextStartIndex(nodeId: number): number;
+
+    // Gets the ending text index for the current Read Aloud text segment
+    // for the given node. nodeId should be a node returned by getNextText or
+    // getPreviousText. Returns -1 if the node is invalid.
+    function getNextTextEndIndex(nodeId: number): number;
+
+    // Gets the nodes of the  next text that should be spoken and highlighted.
+    // Use getNextTextStartIndex and getNextTextEndIndex to get the bounds
+    // for text associated with these nodes.
+    function getNextText(maxTextLength: number): number[];
+
+    // Gets the nodes for the previous text that should be spoken and
+    // highlighted. Use getNextTextStartIndex and getNextTextEndIndex to get
+    // the bounds for text associated with these nodes.
+    function getPreviousText(maxTextLength: number): number[];
 
     // Signal that the supported fonts should be updated i.e. that the brower's
     // preferred language has changed.

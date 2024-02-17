@@ -292,17 +292,6 @@ class FetchLoaderBase : public GarbageCollectedMixin {
   // multiple times before this instance is gone.
   virtual void Dispose() = 0;
 
-  void LogIfKeepalive(const FetchKeepAliveRendererMetricType& type) const {
-    if (fetch_request_data_->Keepalive()) {
-      base::UmaHistogramEnumeration("FetchKeepAlive.Renderer.Metrics", type);
-    }
-  }
-  void LogIfKeepalive(const std::string& metric) const {
-    if (fetch_request_data_->Keepalive()) {
-      base::UmaHistogramBoolean(metric, true);
-    }
-  }
-
   void Trace(Visitor* visitor) const override {
     visitor->Trace(execution_context_);
     visitor->Trace(fetch_request_data_);
@@ -367,6 +356,9 @@ class FetchManager::Loader final
   void Trace(Visitor*) const override;
 
   void Dispose() override;
+
+  void LogIfKeepalive(const FetchKeepAliveRendererMetricType& type) const;
+  void LogIfKeepalive(const std::string& metric) const;
 
   // ThreadableLoaderClient implementation.
   bool WillFollowRedirect(uint64_t,
@@ -515,6 +507,7 @@ class FetchManager::Loader final
   Vector<KURL> url_list_;
   Member<ScriptCachedMetadataHandler> cached_metadata_handler_;
   TraceWrapperV8Reference<v8::Value> exception_;
+  base::TimeTicks request_started_time_;
 };
 
 FetchManager::Loader::Loader(ExecutionContext* execution_context,
@@ -532,7 +525,8 @@ FetchManager::Loader::Loader(ExecutionContext* execution_context,
       failed_(false),
       finished_(false),
       response_http_status_code_(0),
-      integrity_verifier_(nullptr) {
+      integrity_verifier_(nullptr),
+      request_started_time_(base::TimeTicks::Now()) {
   DCHECK(World());
   url_list_.push_back(fetch_request_data->Url());
   v8::Isolate* isolate = script_state->GetIsolate();
@@ -1200,6 +1194,37 @@ void FetchManager::Loader::NotifyFinished() {
 
 bool FetchManager::Loader::IsDeferred() const {
   return false;
+}
+
+void FetchManager::Loader::LogIfKeepalive(
+    const FetchKeepAliveRendererMetricType& type) const {
+  if (!GetFetchRequestData()->Keepalive()) {
+    return;
+  }
+
+  base::UmaHistogramEnumeration("FetchKeepAlive.Renderer.Metrics", type);
+
+  base::TimeDelta duration = base::TimeTicks::Now() - request_started_time_;
+  if (type == FetchKeepAliveRendererMetricType::kLoadingSuceeded ||
+      type == FetchKeepAliveRendererMetricType::kLoadingFailed) {
+    base::UmaHistogramMediumTimes("FetchKeepAlive.Renderer.Duration", duration);
+
+    if (type == FetchKeepAliveRendererMetricType::kLoadingSuceeded) {
+      base::UmaHistogramMediumTimes(
+          "FetchKeepAlive.Renderer.Duration.Succeeded", duration);
+    } else {
+      base::UmaHistogramMediumTimes("FetchKeepAlive.Renderer.Duration.Failed",
+                                    duration);
+    }
+  }
+}
+
+void FetchManager::Loader::LogIfKeepalive(const std::string& metric) const {
+  if (!GetFetchRequestData()->Keepalive()) {
+    return;
+  }
+
+  base::UmaHistogramBoolean(metric, true);
 }
 
 // A subtype of FetchLoader to handle the deferred fetching algorithm [1].

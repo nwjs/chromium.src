@@ -96,10 +96,12 @@ std::u16string GetUsernameFromSuggestion(const std::u16string& suggestion) {
 
 // Returns a string representing the icon of either the account store or the
 // local password store.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 autofill::Suggestion::Icon CreateStoreIcon(bool for_account_store) {
   return for_account_store ? autofill::Suggestion::Icon::kGoogle
                            : autofill::Suggestion::Icon::kNoIcon;
 }
+#endif
 
 // If |field_suggestion| matches |field_content|, creates a Suggestion out of it
 // and appends to |suggestions|.
@@ -149,7 +151,12 @@ void AppendSuggestionIfMatching(
     suggestion.custom_icon = custom_icon;
     // The UI code will pick up an icon from the resources based on the string.
     suggestion.icon = autofill::Suggestion::Icon::kGlobe;
-    suggestion.trailing_icon = CreateStoreIcon(from_account_store);
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+    if (!base::FeatureList::IsEnabled(
+            password_manager::features::kButterOnDesktopFollowup)) {
+      suggestion.trailing_icon = CreateStoreIcon(from_account_store);
+    }
+#endif
     suggestions->push_back(suggestion);
   }
 }
@@ -221,11 +228,7 @@ void MaybeAppendManagePasswordsEntry(
           ? IDS_PASSWORD_MANAGER_MANAGE_PASSWORDS_AND_PASSKEYS
           : IDS_PASSWORD_MANAGER_MANAGE_PASSWORDS));
   suggestion.popup_item_id = autofill::PopupItemId::kAllSavedPasswordsEntry;
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kEnablePasswordsAccountStorage)) {
-    // The UI code will pick up an icon from the resources based on the string.
-    suggestion.icon = autofill::Suggestion::Icon::kSettings;
-  }
+  suggestion.icon = autofill::Suggestion::Icon::kSettings;
   // The UI code will pick up an icon from the resources based on the string.
   suggestion.trailing_icon = autofill::Suggestion::Icon::kGooglePasswordManager;
   suggestions->push_back(std::move(suggestion));
@@ -377,8 +380,7 @@ void PasswordAutofillManager::OnPopupShown() {}
 void PasswordAutofillManager::OnPopupHidden() {}
 
 void PasswordAutofillManager::DidSelectSuggestion(
-    const autofill::Suggestion& suggestion,
-    autofill::AutofillSuggestionTriggerSource trigger_source) {
+    const autofill::Suggestion& suggestion) {
   ClearPreviewedForm();
   if (suggestion.popup_item_id ==
           autofill::PopupItemId::kAllSavedPasswordsEntry ||
@@ -425,8 +427,7 @@ void PasswordAutofillManager::OnUnlockItemAccepted(
 
 void PasswordAutofillManager::DidAcceptSuggestion(
     const autofill::Suggestion& suggestion,
-    const SuggestionPosition& position,
-    autofill::AutofillSuggestionTriggerSource trigger_source) {
+    const SuggestionPosition& position) {
   using metrics_util::PasswordDropdownSelectedOption;
   switch (suggestion.popup_item_id) {
     case autofill::PopupItemId::kGeneratePasswordEntry:
@@ -539,9 +540,7 @@ void PasswordAutofillManager::DidPerformButtonActionForSuggestion(
 }
 
 bool PasswordAutofillManager::RemoveSuggestion(
-    const std::u16string& value,
-    autofill::PopupItemId popup_item_id,
-    autofill::Suggestion::BackendId backend_id) {
+    const autofill::Suggestion& suggestion) {
   // Password suggestions cannot be deleted this way.
   // See http://crbug.com/329038#c15
   return false;
@@ -553,6 +552,11 @@ void PasswordAutofillManager::ClearPreviewedForm() {
 
 autofill::PopupType PasswordAutofillManager::GetPopupType() const {
   return autofill::PopupType::kPasswords;
+}
+
+autofill::FillingProduct PasswordAutofillManager::GetMainFillingProduct()
+    const {
+  return autofill::FillingProduct::kPassword;
 }
 
 int32_t PasswordAutofillManager::GetWebContentsPopupControllerAxId() const {
@@ -827,7 +831,7 @@ void PasswordAutofillManager::UpdatePopup(
     return;
   }
   autofill_client_->UpdatePopup(
-      suggestions, autofill::PopupType::kPasswords,
+      suggestions, autofill::FillingProduct::kPassword,
       autofill::AutofillSuggestionTriggerSource::kPasswordManager);
 }
 

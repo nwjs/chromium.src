@@ -57,7 +57,7 @@ bool ShouldPrepareForRecovery(const AccountId& account_id) {
       static_cast<int>(ReauthReason::kOther),
   };
   user_manager::KnownUser known_user(g_browser_process->local_state());
-  absl::optional<int> reauth_reason = known_user.FindReauthReason(account_id);
+  std::optional<int> reauth_reason = known_user.FindReauthReason(account_id);
   return reauth_reason.has_value() &&
          base::Contains(kPossibleReasons, reauth_reason.value());
 }
@@ -97,8 +97,10 @@ std::string GaiaScreen::GetResultString(Result result) {
       return "EnterpriseEnroll";
     case Result::START_CONSUMER_KIOSK:
       return "StartConsumerKiosk";
-    case Result::QUICK_START:
-      return "QuickStart";
+    case Result::ENTER_QUICK_START:
+      return "EnterQuickStart";
+    case Result::QUICK_START_ONGOING:
+      return "QuickStartOngoing";
   }
 }
 
@@ -192,6 +194,12 @@ const std::string& GaiaScreen::EnrollmentNudgeEmail() {
 void GaiaScreen::ShowImpl() {
   if (!view_)
     return;
+
+  // Continue QuickStart flow if there is an ongoing setup.
+  if (context()->quick_start_setup_ongoing) {
+    exit_callback_.Run(Result::QUICK_START_ONGOING);
+    return;
+  }
 
   if (!backlights_forced_off_observation_.IsObserving()) {
     backlights_forced_off_observation_.Observe(
@@ -307,7 +315,7 @@ void GaiaScreen::HandleIdentifierEntered(const std::string& user_email) {
 
 void GaiaScreen::OnGetAuthFactorsConfiguration(
     std::unique_ptr<UserContext> user_context,
-    absl::optional<AuthenticationError> error) {
+    std::optional<AuthenticationError> error) {
   bool is_recovery_configured = false;
   bool is_gaia_password_configured = true;
   if (error.has_value()) {
@@ -335,8 +343,6 @@ void GaiaScreen::OnGetAuthFactorsConfiguration(
                                            ->gaia_config.gaia_path;
   if (GaiaScreenHandler::GetGaiaScreenMode(account_id.GetUserEmail()) ==
       GaiaScreenHandler::GaiaScreenMode::GAIA_SCREEN_MODE_SAML_REDIRECT) {
-    // TODO(b/309131477): use reauth path in "SAML redirect" mode if this is a
-    // reauthentication of a known user.
     gaia_path = WizardContext::GaiaPath::kSamlRedirect;
   } else if (ShouldUseReauthEndpoint(account_id, is_recovery_configured)) {
     gaia_path = WizardContext::GaiaPath::kReauth;
@@ -413,7 +419,7 @@ bool GaiaScreen::ShouldFetchEnrollmentNudgePolicy(
 
 void GaiaScreen::OnQuickStartButtonClicked() {
   CHECK(context()->quick_start_enabled);
-  exit_callback_.Run(Result::QUICK_START);
+  exit_callback_.Run(Result::ENTER_QUICK_START);
 }
 
 void GaiaScreen::SetQuickStartButtonVisibility(bool visible) {

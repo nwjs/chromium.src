@@ -294,14 +294,9 @@ TEST_F(AppMenuModelTest, Basics) {
 
   // Choose something from the bookmark submenu and make sure it makes it back
   // to the delegate as well.
-  size_t bookmarks_model_index = 0;
-  for (size_t i = 0; i < item_count; ++i) {
-    if (model.GetTypeAt(i) == ui::MenuModel::TYPE_SUBMENU) {
-      // The bookmarks submenu comes after the Tabs and Downloads items.
-      bookmarks_model_index = i + (features::IsChromeRefresh2023() ? 3 : 2);
-      break;
-    }
-  }
+  size_t bookmarks_model_index =
+      model.GetIndexOfCommandId(IDC_BOOKMARKS_MENU).value();
+
   EXPECT_GT(bookmarks_model_index, 0u);
   ui::MenuModel* bookmarks_model =
       model.GetSubmenuModelAt(bookmarks_model_index);
@@ -331,9 +326,9 @@ TEST_F(AppMenuModelTest, GlobalError) {
 
   AppMenuModel model(this, browser());
   model.Init();
-  absl::optional<size_t> index1 = model.GetIndexOfCommandId(command1);
+  std::optional<size_t> index1 = model.GetIndexOfCommandId(command1);
   ASSERT_TRUE(index1.has_value());
-  absl::optional<size_t> index2 = model.GetIndexOfCommandId(command2);
+  std::optional<size_t> index2 = model.GetIndexOfCommandId(command2);
   ASSERT_TRUE(index2.has_value());
 
   EXPECT_TRUE(model.IsEnabledAt(index1.value()));

@@ -63,6 +63,8 @@ const base::FeatureParam<std::string> kDevToolsConsoleInsightsAidaEndpoint{
     &kDevToolsConsoleInsights, "aida_endpoint", /*default*/ ""};
 const base::FeatureParam<std::string> kDevToolsConsoleInsightsApiKey{
     &kDevToolsConsoleInsights, "aida_api_key", /*default*/ ""};
+const base::FeatureParam<double> kDevToolsConsoleInsightsTemperature{
+    &kDevToolsConsoleInsights, "aida_temperature", /*default*/ 0.2};
 
 // Nukes profile directory before creating a new profile using
 // ProfileManager::CreateMultiProfileAsync().
@@ -239,7 +241,21 @@ BASE_FEATURE(kNoAppCompatClearInChildren,
 BASE_FEATURE(kNoPreReadMainDll,
              "NoPreReadMainDll",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
+
+// When this feature is enabled, the network service will be passed an
+// OSCryptAsync crypto cookie delegate meaning that OSCryptAsync will be used
+// for cookie encryption.
+BASE_FEATURE(kUseOsCryptAsyncForCookieEncryption,
+             "UseOsCryptAsyncForCookieEncryption",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When this feature is enabled, the DPAPI encryption provider will be
+// registered and enabled for encryption/decryption. This provider is
+// forwards/backwards compatible with OSCrypt sync.
+BASE_FEATURE(kEnableDPAPIEncryptionProvider,
+             "EnableDPAPIEncryptionProvider",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
 
 // Enables showing the email of the flex org admin that setup CBCM in the
 // management disclosures.
@@ -317,10 +333,6 @@ BASE_FEATURE(kAutocompleteActionPredictorConfidenceCutoff,
 // TODO(crbug.com/1267731): Remove this flag once the experiments are completed.
 BASE_FEATURE(kOmniboxTriggerForNoStatePrefetch,
              "OmniboxTriggerForNoStatePrefetch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPayloadTestComponent,
-             "PayloadTestComponent",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

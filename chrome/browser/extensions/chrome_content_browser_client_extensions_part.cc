@@ -74,7 +74,6 @@
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/background_info.h"
-#include "extensions/common/manifest_handlers/web_accessible_resources_info.h"
 #include "extensions/common/mojom/manifest.mojom-shared.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/switches.h"
@@ -440,15 +439,15 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
     return true;
   }
 
-  // TODO(creis): We're seeing cases where an extension URL commits in an
-  // extension process but not one registered for it in ProcessMap. This is
-  // surprising and we do not yet have repro steps for it. We should fix this,
-  // but we're primarily concerned with preventing web processes from committing
-  // an extension URL, which is more severe. (Extensions currently share
-  // processes with each other anyway.) Allow it for now, as long as this is an
-  // extension and not a hosted app.
+  // TODO(creis, crbug.com/840857): In the past, there were cases where an
+  // extension URL committed in an extension process but not one registered for
+  // it in ProcessMap. Hence, the code below allows this case, as long as this
+  // is an extension process and not a hosted app process. Since extensions no
+  // longer share processes with each other, it is possible that this no longer
+  // occurs, so add a DumpWithoutCrashing() to confirm if this is still needed.
   if (GetProcessPrivilege(process_host, process_map, registry) ==
       PRIV_EXTENSION) {
+    base::debug::DumpWithoutCrashing();
     return true;
   }
 
@@ -786,12 +785,12 @@ void ChromeContentBrowserClientExtensionsPart::RenderProcessWillLaunch(
 #endif
 }
 
-void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcess(
+void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcessAndSite(
     SiteInstance* site_instance) {
   BrowserContext* context = site_instance->GetProcess()->GetBrowserContext();
 
-  // Only add the process to the map if the SiteInstance's site URL is already
-  // a chrome-extension:// URL. This includes hosted apps, except in rare cases
+  // Only add the process to the map if the SiteInstance's site URL is a
+  // chrome-extension:// URL. This includes hosted apps, except in rare cases
   // that a URL in the hosted app's extent is not treated as a hosted app (e.g.,
   // for isolated origins or cross-site iframes). For that case, don't look up
   // the hosted app's Extension from the site URL using GetExtensionOrAppByURL,

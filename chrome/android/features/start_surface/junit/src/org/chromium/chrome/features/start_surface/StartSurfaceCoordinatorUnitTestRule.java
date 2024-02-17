@@ -14,6 +14,8 @@ import android.graphics.Color;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
 
+import androidx.annotation.NonNull;
+
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.rules.TestRule;
@@ -30,6 +32,7 @@ import org.chromium.base.jank_tracker.PlaceholderJankTracker;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.app.tabmodel.ChromeTabModelFilterFactory;
 import org.chromium.chrome.browser.back_press.BackPressManager;
@@ -65,12 +68,11 @@ import org.chromium.chrome.browser.tasks.tab_management.TabGridDialogView;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.offlinepages.FakeOfflinePageBridge;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabCreatorManager;
-import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
+import org.chromium.chrome.test.util.browser.tabmodel.MockTabModelSelector;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
@@ -109,18 +111,25 @@ public class StartSurfaceCoordinatorUnitTestRule implements TestRule {
     private static class MockTabModelFilterProvider extends TabModelFilterProvider {
         public MockTabModelFilterProvider(Activity activity) {
             List<TabModel> tabModels = new ArrayList<>();
-            tabModels.add(new MockTabModel(Profile.getLastUsedRegularProfile(), null));
-            MockTabModel incognitoTabModel =
-                    new MockTabModel(
-                            Profile.getLastUsedRegularProfile().getPrimaryOTRProfile(true), null);
-            incognitoTabModel.setAsActiveModelForTesting();
-            tabModels.add(incognitoTabModel);
+            MockTabModelSelector selector =
+                    new MockTabModelSelector(
+                            Profile.getLastUsedRegularProfile(),
+                            Profile.getLastUsedRegularProfile().getPrimaryOTRProfile(true),
+                            0,
+                            0,
+                            null);
+            tabModels.add(selector.getModel(false));
+            tabModels.add(selector.getModel(true));
+            selector.selectModel(true);
 
-            init(new ChromeTabModelFilterFactory(activity), tabModels);
+            init(new ChromeTabModelFilterFactory(activity), selector, tabModels);
         }
 
         @Override
-        public void init(TabModelFilterFactory tabModelFilterFactory, List<TabModel> tabModels) {
+        public void init(
+                @NonNull TabModelFilterFactory tabModelFilterFactory,
+                @NonNull TabModelSelector tabModelSelector,
+                @NonNull List<TabModel> tabModels) {
             assert mTabModelFilterList.isEmpty();
             assert tabModels.size() > 0;
 
@@ -258,6 +267,9 @@ public class StartSurfaceCoordinatorUnitTestRule implements TestRule {
         when(voiceRecognitionHandler.isVoiceSearchEnabled()).thenReturn(true);
         mIncognitoReauthControllerSupplier.set(Mockito.mock(IncognitoReauthController.class));
 
+        var tabStripHeightSupplier = new ObservableSupplierImpl<Integer>();
+        tabStripHeightSupplier.set(0);
+
         mCoordinator =
                 new StartSurfaceCoordinator(
                         mActivity,
@@ -286,7 +298,8 @@ public class StartSurfaceCoordinatorUnitTestRule implements TestRule {
                         new BackPressManager(),
                         mIncognitoReauthControllerSupplier,
                         null,
-                        mProfileSupplier);
+                        mProfileSupplier,
+                        tabStripHeightSupplier);
 
         Assert.assertFalse(LibraryLoader.getInstance().isLoaded());
         when(mLibraryLoader.isInitialized()).thenReturn(true);

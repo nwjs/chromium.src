@@ -47,7 +47,7 @@
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "components/os_crypt/sync/os_crypt_mocker.h"
 #endif
 
@@ -100,13 +100,14 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
                const url::Origin& origin,
                CredentialsCallback callback),
               ());
-  MOCK_METHOD(void,
-              PasswordWasAutofilled,
-              (const std::vector<const PasswordForm*>&,
-               const url::Origin&,
-               const std::vector<const PasswordForm*>*,
-               bool was_autofilled_on_pageload),
-              (override));
+  MOCK_METHOD(
+      void,
+      PasswordWasAutofilled,
+      (const std::vector<vector_experimental_raw_ptr<const PasswordForm>>&,
+       const url::Origin&,
+       const std::vector<vector_experimental_raw_ptr<const PasswordForm>>*,
+       bool was_autofilled_on_pageload),
+      (override));
 
   explicit MockPasswordManagerClient(PasswordStoreInterface* profile_store,
                                      PasswordStoreInterface* account_store)
@@ -122,7 +123,7 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
                                             true);
     prefs_->registry()->RegisterBooleanPref(::prefs::kSafeBrowsingEnhanced,
                                             false);
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     OSCryptMocker::SetUp();
     prefs_->registry()->RegisterIntegerPref(
         password_manager::prefs::kRelaunchChromeBubbleDismissedCounter, 0);
@@ -250,8 +251,7 @@ class CredentialManagerImplTest : public testing::Test,
     mock_match_helper_ = owning_mock_match_helper.get();
     store_->Init(/*prefs=*/nullptr, std::move(owning_mock_match_helper));
 
-    if (base::FeatureList::IsEnabled(
-            features::kEnablePasswordsAccountStorage)) {
+    if (GetParam()) {
       account_store_ = new TestPasswordStore(IsAccountStore(true));
       account_store_->Init(/*prefs=*/nullptr,
                            /*affiliated_match_helper=*/nullptr);

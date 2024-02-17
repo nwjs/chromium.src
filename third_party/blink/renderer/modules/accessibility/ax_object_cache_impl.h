@@ -70,7 +70,6 @@ namespace blink {
 class AXRelationCache;
 class AbstractInlineTextBox;
 class HTMLAreaElement;
-class LocalFrameView;
 class WebLocalFrameClient;
 
 // Describes a decicion on whether to create an AXNodeObject, an AXLayoutObject,
@@ -129,7 +128,6 @@ class MODULES_EXPORT AXObjectCacheImpl
   Document* GetPopupDocumentIfShowing() const { return popup_document_.Get(); }
 
   AXObject* FocusedObject();
-
   const ui::AXMode& GetAXMode() override;
   void SetAXMode(const ui::AXMode&) override;
 
@@ -151,14 +149,6 @@ class MODULES_EXPORT AXObjectCacheImpl
     if (frozen_count_++) {
       // Already frozen.
       return;
-    }
-    // TODO(crbug.com/1477047): Remove this case once post lifecycle
-    // serialization is the only remaining code path. It's unclear why the
-    // document lifecycle check is necessary but this is short-lived code.
-    if (!serialize_post_lifecycle_ && frozen_count_ == 1 &&
-        GetDocument().Lifecycle().GetState() <
-            DocumentLifecycle::kPrePaintClean) {
-      UpdateAXForAllDocuments();
     }
     ax_tree_source_->Freeze();
     CHECK(FocusedObject());
@@ -251,6 +241,11 @@ class MODULES_EXPORT AXObjectCacheImpl
 
   void FocusableChangedWithCleanLayout(Node* node);
   void DocumentTitleChanged() override;
+
+  // Returns true if we can immediately process tree updates for this node.
+  // The main reason we cannot is lacking enough context to determine the
+  // relevance of a whitespace node.
+  bool IsReadyToProcessTreeUpdatesForNode(const Node*);
   // Called when a node is connected to the document.
   void NodeIsConnected(Node*) override;
   // Called when a node is attached to the layout tree.
@@ -291,6 +286,11 @@ class MODULES_EXPORT AXObjectCacheImpl
                              const PhysicalRect&) override;
 
   void InlineTextBoxesUpdated(LayoutObject*) override;
+
+  // Get the amount of time, in ms, that event processing should be deferred
+  // in order to more efficiently batch changes.
+  int GetDeferredEventsDelay() const;
+
   // Called during the accessibility lifecycle to refresh the AX tree.
   void ProcessDeferredAccessibilityEvents(Document&, bool force) override;
   // Remove AXObject subtrees (once flat tree traversal is safe).
@@ -303,7 +303,6 @@ class MODULES_EXPORT AXObjectCacheImpl
   void EmbeddingTokenChanged(HTMLFrameOwnerElement*) override;
 
   // Called when the scroll offset changes.
-  void HandleScrollPositionChanged(LocalFrameView*) override;
   void HandleScrollPositionChanged(LayoutObject*) override;
 
   void HandleScrolledToAnchor(const Node* anchor_node) override;
@@ -368,10 +367,6 @@ class MODULES_EXPORT AXObjectCacheImpl
   // its parent, it will be set as the new parent.
   AXObject* Get(const LayoutObject*, AXObject* parent_for_repair = nullptr);
 
-  // Get an AXObject* for a node.
-  // TODO(accessibility) This is the same as Get(Node*), and should be removed.
-  AXObject* SafeGet(const Node* node);
-
   // Return true if the object is still part of the tree, meaning that ancestors
   // exist or can be repaired all the way to the root.
   bool IsStillInTree(AXObject*);
@@ -424,11 +419,6 @@ class MODULES_EXPORT AXObjectCacheImpl
                            const AriaNotificationOptions*) override;
 
   void PostNotification(const LayoutObject*, ax::mojom::blink::Event);
-  // Creates object if necessary.
-  void EnsurePostNotification(Node*, ax::mojom::blink::Event);
-  void EnsureMarkDirtyWithCleanLayout(Node*);
-  // Does not create object.
-  // TODO(accessibility) Find out if we can merge with EnsurePostNotification().
   void PostNotification(Node*, ax::mojom::blink::Event);
   void PostNotification(AXObject*, ax::mojom::blink::Event);
 
@@ -520,7 +510,8 @@ class MODULES_EXPORT AXObjectCacheImpl
       ui::AXTreeUpdate*,
       std::set<ui::AXSerializationErrorFlag>* out_error = nullptr) override;
 
-  void MarkAXObjectDirtyWithDetails(
+  // Marks an object as dirty to be serialized in the next serialization.
+  void AddDirtyObjectToSerializationQueue(
       AXObject* obj,
       bool subtree,
       ax::mojom::blink::EventFrom event_from,
@@ -590,7 +581,33 @@ class MODULES_EXPORT AXObjectCacheImpl
     return whitespace_ignored_map_;
   }
 
+  // Adds an event to the list of pending_events_ and mark the object as dirty
+  // via AXObjectCache::AddDirtyObjectToSerializationQueue. If
+  // immediate_serialization is set, it schedules a serialization to be done at
+  // the next available time without delays.
+  void AddEventToSerializationQueue(const ui::AXEvent& event,
+                                    bool immediate_serialization) override;
+
+  // Called from browser to RAI and then to AXCache to notify that a
+  // serialization has arrived to Browser.
+  void OnSerializationReceived() override;
+
+  // Used by outside classes to determine if a serialization is in the process
+  // or not.
+  bool IsSerializationInFlight() const override;
+
+  // Used by outside classes, mainly RenderAccessibilityImpl, to inform
+  // AXObjectCacheImpl that a serialization was cancelled.
+  void OnSerializationCancelled() override;
+
+  // Used by outside classes, mainly RenderAccessibilityImpl, to inform
+  // AXObjectCacheImpl that a serialization was sent.
+  void OnSerializationStartSend() override;
+
  protected:
+  bool IsImmediateProcessingRequiredForEvent(const ui::AXEvent& event) const;
+  void ScheduleImmediateSerialization() override;
+
   void PostPlatformNotification(
       AXObject* obj,
       ax::mojom::blink::Event event_type,
@@ -729,15 +746,15 @@ class MODULES_EXPORT AXObjectCacheImpl
     kMarkDirtyFromHandleLayout = 11,
     kMarkDirtyFromHandleScroll = 12,
     kMarkDirtyFromRemove = 13,
-    kNameAttributeChanged = 14,
-    kNodeGainedFocus = 15,
-    kNodeLostFocus = 16,
-    kPostNotificationFromHandleLoadComplete = 17,
-    kPostNotificationFromHandleLoadStart = 18,
-    kPostNotificationFromHandleScrolledToAnchor = 19,
-    kRemoveValidationMessageObjectFromFocusedUIElement = 20,
-    kRemoveValidationMessageObjectFromValidationMessageObject = 21,
-    kRoleChangeFromAriaHasPopup = 22,
+    kNodeGainedFocus = 14,
+    kNodeLostFocus = 15,
+    kPostNotificationFromHandleLoadComplete = 16,
+    kPostNotificationFromHandleLoadStart = 17,
+    kPostNotificationFromHandleScrolledToAnchor = 18,
+    kRemoveValidationMessageObjectFromFocusedUIElement = 19,
+    kRemoveValidationMessageObjectFromValidationMessageObject = 20,
+    kRoleChangeFromAriaHasPopup = 21,
+    kRoleChangeFromImageMapName = 22,
     kRoleChangeFromRoleOrType = 23,
     kRoleMaybeChangedFromEventListener = 24,
     kRoleMaybeChangedFromHref = 25,
@@ -824,7 +841,6 @@ class MODULES_EXPORT AXObjectCacheImpl
   Member<Document> popup_document_;
 
   ui::AXMode ax_mode_;
-  const bool serialize_post_lifecycle_;
 
   HeapHashMap<AXID, Member<AXObject>> objects_;
   HeapHashMap<Member<AccessibleNode>, AXID> accessible_node_mapping_;
@@ -863,12 +879,14 @@ class MODULES_EXPORT AXObjectCacheImpl
 
 #if DCHECK_IS_ON()
   bool updating_layout_and_ax_ = false;
+  int tree_check_counter_ = 0;
+  base::Time last_tree_check_time_stamp_ = base::Time::Now();
 #endif
 
-  // If true, do not do work to process a11y or build the a11y in
-  // ProcessDeferredAccessibilityEvents(). Will be set to false when more
-  // content is loaded or the load is completed.
-  bool pause_tree_updates_until_more_loaded_content_ = false;
+  // If non-zero, do not do work to process a11y or build the a11y tree in
+  // ProcessDeferredAccessibilityEvents(). Will be set to 0 when more content
+  // is loaded or the load is completed.
+  size_t allowed_tree_update_pauses_remaining_ = 0;
   // If null, then any new connected node will unpause tree updates.
   // Otherwise, tree updates will unpause once the node is fully parsed.
   WeakMember<Node> node_to_parse_before_more_tree_updates_;
@@ -944,7 +962,7 @@ class MODULES_EXPORT AXObjectCacheImpl
   // call children changed.
   void HandleTextMarkerDataAddedWithCleanLayout(Node*);
   void HandleUseMapAttributeChangedWithCleanLayout(Node*);
-  void HandleNameAttributeChangedWithCleanLayout(Node*);
+  void HandleNameAttributeChanged(Node*);
 
   bool DoesEventListenerImpactIgnoredState(const AtomicString& event_type,
                                            const Node& node) const;
@@ -1035,6 +1053,31 @@ class MODULES_EXPORT AXObjectCacheImpl
   wtf_size_t max_pending_updates_ = 1UL << 16;
   bool tree_updates_paused_ = false;
 
+  // This will flip to true when we initiate the process of sending AX data to
+  // the browser, and will flip back to false once we receive back an ACK.
+  bool serialization_in_flight_ = false;
+
+  // This stores the last time a serialization was ACK'ed after being sent to
+  // the browser, so that serializations can be skipped if the time since the
+  // last serialization is less than GetDeferredEventsDelay(). Setting to
+  // "beginning of time" causes the upcoming serialization to occur at the next
+  // available opportunity.  Batching is used to reduce the number of
+  // serializations, in order to provide overall faster content updates while
+  // using less CPU, because nodes that change multiple times in a short time
+  // period only need to be serialized once, e.g. during page loads or
+  // animations.
+  base::Time last_serialization_timestamp_ = base::Time::UnixEpoch();
+
+  // If true, will not attempt to batch and will serialize at the next
+  // opportunity.
+  bool serialize_immediately_ = false;
+
+  // This flips to true if a request for an immediate update was not honored
+  // because serialization_in_flight_ was true. It flips back to false once
+  // serialization_in_flight_ has flipped to false and an immediate update has
+  // been requested.
+  bool serialize_immediately_after_current_serialization_ = false;
+
   // Maps ids to their object's autofill suggestion availability.
   HashMap<AXID, WebAXAutofillSuggestionAvailability>
       autofill_suggestion_availability_map_;
@@ -1092,7 +1135,14 @@ class MODULES_EXPORT AXObjectCacheImpl
   bool mark_all_dirty_ = false;
 
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, PauseUpdatesAfterMaxNumberQueued);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
+                           UpdateAXForAllDocumentsAfterPausedUpdates);
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, RemoveReferencesToAXID);
+
+  // So we can ensure the serialization pipeline never stalls with dirty objects
+  // remaining to be serialized.
+  base::WeakPtrFactory<AXObjectCacheImpl>
+      weak_factory_for_serialization_pipeline_{this};
 };
 
 // This is the only subclass of AXObjectCache.

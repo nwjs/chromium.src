@@ -449,9 +449,8 @@ void ReportPasswordProtectedMetrics(
     const std::vector<std::unique_ptr<PasswordForm>>& forms) {
   for (const std::unique_ptr<PasswordForm>& form : forms) {
     if (!form->blocked_by_user && form->password_value.size() > 0) {
-      metrics_util::LogIsPasswordProtected(
-          form->password_value.size() >=
-          password_manager::GetMinPasswordLengthToCheck());
+      metrics_util::LogIsPasswordProtected(form->password_value.size() >=
+                                           kMinPasswordLengthToCheck);
     }
   }
 }
@@ -656,11 +655,9 @@ StoreMetricsReporter::StoreMetricsReporter(
     const syncer::SyncService* sync_service,
     PrefService* prefs,
     password_manager::PasswordReuseManager* password_reuse_manager,
-    bool is_under_advanced_protection,
     base::OnceClosure done_callback)
     : profile_store_(profile_store),
       account_store_(account_store),
-      is_under_advanced_protection_(is_under_advanced_protection),
       done_callback_(std::move(done_callback)) {
   DCHECK(prefs);
 
@@ -705,8 +702,7 @@ StoreMetricsReporter::StoreMetricsReporter(
   // May be null in tests.
   if (profile_store) {
     if (password_reuse_manager) {
-      password_reuse_manager->ReportMetrics(sync_username_,
-                                            is_under_advanced_protection_);
+      password_reuse_manager->ReportMetrics(sync_username_);
     }
   }
 

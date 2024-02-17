@@ -16,11 +16,6 @@ BASE_FEATURE(kWebViewBrotliSupport,
              "WebViewBrotliSupport",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Check layer_tree_frame_sink_id when return resources to compositor.
-BASE_FEATURE(kWebViewCheckReturnResources,
-             "WebViewCheckReturnResources",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Whether to destroy the WebView rendering functor when after a WebView window
 // becomes invisible.
 //
@@ -99,12 +94,6 @@ BASE_FEATURE(kWebViewJavaJsBridgeMojo,
              "WebViewJavaJsBridgeMojo",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enable reporting filtered metrics from webview clients used to be
-// out-sampled.
-BASE_FEATURE(kWebViewMetricsFiltering,
-             "WebViewMetricsFiltering",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Field trial feature for controlling support of Origin Trials on WebView.
 BASE_FEATURE(kWebViewOriginTrials,
              "WebViewOriginTrials",
@@ -157,10 +146,21 @@ BASE_FEATURE(kWebViewUseMetricsUploadServiceOnlySdkRuntime,
              "WebViewUseMetricsUploadServiceOnlySdkRuntime",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Propagate Android's network notification signals to networking stack
-BASE_FEATURE(kWebViewPropagateNetworkSignals,
-             "webViewPropagateNetworkSignals",
+// Enables prerender2 on WebView (https://crbug.com/1517472).
+BASE_FEATURE(kWebViewPrerender2,
+             "WebViewPrerender2",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Propagate Android's network change notification signals to the networking
+// stack. This only propagates the following notifications:
+// * OnNetworkConnected
+// * OnNetworkDisconnected
+// * OnNetworkMadeDefault
+// * OnNetworkSoonToDisconnect.
+// AreNetworkHandlesCurrentlySupported is also controlled through this flag.
+BASE_FEATURE(kWebViewPropagateNetworkChangeSignals,
+             "webViewPropagateNetworkChangeSignals",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Provide the unreduced product version from the AwContentBrowserClient API,
 // regardless of the user agent reduction policy.

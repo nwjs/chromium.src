@@ -206,8 +206,8 @@ class AppAccessNotifierTest : public testing::Test,
 
   static apps::CapabilityAccessPtr MakeCapabilityAccess(
       const std::string app_id,
-      absl::optional<bool> camera,
-      absl::optional<bool> microphone) {
+      std::optional<bool> camera,
+      std::optional<bool> microphone) {
     auto access = std::make_unique<apps::CapabilityAccess>(app_id);
     access->camera = camera;
     access->microphone = microphone;
@@ -259,8 +259,8 @@ class AppAccessNotifierTest : public testing::Test,
   apps::AppRegistryCache registry_cache_secondary_user_;
   apps::AppCapabilityAccessCache capability_access_cache_secondary_user_;
 
-  raw_ptr<ash::FakeChromeUserManager, DanglingUntriaged | ExperimentalAsh>
-      fake_user_manager_ = nullptr;
+  raw_ptr<ash::FakeChromeUserManager, DanglingUntriaged> fake_user_manager_ =
+      nullptr;
   std::unique_ptr<user_manager::ScopedUserManager> scoped_user_manager_;
 
   // This instance is needed for setting up `ash_test_helper_`.

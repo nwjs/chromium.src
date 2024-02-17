@@ -16,6 +16,7 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/test_shell_delegate.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_types.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
@@ -332,7 +333,7 @@ class EventTargetTestDelegate : public aura::client::DragDropDelegate {
     output_drag_op = DragOperation::kMove;
   }
 
-  const raw_ptr<aura::Window, DanglingUntriaged | ExperimentalAsh> window_;
+  const raw_ptr<aura::Window, DanglingUntriaged> window_;
   State state_{State::kNotInvoked};
 };
 
@@ -537,13 +538,13 @@ class DragDropControllerTest : public AshTestBase {
   }
 
   std::unique_ptr<TestDragDropController> drag_drop_controller_;
-  raw_ptr<NiceMock<MockShellDelegate>, DanglingUntriaged | ExperimentalAsh>
-      mock_shell_delegate_ = nullptr;
+  raw_ptr<NiceMock<MockShellDelegate>, DanglingUntriaged> mock_shell_delegate_ =
+      nullptr;
 
   std::unique_ptr<TestNewWindowDelegateProvider>
       test_new_window_delegate_provider_;
-  raw_ptr<NiceMock<MockNewWindowDelegate>, ExperimentalAsh>
-      mock_new_window_delegate_ptr_ = nullptr;
+  raw_ptr<NiceMock<MockNewWindowDelegate>> mock_new_window_delegate_ptr_ =
+      nullptr;
 
   bool quit_ = false;
 
@@ -1659,10 +1660,9 @@ TEST_F(DragDropControllerTest, TabletSplitViewDragTwoBrowserTabs) {
   std::unique_ptr<aura::Window> tab_window2 = CreateToplevelTestWindow();
   SplitViewController* const split_view_controller =
       SplitViewController::Get(tab_window1.get());
-  split_view_controller->SnapWindow(
-      tab_window1.get(), SplitViewController::SnapPosition::kPrimary);
-  split_view_controller->SnapWindow(
-      tab_window2.get(), SplitViewController::SnapPosition::kSecondary);
+  split_view_controller->SnapWindow(tab_window1.get(), SnapPosition::kPrimary);
+  split_view_controller->SnapWindow(tab_window2.get(),
+                                    SnapPosition::kSecondary);
   EXPECT_TRUE(split_view_controller->InTabletSplitViewMode());
 
   // Touch and hold the right tab window.
@@ -2033,7 +2033,7 @@ class DragDropControllerLongTapCancelTest : public DragDropControllerTest {
   }
 
   std::unique_ptr<views::Widget> widget_;
-  raw_ptr<DragTestView, ExperimentalAsh> drag_view_ = nullptr;
+  raw_ptr<DragTestView> drag_view_ = nullptr;
   std::unique_ptr<ui::test::EventGenerator> generator_;
   bool inside_loop_task_executed_ = false;
 };

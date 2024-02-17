@@ -70,7 +70,7 @@ BASE_FEATURE(kDurationEstimatesInCompositorTimingHistory,
 
 BASE_FEATURE(kNonBlockingCommit,
              "NonBlockingCommit",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNoPreserveLastMutation,
              "NoPreserveLastMutation",
@@ -176,5 +176,9 @@ BASE_FEATURE(kEvictionThrottlesDraw,
 BASE_FEATURE(kResetTimerWhenNoActiveTreeLikely,
              "ResetTimerWhenNoActiveTreeLikely",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAdjustFastMainThreadThreshold,
+             "AdjustFastMainThreadThreshold",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

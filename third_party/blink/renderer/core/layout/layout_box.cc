@@ -328,8 +328,8 @@ LayoutUnit MenuListIntrinsicInlineSize(const HTMLSelectElement& select,
   float max_option_width = 0;
   if (!box.ShouldApplySizeContainment()) {
     for (auto* const option : select.GetOptionList()) {
-      String text = option->TextIndentedToRespectGroupLabel();
-      style.ApplyTextTransform(&text);
+      String text =
+          style.ApplyTextTransform(option->TextIndentedToRespectGroupLabel());
       // We apply SELECT's style, not OPTION's style because max_option_width is
       // used to determine intrinsic width of the menulist box.
       max_option_width =
@@ -466,7 +466,6 @@ void LayoutBoxRareData::Trace(Visitor* visitor) const {
 LayoutBox::LayoutBox(ContainerNode* node)
     : LayoutBoxModelObject(node),
       intrinsic_logical_widths_initial_block_size_(LayoutUnit::Min()) {
-  SetIsBox();
   if (blink::IsA<HTMLLegendElement>(node))
     SetIsHTMLLegendElement();
 }
@@ -540,10 +539,6 @@ void LayoutBox::StyleWillChange(StyleDifference diff,
   NOT_DESTROYED();
   const ComputedStyle* old_style = Style();
   if (old_style) {
-    LayoutFlowThread* flow_thread = FlowThreadContainingBlock();
-    if (flow_thread && flow_thread != this)
-      flow_thread->FlowThreadDescendantStyleWillChange(this, diff, new_style);
-
     if (IsDocumentElement() || IsBody()) {
       // The background of the root element or the body element could propagate
       // up to the canvas. Just dirty the entire canvas when our style changes
@@ -675,9 +670,6 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
     if (LayoutMultiColumnSpannerPlaceholder* placeholder =
             SpannerPlaceholder()) {
       placeholder->LayoutObjectInFlowThreadStyleDidChange(old_style);
-    } else if (LayoutFlowThread* flow_thread = FlowThreadContainingBlock()) {
-      if (flow_thread != this)
-        flow_thread->FlowThreadDescendantStyleDidChange(this, diff, *old_style);
     }
 
     UpdateScrollSnapMappingAfterStyleChange(*old_style);
@@ -2712,9 +2704,6 @@ void LayoutBox::AppendLayoutResult(const LayoutResult* result) {
   layout_results_.push_back(std::move(result));
   InvalidateCachedGeometry();
   CheckDidAddFragment(*this, fragment);
-
-  if (layout_results_.size() > 1)
-    FragmentCountOrSizeDidChange();
 }
 
 void LayoutBox::ReplaceLayoutResult(const LayoutResult* result,
@@ -2733,9 +2722,17 @@ void LayoutBox::ReplaceLayoutResult(const LayoutResult* result,
         InvalidateItems(*old_result);
       FragmentItems::ClearAssociatedFragments(this);
     }
-    if (layout_results_.size() > 1) {
-      if (fragment.Size() != old_fragment.Size())
-        FragmentCountOrSizeDidChange();
+    // We are about to replace a fragment, and the size may have changed. The
+    // inline-size and total stitched block-size may still remain unchanged,
+    // though, and pre-paint can only detect changes in the total stitched
+    // size. So this is our last chance to detect any size changes at the
+    // fragment itself. Only do this if we're fragmented, though. Otherwise
+    // leave it to pre-paint to figure out if invalidation is really required,
+    // since it's fine to just check the stitched sizes when not fragmented.
+    // Unconditionally requiring full paint invalidation at size changes may be
+    // unnecessary and expensive.
+    if (layout_results_.size() > 1 && fragment.Size() != old_fragment.Size()) {
+      SetShouldDoFullPaintInvalidation();
     }
   }
   // |layout_results_| is particularly critical when side effects are disabled.
@@ -2799,8 +2796,6 @@ void LayoutBox::ShrinkLayoutResults(wtf_size_t results_to_keep) {
     InvalidateItems(*layout_results_[i]);
   // |layout_results_| is particularly critical when side effects are disabled.
   DCHECK(!DisableLayoutSideEffectsScope::IsDisabled());
-  if (layout_results_.size() > 1)
-    FragmentCountOrSizeDidChange();
   layout_results_.Shrink(results_to_keep);
   InvalidateCachedGeometry();
 }

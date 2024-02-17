@@ -93,7 +93,7 @@ void ChromeLoginPerformer::DidRunTrustedCheck(base::OnceClosure* callback) {
 bool ChromeLoginPerformer::IsUserAllowlisted(
     const AccountId& account_id,
     bool* wildcard_match,
-    const absl::optional<user_manager::UserType>& user_type) {
+    const std::optional<user_manager::UserType>& user_type) {
   return CrosSettings::Get()->IsUserAllowlisted(account_id.GetUserEmail(),
                                                 wildcard_match, user_type);
 }
@@ -134,7 +134,7 @@ void ChromeLoginPerformer::LoadAndApplyEarlyPrefs(
     std::unique_ptr<UserContext> context,
     AuthOperationCallback callback) {
   if (!base::FeatureList::IsEnabled(ash::features::kEnableEarlyPrefs)) {
-    std::move(callback).Run(std::move(context), absl::nullopt);
+    std::move(callback).Run(std::move(context), std::nullopt);
     return;
   }
   base::FilePath early_prefs_dir;
@@ -143,9 +143,11 @@ void ChromeLoginPerformer::LoadAndApplyEarlyPrefs(
   CHECK(success);
   early_prefs_dir = early_prefs_dir.Append(context->GetUserIDHash());
 
+  // Use TaskPriority::HIGHEST as this operation blocks
+  // user login flow.
   early_prefs_reader_ = std::make_unique<EarlyPrefsReader>(
       early_prefs_dir, base::ThreadPool::CreateSequencedTaskRunner(
-                           {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+                           {base::MayBlock(), base::TaskPriority::HIGHEST,
                             base::TaskShutdownBehavior::BLOCK_SHUTDOWN}));
   early_prefs_reader_->ReadFile(base::BindOnce(
       &ChromeLoginPerformer::OnEarlyPrefsRead, weak_factory_.GetWeakPtr(),
@@ -158,7 +160,7 @@ void ChromeLoginPerformer::OnEarlyPrefsRead(
     bool success) {
   if (!success) {
     LOG(WARNING) << "No early prefs detected";
-    std::move(callback).Run(std::move(context), absl::nullopt);
+    std::move(callback).Run(std::move(context), std::nullopt);
     return;
   }
   AuthParts::Get()->RegisterEarlyLoginAuthPolicyConnector(

@@ -49,13 +49,13 @@ MediaLicenseStorageHostOpenError MediaLicenseDatabase::OpenFile(
   return OpenDatabase();
 }
 
-absl::optional<std::vector<uint8_t>> MediaLicenseDatabase::ReadFile(
+std::optional<std::vector<uint8_t>> MediaLicenseDatabase::ReadFile(
     const media::CdmType& cdm_type,
     const std::string& file_name) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (OpenDatabase() != MediaLicenseStorageHostOpenError::kOk) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   static constexpr char kSelectSql[] =
@@ -79,7 +79,7 @@ absl::optional<std::vector<uint8_t>> MediaLicenseDatabase::ReadFile(
   std::vector<uint8_t> data;
   if (!statement.ColumnBlobAsVector(0, &data)) {
     DVLOG(1) << "Error reading media license data.";
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   last_operation_.reset();
@@ -103,6 +103,7 @@ bool MediaLicenseDatabase::WriteFile(const media::CdmType& cdm_type,
   DCHECK(db_.IsSQLValid(kInsertSql));
 
   last_operation_ = "WriteFile";
+  last_write_file_size_ = data.size();
 
   sql::Statement statement(db_.GetCachedStatement(SQL_FROM_HERE, kInsertSql));
   statement.BindString(0, cdm_type.ToString());
@@ -155,6 +156,36 @@ bool MediaLicenseDatabase::ClearDatabase() {
   }
 
   return sql::Database::Delete(path_);
+}
+
+uint64_t MediaLicenseDatabase::GetDatabaseSize() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  static constexpr char kPageCountSql[] = "PRAGMA page_count";
+  DCHECK(db_.IsSQLValid(kPageCountSql));
+
+  last_operation_ = "QueryPageCount";
+
+  sql::Statement statement_count(
+      db_.GetCachedStatement(SQL_FROM_HERE, kPageCountSql));
+  statement_count.Step();
+
+  uint64_t page_count = statement_count.ColumnInt(0);
+
+  static constexpr char kPageSizeSql[] = "PRAGMA page_size";
+  DCHECK(db_.IsSQLValid(kPageSizeSql));
+
+  last_operation_ = "QueryPageSize";
+
+  sql::Statement statement_size(
+      db_.GetCachedStatement(SQL_FROM_HERE, kPageSizeSql));
+  statement_size.Step();
+
+  uint64_t page_size = statement_size.ColumnInt(0);
+
+  last_operation_.reset();
+
+  return page_count * page_size;
 }
 
 // Opens and sets up a database if one is not already set up.

@@ -9,8 +9,10 @@
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "printing/buildflags/buildflags.h"
+#include "skia/ext/font_utils.h"
 #include "third_party/skia/include/codec/SkPngDecoder.h"
 #include "third_party/skia/include/core/SkCanvas.h"
+#include "third_party/skia/include/core/SkFontMgr.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkPicture.h"
 #include "third_party/skia/include/core/SkPictureRecorder.h"
@@ -324,7 +326,8 @@ sk_sp<SkTypeface> DeserializeOopTypeface(const void* data,
 
   // Typeface not encountered before, expect it to be present in the stream.
   DCHECK(data_included);
-  sk_sp<SkTypeface> typeface = SkTypeface::MakeDeserialize(stream);
+  sk_sp<SkTypeface> typeface =
+      SkTypeface::MakeDeserialize(stream, skia::DefaultFontMgr());
   context->emplace(id, typeface);
   return typeface;
 }
@@ -333,6 +336,11 @@ sk_sp<SkData> SerializeRasterImage(SkImage* img, void*) {
   if (!img) {
     return nullptr;
   }
+  // Skip the encoding step if the image is already encoded
+  if (sk_sp<SkData> data = img->refEncodedData()) {
+    return data;
+  }
+
   // TODO(crbug.com/1486503) Convert texture-backed images to raster
   // *before* they get this far if possible.
   if (img->isTextureBacked()) {
@@ -344,6 +352,7 @@ sk_sp<SkData> SerializeRasterImage(SkImage* img, void*) {
 
 sk_sp<SkImage> DeserializeRasterImage(const void* bytes, size_t length, void*) {
   auto data = SkData::MakeWithoutCopy(bytes, length);
+  //TODO(b/40045064): Explicitly decode other supported codecs
   auto codec = SkPngDecoder::Decode(data, nullptr);
   if (codec) {
     return std::get<0>(codec->getImage());

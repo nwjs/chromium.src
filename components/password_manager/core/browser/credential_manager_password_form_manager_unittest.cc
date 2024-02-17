@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/task_environment.h"
@@ -17,7 +18,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "components/os_crypt/sync/os_crypt_mocker.h"
 #endif
 
@@ -42,14 +43,18 @@ class MockFormSaver : public StubFormSaver {
   ~MockFormSaver() override = default;
 
   // FormSaver:
-  MOCK_METHOD3(Save,
-               void(PasswordForm pending,
-                    const std::vector<const PasswordForm*>& matches,
-                    const std::u16string& old_password));
-  MOCK_METHOD3(Update,
-               void(PasswordForm pending,
-                    const std::vector<const PasswordForm*>& matches,
-                    const std::u16string& old_password));
+  MOCK_METHOD3(
+      Save,
+      void(PasswordForm pending,
+           const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
+               matches,
+           const std::u16string& old_password));
+  MOCK_METHOD3(
+      Update,
+      void(PasswordForm pending,
+           const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
+               matches,
+           const std::u16string& old_password));
 
   // Convenience downcasting method.
   static MockFormSaver& Get(PasswordFormManager* form_manager) {
@@ -78,7 +83,7 @@ class CredentialManagerPasswordFormManagerTest : public testing::Test {
     form_to_save_.type = PasswordForm::Type::kApi;
     form_to_save_.in_store = PasswordForm::Store::kProfileStore;
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     OSCryptMocker::SetUp();
 #endif
   }
@@ -99,7 +104,8 @@ class CredentialManagerPasswordFormManagerTest : public testing::Test {
 
   void SetNonFederatedAndNotifyFetchCompleted(
       FormFetcher* fetcher,
-      const std::vector<const PasswordForm*>& non_federated) {
+      const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
+          non_federated) {
     auto* fake_fetcher = static_cast<FakeFormFetcher*>(fetcher);
     fake_fetcher->SetNonFederated(non_federated);
     fake_fetcher->NotifyFetchCompleted();

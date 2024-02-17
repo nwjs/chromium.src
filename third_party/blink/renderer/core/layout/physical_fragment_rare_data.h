@@ -47,6 +47,7 @@ class PhysicalFragmentRareData
   void Trace(Visitor* visitor) const {
     visitor->Trace(table_collapsed_borders_);
     visitor->Trace(table_column_geometries_);
+    visitor->Trace(mathml_paint_info_);
   }
 
  private:
@@ -62,7 +63,6 @@ class PhysicalFragmentRareData
     kPadding,
     kInflowBounds,
     kFrameSetLayoutData,
-    kMathMLPaintInfo,
     kTableGridRect,
     kTableCollapsedBordersGeometry,
     kTableCellColumnIndex,
@@ -84,7 +84,6 @@ class PhysicalFragmentRareData
       PhysicalBoxStrut padding;
       PhysicalRect inflow_bounds;
       std::unique_ptr<const FrameSetLayoutData> frame_set_layout_data;
-      std::unique_ptr<const MathMLPaintInfo> mathml_paint_info;
       LogicalRect table_grid_rect;
       scoped_refptr<const TableBorders> table_collapsed_borders;
       std::unique_ptr<TableFragmentData::CollapsedBordersGeometry>
@@ -154,11 +153,12 @@ class PhysicalFragmentRareData
   }
 
   Vector<RareField> field_list_;
-  RareBitFieldType bit_field_;
+  RareBitFieldType bit_field_ = 0u;
   // A garbage-collected field is not stored in the Vector in order to avoid
   // troublesome conditional tracing.
   Member<const TableBorders> table_collapsed_borders_;
   Member<const TableFragmentData::ColumnGeometries> table_column_geometries_;
+  Member<const MathMLPaintInfo> mathml_paint_info_;
 };
 
 }  // namespace blink

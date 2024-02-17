@@ -11,6 +11,7 @@ load("//lib/branches.star", "branches")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
+load("//lib/targets.star", "targets")
 
 # Take care when changing the GN args of any of these builders to ensure that
 # you do not include a configuration with 'chrome_with_codecs' since these
@@ -73,13 +74,6 @@ ci.builder(
             config = "main_builder",
         ),
     ),
-    cores = 32,
-    tree_closing = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "android",
-        short_name = "rel",
-    ),
-    contact_team_email = "clank-engprod@google.com",
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
@@ -89,6 +83,16 @@ ci.builder(
             "strip_debug_info",
         ],
     ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
+    ),
+    cores = 32,
+    tree_closing = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "android",
+        short_name = "rel",
+    ),
+    contact_team_email = "clank-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -127,12 +131,6 @@ ci.builder(
             config = "main_builder",
         ),
     ),
-    cores = 32,
-    tree_closing = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "android|arm",
-        short_name = "arm64",
-    ),
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
@@ -142,6 +140,15 @@ ci.builder(
             "strip_debug_info",
             "arm64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
+    ),
+    cores = 32,
+    tree_closing = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "android|arm",
+        short_name = "arm64",
     ),
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -179,6 +186,17 @@ ci.builder(
             config = "main_builder",
         ),
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "official_optimize",
+            "reclient",
+            "android_builder_without_codecs",
+            "full_symbols",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
+    ),
     builderless = False,
     cores = 32,
     console_view_entry = consoles.console_view_entry(
@@ -189,62 +207,6 @@ ci.builder(
     # See https://crbug.com/1153349#c22, as we update symbol_level=2, build
     # needs longer time to complete.
     execution_timeout = 7 * time.hour,
-    gn_args = gn_args.config(
-        configs = [
-            "official_optimize",
-            "reclient",
-            "android_builder_without_codecs",
-            "full_symbols",
-        ],
-    ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-)
-
-ci.builder(
-    name = "fuchsia-official",
-    branch_selector = branches.selector.FUCHSIA_BRANCHES,
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "fuchsia_x64",
-                "checkout_pgo_profiles",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            target_bits = 64,
-            target_platform = builder_config.target_platform.FUCHSIA,
-        ),
-    ),
-    builderless = False,
-    cores = 32,
-    sheriff_rotations = args.ignore_default(None),
-    console_view_entry = [
-        consoles.console_view_entry(
-            category = "fuchsia",
-            short_name = "off",
-        ),
-        consoles.console_view_entry(
-            branch_selector = branches.selector.MAIN,
-            console_view = "sheriff.fuchsia",
-            category = "gardener|ci|x64",
-            short_name = "off",
-        ),
-    ],
-    # TODO: Change this back down to something reasonable once these builders
-    # have populated their cached by getting through the compile step
-    execution_timeout = 10 * time.hour,
-    gn_args = gn_args.config(
-        configs = [
-            "official_optimize",
-            "reclient",
-            "fuchsia",
-        ],
-    ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -268,19 +230,51 @@ ci.builder(
         ),
         build_gs_bucket = "chromium-chromiumos-archive",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "chromeos",
+            "release_builder",
+            "reclient",
+            "use_cups",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = [
+            "base_unittests",
+            "browser_tests",
+            "chromeos_unittests",
+            "components_unittests",
+            "compositor_unittests",
+            "content_browsertests",
+            "content_unittests",
+            "crypto_unittests",
+            "dbus_unittests",
+            "device_unittests",
+            "gcm_unit_tests",
+            "google_apis_unittests",
+            "gpu_unittests",
+            "interactive_ui_tests",
+            "ipc_tests",
+            "media_unittests",
+            "message_center_unittests",
+            "nacl_loader_unittests",
+            "net_unittests",
+            "ppapi_unittests",
+            "printing_unittests",
+            "remoting_unittests",
+            "sandbox_linux_unittests",
+            "sql_unittests",
+            "ui_base_unittests",
+            "unit_tests",
+            "url_unittests",
+            "views_unittests",
+        ],
+    ),
     cores = 8,
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "cros",
         short_name = "lnx",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "chromeos_with_codecs",
-            "release_builder",
-            "reclient",
-            "use_cups",
-        ],
     ),
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -312,15 +306,8 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.CHROMEOS,
         ),
-    ),
-    cores = 8,
-    # TODO(crbug.com/1362019): Turn on when stable.
-    sheriff_rotations = args.ignore_default(None),
-    tree_closing = False,
-    console_view_entry = consoles.console_view_entry(
-        category = "lacros",
-        short_name = "lnx",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -329,6 +316,17 @@ ci.builder(
             "reclient",
             "also_build_ash_chrome",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "chrome",
+    ),
+    cores = 8,
+    # TODO(crbug.com/1362019): Turn on when stable.
+    sheriff_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "lacros",
+        short_name = "lnx",
     ),
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -368,13 +366,6 @@ ci.builder(
             ],
         ),
     ),
-    cores = 32,
-    tree_closing = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "lacros",
-        short_name = "rel",
-    ),
-    contact_team_email = "chrome-desktop-engprod@google.com",
     gn_args = gn_args.config(
         configs = [
             "chromeos_device",
@@ -386,6 +377,17 @@ ci.builder(
             "release",
         ],
     ),
+    # If tests get added to this builder, it will need to specify os_type chromeos
+    targets = targets.bundle(
+        additional_compile_targets = "chrome",
+    ),
+    cores = 32,
+    tree_closing = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "lacros",
+        short_name = "rel",
+    ),
+    contact_team_email = "chrome-desktop-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -424,13 +426,6 @@ ci.builder(
             ],
         ),
     ),
-    cores = 32,
-    tree_closing = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "lacros",
-        short_name = "arm",
-    ),
-    contact_team_email = "chrome-desktop-engprod@google.com",
     gn_args = gn_args.config(
         configs = [
             "chromeos_device",
@@ -442,6 +437,17 @@ ci.builder(
             "release",
         ],
     ),
+    # If tests get added to this builder, it will need to specify os_type chromeos
+    targets = targets.bundle(
+        additional_compile_targets = "chrome",
+    ),
+    cores = 32,
+    tree_closing = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "lacros",
+        short_name = "arm",
+    ),
+    contact_team_email = "chrome-desktop-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -480,14 +486,6 @@ ci.builder(
             ],
         ),
     ),
-    cores = 32,
-    sheriff_rotations = args.ignore_default(None),
-    # TODO(crbug.com/1363272): Enable tree_closing/sheriff when stable.
-    tree_closing = False,
-    console_view_entry = consoles.console_view_entry(
-        category = "lacros",
-        short_name = "arm64",
-    ),
     gn_args = gn_args.config(
         configs = [
             "chromeos_device",
@@ -498,6 +496,18 @@ ci.builder(
             "lacros",
             "release",
         ],
+    ),
+    # If tests get added to this builder, it will need to specify os_type chromeos
+    targets = targets.bundle(
+        additional_compile_targets = "chrome",
+    ),
+    cores = 32,
+    sheriff_rotations = args.ignore_default(None),
+    # TODO(crbug.com/1363272): Enable tree_closing/sheriff when stable.
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "lacros",
+        short_name = "arm64",
     ),
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -529,7 +539,18 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "updater",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
     ),
     cores = 32,
     tree_closing = True,
@@ -538,13 +559,6 @@ ci.builder(
         short_name = "rel",
     ),
     contact_team_email = "chrome-browser-infra-team@google.com",
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "reclient",
-            "updater",
-        ],
-    ),
     notifies = ["linux-archive-rel"],
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -575,7 +589,14 @@ ci.builder(
                 "mb",
             ],
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = ["official_optimize", "reclient"],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
     ),
     builderless = False,
     cores = 32,
@@ -585,11 +606,8 @@ ci.builder(
         short_name = "off",
     ),
     execution_timeout = 7 * time.hour,
-    gn_args = gn_args.config(
-        configs = ["official_optimize", "reclient"],
-    ),
     health_spec = health_spec.modified_default({
-        "Unhealthy": struct(
+        "Unhealthy": health_spec.unhealthy_thresholds(
             build_time = struct(
                 p50_mins = 240,
             ),
@@ -611,7 +629,19 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "mac_strip",
+            "minimal_symbols",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
     ),
     cores = 12,
     os = os.MAC_DEFAULT,
@@ -621,14 +651,6 @@ ci.builder(
         short_name = "rel",
     ),
     contact_team_email = "bling-engprod@google.com",
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "reclient",
-            "mac_strip",
-            "minimal_symbols",
-        ],
-    ),
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -656,16 +678,9 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
         ),
     ),
-    cores = 12,
-    os = os.MAC_DEFAULT,
-    tree_closing = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "mac|arm",
-        short_name = "rel",
-    ),
-    contact_team_email = "bling-engprod@google.com",
     gn_args = gn_args.config(
         configs = [
             "release_builder",
@@ -675,6 +690,17 @@ ci.builder(
             "arm64",
         ],
     ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
+    ),
+    cores = 12,
+    os = os.MAC_DEFAULT,
+    tree_closing = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "mac|arm",
+        short_name = "rel",
+    ),
+    contact_team_email = "bling-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -704,7 +730,17 @@ ci.builder(
                 "mb",
             ],
             target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "official_optimize",
+            "reclient",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
     ),
     builderless = False,
     os = os.MAC_ANY,
@@ -717,12 +753,6 @@ ci.builder(
     # TODO(crbug.com/1279290) builds with PGO change take long time.
     # Keep in sync with mac-official in try/chromium.star.
     execution_timeout = 15 * time.hour,
-    gn_args = gn_args.config(
-        configs = [
-            "official_optimize",
-            "reclient",
-        ],
-    ),
 )
 
 ci.builder(
@@ -739,7 +769,19 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "minimal_symbols",
+        ],
+    ),
+    targets = targets.bundle(
+        targets = "public_build_scripts",
+        additional_compile_targets = "all",
     ),
     builderless = False,
     cores = 32,
@@ -750,13 +792,6 @@ ci.builder(
         short_name = "64",
     ),
     contact_team_email = "chrome-desktop-engprod@google.com",
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "reclient",
-            "minimal_symbols",
-        ],
-    ),
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -786,7 +821,18 @@ ci.builder(
                 "mb",
             ],
             target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "official_optimize",
+            "reclient",
+            "minimal_symbols",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
     ),
     builderless = False,
     cores = 32,
@@ -798,13 +844,6 @@ ci.builder(
     contact_team_email = "chrome-desktop-engprod@google.com",
     # TODO(crbug.com/1155416) builds with PGO change take long time.
     execution_timeout = 7 * time.hour,
-    gn_args = gn_args.config(
-        configs = [
-            "official_optimize",
-            "reclient",
-            "minimal_symbols",
-        ],
-    ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -822,7 +861,20 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 32,
+            target_platform = builder_config.target_platform.WIN,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "x86",
+            "minimal_symbols",
+        ],
+    ),
+    targets = targets.bundle(
+        targets = "public_build_scripts",
+        additional_compile_targets = "all",
     ),
     builderless = False,
     cores = 32,
@@ -833,14 +885,6 @@ ci.builder(
         short_name = "32",
     ),
     contact_team_email = "chrome-desktop-engprod@google.com",
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "reclient",
-            "x86",
-            "minimal_symbols",
-        ],
-    ),
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -870,7 +914,18 @@ ci.builder(
                 "mb",
             ],
             target_bits = 32,
+            target_platform = builder_config.target_platform.WIN,
         ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "official_optimize",
+            "reclient",
+            "x86",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = "all",
     ),
     builderless = False,
     cores = 32,
@@ -882,12 +937,5 @@ ci.builder(
     contact_team_email = "chrome-desktop-engprod@google.com",
     # TODO(crbug.com/1155416) builds with PGO change take long time.
     execution_timeout = 7 * time.hour,
-    gn_args = gn_args.config(
-        configs = [
-            "official_optimize",
-            "reclient",
-            "x86",
-        ],
-    ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )

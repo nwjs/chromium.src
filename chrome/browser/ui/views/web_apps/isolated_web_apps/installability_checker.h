@@ -6,13 +6,13 @@
 #define CHROME_BROWSER_UI_VIEWS_WEB_APPS_ISOLATED_WEB_APPS_INSTALLABILITY_CHECKER_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/memory/weak_ptr.h"
 #include "base/types/expected.h"
 #include "chrome/browser/web_applications/isolated_web_apps/check_isolated_web_app_bundle_installability_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_location.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 class Profile;
@@ -72,9 +72,8 @@ class InstallabilityChecker {
       base::expected<SignedWebBundleMetadata, std::string> metadata);
   void OnInstallabilityChecked(
       SignedWebBundleMetadata metadata,
-      CheckIsolatedWebAppBundleInstallabilityCommand::InstallabilityCheckResult
-          installability_check_result,
-      absl::optional<base::Version> installed_version);
+      IsolatedInstallabilityCheckResult installability_check_result,
+      std::optional<base::Version> installed_version);
 
   raw_ptr<Profile> profile_;
   raw_ptr<WebAppProvider> web_app_provider_;

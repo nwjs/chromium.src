@@ -166,20 +166,19 @@ class ScriptPromisePropertyTestBase {
         ->V8Function();
   }
 
-  template <typename T>
-  ScriptValue Wrap(DOMWrapperWorld& world, const T& value) {
+  ScriptValue Wrap(DOMWrapperWorld& world,
+                   GarbageCollectedScriptWrappable* value) {
     v8::HandleScope handle_scope(GetIsolate());
     ScriptState* script_state =
         ScriptState::From(ToV8Context(DomWindow(), world));
     ScriptState::Scope scope(script_state);
     return ScriptValue(
         GetIsolate(),
-        ToV8(value, script_state->GetContext()->Global(), GetIsolate()));
+        ToV8Traits<GarbageCollectedScriptWrappable>::ToV8(script_state, value));
   }
 
  private:
-  test::TaskEnvironment task_environment_{
-      test::TaskEnvironment::RealMainThreadScheduler()};
+  test::TaskEnvironment task_environment_;
   std::unique_ptr<DummyPageHolder> page_;
   Persistent<ScriptState> other_script_state_;
 };
@@ -566,7 +565,6 @@ TEST_F(ScriptPromisePropertyGarbageCollectedTest, SyncResolve) {
         v8::MicrotasksScope::kDoNotRunMicrotasks);
     main_v8_resolution = ToV8Traits<GarbageCollectedScriptWrappable>::ToV8(
                              MainScriptState(), resolution)
-                             .ToLocalChecked()
                              .As<v8::Object>();
     v8::PropertyDescriptor descriptor(
         MakeGarbageCollected<ScriptFunction>(
@@ -587,7 +585,6 @@ TEST_F(ScriptPromisePropertyGarbageCollectedTest, SyncResolve) {
         v8::MicrotasksScope::kDoNotRunMicrotasks);
     other_v8_resolution = ToV8Traits<GarbageCollectedScriptWrappable>::ToV8(
                               OtherScriptState(), resolution)
-                              .ToLocalChecked()
                               .As<v8::Object>();
     v8::PropertyDescriptor descriptor(
         MakeGarbageCollected<ScriptFunction>(

@@ -6,6 +6,7 @@
 
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -34,7 +35,6 @@
 #include "components/attribution_reporting/aggregatable_dedup_key.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
 #include "components/attribution_reporting/event_trigger_data.h"
-#include "components/attribution_reporting/filters.h"
 #include "components/attribution_reporting/suitable_origin.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
 #include "content/browser/aggregation_service/aggregation_service.h"
@@ -81,7 +81,6 @@
 #include "storage/browser/test/mock_special_storage_policy.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -89,11 +88,6 @@ namespace content {
 
 namespace {
 
-using ::attribution_reporting::FilterConfig;
-using ::attribution_reporting::FilterData;
-using ::attribution_reporting::FilterPair;
-using ::attribution_reporting::FiltersDisjunction;
-using ::attribution_reporting::FilterValues;
 using ::attribution_reporting::SuitableOrigin;
 using ::attribution_reporting::mojom::OsRegistrationResult;
 
@@ -159,10 +153,10 @@ AggregatableReport CreateExampleAggregatableReport() {
   std::vector<AggregatableReport::AggregationServicePayload> payloads;
   payloads.emplace_back(/*payload=*/kABCD1234AsBytes,
                         /*key_id=*/"key_1",
-                        /*debug_cleartext_payload=*/absl::nullopt);
+                        /*debug_cleartext_payload=*/std::nullopt);
   payloads.emplace_back(/*payload=*/kEFGH5678AsBytes,
                         /*key_id=*/"key_2",
-                        /*debug_cleartext_payload=*/absl::nullopt);
+                        /*debug_cleartext_payload=*/std::nullopt);
 
   base::Value::Dict additional_fields;
   additional_fields.Set("source_registration_time", "1234569600");
@@ -180,9 +174,9 @@ AggregatableReport CreateExampleAggregatableReport() {
       /*api_identifier=*/"attribution-reporting");
 
   return AggregatableReport(std::move(payloads), shared_info.SerializeAsJson(),
-                            /*debug_key=*/absl::nullopt,
+                            /*debug_key=*/std::nullopt,
                             /*additional_fields=*/{},
-                            /*aggregation_coordinator_origin=*/absl::nullopt);
+                            /*aggregation_coordinator_origin=*/std::nullopt);
 }
 
 // Time after impression that a conversion can first be sent. See
@@ -935,7 +929,7 @@ TEST_F(AttributionManagerImplTest, TriggerHandled_ObserversNotified) {
         observer,
         OnTriggerHandled(
             _, _,
-            AllOf(ReplacedEventLevelReportIs(absl::nullopt),
+            AllOf(ReplacedEventLevelReportIs(std::nullopt),
                   CreateReportEventLevelStatusIs(
                       AttributionTrigger::EventLevelResult::kPriorityTooLow))));
 
@@ -1303,7 +1297,7 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
 
     const OsRegistration registration1(
         kRegistrationUrl1, /*debug_reporting=*/false, kTopLevelOrigin1,
-        /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false,
+        /*input_event=*/std::nullopt, /*is_within_fenced_frame=*/false,
         kFrameId);
     EXPECT_CALL(*os_level_manager_, Register(registration1,
                                              /*is_debug_key_allowed=*/true, _))
@@ -1311,7 +1305,7 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
 
     const OsRegistration registration2(
         kRegistrationUrl2, /*debug_reporting=*/false, kTopLevelOrigin2,
-        /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false,
+        /*input_event=*/std::nullopt, /*is_within_fenced_frame=*/false,
         kFrameId);
     EXPECT_CALL(*os_level_manager_, Register(registration2,
                                              /*is_debug_key_allowed=*/false, _))
@@ -1333,7 +1327,7 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
       *os_level_manager_,
       Register(OsRegistration(kRegistrationUrl3, /*debug_reporting=*/false,
                               kTopLevelOrigin3,
-                              /*input_event=*/absl::nullopt,
+                              /*input_event=*/std::nullopt,
                               /*is_within_fenced_frame=*/false, kFrameId),
                _, _))
       .Times(0);
@@ -1343,22 +1337,22 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
       *os_level_manager_,
       Register(OsRegistration(kRegistrationUrl4, /*debug_reporting=*/false,
                               kTopLevelOrigin4,
-                              /*input_event=*/absl::nullopt,
+                              /*input_event=*/std::nullopt,
                               /*is_within_fenced_frame=*/false, kFrameId),
                _, _))
       .Times(0);
 
   attribution_manager_->HandleOsRegistration(OsRegistration(
       kRegistrationUrl1, /*debug_reporting=*/false, kTopLevelOrigin1,
-      /*input_event=*/absl::nullopt,
+      /*input_event=*/std::nullopt,
       /*is_within_fenced_frame=*/false, kFrameId));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       kRegistrationUrl2, /*debug_reporting=*/false, kTopLevelOrigin2,
-      /*input_event=*/absl::nullopt,
+      /*input_event=*/std::nullopt,
       /*is_within_fenced_frame=*/false, kFrameId));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       kRegistrationUrl3, /*debug_reporting=*/false, kTopLevelOrigin3,
-      /*input_event=*/absl::nullopt,
+      /*input_event=*/std::nullopt,
       /*is_within_fenced_frame=*/false, kFrameId));
 
   ExpectOperationAllowed(
@@ -1411,15 +1405,15 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
 
   attribution_manager_->HandleOsRegistration(OsRegistration(
       kRegistrationUrl4, /*debug_reporting=*/false, kTopLevelOrigin4,
-      /*input_event=*/absl::nullopt,
+      /*input_event=*/std::nullopt,
       /*is_within_fenced_frame=*/false, kFrameId));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       kRegistrationUrl1, /*debug_reporting=*/false, kTopLevelOrigin1,
-      /*input_event=*/absl::nullopt,
+      /*input_event=*/std::nullopt,
       /*is_within_fenced_frame=*/false, kFrameId));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       kRegistrationUrl2, /*debug_reporting=*/false, kTopLevelOrigin2,
-      /*input_event=*/absl::nullopt,
+      /*input_event=*/std::nullopt,
       /*is_within_fenced_frame=*/false, kFrameId));
 
   EXPECT_THAT(
@@ -1603,30 +1597,6 @@ TEST_F(AttributionManagerImplTest, HandleSource_RecordsMetric) {
                                 StorableSource::Result::kSuccess, 1);
 }
 
-TEST_F(AttributionManagerImplTest, HandleSource_RecordsUseOfReservedKeys) {
-  const struct {
-    FilterData filter_data;
-    bool expected;
-  } kTestCases[] = {
-      {
-          .filter_data = *FilterData::Create(FilterValues({{"_a", {"b"}}})),
-          .expected = true,
-      },
-      {
-          .filter_data = *FilterData::Create(FilterValues({{"a", {"b"}}})),
-          .expected = false,
-      }};
-  for (const auto& test_case : kTestCases) {
-    base::HistogramTester histograms;
-    attribution_manager_->HandleSource(
-        SourceBuilder().SetFilterData(std::move(test_case.filter_data)).Build(),
-        kFrameId);
-    task_environment_.RunUntilIdle();
-    histograms.ExpectUniqueSample("Conversions.Source.UsesReservedKeys",
-                                  test_case.expected, 1);
-  }
-}
-
 TEST_F(AttributionManagerImplTest, OnReportSent_NotifiesObservers) {
   base::HistogramTester histograms;
   attribution_manager_->HandleSource(SourceBuilder().Build(), kFrameId);
@@ -1761,76 +1731,6 @@ TEST_F(AttributionManagerImplTest, HandleTrigger_NotifiesObservers) {
   EXPECT_THAT(StoredReports(), IsEmpty());
 }
 
-TEST_F(AttributionManagerImplTest, HandleTrigger_RecordsUseOfReservedKeys) {
-  const struct {
-    FilterPair filter_pair;
-    FilterPair dedup_key_filter_pair;
-    bool expected;
-  } kTestCases[] = {
-      {
-          .filter_pair = FilterPair(
-              /*positive=*/
-              FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"_a", {"b"}}}))}),
-              /*negative*/ {}),
-          .dedup_key_filter_pair = FilterPair(),
-          .expected = true,
-      },
-      {
-          .filter_pair = FilterPair(
-              /*positive=*/{},
-              /*negative*/ FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"_a", {"b"}}}))})),
-          .dedup_key_filter_pair = FilterPair(),
-          .expected = true,
-      },
-      {
-          .filter_pair = FilterPair(),
-          .dedup_key_filter_pair = FilterPair(
-              /*positive=*/FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"_a", {"b"}}}))}),
-              /*negative*/ {}),
-          .expected = true,
-      },
-      {
-          .filter_pair = FilterPair(),
-          .dedup_key_filter_pair = FilterPair(
-              /*positive=*/{},
-              /*negative*/ FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"_a", {"b"}}}))})),
-          .expected = true,
-      },
-      {
-          .filter_pair = FilterPair(
-              /*positive=*/
-              FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"a", {"b"}}}))}),
-              /*negative*/ FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"c", {"d"}}}))})),
-          .dedup_key_filter_pair = FilterPair(
-              /*positive=*/
-              FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"a", {"b"}}}))}),
-              /*negative*/ FiltersDisjunction(
-                  {*FilterConfig::Create(FilterValues({{"c", {"d"}}}))})),
-          .expected = false,
-      }};
-  for (const auto& test_case : kTestCases) {
-    base::HistogramTester histograms;
-
-    attribution_manager_->HandleTrigger(
-        TriggerBuilder()
-            .SetFilterPair(std::move(test_case.filter_pair))
-            .SetAggregatableDedupKeyFilterPair(
-                std::move(test_case.dedup_key_filter_pair))
-            .Build(),
-        kFrameId);
-    task_environment_.RunUntilIdle();
-    histograms.ExpectUniqueSample("Conversions.Trigger.UsesReservedKeys",
-                                  test_case.expected, 1);
-  }
-}
-
 TEST_F(AttributionManagerImplTest, ClearData_NotifiesObservers) {
   MockAttributionObserver observer;
   base::ScopedObservation<AttributionManager, AttributionObserver> observation(
@@ -1862,7 +1762,7 @@ TEST_F(AttributionManagerImplTest,
 
   EXPECT_CALL(
       observer,
-      OnSourceHandled(source, base::Time::Now(), testing::Eq(absl::nullopt),
+      OnSourceHandled(source, base::Time::Now(), testing::Eq(std::nullopt),
                       StorableSource::Result::kProhibitedByBrowserPolicy));
 
   const auto source_origin =
@@ -2125,7 +2025,7 @@ TEST_F(AttributionManagerImplTest, TimeFromConversionToReportSendHistogram) {
   attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
 
   ReportSentCallback report_sent_callback;
-  absl::optional<AttributionReport> sent_report;
+  std::optional<AttributionReport> sent_report;
 
   EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
       .WillOnce([&](AttributionReport report, bool is_debug_report,
@@ -2157,7 +2057,7 @@ TEST_F(AttributionManagerImplTest, ReportRetriesTillSuccessHistogram) {
   base::HistogramTester histograms;
 
   ReportSentCallback report_sent_callback;
-  absl::optional<AttributionReport> sent_report;
+  std::optional<AttributionReport> sent_report;
 
   Checkpoint checkpoint;
   {
@@ -2399,20 +2299,20 @@ namespace {
 
 const struct {
   const char* name;
-  absl::optional<uint64_t> input_debug_key;
+  std::optional<uint64_t> input_debug_key;
   const char* reporting_origin;
-  absl::optional<uint64_t> expected_debug_key;
-  absl::optional<uint64_t> expected_cleared_key;
+  std::optional<uint64_t> expected_debug_key;
+  std::optional<uint64_t> expected_cleared_key;
   bool cookie_access_allowed;
   bool expected_debug_cookie_set;
   bool can_bypass = false;
 } kDebugKeyTestCases[] = {
     {
         "no debug key, no cookie",
-        absl::nullopt,
+        std::nullopt,
         "https://r2.test",
-        absl::nullopt,
-        absl::nullopt,
+        std::nullopt,
+        std::nullopt,
         true,
         false,
     },
@@ -2420,17 +2320,17 @@ const struct {
         "has debug key, no cookie",
         123,
         "https://r2.test",
-        absl::nullopt,
+        std::nullopt,
         123,
         true,
         false,
     },
     {
         "no debug key, has cookie",
-        absl::nullopt,
+        std::nullopt,
         "https://r1.test",
-        absl::nullopt,
-        absl::nullopt,
+        std::nullopt,
+        std::nullopt,
         true,
         true,
     },
@@ -2439,7 +2339,7 @@ const struct {
         123,
         "https://r1.test",
         123,
-        absl::nullopt,
+        std::nullopt,
         true,
         true,
     },
@@ -2447,7 +2347,7 @@ const struct {
         "has debug key, no cookie access",
         123,
         "https://r1.test",
-        absl::nullopt,
+        std::nullopt,
         123,
         false,
         false,
@@ -2457,7 +2357,7 @@ const struct {
         123,
         "https://r1.test",
         123,
-        absl::nullopt,
+        std::nullopt,
         false,
         true,
         true,
@@ -2594,7 +2494,7 @@ TEST_F(AttributionManagerImplTest, HandleTrigger_DebugKey) {
         kFrameId);
     EXPECT_THAT(
         StoredReports(),
-        ElementsAre(AllOf(ReportSourceIs(SourceDebugKeyIs(absl::nullopt)),
+        ElementsAre(AllOf(ReportSourceIs(SourceDebugKeyIs(std::nullopt)),
                           TriggerDebugKeyIs(test_case.expected_debug_key))))
         << test_case.name;
 
@@ -2613,13 +2513,13 @@ TEST_F(AttributionManagerImplTest, DebugReport_SentImmediately) {
 
   const struct {
     const char* name;
-    absl::optional<uint64_t> source_debug_key;
-    absl::optional<uint64_t> trigger_debug_key;
+    std::optional<uint64_t> source_debug_key;
+    std::optional<uint64_t> trigger_debug_key;
     bool send_expected;
   } kTestCases[] = {
-      {"neither", absl::nullopt, absl::nullopt, false},
-      {"source", 1, absl::nullopt, false},
-      {"trigger", absl::nullopt, 1, false},
+      {"neither", std::nullopt, std::nullopt, false},
+      {"source", 1, std::nullopt, false},
+      {"trigger", std::nullopt, 1, false},
       {"both", 1, 2, true},
   };
 
@@ -2701,7 +2601,7 @@ TEST_F(AttributionManagerImplTest,
   const StorableSource source = SourceBuilder().Build();
 
   EXPECT_CALL(observer, OnSourceHandled(source, base::Time::Now(),
-                                        testing::Eq(absl::nullopt),
+                                        testing::Eq(std::nullopt),
                                         StorableSource::Result::kSuccess));
 
   attribution_manager_->HandleSource(source, kFrameId);
@@ -2889,7 +2789,7 @@ TEST_F(AttributionManagerImplTest,
         .WillOnce([](AggregatableReportRequest request,
                      AggregationService::AssemblyCallback callback) {
           std::move(callback).Run(
-              std::move(request), absl::nullopt,
+              std::move(request), std::nullopt,
               AggregationService::AssemblyStatus::kAssemblyFailed);
         });
     EXPECT_CALL(checkpoint, Call(2));
@@ -2897,7 +2797,7 @@ TEST_F(AttributionManagerImplTest,
         .WillOnce([](AggregatableReportRequest request,
                      AggregationService::AssemblyCallback callback) {
           std::move(callback).Run(
-              std::move(request), absl::nullopt,
+              std::move(request), std::nullopt,
               AggregationService::AssemblyStatus::kAssemblyFailed);
         });
     EXPECT_CALL(checkpoint, Call(3));
@@ -2905,7 +2805,7 @@ TEST_F(AttributionManagerImplTest,
         .WillOnce([](AggregatableReportRequest request,
                      AggregationService::AssemblyCallback callback) {
           std::move(callback).Run(
-              std::move(request), absl::nullopt,
+              std::move(request), std::nullopt,
               AggregationService::AssemblyStatus::kAssemblyFailed);
         });
   }
@@ -2976,11 +2876,11 @@ TEST_F(AttributionManagerImplTest, AggregationServiceDisabled_ReportNotSent) {
 TEST_F(AttributionManagerImplTest, GetFailedReportDelay) {
   const struct {
     int failed_send_attempts;
-    absl::optional<base::TimeDelta> expected;
+    std::optional<base::TimeDelta> expected;
   } kTestCases[] = {
       {1, base::Minutes(5)},
       {2, base::Minutes(15)},
-      {3, absl::nullopt},
+      {3, std::nullopt},
   };
 
   for (const auto& test_case : kTestCases) {
@@ -3260,7 +3160,7 @@ class AttributionManagerImplDebugReportTest
 TEST_F(AttributionManagerImplDebugReportTest, VerboseDebugReport_ReportSent) {
   base::HistogramTester histograms;
 
-  absl::optional<AttributionDebugReport> sent_report;
+  std::optional<AttributionDebugReport> sent_report;
 
   Checkpoint checkpoint;
   {
@@ -3573,9 +3473,9 @@ TEST_F(AttributionManagerImplTest,
         /*registration_url=*/GURL("https://a.test/x"),
         /*debug_reporting=*/true,
         /*top_level_origin=*/url::Origin::Create(GURL("https://b.test")),
-        is_os_source ? absl::make_optional<AttributionInputEvent>(
-                           AttributionInputEvent())
-                     : absl::nullopt,
+        is_os_source
+            ? std::make_optional<AttributionInputEvent>(AttributionInputEvent())
+            : std::nullopt,
         /*is_within_fenced_frame=*/false, kFrameId);
 
     EXPECT_CALL(*os_level_manager_, Register)
@@ -3608,9 +3508,9 @@ TEST_F(AttributionManagerImplTest,
         kRegistrationUrl, /*debug_reporting=*/true,
         /*top_level_origin=*/url::Origin::Create(GURL("https://b.test")),
         /*input_event=*/
-        is_os_source ? absl::make_optional<AttributionInputEvent>(
-                           AttributionInputEvent())
-                     : absl::nullopt,
+        is_os_source
+            ? std::make_optional<AttributionInputEvent>(AttributionInputEvent())
+            : std::nullopt,
         /*is_within_fenced_frame=*/false, kFrameId);
 
     EXPECT_CALL(*report_sender_, SendReport(_, _)).Times(0);

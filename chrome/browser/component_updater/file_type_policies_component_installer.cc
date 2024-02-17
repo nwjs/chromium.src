@@ -39,8 +39,9 @@ const char kFileTypePoliciesManifestName[] = "File Type Policies";
 
 void LoadFileTypesFromDisk(const base::FilePath& pb_path) {
 #if 0
-  if (pb_path.empty())
+  if (pb_path.empty()) {
     return;
+  }
 
   VLOG(1) << "Reading Download File Types from file: " << pb_path.value();
   std::string binary_pb;

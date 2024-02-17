@@ -41,7 +41,9 @@ extern const char kIosBookmarkCachedTopMostRow[];
 extern const char kIosBookmarkLastUsedFolderReceivingBookmarks[];
 extern const char kIosBookmarkLastUsedStorageReceivingBookmarks[];
 extern const char kIosBookmarkPromoAlreadySeen[];
+extern const char kIosBookmarkSettingsPromoAlreadySeen[];
 extern const char kIosBookmarkSigninPromoDisplayedCount[];
+extern const char kIosBookmarkUploadSyncLeftBehindCompleted[];
 extern const char kIosBringAndroidTabsPromptDisplayed[];
 extern const char kIosShareChromeCount[];
 extern const char kIosShareChromeLastShare[];
@@ -79,6 +81,7 @@ extern const char kIosSettingsSafetyCheckLastRunTime[];
 extern const char kIosNtpFeedTopPromoAlreadySeen[];
 extern const char kIosNtpFeedTopSigninPromoDisplayedCount[];
 extern const char kIosReadingListPromoAlreadySeen[];
+extern const char kIosReadingListSettingsPromoAlreadySeen[];
 extern const char kIosReadingListSigninPromoDisplayedCount[];
 extern const char kLinkPreviewEnabled[];
 extern const char kNTPContentSuggestionsEnabled[];
@@ -109,8 +112,6 @@ extern const char kNetworkPredictionSetting[];
 extern const char kNtpShownBookmarksFolder[];
 extern const char kShowMemoryDebuggingTools[];
 
-extern const char kSigninLastAccounts[];
-extern const char kSigninLastAccountsMigrated[];
 extern const char kSigninShouldPromptForSigninAgain[];
 extern const char kSigninWebSignDismissalCount[];
 
@@ -118,6 +119,7 @@ extern const char kIosUserZoomMultipliers[];
 
 extern const char kIncognitoAuthenticationSetting[];
 
+extern const char kLastSigninTimestamp[];
 extern const char kBrowserSigninPolicy[];
 extern const char kAllowChromeDataInBackups[];
 
@@ -132,6 +134,13 @@ extern const char kAutofillBrandingIconDisplayCount[];
 extern const char kPriceNotificationsHasBeenShown[];
 
 extern const char kPasswordSharingFlowHasBeenEntered[];
+
+extern const char kNotificationsPromoLastDismissed[];
+extern const char kNotificationsPromoLastShown[];
+extern const char kNotificationsPromoTimesShown[];
+extern const char kNotificationsPromoTimesDismissed[];
+
+extern const char kInsecureFormWarningsEnabled[];
 
 }  // namespace prefs
 

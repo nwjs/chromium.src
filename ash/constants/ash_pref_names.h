@@ -248,6 +248,12 @@ inline constexpr char kSystemWebAppLastAttemptedLocale[] =
 inline constexpr char kLoginDisplayPasswordButtonEnabled[] =
     "login_display_password_button_enabled";
 
+// A boolean user profile pref which indicates that the current Managed Guest
+// Session is lockable. Set by the chrome.login extension API and read by
+// `UserManager`.
+inline constexpr char kLoginExtensionApiCanLockManagedGuestSession[] =
+    "extensions_api.login.can_lock_managed_guest_session";
+
 // Boolean pref indicating whether the user has enabled Suggested Content in
 // OS settings > Privacy > "Suggest new content to explore".
 inline constexpr char kSuggestedContentEnabled[] =
@@ -761,6 +767,8 @@ inline constexpr char kAllowMGSToStoreDisplayProperties[] =
 // A list of all displays used by the user and reported to popularity metrics.
 const char kDisplayPopularityUserReportedDisplays[] =
     "display_popularity.user_reported_displays";
+// A list of all displays used by the user and reported to popularity metrics.
+const char kDisplayPopularityRevNumber[] = "display_popularity.revision_number";
 
 // A boolean pref that enable fullscreen alert bubble.
 // TODO(zxdan): Change to an allowlist in M89.
@@ -1500,11 +1508,6 @@ inline constexpr char kProjectorDogfoodForFamilyLinkEnabled[] =
 inline constexpr char kProjectorSWAUIPrefsMigrated[] =
     "ash.projector.swa_ui_prefs_migrated_to_chrome_untrusted";
 
-// A boolean pref that indicates whether the migration of Chromad devices to
-// cloud management can be started.
-inline constexpr char kChromadToCloudMigrationEnabled[] =
-    "ash.chromad_to_cloud_migration_enabled";
-
 // List of Drive Folder Shortcuts in the Files app. Used to sync the shortcuts
 // across devices.
 inline constexpr char kFilesAppFolderShortcuts[] =
@@ -1924,6 +1927,19 @@ inline constexpr char kCaptureModeEducationShownCount[] =
 // screen capture education (a nudge or tutorial).
 inline constexpr char kCaptureModeEducationLastShown[] =
     "ash.capture_mode.capture_mode_education_last_shown";
+
+// A dictionary that stores app icons' light vibrant colors.
+inline constexpr char kAshAppIconLightVibrantColorCache[] =
+    "ash.app_icon_light_vibrant_color_cache";
+
+// A dictionary that stores the color group component of app icons' sortable
+// colors.
+inline constexpr char kAshAppIconSortableColorGroupCache[] =
+    "ash.app_icon_sortable_color_group_cache";
+
+// A dictionary that stores the hue component of app icons' sortable colors.
+inline constexpr char kAshAppIconSortableColorHueCache[] =
+    "ash.app_icon_sortable_color_hue_cache";
 
 //-----------------------------------------------------------------------------
 // Language related Prefs

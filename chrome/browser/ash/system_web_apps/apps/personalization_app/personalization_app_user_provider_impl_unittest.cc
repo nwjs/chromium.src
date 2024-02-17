@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_user_provider_impl.h"
 
 #include <memory>
+#include <optional>
 
 #include "ash/public/cpp/default_user_image.h"
 #include "ash/webui/personalization_app/mojom/personalization_app.mojom.h"
@@ -42,7 +43,6 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/gfx/codec/png_codec.h"
@@ -251,7 +251,7 @@ class PersonalizationAppUserProviderImplTest : public testing::Test {
   TestingProfileManager profile_manager_;
   content::TestWebUI web_ui_;
   std::unique_ptr<content::WebContents> web_contents_;
-  raw_ptr<TestingProfile, ExperimentalAsh> profile_;
+  raw_ptr<TestingProfile> profile_;
   TestUserImageObserver test_user_image_observer_;
   mojo::Remote<ash::personalization_app::mojom::UserProvider>
       user_provider_remote_;
@@ -502,10 +502,9 @@ TEST_F(PersonalizationAppUserProviderImplTest,
       kDeprecatedImageWithSourceInfoIndex);
   SetUserImageObserver();
 
-  absl::optional<default_user_image::DeprecatedSourceInfo>
-      expected_source_info =
-          default_user_image::GetDeprecatedDefaultImageSourceInfo(
-              kDeprecatedImageWithSourceInfoIndex);
+  std::optional<default_user_image::DeprecatedSourceInfo> expected_source_info =
+      default_user_image::GetDeprecatedDefaultImageSourceInfo(
+          kDeprecatedImageWithSourceInfoIndex);
   ASSERT_TRUE(expected_source_info.has_value())
       << "Image index " << kDeprecatedImageWithSourceInfoIndex
       << " must have associated source info";

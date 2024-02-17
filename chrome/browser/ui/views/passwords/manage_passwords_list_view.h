@@ -14,6 +14,8 @@
 // A view that displays a list of credentials in a list view, together with an
 // entry to navigate to the password manager. Used in the ManagePasswordsView.
 class ManagePasswordsListView : public views::BoxLayoutView {
+  METADATA_HEADER(ManagePasswordsListView, views::BoxLayoutView)
+
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kTopView);
 
@@ -29,7 +31,8 @@ class ManagePasswordsListView : public views::BoxLayoutView {
       ui::ImageModel favicon,
       base::RepeatingCallback<void(password_manager::PasswordForm)>
           on_row_clicked_callback,
-      base::RepeatingClosure on_navigate_to_settings_clicked_callback);
+      base::RepeatingClosure on_navigate_to_settings_clicked_callback,
+      bool is_account_storage_available);
 
   ManagePasswordsListView(const ManagePasswordsListView&) = delete;
   ManagePasswordsListView& operator=(const ManagePasswordsListView&) = delete;

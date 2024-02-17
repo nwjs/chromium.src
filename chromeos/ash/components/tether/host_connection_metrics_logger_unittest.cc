@@ -85,6 +85,14 @@ class HostConnectionMetricsLoggerTest : public testing::Test {
         event_type, 1);
   }
 
+  void VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType event_type) {
+    histogram_tester_.ExpectUniqueSample(
+        "InstantTethering.ConnectionToHostResult.UnavoidableError", event_type,
+        1);
+  }
+
   void VerifyFailure_TetheringTimeout(
       HostConnectionMetricsLogger::
           ConnectionToHostResult_FailureTetheringTimeoutEventType event_type) {
@@ -126,11 +134,15 @@ TEST_F(HostConnectionMetricsLoggerTest,
 
   metrics_logger_->RecordConnectionToHostResult(
       HostConnectionMetricsLogger::ConnectionToHostResult::PROVISIONING_FAILURE,
-      test_devices_[0].GetDeviceId(), absl::nullopt);
+      test_devices_[0].GetDeviceId(), std::nullopt);
 
   VerifyProvisioningFailure(
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::
+              PROVISIONING_FAILED);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::
               PROVISIONING_FAILED);
 }
 
@@ -139,7 +151,7 @@ TEST_F(HostConnectionMetricsLoggerTest, RecordConnectionResultSuccess) {
 
   metrics_logger_->RecordConnectionToHostResult(
       HostConnectionMetricsLogger::ConnectionToHostResult::SUCCESS,
-      test_devices_[0].GetDeviceId(), absl::nullopt);
+      test_devices_[0].GetDeviceId(), std::nullopt);
 
   VerifySuccess(HostConnectionMetricsLogger::
                     ConnectionToHostResult_SuccessEventType::SUCCESS);
@@ -147,6 +159,9 @@ TEST_F(HostConnectionMetricsLoggerTest, RecordConnectionResultSuccess) {
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::SUCCESS);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -155,7 +170,7 @@ TEST_F(HostConnectionMetricsLoggerTest,
 
   metrics_logger_->RecordConnectionToHostResult(
       HostConnectionMetricsLogger::ConnectionToHostResult::SUCCESS,
-      test_devices_[1].GetDeviceId(), absl::nullopt);
+      test_devices_[1].GetDeviceId(), std::nullopt);
 
   VerifySuccess(HostConnectionMetricsLogger::
                     ConnectionToHostResult_SuccessEventType::SUCCESS);
@@ -163,6 +178,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::SUCCESS);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest, RecordConnectionResultFailure) {
@@ -182,6 +200,9 @@ TEST_F(HostConnectionMetricsLoggerTest, RecordConnectionResultFailure) {
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -202,6 +223,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -225,6 +249,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -245,6 +272,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -265,6 +295,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -285,6 +318,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -293,7 +329,7 @@ TEST_F(HostConnectionMetricsLoggerTest,
 
   metrics_logger_->RecordConnectionToHostResult(
       HostConnectionMetricsLogger::ConnectionToHostResult::USER_CANCELLATION,
-      test_devices_[0].GetDeviceId(), absl::nullopt);
+      test_devices_[0].GetDeviceId(), std::nullopt);
 
   VerifySuccess(HostConnectionMetricsLogger::
                     ConnectionToHostResult_SuccessEventType::FAILURE);
@@ -301,6 +337,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::USER_CANCELLATION);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::USER_CANCELLATION);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -325,6 +364,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -350,6 +392,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -375,6 +420,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
       HostConnectionMetricsLogger::
           ConnectionToHostResult_ProvisioningFailureEventType::OTHER);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -384,11 +432,13 @@ TEST_F(HostConnectionMetricsLoggerTest,
   metrics_logger_->RecordConnectionToHostResult(
       HostConnectionMetricsLogger::ConnectionToHostResult::
           TETHERING_UNSUPPORTED,
-      test_devices_[0].GetDeviceId(), absl::nullopt);
+      test_devices_[0].GetDeviceId(), std::nullopt);
 
-  VerifySuccess(HostConnectionMetricsLogger::
-                    ConnectionToHostResult_SuccessEventType::FAILURE);
   VerifyEndResult(ConnectionToHostResult::TETHERING_UNSUPPORTED);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::
+              TETHERING_UNSUPPORTED);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -397,11 +447,12 @@ TEST_F(HostConnectionMetricsLoggerTest,
 
   metrics_logger_->RecordConnectionToHostResult(
       HostConnectionMetricsLogger::ConnectionToHostResult::NO_CELLULAR_DATA,
-      test_devices_[0].GetDeviceId(), absl::nullopt);
+      test_devices_[0].GetDeviceId(), std::nullopt);
 
-  VerifySuccess(HostConnectionMetricsLogger::
-                    ConnectionToHostResult_SuccessEventType::FAILURE);
   VerifyEndResult(ConnectionToHostResult::NO_CELLULAR_DATA);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::NO_CELLULAR_DATA);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -419,6 +470,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
   VerifySuccess(HostConnectionMetricsLogger::
                     ConnectionToHostResult_SuccessEventType::FAILURE);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -436,6 +490,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
   VerifySuccess(HostConnectionMetricsLogger::
                     ConnectionToHostResult_SuccessEventType::FAILURE);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest, RecordConnectToHostDuration) {
@@ -456,6 +513,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
   VerifySuccess(HostConnectionMetricsLogger::
                     ConnectionToHostResult_SuccessEventType::FAILURE);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 TEST_F(HostConnectionMetricsLoggerTest,
@@ -473,6 +533,9 @@ TEST_F(HostConnectionMetricsLoggerTest,
   VerifySuccess(HostConnectionMetricsLogger::
                     ConnectionToHostResult_SuccessEventType::FAILURE);
   VerifyEndResult(ConnectionToHostResult::INTERNAL_ERROR);
+  VerifyUnavoidableErrorResult(
+      HostConnectionMetricsLogger::
+          ConnectionToHostResult_UnavoidableErrorEventType::OTHER);
 }
 
 }  // namespace tether

@@ -371,6 +371,10 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kThirdPartyCookieDeprecation_AllowByTopLevelStorageAccess,
           WebFeature::kAutoSpeculationRulesOptedOut,
           WebFeature::kOverrideFlashEmbedwithHTML,
+          WebFeature::kElementRequestPointerLock,
+          WebFeature::kKeyboardApiLock,
+          WebFeature::kLCPImageWasLazy,
+          WebFeature::kUserFeatureNgOptimizedImage,
       }));
   return *opt_in_features;
 }

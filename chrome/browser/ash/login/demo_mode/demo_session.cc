@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 #include "ash/constants/ash_features.h"
@@ -72,7 +73,6 @@
 #include "extensions/common/constants.h"
 #include "net/base/url_util.h"
 #include "services/network/public/cpp/network_connection_tracker.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/icu/source/common/unicode/uloc.h"
 #include "third_party/icu/source/i18n/unicode/coll.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -89,7 +89,7 @@ inline constexpr base::TimeDelta kRemoveSplashScreenTimeout = base::Seconds(10);
 DemoSession* g_demo_session = nullptr;
 
 // Type of demo config forced on for tests.
-absl::optional<DemoSession::DemoModeConfig> g_force_demo_config;
+std::optional<DemoSession::DemoModeConfig> g_force_demo_config;
 
 // Path relative to the path at which offline demo resources are loaded that
 // contains sample photos.
@@ -353,7 +353,7 @@ void DemoSession::SetDemoConfigForTesting(DemoModeConfig demo_config) {
 
 // static
 void DemoSession::ResetDemoConfigForTesting() {
-  g_force_demo_config = absl::nullopt;
+  g_force_demo_config = std::nullopt;
 }
 
 // static
@@ -402,7 +402,7 @@ bool DemoSession::ShouldShowExtensionInAppLauncher(const std::string& app_id) {
 
 // Static function to default region from VPD.
 static std::string GetDefaultRegion() {
-  const absl::optional<base::StringPiece> region_code =
+  const std::optional<base::StringPiece> region_code =
       system::StatisticsProvider::GetInstance()->GetMachineStatistic(
           system::kRegionKey);
   if (region_code) {
@@ -579,7 +579,7 @@ void DemoSession::InstallDemoResources() {
 }
 
 void DemoSession::SetKeyboardBrightnessToOneHundredPercentFromCurrentLevel(
-    absl::optional<double> keyboard_brightness_percentage) {
+    std::optional<double> keyboard_brightness_percentage) {
   // Map of current keyboard brightness percentage to times needed to call
   // IncreaseKeyboardBrightness to reach max brightness level.
   const base::flat_map<int, int> kTimesToIncreaseKeyboardBrightnessToMax = {
@@ -698,6 +698,15 @@ void DemoSession::OnSessionStateChanged() {
       if (ash::features::IsDemoModeGMSCoreWindowCloserEnabled()) {
         window_closer_ = std::make_unique<DemoModeWindowCloser>();
       }
+
+      // TODO(b/292454543): Remove this after issue is resolved.
+      if (InstallAttributes::IsInitialized()) {
+        LOG(WARNING) << "Demo Mode DeviceMode: "
+                     << InstallAttributes::Get()->GetMode();
+        LOG(WARNING) << "Demo Mode domain: "
+                     << InstallAttributes::Get()->GetDomain();
+      }
+
       break;
     default:
       break;

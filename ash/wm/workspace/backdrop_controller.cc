@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "ash/accessibility/accessibility_controller_impl.h"
+#include "ash/accessibility/accessibility_controller.h"
 #include "ash/accessibility/accessibility_delegate.h"
 #include "ash/animation/animation_change_type.h"
 #include "ash/constants/app_types.h"
@@ -19,6 +19,7 @@
 #include "ash/wm/always_on_top_controller.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/overview/overview_controller.h"
+#include "ash/wm/splitview/split_view_types.h"
 #include "ash/wm/window_animations.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
@@ -112,7 +113,7 @@ class ScopedWindowVisibilityAnimationTypeResetter {
       const ScopedWindowVisibilityAnimationTypeResetter&) = delete;
 
  private:
-  raw_ptr<aura::Window, ExperimentalAsh> window_;
+  raw_ptr<aura::Window> window_;
 };
 
 // -----------------------------------------------------------------------------
@@ -137,7 +138,7 @@ aura::Window* GetBottomMostSnappedWindowForDeskContainer(
       split_view_controller->InSplitViewMode()) {
     aura::Window* left_window = split_view_controller->primary_window();
     aura::Window* right_window = split_view_controller->secondary_window();
-    for (auto* child : desk_container->children()) {
+    for (aura::Window* child : desk_container->children()) {
       if (child == left_window || child == right_window)
         return child;
     }
@@ -149,7 +150,7 @@ aura::Window* GetBottomMostSnappedWindowForDeskContainer(
   // tracks left/right snapped windows in the active desk only.
   // TODO(afakhry|xdai): SplitViewController should be changed to track snapped
   // windows per desk per display.
-  for (auto* child : desk_container->children()) {
+  for (aura::Window* child : desk_container->children()) {
     if (WindowState::Get(child)->IsSnapped())
       return child;
   }
@@ -198,8 +199,8 @@ class BackdropController::WindowAnimationWaiter
   }
 
  private:
-  raw_ptr<BackdropController, ExperimentalAsh> owner_;
-  raw_ptr<aura::Window, ExperimentalAsh> animating_window_;
+  raw_ptr<BackdropController> owner_;
+  raw_ptr<aura::Window> animating_window_;
 };
 
 // -----------------------------------------------------------------------------
@@ -612,12 +613,13 @@ gfx::Rect BackdropController::GetBackdropBounds() {
   SplitViewController::State state = split_view_controller->state();
   DCHECK(state == SplitViewController::State::kPrimarySnapped ||
          state == SplitViewController::State::kSecondarySnapped);
-  SplitViewController::SnapPosition snap_position =
+  SnapPosition snap_position =
       (state == SplitViewController::State::kPrimarySnapped)
-          ? SplitViewController::SnapPosition::kPrimary
-          : SplitViewController::SnapPosition::kSecondary;
+          ? SnapPosition::kPrimary
+          : SnapPosition::kSecondary;
   return split_view_controller->GetSnappedWindowBoundsInScreen(
-      snap_position, /*window_for_minimum_size=*/nullptr);
+      snap_position, /*window_for_minimum_size=*/nullptr,
+      chromeos::kDefaultSnapRatio);
 }
 
 void BackdropController::Layout() {

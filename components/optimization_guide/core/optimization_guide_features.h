@@ -13,6 +13,7 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
+#include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/page_content_annotation_type.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
@@ -94,6 +95,8 @@ COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kModelQualityLogging);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kLogOnDeviceMetricsOnStartup);
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+BASE_DECLARE_FEATURE(kTextSafetyClassifier);
 
 // Enables use of task runner with trait CONTINUE_ON_SHUTDOWN for page content
 // annotations on-device models.
@@ -530,9 +533,77 @@ base::TimeDelta GetOnDeviceModelTimeForInitialResponse();
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 bool GetOnDeviceFallbackToServerOnDisconnect();
 
-// Whether any features are enabled that allow launching the on-device service.
+// Returns whether the performance class is compatible with executing the
+// on-device model. Used to determine whether or not to fetch the on-device
+// model.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool IsPerformanceClassCompatibleWithOnDeviceModel(
+    OnDeviceModelPerformanceClass performance_class);
+
+// Whether any features are enabled that allow launching the on-device
+// service.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 bool CanLaunchOnDeviceModelService();
+
+// Whether on-device execution is enabled.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool IsOnDeviceExecutionEnabled();
+
+// The on-device model is fetched when the device is considered eligible for
+// on-device execution. When the device stops being eligible, the model is
+// retained for this amount of time. This protects the user from repeatedly
+// downloading the model in the event eligibility fluctuates. for on-device
+// evaluation
+// See on_device_model_component.cc for how eligibility is computed.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+base::TimeDelta GetOnDeviceModelRetentionTime();
+
+// Whether there is enough free disk space to allow on-device model
+// installation.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool IsFreeDiskSpaceSufficientForOnDeviceModelInstall(
+    int64_t free_disk_space_bytes);
+
+// Whether there is too little disk space to retain the on-device model
+// installation.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool IsFreeDiskSpaceTooLowForOnDeviceModelInstall(
+    int64_t free_disk_space_bytes);
+
+// Returns true if unsafe content should be removed.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool GetOnDeviceModelRetractUnsafeContent();
+
+// Returns true if the safety model must be used.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool GetOnDeviceModelMustUseSafetyModel();
+
+// Whether we should initiate download of the text safety classifier model.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool ShouldUseTextSafetyClassifierModel();
+
+// Number of tokens between each text safety update.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+uint32_t GetOnDeviceModelTextSafetyTokenInterval();
+
+// This is the minimum required reliability threshold for language detection to
+// be considered reliable enough for the text safety classifier. Clamped to the
+// range [0, 1].
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+double GetOnDeviceModelLanguageDetectionMinimumReliability();
+
+// These params configure the repetition checker. See HasRepeatingSuffix() in
+// repetition_checker.h for explanation. A value of 2 for num repeats and 16 for
+// min repeat chars would mean we will halt a response once it repeats at least
+// 16 chars 2 times at the end of the response.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+int GetOnDeviceModelNumRepeats();
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+int GetOnDeviceModelMinRepeatChars();
+
+// Whether the response should be retracted if repeats are detected.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool GetOnDeviceModelRetractRepeats();
 
 }  // namespace features
 }  // namespace optimization_guide

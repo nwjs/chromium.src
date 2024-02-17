@@ -14,12 +14,12 @@
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/message_loop/message_pump.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/atomic_flag.h"
 #include "base/task/default_delayed_task_handle_delegate.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/task/task_features.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool/delayed_task_manager.h"
 #include "base/task/thread_pool/priority_queue.h"
@@ -177,7 +177,11 @@ class WorkerThreadDelegate : public WorkerThreadWaitableEvent::Delegate {
 
   TimeDelta GetSleepTimeout() override { return TimeDelta::Max(); }
 
-  bool PostTaskNow(scoped_refptr<Sequence> sequence, Task task) {
+  // `task_runner` isn't used but is forwarded to keep the task runner
+  // alive while the task is pending.
+  bool PostTaskNow(scoped_refptr<Sequence> sequence,
+                   scoped_refptr<SingleThreadTaskRunner> task_runner,
+                   Task task) {
     auto transaction = sequence->BeginTransaction();
 
     // |task| will be pushed to |sequence|, and |sequence| will be queued
@@ -470,7 +474,7 @@ class PooledSingleThreadTaskRunnerManager::PooledSingleThreadTaskRunner
       return false;
 
     Task task(from_here, std::move(closure), TimeTicks::Now(), delay,
-              GetDefaultTaskLeeway());
+              MessagePump::GetLeewayIgnoringThreadOverride());
     return PostTask(std::move(task));
   }
 
@@ -483,7 +487,7 @@ class PooledSingleThreadTaskRunnerManager::PooledSingleThreadTaskRunner
       return false;
 
     Task task(from_here, std::move(closure), TimeTicks::Now(), delayed_run_time,
-              GetDefaultTaskLeeway(), delay_policy);
+              MessagePump::GetLeewayIgnoringThreadOverride(), delay_policy);
     return PostTask(std::move(task));
   }
 
@@ -538,15 +542,15 @@ class PooledSingleThreadTaskRunnerManager::PooledSingleThreadTaskRunner
     }
 
     if (task.delayed_run_time.is_null())
-      return GetDelegate()->PostTaskNow(sequence_, std::move(task));
+      return GetDelegate()->PostTaskNow(sequence_, nullptr, std::move(task));
 
     // Unretained(GetDelegate()) is safe because this TaskRunner and its
     // worker are kept alive as long as there are pending Tasks.
     outer_->delayed_task_manager_->AddDelayedTask(
         std::move(task),
         BindOnce(IgnoreResult(&WorkerThreadDelegate::PostTaskNow),
-                 Unretained(GetDelegate()), sequence_),
-        this);
+                 Unretained(GetDelegate()), sequence_,
+                 base::WrapRefCounted(this)));
     return true;
   }
 

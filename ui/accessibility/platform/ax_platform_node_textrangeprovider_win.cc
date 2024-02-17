@@ -1036,6 +1036,13 @@ HRESULT AXPlatformNodeTextRangeProviderWin::ScrollIntoView(BOOL align_to_top) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXTRANGE_SCROLLINTOVIEW);
   UIA_VALIDATE_TEXTRANGEPROVIDER_CALL();
 
+  // Return early when we're trying to scroll in a View.
+  // TODO(accessibility): Investigate if Views support scrolling and how to
+  // implement it.
+  if (!GetOwner()->GetDelegate()->IsWebContent()) {
+    return S_OK;
+  }
+
   AXPlatformNode* start_platform_node =
       GetOwner()->GetDelegate()->GetFromTreeIDAndNodeID(
           start()->tree_id(), start()->GetAnchor()->id());
@@ -1177,14 +1184,14 @@ HRESULT AXPlatformNodeTextRangeProviderWin::GetChildren(SAFEARRAY** children) {
 bool AXPlatformNodeTextRangeProviderWin::AtStartOfLinePredicate(
     const AXPositionInstance& position) {
   return !position->IsIgnored() && position->AtStartOfAnchor() &&
-         (position->AtStartOfLine() || position->AtStartOfInlineBlock());
+         position->AtStartOfLine();
 }
 
 // static
 bool AXPlatformNodeTextRangeProviderWin::AtEndOfLinePredicate(
     const AXPositionInstance& position) {
   return !position->IsIgnored() && position->AtEndOfAnchor() &&
-         (position->AtEndOfLine() || position->AtStartOfInlineBlock());
+         position->AtEndOfLine();
 }
 
 // static

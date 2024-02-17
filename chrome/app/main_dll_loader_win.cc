@@ -54,7 +54,7 @@ typedef void (*RelaunchChromeBrowserWithNewCommandLineIfNeededFunc)();
 #define BUFSIZE MAX_PATH
 
 void RecordDidRun(const base::FilePath& dll_path) {
-  installer::UpdateDidRunState(true);
+  installer::UpdateDidRunState();
 }
 
 // Indicates whether a file can be opened using the same flags that

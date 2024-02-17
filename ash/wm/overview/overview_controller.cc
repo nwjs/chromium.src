@@ -28,6 +28,7 @@
 #include "ash/wm/window_util.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/single_thread_task_runner.h"
@@ -67,7 +68,7 @@ constexpr base::TimeDelta kEnterExitPresentationMaxLatency = base::Seconds(2);
 OverviewEnterExitType MaybeOverrideEnterExitTypeForHomeScreen(
     OverviewEnterExitType original_type,
     bool enter,
-    const std::vector<aura::Window*>& windows) {
+    const std::vector<raw_ptr<aura::Window, VectorExperimental>>& windows) {
   if (original_type != OverviewEnterExitType::kNormal)
     return original_type;
 
@@ -299,6 +300,12 @@ bool OverviewController::CanEnterOverview() const {
          !shell->screen_pinning_controller()->IsPinned();
 }
 
+void OverviewController::OnPineWidgetShown() {
+  if (pine_callback_for_test_) {
+    std::move(pine_callback_for_test_).Run();
+  }
+}
+
 void OverviewController::ToggleOverview(OverviewEnterExitType type) {
   // Pause raster scale updates while the overview is being toggled. This is to
   // handle the case where a mirror view is deleted then recreated when
@@ -328,7 +335,8 @@ void OverviewController::ToggleOverview(OverviewEnterExitType type) {
     return w == wm::GetTransientRoot(w) &&
            !WindowState::Get(w)->IsUserPositionable();
   };
-  std::vector<aura::Window*> hide_windows(windows.size());
+  std::vector<raw_ptr<aura::Window, VectorExperimental>> hide_windows(
+      windows.size());
   auto end = base::ranges::copy_if(windows, hide_windows.begin(),
                                    should_hide_for_overview);
   hide_windows.resize(end - hide_windows.begin());
@@ -375,7 +383,8 @@ void OverviewController::ToggleOverview(OverviewEnterExitType type) {
       // windows without animations to prevent them from getting maximized
       // during overview exit. Minimized widgets will get created in their
       // place, and those widgets will fade out of overview.
-      std::vector<aura::Window*> windows_to_minimize(windows.size());
+      std::vector<raw_ptr<aura::Window, VectorExperimental>>
+          windows_to_minimize(windows.size());
       auto it = base::ranges::copy_if(
           windows, windows_to_minimize.begin(), [](aura::Window* window) {
             return !WindowState::Get(window)->IsMinimized();

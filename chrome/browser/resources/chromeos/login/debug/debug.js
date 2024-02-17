@@ -557,6 +557,10 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
       kind: ScreenKind.ERROR,
     },
     {
+      id: 'install-attributes-error-message',
+      kind: ScreenKind.ERROR,
+    },
+    {
       id: 'signin-fatal-error',
       kind: ScreenKind.ERROR,
       states: [
@@ -1153,7 +1157,8 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
     {
       id: 'consolidated-consent',
       kind: ScreenKind.NORMAL,
-      handledSteps: 'loaded,loading,error,google-eula,cros-eula,arc,privacy',
+      handledSteps:
+          'loaded,loading,play-load-error,google-eula,cros-eula,arc,privacy',
       // TODO(crbug.com/1247174): Use localized URLs for eulaUrl and
       // additionalTosUrl.
       states: [
@@ -1319,10 +1324,9 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
           },
         },
         {
-          id: 'error',
+          id: 'play-load-error',
           trigger: (screen) => {
-            screen.setUIStep('error');
-            screen.setUsageOptinHidden(false);
+            screen.setUIStep('play-load-error');
           },
           data: {
             isArcEnabled: true,
@@ -1347,14 +1351,14 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
     {
       id: 'guest-tos',
       kind: ScreenKind.NORMAL,
-      handledSteps: 'loading,loaded,google-eula,cros-eula',
+      handledSteps: 'loading,overview,google-eula,cros-eula',
       // TODO(crbug.com/1247174): Use localized URLs for googleEulaURL and
       // crosEulaURL.
       states: [
         {
-          id: 'loaded',
+          id: 'overview',
           trigger: (screen) => {
-            screen.setUIStep('loaded');
+            screen.setUIStep('overview');
           },
           data: {
             googleEulaUrl: 'https://policies.google.com/terms/embedded?hl=en',
@@ -1834,6 +1838,10 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
       ],
     },
     {
+      id: 'remote-activity-notification',
+      kind: ScreenKind.NORMAL,
+    },
+    {
       id: 'cryptohome-recovery',
       kind: ScreenKind.NORMAL,
     },
@@ -1841,7 +1849,7 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
       id: 'quick-start',
       kind: ScreenKind.NORMAL,
       handledSteps:
-          'verification,connecting_to_wifi,gaia_credentials,fido_assertion_received',
+          'verification,connecting_to_wifi,signing_in,setup_complete',
       states: [
         {
           id: 'PinVerification',
@@ -1863,15 +1871,26 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
           },
         },
         {
-          id: 'TransferringGaiaCreds',
+          id: 'SigninInEmailOnly',
           trigger: (screen) => {
-            screen.showTransferringGaiaCredentials();
+            screen.showSigningInStep();
+            screen.setUserEmail('test_email@gmail.com');
           },
         },
         {
-          id: 'TransferredGaiaCreds',
+          id: 'SigninInFullAvatar',
           trigger: (screen) => {
-            screen.showFidoAssertionReceived('testUser@gmail.com');
+            screen.showSigningInStep();
+            screen.setUserEmail('test_email@gmail.com');
+            screen.setUserFullName('Test User');
+            screen.setUserAvatarUrl('https://lh3.googleusercontent.com/a/ACg8ocISjvU-p0Gz_kIBamP3jit_Y8PrQVU4AbIvQrUEZ04d=s96-c');
+          },
+        },
+        {
+          id: 'SetupComplete',
+          trigger: (screen) => {
+            screen.setUserEmail('test_email@gmail.com');
+            screen.showSetupCompleteStep();
           },
         },
       ],
@@ -1925,6 +1944,7 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
       const panel = /** @type {!HTMLElement} */ (document.createElement('div'));
       panel.className = 'debug-tool-panel';
       panel.id = id;
+      panel.setAttribute('aria-hidden', true);
 
       parent.appendChild(this.titleDiv);
       parent.appendChild(panel);
@@ -2430,6 +2450,7 @@ const createAssistantZippy = (type, isMinor, isNativeIcons) => {
             /** @type {!HTMLElement} */ (document.createElement('div'));
         overlay.id = 'debuggerOverlay';
         overlay.className = 'debugger-overlay';
+        overlay.setAttribute('aria-label', 'OOBE debug overlay');
         overlay.setAttribute('hidden', true);
         this.debuggerOverlay_ = overlay;
       }

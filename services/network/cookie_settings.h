@@ -16,6 +16,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/cookie_settings_base.h"
+#include "components/content_settings/core/common/host_indexed_content_settings.h"
 #include "net/base/network_delegate.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_setting_override.h"
@@ -149,6 +150,16 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
       net::CookieAccessResultList& maybe_included_cookies,
       net::CookieAccessResultList& excluded_cookies) const;
 
+  // Check content settings to decide whether to allow PST operations from a
+  // given top level site. PST for specific origins can be disabled through
+  // content settings.
+  bool ArePrivateStateTokensAllowed(const GURL& primary_url) const {
+    ContentSetting setting =
+        GetContentSetting(primary_url, primary_url,
+                          ContentSettingsType::COOKIES, /*info=*/nullptr);
+    return (setting == CONTENT_SETTING_ALLOW);
+  }
+
  private:
   // content_settings::CookieSettingsBase:
   bool ShouldAlwaysAllowCookies(const GURL& url,
@@ -157,7 +168,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
       const GURL& primary_url,
       const GURL& secondary_url,
       ContentSettingsType content_type,
-      content_settings::SettingInfo* info = nullptr) const override;
+      content_settings::SettingInfo* info) const override;
   bool IsThirdPartyCookiesAllowedScheme(
       const std::string& scheme) const override;
   bool ShouldBlockThirdPartyCookies() const override;
@@ -168,6 +179,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
 
   const ContentSettingsForOneType& GetContentSettings(
       ContentSettingsType type) const;
+
+  // Returns a host-indexed map of ContentSettingPatternSources associated with
+  // the input `type`.
+  const content_settings::HostIndexedContentSettings&
+  GetHostIndexedContentSettings(ContentSettingsType type) const;
 
   // An enum that represents the scope of cookies to which the user's
   // third-party-cookie-blocking setting applies, in a given context.
@@ -209,6 +225,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
 
   base::flat_map<ContentSettingsType, ContentSettingsForOneType>
       content_settings_;
+
+  base::flat_map<ContentSettingsType,
+                 std::unique_ptr<content_settings::HostIndexedContentSettings>>
+      host_indexed_content_settings_;
 };
 
 }  // namespace network

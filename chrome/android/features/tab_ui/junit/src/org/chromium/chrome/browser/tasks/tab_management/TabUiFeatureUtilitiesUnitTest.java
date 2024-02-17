@@ -8,7 +8,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Build.VERSION_CODES;
 
 import org.junit.After;
@@ -24,12 +23,12 @@ import org.chromium.base.BaseSwitches;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.MultiWindowTestUtils;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
-import org.chromium.chrome.test.util.browser.Features;
-import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 /** Unit Tests for {@link TabUiFeatureUtilities}. */
@@ -97,7 +96,7 @@ public class TabUiFeatureUtilitiesUnitTest {
     @Test
     @Config(sdk = VERSION_CODES.S)
     @EnableFeatures(ChromeFeatureList.TAB_LINK_DRAG_DROP_ANDROID)
-    public void testIsTabDragDropEnabled() throws NameNotFoundException {
+    public void testIsTabDragDropEnabled() {
         MultiWindowTestUtils.enableMultiInstance();
         assertTrue(TabUiFeatureUtilities.isTabDragEnabled());
     }
@@ -108,7 +107,7 @@ public class TabUiFeatureUtilitiesUnitTest {
         ChromeFeatureList.TAB_LINK_DRAG_DROP_ANDROID,
         ChromeFeatureList.TAB_DRAG_DROP_ANDROID
     })
-    public void testIsTabDragDropEnabled_bothFlagsEnabled() throws NameNotFoundException {
+    public void testIsTabDragDropEnabled_bothFlagsEnabled() {
         MultiWindowTestUtils.enableMultiInstance();
         assertThrows(AssertionError.class, () -> TabUiFeatureUtilities.isTabDragEnabled());
     }

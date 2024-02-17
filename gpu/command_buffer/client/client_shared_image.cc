@@ -76,7 +76,9 @@ void ClientSharedImage::ScopedMapping::OnMemoryDump(
 }
 
 ClientSharedImage::ClientSharedImage(const Mailbox& mailbox)
-    : mailbox_(mailbox) {}
+    : mailbox_(mailbox) {
+  CHECK(!mailbox.IsZero());
+}
 
 ClientSharedImage::ClientSharedImage(const Mailbox& mailbox,
                                      GpuMemoryBufferHandleInfo handle_info)
@@ -91,7 +93,9 @@ ClientSharedImage::ClientSharedImage(const Mailbox& mailbox,
               viz::SinglePlaneSharedImageFormatToBufferFormat(
                   handle_info.format),
               handle_info.buffer_usage,
-              base::DoNothing())) {}
+              base::DoNothing())) {
+  CHECK(!mailbox.IsZero());
+}
 
 ClientSharedImage::~ClientSharedImage() = default;
 
@@ -102,5 +106,13 @@ std::unique_ptr<ClientSharedImage::ScopedMapping> ClientSharedImage::Map() {
   }
   return scoped_mapping;
 }
+
+#if BUILDFLAG(IS_APPLE)
+void ClientSharedImage::SetColorSpaceOnNativeBuffer(
+    const gfx::ColorSpace& color_space) {
+  CHECK(gpu_memory_buffer_);
+  gpu_memory_buffer_->SetColorSpace(color_space);
+}
+#endif
 
 }  // namespace gpu

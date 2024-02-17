@@ -54,6 +54,7 @@ suite('SiteDetails', function() {
   setup(function() {
     loadTimeData.overrideValues({
       blockMidiByDefault: true,
+      enableWebPrintingContentSetting: true,
     });
     prefs = createSiteSettingsPrefs(
         [],
@@ -68,6 +69,9 @@ suite('SiteDetails', function() {
               })]),
           createContentSettingTypeToValuePair(
               ContentSettingsTypes.JAVASCRIPT,
+              [createRawSiteException('https://foo.com:443')]),
+          createContentSettingTypeToValuePair(
+              ContentSettingsTypes.JAVASCRIPT_JIT,
               [createRawSiteException('https://foo.com:443')]),
           createContentSettingTypeToValuePair(
               ContentSettingsTypes.SOUND,
@@ -148,6 +152,9 @@ suite('SiteDetails', function() {
               [createRawSiteException('https://foo.com:443')]),
           createContentSettingTypeToValuePair(
               ContentSettingsTypes.VR,
+              [createRawSiteException('https://foo.com:443')]),
+          createContentSettingTypeToValuePair(
+              ContentSettingsTypes.WEB_PRINTING,
               [createRawSiteException('https://foo.com:443')]),
           createContentSettingTypeToValuePair(
               ContentSettingsTypes.WINDOW_MANAGEMENT,

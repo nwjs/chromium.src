@@ -8,8 +8,8 @@
 
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
-#include "ash/wm/desks/cros_next_desk_icon_button.h"
 #include "ash/wm/desks/desk_bar_view_base.h"
+#include "ash/wm/desks/desk_icon_button.h"
 #include "ash/wm/desks/desk_mini_view.h"
 #include "ash/wm/desks/desk_preview_view.h"
 #include "ash/wm/desks/desks_constants.h"
@@ -22,6 +22,7 @@
 #include "ash/wm/overview/overview_window_drag_controller.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -132,10 +133,11 @@ void FadeInView(views::View* view,
 }
 
 // See details at AnimateView.
-void AnimateMiniViews(std::vector<DeskMiniView*> mini_views,
-                      const gfx::Transform& begin_transform,
-                      const base::TimeDelta duration) {
-  for (auto* mini_view : mini_views) {
+void AnimateMiniViews(
+    std::vector<raw_ptr<DeskMiniView, VectorExperimental>> mini_views,
+    const gfx::Transform& begin_transform,
+    const base::TimeDelta duration) {
+  for (ash::DeskMiniView* mini_view : mini_views) {
     AnimateView(mini_view, begin_transform, duration);
   }
 }
@@ -254,17 +256,17 @@ void AnimateDeskBarBounds(DeskBarViewBase* bar_view) {
 }
 
 // Animates the scale up / down animation for the desk icon button.
-void AnimateDeskIconButtonScale(CrOSNextDeskIconButton* button,
+void AnimateDeskIconButtonScale(DeskIconButton* button,
                                 const gfx::Transform& scale_transform) {
   // Please note that since this is called after `button` is laid out in its
   // final position, the target state is its current state.
-  const CrOSNextDeskIconButton::State target_state = button->state();
+  const DeskIconButton::State target_state = button->state();
   const bool is_scale_up_animation =
-      target_state == CrOSNextDeskIconButton::State::kActive;
+      target_state == DeskIconButton::State::kActive;
   const gfx::RoundedCornersF initial_radius =
-      gfx::RoundedCornersF(CrOSNextDeskIconButton::GetCornerRadiusOnState(
-          is_scale_up_animation ? CrOSNextDeskIconButton::State::kExpanded
-                                : CrOSNextDeskIconButton::State::kActive));
+      gfx::RoundedCornersF(DeskIconButton::GetCornerRadiusOnState(
+          is_scale_up_animation ? DeskIconButton::State::kExpanded
+                                : DeskIconButton::State::kActive));
 
   // Since the corner radius of `button` is updated on the state changes, to
   // apply the animation for the corner radius change, set and apply the corner
@@ -286,17 +288,17 @@ void AnimateDeskIconButtonScale(CrOSNextDeskIconButton* button,
   const auto duration =
       is_scale_up_animation ? kScaleUpDeskIconButton : kScaleDownDeskIconButton;
   const gfx::RoundedCornersF end_radius = gfx::RoundedCornersF(
-      CrOSNextDeskIconButton::GetCornerRadiusOnState(target_state));
+      DeskIconButton::GetCornerRadiusOnState(target_state));
   views::AnimationBuilder animation_builder;
   button->set_animation_abort_handle(animation_builder.GetAbortHandle());
   base::OnceClosure ondone = base::BindOnce(
-      [](CrOSNextDeskIconButton* button) {
+      [](DeskIconButton* button) {
         const auto* overview_controller = Shell::Get()->overview_controller();
         if (overview_controller->InOverviewSession()) {
           button->layer()->SetRoundedCornerRadius(gfx::RoundedCornersF());
           button->SetBackground(views::CreateRoundedRectBackground(
               button->background()->get_color(),
-              CrOSNextDeskIconButton::GetCornerRadiusOnState(button->state())));
+              DeskIconButton::GetCornerRadiusOnState(button->state())));
         }
       },
       base::Unretained(button));
@@ -438,8 +440,7 @@ void PerformDeskBarRemoveDeskAnimation(DeskBarViewBase* bar_view,
 
 void PerformZeroStateToExpandedStateMiniViewAnimation(
     DeskBarViewBase* bar_view) {
-  bar_view->new_desk_button()->UpdateState(
-      CrOSNextDeskIconButton::State::kExpanded);
+  bar_view->new_desk_button()->UpdateState(DeskIconButton::State::kExpanded);
   auto* library_button = bar_view->library_button();
 
   if (library_button) {
@@ -447,16 +448,16 @@ void PerformZeroStateToExpandedStateMiniViewAnimation(
       // For library button, when it's at zero state and clicked, the desks bar
       // will expand, the overview grid will show the saved desk library, the
       // library button should be activated and focused.
-      library_button->UpdateState(CrOSNextDeskIconButton::State::kActive);
+      library_button->UpdateState(DeskIconButton::State::kActive);
     } else {
-      library_button->UpdateState(CrOSNextDeskIconButton::State::kExpanded);
+      library_button->UpdateState(DeskIconButton::State::kExpanded);
     }
   }
 
   AnimateDeskBarBounds(bar_view);
 
   const int bar_x_center = bar_view->bounds().CenterPoint().x();
-  for (auto* mini_view : bar_view->mini_views()) {
+  for (ash::DeskMiniView* mini_view : bar_view->mini_views()) {
     ScaleUpAndFadeInView(mini_view, bar_x_center);
   }
 
@@ -492,7 +493,7 @@ void PerformZeroStateToExpandedStateMiniViewAnimation(
 void PerformReorderDeskMiniViewAnimation(
     int old_index,
     int new_index,
-    const std::vector<DeskMiniView*>& mini_views) {
+    const std::vector<raw_ptr<DeskMiniView, VectorExperimental>>& mini_views) {
   const int views_size = static_cast<int>(mini_views.size());
 
   DCHECK_GE(old_index, 0);
@@ -519,12 +520,12 @@ void PerformReorderDeskMiniViewAnimation(
   desks_transform.Translate(shift_x, 0);
 
   auto start_iter = mini_views.begin();
-  AnimateMiniViews(std::vector<DeskMiniView*>(start_iter + start_index,
-                                              start_iter + end_index),
+  AnimateMiniViews(std::vector<raw_ptr<DeskMiniView, VectorExperimental>>(
+                       start_iter + start_index, start_iter + end_index),
                    desks_transform, kMiniViewsAddingAnimationDuration);
 
   // Animate the mini view being reordered if it is visible.
-  auto* reorder_view = mini_views[new_index];
+  auto* reorder_view = mini_views[new_index].get();
   ui::Layer* layer = reorder_view->layer();
   if (layer->opacity() == 0.0f)
     return;
@@ -544,7 +545,7 @@ void PerformReorderDeskMiniViewAnimation(
 }
 
 void PerformLibraryButtonVisibilityAnimation(
-    const std::vector<DeskMiniView*>& mini_views,
+    const std::vector<raw_ptr<DeskMiniView, VectorExperimental>>& mini_views,
     views::View* new_desk_button,
     int shift_x) {
   gfx::Transform translation;
@@ -554,7 +555,7 @@ void PerformLibraryButtonVisibilityAnimation(
 }
 
 void PerformDeskIconButtonScaleAnimation(
-    CrOSNextDeskIconButton* button,
+    DeskIconButton* button,
     DeskBarViewBase* bar_view,
     const gfx::Transform& new_desk_button_rects_transform,
     int shift_x) {

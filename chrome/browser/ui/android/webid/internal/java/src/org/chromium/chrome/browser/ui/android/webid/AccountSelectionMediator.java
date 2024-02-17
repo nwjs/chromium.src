@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.ui.android.webid;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -18,6 +19,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -40,6 +42,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.content.webid.IdentityRequestDialogDismissReason;
+import org.chromium.content.webid.IdentityRequestDialogLinkType;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.KeyboardVisibilityDelegate.KeyboardVisibilityListener;
@@ -173,13 +176,12 @@ class AccountSelectionMediator {
                         View continueButton =
                                 contentView.findViewById(R.id.account_selection_continue_btn);
 
-                        // TODO(crbug.com/1430240): Update SheetType and focus views for
-                        // accessibility according to SheetType instead of number of accounts.
                         boolean isSingleAccountChooser = mAccounts != null && mAccounts.size() == 1;
                         View focusView =
                                 continueButton != null
                                                 && continueButton.isShown()
                                                 && !isSingleAccountChooser
+                                                && getSheetType() == SheetType.ACCOUNT_SELECTION
                                         ? continueButton
                                         : contentView.findViewById(R.id.header);
 
@@ -408,7 +410,10 @@ class AccountSelectionMediator {
             boolean isAutoReauthn,
             String rpContext) {
         showPlaceholderIcon(idpMetadata);
-        mSelectedAccount = accounts.size() == 1 ? accounts.get(0) : null;
+        mSelectedAccount = null;
+        if (accounts.size() == 1 && (isAutoReauthn || !idpMetadata.supportsAddAccount())) {
+            mSelectedAccount = accounts.get(0);
+        }
         showAccountsInternal(
                 topFrameForDisplay,
                 iframeForDisplay,
@@ -458,6 +463,20 @@ class AccountSelectionMediator {
         updateSheet(/* accounts= */ null, /* areAccountsClickable= */ false);
         setComponentShowTime(SystemClock.elapsedRealtime());
         showBrandIcon(idpMetadata);
+    }
+
+    void showUrl(Context context, @IdentityRequestDialogLinkType int linkType, GURL url) {
+        switch (linkType) {
+            case IdentityRequestDialogLinkType.TERMS_OF_SERVICE:
+                RecordHistogram.recordBooleanHistogram(
+                        "Blink.FedCm.SignUp.TermsOfServiceClicked", true);
+                break;
+            case IdentityRequestDialogLinkType.PRIVACY_POLICY:
+                RecordHistogram.recordBooleanHistogram(
+                        "Blink.FedCm.SignUp.PrivacyPolicyClicked", true);
+                break;
+        }
+        CustomTabActivity.showInfoPage(context, url.getSpec());
     }
 
     @VisibleForTesting
@@ -521,6 +540,14 @@ class AccountSelectionMediator {
         }
 
         if (mHeaderType == HeaderType.SIGN_IN_TO_IDP_STATIC) {
+            assert !isDataSharingConsentVisible;
+            assert mSelectedAccount == null;
+            continueButtonCallback = this::onLoginToIdP;
+        }
+
+        if (mHeaderType == HeaderType.SIGN_IN
+                && areAccountsClickable
+                && mIdpMetadata.supportsAddAccount()) {
             assert !isDataSharingConsentVisible;
             assert mSelectedAccount == null;
             continueButtonCallback = this::onLoginToIdP;
@@ -715,7 +742,8 @@ class AccountSelectionMediator {
             Callback<Account> onClickListener) {
         assert account != null
                 || mHeaderType == HeaderProperties.HeaderType.SIGN_IN_TO_IDP_STATIC
-                || mHeaderType == HeaderProperties.HeaderType.SIGN_IN_ERROR;
+                || mHeaderType == HeaderProperties.HeaderType.SIGN_IN_ERROR
+                || mHeaderType == HeaderProperties.HeaderType.SIGN_IN;
 
         ContinueButtonProperties.Properties properties = new ContinueButtonProperties.Properties();
         properties.mAccount = account;
@@ -734,15 +762,19 @@ class AccountSelectionMediator {
         properties.mIdpForDisplay = idpForDisplay;
         properties.mTermsOfServiceUrl = metadata.getTermsOfServiceUrl();
         properties.mPrivacyPolicyUrl = metadata.getPrivacyPolicyUrl();
-        properties.mTermsOfServiceClickRunnable =
-                () -> {
-                    RecordHistogram.recordBooleanHistogram(
-                            "Blink.FedCm.SignUp.TermsOfServiceClicked", true);
+        properties.mTermsOfServiceClickCallback =
+                (Context context) -> {
+                    showUrl(
+                            context,
+                            IdentityRequestDialogLinkType.TERMS_OF_SERVICE,
+                            metadata.getTermsOfServiceUrl());
                 };
-        properties.mPrivacyPolicyClickRunnable =
-                () -> {
-                    RecordHistogram.recordBooleanHistogram(
-                            "Blink.FedCm.SignUp.PrivacyPolicyClicked", true);
+        properties.mPrivacyPolicyClickCallback =
+                (Context context) -> {
+                    showUrl(
+                            context,
+                            IdentityRequestDialogLinkType.PRIVACY_POLICY,
+                            metadata.getPrivacyPolicyUrl());
                 };
 
         return new PropertyModel.Builder(DataSharingConsentProperties.ALL_KEYS)

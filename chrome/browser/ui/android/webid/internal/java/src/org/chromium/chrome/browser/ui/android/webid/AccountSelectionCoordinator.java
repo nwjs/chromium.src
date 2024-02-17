@@ -19,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Px;
+import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -40,6 +41,7 @@ import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.image_fetcher.ImageFetcherConfig;
 import org.chromium.components.image_fetcher.ImageFetcherFactory;
 import org.chromium.content.webid.IdentityRequestDialogDismissReason;
+import org.chromium.content.webid.IdentityRequestDialogLinkType;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.WindowAndroid.ActivityStateObserver;
@@ -236,6 +238,12 @@ public class AccountSelectionCoordinator
     }
 
     @Override
+    public void showUrl(@IdentityRequestDialogLinkType int linkType, GURL url) {
+        Context context = mWindowAndroid.getContext().get();
+        mMediator.showUrl(context, linkType, url);
+    }
+
+    @Override
     public WebContents showModalDialog(GURL url) {
         Context context = mWindowAndroid.getContext().get();
         CustomTabsIntent customTabIntent =
@@ -316,4 +324,9 @@ public class AccountSelectionCoordinator
 
     @Override
     public void onActivityDestroyed() {}
+
+    @VisibleForTesting
+    AccountSelectionMediator getMediator() {
+        return mMediator;
+    }
 }

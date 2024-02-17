@@ -221,6 +221,8 @@
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
+#include "third_party/blink/renderer/core/inspector/inspector_issue.h"
+#include "third_party/blink/renderer/core/inspector/inspector_issue_conversion.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -3050,12 +3052,15 @@ void WebLocalFrameImpl::AddMessageToConsoleImpl(
       discard_duplicates);
 }
 
+// This is only triggered by test_runner.cc
 void WebLocalFrameImpl::AddInspectorIssueImpl(
     mojom::blink::InspectorIssueCode code) {
   DCHECK(GetFrame());
   auto info = mojom::blink::InspectorIssueInfo::New(
       code, mojom::blink::InspectorIssueDetails::New());
-  GetFrame()->AddInspectorIssue(std::move(info));
+  GetFrame()->AddInspectorIssue(
+      AuditsIssue(ConvertInspectorIssueToProtocolFormat(
+          InspectorIssue::Create(std::move(info)))));
 }
 
 void WebLocalFrameImpl::AddGenericIssueImpl(
@@ -3182,7 +3187,6 @@ WebLocalFrameImpl::ConvertNotRestoredReasons(
   if (!reasons_to_copy.is_null()) {
     not_restored_reasons =
         mojom::blink::BackForwardCacheNotRestoredReasons::New();
-    not_restored_reasons->blocked = reasons_to_copy->blocked;
     if (reasons_to_copy->id) {
       not_restored_reasons->id = reasons_to_copy->id.value().c_str();
     }
@@ -3192,12 +3196,12 @@ WebLocalFrameImpl::ConvertNotRestoredReasons(
     if (reasons_to_copy->src) {
       not_restored_reasons->src = reasons_to_copy->src.value().c_str();
     }
+    for (const auto& reason : reasons_to_copy->reasons) {
+      not_restored_reasons->reasons.push_back(reason.c_str());
+    }
     if (reasons_to_copy->same_origin_details) {
       auto details = mojom::blink::SameOriginBfcacheNotRestoredDetails::New();
       details->url = reasons_to_copy->same_origin_details->url.c_str();
-      for (const auto& reason : reasons_to_copy->same_origin_details->reasons) {
-        details->reasons.push_back(reason.c_str());
-      }
       for (const auto& child : reasons_to_copy->same_origin_details->children) {
         details->children.push_back(ConvertNotRestoredReasons(child));
       }
@@ -3251,11 +3255,6 @@ void WebLocalFrameImpl::AddHitTestOnTouchStartCallback(
   options.setCapture(true);
   GetFrame()->DomWindow()->addEventListener(
       event_type_names::kTouchstart, touch_start_event_listener, &options);
-}
-
-void WebLocalFrameImpl::SetResourceCacheRemote(
-    CrossVariantMojoRemote<mojom::blink::ResourceCacheInterfaceBase> remote) {
-  GetFrame()->SetResourceCacheRemote(std::move(remote));
 }
 
 void WebLocalFrameImpl::BlockParserForTesting() {

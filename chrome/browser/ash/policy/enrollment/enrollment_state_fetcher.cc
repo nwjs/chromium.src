@@ -12,6 +12,7 @@
 #include "ash/constants/ash_switches.h"
 #include "base/check.h"
 #include "base/functional/callback_forward.h"
+#include "base/functional/overloaded.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -38,6 +39,7 @@
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "components/prefs/pref_service.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/private_membership/src/private_membership_rlwe.pb.h"
 
 using private_membership::rlwe::RlwePlaintextId;
@@ -77,14 +79,28 @@ std::string_view AutoEnrollmentStateToUmaSuffix(AutoEnrollmentState state) {
     }
   }
 
-  const AutoEnrollmentLegacyError error =
-      AutoEnrollmentErrorToLegacyError(state.error());
-  switch (error) {
-    case AutoEnrollmentLegacyError::kConnectionError:
-      return kUMASuffixConnectionError;
-    case AutoEnrollmentLegacyError::kServerError:
-      return kUMASuffixServerError;
-  }
+  // TODO(b/309921228): Add more suffixes.
+  return absl::visit(
+      base::Overloaded{
+          [](AutoEnrollmentSafeguardTimeoutError) {
+            return kUMASuffixConnectionError;
+          },
+          [](AutoEnrollmentSystemClockSyncError) {
+            return kUMASuffixConnectionError;
+          },
+          [](const AutoEnrollmentDMServerError& error) {
+            return error.network_error.has_value() ? kUMASuffixConnectionError
+                                                   : kUMASuffixServerError;
+          },
+          [](AutoEnrollmentStateAvailabilityResponseError) {
+            return kUMASuffixServerError;
+          },
+          [](AutoEnrollmentPsmError) { return kUMASuffixServerError; },
+          [](AutoEnrollmentStateRetrievalResponseError) {
+            return kUMASuffixServerError;
+          },
+      },
+      state.error());
 }
 
 // The DeterminationContext is used to store state and cache computed values
@@ -96,12 +112,11 @@ struct DeterminationContext {
 
   // Allows retrieving system values from multiple sources.
   // Must be set before sequence starts.
-  raw_ptr<ash::system::StatisticsProvider, ExperimentalAsh> statistics_provider;
+  raw_ptr<ash::system::StatisticsProvider> statistics_provider;
 
   // Interface for talking to DMServer.
   // Must be set before sequence starts.
-  raw_ptr<DeviceManagementService, ExperimentalAsh> device_management_service =
-      nullptr;
+  raw_ptr<DeviceManagementService> device_management_service = nullptr;
 
   // This will be used to configure `job`s for the `device_management_service`.
   // Must be set before sequence starts.
@@ -109,15 +124,15 @@ struct DeterminationContext {
 
   // Interface for retrieving synchronized clock time.
   // Must be set before sequence starts.
-  raw_ptr<ash::SystemClockClient, ExperimentalAsh> system_clock_client;
+  raw_ptr<ash::SystemClockClient> system_clock_client;
 
   // Used to retrieve device state keys.
   // Must be set before sequence starts.
-  raw_ptr<ServerBackedStateKeysBroker, ExperimentalAsh> state_key_broker;
+  raw_ptr<ServerBackedStateKeysBroker> state_key_broker;
 
   // Interface for checking ownership.
   // Must be set before sequence starts.
-  raw_ptr<ash::DeviceSettingsService, ExperimentalAsh> device_settings_service;
+  raw_ptr<ash::DeviceSettingsService> device_settings_service;
 
   // RLZ brand code and serial numbers retrieved using `statistics_provider`.
   // Used for state availability determination (PSM) and state retrieval
@@ -127,7 +142,7 @@ struct DeterminationContext {
 
   // State key retrieved from session_manager. Used for state retrieval
   // request. Computed by StateKeys step.
-  absl::optional<std::string> state_key;
+  std::optional<std::string> state_key;
 
   // Maintains the required data and methods to communicate with the PSM
   // server. In particular, it holds the plaintext id we are want to check
@@ -280,7 +295,7 @@ class DeviceIdentifiers {
 class RlweOprf {
  public:
   using Response = private_membership::rlwe::PrivateMembershipRlweOprfResponse;
-  using Result = base::expected<Response, AutoEnrollmentState>;
+  using Result = base::expected<Response, AutoEnrollmentError>;
   using CompletionCallback = base::OnceCallback<void(Result)>;
 
   RlweOprf() = default;
@@ -298,8 +313,9 @@ class RlweOprf {
     if (!oprf_request.ok()) {
       LOG(ERROR) << "Failed to create PSM RLWE OPRF request: "
                  << oprf_request.status();
+
       return std::move(completion_callback)
-          .Run(base::unexpected(AutoEnrollmentResult::kNoEnrollment));
+          .Run(base::unexpected(AutoEnrollmentPsmError{}));
     }
 
     // Prepare the RLWE OPRF request job.
@@ -309,7 +325,7 @@ class RlweOprf {
             TYPE_PSM_HAS_DEVICE_STATE_REQUEST,
         base::Uuid::GenerateRandomV4().AsLowercaseString(),
         /*critical=*/true, DMAuth::NoAuth(),
-        /*oauth_token=*/absl::nullopt, context.url_loader_factory,
+        /*oauth_token=*/std::nullopt, context.url_loader_factory,
         base::BindOnce(&RlweOprf::OnRequestDone, weak_factory_.GetWeakPtr(),
                        std::move(completion_callback)));
 
@@ -331,38 +347,38 @@ class RlweOprf {
     base::UmaHistogramSparse(
         kUMAStateDeterminationPsmRlweOprfRequestNetworkErrorCode,
         -result.net_error);
-    switch (result.dm_status) {
-      case DM_STATUS_SUCCESS: {
-        if (!result.response.has_private_set_membership_response() ||
-            !result.response.private_set_membership_response()
-                 .has_rlwe_response() ||
-            !result.response.private_set_membership_response()
-                 .rlwe_response()
-                 .has_oprf_response()) {
-          LOG(ERROR) << "Empty PSM RLWE OPRF response";
-          return std::move(completion_callback)
-              .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
-        }
-        break;
-      }
-      case DM_STATUS_REQUEST_FAILED: {
+
+    if (result.dm_status != DM_STATUS_SUCCESS) {
+      const auto error =
+          AutoEnrollmentDMServerError::FromDMServerJobResult(result);
+
+      if (error.network_error.has_value()) {
         LOG(ERROR) << "PSM RLWE OPRF connection error";
-        return std::move(completion_callback)
-            .Run(base::unexpected(kAutoEnrollmentLegacyConnectionError));
+      } else {
+        LOG(ERROR) << "PSM RLWE OPRF server error: " << error.dm_error;
       }
-      default: {
-        LOG(ERROR) << "PSM RLWE OPRF server error: " << result.dm_status;
-        return std::move(completion_callback)
-            .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
-      }
+
+      return std::move(completion_callback).Run(base::unexpected(error));
+    }
+
+    if (!result.response.has_private_set_membership_response() ||
+        !result.response.private_set_membership_response()
+             .has_rlwe_response() ||
+        !result.response.private_set_membership_response()
+             .rlwe_response()
+             .has_oprf_response()) {
+      LOG(ERROR) << "Empty PSM RLWE OPRF response";
+      return std::move(completion_callback)
+          .Run(
+              base::unexpected(AutoEnrollmentStateAvailabilityResponseError{}));
     }
 
     // Handle success
     VLOG(1) << "PSM RLWE OPRF request completed successfully";
     return std::move(completion_callback)
-        .Run(base::ok(result.response.private_set_membership_response()
-                          .rlwe_response()
-                          .oprf_response()));
+        .Run(result.response.private_set_membership_response()
+                 .rlwe_response()
+                 .oprf_response());
   }
 
  private:
@@ -379,9 +395,8 @@ class RlweQuery {
   RlweQuery(const RlweQuery&) = delete;
   RlweQuery& operator=(const RlweQuery&) = delete;
 
-  using Result = base::expected<bool, AutoEnrollmentState>;
-  using CompletionCallback =
-      base::OnceCallback<void(base::expected<bool, AutoEnrollmentState>)>;
+  using Result = base::expected<bool, AutoEnrollmentError>;
+  using CompletionCallback = base::OnceCallback<void(Result)>;
 
   void Request(
       DeterminationContext& context,
@@ -397,7 +412,7 @@ class RlweQuery {
       LOG(ERROR) << "Failed to create PSM RLWE query request: "
                  << query_request.status();
       return std::move(completion_callback)
-          .Run(base::unexpected(AutoEnrollmentResult::kNoEnrollment));
+          .Run(base::unexpected(AutoEnrollmentPsmError{}));
     }
 
     // Prepare the RLWE query request job.
@@ -407,7 +422,7 @@ class RlweQuery {
             TYPE_PSM_HAS_DEVICE_STATE_REQUEST,
         base::Uuid::GenerateRandomV4().AsLowercaseString(),
         /*critical=*/true, DMAuth::NoAuth(),
-        /*oauth_token=*/absl::nullopt, context.url_loader_factory,
+        /*oauth_token=*/std::nullopt, context.url_loader_factory,
         base::BindOnce(&RlweQuery::OnRequestDone, weak_factory_.GetWeakPtr(),
                        base::Unretained(context.psm_rlwe_client.get()),
                        std::move(completion_callback)));
@@ -432,31 +447,32 @@ class RlweQuery {
     base::UmaHistogramSparse(
         kUMAStateDeterminationPsmRlweQueryRequestNetworkErrorCode,
         -result.net_error);
-    switch (result.dm_status) {
-      case DM_STATUS_SUCCESS: {
-        // Check if the RLWE query response is empty.
-        if (!result.response.has_private_set_membership_response() ||
-            !result.response.private_set_membership_response()
-                 .has_rlwe_response() ||
-            !result.response.private_set_membership_response()
-                 .rlwe_response()
-                 .has_query_response()) {
-          LOG(ERROR) << "Empty PSM RLWE query response";
-          return std::move(completion_callback)
-              .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
-        }
-        break;
-      }
-      case DM_STATUS_REQUEST_FAILED: {
+
+    if (result.dm_status != DM_STATUS_SUCCESS) {
+      const auto error =
+          AutoEnrollmentDMServerError::FromDMServerJobResult(result);
+
+      if (error.network_error.has_value()) {
         LOG(ERROR) << "PSM RLWE query connection error";
-        return std::move(completion_callback)
-            .Run(base::unexpected(kAutoEnrollmentLegacyConnectionError));
+      } else {
+        LOG(ERROR) << "PSM RLWE query server error: " << error.dm_error;
       }
-      default: {
-        LOG(ERROR) << "PSM RLWE query server error: " << result.dm_status;
-        return std::move(completion_callback)
-            .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
-      }
+
+      return std::move(completion_callback).Run(base::unexpected(error));
+    }
+
+    // Check if the RLWE query response is empty.
+    if (!result.response.has_private_set_membership_response() ||
+        !result.response.private_set_membership_response()
+             .has_rlwe_response() ||
+        !result.response.private_set_membership_response()
+             .rlwe_response()
+             .has_query_response()) {
+      LOG(ERROR) << "Empty PSM RLWE query response";
+
+      return std::move(completion_callback)
+          .Run(
+              base::unexpected(AutoEnrollmentStateAvailabilityResponseError{}));
     }
 
     const auto responses = psm_rlwe_client->ProcessQueryResponse(
@@ -466,21 +482,25 @@ class RlweQuery {
 
     if (!responses.ok() || responses->membership_responses_size() != 1) {
       LOG(ERROR) << "Invalid PSM RLWE query response";
+
       return std::move(completion_callback)
-          .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
+          .Run(
+              base::unexpected(AutoEnrollmentStateAvailabilityResponseError{}));
     }
 
     if (responses->membership_responses_size() != 1) {
       LOG(ERROR) << "Invalid PSM RLWE query response: "
                  << responses->membership_responses_size()
                  << " membership responses, expected 1";
+
       return std::move(completion_callback)
-          .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
+          .Run(
+              base::unexpected(AutoEnrollmentStateAvailabilityResponseError{}));
     }
 
     const bool is_member =
         responses->membership_responses(0).membership_response().is_member();
-    return std::move(completion_callback).Run(base::ok(is_member));
+    return std::move(completion_callback).Run(is_member);
   }
 
   void StoreResponse(PrefService* local_state, bool is_member) {
@@ -510,12 +530,12 @@ class StateKeys {
   StateKeys& operator=(const StateKeys&) = delete;
 
   using CompletionCallback =
-      base::OnceCallback<void(absl::optional<std::string>)>;
+      base::OnceCallback<void(std::optional<std::string>)>;
 
   // This will try up to `kMaxAttempts` times to obtain the state keys.  If
   // successful, it will return the current state key by calling the completion
   // callback.
-  // Otherwise, it will return `absl::nullopt`.
+  // Otherwise, it will return `std::nullopt`.
   void Retrieve(ServerBackedStateKeysBroker* state_key_broker,
                 CompletionCallback completion_callback) {
     ++attempts_;
@@ -530,7 +550,7 @@ class StateKeys {
                             const std::vector<std::string>& state_keys) {
     if (state_keys.empty() || state_keys[0].empty()) {
       if (attempts_ >= kMaxAttempts) {
-        return std::move(completion_callback).Run(absl::nullopt);
+        return std::move(completion_callback).Run(std::nullopt);
       }
       return Retrieve(state_key_broker, std::move(completion_callback));
     }
@@ -546,11 +566,10 @@ class StateKeys {
 // This is a step in enrollment state fetch (see Sequence class below).
 class EnrollmentState {
  public:
-  struct Response {
+  struct Result {
     base::Value::Dict dict;
     AutoEnrollmentState state;
   };
-  using Result = base::expected<Response, AutoEnrollmentState>;
   using CompletionCallback = base::OnceCallback<void(Result)>;
 
   EnrollmentState() = default;
@@ -565,7 +584,7 @@ class EnrollmentState {
         DeviceManagementService::JobConfiguration::TYPE_DEVICE_STATE_RETRIEVAL,
         base::Uuid::GenerateRandomV4().AsLowercaseString(),
         /*critical=*/true, DMAuth::NoAuth(),
-        /*oauth_token=*/absl::nullopt, context.url_loader_factory,
+        /*oauth_token=*/std::nullopt, context.url_loader_factory,
         base::BindOnce(&EnrollmentState::OnRequestDone,
                        weak_factory_.GetWeakPtr(),
                        std::move(completion_callback)));
@@ -588,25 +607,25 @@ class EnrollmentState {
                              result.dm_status);
     base::UmaHistogramSparse(kUMAStateDeterminationStateRequestNetworkErrorCode,
                              -result.net_error);
-    switch (result.dm_status) {
-      case DM_STATUS_SUCCESS: {
-        if (!result.response.has_device_state_retrieval_response()) {
-          LOG(ERROR) << "Server failed to provide unified enrollment response.";
-          return std::move(completion_callback)
-              .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
-        }
-        break;
-      }
-      case DM_STATUS_REQUEST_FAILED: {
+    if (result.dm_status != DM_STATUS_SUCCESS) {
+      const auto error =
+          AutoEnrollmentDMServerError::FromDMServerJobResult(result);
+
+      if (error.network_error.has_value()) {
         LOG(ERROR) << "Enrollment state query connection error";
-        return std::move(completion_callback)
-            .Run(base::unexpected(kAutoEnrollmentLegacyConnectionError));
-      }
-      default: {
+      } else {
         LOG(ERROR) << "Enrollment state query server error";
-        return std::move(completion_callback)
-            .Run(base::unexpected(kAutoEnrollmentLegacyServerError));
       }
+
+      return std::move(completion_callback)
+          .Run(Result{.state = base::unexpected(error)});
+    }
+
+    if (!result.response.has_device_state_retrieval_response()) {
+      LOG(ERROR) << "Server failed to provide unified enrollment response.";
+      return std::move(completion_callback)
+          .Run(Result{.state = base::unexpected(
+                          AutoEnrollmentStateRetrievalResponseError{})});
     }
 
     const auto state_response =
@@ -625,39 +644,39 @@ class EnrollmentState {
   void ParseInitialStateResponse(
       const em::DeviceInitialEnrollmentStateResponse& state_response,
       CompletionCallback completion_callback) {
-    Response response;
+    Result result;
     std::string mode;
-    std::tie(response.state, mode) =
+    std::tie(result.state, mode) =
         ConvertInitialEnrollmentMode(state_response.initial_enrollment_mode());
     if (!mode.empty()) {
-      response.dict.Set(kDeviceStateMode, mode);
+      result.dict.Set(kDeviceStateMode, mode);
     }
 
     if (state_response.has_management_domain()) {
-      response.dict.Set(kDeviceStateManagementDomain,
-                        state_response.management_domain());
+      result.dict.Set(kDeviceStateManagementDomain,
+                      state_response.management_domain());
     }
 
     if (state_response.has_is_license_packaged_with_device()) {
-      response.dict.Set(kDeviceStatePackagedLicense,
-                        state_response.is_license_packaged_with_device());
+      result.dict.Set(kDeviceStatePackagedLicense,
+                      state_response.is_license_packaged_with_device());
     }
 
     if (state_response.has_license_packaging_sku()) {
-      response.dict.Set(
+      result.dict.Set(
           kDeviceStateLicenseType,
           ConvertLicenseType(state_response.license_packaging_sku()));
     }
 
     if (state_response.has_assigned_upgrade_type()) {
-      response.dict.Set(
+      result.dict.Set(
           kDeviceStateAssignedUpgradeType,
           ConvertAssignedUpgradeType(state_response.assigned_upgrade_type()));
     }
 
     if (state_response.has_disabled_state()) {
-      response.dict.Set(kDeviceStateDisabledMessage,
-                        state_response.disabled_state().message());
+      result.dict.Set(kDeviceStateDisabledMessage,
+                      state_response.disabled_state().message());
     }
 
     VLOG(1) << "Initial enrollment mode = '" << mode << "', "
@@ -665,39 +684,39 @@ class EnrollmentState {
                                                                  : "no")
             << " packaged license.";
 
-    return std::move(completion_callback).Run(base::ok(std::move(response)));
+    return std::move(completion_callback).Run(std::move(result));
   }
 
   void ParseSecondaryStateResponse(
       const em::DeviceStateRetrievalResponse& state_response,
       CompletionCallback completion_callback) {
-    Response response;
+    Result result;
     std::string mode;
-    std::tie(response.state, mode) =
+    std::tie(result.state, mode) =
         ConvertRestoreMode(state_response.restore_mode());
     if (!mode.empty()) {
-      response.dict.Set(kDeviceStateMode, mode);
+      result.dict.Set(kDeviceStateMode, mode);
     }
 
     if (state_response.has_management_domain()) {
-      response.dict.Set(kDeviceStateManagementDomain,
-                        state_response.management_domain());
+      result.dict.Set(kDeviceStateManagementDomain,
+                      state_response.management_domain());
     }
 
     if (state_response.has_disabled_state()) {
-      response.dict.Set(kDeviceStateDisabledMessage,
-                        state_response.disabled_state().message());
+      result.dict.Set(kDeviceStateDisabledMessage,
+                      state_response.disabled_state().message());
     }
 
     if (ash::features::IsAutoEnrollmentKioskInOobeEnabled() &&
         state_response.has_license_type()) {
-      response.dict.Set(kDeviceStateLicenseType,
-                        ConvertAutoEnrollmentLicenseType(
-                            state_response.license_type().license_type()));
+      result.dict.Set(kDeviceStateLicenseType,
+                      ConvertAutoEnrollmentLicenseType(
+                          state_response.license_type().license_type()));
     }
 
     VLOG(1) << "Received restore mode " << mode;
-    return std::move(completion_callback).Run(base::ok(std::move(response)));
+    return std::move(completion_callback).Run(std::move(result));
   }
 
   void StoreResponse(PrefService* local_state, const base::Value::Dict& dict) {
@@ -941,7 +960,11 @@ class EnrollmentStateFetcherImpl::Sequence {
     ReportStepDurationAndResetTimer(kUMASuffixOPRFRequest);
     if (!result.has_value()) {
       StorePsmError(local_state_);
-      return ReportResult(result.error());
+      if (absl::holds_alternative<AutoEnrollmentPsmError>(result.error())) {
+        return ReportResult(AutoEnrollmentResult::kNoEnrollment);
+      }
+
+      return ReportResult(base::unexpected(result.error()));
     }
     query_.Request(context_, result.value(),
                    base::BindOnce(&Sequence::OnQueryRequestDone,
@@ -952,7 +975,11 @@ class EnrollmentStateFetcherImpl::Sequence {
     ReportStepDurationAndResetTimer(kUMASuffixQueryRequest);
     if (!result.has_value()) {
       StorePsmError(local_state_);
-      return ReportResult(result.error());
+      if (absl::holds_alternative<AutoEnrollmentPsmError>(result.error())) {
+        return ReportResult(AutoEnrollmentResult::kNoEnrollment);
+      }
+
+      return ReportResult(base::unexpected(result.error()));
     }
 
     RlwePlaintextId psm_id =
@@ -973,7 +1000,7 @@ class EnrollmentStateFetcherImpl::Sequence {
                                         weak_factory_.GetWeakPtr()));
   }
 
-  void OnStateKeysRetrieved(absl::optional<std::string> state_key) {
+  void OnStateKeysRetrieved(std::optional<std::string> state_key) {
     ReportStepDurationAndResetTimer(kUMASuffixStateKeyRetrieval);
     base::UmaHistogramBoolean(kUMAStateDeterminationStateKeysRetrieved,
                               state_key.has_value());
@@ -986,12 +1013,12 @@ class EnrollmentStateFetcherImpl::Sequence {
   void OnStateRequestDone(EnrollmentState::Result result) {
     ReportStepDurationAndResetTimer(kUMASuffixStateRequest);
     base::UmaHistogramBoolean(kUMAStateDeterminationStateReturned,
-                              result.has_value());
-    if (!result.has_value()) {
-      return ReportResult(result.error());
+                              result.state.has_value());
+    if (result.state.has_value()) {
+      state_.StoreResponse(local_state_, result.dict);
     }
-    state_.StoreResponse(local_state_, result->dict);
-    return ReportResult(result->state);
+
+    return ReportResult(result.state);
   }
 
   // Helpers
@@ -1029,7 +1056,7 @@ class EnrollmentStateFetcherImpl::Sequence {
   // Used to store the initial enrollment state (if available) in a dict at
   // `prefs::kServerBackedDeviceState`.
   // Must not be nullptr for initial enrollment state determination.
-  raw_ptr<PrefService, ExperimentalAsh> local_state_ = nullptr;
+  raw_ptr<PrefService> local_state_ = nullptr;
 
   DeviceIdentifiers device_identifiers_;
   SystemClock system_clock_;

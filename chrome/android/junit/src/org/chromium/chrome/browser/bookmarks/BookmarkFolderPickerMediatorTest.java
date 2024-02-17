@@ -38,9 +38,14 @@ import org.mockito.quality.Strictness;
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.bookmarks.BookmarkListEntry.ViewType;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
+import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowSortOrder;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
@@ -51,6 +56,7 @@ import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
 import java.util.Arrays;
@@ -58,9 +64,12 @@ import java.util.Arrays;
 /** Unit tests for {@link BookmarkFolderPickerMediator}. */
 @Batch(Batch.UNIT_TESTS)
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS)
 public class BookmarkFolderPickerMediatorTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.LENIENT);
+
+    @Rule public final Features.JUnitProcessor mFeaturesRule = new Features.JUnitProcessor();
 
     @Rule
     public final ActivityScenarioRule<TestActivity> mActivityScenarioRule =
@@ -88,7 +97,8 @@ public class BookmarkFolderPickerMediatorTest {
             new BookmarkId(/* id= */ 11, BookmarkType.READING_LIST);
 
     private final BookmarkItem mRootFolderItem =
-            new BookmarkItem(mRootFolderId, "Root", null, true, null, false, false, 0, false, 0);
+            new BookmarkItem(
+                    mRootFolderId, "Root", null, true, null, false, false, 0, false, 0, false);
     private final BookmarkItem mDesktopFolderItem =
             new BookmarkItem(
                     mDesktopFolderId,
@@ -100,7 +110,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mMobileFolderItem =
             new BookmarkItem(
                     mMobileFolderId,
@@ -112,7 +123,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mOtherFolderItem =
             new BookmarkItem(
                     mOtherFolderId,
@@ -124,7 +136,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mReadingListFolderItem =
             new BookmarkItem(
                     mReadingListFolderId,
@@ -136,7 +149,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mUserFolderItem =
             new BookmarkItem(
                     mUserFolderId,
@@ -148,7 +162,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mUserBookmarkItem =
             new BookmarkItem(
                     mUserBookmarkId,
@@ -160,7 +175,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mUserFolderItem2 =
             new BookmarkItem(
                     mUserFolderId2,
@@ -172,7 +188,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mUserBookmarkItem1 =
             new BookmarkItem(
                     mUserBookmarkId1,
@@ -184,7 +201,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mReadingListItem1 =
             new BookmarkItem(
                     mReadingListItemId1,
@@ -196,7 +214,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
     private final BookmarkItem mReadingListItem2 =
             new BookmarkItem(
                     mReadingListItemId2,
@@ -208,7 +227,8 @@ public class BookmarkFolderPickerMediatorTest {
                     false,
                     0,
                     false,
-                    0);
+                    0,
+                    false);
 
     @Mock private BookmarkImageFetcher mBookmarkImageFetcher;
     @Mock private BookmarkModel mBookmarkModel;
@@ -240,7 +260,8 @@ public class BookmarkFolderPickerMediatorTest {
         doReturn(mRootFolderId).when(mBookmarkModel).getRootFolderId();
         doReturn(mRootFolderItem).when(mBookmarkModel).getBookmarkById(mRootFolderId);
         // Reading list folder
-        doReturn(mReadingListFolderId).when(mBookmarkModel).getReadingListFolder();
+        // TODO(crbug.com/1501998): Add account reading list folder support here.
+        doReturn(mReadingListFolderId).when(mBookmarkModel).getLocalOrSyncableReadingListFolder();
         doReturn(mReadingListFolderItem).when(mBookmarkModel).getBookmarkById(mReadingListFolderId);
         // Mobile bookmarks folder
         doReturn(mMobileFolderId).when(mBookmarkModel).getMobileFolderId();
@@ -296,6 +317,10 @@ public class BookmarkFolderPickerMediatorTest {
                 .when(mBookmarkImageFetcher)
                 .fetchFirstTwoImagesForFolder(any(), any());
 
+        // Setup BookmarkUiPrefs
+        doReturn(BookmarkRowDisplayPref.COMPACT).when(mBookmarkUiPrefs).getBookmarkRowDisplayPref();
+        doReturn(BookmarkRowSortOrder.MANUAL).when(mBookmarkUiPrefs).getBookmarkRowDisplayPref();
+
         mMediator =
                 new BookmarkFolderPickerMediator(
                         mActivity,
@@ -315,7 +340,7 @@ public class BookmarkFolderPickerMediatorTest {
                         mShoppingService);
     }
 
-    private void remakeMediator(BookmarkId... bookmarkIds) {
+    private void remakeMediator(BookmarkModel bookmarkModel, BookmarkId... bookmarkIds) {
         if (mMediator != null) {
             mMediator.destroy();
         }
@@ -323,13 +348,13 @@ public class BookmarkFolderPickerMediatorTest {
                 new ImprovedBookmarkRowCoordinator(
                         mActivity,
                         mBookmarkImageFetcher,
-                        mBookmarkModel,
+                        bookmarkModel,
                         mBookmarkUiPrefs,
                         mShoppingService);
         mMediator =
                 new BookmarkFolderPickerMediator(
                         mActivity,
-                        mBookmarkModel,
+                        bookmarkModel,
                         Arrays.asList(bookmarkIds),
                         mFinishRunnable,
                         mBookmarkUiPrefs,
@@ -342,7 +367,7 @@ public class BookmarkFolderPickerMediatorTest {
 
     @Test
     public void testMoveFolder() {
-        remakeMediator(mUserFolderId);
+        remakeMediator(mBookmarkModel, mUserFolderId);
         mMediator.populateFoldersForParentId(mMobileFolderId);
 
         // Check that the UserFolder isn't a row since it should be filtered out because it's the
@@ -374,7 +399,7 @@ public class BookmarkFolderPickerMediatorTest {
         mModel.get(BookmarkFolderPickerProperties.MOVE_CLICK_LISTENER).run();
         verify(mFinishRunnable).run();
         verify(mBookmarkModel).moveBookmarks(Arrays.asList(mUserBookmarkId), mUserFolderId);
-        assertEquals(mUserFolderId, BookmarkUtils.getLastUsedParent(mActivity, mBookmarkModel));
+        assertEquals(mUserFolderId, BookmarkUtils.getLastUsedParent());
     }
 
     @Test
@@ -400,14 +425,6 @@ public class BookmarkFolderPickerMediatorTest {
                 mMobileFolderItem.getTitle(),
                 mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
         assertTrue(mModel.get(BookmarkFolderPickerProperties.MOVE_BUTTON_ENABLED));
-    }
-
-    @Test
-    public void testRootFolder() {
-        mMediator.populateFoldersForParentId(mRootFolderId);
-        assertEquals(4, mModelList.size());
-        assertEquals("Move to…", mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
-        assertFalse(mModel.get(BookmarkFolderPickerProperties.MOVE_BUTTON_ENABLED));
     }
 
     @Test
@@ -445,22 +462,83 @@ public class BookmarkFolderPickerMediatorTest {
 
     @Test
     public void testMoveMultiple_sharedParent() {
-        remakeMediator(mUserBookmarkId, mUserBookmarkId1);
+        remakeMediator(mBookmarkModel, mUserBookmarkId, mUserBookmarkId1);
         assertEquals("UserFolder", mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
         assertFalse(mModel.get(BookmarkFolderPickerProperties.MOVE_BUTTON_ENABLED));
     }
 
     @Test
     public void testMoveMultiple_noSharedParent() {
-        remakeMediator(mUserFolderId, mUserBookmarkId1);
+        remakeMediator(mBookmarkModel, mUserFolderId, mUserBookmarkId1);
         assertEquals("Move to…", mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
         assertFalse(mModel.get(BookmarkFolderPickerProperties.MOVE_BUTTON_ENABLED));
     }
 
     @Test
     public void testMoveMultiple_readingList() {
-        remakeMediator(mReadingListItemId1, mReadingListItemId2);
+        remakeMediator(mBookmarkModel, mReadingListItemId1, mReadingListItemId2);
         assertEquals("Reading List", mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
         assertFalse(mModel.get(BookmarkFolderPickerProperties.MOVE_BUTTON_ENABLED));
+    }
+
+    @Test
+    public void testRootFolders() {
+        BookmarkModel bookmarkModel = FakeBookmarkModel.createModel();
+        BookmarkId id =
+                bookmarkModel.addBookmark(
+                        bookmarkModel.getMobileFolderId(),
+                        0,
+                        "title",
+                        new GURL("https://google.com"));
+        remakeMediator(bookmarkModel, id);
+
+        mMediator.populateFoldersForParentId(bookmarkModel.getRootFolderId());
+        assertEquals("Move to…", mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
+        BookmarkModelListTestUtil.verifyModelListHasViewTypes(
+                mModelList,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE)
+    public void testRootFolders_withAccount() {
+        BookmarkModel bookmarkModel = FakeBookmarkModel.createModel();
+        BookmarkId id =
+                bookmarkModel.addBookmark(
+                        bookmarkModel.getMobileFolderId(),
+                        0,
+                        "title",
+                        new GURL("https://google.com"));
+        remakeMediator(bookmarkModel, id);
+
+        mMediator.populateFoldersForParentId(bookmarkModel.getRootFolderId());
+        assertEquals("Move to…", mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
+        BookmarkModelListTestUtil.verifyModelListHasViewTypes(
+                mModelList,
+                ViewType.SECTION_HEADER,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.SECTION_HEADER,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT,
+                ViewType.IMPROVED_BOOKMARK_COMPACT);
+        BookmarkModelListTestUtil.verifyModelListHasBookmarkIds(
+                mModelList,
+                null,
+                bookmarkModel.getAccountOtherFolderId(),
+                bookmarkModel.getAccountDesktopFolderId(),
+                bookmarkModel.getAccountMobileFolderId(),
+                bookmarkModel.getAccountReadingListFolder(),
+                null,
+                bookmarkModel.getOtherFolderId(),
+                bookmarkModel.getDesktopFolderId(),
+                bookmarkModel.getMobileFolderId(),
+                bookmarkModel.getLocalOrSyncableReadingListFolder());
     }
 }

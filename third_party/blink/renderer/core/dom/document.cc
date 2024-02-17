@@ -68,6 +68,7 @@
 #include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
+#include "third_party/blink/public/mojom/manifest/display_mode.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/page_state/page_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -153,7 +154,6 @@
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/node_iterator.h"
 #include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
-#include "third_party/blink/renderer/core/dom/node_move_scope.h"
 #include "third_party/blink/renderer/core/dom/node_rare_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_with_index.h"
@@ -263,6 +263,7 @@
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
+#include "third_party/blink/renderer/core/lcp_critical_path_predictor/lcp_critical_path_predictor.h"
 #include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
 #include "third_party/blink/renderer/core/loader/cookie_jar.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
@@ -308,6 +309,7 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observer.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_controller.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_entry.h"
+#include "third_party/blink/renderer/core/resize_observer/resize_observer_size.h"
 #include "third_party/blink/renderer/core/script/detect_javascript_frameworks.h"
 #include "third_party/blink/renderer/core/script/script_runner.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -372,6 +374,10 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
 
+#if defined(USE_INNER_HTML_PARSER_FAST_PATH)
+#include "third_party/blink/renderer/core/html/parser/html_document_parser_fastpath.h"
+#endif
+
 #ifndef NDEBUG
 using WeakDocumentSet = blink::HeapHashSet<blink::WeakMember<blink::Document>>;
 static WeakDocumentSet& LiveDocumentSet();
@@ -401,7 +407,8 @@ enum class RequestStorageResult {
   REJECTED_CREDENTIALLESS_IFRAME = 11,
   APPROVED_NEW_OR_EXISTING_GRANT = 12,
   REJECTED_FENCED_FRAME = 13,
-  kMaxValue = REJECTED_FENCED_FRAME,
+  REJECTED_INVALID_ORIGIN = 14,
+  kMaxValue = REJECTED_INVALID_ORIGIN,
 };
 void FireRequestStorageAccessHistogram(RequestStorageResult result) {
   base::UmaHistogramEnumeration("API.StorageAccess.RequestStorageAccess2",
@@ -1584,6 +1591,29 @@ void Document::SetContent(const String& content) {
   close();
 }
 
+using AllowState = blink::Document::DeclarativeShadowRootAllowState;
+void Document::SetContentFromDOMParser(const String& content) {
+#if defined(USE_INNER_HTML_PARSER_FAST_PATH)
+  if (RuntimeEnabledFeatures::DOMParserUsesHTMLFastPathParserEnabled() &&
+      contentType() == "text/html" && IsA<HTMLDocument>(this)) {
+    auto* body = MakeGarbageCollected<HTMLBodyElement>(*this);
+    const bool include_shadow_roots =
+        declarative_shadow_root_allow_state_ == AllowState::kAllow;
+    if (TryParsingHTMLFragment(content, *this, *body, *body,
+                               kAllowScriptingContent, include_shadow_roots,
+                               nullptr)) {
+      auto* html = MakeGarbageCollected<HTMLHtmlElement>(*this);
+      auto* head = MakeGarbageCollected<HTMLHeadElement>(*this);
+      html->AppendChild(head);
+      html->AppendChild(body);
+      AppendChild(html);
+      return;
+    }
+  }
+#endif
+  SetContent(content);
+}
+
 String Document::SuggestedMIMEType() const {
   if (IsA<XMLDocument>(this)) {
     if (IsXHTMLDocument())
@@ -2272,6 +2302,10 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
   // states not allowing tree mutations.
   CHECK(Lifecycle().StateAllowsTreeMutations());
 
+  // No SVG resources should be scheduled for invalidation outside of
+  // style-recalc and layout tree detach (Node::DetachLayoutTree).
+  DCHECK(svg_resources_needing_invalidation_.empty());
+
   TRACE_EVENT_BEGIN1("blink,devtools.timeline", "UpdateLayoutTree", "beginData",
                      [&](perfetto::TracedValue context) {
                        inspector_recalculate_styles_event::Data(
@@ -2295,6 +2329,7 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
   UpdateStyleInvalidationIfNeeded();
   UpdateStyle();
   GetStyleResolver().ClearResizedForViewportUnits();
+  InvalidatePendingSVGResources();
 
   rendering_had_begun_for_last_style_update_ = RenderingHasBegun();
 
@@ -2424,40 +2459,42 @@ bool Document::NeedsLayoutTreeUpdateForNodeIncludingDisplayLocked(
   }
 }
 
-void Document::UpdateStyleAndLayoutTreeForNode(const Node* node,
-                                               DocumentUpdateReason) {
-  DCHECK(node);
-  if (!node->InActiveDocument()) {
+void Document::UpdateStyleAndLayoutTreeForElement(const Element* element,
+                                                  DocumentUpdateReason) {
+  DCHECK(element);
+  if (!element->InActiveDocument()) {
     // If |node| is not in the active document, we can't update its style or
     // layout tree.
-    DCHECK_EQ(node->ownerDocument(), this);
+    DCHECK_EQ(element->ownerDocument(), this);
     return;
   }
   DCHECK(!InStyleRecalc())
-      << "UpdateStyleAndLayoutTreeForNode called from within style recalc";
-  if (!NeedsLayoutTreeUpdateForNodeIncludingDisplayLocked(*node))
+      << "UpdateStyleAndLayoutTreeForElement called from within style recalc";
+  if (!NeedsLayoutTreeUpdateForNodeIncludingDisplayLocked(*element)) {
     return;
+  }
 
   DisplayLockUtilities::ScopedForcedUpdate scoped_update_forced(
-      node, DisplayLockContext::ForcedPhase::kStyleAndLayoutTree);
-  NodeLayoutUpgrade upgrade(*node);
+      element, DisplayLockContext::ForcedPhase::kStyleAndLayoutTree);
+  ElementLayoutUpgrade upgrade(*element);
   UpdateStyleAndLayoutTree(upgrade);
 }
 
-void Document::UpdateStyleAndLayoutTreeForSubtree(const Node* node,
+void Document::UpdateStyleAndLayoutTreeForSubtree(const Element* element,
                                                   DocumentUpdateReason) {
-  DCHECK(node);
-  if (!node->InActiveDocument()) {
-    DCHECK_EQ(node->ownerDocument(), this);
+  DCHECK(element);
+  if (!element->InActiveDocument()) {
+    DCHECK_EQ(element->ownerDocument(), this);
     return;
   }
   DCHECK(!InStyleRecalc())
       << "UpdateStyleAndLayoutTreeForSubtree called from within style recalc";
 
-  if (NeedsLayoutTreeUpdateForNodeIncludingDisplayLocked(*node) ||
-      node->ChildNeedsStyleRecalc() || node->ChildNeedsStyleInvalidation()) {
+  if (NeedsLayoutTreeUpdateForNodeIncludingDisplayLocked(*element) ||
+      element->ChildNeedsStyleRecalc() ||
+      element->ChildNeedsStyleInvalidation()) {
     DisplayLockUtilities::ScopedForcedUpdate scoped_update_forced(
-        node, DisplayLockContext::ForcedPhase::kStyleAndLayoutTree);
+        element, DisplayLockContext::ForcedPhase::kStyleAndLayoutTree);
     UpdateStyleAndLayoutTree();
   }
 }
@@ -2862,6 +2899,20 @@ void Document::UpdateUseShadowTreesIfNeeded() {
     for (SVGUseElement* element : elements)
       element->BuildPendingResource();
   }
+}
+
+void Document::ScheduleSVGResourceInvalidation(LocalSVGResource& resource) {
+  DCHECK(InStyleRecalc() || GetStyleEngine().InDetachLayoutTree());
+  svg_resources_needing_invalidation_.insert(&resource);
+}
+
+void Document::InvalidatePendingSVGResources() {
+  HeapHashSet<Member<LocalSVGResource>> pending_resources;
+  svg_resources_needing_invalidation_.swap(pending_resources);
+  for (LocalSVGResource* resource : pending_resources) {
+    resource->NotifyContentChanged();
+  }
+  DCHECK(svg_resources_needing_invalidation_.empty());
 }
 
 StyleResolver& Document::GetStyleResolver() const {
@@ -3989,6 +4040,10 @@ bool Document::CheckCompletedInternal() {
     }
   }
 
+  if (LCPCriticalPathPredictor* lcpp = GetFrame()->GetLCPP()) {
+    lcpp->OnOutermostMainFrameDocumentLoad();
+  }
+
   return true;
 }
 
@@ -4493,18 +4548,24 @@ KURL Document::FallbackBaseURL() const {
     if (fallback_base_url_.IsValid()) {
       return fallback_base_url_;
     }
-    // We only use the parent document's base URL in legacy behavior. There are
-    // cases where fallback_base_url_for_srcdoc_ may not be set in the new base
-    // URL inheritance mode (e.g., browser-initiated navigations as in
-    // NavigationBrowserTest.BlockedSrcDocBrowserInitiated), but we should avoid
-    // trying to look at the parent document's current value in those cases. In
-    // legacy behavior, we still use the parent document's base URL (unless
-    // ParentDocument() is null, such as for detached documents).
-    // TODO(https://crbug.com/1408782): handle cases where
-    // NewBaseUrlInheritanceBehavior is enabled, but legacy session-history is
-    // missing initiator_base_url information.
-    if (!blink::features::IsNewBaseUrlInheritanceBehaviorEnabled() &&
-        ParentDocument()) {
+    // The fallback base URL can be missing in some cases (e.g., for
+    // browser-initiated navigations like
+    // NavigationBrowserTest.BlockedSrcDocBrowserInitiated, or for cases where
+    // the srcdoc's initiator origin does not match the parent origin, which
+    // should be removed in https://crbug.com/1169736).
+    //
+    // In these cases, use the parent frame's base URL, because the srcdoc value
+    // and origin both come from the parent frame.
+    // In NewBaseUrlInheritanceBehavior mode, make this stricter by only using
+    // the parent frame if it is same-origin.
+    // TODO(https://crbug.com/1169736): Enforce that the parent is same-origin,
+    // which should already be true.
+    if (blink::features::IsNewBaseUrlInheritanceBehaviorEnabled()) {
+      if (same_origin_parent) {
+        return same_origin_parent->BaseURL();
+      }
+    } else if (ParentDocument()) {
+      // In legacy mode, use the parent without checking the origin.
       // TODO(https://crbug.com/751329, https://crbug.com/1336904): Referring to
       // ParentDocument() is not correct.
       return ParentDocument()->BaseURL();
@@ -5262,8 +5323,8 @@ bool Document::SetFocusedElement(Element* new_focused_element,
     return true;
 
   if (new_focused_element) {
-    UpdateStyleAndLayoutTreeForNode(new_focused_element,
-                                    DocumentUpdateReason::kFocus);
+    UpdateStyleAndLayoutTreeForElement(new_focused_element,
+                                       DocumentUpdateReason::kFocus);
   }
 
   if (new_focused_element && new_focused_element->IsFocusable()) {
@@ -5446,9 +5507,6 @@ void Document::NotifyFocusedElementChanged(Element* old_focused_element,
     GetFrame()->Client()->FocusedElementChanged(new_focused_element);
 
     GetPage()->GetChromeClient().SetKeyboardFocusURL(new_focused_element);
-
-    if (GetSettings()->GetSpatialNavigationEnabled())
-      GetPage()->GetSpatialNavigationController().FocusedNodeChanged(this);
   }
 
   blink::NotifyPriorityScrollAnchorStatusChanged(old_focused_element,
@@ -5841,6 +5899,17 @@ void Document::EnqueueSnapChangingEvent(
       SnapEvent::Create(event_type_names::kSnapchanging, snap_targets);
   snapchanging_event->SetTarget(target);
   scripted_animation_controller_->EnqueuePerFrameEvent(snapchanging_event);
+}
+
+void Document::EnqueueMoveEvent() {
+  CHECK(
+      RuntimeEnabledFeatures::DesktopPWAsAdditionalWindowingControlsEnabled());
+
+  Event* event = Event::Create(event_type_names::kMove);
+  event->SetTarget(domWindow());
+
+  // TODO(crbug.com/1515101): When launching AWC, requires spec work.
+  scripted_animation_controller_->EnqueuePerFrameEvent(event);
 }
 
 void Document::EnqueueResizeEvent() {
@@ -6452,6 +6521,17 @@ ScriptPromise Document::requestStorageAccessFor(ScriptState* script_state,
   }
 
   KURL origin_as_kurl{origin};
+  if (!origin_as_kurl.IsValid()) {
+    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
+        "requestStorageAccessFor: Invalid origin."));
+    FireRequestStorageAccessForHistogram(
+        RequestStorageResult::REJECTED_INVALID_ORIGIN);
+    resolver->Reject(V8ThrowException::CreateTypeError(
+        script_state->GetIsolate(), "Invalid origin"));
+    return promise;
+  }
+
   scoped_refptr<SecurityOrigin> supplied_origin =
       SecurityOrigin::Create(origin_as_kurl);
   if (supplied_origin->IsOpaque()) {
@@ -7389,7 +7469,6 @@ DOMWindow* Document::defaultView() const {
   return dom_window_;
 }
 
-using AllowState = blink::Document::DeclarativeShadowRootAllowState;
 AllowState Document::GetDeclarativeShadowRootAllowState() const {
   return declarative_shadow_root_allow_state_;
 }
@@ -7476,8 +7555,7 @@ void Document::OnLargestContentfulPaintUpdated() {
 
 void Document::OnPrepareToStopParsing() {
   if (render_blocking_resource_manager_) {
-    render_blocking_resource_manager_->SetMainDocumentParsingIsRenderBlocking(
-        false);
+    render_blocking_resource_manager_->ClearPendingParsingElements();
   }
   MaybeExecuteDelayedAsyncScripts(
       MilestoneForDelayedAsyncScript::kFinishedParsing);
@@ -7698,6 +7776,25 @@ absl::optional<Color> Document::ThemeColor() {
     }
   }
   return absl::nullopt;
+}
+
+void Document::UpdateAppTitle() {
+  auto* root_element = documentElement();
+  if (!root_element) {
+    return;
+  }
+
+  for (HTMLMetaElement& meta_element :
+       Traversal<HTMLMetaElement>::DescendantsOf(*root_element)) {
+    if (EqualIgnoringASCIICase(meta_element.GetName(), "app-title")) {
+      GetFrame()->GetLocalFrameHostRemote().UpdateAppTitle(
+          meta_element.Content().GetString());
+      return;
+    }
+  }
+
+  // Handle case of meta tag being removed by setting app title to empty string.
+  GetFrame()->GetLocalFrameHostRemote().UpdateAppTitle(String(""));
 }
 
 void Document::ColorSchemeMetaChanged() {
@@ -8089,22 +8186,16 @@ HTMLDialogElement* Document::ActiveModalDialog() const {
   return nullptr;
 }
 
-void Document::SetPopoverHintShowing(HTMLElement* element) {
-  DCHECK(!element || element->HasPopoverAttribute());
-  DCHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
-  popover_hint_showing_ = element;
-}
-
 HTMLElement* Document::TopmostPopoverOrHint() const {
-  if (PopoverHintShowing()) {
-    DCHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
-    return PopoverHintShowing();
+  if (!PopoverHintStack().empty()) {
+    CHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
+    return PopoverHintStack().back();
   }
-  if (PopoverStack().empty())
-    return nullptr;
-  return PopoverStack().back();
+  if (!PopoverAutoStack().empty()) {
+    return PopoverAutoStack().back();
+  }
+  return nullptr;
 }
-
 void Document::SetPopoverPointerdownTarget(const HTMLElement* popover) {
   DCHECK(!popover || popover->HasPopoverAttribute());
   popover_pointerdown_target_ = popover;
@@ -8229,20 +8320,22 @@ Node* EventTargetNodeForDocument(Document* doc) {
 void Document::AdjustQuadsForScrollAndAbsoluteZoom(
     Vector<gfx::QuadF>& quads,
     const LayoutObject& layout_object) const {
-  if (!View())
+  if (!View()) {
     return;
+  }
 
   for (auto& quad : quads)
-    AdjustForAbsoluteZoom::AdjustQuad(quad, layout_object);
+    AdjustForAbsoluteZoom::AdjustQuadMaybeExcludingCSSZoom(quad, layout_object);
 }
 
 void Document::AdjustRectForScrollAndAbsoluteZoom(
     gfx::RectF& rect,
     const LayoutObject& layout_object) const {
-  if (!View())
+  if (!View()) {
     return;
+  }
 
-  AdjustForAbsoluteZoom::AdjustRectF(rect, layout_object);
+  AdjustForAbsoluteZoom::AdjustRectMaybeExcludingCSSZoom(rect, layout_object);
 }
 
 void Document::SetForceSynchronousParsingForTesting(bool enabled) {
@@ -8838,8 +8931,8 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(node_lists_);
   visitor->Trace(top_layer_elements_);
   visitor->Trace(top_layer_elements_pending_removal_);
-  visitor->Trace(popover_stack_);
-  visitor->Trace(popover_hint_showing_);
+  visitor->Trace(popover_auto_stack_);
+  visitor->Trace(popover_hint_stack_);
   visitor->Trace(popover_pointerdown_target_);
   visitor->Trace(popovers_waiting_to_hide_);
   visitor->Trace(all_open_popovers_);
@@ -8867,7 +8960,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(element_data_cache_clear_timer_);
   visitor->Trace(element_data_cache_);
   visitor->Trace(use_elements_needing_update_);
-  visitor->Trace(node_move_scope_items_);
+  visitor->Trace(svg_resources_needing_invalidation_);
   visitor->Trace(template_document_);
   visitor->Trace(template_document_host_);
   visitor->Trace(user_action_elements_);
@@ -9079,8 +9172,12 @@ bool Document::InDarkMode() {
 
 const ui::ColorProvider* Document::GetColorProviderForPainting(
     mojom::blink::ColorScheme color_scheme) const {
-  return GetPage()->GetColorProviderForPainting(
-      color_scheme, in_forced_colors_mode_);
+  if (!GetPage()) {
+    return nullptr;
+  }
+
+  return GetPage()->GetColorProviderForPainting(color_scheme,
+                                                in_forced_colors_mode_);
 }
 
 void Document::CountUse(mojom::WebFeature feature) const {
@@ -9204,18 +9301,6 @@ void Document::RunPostPrerenderingActivationSteps() {
   for (auto& callback : post_prerendering_activation_callbacks_)
     std::move(callback).Run();
   post_prerendering_activation_callbacks_.clear();
-}
-
-void Document::AddLCPPredictedCallback(LCPCallback callback) {
-  lcp_predicted_callbacks_.push_back(std::move(callback));
-}
-
-void Document::RunLCPPredictedCallbacks(const Element& lcp_element) {
-  Vector<LCPCallback> callbacks;
-  callbacks.swap(lcp_predicted_callbacks_);
-  for (auto& callback : callbacks) {
-    std::move(callback).Run(lcp_element);
-  }
 }
 
 bool Document::InStyleRecalc() const {

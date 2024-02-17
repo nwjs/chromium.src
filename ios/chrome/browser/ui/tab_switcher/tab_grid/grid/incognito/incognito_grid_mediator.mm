@@ -12,7 +12,7 @@
 #import "components/supervised_user/core/browser/supervised_user_preferences.h"
 #import "components/supervised_user/core/common/features.h"
 #import "components/supervised_user/core/common/pref_names.h"
-#import "ios/chrome/browser/policy/policy_util.h"
+#import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
@@ -24,6 +24,7 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_metrics.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_paging.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/toolbars/tab_grid_toolbars_configuration.h"
+#import "ios/web/public/web_state_id.h"
 
 // TODO(crbug.com/1457146): Needed for `TabPresentationDelegate`, should be
 // refactored.
@@ -80,6 +81,10 @@ bool ShouldFilterWebSitesForSupervisedUsers() {
   NOTREACHED_NORETURN() << "Incognito tabs cannot be saved.";
 }
 
+- (void)setPinState:(BOOL)pinState forItemWithID:(web::WebStateID)itemID {
+  NOTREACHED_NORETURN() << "Should not be called in incognito.";
+}
+
 #pragma mark - TabGridPageMutator
 
 - (void)currentlySelectedGrid:(BOOL)selected {
@@ -93,7 +98,7 @@ bool ShouldFilterWebSitesForSupervisedUsers() {
   // TODO(crbug.com/1457146): Implement.
 }
 
-#pragma mark - TabGridToolbarsButtonsDelegate
+#pragma mark - TabGridToolbarsGridDelegate
 
 - (void)closeAllButtonTapped:(id)sender {
   [self closeAllItems];
@@ -135,24 +140,37 @@ bool ShouldFilterWebSitesForSupervisedUsers() {
 }
 
 - (void)configureToolbarsButtons {
+  if (!_selected) {
+    return;
+  }
   // Start to configure the delegate, so configured buttons will depend on the
   // correct delegate.
   [self.toolbarsMutator setToolbarsButtonsDelegate:self];
 
   BOOL authenticationRequired = self.reauthSceneAgent.authenticationRequired;
   if (_incognitoDisabled || authenticationRequired) {
-    [self.toolbarsMutator setToolbarConfiguration:[TabGridToolbarsConfiguration
-                                                      disabledConfiguration]];
+    [self.toolbarsMutator
+        setToolbarConfiguration:
+            [TabGridToolbarsConfiguration
+                disabledConfigurationForPage:TabGridPageIncognitoTabs]];
     return;
   }
 
   TabGridToolbarsConfiguration* toolbarsConfiguration =
-      [[TabGridToolbarsConfiguration alloc] init];
-  toolbarsConfiguration.closeAllButton = !self.webStateList->empty();
-  toolbarsConfiguration.doneButton = !self.webStateList->empty();
-  toolbarsConfiguration.newTabButton = YES;
-  toolbarsConfiguration.searchButton = YES;
-  toolbarsConfiguration.selectTabsButton = !self.webStateList->empty();
+      [[TabGridToolbarsConfiguration alloc]
+          initWithPage:TabGridPageIncognitoTabs];
+  toolbarsConfiguration.mode = self.currentMode;
+
+  if (self.currentMode == TabGridModeSelection) {
+    [self configureButtonsInSelectionMode:toolbarsConfiguration];
+  } else {
+    toolbarsConfiguration.closeAllButton = !self.webStateList->empty();
+    toolbarsConfiguration.doneButton = !self.webStateList->empty();
+    toolbarsConfiguration.newTabButton = YES;
+    toolbarsConfiguration.searchButton = YES;
+    toolbarsConfiguration.selectTabsButton = !self.webStateList->empty();
+  }
+
   [self.toolbarsMutator setToolbarConfiguration:toolbarsConfiguration];
 }
 
@@ -165,11 +183,8 @@ bool ShouldFilterWebSitesForSupervisedUsers() {
       _incognitoDisabled = isDisabled;
       [self.incognitoDelegate shouldDisableIncognito:_incognitoDisabled];
     }
-    if (isDisabled) {
-      // Close all incognito tabs for supervised users. If the user was on an
-      // incognito tab, the disabled tab grid will be displayed.
-      [self closeAllItems];
-    }
+
+    [self configureToolbarsButtons];
   }
 }
 

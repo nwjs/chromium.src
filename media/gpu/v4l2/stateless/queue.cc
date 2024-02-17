@@ -39,20 +39,19 @@ BaseQueue::~BaseQueue() {
   }
 }
 
-bool BaseQueue::AllocateBuffers(uint32_t num_planes) {
+bool BaseQueue::AllocateBuffers(uint32_t num_planes, size_t num_buffers) {
   DVLOGF(4);
   CHECK(device_);
   CHECK(num_planes);
 
-  uint32_t num_buffers_requested = BufferMinimumCount();
+  const auto count =
+      device_->RequestBuffers(buffer_type_, memory_type_, num_buffers);
 
-  const auto count = device_->RequestBuffers(buffer_type_, memory_type_,
-                                             num_buffers_requested);
   if (!count) {
     return false;
   }
 
-  DVLOGF(2) << num_buffers_requested << " buffers request " << *count
+  DVLOGF(2) << num_buffers << " buffers request " << *count
             << " buffers allocated for " << Description() << " queue.";
   buffers_.reserve(*count);
 
@@ -153,39 +152,25 @@ bool InputQueue::SetupFormat(const gfx::Size resolution) {
   return true;
 }
 
-bool InputQueue::PrepareBuffers() {
+bool InputQueue::PrepareBuffers(size_t num_buffers) {
   DVLOGF(4);
-  return AllocateBuffers(kNumberInputPlanes);
+  return AllocateBuffers(kNumberInputPlanes, num_buffers);
 }
 
-void InputQueue::Reclaim() {
-  DVLOGF(4) << Description();
-  CHECK(device_);
-
-  // There may be more than one buffer available. Keep trying to dequeue buffers
-  // until there aren't anymore.
-  while (true) {
-    auto buffer =
-        device_->DequeueBuffer(buffer_type_, memory_type_, kNumberInputPlanes);
-    if (!buffer) {
-      return;
-    }
-
-    const uint32_t index = buffer->GetIndex();
-    DVLOGF(3) << "#" << index << " returned, now "
-              << free_buffer_indices_.size() + 1 << " " << Description()
-              << " available.";
-    if (!free_buffer_indices_.insert(index).second) {
-      // There is no way that a reclaimed buffer is already present in the list.
-      NOTREACHED();
-    }
+void InputQueue::Reclaim(Buffer& buffer) {
+  DVLOGF(3) << "#" << buffer.GetIndex() << " returned, now "
+            << free_buffer_indices_.size() + 1 << " " << Description()
+            << " available.";
+  if (!free_buffer_indices_.insert(buffer.GetIndex()).second) {
+    // There is no way that a reclaimed buffer is already present in the list.
+    NOTREACHED();
   }
 }
 
 bool InputQueue::SubmitCompressedFrameData(void* ctrls,
                                            const void* data,
                                            size_t length,
-                                           uint32_t frame_id) {
+                                           uint64_t frame_id) {
   // Failing to acquire a buffer is a normal part of the process. All of the
   // input buffers can be full if the output buffers are not being cleared.
   auto buffer_index = GetFreeBufferIndex();
@@ -252,14 +237,6 @@ std::string InputQueue::Description() {
   return "input";
 }
 
-uint32_t InputQueue::BufferMinimumCount() {
-  // TODO: This number has been cargo culting around for a while. One buffer
-  // could be enough as there is buffering elsewhere in the system. This
-  // number should be revisited after end to end playback is completed and
-  // performance tuning is done.
-  return 8;
-}
-
 std::unique_ptr<OutputQueue> OutputQueue::Create(
     scoped_refptr<StatelessDevice> device) {
   std::unique_ptr<OutputQueue> queue = std::make_unique<OutputQueue>(device);
@@ -299,10 +276,10 @@ bool OutputQueue::NegotiateFormat() {
       if (device_->TryOutputFormat(try_format)) {
         auto chosen_format = device_->SetOutputFormat(try_format);
         if (chosen_format) {
-          DVLOGF(2) << "Preferred format " << chosen_format->fourcc.ToString()
-                    << " choosen for output queue through negotiation. "
-                    << "Initial format was "
-                    << initial_format->fourcc.ToString() << ".";
+          DVLOGF(2) << "Preferred format " << chosen_format->ToString()
+                    << " chosen for output queue through negotiation. "
+                    << "Initial format was " << initial_format->ToString()
+                    << ".";
           buffer_format_ = *chosen_format;
           return true;
         } else {
@@ -311,8 +288,8 @@ bool OutputQueue::NegotiateFormat() {
       }
     }
   } else {
-    DVLOGF(2) << "Initial format " << initial_format->fourcc.ToString()
-              << " choosen for output queue.";
+    DVLOGF(2) << "Initial format " << initial_format->ToString()
+              << " chosen for output queue.";
     auto chosen_format = device_->SetOutputFormat(*initial_format);
     if (chosen_format) {
       buffer_format_ = *chosen_format;
@@ -383,10 +360,10 @@ scoped_refptr<VideoFrame> OutputQueue::CreateVideoFrame(uint32_t index) {
       std::move(dmabuf_fds), base::TimeDelta());
 }
 
-bool OutputQueue::PrepareBuffers() {
+bool OutputQueue::PrepareBuffers(size_t num_buffers) {
   DVLOGF(4);
 
-  if (!AllocateBuffers(buffer_format_.NumPlanes())) {
+  if (!AllocateBuffers(buffer_format_.NumPlanes(), num_buffers)) {
     return false;
   }
 
@@ -416,12 +393,74 @@ bool OutputQueue::PrepareBuffers() {
   return true;
 }
 
-std::string OutputQueue::Description() {
-  return "output";
+void OutputQueue::RegisterDequeuedBuffer(Buffer& buffer) {
+  // Once the buffer is dequeued it needs to be tracked. The index is all that
+  // is needed to track the buffer. That index is what will be used when passing
+  // the buffer off. The time is need to tell which buffer should be passed off.
+  // With MPEG codecs display order can be different then decode order. For
+  // this reason the most recently decoded buffer may not be displayed right
+  // away.
+  //
+  // The input and output queues are independent. When the input buffer is done
+  // being decoded the timestamp is copied over to the output buffer. When
+  // this frame is ready to be displayed the timestamp is what will be
+  // needed. Because of the detached nature of the queues there is no way to
+  // know which output buffer index corresponds to the input buffer. Using
+  // the timestamp this can be found.
+  const auto result = decoded_and_dequeued_frames_.insert(
+      {buffer.GetTimeAsFrameID(), buffer.GetIndex()});
+
+  DVLOGF(3) << "Inserted buffer " << buffer.GetIndex() << " with a frame id of "
+            << buffer.GetTimeAsFrameID();
+
+  CHECK(result.second) << "Buffer already in map";
 }
 
-uint32_t OutputQueue::BufferMinimumCount() {
-  return 4;
+scoped_refptr<VideoFrame> OutputQueue::GetVideoFrame(uint64_t frame_id) {
+  DVLOGF(3) << "Attempting to use frame with id : " << frame_id;
+  // The frame_id is copied from the input buffer to the output buffer. This is
+  // the only way to know which output buffer contains the decoded picture for
+  // a given compressed input buffer.
+  auto it = decoded_and_dequeued_frames_.find(frame_id);
+  if (it != decoded_and_dequeued_frames_.end()) {
+    const uint32_t index = it->second;
+    DVLOGF(3) << "Found match (" << index << ") for frame id of (" << frame_id
+              << ").";
+    return video_frames_[index];
+  }
+
+  // The corresponding frame may not have been dequeued when this function has
+  // been called. This is not an error, but expected. When this occurs the
+  // caller should try again after waiting for another buffer to be dequeued.
+  return nullptr;
+}
+
+bool OutputQueue::QueueBufferByFrameID(uint64_t frame_id) {
+  DVLOGF(4) << "frame id : " << frame_id;
+
+  auto it = decoded_and_dequeued_frames_.find(frame_id);
+  if (it != decoded_and_dequeued_frames_.end()) {
+    const uint32_t buffer_index = it->second;
+    decoded_and_dequeued_frames_.erase(it);
+
+    DVLOGF(3) << "buffer " << buffer_index << " returned";
+
+    Buffer& buffer = buffers_[buffer_index];
+
+    if (!device_->QueueBuffer(buffer, base::ScopedFD(-1))) {
+      NOTREACHED() << "Failed to queue buffer.";
+      return false;
+    }
+
+    return true;
+  }
+
+  NOTREACHED();
+  return false;
+}
+
+std::string OutputQueue::Description() {
+  return "output";
 }
 
 }  // namespace media

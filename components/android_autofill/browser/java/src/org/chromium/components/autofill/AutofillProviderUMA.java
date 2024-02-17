@@ -93,10 +93,11 @@ public class AutofillProviderUMA {
     public static final int SAME_DOCUMENT_NAVIGATION = 0;
     public static final int XHR_SUCCEEDED = 1;
     public static final int FRAME_DETACHED = 2;
-    public static final int DOM_MUTATION_AFTER_XHR = 3;
+    // public static final int DEPRECATED_DOM_MUTATION_AFTER_XHR = 3;
     public static final int PROBABLY_FORM_SUBMITTED = 4;
     public static final int FORM_SUBMISSION = 5;
-    public static final int SUBMISSION_SOURCE_HISTOGRAM_COUNT = 6;
+    public static final int DOM_MUTATION_AFTER_AUTOFILL = 6;
+    public static final int SUBMISSION_SOURCE_HISTOGRAM_COUNT = 7;
 
     // The million seconds from user touched the field to the autofill session starting.
     public static final String UMA_AUTOFILL_TRIGGERING_TIME = "Autofill.WebView.TriggeringTime";
@@ -183,7 +184,7 @@ public class AutofillProviderUMA {
             // If a bottom sheet was shown, we record an additional, separate metric for it.
             if ((mState & EVENT_BOTTOM_SHEET_SHOWN) != 0) {
                 RecordHistogram.recordEnumeratedHistogram(
-                        UMA_AUTOFILL_AUTOFILL_SESSION,
+                        UMA_AUTOFILL_AUTOFILL_SESSION_WITH_BOTTOM_SHEET,
                         sessionValue,
                         AUTOFILL_SESSION_HISTOGRAM_COUNT);
             }
@@ -510,12 +511,12 @@ public class AutofillProviderUMA {
                 return XHR_SUCCEEDED;
             case SubmissionSource.FRAME_DETACHED:
                 return FRAME_DETACHED;
-            case SubmissionSource.DOM_MUTATION_AFTER_XHR:
-                return DOM_MUTATION_AFTER_XHR;
             case SubmissionSource.PROBABLY_FORM_SUBMITTED:
                 return PROBABLY_FORM_SUBMITTED;
             case SubmissionSource.FORM_SUBMISSION:
                 return FORM_SUBMISSION;
+            case SubmissionSource.DOM_MUTATION_AFTER_AUTOFILL:
+                return DOM_MUTATION_AFTER_AUTOFILL;
             default:
                 return SUBMISSION_SOURCE_HISTOGRAM_COUNT;
         }

@@ -127,37 +127,6 @@ class ClipboardDataWaiter : public ui::ClipboardObserver {
   std::unique_ptr<base::RunLoop> run_loop_;
 };
 
-// The helper class to wait for the observed view's bounds update.
-class ViewBoundsWaiter : public views::ViewObserver {
- public:
-  explicit ViewBoundsWaiter(views::View* observed_view)
-      : observed_view_(observed_view) {
-    observed_view_->AddObserver(this);
-  }
-
-  ViewBoundsWaiter(const ViewBoundsWaiter&) = delete;
-  ViewBoundsWaiter& operator=(const ViewBoundsWaiter&) = delete;
-  ~ViewBoundsWaiter() override { observed_view_->RemoveObserver(this); }
-
-  void WaitForMeaningfulBounds() {
-    // No-op if `observed_view_` already has meaningful bounds.
-    if (!observed_view_->bounds().IsEmpty())
-      return;
-
-    run_loop_.Run();
-  }
-
- private:
-  // views::ViewObserver:
-  void OnViewBoundsChanged(views::View* observed_view) override {
-    EXPECT_FALSE(observed_view->bounds().IsEmpty());
-    run_loop_.Quit();
-  }
-
-  const raw_ptr<views::View, ExperimentalAsh> observed_view_;
-  base::RunLoop run_loop_;
-};
-
 // Helpers ---------------------------------------------------------------------
 
 std::unique_ptr<views::Widget> CreateTestWidget() {
@@ -361,8 +330,8 @@ class ClipboardHistoryBrowserTest : public ash::LoginManagerTest {
 
     // Wait until `delete_button` has meaningful bounds. Note that the bounds
     // are set by the layout manager asynchronously.
-    ViewBoundsWaiter waiter(delete_button);
-    waiter.WaitForMeaningfulBounds();
+    ui_test_utils::ViewBoundsWaiter delete_button_waiter(delete_button);
+    delete_button_waiter.WaitForNonEmptyBounds();
 
     EXPECT_TRUE(delete_button->GetVisible());
     EXPECT_TRUE(item_view->IsSelected());
@@ -819,8 +788,7 @@ class ClipboardHistoryPasteTypeBrowserTest
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
-  raw_ptr<content::WebContents, DanglingUntriaged | ExperimentalAsh>
-      web_contents_ = nullptr;
+  raw_ptr<content::WebContents, DanglingUntriaged> web_contents_ = nullptr;
   int paste_num_ = 1;
 };
 
@@ -1197,7 +1165,7 @@ class ClipboardHistoryTextfieldBrowserTestBase
   }
 
   std::unique_ptr<views::Widget> widget_;
-  raw_ptr<views::Textfield, ExperimentalAsh> textfield_ = nullptr;
+  raw_ptr<views::Textfield> textfield_ = nullptr;
 };
 
 class ClipboardHistoryTextfieldBrowserTest
@@ -1408,7 +1376,7 @@ class FakeDataTransferPolicyController
   bool IsClipboardReadAllowed(
       base::optional_ref<const ui::DataTransferEndpoint> data_src,
       base::optional_ref<const ui::DataTransferEndpoint> data_dst,
-      const absl::optional<size_t> size) override {
+      const std::optional<size_t> size) override {
     // The multipaste menu should have access to any clipboard data.
     if (data_dst.has_value() &&
         data_dst->type() == ui::EndpointType::kClipboardHistory) {
@@ -1560,7 +1528,7 @@ IN_PROC_BROWSER_TEST_P(ClipboardHistoryRefreshAshBrowserTest,
                                         ->GetPrimaryMainFrame(),
                                    context_menu_params);
     menu.Init();
-    absl::optional<size_t> found_index = menu.menu_model().GetIndexOfCommandId(
+    std::optional<size_t> found_index = menu.menu_model().GetIndexOfCommandId(
         is_refresh_enabled ? IDC_CONTENT_PASTE_FROM_CLIPBOARD
                            : IDC_CONTENT_CLIPBOARD_HISTORY_MENU);
     ASSERT_TRUE(found_index);
@@ -1581,7 +1549,7 @@ IN_PROC_BROWSER_TEST_P(ClipboardHistoryRefreshAshBrowserTest,
                                    context_menu_params);
     menu.Init();
     const ui::SimpleMenuModel& menu_model = menu.menu_model();
-    absl::optional<size_t> found_index = menu_model.GetIndexOfCommandId(
+    std::optional<size_t> found_index = menu_model.GetIndexOfCommandId(
         is_refresh_enabled ? IDC_CONTENT_PASTE_FROM_CLIPBOARD
                            : IDC_CONTENT_CLIPBOARD_HISTORY_MENU);
     ASSERT_TRUE(found_index);

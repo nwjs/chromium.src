@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 #include "base/containers/flat_map.h"
+#include "base/memory/raw_ptr.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace gfx {
@@ -21,7 +22,7 @@ class Widget;
 
 namespace ash {
 
-class CrOSNextDeskIconButton;
+class DeskIconButton;
 class DeskBarViewBase;
 class DeskMiniView;
 class ExpandedDesksBarButton;
@@ -83,7 +84,7 @@ void PerformDeskBarRemoveDeskAnimation(DeskBarViewBase* bar_view,
 void PerformReorderDeskMiniViewAnimation(
     int old_index,
     int new_index,
-    const std::vector<DeskMiniView*>& mini_views);
+    const std::vector<raw_ptr<DeskMiniView, VectorExperimental>>& mini_views);
 
 // Performs the animation which happens when the saved desk library button is
 // shown or hidden. Shifts all the mini views and the new desk button to the
@@ -92,7 +93,7 @@ void PerformReorderDeskMiniViewAnimation(
 // - It assumes all the `mini_views` and new desk button have been laid out in
 //   their final positions.
 void PerformLibraryButtonVisibilityAnimation(
-    const std::vector<DeskMiniView*>& mini_views,
+    const std::vector<raw_ptr<DeskMiniView, VectorExperimental>>& mini_views,
     views::View* new_desk_button,
     int shift_x);
 
@@ -103,7 +104,7 @@ void PerformLibraryButtonVisibilityAnimation(
 // - It assumes all the mini views in `bar_view`, new desk button and library
 // button have been laid out in their final positions.
 void PerformDeskIconButtonScaleAnimation(
-    CrOSNextDeskIconButton* button,
+    DeskIconButton* button,
     DeskBarViewBase* bar_view,
     const gfx::Transform& new_desk_button_rects_transform,
     int shift_x);

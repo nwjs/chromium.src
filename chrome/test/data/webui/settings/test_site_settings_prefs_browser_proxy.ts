@@ -94,6 +94,7 @@ export class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy
       ContentSettingsTypes.IDLE_DETECTION,
       ContentSettingsTypes.IMAGES,
       ContentSettingsTypes.JAVASCRIPT,
+      ContentSettingsTypes.JAVASCRIPT_JIT,
       ContentSettingsTypes.LOCAL_FONTS,
       ContentSettingsTypes.MIC,
       ContentSettingsTypes.MIXEDSCRIPT,
@@ -113,6 +114,10 @@ export class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy
       this.categoryList_.push(ContentSettingsTypes.MIDI);
     } else {
       this.categoryList_.push(ContentSettingsTypes.MIDI_DEVICES);
+    }
+
+    if (loadTimeData.getBoolean('enableWebPrintingContentSetting')) {
+      this.categoryList_.push(ContentSettingsTypes.WEB_PRINTING);
     }
 
     this.prefs_ = createSiteSettingsPrefs([], [], []);

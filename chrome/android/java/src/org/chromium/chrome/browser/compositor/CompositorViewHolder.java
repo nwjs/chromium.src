@@ -69,7 +69,6 @@ import org.chromium.chrome.browser.tasks.tab_management.TabManagementFieldTrial;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
@@ -105,7 +104,6 @@ import java.util.Set;
 public class CompositorViewHolder extends FrameLayout
         implements LayoutManagerHost,
                 LayoutRenderHost,
-                Invalidator.Host,
                 TouchEventProvider,
                 BrowserControlsStateProvider.Observer,
                 ChromeAccessibilityUtil.Observer,
@@ -145,18 +143,11 @@ public class CompositorViewHolder extends FrameLayout
 
     private boolean mIsKeyboardShowing;
     private boolean mNativeInitialized;
-
-    private final Invalidator mInvalidator = new Invalidator();
     private LayoutManagerImpl mLayoutManager;
     private CompositorView mCompositorView;
 
     private boolean mContentOverlayVisiblity = true;
     private boolean mCanBeFocusable;
-
-    private int mPendingFrameCount;
-
-    private final ArrayList<Runnable> mPendingInvalidations = new ArrayList<>();
-    private boolean mSkipInvalidation;
 
     /** A task to be performed after a resize event. */
     private Runnable mPostHideKeyboardTask;
@@ -661,13 +652,6 @@ public class CompositorViewHolder extends FrameLayout
      */
     public DynamicResourceLoader getDynamicResourceLoader() {
         return mCompositorView.getResourceManager().getDynamicResourceLoader();
-    }
-
-    /**
-     * @return The {@link Invalidator} instance that is driven by this {@link CompositorViewHolder}.
-     */
-    public Invalidator getInvalidator() {
-        return mInvalidator;
     }
 
     // TouchEventProvider implementation.
@@ -1234,20 +1218,10 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onSurfaceCreated() {
-        mPendingFrameCount = 0;
-        flushInvalidation();
-    }
-
-    @Override
     public void didSwapFrame(int pendingFrameCount) {
         TraceEvent.instant("didSwapFrame");
 
         mHasDrawnOnce = true;
-        mPendingFrameCount = pendingFrameCount;
-
-        if (!mSkipInvalidation || pendingFrameCount == 0) flushInvalidation();
-        mSkipInvalidation = !mSkipInvalidation;
 
         mDidSwapBuffersCallbacks.addAll(mDidSwapFrameCallbacks);
         mDidSwapFrameCallbacks.clear();
@@ -1422,15 +1396,7 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onAttachedToWindow() {
-        mInvalidator.set(this);
-        super.onAttachedToWindow();
-    }
-
-    @Override
     public void onDetachedFromWindow() {
-        flushInvalidation();
-        mInvalidator.set(null);
         super.onDetachedFromWindow();
 
         // Removes the accessibility node provider from this view.
@@ -1452,15 +1418,11 @@ public class CompositorViewHolder extends FrameLayout
         if (mUrlBar != null && mUrlBar.isFocused()) mUrlBar.clearFocus();
         boolean wasVisible = false;
         if (hasFocus()) {
-            if (ToolbarFeatures.shouldDelayTransitionsForAnimation()) {
-                KeyboardVisibilityDelegate keyboardVisibilityDelegate =
-                        KeyboardVisibilityDelegate.getInstance();
-                wasVisible = keyboardVisibilityDelegate.isKeyboardShowing(getContext(), this);
-                if (wasVisible) {
-                    keyboardVisibilityDelegate.hideKeyboard(this);
-                }
-            } else {
-                wasVisible = KeyboardVisibilityDelegate.getInstance().hideKeyboard(this);
+            KeyboardVisibilityDelegate keyboardVisibilityDelegate =
+                    KeyboardVisibilityDelegate.getInstance();
+            wasVisible = keyboardVisibilityDelegate.isKeyboardShowing(getContext(), this);
+            if (wasVisible) {
+                keyboardVisibilityDelegate.hideKeyboard(this);
             }
         }
         if (wasVisible) {
@@ -1674,24 +1636,6 @@ public class CompositorViewHolder extends FrameLayout
         if (tab.getView() != tab.getContentView()) return;
 
         updateWebContentsSize(tab);
-    }
-
-    @Override
-    public void deferInvalidate(Runnable clientInvalidator) {
-        if (mPendingFrameCount <= 0) {
-            clientInvalidator.run();
-        } else if (!mPendingInvalidations.contains(clientInvalidator)) {
-            mPendingInvalidations.add(clientInvalidator);
-        }
-    }
-
-    private void flushInvalidation() {
-        if (mPendingInvalidations.isEmpty()) return;
-        TraceEvent.instant("CompositorViewHolder.flushInvalidation");
-        for (int i = 0; i < mPendingInvalidations.size(); i++) {
-            mPendingInvalidations.get(i).run();
-        }
-        mPendingInvalidations.clear();
     }
 
     /**

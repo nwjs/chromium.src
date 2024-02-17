@@ -19,6 +19,7 @@
 #include "chrome/grit/emoji_picker_resources.h"
 #include "chrome/grit/emoji_picker_resources_map.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/ash/components/emoji/grit/emoji_map.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -39,17 +40,10 @@ class EmojiBubbleDialogView : public WebUIBubbleDialogView {
   METADATA_HEADER(EmojiBubbleDialogView);
   explicit EmojiBubbleDialogView(
       std::unique_ptr<BubbleContentsWrapper> contents_wrapper)
-      : WebUIBubbleDialogView(nullptr, contents_wrapper.get()),
+      : WebUIBubbleDialogView(nullptr, contents_wrapper->GetWeakPtr()),
         contents_wrapper_(std::move(contents_wrapper)) {
     set_has_parent(false);
-
-    // With jelly support on, update border radius of bubble view.
-    // TODO(b/263055563): Remove this check once Jelly is fully launched in
-    // Emoji Picker.
-    if (base::FeatureList::IsEnabled(
-            ash::features::kImeSystemEmojiPickerJellySupport)) {
-      set_corner_radius(20);
-    }
+    set_corner_radius(20);
   }
 
  private:
@@ -74,6 +68,7 @@ EmojiUI::EmojiUI(content::WebUI* web_ui)
   webui::SetupWebUIDataSource(
       source, base::make_span(kEmojiPickerResources, kEmojiPickerResourcesSize),
       IDR_EMOJI_PICKER_INDEX_HTML);
+  source->AddResourcePaths(base::make_span(kEmoji, kEmojiSize));
 
   Profile* profile = Profile::FromWebUI(web_ui);
   content::URLDataSource::Add(profile,
@@ -169,6 +164,12 @@ void EmojiUI::BindInterface(
     mojo::PendingReceiver<emoji_picker::mojom::PageHandlerFactory> receiver) {
   page_factory_receiver_.reset();
   page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void EmojiUI::BindInterface(
+    mojo::PendingReceiver<new_window_proxy::mojom::NewWindowProxy> receiver) {
+  new_window_proxy_ =
+      std::make_unique<ash::NewWindowProxy>(std::move(receiver));
 }
 
 void EmojiUI::CreatePageHandler(

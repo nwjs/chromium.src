@@ -9,6 +9,7 @@
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/bookmarks/browser/bookmark_model.h"
+#import "components/commerce/core/commerce_constants.h"
 #import "components/commerce/core/price_tracking_utils.h"
 #import "components/commerce/core/shopping_service.h"
 #import "components/image_fetcher/core/image_data_fetcher.h"
@@ -229,8 +230,9 @@ using PriceNotificationItems =
       [self createPriceNotificationTableViewItem:NO
                                  fromProductInfo:productInfo
                                            atURL:URL];
-  self.shoppingService->IsClusterIdTrackedByUser(
-      productInfo->product_cluster_id.value(),
+  self.shoppingService->IsSubscribed(
+      commerce::BuildUserSubscriptionForClusterId(
+          productInfo->product_cluster_id.value()),
       base::BindOnce(^(bool isTracked) {
         [weakSelf.consumer setTrackableItem:item currentlyTracking:isTracked];
       }));

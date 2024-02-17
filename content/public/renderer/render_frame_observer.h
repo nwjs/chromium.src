@@ -7,19 +7,20 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/read_only_shared_memory_region.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "content/common/buildflags.h"
 #include "content/common/content_export.h"
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sender.h"
 #include "mojo/public/cpp/bindings/scoped_interface_endpoint_handle.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "services/network/public/mojom/url_response_head.mojom-forward.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/loader/loading_behavior_flag.h"
 #include "third_party/blink/public/common/performance/performance_timeline_constants.h"
 #include "third_party/blink/public/common/responsiveness_metrics/user_interaction_latency.h"
@@ -68,8 +69,12 @@ class RenderFrame;
 
 // Base class for objects that want to filter incoming IPCs, and also get
 // notified of changes to the frame.
-class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
-                                           public IPC::Sender {
+class CONTENT_EXPORT RenderFrameObserver
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
+    : public IPC::Listener,
+      public IPC::Sender
+#endif
+{
  public:
   RenderFrameObserver(const RenderFrameObserver&) = delete;
   RenderFrameObserver& operator=(const RenderFrameObserver&) = delete;
@@ -111,7 +116,7 @@ class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
   // the browser process (e.g. by typing a url) won't have a navigation type.
   virtual void DidStartNavigation(
       const GURL& url,
-      absl::optional<blink::WebNavigationType> navigation_type) {}
+      std::optional<blink::WebNavigationType> navigation_type) {}
 
   // Called when a navigation has just committed and |document_loader|
   // will start loading a new document in the RenderFrame.
@@ -272,7 +277,8 @@ class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
       const url::SchemeHostPort& final_response_url,
       int request_id,
       const network::mojom::URLResponseHead& response_head,
-      network::mojom::RequestDestination request_destination) {}
+      network::mojom::RequestDestination request_destination,
+      bool is_ad_resource) {}
   virtual void DidCompleteResponse(
       int request_id,
       const network::URLLoaderCompletionStatus& status) {}
@@ -372,18 +378,27 @@ class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
   virtual void PreloadSubresourceOptimizationsForOrigins(
       const std::vector<blink::WebSecurityOrigin>& origins) {}
 
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
   // IPC::Listener implementation.
   bool OnMessageReceived(const IPC::Message& message) override;
 
   // IPC::Sender implementation.
   bool Send(IPC::Message* message) override;
+#endif
 
   RenderFrame* render_frame() const;
+
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
   int routing_id() const { return routing_id_; }
+#endif
 
  protected:
   explicit RenderFrameObserver(RenderFrame* render_frame);
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
   ~RenderFrameObserver() override;
+#else
+  virtual ~RenderFrameObserver();
+#endif
 
  private:
   friend class RenderFrameImpl;
@@ -393,8 +408,11 @@ class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
   void RenderFrameGone();
 
   raw_ptr<RenderFrame, ExperimentalRenderer> render_frame_;
+
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
   // The routing ID of the associated RenderFrame.
-  int routing_id_;
+  int routing_id_ = MSG_ROUTING_NONE;
+#endif
 };
 
 }  // namespace content

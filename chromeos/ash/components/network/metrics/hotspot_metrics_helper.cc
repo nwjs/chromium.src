@@ -176,6 +176,7 @@ HotspotMetricsHelper::GetCheckReadinessMetricsResult(
     case CheckReadinessResult::kUnknownResult:
       return HotspotMetricsCheckReadinessResult::kUnknownResult;
   }
+  NOTREACHED() << "Unknown check tethering readiness result.";
 }
 
 // static
@@ -204,6 +205,7 @@ HotspotMetricsHelper::GetSetConfigMetricsResult(
       }
       return HotspotMetricsSetConfigResult::kFailedUnknownShillError;
   }
+  NOTREACHED() << "Unknown set hotspot config result.";
 }
 
 // static
@@ -229,7 +231,10 @@ HotspotMetricsHelper::GetMetricsDisableReason(
       return HotspotMetricsDisableReason::kSuspended;
     case DisableReason::kRestart:
       return HotspotMetricsDisableReason::kRestart;
+    case DisableReason::kUpstreamNoInternet:
+      return HotspotMetricsDisableReason::kUpstreamNoInternet;
   }
+  NOTREACHED() << "Unknown hotspot disable reason.";
 }
 
 HotspotMetricsHelper::HotspotMetricsHelper() = default;
@@ -296,7 +301,7 @@ void HotspotMetricsHelper::LoggedInStateChanged() {
 }
 
 void HotspotMetricsHelper::LogAllowStatus() {
-  absl::optional<HotspotMetricsAllowStatus> metrics_allow_status =
+  std::optional<HotspotMetricsAllowStatus> metrics_allow_status =
       GetMetricsAllowStatus();
   if (!metrics_allow_status) {
     return;
@@ -311,7 +316,7 @@ void HotspotMetricsHelper::LogAllowStatusAtLogin() {
     return;
   }
 
-  absl::optional<HotspotMetricsAllowStatus> metrics_allow_status =
+  std::optional<HotspotMetricsAllowStatus> metrics_allow_status =
       GetMetricsAllowStatus();
   if (!metrics_allow_status) {
     return;
@@ -322,7 +327,7 @@ void HotspotMetricsHelper::LogAllowStatusAtLogin() {
   is_metrics_logged_ = true;
 }
 
-absl::optional<HotspotMetricsHelper::HotspotMetricsAllowStatus>
+std::optional<HotspotMetricsHelper::HotspotMetricsAllowStatus>
 HotspotMetricsHelper::GetMetricsAllowStatus() {
   using hotspot_config::mojom::HotspotAllowStatus;
 
@@ -345,7 +350,7 @@ HotspotMetricsHelper::GetMetricsAllowStatus() {
     case HotspotAllowStatus::kDisallowedNoCellularUpstream:
       // Do not emit kDisallowedNoCellularUpstream which means the device is
       // not cellular capable. Otherwise, it would drown out the metric.
-      return absl::nullopt;
+      return std::nullopt;
   }
 }
 

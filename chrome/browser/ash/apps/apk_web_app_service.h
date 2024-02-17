@@ -59,7 +59,7 @@ class ApkWebAppService : public KeyedService,
     using WebAppInstallCallback = base::OnceCallback<void(
         const webapps::AppId& web_app_id,
         bool is_web_only_twa,
-        const absl::optional<std::string> sha256_fingerprint,
+        const std::optional<std::string> sha256_fingerprint,
         webapps::InstallResultCode code)>;
 
     using WebAppUninstallCallback =
@@ -105,16 +105,16 @@ class ApkWebAppService : public KeyedService,
 
   bool IsWebAppShellPackage(const std::string& package_name);
 
-  absl::optional<std::string> GetPackageNameForWebApp(
+  std::optional<std::string> GetPackageNameForWebApp(
       const webapps::AppId& app_id,
       bool include_installing_apks = false);
 
-  absl::optional<std::string> GetPackageNameForWebApp(const GURL& url);
+  std::optional<std::string> GetPackageNameForWebApp(const GURL& url);
 
-  absl::optional<std::string> GetWebAppIdForPackageName(
+  std::optional<std::string> GetWebAppIdForPackageName(
       const std::string& package_name);
 
-  absl::optional<std::string> GetCertificateSha256Fingerprint(
+  std::optional<std::string> GetCertificateSha256Fingerprint(
       const webapps::AppId& app_id);
 
   // Save a mapping of the web app ID to the package name for a web-only TWA
@@ -177,6 +177,7 @@ class ApkWebAppService : public KeyedService,
 
   // croapi::WebAppServiceAsh::Observer overrides:
   void OnWebAppProviderBridgeConnected() override;
+  void OnWebAppServiceAshDestroyed() override;
 
   void MaybeRemoveArcPackageForWebApp(const webapps::AppId& web_app_id);
   void OnDidGetWebAppIcon(const std::string& package_name,
@@ -185,7 +186,7 @@ class ApkWebAppService : public KeyedService,
   void OnDidFinishInstall(const std::string& package_name,
                           const webapps::AppId& web_app_id,
                           bool is_web_only_twa,
-                          const absl::optional<std::string> sha256_fingerprint,
+                          const std::optional<std::string> sha256_fingerprint,
                           webapps::InstallResultCode code);
   void OnDidRemoveInstallSource(const webapps::AppId& app_id,
                                 webapps::UninstallResultCode code);
@@ -202,9 +203,8 @@ class ApkWebAppService : public KeyedService,
   WebAppCallbackForTesting web_app_installed_callback_;
   WebAppCallbackForTesting web_app_uninstalled_callback_;
 
-  raw_ptr<Profile, ExperimentalAsh> profile_;
-  raw_ptr<ArcAppListPrefs, DanglingUntriaged | ExperimentalAsh>
-      arc_app_list_prefs_;
+  raw_ptr<Profile> profile_;
+  raw_ptr<ArcAppListPrefs, DanglingUntriaged> arc_app_list_prefs_;
 
   // Delegate implementation used in production.
   std::unique_ptr<Delegate> real_delegate_;

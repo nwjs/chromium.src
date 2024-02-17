@@ -119,6 +119,9 @@ CALayer* CreateOmniboxFieldLayer(BOOL isEmpty) {
                             faviconImage:(UIImage*)image {
   self = [super initWithFrame:CGRectMake(0, 0, 0, 0)];
   if (self) {
+    CHECK((!name && !image) || (name && image), base::NotFatalUntil::M124)
+        << "name: " << name << ", image: " << image;
+
     _isEmptyFakeOmnibox = !name && !image;
 
     self.bounds = CGRectMake(0, 0, kFakeOmniboxWidth, kFakeOmniboxHeight);
@@ -172,9 +175,12 @@ CALayer* CreateOmniboxFieldLayer(BOOL isEmpty) {
     if (_isEmptyFakeOmnibox) {
       _imageView.image = DefaultSymbolWithPointSize(kMagnifyingglassSymbol,
                                                     kMagnifyingGlassSize);
+      [self
+          setAccessibilityIdentifier:kFakeEmptyOmniboxAccessibilityIdentifier];
     } else {
       self.faviconImage = image;
       _imageView.image = image;
+      [self setAccessibilityIdentifier:kFakeOmniboxAccessibilityIdentifier];
     }
   }
   return self;
@@ -200,7 +206,7 @@ CALayer* CreateOmniboxFieldLayer(BOOL isEmpty) {
 #pragma mark - Properties
 
 - (void)setFaviconImage:(UIImage*)faviconImage {
-  CHECK(!_isEmptyFakeOmnibox);
+  CHECK(!_isEmptyFakeOmnibox, base::NotFatalUntil::M124);
   _faviconImage = faviconImage;
   _imageView.image = faviconImage;
 }

@@ -13,8 +13,8 @@
 #include "base/observer_list_threadsafe.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "base/types/pass_key.h"
-#include "base/types/variant_util.h"
 #include "components/performance_manager/public/resource_attribution/query_results.h"
 #include "components/performance_manager/public/resource_attribution/resource_contexts.h"
 #include "components/performance_manager/public/resource_attribution/resource_types.h"
@@ -24,6 +24,7 @@ namespace performance_manager::resource_attribution {
 
 namespace internal {
 struct QueryParams;
+class QueryScheduler;
 }
 
 class QueryBuilder;
@@ -38,9 +39,6 @@ class QueryResultObserver {
 
 // Repeatedly makes resource attribution queries on a schedule as long as it's
 // in scope.
-// TODO(crbug.com/1471683): Unfinished. This registers on create and delete,
-// which may have important side effects, but doesn't make scheduled queries
-// yet. Use QueryOnce for now.
 class ScopedResourceUsageQuery {
  public:
   ~ScopedResourceUsageQuery();
@@ -62,8 +60,10 @@ class ScopedResourceUsageQuery {
   // Starts sending scheduled queries. They will repeat as long as the
   // ScopedResourceUsageQuery object exists. This must be called on the sequence
   // the object was created on.
-  // TODO(crbug.com/1471683): Implement this.
-  void Start();
+  // TODO(crbug.com/1471683): Repeating queries will be sent on a timer with
+  // `delay` between queries. Replace this with the full scheduling hints
+  // described at https://bit.ly/resource-attribution-api#heading=h.upcqivkhbs4t
+  void Start(base::TimeDelta delay);
 
   // Sends an immediate query, in addition to the schedule of repeated queries
   // triggered by Start(). This must be called on the sequence the
@@ -74,6 +74,21 @@ class ScopedResourceUsageQuery {
 
   // Gives tests access to validate the implementation.
   internal::QueryParams* GetParamsForTesting() const;
+
+  // Returns the minimum delay between QueryOnce() calls for kMemorySummary
+  // resources.
+  static base::TimeDelta GetMinMemoryQueryDelayForTesting();
+
+  // Instantiate this to set the minimum delay between QueryOnce() calls for
+  // kMemorySummary resources to 0 during a test.
+  class ScopedDisableMemoryQueryDelayForTesting {
+   public:
+    ScopedDisableMemoryQueryDelayForTesting();
+    ~ScopedDisableMemoryQueryDelayForTesting();
+
+   private:
+    base::TimeDelta previous_delay_;
+  };
 
   // Private constructor for QueryBuilder. Use QueryBuilder::CreateScopedQuery()
   // to create a query.
@@ -87,6 +102,8 @@ class ScopedResourceUsageQuery {
 
   FRIEND_TEST_ALL_PREFIXES(ResourceAttrQueriesPMTest, ScopedQueryIsMovable);
 
+  class ThrottledTimer;
+
   // Notifies `observer_list` that `results` were received.
   static void NotifyObservers(scoped_refptr<ObserverList> observer_list,
                               const QueryResultMap& results);
@@ -99,6 +116,14 @@ class ScopedResourceUsageQuery {
 
   scoped_refptr<ObserverList> observer_list_ =
       base::MakeRefCounted<ObserverList>();
+
+  // A base::RepeatingTimer used to schedule repeating queries, and some
+  // tracking data to throttle QueryOnce() calls so they don't interfere. This
+  // is in a pointer because ScopedResourceUsageQuery is movable but
+  // RepeatingTimer isn't.
+  // TODO(crbug.com/1471683): Manage timing centrally in QueryScheduler.
+  std::unique_ptr<ThrottledTimer> throttled_timer_
+      GUARDED_BY_CONTEXT(sequence_checker_);
 };
 
 // Creates a query to request resource usage measurements on a schedule.
@@ -143,8 +168,8 @@ class QueryBuilder {
             internal::EnableIfIsVariantAlternative<ContextType,
                                                    ResourceContext> = true>
   QueryBuilder& AddAllContextsOfType() {
-    return AddAllContextsWithTypeIndex(
-        base::VariantIndexOfType<ResourceContext, ContextType>());
+    return AddAllContextsWithTypeId(
+        internal::ResourceContextTypeId::ForType<ContextType>());
   }
 
   // Add `type` to the lists of resources to query.
@@ -177,7 +202,8 @@ class QueryBuilder {
   explicit QueryBuilder(std::unique_ptr<internal::QueryParams> params);
 
   // Implementation of AddAllContextsOfType().
-  QueryBuilder& AddAllContextsWithTypeIndex(size_t index);
+  QueryBuilder& AddAllContextsWithTypeId(
+      internal::ResourceContextTypeId type_id);
 
   // Asserts all members needed for QueryOnce() or CreateScopedQuery() are set.
   void ValidateQuery() const;

@@ -65,11 +65,14 @@ void SetCommonButtonAttributes(views::ImageButton* button) {
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(FindBarView, kElementId);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(FindBarView, kTextField);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(FindBarView, kPreviousButtonElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(FindBarView, kNextButtonElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(FindBarView, kCloseButtonElementId);
 
 class FindBarMatchCountLabel : public views::Label {
- public:
-  METADATA_HEADER(FindBarMatchCountLabel);
+  METADATA_HEADER(FindBarMatchCountLabel, views::Label)
 
+ public:
   FindBarMatchCountLabel() = default;
 
   FindBarMatchCountLabel(const FindBarMatchCountLabel&) = delete;
@@ -127,7 +130,7 @@ class FindBarMatchCountLabel : public views::Label {
   }
 
  private:
-  absl::optional<find_in_page::FindNotificationDetails> last_result_;
+  std::optional<find_in_page::FindNotificationDetails> last_result_;
 };
 
 BEGIN_VIEW_BUILDER(/* No Export */, FindBarMatchCountLabel, views::Label)
@@ -135,7 +138,7 @@ END_VIEW_BUILDER
 
 DEFINE_VIEW_BUILDER(/* No Export */, FindBarMatchCountLabel)
 
-BEGIN_METADATA(FindBarMatchCountLabel, views::Label)
+BEGIN_METADATA(FindBarMatchCountLabel)
 END_METADATA
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -224,6 +227,8 @@ FindBarView::FindBarView(FindBarHost* host) {
               .SetAccessibleName(
                   l10n_util::GetStringUTF16(IDS_ACCNAME_PREVIOUS))
               .SetID(VIEW_ID_FIND_IN_PAGE_PREVIOUS_BUTTON)
+              .SetProperty(views::kElementIdentifierKey,
+                           kPreviousButtonElementId)
               .SetTooltipText(
                   l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_PREVIOUS_TOOLTIP))
               .SetCallback(base::BindRepeating(&FindBarView::FindNext,
@@ -233,6 +238,7 @@ FindBarView::FindBarView(FindBarHost* host) {
               .CopyAddressTo(&find_next_button_)
               .SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_NEXT))
               .SetID(VIEW_ID_FIND_IN_PAGE_NEXT_BUTTON)
+              .SetProperty(views::kElementIdentifierKey, kNextButtonElementId)
               .SetTooltipText(
                   l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_NEXT_TOOLTIP))
               .SetCallback(base::BindRepeating(&FindBarView::FindNext,
@@ -241,6 +247,7 @@ FindBarView::FindBarView(FindBarHost* host) {
           views::Builder<views::ImageButton>()
               .CopyAddressTo(&close_button_)
               .SetID(VIEW_ID_FIND_IN_PAGE_CLOSE_BUTTON)
+              .SetProperty(views::kElementIdentifierKey, kCloseButtonElementId)
               .SetTooltipText(
                   l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_CLOSE_TOOLTIP))
               .SetAnimationDuration(base::TimeDelta())
@@ -515,5 +522,5 @@ void FindBarView::OnThemeChanged() {
                                          fg_color, fg_disabled_color);
 }
 
-BEGIN_METADATA(FindBarView, views::View)
+BEGIN_METADATA(FindBarView)
 END_METADATA

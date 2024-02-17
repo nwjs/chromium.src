@@ -7,13 +7,16 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -36,6 +39,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/core/common/form_data_predictions.h"
+#include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/version_info/version_info.h"
@@ -51,7 +55,6 @@
 #include "net/base/net_errors.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 
 namespace autofill {
@@ -94,19 +97,19 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
 
   // Returns the `FormData` received via mojo interface method
   // mojom::AutofillAgent::FillOrPreviewForm().
-  absl::optional<FormData> GetAutofillFillFormMessage() {
-    return fill_form_form_;
+  std::optional<std::vector<FormFieldData>> GetAutofillFillFormMessage() {
+    return fill_form_fields_;
   }
 
   // Returns the `FormData` received via mojo interface method
   // mojom::AutofillAgent::PreviewForm().
-  absl::optional<FormData> GetAutofillPreviewFormMessage() {
-    return preview_form_form_;
+  std::optional<std::vector<FormFieldData>> GetAutofillPreviewFormMessage() {
+    return preview_form_fields_;
   }
 
   // Returns data received via mojo interface method
   // mojom::AutofillAgent::FieldTypePredictionsAvailable().
-  absl::optional<std::vector<FormDataPredictions>>
+  std::optional<std::vector<FormDataPredictions>>
   GetFieldTypePredictionsAvailable() {
     return predictions_;
   }
@@ -121,40 +124,40 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
 
   // Returns data received via the mojo interface method
   // `mojom::AutofillAgent::TriggerSuggestions()`.
-  absl::optional<AutofillSuggestionTriggerSource>
+  std::optional<AutofillSuggestionTriggerSource>
   GetCalledTriggerSuggestionsSource(const FieldGlobalId& field) {
     if (value_renderer_id_ != field.renderer_id) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     return suggestion_trigger_source_;
   }
 
   // Returns data received via mojo interface method
   // mojom::AutofillAgent::ApplyFieldAction(kFill).
-  absl::optional<std::u16string> GetString16FillFieldWithValue(
+  std::optional<std::u16string> GetString16FillFieldWithValue(
       const FieldGlobalId& field) {
     if (value_renderer_id_ != field.renderer_id) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     return value_fill_field_;
   }
 
   // Returns data received via mojo interface method
   // mojom::AutofillAgent::ApplyFieldAction(kPreview).
-  absl::optional<std::u16string> GetString16PreviewFieldWithValue(
+  std::optional<std::u16string> GetString16PreviewFieldWithValue(
       const FieldGlobalId field) {
     if (value_renderer_id_ != field.renderer_id) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     return value_preview_field_;
   }
 
   // Returns data received via mojo interface method
   // mojom::AutofillAgent::AcceptDataListSuggestion().
-  absl::optional<std::u16string> GetString16AcceptDataListSuggestion(
+  std::optional<std::u16string> GetString16AcceptDataListSuggestion(
       FieldGlobalId field) {
     if (value_renderer_id_ != field.renderer_id) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     return value_accept_data_;
   }
@@ -185,13 +188,14 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
 
   void ApplyFormAction(mojom::ActionType action_type,
                        mojom::ActionPersistence action_persistence,
-                       const FormData& form) override {
+                       FormRendererId form_renderer_id,
+                       const std::vector<FormFieldData>& fields) override {
     switch (action_persistence) {
       case mojom::ActionPersistence::kPreview:
-        preview_form_form_ = form;
+        preview_form_fields_ = fields;
         break;
       case mojom::ActionPersistence::kFill:
-        fill_form_form_ = form;
+        fill_form_fields_ = fields;
         break;
     }
     CallDone();
@@ -276,32 +280,29 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
 
   void SetQueryPasswordSuggestion(bool query) override {}
 
-  void SetFieldsEligibleForManualFilling(
-      const std::vector<FieldRendererId>& fields) override {}
-
   mojo::AssociatedReceiverSet<mojom::AutofillAgent> receivers_;
 
   base::OnceClosure quit_closure_;
 
   // Records data received from FillOrPreviewForm() call.
-  absl::optional<FormData> fill_form_form_;
-  absl::optional<FormData> preview_form_form_;
+  std::optional<std::vector<FormFieldData>> fill_form_fields_;
+  std::optional<std::vector<FormFieldData>> preview_form_fields_;
   // Records data received from FieldTypePredictionsAvailable() call.
-  absl::optional<std::vector<FormDataPredictions>> predictions_;
+  std::optional<std::vector<FormDataPredictions>> predictions_;
   // Records whether ClearSection() got called.
   bool called_clear_section_ = false;
   // Records whether ClearPreviewedForm() got called.
   bool called_clear_previewed_form_ = false;
   // Records the trigger source received from a TriggerSuggestions() call.
-  absl::optional<AutofillSuggestionTriggerSource> suggestion_trigger_source_;
+  std::optional<AutofillSuggestionTriggerSource> suggestion_trigger_source_;
   // Records the ID received from ApplyFieldAction(),
   // SetSuggestionAvailability(), or AcceptDataListSuggestion().
-  absl::optional<FieldRendererId> value_renderer_id_;
+  std::optional<FieldRendererId> value_renderer_id_;
   // Records string received from ApplyFieldAction() call.
-  absl::optional<std::u16string> value_fill_field_;
-  absl::optional<std::u16string> value_preview_field_;
+  std::optional<std::u16string> value_fill_field_;
+  std::optional<std::u16string> value_preview_field_;
   // Records string received from AcceptDataListSuggestion() call.
-  absl::optional<std::u16string> value_accept_data_;
+  std::optional<std::u16string> value_accept_data_;
   // Records bool received from SetSuggestionAvailability() call.
   bool suggestions_available_;
 };
@@ -506,18 +507,10 @@ class ContentAutofillDriverWithMultiFrameCreditCardForm
 
  private:
   content::RenderFrameHost* CreateChild(std::string_view name) {
-    content::RenderFrameHost* rfh =
-        content::NavigationSimulator::NavigateAndCommitFromDocument(
-            GURL(base::StrCat({"https://foo.com/", name})),
-            content::RenderFrameHostTester::For(main_rfh())
-                ->AppendChild(std::string(name)));
-    // Make sure the driver (and the manager) is created as there is an early
-    // return in `ContentAutofillDriverFactory::DidFinishNavigation` before
-    // `DriverForFrame()` call.
-    // In non-test setup this method is called during mojom bindings, see
-    // `ContentAutofillDriverFactory::BindAutofillDriver`.
-    factory().DriverForFrame(rfh);
-    return rfh;
+    return content::NavigationSimulator::NavigateAndCommitFromDocument(
+        GURL(base::StrCat({"https://foo.com/", name})),
+        content::RenderFrameHostTester::For(main_rfh())
+            ->AppendChild(std::string(name)));
   }
 
   FormData SeeFormWithField(content::RenderFrameHost* source_rfh,
@@ -730,11 +723,11 @@ TEST_F(ContentAutofillDriverTestWithAddressForm,
   run_loop.RunUntilIdle();
 
   EXPECT_FALSE(agent().GetAutofillPreviewFormMessage());
-  absl::optional<FormData> output_form_data =
+  std::optional<std::vector<FormFieldData>> output_fields =
       agent().GetAutofillFillFormMessage();
-  ASSERT_TRUE(output_form_data.has_value());
-  EXPECT_TRUE(test::WithoutUnserializedData(address_form())
-                  .SameFormAs(*output_form_data));
+  ASSERT_TRUE(output_fields.has_value());
+  EXPECT_THAT(test::WithoutUnserializedData(address_form()),
+              test::SameFieldsAs(*output_fields));
 }
 
 TEST_F(ContentAutofillDriverTestWithAddressForm,
@@ -745,7 +738,7 @@ TEST_F(ContentAutofillDriverTestWithAddressForm,
     field.value = u"dummy_value";
   }
   ASSERT_TRUE(base::ranges::all_of(address_form().fields,
-                                   base::not_fn(&std::u16string::empty),
+                                   std::not_fn(&std::u16string::empty),
                                    &FormFieldData::value));
   base::RunLoop run_loop;
   agent().SetQuitLoopClosure(run_loop.QuitClosure());
@@ -756,11 +749,11 @@ TEST_F(ContentAutofillDriverTestWithAddressForm,
   run_loop.RunUntilIdle();
 
   EXPECT_FALSE(agent().GetAutofillFillFormMessage());
-  absl::optional<FormData> output_form_data =
+  std::optional<std::vector<FormFieldData>> output_fields =
       agent().GetAutofillPreviewFormMessage();
-  ASSERT_TRUE(output_form_data);
-  EXPECT_TRUE(test::WithoutUnserializedData(address_form())
-                  .SameFormAs(*output_form_data));
+  ASSERT_TRUE(output_fields);
+  EXPECT_THAT(test::WithoutUnserializedData(address_form()),
+              test::SameFieldsAs(*output_fields));
 }
 
 TEST_F(ContentAutofillDriverTest, TypePredictionsSentToRendererWhenEnabled) {
@@ -779,7 +772,8 @@ TEST_F(ContentAutofillDriverTest, TypePredictionsSentToRendererWhenEnabled) {
   EXPECT_TRUE(augmented_forms.front().SameFormAs(form));
 
   FormStructure form_structure(form);
-  std::vector<FormStructure*> form_structures(1, &form_structure);
+  std::vector<raw_ptr<FormStructure, VectorExperimental>> form_structures(
+      1, &form_structure);
   std::vector<FormDataPredictions> expected_type_predictions =
       FormStructure::GetFieldTypePredictions(form_structures);
 

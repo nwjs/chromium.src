@@ -129,8 +129,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH) AuthEventsRecorder
                                      int num_login_attempts);
 
   // Report which auth factors the user has configured.
-  void RecordUserAuthFactors(
-      const std::vector<cryptohome::AuthFactorType>& auth_factors) const;
+  void RecordSessionAuthFactors(const SessionAuthFactors& auth_factors) const;
 
   // Report the result of the recovery and time taken to UMA.
   void OnRecoveryDone(CryptohomeRecoveryResult result,
@@ -140,7 +139,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH) AuthEventsRecorder
   void OnAuthSubmit();
 
   // Report that the authentication is completed.
-  void OnAuthComplete(absl::optional<bool> auth_success);
+  void OnAuthComplete(std::optional<bool> auth_success);
 
   // Report that the user submitted the pin input field.
   void OnPinSubmit();
@@ -208,10 +207,10 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH) AuthEventsRecorder
 
   // All values should be reset in `Reset()`;
   int knowledge_factor_auth_failure_count_ = 0;
-  absl::optional<int> user_count_;
-  absl::optional<bool> show_users_on_signin_;
-  absl::optional<UserLoginType> user_login_type_;
-  absl::optional<AuthenticationSurface> auth_surface_;
+  std::optional<int> user_count_;
+  std::optional<bool> show_users_on_signin_;
+  std::optional<UserLoginType> user_login_type_;
+  std::optional<AuthenticationSurface> auth_surface_;
 };
 
 }  // namespace ash

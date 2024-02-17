@@ -47,6 +47,8 @@ class CORE_EXPORT LCPCriticalPathPredictor final
     return lcp_element_locators_;
   }
 
+  bool IsElementMatchingLocator(const Element& element);
+
   void set_lcp_influencer_scripts(HashSet<KURL> scripts);
 
   const HashSet<KURL>& lcp_influencer_scripts() {
@@ -68,11 +70,18 @@ class CORE_EXPORT LCPCriticalPathPredictor final
     return lcp_script_observer_.Get();
   }
   void OnFontFetched(const KURL& url);
+  void OnStartPreload(const KURL& url);
+  void OnOutermostMainFrameDocumentLoad();
+
+  using LCPCallback = base::OnceCallback<void(const Element*)>;
+  void AddLCPPredictedCallback(LCPCallback callback);
+
   void Trace(Visitor*) const;
 
  private:
   LocalFrame& GetFrame() { return *frame_.Get(); }
   mojom::blink::LCPCriticalPathPredictorHost& GetHost();
+  void MayRunPredictedCallbacks(const Element* lcp_element);
 
   Member<LocalFrame> frame_;
   HeapMojoRemote<mojom::blink::LCPCriticalPathPredictorHost> host_;
@@ -85,6 +94,13 @@ class CORE_EXPORT LCPCriticalPathPredictor final
   Vector<std::string> lcp_element_locator_strings_;
   HashSet<KURL> lcp_influencer_scripts_;
   Vector<KURL> fetched_fonts_;
+
+  // Callbacks are called when predicted LCP is painted. Never called if
+  // prediction is incorrect.
+  Vector<LCPCallback> lcp_predicted_callbacks_;
+  bool called_predicted_callbacks_ = false;
+  bool is_lcp_candidate_found_ = false;
+  bool is_outermost_main_frame_document_loaded_ = false;
 };
 
 }  // namespace blink

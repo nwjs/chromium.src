@@ -136,7 +136,6 @@
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation_controller.h"
 #include "third_party/blink/renderer/core/page/validation_message_client.h"
-#include "third_party/blink/renderer/core/paint/block_paint_invalidator.h"
 #include "third_party/blink/renderer/core/paint/cull_rect_updater.h"
 #include "third_party/blink/renderer/core/paint/frame_painter.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
@@ -670,12 +669,7 @@ void LocalFrameView::PerformLayout() {
 
   has_pending_layout_ = false;
 
-  // TODO(crbug.com/460956): The notion of a single root for layout is no
-  // longer applicable. Remove or update this code.
-  LayoutObject* root_for_this_layout = GetLayoutView();
-
   FontCachePurgePreventer font_cache_purge_preventer;
-  bool in_subtree_layout = false;
   base::AutoReset<bool> change_scheduling_enabled(&layout_scheduling_enabled_,
                                                   false);
   // If the layout view was marked as needing layout after we added items in
@@ -685,18 +679,7 @@ void LocalFrameView::PerformLayout() {
     ClearLayoutSubtreeRootsAndMarkContainingBlocks();
   GetLayoutView()->ClearHitTestCache();
 
-  in_subtree_layout = IsSubtreeLayout();
-
-  // TODO(crbug.com/460956): The notion of a single root for layout is no
-  // longer applicable. Remove or update this code.
-  if (in_subtree_layout)
-    root_for_this_layout = layout_subtree_root_list_.RandomRoot();
-
-  if (!root_for_this_layout) {
-    // FIXME: Do we need to set m_size here?
-    NOTREACHED();
-    return;
-  }
+  const bool in_subtree_layout = IsSubtreeLayout();
 
   Document* document = GetFrame().GetDocument();
   if (!in_subtree_layout) {
@@ -1747,8 +1730,11 @@ void LocalFrameView::NotifyPageThatContentAreaWillPaint() const {
 
 void LocalFrameView::UpdateDocumentAnnotatedRegions() const {
   Document* document = frame_->GetDocument();
-  if (!document->HasAnnotatedRegions())
+  if (!document->HasAnnotatedRegions() ||
+      !frame_->GetPage()->GetChromeClient().SupportsAppRegion()) {
     return;
+  }
+
   Vector<AnnotatedRegionValue> new_regions;
   CollectAnnotatedRegions(*(document->GetLayoutBox()), new_regions);
   if (new_regions == document->AnnotatedRegions())
@@ -1854,14 +1840,6 @@ Color LocalFrameView::DocumentBackgroundColor() {
 void LocalFrameView::WillBeRemovedFromFrame() {
   if (paint_artifact_compositor_)
     paint_artifact_compositor_->WillBeRemovedFromFrame();
-
-  if (Settings* settings = frame_->GetSettings()) {
-    DCHECK(frame_->GetPage());
-    if (settings->GetSpatialNavigationEnabled()) {
-      frame_->GetPage()->GetSpatialNavigationController().DidDetachFrameView(
-          *this);
-    }
-  }
 }
 
 bool LocalFrameView::IsUpdatingLifecycle() const {
@@ -2027,8 +2005,6 @@ bool LocalFrameView::NotifyResizeObservers() {
       ResizeObserverController::FromIfExists(*GetFrame().DomWindow());
   if (!resize_controller)
     return false;
-
-  DCHECK(Lifecycle().GetState() >= DocumentLifecycle::kPrePaintClean);
 
   size_t min_depth = resize_controller->GatherObservations();
 
@@ -2461,6 +2437,18 @@ bool LocalFrameView::ShouldDeferLayoutSnap() const {
   return false;
 }
 
+void LocalFrameView::EnqueueSnapChangingFromImplIfNecessary() {
+  ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
+    const auto* scrollable_areas = frame_view.UserScrollableAreas();
+    if (!scrollable_areas) {
+      return;
+    }
+    for (const auto& area : *scrollable_areas) {
+      area->EnqueueSnapChangingEventFromImplIfNeeded();
+    }
+  });
+}
+
 bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
     DocumentLifecycle::LifecycleState target_state) {
   TRACE_EVENT0("blink,benchmark",
@@ -2489,6 +2477,9 @@ bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
   });
 
   ExecutePendingSnapUpdates();
+
+  // Fire snapchanging events based on the new layout if necessary.
+  EnqueueSnapChangingFromImplIfNecessary();
 
   EnqueueScrollEvents();
 
@@ -2917,7 +2908,7 @@ void LocalFrameView::PushPaintArtifactToCompositor(bool repainted) {
 
   if (!paint_artifact_compositor_) {
     paint_artifact_compositor_ = std::make_unique<PaintArtifactCompositor>(
-        page->GetScrollingCoordinator()->GetWeakPtr());
+        page->GetScrollingCoordinator()->GetScrollCallbacks());
     page->GetChromeClient().AttachRootLayer(
         paint_artifact_compositor_->RootLayer(), &GetFrame());
   }
@@ -3085,9 +3076,8 @@ void LocalFrameView::UpdateStyleAndLayout() {
     return;
   }
 
-  VisualViewport& visual_viewport = frame_->GetPage()->GetVisualViewport();
-  gfx::SizeF visual_viewport_size(visual_viewport.VisibleWidthCSSPx(),
-                                  visual_viewport.VisibleHeightCSSPx());
+  gfx::Size visual_viewport_size =
+      GetScrollableArea()->VisibleContentRect().size();
 
   bool did_layout = false;
   {
@@ -3128,16 +3118,10 @@ void LocalFrameView::UpdateStyleAndLayout() {
   frame_->GetDocument()->ClearFocusedElementIfNeeded();
 
   if (did_layout) {
-    bool visual_viewport_size_changed = false;
-    if (frame_->IsMainFrame()) {
-      // Scrollbars changing state can cause a visual viewport size change.
-      gfx::SizeF new_viewport_size(visual_viewport.VisibleWidthCSSPx(),
-                                   visual_viewport.VisibleHeightCSSPx());
-      visual_viewport_size_changed =
-          (new_viewport_size != visual_viewport_size);
-      DCHECK(!visual_viewport_size_changed ||
-             visual_viewport.IsActiveViewport());
-    }
+    gfx::Size new_visual_viewport_size =
+        GetScrollableArea()->VisibleContentRect().size();
+    bool visual_viewport_size_changed =
+        (new_visual_viewport_size != visual_viewport_size);
     SetNeedsUpdateGeometries();
     PerformPostLayoutTasks(visual_viewport_size_changed);
     GetFrame().GetDocument()->LayoutUpdated();
@@ -4340,6 +4324,10 @@ void LocalFrameView::SetIntersectionObservationState(
   if (intersection_observation_state_ >= state)
     return;
   intersection_observation_state_ = state;
+  // Disable scroll delta optimization on any change other than pure scroll
+  // (see UpdateIntersectionObservationStateOnScroll).
+  accumulated_scroll_delta_since_last_intersection_update_ =
+      IntersectionGeometry::kInfiniteScrollDelta;
 
   // If an intersection observation is required, force all ancestors to update.
   // Otherwise, an update could stop at a throttled frame before reaching this.
@@ -4356,19 +4344,22 @@ void LocalFrameView::UpdateIntersectionObservationStateOnScroll(
     gfx::Vector2dF scroll_delta) {
   accumulated_scroll_delta_since_last_intersection_update_ +=
       gfx::Vector2dF(std::abs(scroll_delta.x()), std::abs(scroll_delta.y()));
-  SetIntersectionObservationState(kDesired);
+  intersection_observation_state_ =
+      std::max(intersection_observation_state_, kDesired);
 }
 
 void LocalFrameView::InvalidateIntersectionObservations() {
+  if (!RuntimeEnabledFeatures::IntersectionOptimizationEnabled()) {
+    return;
+  }
   DCHECK_EQ(Lifecycle().GetState(), DocumentLifecycle::kInPrePaint);
   DCHECK(GetFrame().IsLocalRoot() || !IsAttached());
   ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
     if (auto* controller = frame_view.GetFrame()
                                .GetDocument()
                                ->GetIntersectionObserverController()) {
-      if (controller->InvalidateCachedRectsIfNeeded()) {
-        frame_view.SetIntersectionObservationState(LocalFrameView::kDesired);
-      }
+      controller->InvalidateCachedRectsIfPaintPropertiesChanged();
+      frame_view.SetIntersectionObservationState(LocalFrameView::kDesired);
     }
   });
 }

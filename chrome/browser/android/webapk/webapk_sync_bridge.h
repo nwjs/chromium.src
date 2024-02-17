@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_ANDROID_WEBAPK_WEBAPK_SYNC_BRIDGE_H_
 
 #include <memory>
+#include <optional>
 
 #include "base/memory/weak_ptr.h"
 #include "base/time/clock.h"
@@ -13,7 +14,6 @@
 #include "chrome/browser/android/webapk/webapk_specifics_fetcher.h"
 #include "components/sync/model/entity_change.h"
 #include "components/sync/model/model_type_sync_bridge.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace syncer {
 struct EntityData;
@@ -57,16 +57,21 @@ class WebApkSyncBridge : public syncer::ModelTypeSyncBridge {
   // syncer::ModelTypeSyncBridge:
   std::unique_ptr<syncer::MetadataChangeList> CreateMetadataChangeList()
       override;
-  absl::optional<syncer::ModelError> MergeFullSyncData(
+  std::optional<syncer::ModelError> MergeFullSyncData(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
-  absl::optional<syncer::ModelError> ApplyIncrementalSyncChanges(
+  std::optional<syncer::ModelError> ApplyIncrementalSyncChanges(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
   void GetData(StorageKeyList storage_keys, DataCallback callback) override;
   void GetAllDataForDebugging(DataCallback callback) override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;
+
+  void RegisterDoneInitializingCallback(
+      base::OnceCallback<void(bool)> init_done_callback);
+  void MergeSyncDataForTesting(std::vector<std::vector<std::string>> app_vector,
+                               std::vector<int> last_used_days_vector);
 
   // internal helpers, exposed for testing.
   bool AppWasUsedRecently(const sync_pb::WebApkSpecifics* specifics) const;
@@ -170,6 +175,7 @@ class WebApkSyncBridge : public syncer::ModelTypeSyncBridge {
   Registry registry_;
   std::unique_ptr<base::Clock> clock_;
   std::unique_ptr<AbstractWebApkSpecificsFetcher> webapk_specifics_fetcher_;
+  base::OnceCallback<void(bool)> init_done_callback_;
 
   base::WeakPtrFactory<WebApkSyncBridge> weak_ptr_factory_{this};
 };

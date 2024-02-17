@@ -108,13 +108,16 @@ export {PaperTooltipElement} from 'chrome://resources/polymer/v3_0/paper-tooltip
 export {AccessibilityBrowserProxy, AccessibilityBrowserProxyImpl} from './a11y_page/a11y_browser_proxy.js';
 // clang-format off
 // <if expr="is_win or is_linux or is_macosx">
-export {ScreenAiInstallStatus} from './a11y_page/a11y_page.js';
+export {ScreenAiInstallStatus} from './a11y_page/a11y_browser_proxy.js';
 // </if>
 // clang-format on
 export {SettingsA11yPageElement} from './a11y_page/a11y_page.js';
 // <if expr="not is_chromeos">
 export {SettingsLiveCaptionElement} from './a11y_page/live_caption_section.js';
 export {SettingsLiveTranslateElement} from './a11y_page/live_translate_section.js';
+// </if>
+// <if expr="is_win or is_linux or is_macosx">
+export {SettingsPdfOcrToggleElement} from './a11y_page/pdf_ocr_toggle.js';
 // </if>
 
 export {SettingsAppearanceFontsPageElement} from './appearance_page/appearance_fonts_page.js';
@@ -201,6 +204,7 @@ export {HttpsFirstModeSetting, SafeBrowsingSetting, SettingsSecurityPageElement}
 export {SettingsPrivacySandboxAdMeasurementSubpageElement} from './privacy_sandbox/privacy_sandbox_ad_measurement_subpage.js';
 export {SettingsPrivacySandboxFledgeSubpageElement} from './privacy_sandbox/privacy_sandbox_fledge_subpage.js';
 export {PrivacySandboxInterestItemElement} from './privacy_sandbox/privacy_sandbox_interest_item.js';
+export {SettingsPrivacySandboxManageTopicsSubpageElement} from './privacy_sandbox/privacy_sandbox_manage_topics_subpage.js';
 export {SettingsPrivacySandboxPageElement} from './privacy_sandbox/privacy_sandbox_page.js';
 export {SettingsPrivacySandboxTopicsSubpageElement} from './privacy_sandbox/privacy_sandbox_topics_subpage.js';
 export {SettingsResetPageElement} from './reset_page/reset_page.js';

@@ -22,6 +22,7 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {isInputDeviceSettingsSplitEnabled} from '../common/load_time_booleans.js';
 import {RouteOriginMixin} from '../common/route_origin_mixin.js';
+import {PrefsState} from '../common/types.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import {Route, Router, routes} from '../router.js';
 
@@ -46,7 +47,7 @@ enum ModifierKey {
 const SettingsKeyboardElementBase =
     DeepLinkingMixin(RouteOriginMixin(WebUiListenerMixin(PolymerElement)));
 
-class SettingsKeyboardElement extends SettingsKeyboardElementBase {
+export class SettingsKeyboardElement extends SettingsKeyboardElementBase {
   static get is() {
     return 'settings-keyboard' as const;
   }
@@ -144,6 +145,7 @@ class SettingsKeyboardElement extends SettingsKeyboardElementBase {
     };
   }
 
+  prefs: PrefsState;
   private browserProxy_: DevicePageBrowserProxy;
   private hasAssistantKey_: boolean;
   private hasLauncherKey_: boolean;

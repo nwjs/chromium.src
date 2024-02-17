@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/feature_list.h"
+#include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "url/gurl.h"
@@ -25,9 +26,6 @@ constexpr int kLocalGuidSize = 36;
 
 // Returns true if showing autofill signature as HTML attributes is enabled.
 bool IsShowAutofillSignaturesEnabled();
-
-// Returns true when keyboard accessory is enabled.
-bool IsKeyboardAccessoryEnabled();
 
 // A token is a sequences of contiguous characters separated by any of the
 // characters that are part of delimiter set {' ', '.', ',', '-', '_', '@'}.
@@ -57,7 +55,7 @@ void SetCheckStatus(FormFieldData* form_field_data,
 // Considers any ASCII whitespace character as a possible separator.
 // Also ignores empty tokens, resulting in a collapsing of whitespace.
 std::vector<std::string> LowercaseAndTokenizeAttributeString(
-    base::StringPiece attribute);
+    std::string_view attribute);
 
 // Returns `value` stripped from its whitespaces.
 std::u16string RemoveWhitespace(const std::u16string& value);
@@ -79,6 +77,21 @@ mojom::SubmissionIndicatorEvent ToSubmissionIndicatorEvent(
 
 // Strips any authentication data, as well as query and ref portions of URL.
 GURL StripAuthAndParams(const GURL& gurl);
+
+// Checks if the user triggered Autofill on a field manually through the Chrome
+// context menu.
+bool IsAutofillManuallyTriggered(
+    AutofillSuggestionTriggerSource trigger_source);
+
+// Checks if the user triggered address Autofill on a field manually through the
+// Chrome context menu.
+bool IsAddressAutofillManuallyTriggered(
+    AutofillSuggestionTriggerSource trigger_source);
+
+// Checks if the user triggered payments Autofill on a field manually through
+// the Chrome context menu.
+bool IsPaymentsAutofillManuallyTriggered(
+    AutofillSuggestionTriggerSource trigger_source);
 
 }  // namespace autofill
 

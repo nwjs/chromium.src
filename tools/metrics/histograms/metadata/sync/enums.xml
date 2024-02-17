@@ -53,6 +53,21 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Signed in"/>
 </enum>
 
+<enum name="CrossUserSharingDecryptionResult">
+  <int value="0" label="Succeeded"/>
+  <int value="1" label="Invitation missing required fields"/>
+  <int value="2" label="Failed to decrypt invitation"/>
+  <int value="3" label="Failed to parse decrypted invitation"/>
+</enum>
+
+<enum name="CrossUserSharingKeyPairState">
+  <int value="0" label="Key pair valid"/>
+  <int value="1" label="Public key not initialized"/>
+  <int value="2" label="Public key version invalid"/>
+  <int value="3" label="Corrupted public-private key pair"/>
+  <int value="4" label="Pending keys are non-empty"/>
+</enum>
+
 <enum name="FaviconAvailabilityStatus">
   <int value="0" label="Favicon available locally"/>
   <int value="1" label="Favicon available via sync"/>
@@ -69,6 +84,12 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Invalid parent GUID"/>
   <int value="7" label="Invalid unique position"/>
   <int value="8" label="Banned GUID"/>
+</enum>
+
+<enum name="OutgoingPasswordSharingInvitationCommitError">
+  <int value="0" label="Unknown error"/>
+  <int value="1" label="Public Key verions mismatch"/>
+  <int value="2" label="Not a family member"/>
 </enum>
 
 <enum name="PendingInvalidationStatus">
@@ -333,7 +354,7 @@ chromium-metrics-reviews@google.com.
   <int value="100148" label="DefaultTasksBySuffix"/>
   <int value="100149" label="DevToolsSyncPreferences"/>
   <int value="100150" label="DevToolsSyncedPreferencesSyncEnabled"/>
-  <int value="100151" label="DownloadBubbleIphSuppression"/>
+  <int value="100151" label="(obsolete) DownloadBubbleIphSuppression"/>
   <int value="100152" label="EnableDoNotTrack"/>
   <int value="100153" label="ExtensionCommands"/>
   <int value="100154" label="ExtensionsUIDeveloperMode"/>
@@ -436,6 +457,30 @@ chromium-metrics-reviews@google.com.
   <int value="100246"
       label="AccessibilityReadAnythingOmniboxIconLabelShownCount"/>
   <int value="100247" label="ApplicationLocale"/>
+  <int value="100248" label="ListenToThisPageEnabled"/>
+  <int value="100249" label="IpProtectionEnabled"/>
+  <int value="100250" label="AccessibilityReadAnythingLinksEnabled"/>
+  <int value="100251"
+      label="kProfileContentSettingsPartitionedExceptionsAntiAbuse"/>
+  <int value="100252"
+      label="kProfileContentSettingsPartitionedExceptionsAutomaticDownloads"/>
+  <int value="100253"
+      label="kProfileContentSettingsPartitionedExceptionsCookies"/>
+  <int value="100254"
+      label="kProfileContentSettingsPartitionedExceptionsGetDisplayMediaSetSelectAllScreens"/>
+  <int value="100255"
+      label="kProfileContentSettingsPartitionedExceptionsImages"/>
+  <int value="100256"
+      label="kProfileContentSettingsPartitionedExceptionsJavascript"/>
+  <int value="100257"
+      label="kProfileContentSettingsPartitionedExceptionsLocalFonts"/>
+  <int value="100258"
+      label="kProfileContentSettingsPartitionedExceptionsMouselock"/>
+  <int value="100259"
+      label="kProfileContentSettingsPartitionedExceptionsPopups"/>
+  <int value="100260"
+      label="kProfileContentSettingsPartitionedExceptionsWindowPlacement"/>
+  <int value="100261" label="kStandaloneWindowMigrationNudgeShown"/>
   <int value="200000" label="ArticlesForYouEnabled"/>
   <int value="200001" label="ContextualSearchEnabled_IOS"/>
   <int value="200002" label="DefaultCharset_IOS"/>
@@ -820,6 +865,19 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Don't migrate, Sync-the-feature status undefined"/>
   <int value="4" label="Don't migrate, Sync-the-feature status initializing"/>
   <int value="5" label="Don't migrate, migration feature flag disabled"/>
+  <int value="6" label="Undo the migration"/>
+  <int value="7" label="Don't undo: already completed or not necessary"/>
+</enum>
+
+<enum name="SyncToSigninMigrationReadingListStep">
+  <summary>
+    A step in the ReadingList migration process, within the wider Sync-to-Signin
+    migration.
+  </summary>
+  <int value="0" label="Decision to migrate was made"/>
+  <int value="1" label="Migration was started"/>
+  <int value="2" label="Migration failed (and will be retried)"/>
+  <int value="3" label="Migration finished successfully"/>
 </enum>
 
 <enum name="SyncTypedUrlDatabaseError">
@@ -921,6 +979,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Profile menu"/>
   <int value="2" label="OS-level notification"/>
   <int value="3" label="New Tab Page Infobar"/>
+  <int value="4" label="Password Manager Error Message"/>
 </enum>
 
 </enums>

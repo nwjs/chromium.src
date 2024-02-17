@@ -122,7 +122,11 @@ base::Value::Dict SetGCMInternalsInfo(
 
     base::Value::Dict device_info;
     device_info.Set(kProfileServiceCreated, profile_service != nullptr);
+#if defined(NDEBUG)
     device_info.Set(kGcmEnabled, nw::gcm_enabled());
+#else
+    device_info.Set(kGcmEnabled, false);
+#endif
     device_info.Set(kGcmClientCreated, stats->gcm_client_created);
     device_info.Set(kGcmClientState, stats->gcm_client_state);
     device_info.Set(kConnectionClientCreated, stats->connection_client_created);

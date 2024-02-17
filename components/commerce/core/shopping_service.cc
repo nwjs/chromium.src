@@ -63,8 +63,6 @@
 
 namespace commerce {
 
-const long kToMicroCurrency = 1e6;
-
 const char kImageAvailabilityHistogramName[] =
     "Commerce.ShoppingService.ProductInfo.ImageAvailability";
 const char kProductInfoLocalExtractionTime[] =
@@ -746,8 +744,8 @@ bool ShoppingService::IsPriceInsightsInfoApiEnabled() {
 }
 
 bool ShoppingService::IsDiscountEligibleToShowOnNavigation() {
-  if (!IsRegionLockedFeatureEnabled(kShowDiscountOnNavigation,
-                                    kShowDiscountOnNavigationRegionLaunched,
+  if (!IsRegionLockedFeatureEnabled(kEnableDiscountInfoApi,
+                                    kEnableDiscountInfoApiRegionLaunched,
                                     country_on_startup_, locale_on_startup_)) {
     return false;
   }
@@ -1515,37 +1513,16 @@ bool ShoppingService::IsShoppingListEligible(AccountChecker* account_checker,
   if (!prefs || !IsShoppingListAllowedForEnterprise(prefs))
     return false;
 
-  bool blocked_by_waa =
-      !account_checker || !account_checker->IsWebAndAppActivityEnabled();
-  if (base::FeatureList::IsEnabled(kShoppingListWAARestrictionRemoval)) {
-    blocked_by_waa = false;
-  }
-
   // Make sure the user allows subscriptions to be made and that we can fetch
   // store data.
   if (!account_checker || !account_checker->IsSignedIn() ||
       !account_checker->IsSyncingBookmarks() ||
       !account_checker->IsAnonymizedUrlDataCollectionEnabled() ||
-      blocked_by_waa || account_checker->IsSubjectToParentalControls()) {
+      account_checker->IsSubjectToParentalControls()) {
     return false;
   }
 
   return true;
-}
-
-void ShoppingService::IsClusterIdTrackedByUser(
-    uint64_t cluster_id,
-    base::OnceCallback<void(bool)> callback) {
-  if (!subscriptions_manager_) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), false));
-    return;
-  }
-
-  CommerceSubscription sub(
-      SubscriptionType::kPriceTrack, IdentifierType::kProductClusterId,
-      base::NumberToString(cluster_id), ManagementType::kUserManaged);
-  subscriptions_manager_->IsSubscribed(std::move(sub), std::move(callback));
 }
 
 void ShoppingService::StartTrackingParcels(

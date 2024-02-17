@@ -852,6 +852,9 @@ TEST_F(ShortcutsProviderTest, DoAutocompleteAggregateShortcuts) {
 }
 
 TEST_F(ShortcutsProviderTest, DoAutocompleteWithScoringSignals) {
+  OmniboxFieldTrial::ScopedMLConfigForTesting scoped_ml_config;
+  scoped_ml_config.GetMLConfig().log_url_scoring_signals = true;
+
   TestShortcutData shortcut_data[] = {
       MakeShortcutData("wikipedia", "https://wikipedia.org/wilson7", 1, 1),
       MakeShortcutData("wilson7", "https://wikipedia.org/wilson7", 2, 2),

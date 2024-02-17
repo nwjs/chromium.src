@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator+Testing.h"
 
 #import <MaterialComponents/MaterialSnackbar.h>
 
@@ -25,11 +26,11 @@
 #import "components/sync/base/features.h"
 #import "components/sync/service/sync_service.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
-#import "ios/chrome/browser/discover_feed/discover_feed_observer_bridge.h"
-#import "ios/chrome/browser/discover_feed/discover_feed_service.h"
-#import "ios/chrome/browser/discover_feed/discover_feed_service_factory.h"
-#import "ios/chrome/browser/discover_feed/feed_constants.h"
-#import "ios/chrome/browser/discover_feed/feed_model_configuration.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_observer_bridge.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
+#import "ios/chrome/browser/discover_feed/model/feed_constants.h"
+#import "ios/chrome/browser/discover_feed/model/feed_model_configuration.h"
 #import "ios/chrome/browser/follow/model/follow_browser_agent.h"
 #import "ios/chrome/browser/follow/model/followed_web_site.h"
 #import "ios/chrome/browser/follow/model/followed_web_site_state.h"
@@ -91,7 +92,6 @@
 #import "ios/chrome/browser/ui/ntp/new_tab_page_component_factory_protocol.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller_delegate.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator+private.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_follow_delegate.h"
@@ -101,6 +101,8 @@
 #import "ios/chrome/browser/ui/ntp/new_tab_page_metrics_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_view_controller.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_controller.h"
+#import "ios/chrome/browser/ui/sharing/sharing_coordinator.h"
+#import "ios/chrome/browser/ui/sharing/sharing_params.h"
 #import "ios/chrome/browser/ui/toolbar/public/fakebox_focuser.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -248,7 +250,10 @@
 
 @end
 
-@implementation NewTabPageCoordinator
+@implementation NewTabPageCoordinator {
+  // Coordinator in charge of handling sharing use cases.
+  SharingCoordinator* _sharingCoordinator;
+}
 
 // Synthesize NewTabPageConfiguring properties.
 @synthesize shouldScrollIntoFeed = _shouldScrollIntoFeed;
@@ -399,6 +404,9 @@
   _discoverFeedObserverBridge.reset();
   _identityObserverBridge.reset();
   _authServiceObserverBridge.reset();
+
+  [_sharingCoordinator stop];
+  _sharingCoordinator = nil;
 
   self.started = NO;
 }
@@ -699,7 +707,6 @@
   self.contentSuggestionsCoordinator.NTPDelegate = self;
   self.contentSuggestionsCoordinator.delegate = self;
   self.contentSuggestionsCoordinator.NTPMetricsDelegate = self;
-  self.contentSuggestionsCoordinator.NTPViewDelegate = self.NTPViewController;
   [self.contentSuggestionsCoordinator start];
 }
 
@@ -979,6 +986,21 @@
 
 - (void)contentSuggestionsWasUpdated {
   [self.NTPViewController updateHeightAboveFeed];
+}
+
+- (void)shareURL:(const GURL&)URL
+           title:(NSString*)title
+        fromView:(UIView*)view {
+  SharingParams* params =
+      [[SharingParams alloc] initWithURL:URL
+                                   title:title
+                                scenario:SharingScenario::MostVisitedEntry];
+  _sharingCoordinator = [[SharingCoordinator alloc]
+      initWithBaseViewController:self.NTPViewController
+                         browser:self.browser
+                          params:params
+                      originView:view];
+  [_sharingCoordinator start];
 }
 
 #pragma mark - FeedSignInPromoDelegate

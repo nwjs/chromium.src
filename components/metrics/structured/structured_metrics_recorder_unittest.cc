@@ -16,8 +16,8 @@
 #include "base/test/task_environment.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "components/metrics/structured/event.h"
+#include "components/metrics/structured/proto/event_storage.pb.h"
 #include "components/metrics/structured/recorder.h"
-#include "components/metrics/structured/storage.pb.h"
 #include "components/metrics/structured/structured_events.h"
 #include "components/metrics/structured/structured_metrics_features.h"
 #include "components/metrics/structured/test/test_event_storage.h"
@@ -255,10 +255,6 @@ class StructuredMetricsRecorderTest : public testing::Test {
 
   void OnRecordingDisabled() { recorder_->DisableRecording(); }
 
-  void OnReportingStateChanged(bool enabled) {
-    recorder_->OnReportingStateChanged(enabled);
-  }
-
   void OnProfileAdded(const base::FilePath& path) {
     recorder_->OnProfileAdded(path);
   }
@@ -333,40 +329,6 @@ TEST_F(StructuredMetricsRecorderTest, EventsNotReportedWhenFeatureDisabled) {
   events::v2::test_project_three::TestEventFour().SetTestMetricFour(1).Record();
   EXPECT_EQ(GetUMAEventMetrics().events_size(), 0);
   EXPECT_EQ(GetEventMetrics().events_size(), 0);
-  ExpectNoErrors();
-}
-
-// Ensure that keys and unsent logs are deleted when reporting is disabled, and
-// that reporting resumes when re-enabled.
-TEST_F(StructuredMetricsRecorderTest, ReportingStateChangesHandledCorrectly) {
-  Init();
-
-  // Record an event and read the keys, there should be one.
-  events::v2::test_project_one::TestEventOne().Record();
-  EXPECT_EQ(GetEventMetrics().events_size(), 1);
-
-  const KeyDataProto enabled_proto = ReadKeys(ProfileKeyFilePath());
-  EXPECT_EQ(enabled_proto.keys_size(), 1);
-
-  // Record an event, disable reporting, then record another event. Both of
-  // these events should have been ignored.
-  events::v2::test_project_one::TestEventOne().Record();
-  OnReportingStateChanged(false);
-  events::v2::test_project_one::TestEventOne().Record();
-  EXPECT_EQ(GetEventMetrics().events_size(), 0);
-
-  // Read the keys again, it should be empty.
-  const KeyDataProto disabled_proto = ReadKeys(ProfileKeyFilePath());
-  EXPECT_EQ(disabled_proto.keys_size(), 0);
-
-  // Enable reporting again, and record an event.
-  OnReportingStateChanged(true);
-  OnRecordingEnabled();
-  events::v2::test_project_one::TestEventOne().Record();
-  EXPECT_EQ(GetEventMetrics().events_size(), 1);
-  const KeyDataProto reenabled_proto = ReadKeys(ProfileKeyFilePath());
-  EXPECT_EQ(reenabled_proto.keys_size(), 1);
-
   ExpectNoErrors();
 }
 
@@ -828,20 +790,61 @@ TEST_F(StructuredMetricsRecorderTest, ForceRecordedEvents) {
   ASSERT_EQ(data.events(0).event_name_hash(), kEventEightHash);
 }
 
-TEST_F(StructuredMetricsRecorderTest, PurgeForceRecordedEvents) {
-  // Init and disable recorder.
+TEST_F(StructuredMetricsRecorderTest, EventMetadataLookupCorrectly) {
+  constexpr std::string_view kProjectName = "TestProjectOne";
+  constexpr std::string_view kEventName = "TestEventOne";
+  constexpr std::string_view kMetricOneName = "TestMetricOne";
+  constexpr std::string_view kMetricTwoName = "TestMetricTwo";
+
+  validator::Validators* validators = validator::Validators::Get();
+
+  ASSERT_EQ(validators->GetProjectName(kProjectOneHash), kProjectName);
+
+  auto project_validator = validators->GetProjectValidator(kProjectName);
+  ASSERT_TRUE(project_validator.has_value());
+
+  ASSERT_EQ((*project_validator)->GetEventName(kEventOneHash), kEventName);
+
+  auto event_validator = (*project_validator)->GetEventValidator(kEventName);
+  ASSERT_TRUE(event_validator.has_value());
+
+  ASSERT_EQ((*event_validator)->GetMetricName(kMetricOneHash), kMetricOneName);
+  ASSERT_EQ((*event_validator)->GetMetricName(kMetricTwoHash), kMetricTwoName);
+}
+
+class TestWatcher : public StructuredMetricsRecorder::Observer {
+ public:
+  TestWatcher(uint64_t expected_event) : expected_event_(expected_event) {}
+
+  void OnEventRecorded(const StructuredEventProto& event) override {
+    EXPECT_EQ(event.event_name_hash(), expected_event_);
+    ++event_count_;
+  }
+
+  int EventCount() { return event_count_; }
+
+ private:
+  const uint64_t expected_event_;
+  int event_count_ = 0;
+};
+
+TEST_F(StructuredMetricsRecorderTest, WatcherTest) {
   Init();
-  OnRecordingDisabled();
 
-  events::v2::test_project_seven::TestEventEight().Record();
+  TestWatcher watcher(kEventOneHash);
 
-  OnReportingStateChanged(false);
+  recorder_->AddEventsObserver(&watcher);
 
-  OnRecordingEnabled();
+  events::v2::test_project_one::TestEventOne()
+      .SetTestMetricOne(kValueOne)
+      .SetTestMetricTwo(12345)
+      .Record();
 
-  const auto data = GetEventMetrics();
+  Wait();
 
-  ASSERT_EQ(data.events_size(), 0);
+  EXPECT_EQ(watcher.EventCount(), 1);
+
+  recorder_->RemoveEventsObserver(&watcher);
 }
 
 }  // namespace metrics::structured

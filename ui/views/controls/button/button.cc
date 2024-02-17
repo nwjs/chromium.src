@@ -211,7 +211,7 @@ void Button::SetTooltipText(const std::u16string& tooltip_text) {
   OnPropertyChanged(&tooltip_text_, kPropertyEffectsNone);
 }
 
-std::u16string Button::GetTooltipText() const {
+const std::u16string& Button::GetTooltipText() const {
   return tooltip_text_;
 }
 
@@ -822,15 +822,18 @@ ButtonActionViewInterface::ButtonActionViewInterface(Button* action_view)
 void ButtonActionViewInterface::ActionItemChangedImpl(
     actions::ActionItem* action_item) {
   BaseActionViewInterface::ActionItemChangedImpl(action_item);
-  action_view_->SetTooltipText(action_item->GetTooltipText());
+  std::u16string tooltip_text = action_item->GetTooltipText();
+  if (!tooltip_text.empty()) {
+    action_view_->SetTooltipText(tooltip_text);
+  }
 }
 
-void ButtonActionViewInterface::LinkActionTriggerToView(
-    base::RepeatingClosure trigger_action_callback) {
+void ButtonActionViewInterface::LinkActionInvocationToView(
+    base::RepeatingClosure invoke_action_callback) {
   if (!action_view_) {
     return;
   }
-  action_view_->SetCallback(trigger_action_callback);
+  action_view_->SetCallback(invoke_action_callback);
 }
 
 BEGIN_METADATA(Button)

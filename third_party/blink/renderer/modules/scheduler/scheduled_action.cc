@@ -187,4 +187,8 @@ CallbackFunctionBase* ScheduledAction::CallbackFunction() {
   return function_.Get();
 }
 
+ScriptState* ScheduledAction::GetScriptState() {
+  return script_state_->Get();
+}
+
 }  // namespace blink

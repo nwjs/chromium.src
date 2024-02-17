@@ -92,8 +92,7 @@ autofill::PersonalDataManager* AwAutofillClient::GetPersonalDataManager() {
 
 autofill::AutocompleteHistoryManager*
 AwAutofillClient::GetAutocompleteHistoryManager() {
-  return AwBrowserContext::FromWebContents(&GetWebContents())
-      ->GetAutocompleteHistoryManager();
+  NOTREACHED_NORETURN();
 }
 
 PrefService* AwAutofillClient::GetPrefs() {
@@ -162,7 +161,8 @@ translate::TranslateDriver* AwAutofillClient::GetTranslateDriver() {
   return nullptr;
 }
 
-void AwAutofillClient::ShowAutofillSettings(autofill::PopupType popup_type) {
+void AwAutofillClient::ShowAutofillSettings(
+    autofill::FillingProduct main_filling_product) {
   NOTIMPLEMENTED();
 }
 
@@ -192,7 +192,7 @@ void AwAutofillClient::ConfirmSaveAddressProfile(
   NOTIMPLEMENTED();
 }
 
-bool AwAutofillClient::HasCreditCardScanFeature() {
+bool AwAutofillClient::HasCreditCardScanFeature() const {
   return false;
 }
 
@@ -200,20 +200,13 @@ void AwAutofillClient::ScanCreditCard(CreditCardScanCallback callback) {
   NOTIMPLEMENTED();
 }
 
-bool AwAutofillClient::IsTouchToFillCreditCardSupported() {
-  return false;
-}
-
 bool AwAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<autofill::TouchToFillDelegate> delegate,
     base::span<const autofill::CreditCard> cards_to_suggest) {
-  NOTREACHED();
   return false;
 }
 
-void AwAutofillClient::HideTouchToFillCreditCard() {
-  NOTREACHED();
-}
+void AwAutofillClient::HideTouchToFillCreditCard() {}
 
 void AwAutofillClient::ShowAutofillPopup(
     const autofill::AutofillClient::PopupOpenArgs& open_args,
@@ -256,7 +249,7 @@ autofill::AutofillClient::PopupOpenArgs AwAutofillClient::GetReopenPopupArgs(
 
 void AwAutofillClient::UpdatePopup(
     const std::vector<autofill::Suggestion>& suggestions,
-    autofill::PopupType popup_type,
+    autofill::FillingProduct main_filling_product,
     autofill::AutofillSuggestionTriggerSource trigger_source) {
   NOTIMPLEMENTED();
 }
@@ -275,13 +268,10 @@ bool AwAutofillClient::IsAutocompleteEnabled() const {
 }
 
 bool AwAutofillClient::IsPasswordManagerEnabled() {
-  // Android O+ relies on the AndroidAutofillManager, which does not call this
-  // function. If it ever does, the function needs to be implemented in a
-  // meaningful way.
-  if (base::android::BuildInfo::GetInstance()->sdk_int() >=
-      base::android::SDK_VERSION_OREO) {
-    NOTREACHED();
-  }
+  // Android WebView (since Android O+) relies on the AndroidAutofillManager,
+  // which does not call this function. If it ever does, the function needs to
+  // be implemented in a meaningful way.
+  NOTREACHED();
   // This is behavior preserving: For pre-O versions, AwAutofill did rely on a
   // BrowserAutofillManager, which now calls the function. But pre-O only
   // offered an autocomplete feature that restored values of specific input
@@ -323,11 +313,6 @@ AwAutofillClient::GetCurrentFormInteractionsFlowId() {
   return {};
 }
 
-void AwAutofillClient::LoadRiskData(
-    base::OnceCallback<void(const std::string&)> callback) {
-  NOTIMPLEMENTED();
-}
-
 void AwAutofillClient::Dismissed(JNIEnv* env,
                                  const JavaParamRef<jobject>& obj) {
   anchor_view_.Reset();
@@ -337,9 +322,7 @@ void AwAutofillClient::SuggestionSelected(JNIEnv* env,
                                           const JavaParamRef<jobject>& object,
                                           jint position) {
   if (delegate_) {
-    delegate_->DidAcceptSuggestion(
-        suggestions_[position], {.row = position},
-        autofill::AutofillSuggestionTriggerSource::kAndroidWebView);
+    delegate_->DidAcceptSuggestion(suggestions_[position], {.row = position});
   }
 }
 

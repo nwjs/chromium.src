@@ -10,6 +10,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -52,7 +53,6 @@
 #include "net/base/network_change_notifier.h"
 #include "net/nqe/effective_connection_type.h"
 #include "services/viz/public/mojom/compositing/compositing_mode_watcher.mojom.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom-forward.h"
@@ -126,13 +126,6 @@ class CONTENT_EXPORT RenderThreadImpl
       public viz::mojom::CompositingModeWatcher {
  public:
   static RenderThreadImpl* current();
-  static mojom::RenderMessageFilter* current_render_message_filter();
-  static RendererBlinkPlatformImpl* current_blink_platform_impl();
-
-  static void SetRenderMessageFilterForTesting(
-      mojom::RenderMessageFilter* render_message_filter);
-  static void SetRendererBlinkPlatformImplForTesting(
-      RendererBlinkPlatformImpl* blink_platform_impl);
 
   // Returns the task runner for the main thread where the RenderThread lives.
   static scoped_refptr<base::SingleThreadTaskRunner>
@@ -160,18 +153,22 @@ class CONTENT_EXPORT RenderThreadImpl
   // RenderThread implementation:
   IPC::SyncChannel* GetChannel() override;
   std::string GetLocale() override;
+
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
   IPC::SyncMessageFilter* GetSyncMessageFilter() override;
   void AddRoute(int32_t routing_id, IPC::Listener* listener) override;
   void AttachTaskRunnerToRoute(
       int32_t routing_id,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner) override;
   void RemoveRoute(int32_t routing_id) override;
+  void AddFilter(IPC::MessageFilter* filter) override;
+  void RemoveFilter(IPC::MessageFilter* filter) override;
+#endif
+
   bool GenerateFrameRoutingID(int32_t& routing_id,
                               blink::LocalFrameToken& frame_token,
                               base::UnguessableToken& devtools_frame_token,
                               blink::DocumentToken& document_token) override;
-  void AddFilter(IPC::MessageFilter* filter) override;
-  void RemoveFilter(IPC::MessageFilter* filter) override;
   void AddObserver(RenderThreadObserver* observer) override;
   void RemoveObserver(RenderThreadObserver* observer) override;
   int PostTaskToAllWebWorkers(base::RepeatingClosure closure) override;
@@ -269,8 +266,6 @@ class CONTENT_EXPORT RenderThreadImpl
   blink::WebVideoCaptureImplManager* video_capture_impl_manager() const {
     return vc_manager_.get();
   }
-
-  mojom::RenderMessageFilter* render_message_filter();
 
   // Get the GPU channel. Returns NULL if the channel is not established or
   // has been lost.
@@ -386,7 +381,9 @@ class CONTENT_EXPORT RenderThreadImpl
   void OnChannelError() override;
 
   // ChildThread
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
   bool OnControlMessageReceived(const IPC::Message& msg) override;
+#endif
   void RecordAction(const base::UserMetricsAction& action) override;
   void RecordComputedAction(const std::string& action) override;
 
@@ -434,6 +431,7 @@ class CONTENT_EXPORT RenderThreadImpl
   void PurgeResourceCache(PurgeResourceCacheCallback callback) override;
   void SetProcessState(mojom::RenderProcessBackgroundState background_state,
                        mojom::RenderProcessVisibleState visible_state) override;
+  void SetBatterySaverMode(bool battery_saver_mode_enabled) override;
   void SetIsLockedToSite() override;
 #if BUILDFLAG(CLANG_PROFILING_INSIDE_SANDBOX)
   void WriteClangProfilingProfile(
@@ -466,6 +464,8 @@ class CONTENT_EXPORT RenderThreadImpl
       bool enable_video_decode_accelerator,
       bool enable_video_encode_accelerator);
 
+  mojom::RenderMessageFilter* render_message_filter();
+
   scoped_refptr<discardable_memory::ClientDiscardableSharedMemoryManager>
       discardable_memory_allocator_;
 
@@ -483,8 +483,8 @@ class CONTENT_EXPORT RenderThreadImpl
   // Used to keep track of the renderer's backgrounded and visibility state.
   // Updated via an IPC from the browser process. If nullopt, the browser
   // process has yet to send an update and the state is unknown.
-  absl::optional<mojom::RenderProcessBackgroundState> background_state_;
-  absl::optional<mojom::RenderProcessVisibleState> visible_state_;
+  std::optional<mojom::RenderProcessBackgroundState> background_state_;
+  std::optional<mojom::RenderProcessVisibleState> visible_state_;
 
   blink::WebString user_agent_;
   blink::UserAgentMetadata user_agent_metadata_;
@@ -561,7 +561,7 @@ class CONTENT_EXPORT RenderThreadImpl
 
   mojo::AssociatedReceiver<mojom::Renderer> renderer_receiver_{this};
 
-  mojo::AssociatedRemote<mojom::RenderMessageFilter> render_message_filter_;
+  mojo::Remote<mojom::RenderMessageFilter> render_message_filter_;
 
   std::set<std::unique_ptr<AgentSchedulingGroup>, base::UniquePtrComparator>
       agent_scheduling_groups_;

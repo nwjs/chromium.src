@@ -358,7 +358,7 @@ base::Time PrivacySandboxSettingsImpl::TopicsDataAccessibleSince() const {
 }
 
 PrivacySandboxSettingsImpl::Status
-PrivacySandboxSettingsImpl::GetM1AttributionReportingAllowedStatus(
+PrivacySandboxSettingsImpl::GetM1AdMeasurementAllowedStatus(
     const url::Origin& top_frame_origin,
     const url::Origin& reporting_origin) const {
   Status status = GetM1PrivacySandboxApiEnabledStatus(
@@ -398,8 +398,8 @@ bool PrivacySandboxSettingsImpl::IsAttributionReportingAllowed(
     return false;
   }
 
-  Status status = GetM1AttributionReportingAllowedStatus(top_frame_origin,
-                                                         reporting_origin);
+  Status status =
+      GetM1AdMeasurementAllowedStatus(top_frame_origin, reporting_origin);
   JoinHistogram(kIsAttributionReportingAllowedHistogram, status);
   return IsAllowed(status);
 }
@@ -425,11 +425,11 @@ bool PrivacySandboxSettingsImpl::MaySendAttributionReport(
     return false;
   }
 
-  Status status = GetM1AttributionReportingAllowedStatus(
+  Status status = GetM1AdMeasurementAllowedStatus(
       /*top_frame_origin=*/source_origin,
       /*reporting_origin=*/reporting_origin);
   if (IsAllowed(status)) {
-    status = GetM1AttributionReportingAllowedStatus(
+    status = GetM1AdMeasurementAllowedStatus(
         /*top_frame_origin=*/destination_origin,
         /*reporting_origin=*/reporting_origin);
   }
@@ -661,8 +661,8 @@ bool PrivacySandboxSettingsImpl::IsPrivateAggregationAllowed(
     return false;
   }
 
-  Status status = GetM1AttributionReportingAllowedStatus(top_frame_origin,
-                                                         reporting_origin);
+  Status status =
+      GetM1AdMeasurementAllowedStatus(top_frame_origin, reporting_origin);
   JoinHistogram(kIsPrivateAggregationAllowedHistogram, status);
   return IsAllowed(status);
 }
@@ -693,23 +693,6 @@ bool PrivacySandboxSettingsImpl::IsPrivateAggregationDebugModeAllowed(
          delegate_->AreThirdPartyCookiesBlockedByCookieDeprecationExperiment();
 }
 
-bool PrivacySandboxSettingsImpl::IsPrivacySandboxEnabled() const {
-  PrivacySandboxSettingsImpl::Status status = GetPrivacySandboxAllowedStatus();
-  if (!IsAllowed(status)) {
-    return false;
-  }
-
-  // For Measurement and Relevance APIs, we explicitly do not require the
-  // underlying pref to be enabled if there is a local flag enabling the APIs to
-  // allow for local testing.
-  if (base::FeatureList::IsEnabled(
-          privacy_sandbox::kOverridePrivacySandboxSettingsLocalTesting)) {
-    return true;
-  }
-
-  return pref_service_->GetBoolean(prefs::kPrivacySandboxApisEnabledV2);
-}
-
 void PrivacySandboxSettingsImpl::SetAllPrivacySandboxAllowedForTesting() {
   pref_service_->SetBoolean(prefs::kPrivacySandboxM1FledgeEnabled, true);
   pref_service_->SetBoolean(prefs::kPrivacySandboxM1TopicsEnabled, true);
@@ -718,10 +701,6 @@ void PrivacySandboxSettingsImpl::SetAllPrivacySandboxAllowedForTesting() {
 
 void PrivacySandboxSettingsImpl::SetTopicsBlockedForTesting() {
   pref_service_->SetBoolean(prefs::kPrivacySandboxM1TopicsEnabled, false);
-}
-
-void PrivacySandboxSettingsImpl::SetPrivacySandboxEnabled(bool enabled) {
-  pref_service_->SetBoolean(prefs::kPrivacySandboxApisEnabledV2, enabled);
 }
 
 bool PrivacySandboxSettingsImpl::IsPrivacySandboxRestricted() const {
@@ -745,10 +724,6 @@ void PrivacySandboxSettingsImpl::OnCookiesCleared() {
 }
 
 void PrivacySandboxSettingsImpl::OnRelatedWebsiteSetsEnabledPrefChanged() {
-  if (!base::FeatureList::IsEnabled(features::kFirstPartySets)) {
-    return;
-  }
-
   for (auto& observer : observers_) {
     observer.OnFirstPartySetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
   }
@@ -860,10 +835,6 @@ bool PrivacySandboxSettingsImpl::IsCookieDeprecationLabelAllowedForContext(
 }
 
 void PrivacySandboxSettingsImpl::OnBlockAllThirdPartyCookiesChanged() {
-  if (!base::FeatureList::IsEnabled(features::kFirstPartySets)) {
-    return;
-  }
-
   for (auto& observer : observers_) {
     observer.OnFirstPartySetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
   }

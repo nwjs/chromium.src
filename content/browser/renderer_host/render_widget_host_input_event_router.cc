@@ -508,7 +508,7 @@ RenderWidgetTargetResult RenderWidgetHostInputEventRouter::FindMouseEventTarget(
   if (needs_transform_point) {
     if (!root_view->TransformPointToCoordSpaceForView(
             event.PositionInWidget(), target, &transformed_point)) {
-      return {nullptr, false, absl::nullopt, latched_target};
+      return {nullptr, false, std::nullopt, latched_target};
     }
   }
   return {target, false, transformed_point, latched_target};
@@ -524,7 +524,7 @@ RenderWidgetHostInputEventRouter::FindMouseWheelEventTarget(
     target = root_view->host()->delegate()->GetMouseLockWidget()->GetView();
     if (!root_view->TransformPointToCoordSpaceForView(
             event.PositionInWidget(), target, &transformed_point)) {
-      return {nullptr, false, absl::nullopt, true};
+      return {nullptr, false, std::nullopt, true};
     }
     return {target, false, transformed_point, true};
   }
@@ -537,7 +537,7 @@ RenderWidgetHostInputEventRouter::FindMouseWheelEventTarget(
   }
   // For non-begin events, the target found for the previous phaseBegan is
   // used.
-  return {nullptr, false, absl::nullopt, true};
+  return {nullptr, false, std::nullopt, true};
 }
 
 RenderWidgetTargetResult RenderWidgetHostInputEventRouter::FindViewAtLocation(
@@ -607,7 +607,7 @@ void RenderWidgetHostInputEventRouter::DispatchMouseEvent(
     RenderWidgetHostViewBase* target,
     const blink::WebMouseEvent& mouse_event,
     const ui::LatencyInfo& latency,
-    const absl::optional<gfx::PointF>& target_location) {
+    const std::optional<gfx::PointF>& target_location) {
   // TODO(wjmaclean): Should we be sending a no-consumer ack to the root_view
   // if there is no target?
   if (!target)
@@ -681,6 +681,11 @@ void RenderWidgetHostInputEventRouter::DispatchMouseEvent(
   }
 
   target->ProcessMouseEvent(event, latency);
+
+  if (root_view_receive_additional_mouse_up_ && target != root_view &&
+      mouse_event.GetType() == blink::WebInputEvent::Type::kMouseUp) {
+    root_view->ProcessMouseEvent(event, latency);
+  }
 }
 
 void RenderWidgetHostInputEventRouter::RouteMouseWheelEvent(
@@ -695,7 +700,7 @@ void RenderWidgetHostInputEventRouter::DispatchMouseWheelEvent(
     RenderWidgetHostViewBase* target,
     const blink::WebMouseWheelEvent& mouse_wheel_event,
     const ui::LatencyInfo& latency,
-    const absl::optional<gfx::PointF>& target_location) {
+    const std::optional<gfx::PointF>& target_location) {
   if (!root_view->IsMouseLocked()) {
     if (mouse_wheel_event.phase == blink::WebMouseWheelEvent::kPhaseBegan) {
       wheel_target_ = target;
@@ -827,7 +832,7 @@ RenderWidgetTargetResult RenderWidgetHostInputEventRouter::FindTouchEventTarget(
   // explicitly here.
   if (active_touches_ ||
       event.GetType() != blink::WebInputEvent::Type::kTouchStart)
-    return {nullptr, false, absl::nullopt, true};
+    return {nullptr, false, std::nullopt, true};
 
   active_touches_ += CountChangedTouchPoints(event);
   gfx::PointF original_point = gfx::PointF(event.touches[0].PositionInWidget());
@@ -842,7 +847,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchEvent(
     RenderWidgetHostViewBase* target,
     const blink::WebTouchEvent& touch_event,
     const ui::LatencyInfo& latency,
-    const absl::optional<gfx::PointF>& target_location,
+    const std::optional<gfx::PointF>& target_location,
     bool is_emulated_touchevent) {
   DCHECK(blink::WebInputEvent::IsTouchEventType(touch_event.GetType()) &&
          touch_event.GetType() !=
@@ -935,6 +940,8 @@ void RenderWidgetHostInputEventRouter::ProcessAckedTouchEvent(
     const TouchEventWithLatencyInfo& event,
     blink::mojom::InputEventResultState ack_result,
     RenderWidgetHostViewBase* view) {
+  TRACE_EVENT("input",
+              "RenderWidgetHostInputEventRouter::ProcessAckedTouchEvent");
   touch_event_ack_queue_->MarkAcked(event, ack_result, view);
 }
 
@@ -1430,7 +1437,7 @@ RenderWidgetHostInputEventRouter::FindTouchscreenGestureEventTarget(
 
   // Remaining gesture events will defer to the gesture event target queue
   // during dispatch.
-  return {nullptr, false, absl::nullopt, true};
+  return {nullptr, false, std::nullopt, true};
 }
 
 bool RenderWidgetHostInputEventRouter::IsViewInMap(
@@ -1453,7 +1460,7 @@ bool RenderWidgetHostInputEventRouter::ViewMapIsEmpty() const {
 namespace {
 
 bool IsPinchCurrentlyAllowedInTarget(RenderWidgetHostViewBase* target) {
-  absl::optional<cc::TouchAction> target_active_touch_action(
+  std::optional<cc::TouchAction> target_active_touch_action(
       cc::TouchAction::kNone);
   if (target) {
     target_active_touch_action =
@@ -1479,7 +1486,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent(
     RenderWidgetHostViewBase* target,
     const blink::WebGestureEvent& gesture_event,
     const ui::LatencyInfo& latency,
-    const absl::optional<gfx::PointF>& target_location) {
+    const std::optional<gfx::PointF>& target_location) {
   if (gesture_event.GetType() ==
       blink::WebInputEvent::Type::kGesturePinchBegin) {
     if (root_view == touchscreen_gesture_target_.get()) {
@@ -1548,7 +1555,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent(
   const bool is_gesture_start =
       gesture_event.GetType() == blink::WebInputEvent::Type::kGestureTapDown;
 
-  absl::optional<gfx::PointF> fallback_target_location;
+  std::optional<gfx::PointF> fallback_target_location;
 
   if (gesture_event.unique_touch_event_id == 0) {
     // On Android it is possible for touchscreen gesture events to arrive that
@@ -1611,8 +1618,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent(
 
   if (!touchscreen_gesture_target_) {
     root_view->GestureEventAck(
-        gesture_event, blink::mojom::InputEventResultState::kNoConsumerExists,
-        nullptr);
+        gesture_event, blink::mojom::InputEventResultState::kNoConsumerExists);
     return;
   }
 
@@ -1682,7 +1688,7 @@ RenderWidgetHostInputEventRouter::FindTouchpadGestureEventTarget(
   if (event.GetType() != blink::WebInputEvent::Type::kGesturePinchBegin &&
       event.GetType() != blink::WebInputEvent::Type::kGestureFlingCancel &&
       event.GetType() != blink::WebInputEvent::Type::kGestureDoubleTap) {
-    return {nullptr, false, absl::nullopt, true};
+    return {nullptr, false, std::nullopt, true};
   }
 
   gfx::PointF transformed_point;
@@ -1703,7 +1709,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchpadGestureEvent(
     RenderWidgetHostViewBase* target,
     const blink::WebGestureEvent& touchpad_gesture_event,
     const ui::LatencyInfo& latency,
-    const absl::optional<gfx::PointF>& target_location) {
+    const std::optional<gfx::PointF>& target_location) {
   // Touchpad gesture flings should be treated as mouse wheels for the purpose
   // of routing.
   if (touchpad_gesture_event.GetType() ==
@@ -1719,7 +1725,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchpadGestureEvent(
     } else {
       root_view->GestureEventAck(
           touchpad_gesture_event,
-          blink::mojom::InputEventResultState::kNoConsumerExists, nullptr);
+          blink::mojom::InputEventResultState::kNoConsumerExists);
     }
     return;
   }
@@ -1734,7 +1740,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchpadGestureEvent(
     } else {
       root_view->GestureEventAck(
           touchpad_gesture_event,
-          blink::mojom::InputEventResultState::kNoConsumerExists, nullptr);
+          blink::mojom::InputEventResultState::kNoConsumerExists);
     }
     return;
   }
@@ -1749,7 +1755,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchpadGestureEvent(
   if (!touchpad_gesture_target_) {
     root_view->GestureEventAck(
         touchpad_gesture_event,
-        blink::mojom::InputEventResultState::kNoConsumerExists, nullptr);
+        blink::mojom::InputEventResultState::kNoConsumerExists);
     return;
   }
 
@@ -1878,7 +1884,7 @@ void RenderWidgetHostInputEventRouter::DispatchEventToTarget(
     RenderWidgetHostViewBase* target,
     blink::WebInputEvent* event,
     const ui::LatencyInfo& latency,
-    const absl::optional<gfx::PointF>& target_location) {
+    const std::optional<gfx::PointF>& target_location) {
   DCHECK(event);
   if (target && target->ScreenRectIsUnstableFor(*event))
     event->SetTargetFrameMovedRecently();
@@ -2032,6 +2038,11 @@ void RenderWidgetHostInputEventRouter::SetMouseCaptureTarget(
     mouse_capture_target_ = nullptr;
 }
 
+void RenderWidgetHostInputEventRouter::RootViewReceivesMouseUpIfNecessary(
+    bool root_view_receives_mouse_up) {
+  root_view_receive_additional_mouse_up_ = root_view_receives_mouse_up;
+}
+
 void RenderWidgetHostInputEventRouter::SetAutoScrollInProgress(
     bool is_autoscroll_in_progress) {
   event_targeter_->SetIsAutoScrollInProgress(is_autoscroll_in_progress);
@@ -2048,7 +2059,7 @@ void RenderWidgetHostInputEventRouter::ForwardDelegatedInkPoint(
     const blink::WebInputEvent& input_event,
     const blink::WebPointerProperties& pointer_properties,
     bool hovering) {
-  const absl::optional<cc::DelegatedInkBrowserMetadata>& metadata =
+  const std::optional<cc::DelegatedInkBrowserMetadata>& metadata =
       target_view->host()
           ->render_frame_metadata_provider()
           ->LastRenderFrameMetadata()

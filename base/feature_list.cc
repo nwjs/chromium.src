@@ -29,6 +29,11 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "base/feature_visitor.h"
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 namespace base {
 
@@ -245,6 +250,11 @@ uint32_t PackFeatureCache(FeatureList::OverrideState override_state,
          (caching_context & 0xFFFF);
 }
 
+// A monotonically increasing id, passed to `FeatureList`s as they are created
+// to invalidate the cache member of `base::Feature` objects that were queried
+// with a different `FeatureList` installed.
+uint16_t g_current_caching_context = 1;
+
 }  // namespace
 
 #if BUILDFLAG(DCHECK_IS_CONFIGURABLE)
@@ -253,7 +263,7 @@ BASE_FEATURE(kDCheckIsFatalFeature,
              FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(DCHECK_IS_CONFIGURABLE)
 
-FeatureList::FeatureList() = default;
+FeatureList::FeatureList() : caching_context_(g_current_caching_context++) {}
 
 FeatureList::~FeatureList() = default;
 
@@ -562,12 +572,10 @@ FeatureList* FeatureList::GetInstance() {
 void FeatureList::SetInstance(std::unique_ptr<FeatureList> instance) {
   DCHECK(!g_feature_list_instance ||
          g_feature_list_instance->IsEarlyAccessInstance());
-  // If there is an existing early-access instance, release it after
-  // updating the caching context sequence.
+  // If there is an existing early-access instance, release it.
   if (g_feature_list_instance) {
     std::unique_ptr<FeatureList> old_instance =
         WrapUnique(g_feature_list_instance);
-    instance->caching_context_ = old_instance->caching_context_ + 1;
     g_feature_list_instance = nullptr;
   }
   instance->FinalizeInitialization();
@@ -602,9 +610,9 @@ void FeatureList::SetInstance(std::unique_ptr<FeatureList> instance) {
   if (FeatureList::IsEnabled(kDCheckIsFatalFeature) ||
       CommandLine::ForCurrentProcess()->HasSwitch(
           "gtest_internal_run_death_test")) {
-    logging::LOGGING_DCHECK = logging::LOG_FATAL;
+    logging::LOGGING_DCHECK = logging::LOGGING_FATAL;
   } else {
-    logging::LOGGING_DCHECK = logging::LOG_INFO;
+    logging::LOGGING_DCHECK = logging::LOGGING_ERROR;
   }
 #endif  // BUILDFLAG(DCHECK_IS_CONFIGURABLE)
 }
@@ -641,10 +649,6 @@ void FeatureList::FailOnFeatureAccessWithoutFeatureList() {
       ->FailOnFeatureAccessWithoutFeatureList();
 }
 
-void FeatureList::SetCachingContextForTesting(uint16_t caching_context) {
-  caching_context_ = caching_context;
-}
-
 // static
 const Feature* FeatureList::GetEarlyAccessedFeatureForTesting() {
   return EarlyFeatureAccessTracker::GetInstance()->GetFeature();
@@ -659,6 +663,33 @@ void FeatureList::AddEarlyAllowedFeatureForTesting(std::string feature_name) {
   CHECK(IsEarlyAccessInstance());
   allowed_feature_names_.insert(std::move(feature_name));
 }
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+// static
+void FeatureList::VisitFeaturesAndParams(FeatureVisitor& visitor) {
+  CHECK(g_feature_list_instance);
+  FieldTrialParamAssociator* params_associator =
+      FieldTrialParamAssociator::GetInstance();
+
+  for (auto& feature_override : g_feature_list_instance->overrides_) {
+    FieldTrial* field_trial = feature_override.second.field_trial;
+
+    std::string trial_name;
+    std::string group_name;
+    FieldTrialParams params;
+    if (field_trial) {
+      trial_name = field_trial->trial_name();
+      group_name = field_trial->group_name();
+      params_associator->GetFieldTrialParamsWithoutFallback(
+          trial_name, group_name, &params);
+    }
+
+    visitor.Visit(feature_override.first,
+                  feature_override.second.overridden_state, params, trial_name,
+                  group_name);
+  }
+}
+#endif  // BULDFLAG(IS_CHROMEOS_ASH)
 
 void FeatureList::FinalizeInitialization() {
   DCHECK(!initialized_);

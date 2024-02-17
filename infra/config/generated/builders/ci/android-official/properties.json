@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-official",
-              "project": "chromium-m121"
+              "project": "chromium-m122"
             },
             "builder_spec": {
               "builder_group": "chromium",
@@ -40,7 +40,7 @@
         {
           "bucket": "ci",
           "builder": "android-official",
-          "project": "chromium-m121"
+          "project": "chromium-m122"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -48,7 +48,8 @@
           "builder": "android-official",
           "group": "tryserver.chromium"
         }
-      ]
+      ],
+      "targets_spec_directory": "src/infra/config/generated/builders/ci/android-official/targets"
     }
   },
   "$build/reclient": {

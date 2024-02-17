@@ -20,13 +20,14 @@ interface AutofillAgent {
   // while another TriggerFormExtractionWithResponse() was ongoing.
   TriggerFormExtractionWithResponse() => (bool success);
 
-  // Fills or previews the form identified by `form.unique_renderer_id` with
-  // the data in `form`.
+  // Fills or previews the form identified by `form_renderer_id` with
+  // the data in `fields`.
   // `action_type` denotes if the action is a Fill or Undo.
   // `action_persistence` denotes if the operation is a Fill or Preview.
   ApplyFormAction(ActionType action_type,
                   ActionPersistence action_persistence,
-                  FormData form);
+                  FormRendererId form_renderer_id,
+                  array<FormFieldData> fields);
 
   // Fills or previews the field identified by `field` with `value`.
   // `action_persistence` denotes if the operation is a Fill or Preview.
@@ -109,9 +110,6 @@ interface AutofillAgent {
   // Allows heavy scraping of form data (e.g., button titles for
   // unowned forms).
   EnableHeavyFormDataScraping();
-
-  // Update fields that are eligible to show manual filling on form interaction.
-  SetFieldsEligibleForManualFilling(array<FieldRendererId> fields);
 
   // Returns a vector of four digit combinations present in the DOM of a
   // webpage. Used to check for the presence of the virtual card last four in

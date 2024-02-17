@@ -103,10 +103,8 @@ class PrivacySandboxSettingsImpl : public PrivacySandboxSettings,
   bool IsCookieDeprecationLabelAllowedForContext(
       const url::Origin& top_frame_origin,
       const url::Origin& context_origin) const override;
-  bool IsPrivacySandboxEnabled() const override;
   void SetAllPrivacySandboxAllowedForTesting() override;
   void SetTopicsBlockedForTesting() override;
-  void SetPrivacySandboxEnabled(bool enabled) override;
   bool IsPrivacySandboxRestricted() const override;
   bool IsPrivacySandboxCurrentlyUnrestricted() const override;
   bool IsSubjectToM1NoticeRestricted() const override;
@@ -187,9 +185,9 @@ class PrivacySandboxSettingsImpl : public PrivacySandboxSettings,
   // environment or the reason why it is not allowed.
   Status GetM1TopicAllowedStatus() const;
 
-  // Whether Attribution Reporting API can be allowed given the current
-  // environment or the reason why it is not allowed.
-  Status GetM1AttributionReportingAllowedStatus(
+  // Whether ad measurement APIs can be allowed given the current environment or
+  // the reason why it is not allowed.
+  Status GetM1AdMeasurementAllowedStatus(
       const url::Origin& top_frame_origin,
       const url::Origin& reporting_origin) const;
 

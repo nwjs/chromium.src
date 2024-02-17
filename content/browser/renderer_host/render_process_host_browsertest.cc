@@ -2,7 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/public/browser/render_process_host.h"
+
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -36,7 +39,6 @@
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/child_process_launcher_utils.h"
 #include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_creation_observer.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/web_contents.h"
@@ -72,7 +74,6 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -699,7 +700,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, SpareVsFastShutdown) {
   spare_renderer->FastShutdownIfPossible();
 
   process_watcher.Wait();
-  EXPECT_FALSE(process_watcher.did_exit_normally());
+  EXPECT_TRUE(process_watcher.did_exit_normally());
 
   // An important part of test verification is that UaF doesn't happen in the
   // next revolution of the message pump - without extra care in the
@@ -842,7 +843,8 @@ class AudioStartObserver : public WebContentsObserver {
         render_frame_host_(
             static_cast<RenderFrameHostImpl*>(render_frame_host)),
         contents_audible_(web_contents->IsCurrentlyAudible()),
-        frame_audible_(render_frame_host_->is_audible()),
+        frame_audible_(render_frame_host_->HasMediaStreams(
+            RenderFrameHostImpl::GetAudibleMediaStreamType())),
         audible_closure_(std::move(audible_closure)) {
     MaybeFireClosure();
   }
@@ -1381,15 +1383,15 @@ class IsProcessBackgroundedObserver : public RenderProcessHostInternalObserver {
 
   // Returns the latest recorded value if there was one and resets the recorded
   // value to |nullopt|.
-  absl::optional<bool> TakeValue() {
+  std::optional<bool> TakeValue() {
     auto value = backgrounded_;
-    backgrounded_ = absl::nullopt;
+    backgrounded_ = std::nullopt;
     return value;
   }
 
  private:
   // Stores the last observed value of IsProcessBackgrounded for a host.
-  absl::optional<bool> backgrounded_;
+  std::optional<bool> backgrounded_;
   base::ScopedObservation<RenderProcessHostImpl,
                           RenderProcessHostInternalObserver>
       host_observation_{this};
@@ -2181,7 +2183,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest,
 
     base::RunLoop run_loop;
 
-    absl::optional<uint32_t> renderer_result = absl::nullopt;
+    std::optional<uint32_t> renderer_result = std::nullopt;
     service->PseudonymizeString(
         test_string, base::BindLambdaForTesting([&](uint32_t result) {
           renderer_result = result;

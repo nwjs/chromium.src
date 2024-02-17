@@ -17,12 +17,14 @@
 
 namespace gpu {
 class SharedImageInterfaceProxy;
+class GpuChannelHost;
 
 // Tracks shared images created by a single context and ensures they are deleted
 // if the context is lost.
 class GPU_EXPORT ClientSharedImageInterface : public SharedImageInterface {
  public:
-  ClientSharedImageInterface(SharedImageInterfaceProxy* proxy);
+  ClientSharedImageInterface(SharedImageInterfaceProxy* proxy,
+                             scoped_refptr<gpu::GpuChannelHost> channel);
   ~ClientSharedImageInterface() override;
 
   // SharedImageInterface implementation.
@@ -94,6 +96,19 @@ class GPU_EXPORT ClientSharedImageInterface : public SharedImageInterface {
       uint32_t usage,
       base::StringPiece debug_label,
       gfx::GpuMemoryBufferHandle buffer_handle) override;
+
+  // Used by the software compositor only. |useage| must be
+  // gpu::SHARED_IMAGE_USAGE_CPU_WRITE. Call client_shared_image->Map() later to
+  // get the shared memory mapping.
+  scoped_refptr<ClientSharedImage> CreateSharedImage(
+      viz::SharedImageFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
+      SkAlphaType alpha_type,
+      uint32_t usage,
+      base::StringPiece debug_label) override;
+
   // NOTE: The below method is DEPRECATED for `gpu_memory_buffer` only with
   // single planar eg. RGB BufferFormats. Please use the equivalent method above
   // taking in single planar SharedImageFormat with GpuMemoryBufferHandle.
@@ -113,27 +128,33 @@ class GPU_EXPORT ClientSharedImageInterface : public SharedImageInterface {
                          scoped_refptr<gfx::D3DSharedFence> d3d_shared_fence,
                          const Mailbox& mailbox) override;
 #endif
-  SwapChainMailboxes CreateSwapChain(viz::SharedImageFormat format,
-                                     const gfx::Size& size,
-                                     const gfx::ColorSpace& color_space,
-                                     GrSurfaceOrigin surface_origin,
-                                     SkAlphaType alpha_type,
-                                     uint32_t usage) override;
+  SwapChainSharedImages CreateSwapChain(viz::SharedImageFormat format,
+                                        const gfx::Size& size,
+                                        const gfx::ColorSpace& color_space,
+                                        GrSurfaceOrigin surface_origin,
+                                        SkAlphaType alpha_type,
+                                        uint32_t usage) override;
   void DestroySharedImage(const SyncToken& sync_token,
                           const Mailbox& mailbox) override;
   void DestroySharedImage(
       const SyncToken& sync_token,
       scoped_refptr<ClientSharedImage> client_shared_image) override;
   uint32_t UsageForMailbox(const Mailbox& mailbox) override;
-  void NotifyMailboxAdded(const Mailbox& mailbox, uint32_t usage) override;
+  scoped_refptr<ClientSharedImage> NotifyMailboxAdded(const Mailbox& mailbox,
+                                                      uint32_t usage) override;
 
-  void AddReferenceToSharedImage(const SyncToken& sync_token,
-                                 const Mailbox& mailbox,
-                                 uint32_t usage) override;
+  scoped_refptr<ClientSharedImage> AddReferenceToSharedImage(
+      const SyncToken& sync_token,
+      const Mailbox& mailbox,
+      uint32_t usage) override;
 
   const SharedImageCapabilities& GetCapabilities() override;
 
+  gpu::GpuChannelHost* gpu_channel() { return gpu_channel_.get(); }
+
  private:
+  scoped_refptr<gpu::GpuChannelHost> gpu_channel_;
+
   Mailbox AddMailbox(const Mailbox& mailbox);
 
   const raw_ptr<SharedImageInterfaceProxy> proxy_;

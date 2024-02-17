@@ -33,7 +33,6 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 import {FocusConfig} from '../focus_config.js';
 import {loadTimeData} from '../i18n_setup.js';
 import {MetricsBrowserProxy, MetricsBrowserProxyImpl, PrivacyElementInteractions} from '../metrics_browser_proxy.js';
-import {NetworkPredictionOptions} from '../performance_page/constants.js';
 import {routes} from '../route.js';
 import {Route, RouteObserverMixin, Router} from '../router.js';
 import {ContentSetting, ContentSettingsTypes, CookieControlsMode} from '../site_settings/constants.js';
@@ -124,12 +123,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         value: () => loadTimeData.getBoolean('firstPartySetsUIEnabled'),
       },
 
-      showPreloadingSubpage_: {
-        type: Boolean,
-        value: () => !loadTimeData.getBoolean(
-            'isPerformanceSettingsPreloadingSubpageEnabled'),
-      },
-
       is3pcdRedesignEnabled_: {
         type: Boolean,
         value: () =>
@@ -156,7 +149,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
   private blockAllPref_: chrome.settingsPrivate.PrefObject;
   focusConfig: FocusConfig;
   private enableFirstPartySetsUI_: boolean;
-  private showPreloadingSubpage_: boolean;
   private is3pcdRedesignEnabled_: boolean;
 
   private metricsBrowserProxy_: MetricsBrowserProxy =
@@ -178,18 +170,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
       this.focusConfig.set(
           `${routes.SITE_SETTINGS_ALL.path}_${routes.COOKIES.path}`,
           selectSiteDataLinkRow);
-    }
-
-    if (this.showPreloadingSubpage_) {
-      const selectPreloadingLinkRow = () => {
-        const toFocus =
-            this.shadowRoot!.querySelector<HTMLElement>('#preloadingLinkRow');
-        assert(toFocus);
-        focusWithoutInk(toFocus);
-      };
-      this.focusConfig.set(
-          `${routes.PRELOADING.path}_${routes.COOKIES.path}`,
-          selectPreloadingLinkRow);
     }
   }
 
@@ -268,7 +248,7 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
     const areAnyPrivacySandboxApisEnabled =
         this.getPref('privacy_sandbox.m1.topics_enabled').value ||
         this.getPref('privacy_sandbox.m1.fledge_enabled').value ||
-        this.getPref('privacy_sandbox.m1.fledge_enabled').value;
+        this.getPref('privacy_sandbox.m1.ad_measurement_enabled').value;
     const areThirdPartyCookiesAllowed =
         currentCookieControlsMode === CookieControlsMode.OFF ||
         currentCookieControlsMode === CookieControlsMode.INCOGNITO_ONLY;
@@ -287,80 +267,9 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
     primarySettingGroup.sendPrefChange();
   }
 
-  /**
-   * Record interaction metrics for the primary cookie radio setting.
-   */
-  private onCookiePrimarySettingChanged_() {
-    const primarySettingGroup: SettingsRadioGroupElement =
-        this.shadowRoot!.querySelector('#primarySettingGroup')!;
-    const selection = Number(primarySettingGroup.selected);
-    if (selection === CookiePrimarySetting.ALLOW_ALL) {
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          PrivacyElementInteractions.COOKIES_ALL);
-    } else if (selection === CookiePrimarySetting.BLOCK_THIRD_PARTY_INCOGNITO) {
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          PrivacyElementInteractions.COOKIES_INCOGNITO);
-    } else if (selection === CookiePrimarySetting.BLOCK_THIRD_PARTY) {
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          PrivacyElementInteractions.COOKIES_THIRD);
-    } else {  // CookiePrimarySetting.BLOCK_ALL
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          PrivacyElementInteractions.COOKIES_BLOCK);
-    }
-
-    // If this change resulted in the user now blocking 3P cookies where they
-    // previously were not, and privacy sandbox APIs are enabled,
-    // the privacy sandbox toast should be shown.
-    const currentCookieSetting =
-        this.getPref('generated.cookie_primary_setting').value;
-    const privacySandboxEnabled =
-        this.getPref('privacy_sandbox.apis_enabled_v2').value;
-
-    if (privacySandboxEnabled &&
-        (currentCookieSetting === CookiePrimarySetting.ALLOW_ALL ||
-         currentCookieSetting ===
-             CookiePrimarySetting.BLOCK_THIRD_PARTY_INCOGNITO) &&
-        (selection === CookiePrimarySetting.BLOCK_THIRD_PARTY ||
-         selection === CookiePrimarySetting.BLOCK_ALL)) {
-      if (!loadTimeData.getBoolean('isPrivacySandboxRestricted')) {
-        this.$.toast.show();
-      }
-      this.metricsBrowserProxy_.recordAction(
-          'Settings.PrivacySandbox.Block3PCookies');
-    } else if (
-        selection === CookiePrimarySetting.ALLOW_ALL ||
-        selection === CookiePrimarySetting.BLOCK_THIRD_PARTY_INCOGNITO) {
-      this.$.toast.hide();
-    }
-
-    primarySettingGroup.sendPrefChange();
-  }
-
   private onClearOnExitChange_() {
     this.metricsBrowserProxy_.recordSettingsPageHistogram(
         PrivacyElementInteractions.COOKIES_SESSION);
-  }
-
-  private onPreloadingClick_() {
-    this.metricsBrowserProxy_.recordSettingsPageHistogram(
-        PrivacyElementInteractions.NETWORK_PREDICTION);
-    Router.getInstance().navigateTo(routes.PRELOADING);
-  }
-
-  private getNetworkPredictionsOptionsLabel_(
-      networkPredictionOption: NetworkPredictionOptions): string {
-    if (networkPredictionOption === NetworkPredictionOptions.DISABLED) {
-      return this.i18n('preloadingPageNoPreloadingTitle');
-    }
-
-    if (networkPredictionOption === NetworkPredictionOptions.EXTENDED) {
-      return this.i18n('preloadingPageExtendedPreloadingTitle');
-    }
-
-    // NetworkPredictionOptions.WIFI_ONLY_DEPRECATED is treated the same as
-    // NetworkPredictionOptions.STANDARD.
-    // See chrome/browser/preloading/preloading_prefs.h.
-    return this.i18n('preloadingPageStandardPreloadingTitle');
   }
 
   private onPrivacySandboxClick_() {

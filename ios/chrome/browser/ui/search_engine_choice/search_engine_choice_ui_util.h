@@ -7,6 +7,8 @@
 
 #import <UIKit/UIKit.h>
 
+class TemplateURL;
+
 // UI Util containing helper methods for the choice screen UI.
 
 // Gets the correct font for the title.
@@ -23,5 +25,13 @@ UIButton* CreateMorePrimaryButton();
 void UpdatePrimaryButton(UIButton* button,
                          BOOL isConfirmButton,
                          BOOL isEnabled);
+
+// Returns embedded favicon for search engine from `template_url`. The search
+// engine has to be prepopulated.
+UIImage* SearchEngineFaviconFromTemplateURL(const TemplateURL& template_url);
+
+// Whether chrome is allowed to display the search engine choice UI in this
+// build.
+bool IsSearchEngineForceEnabled();
 
 #endif  // IOS_CHROME_BROWSER_UI_SEARCH_ENGINE_CHOICE_SEARCH_ENGINE_CHOICE_UI_UTIL_H_

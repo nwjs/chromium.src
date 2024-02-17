@@ -87,7 +87,7 @@ class WallpaperSearchInteractiveTest : public InteractiveBrowserTest {
                       })";
                 content::URLLoaderInterceptor::WriteResponse(
                     headers, body, params->client.get(),
-                    absl::optional<net::SSLInfo>());
+                    std::optional<net::SSLInfo>());
                 return true;
               }
               return false;
@@ -194,7 +194,7 @@ class WallpaperSearchInteractiveTest : public InteractiveBrowserTest {
         context, base::BindRepeating([](content::BrowserContext* context)
                                          -> std::unique_ptr<KeyedService> {
           return std::make_unique<
-              testing::NiceMock<MockOptimizationGuideKeyedService>>(context);
+              testing::NiceMock<MockOptimizationGuideKeyedService>>();
         }));
   }
 

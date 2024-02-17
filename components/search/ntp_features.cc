@@ -82,6 +82,11 @@ BASE_FEATURE(kRealboxCr23ExpandedStateLayout,
              "NtpRealboxCr23ExpandedStateLayout",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, NTP "realbox" will use CR23 hover fill shape.
+BASE_FEATURE(kRealboxCr23HoverFillShape,
+             "NtpRealboxCr23HoverFillShape",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, NTP "realbox" will be themed for CR23. Includes realbox
 // matching omnibox theme and increased realbox shadow.
 BASE_FEATURE(kRealboxCr23Theming,
@@ -126,12 +131,6 @@ BASE_FEATURE(kNtpBackgroundImageErrorDetection,
 BASE_FEATURE(kNtpChromeCartModule,
              "NtpChromeCartModule",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// If enabled, Comprehensive Theming color changes will be applied to the
-// Realbox on the New Tab Page.
-BASE_FEATURE(kNtpComprehensiveThemeRealbox,
-             "NtpComprehensiveThemeRealbox",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !defined(OFFICIAL_BUILD)
 // If enabled, dummy modules will be shown.
@@ -277,11 +276,6 @@ BASE_FEATURE(kNtpFeedModule,
              "NtpFeedModule",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, Google Lens image search will be shown in the NTP Realbox.
-BASE_FEATURE(kNtpRealboxLensSearch,
-             "NtpRealboxLensSearch",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, Google Lens image search will call Lens v3 direct upload
 // endpoint instead of uploading to Scotty.
 BASE_FEATURE(kNtpLensDirectUpload,
@@ -343,6 +337,12 @@ BASE_FEATURE(kNtpHistoryClustersModuleMaxClusters,
              "NtpHistoryClustersMaxClusters",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Dummy feature to set the history clusters rankers' metrics data query time
+// range in days.
+BASE_FEATURE(kNtpHistoryClustersModuleRankingMetricsQueryDays,
+             "NtpHistoryClustersModuleRankingMetricsQueryDays",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, module headers will display an associated icon.
 BASE_FEATURE(kNtpModulesHeaderIcon,
              "NtpModulesHeaderIcon",
@@ -352,12 +352,6 @@ BASE_FEATURE(kNtpModulesHeaderIcon,
 BASE_FEATURE(kNtpHistoryClustersModuleSuggestionChipHeader,
              "NtpHistoryClustersModuleSuggestionChipHeader",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, Discounts badge will show on the visit tile in the History
-// clusters module when available.
-BASE_FEATURE(kNtpHistoryClustersModuleDiscounts,
-             "NtpHistoryClustersModuleDiscounts",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, ChromeCart tile will show in the History clusters module when
 // available.
@@ -464,11 +458,27 @@ const char kNtpHistoryClustersModuleCategoriesBoostlistParam[] =
     "NtpHistoryClustersModuleCategoriesBoostlistParam";
 const char kNtpHistoryClustersModuleMaxClustersParam[] =
     "NtpHistoryClustersModuleMaxClustersParam";
+const char kNtpHistoryClustersModuleMaxCategoriesToRecordParam[] =
+    "NtpHistoryClustersModuleMaxCategoriesToRecordParam";
+const char kNtpHistoryClustersModuleMinCategoryWeightToRecordParam[] =
+    "NtpHistoryClustersModuleMinCategoryWeightToRecordParam";
+const char kNtpHistoryClustersModuleRankingMetricsQueryDaysParam[] =
+    "NtpHistoryClustersModuleRankingMetricsQueryDaysParam";
 const char kNtpHistoryClustersModuleScoreThresholdParam[] =
     "NtpHistoryClustersModuleScoreThresholdParam";
 const char kNtpRealboxWidthBehaviorParam[] = "NtpRealboxWidthBehaviorParam";
 const char kNtpTabResumptionModuleDataParam[] =
     "NtpTabResumptionModuleDataParam";
+const char kWallpaperSearchHatsDelayParam[] = "WallpaperSearchHatsDelayParam";
+
+const base::FeatureParam<bool> kNtpRealboxCr23ExpandedStateBgMatchesOmnibox(
+    &ntp_features::kRealboxCr23Theming,
+    "kNtpRealboxCr23ExpandedStateBgMatchesOmnibox",
+    true);
+const base::FeatureParam<bool> kNtpRealboxCr23SteadyStateShadow(
+    &ntp_features::kRealboxCr23Theming,
+    "kNtpRealboxCr23SteadyStateShadow",
+    false);
 
 base::TimeDelta GetModulesLoadTimeout() {
   std::string param_value = base::GetFieldTrialParamValueByFeature(

@@ -4,6 +4,7 @@
 
 #include "content/public/app/content_main.h"
 
+#include <optional>
 #include "content/nw/src/nw_base.h"
 
 #include "base/allocator/partition_alloc_support.h"
@@ -44,7 +45,6 @@
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/dynamic_library_support.h"
 #include "sandbox/policy/sandbox_type.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/ui_base_paths.h"
 #include "ui/base/ui_base_switches.h"
 

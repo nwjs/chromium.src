@@ -6,6 +6,9 @@
 
 #import "base/i18n/rtl.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/strings/utf_string_conversions.h"
+#import "components/search_engines/search_engine_choice_utils.h"
+#import "components/search_engines/template_url.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -15,6 +18,7 @@
 #import "ios/chrome/common/ui/util/device_util.h"
 #import "ios/chrome/common/ui/util/sdk_forward_declares.h"
 #import "ui/base/l10n/l10n_util_mac.h"
+#import "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -35,8 +39,7 @@ UIFont* GetTitleFontWithTraitCollection(UITraitCollection* trait_collection) {
   } else {
     text_style = UIFontTextStyleTitle2;
   }
-
-  DCHECK(text_style);
+  CHECK(text_style);
   UIFontDescriptor* descriptor =
       [UIFontDescriptor preferredFontDescriptorWithTextStyle:text_style];
   UIFont* font = [UIFont systemFontOfSize:descriptor.pointSize
@@ -119,4 +122,24 @@ void UpdatePrimaryButton(UIButton* button,
   button.configuration = buttonConfiguration;
   button.enabled = isEnabled;
   button.accessibilityIdentifier = kSetAsDefaultSearchEngineIdentifier;
+}
+
+UIImage* SearchEngineFaviconFromTemplateURL(const TemplateURL& template_url) {
+  // Only works for prepopulated search engines.
+  CHECK_GT(template_url.prepopulate_id(), 0, base::NotFatalUntil::M124)
+      << base::UTF16ToUTF8(template_url.short_name());
+  std::u16string engine_keyword = template_url.data().keyword();
+  int resource_id = search_engines::GetIconResourceId(engine_keyword);
+  CHECK_NE(resource_id, -1, base::NotFatalUntil::M124)
+      << base::UTF16ToUTF8(engine_keyword);
+  if (resource_id == -1) {
+    return nil;
+  }
+  ui::ResourceBundle& resource_bundle = ui::ResourceBundle::GetSharedInstance();
+  return resource_bundle.GetNativeImageNamed(resource_id).ToUIImage();
+}
+
+bool IsSearchEngineForceEnabled() {
+  return [[NSUserDefaults standardUserDefaults]
+      boolForKey:kSearchEngineForceEnabled];
 }

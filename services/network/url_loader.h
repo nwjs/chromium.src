@@ -83,7 +83,6 @@ class KeepaliveStatisticsRecorder;
 class NetToMojoPendingBuffer;
 class ScopedThrottlingToken;
 class SlopBucket;
-class URLLoaderFactory;
 
 class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
     : public mojom::URLLoader,
@@ -579,8 +578,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
 
   raw_ptr<net::URLRequestContext> url_request_context_;
 
-  raw_ptr<mojom::NetworkContextClient, DanglingUntriaged>
-      network_context_client_;
+  raw_ptr<mojom::NetworkContextClient> network_context_client_;
   DeleteCallback delete_callback_;
 
   int32_t options_;

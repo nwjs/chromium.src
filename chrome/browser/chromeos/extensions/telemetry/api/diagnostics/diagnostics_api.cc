@@ -66,7 +66,7 @@ ParseRoutineArgumentSupportResult(
 // DiagnosticsApiFunctionV1AndV2Base -------------------------------------------
 
 template <class Params>
-absl::optional<Params> DiagnosticsApiFunctionV1AndV2Base::GetParams() {
+std::optional<Params> DiagnosticsApiFunctionV1AndV2Base::GetParams() {
   auto params = Params::Create(args());
   if (!params) {
     SetBadMessage();
@@ -459,7 +459,7 @@ void OsDiagnosticsRunSignalStrengthRoutineFunction::RunIfAllowed() {
 // OsDiagnosticsRunSmartctlCheckRoutineFunction --------------------------------
 
 void OsDiagnosticsRunSmartctlCheckRoutineFunction::RunIfAllowed() {
-  absl::optional<cx_diag::RunSmartctlCheckRoutine::Params> params(
+  std::optional<cx_diag::RunSmartctlCheckRoutine::Params> params(
       cx_diag::RunSmartctlCheckRoutine::Params::Create(args()));
 
   crosapi::mojom::UInt32ValuePtr percentage_used;
@@ -508,10 +508,12 @@ void OsDiagnosticsRunFanRoutineFunction::RunIfAllowed() {
 // OsDiagnosticsCreateMemoryRoutineFunction ------------------------------------
 
 void OsDiagnosticsCreateMemoryRoutineFunction::RunIfAllowed() {
-  absl::optional<cx_diag::CreateMemoryRoutine::Params> params(
+  std::optional<cx_diag::CreateMemoryRoutine::Params> params(
       cx_diag::CreateMemoryRoutine::Params::Create(args()));
 
-  if (!params.has_value() || params.value().args.max_testing_mem_kib < 0) {
+  if (!params.has_value() ||
+      (params.value().args.max_testing_mem_kib.has_value() &&
+       params.value().args.max_testing_mem_kib < 0)) {
     SetBadMessage();
     Respond(BadMessage());
     return;
@@ -519,7 +521,9 @@ void OsDiagnosticsCreateMemoryRoutineFunction::RunIfAllowed() {
 
   auto memory_arg =
       crosapi::mojom::TelemetryDiagnosticMemoryRoutineArgument::New();
-  memory_arg->max_testing_mem_kib = params.value().args.max_testing_mem_kib;
+  if (params.value().args.max_testing_mem_kib.has_value()) {
+    memory_arg->max_testing_mem_kib = params.value().args.max_testing_mem_kib;
+  }
 
   auto* routines_manager = DiagnosticRoutineManager::Get(browser_context());
   auto result = routines_manager->CreateRoutine(
@@ -549,7 +553,7 @@ void OsDiagnosticsCreateMemoryRoutineFunction::RunIfAllowed() {
 // ------------------------------------
 
 void OsDiagnosticsCreateVolumeButtonRoutineFunction::RunIfAllowed() {
-  absl::optional<cx_diag::CreateVolumeButtonRoutine::Params> params(
+  std::optional<cx_diag::CreateVolumeButtonRoutine::Params> params(
       cx_diag::CreateVolumeButtonRoutine::Params::Create(args()));
 
   if (!params.has_value() || params.value().args.timeout_seconds <= 0 ||
@@ -594,7 +598,7 @@ void OsDiagnosticsCreateVolumeButtonRoutineFunction::RunIfAllowed() {
 // OsDiagnosticsCreateFanRoutineFunction ------------------------------------
 
 void OsDiagnosticsCreateFanRoutineFunction::RunIfAllowed() {
-  absl::optional<cx_diag::CreateFanRoutine::Params> params(
+  std::optional<cx_diag::CreateFanRoutine::Params> params(
       cx_diag::CreateFanRoutine::Params::Create(args()));
 
   if (!params.has_value()) {

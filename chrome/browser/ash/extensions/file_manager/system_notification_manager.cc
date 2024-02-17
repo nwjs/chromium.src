@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/extensions/file_manager/system_notification_manager.h"
 
+#include <optional>
 #include <string>
 
 #include "ash/components/arc/arc_prefs.h"
@@ -38,7 +39,6 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extension_event_histogram_value.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/chromeos/strings/grit/ui_chromeos_strings.h"
 #include "ui/message_center/public/cpp/notification.h"
@@ -256,7 +256,7 @@ NotificationPtr SystemNotificationManager::CreateNotification(
 
 void SystemNotificationManager::HandleProgressClick(
     const std::string& notification_id,
-    absl::optional<int> button_index) {
+    std::optional<int> button_index) {
   if (button_index) {
     // Cancel the copy operation.
     FileSystemContextPtr file_system_context =
@@ -353,7 +353,7 @@ void SystemNotificationManager::HandleIOTaskProgressNotificationClick(
     IOTaskId task_id,
     const std::string& notification_id,
     const bool paused,
-    absl::optional<int> button_index) {
+    std::optional<int> button_index) {
   if (!button_index.has_value()) {
     return;
   }
@@ -621,7 +621,7 @@ NotificationPtr SystemNotificationManager::MakeDriveSyncErrorNotification(
 static const char kDriveDialogId[] = "swa-drive-confirm-dialog";
 
 void SystemNotificationManager::HandleDriveDialogClick(
-    absl::optional<int> button_index) {
+    std::optional<int> button_index) {
   drivefs::mojom::DialogResult result = drivefs::mojom::DialogResult::kDismiss;
   if (button_index) {
     if (button_index.value() == 1) {
@@ -665,64 +665,6 @@ NotificationPtr SystemNotificationManager::MakeDriveConfirmDialogNotification(
   return notification;
 }
 
-NotificationPtr SystemNotificationManager::UpdateDriveSyncNotification(
-    const Event& event) {
-  DCHECK(!event.event_args.empty());
-  auto status = fmp::FileTransferStatus::FromValue(event.event_args[0]);
-  if (!status) {
-    LOG(ERROR) << "Cannot parse FileTransferStatus from "
-               << event.event_args[0];
-    return nullptr;
-  }
-
-  // Work out if this is a sync or pin update.
-  const bool is_sync_operation =
-      (event.histogram_value == FILE_MANAGER_PRIVATE_ON_FILE_TRANSFERS_UPDATED);
-
-  constexpr char kDriveSyncId[] = "swa-drive-sync";
-  constexpr char kDrivePinId[] = "swa-drive-pin";
-
-  // Close if notifications are disabled for this transfer.
-  if (!status->show_notification) {
-    GetNotificationDisplayService()->Close(
-        NotificationHandler::Type::TRANSIENT,
-        is_sync_operation ? kDriveSyncId : kDrivePinId);
-    return nullptr;
-  }
-
-  using enum fmp::TransferState;
-  if (status->transfer_state == fmp::TransferState::kCompleted ||
-      status->transfer_state == fmp::TransferState::kFailed) {
-    // We only close when there are no jobs left, we could have received
-    // a TRANSFER_STATE_COMPLETED event when there are more jobs to run.
-    if (status->num_total_jobs == 0) {
-      GetNotificationDisplayService()->Close(
-          NotificationHandler::Type::TRANSIENT,
-          is_sync_operation ? kDriveSyncId : kDrivePinId);
-    }
-
-    return nullptr;
-  }
-
-  std::u16string message =
-      status->num_total_jobs == 1
-          ? GetStringFUTF16(
-                is_sync_operation ? IDS_FILE_BROWSER_SYNC_FILE_NAME
-                                  : IDS_FILE_BROWSER_OFFLINE_PROGRESS_MESSAGE,
-                util::GetDisplayableFileName16(GURL(status->file_url)))
-          : GetStringFUTF16(
-                is_sync_operation
-                    ? IDS_FILE_BROWSER_SYNC_FILE_NUMBER
-                    : IDS_FILE_BROWSER_OFFLINE_PROGRESS_MESSAGE_PLURAL,
-                base::NumberToString16(status->num_total_jobs));
-
-  return CreateProgressNotification(
-      is_sync_operation ? kDriveSyncId : kDrivePinId,
-      GetStringUTF16(IDS_FILE_BROWSER_GRID_VIEW_FILES_TITLE),
-      std::move(message),
-      static_cast<int>((status->processed / status->total) * 100.0));
-}
-
 void SystemNotificationManager::HandleEvent(const Event& event) {
   if (event.event_args.empty()) {
     DLOG(WARNING) << "Ignored empty Event {name: " << event.event_name
@@ -742,11 +684,6 @@ void SystemNotificationManager::HandleEvent(const Event& event) {
     case FILE_MANAGER_PRIVATE_ON_DRIVE_CONFIRM_DIALOG:
       notification = MakeDriveConfirmDialogNotification(event);
       force_as_system_notification = true;
-      break;
-
-    case FILE_MANAGER_PRIVATE_ON_FILE_TRANSFERS_UPDATED:
-    case FILE_MANAGER_PRIVATE_ON_PIN_TRANSFERS_UPDATED:
-      notification = UpdateDriveSyncNotification(event);
       break;
 
     case FILE_MANAGER_PRIVATE_ON_BULK_PIN_PROGRESS:
@@ -862,7 +799,7 @@ void SystemNotificationManager::HandleRemovableNotificationClick(
     const std::string& path,
     const std::vector<DeviceNotificationUserActionUmaType>&
         uma_types_for_buttons,
-    absl::optional<int> button_index) {
+    std::optional<int> button_index) {
   if (button_index) {
     if (button_index.value() == 0) {
       base::FilePath volume_root(path);
@@ -885,7 +822,7 @@ void SystemNotificationManager::HandleRemovableNotificationClick(
 void SystemNotificationManager::HandleDataProtectionPolicyNotificationClick(
     RepeatingClosure proceed_callback,
     RepeatingClosure cancel_callback,
-    absl::optional<int> button_index) {
+    std::optional<int> button_index) {
   if (!button_index.has_value()) {
     return;
   }
@@ -1113,9 +1050,10 @@ NotificationPtr
 SystemNotificationManager::MakeDataProtectionPolicyProgressNotification(
     const std::string& notification_id,
     const ProgressStatus& status) {
-  // TODO(b/279435843): Replace with translation strings.
   std::u16string message =
-      u"Checking files with your organization's security policies.";
+      status.sources.size() > 1
+          ? GetStringUTF16(IDS_FILE_BROWSER_SCANNING_LABEL_PLURAL)
+          : GetStringUTF16(IDS_FILE_BROWSER_SCANNING_LABEL);
   int progress = status.sources_scanned * 100.0 / status.sources.size();
   return CreateIOTaskProgressNotification(status.task_id, notification_id,
                                           app_name_, message, /*paused=*/false,

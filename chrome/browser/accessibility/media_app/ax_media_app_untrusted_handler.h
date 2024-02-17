@@ -20,8 +20,7 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/ax_mode_observer.h"
-#include "ui/accessibility/platform/ax_platform_node.h"
-#include "ui/gfx/geometry/insets.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -44,6 +43,12 @@ struct AXActionData;
 
 namespace ash {
 
+struct AXMediaAppPageMetadata : ash::media_app_ui::mojom::PageMetadata {
+  // The page number of the page that this metadata describes. 1-indexed (0
+  // indexed pages are 'deleted' pages).
+  uint32_t page_num;
+};
+
 class AXMediaAppUntrustedHandler : private ui::AXActionHandlerBase,
                           public media_app_ui::mojom::OcrUntrustedPageHandler,
                           private ui::AXModeObserver
@@ -63,12 +68,10 @@ class AXMediaAppUntrustedHandler : private ui::AXActionHandlerBase,
 
   bool IsOcrServiceEnabled() const;
   bool IsAccessibilityEnabled() const;
-  void DocumentUpdated(const std::vector<gfx::Insets>& page_locations,
-                       const std::vector<uint64_t>& dirty_pages);
-  void ViewportUpdated(const gfx::Insets& viewport_box, float scaleFactor);
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  const std::vector<std::unique_ptr<ui::AXTreeManager>>& GetPagesForTesting() {
+  const std::map<const std::string, std::unique_ptr<ui::AXTreeManager>>&
+  GetPagesForTesting() {
     return pages_;
   }
 
@@ -92,6 +95,13 @@ class AXMediaAppUntrustedHandler : private ui::AXActionHandlerBase,
   // ui::AXModeObserver:
   void OnAXModeAdded(ui::AXMode mode) override;
 
+  // ash::media_app_ui::mojom::OcrUntrustedPageHandler:
+  void PageMetadataUpdated(
+      const std::vector<ash::media_app_ui::mojom::PageMetadataPtr>
+          page_metadata) override;
+  void ViewportUpdated(const gfx::RectF& viewport_box,
+                       float scale_factor) override;
+
   // TODO(b/309860428): Delete once AXMediaApp is deleted.
   void SetMediaAppForTesting(AXMediaApp* media_app) { media_app_ = media_app; }
 
@@ -99,17 +109,20 @@ class AXMediaAppUntrustedHandler : private ui::AXActionHandlerBase,
   // `AXMediaApp` should outlive this handler.
   // TODO(b/309860428): Delete once AXMediaApp is deleted.
   raw_ptr<AXMediaApp> media_app_;
+  std::map<const std::string, AXMediaAppPageMetadata> page_metadata_;
 
  private:
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  void UpdatePageLocation(uint64_t page_index,
-                          const gfx::Insets& page_location);
+  void UpdatePageLocation(const std::string& page_id,
+                          const gfx::RectF& page_location);
   void OcrNextDirtyPageIfAny();
-  void OnPageOcred(uint64_t dirty_page_index,
+  void OnPageOcred(const std::string& dirty_page_id,
                    const ui::AXTreeUpdate& tree_update);
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
-  std::vector<gfx::Insets> page_locations_;
+  base::ScopedObservation<ui::AXPlatform, ui::AXModeObserver>
+      ax_mode_observation_{this};
+
   // This `BrowserContext` will always outlive the WebUI, so this is safe.
   raw_ref<content::BrowserContext> browser_context_;
   mojo::Remote<media_app_ui::mojom::OcrUntrustedPage> media_app_page_;
@@ -121,9 +134,9 @@ class AXMediaAppUntrustedHandler : private ui::AXActionHandlerBase,
   base::ScopedObservation<screen_ai::ScreenAIInstallState,
                           screen_ai::ScreenAIInstallState::Observer>
       screen_ai_component_state_observer_{this};
-  base::queue<uint64_t> dirty_page_indices_;
+  base::queue<std::string> dirty_page_ids_;
   ui::AXTreeManager document_;
-  std::vector<std::unique_ptr<ui::AXTreeManager>> pages_;
+  std::map<const std::string, std::unique_ptr<ui::AXTreeManager>> pages_;
   mojo::Remote<screen_ai::mojom::ScreenAIAnnotator> screen_ai_annotator_;
   SEQUENCE_CHECKER(sequence_checker_);
   base::WeakPtrFactory<AXMediaAppUntrustedHandler> weak_ptr_factory_{this};

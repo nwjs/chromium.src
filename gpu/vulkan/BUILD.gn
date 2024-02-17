@@ -125,6 +125,7 @@ if (enable_vulkan) {
       "//build:chromeos_buildflags",
       "//components/crash/core/common:crash_key",
       "//gpu/ipc/common:vulkan_ycbcr_info",
+      "//ui/base:ozone_buildflags",
       "//ui/gfx",
       "//ui/gl",
     ]
@@ -147,7 +148,6 @@ if (enable_vulkan) {
 
     if (is_android) {
       sources += [ "vulkan_image_android.cc" ]
-      deps += [ "//gpu/config:config" ]
     }
 
     if (is_fuchsia) {
@@ -168,6 +168,10 @@ if (enable_vulkan) {
       ]
 
       deps += [ "//ui/ozone:drm_modifiers_filter" ]
+    }
+
+    if (is_chromeos_ash) {
+      deps += [ "//ui/gfx/linux:drm" ]
     }
 
     if (is_fuchsia) {

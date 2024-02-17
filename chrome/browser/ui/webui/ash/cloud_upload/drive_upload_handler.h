@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_WEBUI_ASH_CLOUD_UPLOAD_DRIVE_UPLOAD_HANDLER_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/files/file_path.h"
@@ -24,7 +25,6 @@
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "storage/browser/file_system/file_system_url.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
 class Profile;
@@ -42,7 +42,7 @@ class DriveUploadHandler : public base::RefCounted<DriveUploadHandler>,
                            drive::DriveIntegrationService::Observer {
  public:
   using UploadCallback =
-      base::OnceCallback<void(OfficeTaskResult, absl::optional<GURL>, int64_t)>;
+      base::OnceCallback<void(OfficeTaskResult, std::optional<GURL>, int64_t)>;
 
   // Starts the upload workflow for the file specified at construct time.
   static void Upload(Profile* profile,
@@ -128,12 +128,11 @@ class DriveUploadHandler : public base::RefCounted<DriveUploadHandler>,
   // the timeout for getting the alternate URL is hit.
   void CheckAlternateUrl(bool timed_out);
 
-  const raw_ptr<Profile, ExperimentalAsh> profile_;
+  const raw_ptr<Profile> profile_;
   scoped_refptr<storage::FileSystemContext> file_system_context_;
-  raw_ptr<::file_manager::io_task::IOTaskController, ExperimentalAsh>
-      io_task_controller_ = nullptr;
-  const raw_ptr<drive::DriveIntegrationService, ExperimentalAsh>
-      drive_integration_service_;
+  raw_ptr<::file_manager::io_task::IOTaskController> io_task_controller_ =
+      nullptr;
+  const raw_ptr<drive::DriveIntegrationService> drive_integration_service_;
   const UploadType upload_type_;
   scoped_refptr<CloudUploadNotificationManager> notification_manager_;
   const storage::FileSystemURL source_url_;

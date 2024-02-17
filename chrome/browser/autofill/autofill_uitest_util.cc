@@ -41,10 +41,6 @@ void PdmChangeWaiter::OnPersonalDataChanged() {
   alerted_ = true;
 }
 
-void PdmChangeWaiter::OnInsufficientFormData() {
-  OnPersonalDataChanged();
-}
-
 void PdmChangeWaiter::Wait() {
   if (!alerted_) {
     run_loop_.Run();
@@ -112,7 +108,7 @@ void GenerateTestAutofillPopup(ContentAutofillDriver& driver,
                                    {AutofillManagerEvent::kAskForValuesToFill});
   driver.renderer_events().AskForValuesToFill(
       form, form.fields.front(), element_bounds,
-      AutofillSuggestionTriggerSource::kTextFieldDidChange);
+      AutofillSuggestionTriggerSource::kFormControlElementClicked);
   ASSERT_TRUE(waiter.Wait());
   ASSERT_EQ(1u, driver.GetAutofillManager().form_structures().size());
   // `form.host_frame` and `form.url` have only been set by
@@ -125,9 +121,7 @@ void GenerateTestAutofillPopup(ContentAutofillDriver& driver,
   std::vector<Suggestion> suggestions = {Suggestion(u"Test suggestion")};
   test_api(static_cast<BrowserAutofillManager&>(driver.GetAutofillManager()))
       .external_delegate()
-      ->OnSuggestionsReturned(
-          form.fields.front().global_id(), suggestions,
-          AutofillSuggestionTriggerSource::kFormControlElementClicked);
+      ->OnSuggestionsReturned(form.fields.front().global_id(), suggestions);
 }
 
 }  // namespace autofill

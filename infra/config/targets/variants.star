@@ -519,25 +519,6 @@ targets.variant(
 )
 
 targets.variant(
-    name = "LACROS_EVE",
-    identifier = "eve",
-    args = [
-        "--board=eve",
-        "--flash",
-    ],
-    # TODO: crbug.com/1479528 - We have limited eve ChromeOS capacity in
-    # swarming, switch the try builders to use skylab or add additional ChromeOS
-    # capacity if we want to test eve on the CQ
-    ci_only = True,
-    swarming = targets.swarming(
-        dimensions = {
-            "os": "ChromeOS",
-            "device_type": "eve",
-        },
-    ),
-)
-
-targets.variant(
     name = "WIN10_INTEL_UHD_630_STABLE",
     identifier = "8086:9bc5",
     mixins = [
@@ -573,7 +554,7 @@ targets.variant(
         "--chromedriver",
         "chromedriver",
         "--binary",
-        "Chromium.app/Contents/MacOS/Chromium",
+        "Google Chrome.app/Contents/MacOS/Google Chrome",
     ],
     win_args = [
         "--chromedriver",

@@ -75,9 +75,9 @@ class VIEWS_EXPORT Textfield : public View,
                                public SelectionControllerDelegate,
                                public ui::TouchEditable,
                                public ui::TextInputClient {
- public:
-  METADATA_HEADER(Textfield);
+  METADATA_HEADER(Textfield, View)
 
+ public:
   enum MenuCommands {
     kUndo = kLastTouchEditableCommandId + 1,
     kDelete,
@@ -231,7 +231,7 @@ class VIEWS_EXPORT Textfield : public View,
   void SetMinimumWidthInChars(int minimum_width);
 
   // Gets/Sets the text to display when empty.
-  std::u16string GetPlaceholderText() const;
+  const std::u16string& GetPlaceholderText() const;
   void SetPlaceholderText(const std::u16string& text);
 
   void set_placeholder_text_color(SkColor color) {

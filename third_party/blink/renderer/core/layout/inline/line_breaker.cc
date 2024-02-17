@@ -1302,7 +1302,7 @@ void LineBreaker::SplitTextIntoSegments(const InlineItem& item,
       continue;
     InlineItemResult* result = AddItem(item, glyph_end, line_info);
     result->should_create_line_box = true;
-    auto shape_result_view =
+    auto* shape_result_view =
         ShapeResultView::Create(&shape, current_.text_offset, glyph_end);
     // For general CSS text, we apply SnappedWidth().ClampNegativeToZero().
     // However we need to remove ClampNegativeToZero() for SVG <text> in order
@@ -1395,6 +1395,7 @@ LineBreaker::BreakResult LineBreaker::BreakText(
   const ComputedStyle& style = *item.Style();
   breaker.SetTextSpacingTrim(style.GetFontDescription().GetTextSpacingTrim());
   breaker.SetLineStart(line_info->StartOffset());
+  breaker.SetIsAfterForcedBreak(previous_line_had_forced_break_);
 
   // Reshaping between the last character and trailing spaces is needed only
   // when we need accurate end position, because kerning between trailing spaces
@@ -1425,7 +1426,7 @@ LineBreaker::BreakResult LineBreaker::BreakText(
     ++try_count;
     DCHECK_LE(try_count, 2u);
 #endif
-    scoped_refptr<const ShapeResultView> shape_result =
+    const ShapeResultView* shape_result =
         breaker.ShapeLine(item_result->StartOffset(),
                           available_width.ClampNegativeToZero(), &result);
 
@@ -1465,7 +1466,7 @@ LineBreaker::BreakResult LineBreaker::BreakText(
     item_result->text_offset.end = result.break_offset;
     item_result->text_offset.AssertNotEmpty();
     item_result->has_only_trailing_spaces = result.has_trailing_spaces;
-    item_result->shape_result = std::move(shape_result);
+    item_result->shape_result = shape_result;
     break;
   }
 
@@ -1517,11 +1518,11 @@ bool LineBreaker::BreakTextAt(InlineItemResult* item_result,
     DCHECK_GE(break_at_.end.text_offset, item_result->text_offset.end);
   }
   if (item_result->Length()) {
-    scoped_refptr<const ShapeResultView> shape_result = breaker.ShapeLineAt(
+    const ShapeResultView* shape_result = breaker.ShapeLineAt(
         item_result->StartOffset(), item_result->EndOffset());
     item_result->inline_size =
         shape_result->SnappedWidth().ClampNegativeToZero();
-    item_result->shape_result = std::move(shape_result);
+    item_result->shape_result = shape_result;
     if (break_at_.is_hyphenated) {
       AddHyphen(line_info->MutableResults(), item_result);
     }
@@ -2046,7 +2047,7 @@ bool LineBreaker::CanBreakInside(const InlineItemResult& item_result) {
 
 // Compute a new ShapeResult for the specified end offset.
 // The end is re-shaped if it is not safe-to-break.
-scoped_refptr<ShapeResultView> LineBreaker::TruncateLineEndResult(
+const ShapeResultView* LineBreaker::TruncateLineEndResult(
     const LineInfo& line_info,
     const InlineItemResult& item_result,
     unsigned end_offset) {
@@ -2055,7 +2056,7 @@ scoped_refptr<ShapeResultView> LineBreaker::TruncateLineEndResult(
 
   // Check given offsets require to truncate |item_result.shape_result|.
   const unsigned start_offset = item_result.StartOffset();
-  const ShapeResultView* source_result = item_result.shape_result.get();
+  const ShapeResultView* source_result = item_result.shape_result.Get();
   DCHECK(source_result);
   DCHECK_GE(start_offset, source_result->StartIndex());
   DCHECK_LE(end_offset, source_result->EndIndex());
@@ -2247,7 +2248,7 @@ void LineBreaker::RemoveTrailingCollapsibleSpace(LineInfo* line_info) {
   // We have a trailing collapsible space. Remove it.
   InlineItemResult* item_result = trailing_collapsible_space_->item_result;
   position_ -= item_result->inline_size;
-  if (scoped_refptr<const ShapeResultView>& collapsed_shape_result =
+  if (const ShapeResultView* collapsed_shape_result =
           trailing_collapsible_space_->collapsed_shape_result) {
     --item_result->text_offset.end;
     item_result->text_offset.AssertNotEmpty();
@@ -2273,7 +2274,7 @@ LayoutUnit LineBreaker::TrailingCollapsibleSpaceWidth(LineInfo* line_info) {
   // Normally, the width of new_reuslt is smaller, but technically it can be
   // larger. In such case, it means the trailing spaces has negative width.
   InlineItemResult* item_result = trailing_collapsible_space_->item_result;
-  if (scoped_refptr<const ShapeResultView>& collapsed_shape_result =
+  if (const ShapeResultView* collapsed_shape_result =
           trailing_collapsible_space_->collapsed_shape_result) {
     return item_result->inline_size - collapsed_shape_result->SnappedWidth();
   }
@@ -2595,6 +2596,8 @@ void LineBreaker::HandleAtomicInline(const InlineItem& item,
             .LayoutAtomicInline(constraint_space_, node_.Style(),
                                 /* use_first_line_style */ false,
                                 baseline_algorithm_type);
+    // Ensure `NeedsCollectInlines` isn't set, or it may cause security risks.
+    CHECK(!node_.GetLayoutBox()->NeedsCollectInlines());
 
     const auto& physical_box_fragment = To<PhysicalBoxFragment>(
         item_result->layout_result->GetPhysicalFragment());
@@ -2675,6 +2678,8 @@ void LineBreaker::ComputeMinMaxContentSizeForBlockChild(
 
   const MinMaxSizesResult result =
       ComputeMinAndMaxContentContribution(node_.Style(), child, space);
+  // Ensure `NeedsCollectInlines` isn't set, or it may cause security risks.
+  CHECK(!node_.GetLayoutBox()->NeedsCollectInlines());
   const LayoutUnit inline_margins = item_result->margins.InlineSum();
   if (mode_ == LineBreakerMode::kMinContent) {
     item_result->inline_size = result.sizes.min_size + inline_margins;
@@ -2724,6 +2729,8 @@ void LineBreaker::HandleBlockInInline(const InlineItem& item,
     const LayoutResult* layout_result =
         block_node.Layout(constraint_space_, block_break_token,
                           /* early_break */ nullptr, spanner_path_for_child);
+    // Ensure `NeedsCollectInlines` isn't set, or it may cause security risks.
+    CHECK(!node_.GetLayoutBox()->NeedsCollectInlines());
     line_info->SetBlockInInlineLayoutResult(layout_result);
 
     // Early exit if the layout didn't succeed.
@@ -2866,13 +2873,19 @@ void LineBreaker::HandleFloat(const InlineItem& item,
     item_result->positioned_float =
         leading_floats_.floats[leading_floats_index_++];
 
+    // Save a backup copy of `exclusion_space_` even if leading floats don't
+    // modify it. See `RewindFloat`.
+    DCHECK(exclusion_space_);
+    item_result->exclusion_space_before_position_float.CopyFrom(
+        *exclusion_space_);
+
     // Don't break after leading floats if indented.
     if (position_ != 0)
       item_result->can_break_after = false;
     return;
   }
 
-  LayoutUnit bfc_block_offset = line_opportunity_.bfc_block_offset;
+  const LayoutUnit bfc_block_offset = line_opportunity_.bfc_block_offset;
   UnpositionedFloat unpositioned_float(
       BlockNode(To<LayoutBox>(item.GetLayoutObject())), float_break_token,
       constraint_space_.AvailableSize(),
@@ -2891,8 +2904,16 @@ void LineBreaker::HandleFloat(const InlineItem& item,
     return;
   }
 
+  // Save a backup copy of `exclusion_space_` for when rewinding. See
+  // `RewindFloats`.
+  DCHECK(exclusion_space_);
+  item_result->exclusion_space_before_position_float.CopyFrom(
+      *exclusion_space_);
+
   item_result->positioned_float =
       PositionFloat(&unpositioned_float, exclusion_space_);
+  // Ensure `NeedsCollectInlines` isn't set, or it may cause security risks.
+  CHECK(!node_.GetLayoutBox()->NeedsCollectInlines());
 
   if (constraint_space_.HasBlockFragmentation()) {
     if (const auto* break_token = item_result->positioned_float->BreakToken()) {
@@ -2909,6 +2930,11 @@ void LineBreaker::HandleFloat(const InlineItem& item,
     }
   }
 
+  UpdateLineOpportunity();
+}
+
+void LineBreaker::UpdateLineOpportunity() {
+  const LayoutUnit bfc_block_offset = line_opportunity_.bfc_block_offset;
   LayoutOpportunity opportunity = exclusion_space_->FindLayoutOpportunity(
       {constraint_space_.GetBfcOffset().line_offset, bfc_block_offset},
       constraint_space_.AvailableSize().inline_size);
@@ -2920,6 +2946,35 @@ void LineBreaker::HandleFloat(const InlineItem& item,
   UpdateAvailableWidth();
 
   DCHECK_GE(AvailableWidth(), LayoutUnit());
+}
+
+// Restore the states changed by `HandleFloat` to before
+// `item_results[new_end]`.
+void LineBreaker::RewindFloats(unsigned new_end,
+                               InlineItemResults& item_results) {
+  for (const InlineItemResult& item_result :
+       base::make_span(item_results).subspan(new_end)) {
+    if (item_result.positioned_float) {
+      // Adjust `leading_floats_index_` if this is a leading float. See
+      // `HandleFloat` and `PositionLeadingFloats`.
+      if (item_result.item_index < leading_floats_.handled_index) {
+        for (unsigned i = 0; i < leading_floats_.floats.size(); ++i) {
+          if (leading_floats_.floats[i].layout_result ==
+              item_result.positioned_float->layout_result) {
+            leading_floats_index_ = i;
+            // Need to restore `exclusion_space_` even if leading floats don't
+            // modify `exclusion_space_`, because there may be following
+            // non-leading floats that modified it.
+            break;
+          }
+        }
+      }
+
+      *exclusion_space_ = item_result.exclusion_space_before_position_float;
+      UpdateLineOpportunity();
+      break;
+    }
+  }
 }
 
 void LineBreaker::HandleInitialLetter(const InlineItem& item,
@@ -3393,41 +3448,53 @@ void LineBreaker::Rewind(unsigned new_end, LineInfo* line_info) {
     last_rewind_.emplace(RewindIndex{current_.item_index, new_end});
   }
 
-  // Avoid rewinding floats if possible. They will be added back anyway while
-  // processing trailing items even when zero available width. Also this saves
-  // most cases where our support for rewinding positioned floats is not great
-  // yet (see below.)
-  while (item_results[new_end].item->Type() == InlineItem::kFloating) {
-    // We assume floats can break after, or this may cause an infinite loop.
-    DCHECK(item_results[new_end].can_break_after);
-    ++new_end;
-    if (new_end == item_results.size()) {
-      if (UNLIKELY(!hyphen_index_ && has_any_hyphens_))
-        RestoreLastHyphen(&item_results);
-      position_ = line_info->ComputeWidth();
-      return;
-    }
-  }
+  // Check if floats are being rewound.
+  if (RuntimeEnabledFeatures::RewindFloatsEnabled()) {
+    RewindFloats(new_end, item_results);
+  } else {
+    // The code and comments in this `else` block is obsolete when
+    // `RewindFloatsEnabled` is enabled, and will be removed when the flag
+    // didn't hit any web-compat issues. See crbug.com/1499290 and its CLs for
+    // more details.
 
-  // Because floats are added to |positioned_floats_| or |unpositioned_floats_|,
-  // rewinding them needs to remove from these lists too.
-  for (unsigned i = item_results.size(); i > new_end;) {
-    InlineItemResult& rewind = item_results[--i];
-    if (rewind.positioned_float) {
+    // Avoid rewinding floats if possible. They will be added back anyway while
+    // processing trailing items even when zero available width. Also this saves
+    // most cases where our support for rewinding positioned floats is not great
+    // yet (see below.)
+    while (item_results[new_end].item->Type() == InlineItem::kFloating) {
       // We assume floats can break after, or this may cause an infinite loop.
-      DCHECK(rewind.can_break_after);
-      // TODO(kojii): We do not have mechanism to remove once positioned floats
-      // yet, and that rewinding them may lay it out twice. For now, prohibit
-      // rewinding positioned floats. This may results in incorrect layout, but
-      // still better than rewinding them.
-      new_end = i + 1;
+      DCHECK(item_results[new_end].can_break_after);
+      ++new_end;
       if (new_end == item_results.size()) {
         if (UNLIKELY(!hyphen_index_ && has_any_hyphens_))
           RestoreLastHyphen(&item_results);
         position_ = line_info->ComputeWidth();
         return;
       }
-      break;
+    }
+
+    // Because floats are added to |positioned_floats_| or
+    // |unpositioned_floats_|, rewinding them needs to remove from these lists
+    // too.
+    for (unsigned i = item_results.size(); i > new_end;) {
+      InlineItemResult& rewind = item_results[--i];
+      if (rewind.positioned_float) {
+        // We assume floats can break after, or this may cause an infinite loop.
+        DCHECK(rewind.can_break_after);
+        // TODO(kojii): We do not have mechanism to remove once positioned
+        // floats yet, and that rewinding them may lay it out twice. For now,
+        // prohibit rewinding positioned floats. This may results in incorrect
+        // layout, but still better than rewinding them.
+        new_end = i + 1;
+        if (new_end == item_results.size()) {
+          if (UNLIKELY(!hyphen_index_ && has_any_hyphens_)) {
+            RestoreLastHyphen(&item_results);
+          }
+          position_ = line_info->ComputeWidth();
+          return;
+        }
+        break;
+      }
     }
   }
 

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/signin/turn_sync_on_helper.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "base/containers/flat_set.h"
@@ -30,6 +31,7 @@
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -52,9 +54,14 @@
 #include "components/policy/core/common/mock_policy_service.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/search_engines_pref_names.h"
+#include "components/search_engines/search_engines_switches.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -69,7 +76,6 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "chrome/browser/lacros/account_manager/account_profile_mapper.h"
@@ -96,14 +102,12 @@ const signin_metrics::AccessPoint kAccessPoint =
     signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER;
 const signin_metrics::PromoAction kSigninPromoAction =
     signin_metrics::PromoAction::PROMO_ACTION_WITH_DEFAULT;
-const signin_metrics::Reason kSigninReason =
-    signin_metrics::Reason::kReauthentication;
 
 struct ExpectedMetricsState {
   // Access point that triggered sign-in, might be different from the one
   // associated sync opt-in, which is always `kAccessPoint`.
-  absl::optional<signin_metrics::AccessPoint> sign_in_access_point =
-      absl::nullopt;
+  std::optional<signin_metrics::AccessPoint> sign_in_access_point =
+      std::nullopt;
 
   // Whether TurnSyncOnHelper is expected to have recorded a sign-in.
   bool sign_in_recorded = false;
@@ -534,6 +538,9 @@ class TurnSyncOnHelperTest : public testing::Test {
     profile_builder.AddTestingFactory(
         policy::UserPolicySigninServiceFactory::GetInstance(),
         base::BindRepeating(&FakeUserPolicySigninService::Build));
+    profile_builder.AddTestingFactory(
+        TemplateURLServiceFactory::GetInstance(),
+        base::BindRepeating(&TemplateURLServiceFactory::BuildInstanceFor));
   }
 
   void ClearProfile() {
@@ -564,8 +571,8 @@ class TurnSyncOnHelperTest : public testing::Test {
     WeakClosure weak_closure;
 
     auto* helper = new TurnSyncOnHelper(
-        profile(), kAccessPoint, kSigninPromoAction, kSigninReason, account_id_,
-        mode, std::make_unique<TestTurnSyncOnHelperDelegate>(this),
+        profile(), kAccessPoint, kSigninPromoAction, account_id_, mode,
+        std::make_unique<TestTurnSyncOnHelperDelegate>(this),
         weak_closure.Get().Then(flow_completion_loop_.QuitClosure()));
 
     // In no circumstance should the flow complete synchronously. It can cause
@@ -670,8 +677,6 @@ class TurnSyncOnHelperTest : public testing::Test {
     EXPECT_THAT(
         histogram_tester_->GetAllSamples("Signin.SigninCompletedAccessPoint"),
         BucketsAre(Bucket(kAccessPoint, expected.sign_in_recorded)));
-    EXPECT_THAT(histogram_tester_->GetAllSamples("Signin.SigninReason"),
-                BucketsAre(Bucket(kSigninReason, expected.sign_in_recorded)));
 
     EXPECT_THAT(histogram_tester_->GetAllSamples("Signin.SyncOptIn.Completed"),
                 BucketsAre(Bucket(kAccessPoint,
@@ -785,7 +790,7 @@ class TurnSyncOnHelperTest : public testing::Test {
     sync_settings_shown_ = true;
   }
 
-  void SwitchToProfile(Profile* new_profile) {
+  virtual void SwitchToProfile(Profile* new_profile) {
     EXPECT_TRUE(new_profile);
     EXPECT_NE(profile(), new_profile)
         << "new_profile should not be the existing profile";
@@ -869,7 +874,7 @@ class TurnSyncOnHelperTest : public testing::Test {
   bool run_delegate_callbacks_ = true;
 
   // Expected delegate calls.
-  absl::optional<SigninUIError> expected_login_error_;
+  std::optional<SigninUIError> expected_login_error_;
   std::string expected_enterprise_confirmation_email_;
   std::string expected_merge_data_previous_email_;
   std::string expected_merge_data_new_email_;
@@ -904,7 +909,7 @@ class TurnSyncOnHelperTest : public testing::Test {
 
   // State of the delegate calls.
   int delegate_destroyed_ = 0;
-  absl::optional<SigninUIError> login_error_;
+  std::optional<SigninUIError> login_error_;
   std::string enterprise_confirmation_email_;
   std::string merge_data_previous_email_;
   std::string merge_data_new_email_;
@@ -938,14 +943,14 @@ class TurnSyncOnHelperWithMockSigninManagerTest : public TurnSyncOnHelperTest {
             mock_signin_manager->handle_deletion_count()};
   }
 
-  static absl::optional<signin::ConsentLevel>
+  static std::optional<signin::ConsentLevel>
   GetExpectedPreSyncFlowConsentLevel() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
     // For the primary profile, there is always a primary account set by the
     // `SigninManager`.
     return signin::ConsentLevel::kSignin;
 #else
-    return absl::nullopt;
+    return std::nullopt;
 #endif
   }
 };
@@ -1147,8 +1152,8 @@ TEST_F(TurnSyncOnHelperWithMockSigninManagerTest,
   CheckSigninMetrics(
       {.sign_in_access_point =
            GetExpectedPreSyncFlowConsentLevel().has_value()
-               ? absl::nullopt
-               : absl::optional<signin_metrics::AccessPoint>(kAccessPoint),
+               ? std::nullopt
+               : std::optional<signin_metrics::AccessPoint>(kAccessPoint),
        .sign_in_recorded = true,
        .sync_opt_in_started = true,
        .sync_opt_in_completed = true});
@@ -1184,8 +1189,8 @@ TEST_F(TurnSyncOnHelperWithMockSigninManagerTest,
   CheckSigninMetrics(
       {.sign_in_access_point =
            GetExpectedPreSyncFlowConsentLevel().has_value()
-               ? absl::nullopt
-               : absl::optional<signin_metrics::AccessPoint>(kAccessPoint),
+               ? std::nullopt
+               : std::optional<signin_metrics::AccessPoint>(kAccessPoint),
        .sign_in_recorded = true,
        .sync_opt_in_started = true,
        .sync_opt_in_completed = true});
@@ -1608,6 +1613,90 @@ TEST_F(TurnSyncOnHelperTest, SignedInAccountUndoSyncKeepAccount) {
 #endif
     .sign_in_recorded = true, .sync_opt_in_started = true
   });
+}
+
+class TurnSyncOnHelperSearchEngineTest : public TurnSyncOnHelperTest {
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      switches::kSearchEngineChoiceTrigger};
+};
+
+TEST_F(TurnSyncOnHelperSearchEngineTest, SearchEngineImportedToNewProfile) {
+  // Set expectations.
+  expected_enterprise_confirmation_email_ = kEnterpriseEmail;
+  expected_switched_to_new_profile_ = true;
+  expected_sync_confirmation_shown_ = true;
+  sync_confirmation_result_ =
+      LoginUIService::SyncConfirmationUIClosedResult::ABORT_SYNC;
+  SetExpectationsForSyncStartupCompletedForNextProfileCreated();
+  // Configure the test.
+  user_policy_signin_service()->set_dm_token("foo");
+  user_policy_signin_service()->set_client_id("bar");
+  enterprise_choice_ = signin::SIGNIN_CHOICE_NEW_PROFILE;
+  UseEnterpriseAccount();
+  identity_manager()->GetPrimaryAccountMutator()->SetPrimaryAccount(
+      account_id(), signin::ConsentLevel::kSignin,
+      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN);
+
+  CheckSigninMetrics(
+      {.sign_in_access_point =
+           signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN});
+
+  // Set some search engine in the source profile.
+  const char kCustomSearchEngineDomain[] = "bar.com";
+  int64_t search_engine_choice_timestamp =
+      base::Time::Now().ToDeltaSinceWindowsEpoch().InSeconds();
+  const char kChoiceVersion[] = "1.2.3.4";
+  PrefService* pref_service = profile()->GetPrefs();
+  pref_service->SetInt64(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp,
+      search_engine_choice_timestamp);
+  pref_service->SetString(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionVersion,
+      kChoiceVersion);
+
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(profile());
+  TemplateURLData data;
+  data.SetShortName(base::UTF8ToUTF16(std::string(kCustomSearchEngineDomain)));
+  data.SetKeyword(base::UTF8ToUTF16(std::string(kCustomSearchEngineDomain)));
+  data.SetURL("https://" + std::string(kCustomSearchEngineDomain) +
+              "url?bar={searchTerms}");
+  data.new_tab_url =
+      "https://" + std::string(kCustomSearchEngineDomain) + "newtab";
+  data.alternate_urls.push_back("https://" +
+                                std::string(kCustomSearchEngineDomain) +
+                                "alt#quux={searchTerms}");
+  TemplateURL* template_url =
+      template_url_service->Add(std::make_unique<TemplateURL>(data));
+  template_url_service->SetUserSelectedDefaultSearchProvider(template_url);
+
+  // Signin flow.
+  ProfileWaiter profile_waiter;
+  CreateTurnOnSyncHelper(TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT);
+  Profile* created_profile = profile_waiter.WaitForProfileAdded();
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  SimulateAccountAddedToProfileLacros(created_profile);
+#endif
+  policy_service(created_profile)->SimulateCloudPolicyUpdate();
+  // The account is removed from the source profile.
+  AccountRemovedWaiter account_removed_waiter(identity_manager(), account_id());
+  account_removed_waiter.Wait();
+  CheckDelegateCalls();
+
+  // Check that the search engine was imported in the created profile.
+  PrefService* new_pref_service = created_profile->GetPrefs();
+  EXPECT_EQ(new_pref_service->GetInt64(
+                prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp),
+            search_engine_choice_timestamp);
+  EXPECT_EQ(new_pref_service->GetString(
+                prefs::kDefaultSearchProviderChoiceScreenCompletionVersion),
+            kChoiceVersion);
+
+  TemplateURLService* new_template_url_service =
+      TemplateURLServiceFactory::GetForProfile(created_profile);
+  EXPECT_EQ(new_template_url_service->GetDefaultSearchProvider()->short_name(),
+            base::UTF8ToUTF16(std::string(kCustomSearchEngineDomain)));
 }
 
 // Test that the unconsented primary account is kept if the user  cancels sync

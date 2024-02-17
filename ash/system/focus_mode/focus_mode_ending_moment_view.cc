@@ -55,7 +55,7 @@ FocusModeEndingMomentView::FocusModeEndingMomentView() {
   auto* text_container = AddChildView(std::make_unique<views::BoxLayoutView>());
   text_container->SetOrientation(views::BoxLayout::Orientation::kVertical);
   text_container->SetMainAxisAlignment(
-      views::BoxLayout::MainAxisAlignment::kCenter);
+      views::BoxLayout::MainAxisAlignment::kStart);
   text_container->SetBetweenChildSpacing(kSpaceBetweenText);
   text_container->SetPreferredSize(kTextContainerSize);
   text_container->SetProperty(
@@ -72,9 +72,9 @@ FocusModeEndingMomentView::FocusModeEndingMomentView() {
   text_container->AddChildView(CreateTextLabel(
       gfx::ALIGN_LEFT, TypographyToken::kCrosAnnotation1,
       cros_tokens::kCrosSysOnSurface, /*allow_multiline=*/true,
-      focus_mode_controller->selected_task_title().empty()
-          ? IDS_ASH_STATUS_TRAY_FOCUS_MODE_ENDING_MOMENT_BODY
-          : IDS_ASH_STATUS_TRAY_FOCUS_MODE_ENDING_MOMENT_BODY_WITH_TASK));
+      focus_mode_controller->HasSelectedTask()
+          ? IDS_ASH_STATUS_TRAY_FOCUS_MODE_ENDING_MOMENT_BODY_WITH_TASK
+          : IDS_ASH_STATUS_TRAY_FOCUS_MODE_ENDING_MOMENT_BODY));
 
   // Add a top level spacer in first layout manager, between the text container
   // and button container.
@@ -104,7 +104,7 @@ FocusModeEndingMomentView::FocusModeEndingMomentView() {
 
   extend_session_duration_button_ =
       button_container->AddChildView(std::make_unique<PillButton>(
-          base::BindRepeating(&FocusModeController::ExtendExpiredSession,
+          base::BindRepeating(&FocusModeController::ExtendSessionDuration,
                               base::Unretained(focus_mode_controller)),
           l10n_util::GetStringUTF16(
               IDS_ASH_STATUS_TRAY_FOCUS_MODE_EXTEND_TEN_MINUTES_BUTTON_LABEL),

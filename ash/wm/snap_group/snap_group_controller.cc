@@ -12,6 +12,8 @@
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/snap_group/snap_group.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_types.h"
+#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "base/check.h"
@@ -46,17 +48,6 @@ SnapGroupController* SnapGroupController::Get() {
   // TODO(michelefan): Add CHECK(g_instance) after the snap group controller
   // feature is enabled by default.
   return g_instance;
-}
-
-void SnapGroupController::OnWindowSnapped(
-    aura::Window* window,
-    WindowSnapActionSource snap_action_source) {
-  // If `window` already belongs to a snap group, do nothing.
-  if (GetSnapGroupForGivenWindow(window)) {
-    return;
-  }
-
-  window_util::MaybeStartSplitViewOverview(window, snap_action_source);
 }
 
 bool SnapGroupController::AreWindowsInSnapGroup(aura::Window* window1,
@@ -164,7 +155,7 @@ void SnapGroupController::MinimizeTopMostSnapGroup() {
 SnapGroup* SnapGroupController::GetTopmostSnapGroup() {
   auto windows =
       Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk);
-  for (auto* window : windows) {
+  for (aura::Window* window : windows) {
     if (auto* snap_group = GetSnapGroupForGivenWindow(window)) {
       if (!WindowState::Get(snap_group->window1())->IsMinimized() &&
           !WindowState::Get(snap_group->window2())->IsMinimized()) {
@@ -178,7 +169,7 @@ SnapGroup* SnapGroupController::GetTopmostSnapGroup() {
 void SnapGroupController::RestoreTopmostSnapGroup() {
   auto windows =
       Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk);
-  for (auto* window : windows) {
+  for (aura::Window* window : windows) {
     if (auto* snap_group = GetSnapGroupForGivenWindow(window)) {
       CHECK(WindowState::Get(snap_group->window1())->IsMinimized());
       CHECK(WindowState::Get(snap_group->window2())->IsMinimized());
@@ -235,10 +226,8 @@ void SnapGroupController::RestoreSnapState(SnapGroup* snap_group) {
       SplitViewController::Get(root_window);
 
   base::AutoReset<bool> bypass(&can_enter_overview_, false);
-  split_view_controller->SnapWindow(
-      window1, SplitViewController::SnapPosition::kPrimary);
-  split_view_controller->SnapWindow(
-      window2, SplitViewController::SnapPosition::kSecondary);
+  split_view_controller->SnapWindow(window1, SnapPosition::kPrimary);
+  split_view_controller->SnapWindow(window2, SnapPosition::kSecondary);
 }
 
 }  // namespace ash

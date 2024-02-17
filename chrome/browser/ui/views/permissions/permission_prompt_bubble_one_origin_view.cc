@@ -60,7 +60,8 @@ namespace {
 
 std::u16string GetAccessibleWindowTitleInternal(
     const std::u16string display_name,
-    std::vector<permissions::PermissionRequest*> visible_requests) {
+    std::vector<raw_ptr<permissions::PermissionRequest, VectorExperimental>>
+        visible_requests) {
   // Generate one of:
   //   $origin wants to: $permission
   //   $origin wants to: $permission and $permission
@@ -102,9 +103,10 @@ bool ShouldShowRequest(permissions::PermissionPrompt::Delegate& delegate,
   return true;
 }
 
-std::vector<permissions::PermissionRequest*> GetVisibleRequests(
-    permissions::PermissionPrompt::Delegate& delegate) {
-  std::vector<permissions::PermissionRequest*> visible_requests;
+std::vector<raw_ptr<permissions::PermissionRequest, VectorExperimental>>
+GetVisibleRequests(permissions::PermissionPrompt::Delegate& delegate) {
+  std::vector<raw_ptr<permissions::PermissionRequest, VectorExperimental>>
+      visible_requests;
   for (permissions::PermissionRequest* request : delegate.Requests()) {
     if (ShouldShowRequest(delegate, request->request_type())) {
       visible_requests.push_back(request);
@@ -114,7 +116,7 @@ std::vector<permissions::PermissionRequest*> GetVisibleRequests(
 }
 
 // Get extra information to display for the permission, if any.
-absl::optional<std::u16string> GetExtraText(
+std::optional<std::u16string> GetExtraText(
     permissions::PermissionPrompt::Delegate& delegate) {
   switch (delegate.Requests()[0]->request_type()) {
     case permissions::RequestType::kStorageAccess:
@@ -127,21 +129,22 @@ absl::optional<std::u16string> GetExtraText(
               delegate.GetEmbeddingOrigin(),
               url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC));
     default:
-      return absl::nullopt;
+      return std::nullopt;
   }
 }
 
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
 std::optional<MediaCoordinator::ViewType> ComputePreviewType(
-    bool has_camera_request,
-    bool has_mic_request) {
-  if (has_camera_request && has_mic_request) {
+    std::vector<std::string> requested_audio_capture_device_ids,
+    std::vector<std::string> requested_video_capture_device_ids) {
+  if (!requested_audio_capture_device_ids.empty() &&
+      !requested_video_capture_device_ids.empty()) {
     return MediaCoordinator::ViewType::kBoth;
   }
-  if (has_camera_request) {
+  if (!requested_video_capture_device_ids.empty()) {
     return MediaCoordinator::ViewType::kCameraOnly;
   }
-  if (has_mic_request) {
+  if (!requested_audio_capture_device_ids.empty()) {
     return MediaCoordinator::ViewType::kMicOnly;
   }
   return std::nullopt;
@@ -155,39 +158,59 @@ PermissionPromptBubbleOneOriginView::PermissionPromptBubbleOneOriginView(
     base::WeakPtr<permissions::PermissionPrompt::Delegate> delegate,
     base::TimeTicks permission_requested_time,
     PermissionPromptStyle prompt_style)
-    : PermissionPromptBubbleBaseView(
-          browser,
-          delegate,
-          permission_requested_time,
-          prompt_style,
-          l10n_util::GetStringFUTF16(
-              IDS_PERMISSIONS_BUBBLE_PROMPT,
-              PermissionPromptBaseView::GetUrlIdentity(browser, *delegate)
-                  .name),
-          GetAccessibleWindowTitleInternal(
-              PermissionPromptBaseView::GetUrlIdentity(browser, *delegate).name,
-              GetVisibleRequests(*delegate.get())),
-          GetExtraText(*delegate.get())) {
-  bool has_camera_request = false;
-  bool has_mic_request = false;
-  std::vector<permissions::PermissionRequest*> visible_requests =
-      GetVisibleRequests(*delegate.get());
+    : PermissionPromptBubbleBaseView(browser,
+                                     delegate,
+                                     permission_requested_time,
+                                     prompt_style) {
+  std::vector<std::string> requested_audio_capture_device_ids;
+  std::vector<std::string> requested_video_capture_device_ids;
+  std::vector<raw_ptr<permissions::PermissionRequest, VectorExperimental>>
+      visible_requests = GetVisibleRequests(*delegate.get());
+
+  SetAccessibleTitle(GetAccessibleWindowTitleInternal(
+      GetUrlIdentityObject().name, visible_requests));
+  SetTitle(l10n_util::GetStringFUTF16(IDS_PERMISSIONS_BUBBLE_PROMPT,
+                                      GetUrlIdentityObject().name));
+
+  auto extra_text = GetExtraText(*delegate.get());
+  if (extra_text.has_value()) {
+    CreateExtraTextLabel(extra_text.value());
+  }
+
+  CreatePermissionButtons(GetAllowAlwaysText(visible_requests));
+
   for (std::size_t i = 0; i < visible_requests.size(); i++) {
     AddRequestLine(visible_requests[i], i);
     if (visible_requests[i]->request_type() ==
         permissions::RequestType::kCameraStream) {
-      has_camera_request = true;
+      requested_video_capture_device_ids =
+          visible_requests[i]->GetRequestedVideoCaptureDeviceIds();
     } else if (visible_requests[i]->request_type() ==
                permissions::RequestType::kMicStream) {
-      has_mic_request = true;
+      requested_audio_capture_device_ids =
+          visible_requests[i]->GetRequestedAudioCaptureDeviceIds();
     }
   }
-  MaybeAddMediaPreview(has_camera_request, has_mic_request,
+  MaybeAddMediaPreview(requested_audio_capture_device_ids,
+                       requested_video_capture_device_ids,
                        visible_requests.size());
 }
 
 PermissionPromptBubbleOneOriginView::~PermissionPromptBubbleOneOriginView() =
     default;
+
+void PermissionPromptBubbleOneOriginView::RunButtonCallback(int button_id) {
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+  auto button = GetPermissionDialogButton(button_id);
+  if (button == PermissionDialogButton::kAccept ||
+      button == PermissionDialogButton::kAcceptOnce) {
+    if (media_preview_coordinator_.has_value()) {
+      media_preview_coordinator_->UpdateDevicePreferenceRanking();
+    }
+  }
+#endif
+  PermissionPromptBubbleBaseView::RunButtonCallback(button_id);
+}
 
 void PermissionPromptBubbleOneOriginView::ChildPreferredSizeChanged(
     views::View* child) {
@@ -232,20 +255,27 @@ void PermissionPromptBubbleOneOriginView::AddRequestLine(
 }
 
 void PermissionPromptBubbleOneOriginView::MaybeAddMediaPreview(
-    bool has_camera_request,
-    bool has_mic_request,
+
+    std::vector<std::string> requested_audio_capture_device_ids,
+    std::vector<std::string> requested_video_capture_device_ids,
     size_t index) {
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
   if (!base::FeatureList::IsEnabled(features::kCameraMicPreview)) {
     return;
   }
 
-  auto view_type = ComputePreviewType(has_camera_request, has_mic_request);
+  auto view_type = ComputePreviewType(requested_audio_capture_device_ids,
+                                      requested_video_capture_device_ids);
   if (!view_type) {
     return;
   }
 
-  media_preview_coordinator_.emplace(view_type.value(), *this, index,
-                                     /*is_subsection=*/false);
+  media_preview_coordinator_.emplace(
+      view_type.value(), *this, index,
+      /*is_subsection=*/false,
+      MediaCoordinator::EligibleDevices{
+          /*cameras=*/requested_video_capture_device_ids,
+          /*mics=*/requested_audio_capture_device_ids},
+      *browser_->profile()->GetPrefs());
 #endif
 }

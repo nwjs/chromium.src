@@ -115,11 +115,6 @@ void Connection::Close(
     // NearbyConnection immediately after.
     SendMessageWithoutResponse(requests::BuildBootstrapStateCancelMessage(),
                                QuickStartResponseType::kBootstrapStateCancel);
-  } else if (authenticated_ && reason ==
-                                   TargetDeviceConnectionBroker::
-                                       ConnectionClosedReason::kComplete) {
-    SendMessageWithoutResponse(requests::BuildBootstrapStateCompleteMessage(),
-                               QuickStartResponseType::kBootstrapStateComplete);
   }
 
   connection_state_ = State::kClosing;
@@ -143,7 +138,7 @@ void Connection::RequestWifiCredentials(
       [](RequestWifiCredentialsCallback callback,
          mojom::QuickStartMessagePtr wifi_credentials) {
         if (!wifi_credentials || !wifi_credentials->is_wifi_credentials()) {
-          std::move(callback).Run(absl::nullopt);
+          std::move(callback).Run(std::nullopt);
           return;
         }
         std::move(callback).Run(
@@ -265,7 +260,7 @@ void Connection::OnRequestAccountTransferAssertionResponse(
       std::vector<uint8_t>(client_data.begin(), client_data.end());
 
   quick_start_metrics_.RecordGaiaTransferResult(
-      /*succeeded=*/true, /*failure_reason=*/absl::nullopt);
+      /*succeeded=*/true, /*failure_reason=*/std::nullopt);
 
   std::move(callback).Run(assertion_info);
 }
@@ -317,7 +312,7 @@ void Connection::SendMessageAndDiscardResponse(
       std::vector<uint8_t>(json_serialized_payload.begin(),
                            json_serialized_payload.end()),
       response_type,
-      base::IgnoreArgs<absl::optional<std::vector<uint8_t>>>(
+      base::IgnoreArgs<std::optional<std::vector<uint8_t>>>(
           std::move(callback)),
       timeout);
 }
@@ -366,7 +361,7 @@ void Connection::InitiateHandshake(const std::string& authentication_token,
 void Connection::OnHandshakeResponse(
     const std::string& authentication_token,
     HandshakeSuccessCallback callback,
-    absl::optional<std::vector<uint8_t>> response_bytes) {
+    std::optional<std::vector<uint8_t>> response_bytes) {
   if (!response_bytes) {
     QS_LOG(ERROR) << "Failed to read handshake response from NearbyConnection";
     quick_start_metrics_.RecordHandshakeResult(
@@ -398,7 +393,7 @@ void Connection::DoWaitForUserVerification(
   // UserVerificationResponse within three packets.
   if (attempt_number > 3) {
     QS_LOG(ERROR) << "Unexpected number of user verification packets.";
-    std::move(callback).Run(absl::nullopt);
+    std::move(callback).Run(std::nullopt);
     return;
   }
 
@@ -415,7 +410,7 @@ void Connection::OnUserVerificationPacketDecoded(
     mojom::QuickStartMessagePtr quick_start_message) {
   if (!quick_start_message) {
     QS_LOG(ERROR) << "Failed to decode Quick Start message";
-    std::move(callback).Run(absl::nullopt);
+    std::move(callback).Run(std::nullopt);
     return;
   }
   switch (quick_start_message->which()) {
@@ -424,7 +419,7 @@ void Connection::OnUserVerificationPacketDecoded(
                ->is_awaiting_user_verification) {
         QS_LOG(ERROR) << "User verification request received from phone, but "
                          "is_awaiting_user_verification is false.";
-        std::move(callback).Run(absl::nullopt);
+        std::move(callback).Run(std::nullopt);
         return;
       }
       DoWaitForUserVerification(attempt_number + 1, std::move(callback));
@@ -433,7 +428,7 @@ void Connection::OnUserVerificationPacketDecoded(
       if (!quick_start_message->get_user_verification_method()
                ->use_source_lock_screen_prompt) {
         QS_LOG(ERROR) << "Unsupported user verification method";
-        std::move(callback).Run(absl::nullopt);
+        std::move(callback).Run(std::nullopt);
         return;
       }
       DoWaitForUserVerification(attempt_number + 1, std::move(callback));
@@ -441,15 +436,15 @@ void Connection::OnUserVerificationPacketDecoded(
     case mojom::QuickStartMessage::Tag::kUserVerificationResponse:
       std::move(callback).Run(
           quick_start_message->get_user_verification_response()
-              ? absl::make_optional<mojom::UserVerificationResponse>(std::move(
+              ? std::make_optional<mojom::UserVerificationResponse>(std::move(
                     *quick_start_message->get_user_verification_response()))
-              : absl::nullopt);
+              : std::nullopt);
       return;
     default:
       QS_LOG(ERROR) << "Unexpected message: received a packet of type "
                     << MessageTagToString(quick_start_message->which())
                     << " during user verification.";
-      std::move(callback).Run(absl::nullopt);
+      std::move(callback).Run(std::nullopt);
       return;
   }
 }
@@ -458,9 +453,14 @@ base::Value::Dict Connection::GetPrepareForUpdateInfo() {
   return session_context_.GetPrepareForUpdateInfo();
 }
 
+void Connection::NotifyPhoneSetupComplete() {
+  SendMessageWithoutResponse(requests::BuildBootstrapStateCompleteMessage(),
+                             QuickStartResponseType::kBootstrapStateComplete);
+}
+
 void Connection::DecodeQuickStartMessage(
     OnDecodingCompleteCallback on_decoding_complete,
-    absl::optional<std::vector<uint8_t>> data) {
+    std::optional<std::vector<uint8_t>> data) {
   if (!data || data->empty()) {
     QS_LOG(INFO) << "Empty response";
     std::move(on_decoding_complete).Run(nullptr);
@@ -473,7 +473,7 @@ void Connection::DecodeQuickStartMessage(
       base::BindOnce(
           [](OnDecodingCompleteCallback on_decoding_complete,
              mojom::QuickStartMessagePtr data,
-             absl::optional<mojom::QuickStartDecoderError> error) {
+             std::optional<mojom::QuickStartDecoderError> error) {
             if (error.has_value() || !data) {
               // TODO(b/281052191): Log error code here
               QS_LOG(ERROR) << "Error decoding data.";
@@ -513,7 +513,7 @@ void Connection::OnResponseTimeout(QuickStartResponseType response_type) {
 void Connection::OnResponseReceived(
     ConnectionResponseCallback callback,
     QuickStartResponseType response_type,
-    absl::optional<std::vector<uint8_t>> response_bytes) {
+    std::optional<std::vector<uint8_t>> response_bytes) {
   // Cancel the timeout timer if running.
   response_timeout_timer_.Stop();
 
@@ -530,9 +530,16 @@ void Connection::OnResponseReceived(
     quick_start_metrics_.RecordMessageReceived(
         /*desired_message_type=*/QuickStartMetrics::MapResponseToMessageType(
             response_type),
-        /*succeeded=*/true, absl::nullopt);
+        /*succeeded=*/true, std::nullopt);
   }
-  std::move(callback).Run(std::move(response_bytes));
+
+  // NearbyConnection will invoke its read callback if there is one pending when
+  // it is destroyed. In these instances we didn't actually receive a response
+  // so we need to ensure the connection is still open before invoking
+  // |callback| here.
+  if (connection_state_ == Connection::State::kOpen) {
+    std::move(callback).Run(std::move(response_bytes));
+  }
 }
 
 }  // namespace ash::quick_start

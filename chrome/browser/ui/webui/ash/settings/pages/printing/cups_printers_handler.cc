@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/ash/settings/pages/printing/cups_printers_handler.h"
 
+#include <optional>
 #include <set>
 #include <utility>
 
@@ -60,8 +61,8 @@
 #include "net/base/ip_endpoint.h"
 #include "printing/backend/print_backend.h"
 #include "printing/printer_status.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/shell_dialogs/selected_file_info.h"
 #include "url/gurl.h"
 
 namespace ash::settings {
@@ -458,7 +459,7 @@ void CupsPrintersHandler::HandleRetrieveCupsPrinterPpd(
   // We first make sure the printer is setup in CUPS backend (when the user logs
   // out, CUPS will clear a bunch of cached state).
 
-  absl::optional<chromeos::Printer> printer =
+  std::optional<chromeos::Printer> printer =
       printers_manager_->GetPrinter(printer_id);
   if (!printer) {
     PRINTER_LOG(ERROR) << "Unable to retrieve printer " << printer_id;
@@ -501,7 +502,7 @@ void CupsPrintersHandler::OnSetUpPrinter(const std::string& printer_id,
 void CupsPrintersHandler::OnRetrieveCupsPrinterPpd(
     const std::string& printer_name,
     const std::string& eula,
-    absl::optional<printscanmgr::CupsRetrievePpdResponse> response) {
+    std::optional<printscanmgr::CupsRetrievePpdResponse> response) {
   if (!response) {
     PRINTER_LOG(ERROR) << "No response to retrieve PPD request";
     OnRetrievePpdError(printer_name);
@@ -845,7 +846,7 @@ void CupsPrintersHandler::AddOrReconfigurePrinter(const base::Value::List& args,
     return;
   }
 
-  absl::optional<Printer> existing_printer_object =
+  std::optional<Printer> existing_printer_object =
       printers_manager_->GetPrinter(printer->id());
   if (existing_printer_object) {
     if (!IsValidUriChange(*existing_printer_object, *printer)) {
@@ -1116,22 +1117,23 @@ void CupsPrintersHandler::ResolvePrintersDone(
   ResolveJavascriptCallback(base::Value(callback_id), response);
 }
 
-void CupsPrintersHandler::FileSelected(const base::FilePath& path,
+void CupsPrintersHandler::FileSelected(const ui::SelectedFileInfo& file,
                                        int index,
                                        void* params) {
   DCHECK(!webui_callback_id_.empty());
 
   select_file_dialog_ = nullptr;
 
-  // Load the beginning contents of the file located at |path| and callback into
-  // VerifyPpdContents() in order to determine whether the file appears to be a
-  // PPD file. The task's priority is USER_BLOCKING because the this task
-  // updates the UI as a result of a direct user action.
+  // Load the beginning contents of |file| and callback into VerifyPpdContents()
+  // in order to determine whether the file appears to be a PPD file. The task's
+  // priority is USER_BLOCKING because the this task updates the UI as a result
+  // of a direct user action.
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
-      base::BindOnce(&ReadFileToStringWithMaxSize, path, kPpdMaxLineLength),
+      base::BindOnce(&ReadFileToStringWithMaxSize, file.path(),
+                     kPpdMaxLineLength),
       base::BindOnce(&CupsPrintersHandler::VerifyPpdContents,
-                     weak_factory_.GetWeakPtr(), path));
+                     weak_factory_.GetWeakPtr(), file.path()));
 }
 
 void CupsPrintersHandler::FileSelectionCanceled(void* params) {
@@ -1262,7 +1264,7 @@ void CupsPrintersHandler::HandleAddDiscoveredPrinter(
   const std::string& printer_id = args[1].GetString();
 
   PRINTER_LOG(USER) << "Adding discovered printer " << printer_id;
-  absl::optional<Printer> printer = printers_manager_->GetPrinter(printer_id);
+  std::optional<Printer> printer = printers_manager_->GetPrinter(printer_id);
   if (!printer) {
     PRINTER_LOG(ERROR) << "Discovered printer disappeared";
     // Printer disappeared, so we don't have information about it anymore and
@@ -1437,7 +1439,7 @@ void CupsPrintersHandler::HandleQueryPrintServer(
   const std::string& callback_id = args[0].GetString();
   const std::string& server_url = args[1].GetString();
 
-  absl::optional<GURL> converted_server_url =
+  std::optional<GURL> converted_server_url =
       GenerateServerPrinterUrlWithValidScheme(server_url);
   if (!converted_server_url) {
     RejectJavascriptCallback(
@@ -1485,7 +1487,7 @@ void CupsPrintersHandler::OnQueryPrintServerCompleted(
       printers_manager_->GetPrinters(PrinterClass::kSaved);
   std::set<GURL> known_printers;
   for (const Printer& printer : saved_printers) {
-    absl::optional<GURL> gurl =
+    std::optional<GURL> gurl =
         GenerateServerPrinterUrlWithValidScheme(printer.uri().GetNormalized());
     if (gurl) {
       known_printers.insert(gurl.value());
@@ -1499,7 +1501,7 @@ void CupsPrintersHandler::OnQueryPrintServerCompleted(
   printers.reserve(returned_printers.size());
   for (PrinterDetector::DetectedPrinter& printer : returned_printers) {
     printers.push_back(std::move(printer.printer));
-    absl::optional<GURL> printer_gurl = GenerateServerPrinterUrlWithValidScheme(
+    std::optional<GURL> printer_gurl = GenerateServerPrinterUrlWithValidScheme(
         printers.back().uri().GetNormalized());
     if (printer_gurl && known_printers.count(printer_gurl.value())) {
       printers.pop_back();

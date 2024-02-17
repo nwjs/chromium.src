@@ -27,6 +27,8 @@ BASE_DECLARE_FEATURE(kAllowWindowDragUsingSystemDragDrop);
 
 BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
+BASE_DECLARE_FEATURE(kWebAppIconInTitlebar);
+
 BASE_DECLARE_FEATURE(kChromeLabs);
 extern const char kChromeLabsActivationParameterName[];
 extern const base::FeatureParam<int> kChromeLabsActivationPercentage;
@@ -43,8 +45,6 @@ BASE_DECLARE_FEATURE(kAccessCodeCastUI);
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
 BASE_DECLARE_FEATURE(kCameraMicPreview);
 #endif
-
-BASE_DECLARE_FEATURE(kDisplayOpenLinkAsProfile);
 
 BASE_DECLARE_FEATURE(kEvDetailsInPageInfo);
 
@@ -212,6 +212,8 @@ extern const base::FeatureParam<int>
 extern const base::FeatureParam<int> kTabSearchRecentlyClosedTabCountThreshold;
 
 BASE_DECLARE_FEATURE(kTabSearchUseMetricsReporter);
+
+BASE_DECLARE_FEATURE(kTearOffWebAppTabOpensWebAppWindow);
 
 // Determines how screenshots of the toolbar uses Software or Hardware drawing.
 // Works on Android 10+.

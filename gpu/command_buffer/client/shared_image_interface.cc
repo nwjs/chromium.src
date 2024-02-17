@@ -15,6 +15,15 @@
 
 namespace gpu {
 
+SharedImageInterface::SwapChainSharedImages::SwapChainSharedImages(
+    scoped_refptr<gpu::ClientSharedImage> front_buffer,
+    scoped_refptr<gpu::ClientSharedImage> back_buffer)
+    : front_buffer(std::move(front_buffer)),
+      back_buffer(std::move(back_buffer)) {}
+SharedImageInterface::SwapChainSharedImages::SwapChainSharedImages(
+    const SwapChainSharedImages& shared_images) = default;
+SharedImageInterface::SwapChainSharedImages::~SwapChainSharedImages() = default;
+
 scoped_refptr<ClientSharedImage> SharedImageInterface::CreateSharedImage(
     viz::SharedImageFormat format,
     const gfx::Size& size,
@@ -33,8 +42,11 @@ uint32_t SharedImageInterface::UsageForMailbox(const Mailbox& mailbox) {
   return 0u;
 }
 
-void SharedImageInterface::NotifyMailboxAdded(const Mailbox& /*mailbox*/,
-                                              uint32_t /*usage*/) {}
+scoped_refptr<ClientSharedImage> SharedImageInterface::NotifyMailboxAdded(
+    const Mailbox& /*mailbox*/,
+    uint32_t /*usage*/) {
+  return nullptr;
+}
 
 void SharedImageInterface::CopyToGpuMemoryBuffer(const SyncToken& sync_token,
                                                  const Mailbox& mailbox) {

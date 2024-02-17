@@ -28,9 +28,23 @@ enum class ContentSuggestionsModuleType {
   kTabResumption = 10,
   kParcelTracking = 11,
   kParcelTrackingSeeMore = 12,
-  kMaxValue = kParcelTrackingSeeMore,
+  kSetUpListContentNotification = 13,
+  kPlaceholder = 14,
+  kMaxValue = kPlaceholder,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml)
+
+// Enum for content notification promo events UMA metrics. Entries should not
+// be renumbered and numeric values should never be reused. This should align
+// with the ContentNotificationSnackbarEvent enum in enums.xml.
+//
+// LINT.IfChange
+enum class ContentNotificationSnackbarEvent {
+  kShown = 0,
+  kActionButtonTapped = 1,
+  kMaxValue = kActionButtonTapped,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/content/enums.xml)
 
 // Represents the content suggestions collection view.
 extern NSString* const kContentSuggestionsCollectionIdentifier;
@@ -62,7 +76,7 @@ extern NSString* const kMagicStackEditButtonAccessibilityIdentifier;
 extern NSString* const
     kMagicStackEditHalfSheetDoneButtonAccessibilityIdentifier;
 
-// Represents the "Continue Browsing" module in the magic stack.
+// Represents the "Continue with This Tab" module in the magic stack.
 extern NSString* const
     kMagicStackContentSuggestionsModuleTabResumptionAccessibilityIdentifier;
 

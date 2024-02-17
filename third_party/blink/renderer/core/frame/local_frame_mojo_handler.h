@@ -111,7 +111,6 @@ class LocalFrameMojoHandler
   void AddMessageToConsole(mojom::blink::ConsoleMessageLevel level,
                            const WTF::String& message,
                            bool discard_duplicates) final;
-  void AddInspectorIssue(mojom::blink::InspectorIssueInfoPtr) final;
   void SwapInImmediately() final;
   void CheckCompleted() final;
   void StopLoading() final;
@@ -127,6 +126,8 @@ class LocalFrameMojoHandler
   void MediaPlayerActionAt(const gfx::Point& window_point,
                            mojom::blink::MediaPlayerActionPtr action) final;
   void RequestVideoFrameAt(const gfx::Point& window_point,
+                           const gfx::Size& max_size,
+                           int max_area,
                            RequestVideoFrameAtCallback callback) final;
   void AdvanceFocusInFrame(
       mojom::blink::FocusType focus_type,

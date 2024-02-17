@@ -89,9 +89,8 @@ void GetDeviceNameAndType(const syncer::DeviceInfoTracker* tracker,
   DCHECK(tracker);
   DCHECK(tracker->IsSyncing());
 
-  std::unique_ptr<syncer::DeviceInfo> device_info =
-      tracker->GetDeviceInfo(client_id);
-  if (device_info.get()) {
+  const syncer::DeviceInfo* device_info = tracker->GetDeviceInfo(client_id);
+  if (device_info) {
     *name = device_info->client_name();
     switch (device_info->form_factor()) {
       case syncer::DeviceInfo::FormFactor::kPhone:
@@ -318,7 +317,7 @@ void BrowsingHistoryHandler::OnJavascriptAllowed() {
 void BrowsingHistoryHandler::OnJavascriptDisallowed() {
   weak_factory_.InvalidateWeakPtrs();
   browsing_history_service_ = nullptr;
-  initial_results_ = absl::nullopt;
+  initial_results_ = std::nullopt;
   deferred_callbacks_.clear();
   query_history_callback_id_.clear();
   remove_visits_callback_.clear();
@@ -376,7 +375,7 @@ void BrowsingHistoryHandler::HandleQueryHistory(const base::Value::List& args) {
   const base::Value& callback_id = args[0];
   if (initial_results_.has_value()) {
     ResolveJavascriptCallback(callback_id, *initial_results_);
-    initial_results_ = absl::nullopt;
+    initial_results_ = std::nullopt;
     return;
   }
 

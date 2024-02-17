@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_ASH_LOGIN_APP_LAUNCH_SPLASH_SCREEN_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_ASH_LOGIN_APP_LAUNCH_SPLASH_SCREEN_HANDLER_H_
 
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -16,7 +17,6 @@
 #include "chrome/browser/ash/login/screens/error_screen.h"
 #include "chrome/browser/ui/webui/ash/login/base_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/network_state_informer.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gfx/image/image_skia.h"
 #include "url/gurl.h"
 
@@ -130,18 +130,18 @@ class AppLaunchSplashScreenHandler : public BaseScreenHandler,
   void HandleConfigureNetwork();
   void DoToggleNetworkConfig(bool visible);
 
-  raw_ptr<Delegate, ExperimentalAsh> delegate_ = nullptr;
+  raw_ptr<Delegate> delegate_ = nullptr;
   bool is_shown_ = false;
   AppLaunchState state_ = AppLaunchState::kPreparingProfile;
 
-  raw_ptr<ErrorScreen, DanglingUntriaged | ExperimentalAsh> error_screen_;
+  raw_ptr<ErrorScreen, DanglingUntriaged> error_screen_;
 
   // Whether network configure UI is being shown.
   bool network_config_shown_ = false;
 
   // If this has value it will be populated through ToggleNetworkConfig(value)
   // after screen is shown. Cleared after screen was shown.
-  absl::optional<bool> toggle_network_config_on_show_;
+  std::optional<bool> toggle_network_config_on_show_;
 };
 
 }  // namespace ash

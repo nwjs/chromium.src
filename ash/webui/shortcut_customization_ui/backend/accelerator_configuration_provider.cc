@@ -47,6 +47,9 @@
 #include "ui/events/devices/device_data_manager.h"
 #include "ui/events/devices/input_device.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/keycodes/dom/dom_code.h"
+#include "ui/events/keycodes/dom/dom_key.h"
+#include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 
 namespace ash {
@@ -72,140 +75,26 @@ constexpr char kAddAcceleratorHistogramName[] =
 constexpr char kRemoveDefaultAcceleratorHistogramName[] =
     "Ash.ShortcutCustomization.RemoveDefaultAccelerator.";
 
-// The following map are accelerators that will not appear in the app and cannot
-// be used as a custom accelerator. For example, if you have an accelerator
-// that has a complex text-based instruction that uses a particular accelerator
-// this list is useful to reserve those keys.
-static const auto kReservedAccelerators =
-    base::MakeFixedFlatMap<ui::Accelerator, int>({
-        // NonConfigurableActions::kAmbientCycleForwardMRU.
-        {ui::Accelerator(ui::VKEY_TAB,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_CYCLE_FORWARD_MRU},
-        // NonConfigurableActions::kAmbientCycleBackwardMRU.
-        {ui::Accelerator(ui::VKEY_TAB,
-                         ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_CYCLE_BACKWARD_MRU},
-        // The following are already included in the app as
-        // `NonConfigurableActions::kAmbientLaunchNumberedApp1.
-        {ui::Accelerator(ui::VKEY_1,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        {ui::Accelerator(ui::VKEY_2,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        {ui::Accelerator(ui::VKEY_3,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        {ui::Accelerator(ui::VKEY_4,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        {ui::Accelerator(ui::VKEY_5,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        {ui::Accelerator(ui::VKEY_6,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        {ui::Accelerator(ui::VKEY_7,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        {ui::Accelerator(ui::VKEY_8,
-                         ui::EF_ALT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_LAUNCH_NUMBERED_APP},
-        // The following are already included in the app as
-        // `NonConfigurableActions::kBrowserSelectTabByIndex`.
-        {ui::Accelerator(ui::VKEY_1,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        {ui::Accelerator(ui::VKEY_2,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        {ui::Accelerator(ui::VKEY_3,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        {ui::Accelerator(ui::VKEY_4,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        {ui::Accelerator(ui::VKEY_5,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        {ui::Accelerator(ui::VKEY_6,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        {ui::Accelerator(ui::VKEY_7,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        {ui::Accelerator(ui::VKEY_8,
-                         ui::EF_CONTROL_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_GO_TO_TAB_IN_RANGE},
-        // The following are already included in the app as
-        // `NonConfigurableActions::kAmbientActivateIndexedDesk`.
-        {ui::Accelerator(ui::VKEY_1,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_2,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_3,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_4,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_5,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_6,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_7,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_8,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_AMBIENT_ACCELERATOR_DESCRIPTION_ACTIVATE_INDEXED_DESK},
-        {ui::Accelerator(ui::VKEY_ESCAPE,
-                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
-                         ui::Accelerator::KeyState::PRESSED),
-         IDS_ASH_ACCELERATOR_DESCRIPTION_UNPIN},
-    });
-
 // Raw accelerator data may result in the same shortcut being displayed multiple
 // times in the frontend. GetHiddenAcceleratorMap() is used to collect such
 // accelerators and hide them from display.
 const HiddenAcceleratorMap& GetHiddenAcceleratorMap() {
+  // TODO(jimmyxgong): nice to remove entries for positional modifiers.
   static const auto kHiddenAcceleratorMap =
       base::NoDestructor<HiddenAcceleratorMap>({
           {AcceleratorAction::kToggleAppList,
            {ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN,
                             ui::Accelerator::KeyState::PRESSED),
             ui::Accelerator(ui::VKEY_LWIN, ui::EF_SHIFT_DOWN,
+                            ui::Accelerator::KeyState::RELEASED),
+            ui::Accelerator(ui::VKEY_RWIN, ui::EF_NONE,
+                            ui::Accelerator::KeyState::RELEASED),
+            ui::Accelerator(ui::VKEY_RWIN, ui::EF_SHIFT_DOWN,
+                            ui::Accelerator::KeyState::RELEASED)}},
+          {AcceleratorAction::kToggleCapsLock,
+           {ui::Accelerator(ui::VKEY_RWIN, ui::EF_ALT_DOWN,
+                            ui::Accelerator::KeyState::RELEASED),
+            ui::Accelerator(ui::VKEY_MENU, ui::EF_COMMAND_DOWN,
                             ui::Accelerator::KeyState::RELEASED)}},
           {AcceleratorAction::kShowShortcutViewer,
            {ui::Accelerator(ui::VKEY_F14, ui::EF_NONE,
@@ -333,21 +222,50 @@ std::vector<mojom::TextAcceleratorPartPtr> GenerateTextAcceleratorParts(
   return result;
 }
 
+// Hide accelerators if they are either:
+// 1. In the `kHiddenAccelerators` map.
+// 2. Not positionally remapped in the current keyboard layout, but are
+//    positional remapped in the US layout. This is because these accelerators
+//    would be impossible to utilize as the shortcut key_code is unable to be
+//    produced in the current layout.
 bool IsAcceleratorHidden(AcceleratorActionId action_id,
                          const ui::Accelerator& accelerator) {
   const auto& iter = GetHiddenAcceleratorMap().find(action_id);
-  if (iter == GetHiddenAcceleratorMap().end()) {
+  if (iter != GetHiddenAcceleratorMap().end()) {
+    const std::vector<ui::Accelerator>& hidden_accelerators = iter->second;
+    if (base::Contains(hidden_accelerators, accelerator)) {
+      return true;
+    }
+  }
+
+  auto keycode_entry =
+      FindKeyCodeEntry(accelerator.key_code(), accelerator.code());
+  if (!keycode_entry) {
     return false;
   }
-  const std::vector<ui::Accelerator>& hidden_accelerators = iter->second;
-  return std::find(hidden_accelerators.begin(), hidden_accelerators.end(),
-                   accelerator) != hidden_accelerators.end();
+
+  // Hide any accelerators which are not remapped in the current layout, but
+  // are remapped in the us_layout.
+
+  // As an example, the Semicolon key in the French (fr) keyboard layout is 'm'.
+  // If I set a keyboard shortcut to Ctrl + ; in the us layout and then switch
+  // to the fr layout, when I press Ctrl + m (; in us), the resulting key_code
+  // will not correspond to Ctrl + ; in the US layout. This means the Ctrl + ;
+  // shortcut must be hidden as it is not possible to trigger.
+  const bool current_layout_vkey_is_remapped =
+      ui::KeycodeConverter::MapPositionalDomCodeToUSShortcutKey(
+          keycode_entry->dom_code, keycode_entry->resulting_key_code) !=
+      ui::VKEY_UNKNOWN;
+  const bool us_layout_vkey_is_remapped =
+      ui::KeycodeConverter::MapUSPositionalShortcutKeyToDomCode(
+          accelerator.key_code(), keycode_entry->dom_code) != ui::DomCode::NONE;
+  return !current_layout_vkey_is_remapped && us_layout_vkey_is_remapped;
 }
 
 std::optional<std::u16string> GetReservedAcceleratorName(
     ui::Accelerator accelerator) {
-  const auto* iter = kReservedAccelerators.find(accelerator);
-  if (iter == kReservedAccelerators.end()) {
+  const auto iter = GetReservedAcceleratorsMap().find(accelerator);
+  if (iter == GetReservedAcceleratorsMap().end()) {
     return std::nullopt;
   }
   return l10n_util::GetStringUTF16(iter->second);
@@ -641,13 +559,19 @@ AcceleratorConfigurationProvider::AcceleratorConfigurationProvider(
   // Create LayoutInfos from kAcceleratorLayouts. LayoutInfos are static
   // data that provides additional details for the app for styling.
   // Also create a cached shortcut description lookup.
-  for (const auto& layout_details : kAcceleratorLayouts) {
-    if (ShouldExcludeItem(layout_details)) {
+  for (const auto& layout_id : kAcceleratorLayouts) {
+    const std::optional<AcceleratorLayoutDetails> layout =
+        GetAcceleratorLayout(layout_id);
+    if (!layout) {
+      LOG(ERROR) << "Unexpectedly could not find layout for id: " << layout_id;
       continue;
     }
-    layout_infos_.push_back(LayoutInfoToMojom(layout_details));
-    accelerator_layout_lookup_[GetUuid(
-        layout_details.source, layout_details.action_id)] = layout_details;
+    if (ShouldExcludeItem(*layout)) {
+      continue;
+    }
+    layout_infos_.push_back(LayoutInfoToMojom(*layout));
+    accelerator_layout_lookup_[GetUuid(layout->source, layout->action_id)] =
+        *layout;
   }
 }
 
@@ -1523,8 +1447,14 @@ void AcceleratorConfigurationProvider::PopulateAshAcceleratorConfig(
   auto& output_action_id_to_accelerators =
       accelerator_config_output[mojom::AcceleratorSource::kAsh];
 
-  for (const auto& layout_info : kAcceleratorLayouts) {
-    if (layout_info.source != mojom::AcceleratorSource::kAsh) {
+  for (const auto& layout_id : kAcceleratorLayouts) {
+    const std::optional<AcceleratorLayoutDetails> layout =
+        GetAcceleratorLayout(layout_id);
+    if (!layout) {
+      LOG(ERROR) << "Failed to get Accelerator layout for id: " << layout_id;
+      continue;
+    }
+    if (layout->source != mojom::AcceleratorSource::kAsh) {
       // Only ash accelerators can have dynamically modified properties.
       // Note that ambient accelerators cannot be in kAsh.
       continue;
@@ -1532,22 +1462,21 @@ void AcceleratorConfigurationProvider::PopulateAshAcceleratorConfig(
 
     // Remove layouts were initially added but should now be removed if they
     // are in the block list.
-    if (ShouldExcludeItem(layout_info)) {
-      const std::string uuid =
-          GetUuid(layout_info.source, layout_info.action_id);
+    if (ShouldExcludeItem(*layout)) {
+      const std::string uuid = GetUuid(layout->source, layout->action_id);
       if (accelerator_layout_lookup_.contains(uuid)) {
         accelerator_layout_lookup_.erase(uuid);
         std::erase_if(layout_infos_,
                       [&](const mojom::AcceleratorLayoutInfoPtr& info) {
-                        return info->source == layout_info.source &&
-                               info->action == layout_info.action_id;
+                        return info->source == layout->source &&
+                               info->action == layout->action_id;
                       });
       }
       continue;
     }
 
     const auto& id_to_accelerator_iter =
-        id_to_accelerators.find(layout_info.action_id);
+        id_to_accelerators.find(layout->action_id);
     // For tests, we only want to test a subset of accelerators so it's possible
     // that we don't have accelerators for the given `layout_info`.
     if (id_to_accelerator_iter == id_to_accelerators.end() &&
@@ -1557,7 +1486,7 @@ void AcceleratorConfigurationProvider::PopulateAshAcceleratorConfig(
 
     // TODO(jimmyxgong): Re-evaluate this after fixing the root cause of this.
     if (id_to_accelerator_iter == id_to_accelerators.end()) {
-      LOG(ERROR) << "Error: Layout with action ID: " << layout_info.action_id
+      LOG(ERROR) << "Error: Layout with action ID: " << layout->action_id
                  << " does not exist in the ID to Accelerator mapping. "
                  << " Skipping adding this to the Ash configuration map.";
       continue;
@@ -1569,7 +1498,7 @@ void AcceleratorConfigurationProvider::PopulateAshAcceleratorConfig(
     // mark them as disabled.
     const std::vector<ui::Accelerator>& default_accelerators =
         ash_accelerator_configuration_->GetDefaultAcceleratorsForId(
-            layout_info.action_id);
+            layout->action_id);
     for (const auto& default_accelerator : default_accelerators) {
       if (base::Contains(accelerators, default_accelerator)) {
         continue;
@@ -1577,22 +1506,21 @@ void AcceleratorConfigurationProvider::PopulateAshAcceleratorConfig(
 
       // Append the missing default accelerators but marked as disabled by user.
       CreateAndAppendAliasedAccelerators(
-          default_accelerator, layout_info.locked,
-          mojom::AcceleratorType::kDefault,
+          default_accelerator, layout->locked, mojom::AcceleratorType::kDefault,
           mojom::AcceleratorState::kDisabledByUser,
-          output_action_id_to_accelerators[layout_info.action_id]);
+          output_action_id_to_accelerators[layout->action_id]);
     }
 
     for (const auto& accelerator : accelerators) {
-      if (IsAcceleratorHidden(layout_info.action_id, accelerator)) {
+      if (IsAcceleratorHidden(layout->action_id, accelerator)) {
         continue;
       }
       // TODO(jimmyxgong): Check pref storage to determine whether the
       // AcceleratorType was user-added or default.
       CreateAndAppendAliasedAccelerators(
-          accelerator, layout_info.locked, mojom::AcceleratorType::kDefault,
+          accelerator, layout->locked, mojom::AcceleratorType::kDefault,
           mojom::AcceleratorState::kEnabled,
-          output_action_id_to_accelerators[layout_info.action_id]);
+          output_action_id_to_accelerators[layout->action_id]);
     }
   }
 }

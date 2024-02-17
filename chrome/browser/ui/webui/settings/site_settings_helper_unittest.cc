@@ -143,7 +143,7 @@ TEST_F(SiteSettingsHelperTest, ExceptionListWithEmbargoedAndBlockedOrigins) {
   ASSERT_EQ(2U, exceptions.size());
 
   // Get last added origin.
-  absl::optional<bool> is_embargoed =
+  std::optional<bool> is_embargoed =
       exceptions[0].GetDict().FindBool(site_settings::kIsEmbargoed);
   ASSERT_TRUE(is_embargoed.has_value());
   // Last added origin is blocked, |embargo| key should be false.
@@ -364,7 +364,7 @@ TEST_F(SiteSettingsHelperTest, ExceptionListFedCmEmbargo) {
   // |exceptions| should have an exception for the embargoed origin.
   ASSERT_EQ(1U, exceptions.size());
 
-  absl::optional<bool> is_embargoed =
+  std::optional<bool> is_embargoed =
       exceptions[0].GetDict().FindBool(site_settings::kIsEmbargoed);
   ASSERT_TRUE(is_embargoed.has_value());
   EXPECT_TRUE(*is_embargoed);
@@ -432,7 +432,8 @@ TEST_F(SiteSettingsHelperTest, CheckExceptionOrder) {
   policy_provider->SetWebsiteSetting(
       ContentSettingsPattern::FromString(star_google_com),
       ContentSettingsPattern::Wildcard(), kContentType,
-      base::Value(CONTENT_SETTING_BLOCK));
+      base::Value(CONTENT_SETTING_BLOCK), /*constraints=*/{},
+      content_settings::PartitionKey::GetDefaultForTesting());
   policy_provider->set_read_only(true);
   content_settings::TestUtils::OverrideProvider(
       map, std::move(policy_provider), HostContentSettingsMap::POLICY_PROVIDER);
@@ -450,7 +451,8 @@ TEST_F(SiteSettingsHelperTest, CheckExceptionOrder) {
   extension_provider->SetWebsiteSetting(
       ContentSettingsPattern::FromString(drive_google_com),
       ContentSettingsPattern::Wildcard(), kContentType,
-      base::Value(CONTENT_SETTING_ASK));
+      base::Value(CONTENT_SETTING_ASK), /*constraints=*/{},
+      content_settings::PartitionKey::GetDefaultForTesting());
   extension_provider->set_read_only(true);
   content_settings::TestUtils::OverrideProvider(
       map, std::move(extension_provider),
@@ -524,10 +526,11 @@ TEST_F(SiteSettingsHelperTest, ContentSettingSource) {
 
   // Extension.
   auto extension_provider = std::make_unique<content_settings::MockProvider>();
-  extension_provider->SetWebsiteSetting(ContentSettingsPattern::FromURL(origin),
-                                        ContentSettingsPattern::FromURL(origin),
-                                        kContentType,
-                                        base::Value(CONTENT_SETTING_BLOCK));
+  extension_provider->SetWebsiteSetting(
+      ContentSettingsPattern::FromURL(origin),
+      ContentSettingsPattern::FromURL(origin), kContentType,
+      base::Value(CONTENT_SETTING_BLOCK), /*constraints=*/{},
+      content_settings::PartitionKey::GetDefaultForTesting());
   extension_provider->set_read_only(true);
   content_settings::TestUtils::OverrideProvider(
       map, std::move(extension_provider),
@@ -539,10 +542,11 @@ TEST_F(SiteSettingsHelperTest, ContentSettingSource) {
 
   // Enterprise policy.
   auto policy_provider = std::make_unique<content_settings::MockProvider>();
-  policy_provider->SetWebsiteSetting(ContentSettingsPattern::FromURL(origin),
-                                     ContentSettingsPattern::FromURL(origin),
-                                     kContentType,
-                                     base::Value(CONTENT_SETTING_ALLOW));
+  policy_provider->SetWebsiteSetting(
+      ContentSettingsPattern::FromURL(origin),
+      ContentSettingsPattern::FromURL(origin), kContentType,
+      base::Value(CONTENT_SETTING_ALLOW), /*constraints=*/{},
+      content_settings::PartitionKey::GetDefaultForTesting());
   policy_provider->set_read_only(true);
   content_settings::TestUtils::OverrideProvider(
       map, std::move(policy_provider), HostContentSettingsMap::POLICY_PROVIDER);
@@ -598,45 +602,35 @@ TEST_F(SiteSettingsHelperTest, CookieExceptions) {
         kContentTypeCookies, test_case.initial_setting);
   }
 
-  for (const auto feature_state : std::vector<bool>{true, false}) {
-    base::test::ScopedFeatureList feature_list_;
-    feature_list_.InitWithFeatureState(
-        privacy_sandbox::kPrivacySandboxSettings4, feature_state);
+  base::Value::List exceptions;
+  site_settings::GetExceptionsForContentType(kContentTypeCookies, &profile,
+                                             /*web_ui=*/nullptr,
+                                             /*incognito=*/false, &exceptions);
 
-    base::Value::List exceptions;
-    site_settings::GetExceptionsForContentType(kContentTypeCookies, &profile,
-                                               /*web_ui=*/nullptr,
-                                               /*incognito=*/false,
-                                               &exceptions);
+  // Convert the test cases, and the returned dictionary, into tuples for
+  // unordered comparison, as the order of exception is not relevant.
+  std::vector<std::tuple<std::string, std::string, std::string>> expected =
+      base::test::ToVector(test_cases, [&](const auto& test_case) {
+        // make_tuple as we've some temporary rvalues.
+        return std::make_tuple(
+            test_case.primary_pattern,
+            test_case.secondary_pattern ==
+                    ContentSettingsPattern::Wildcard().ToString()
+                ? ""
+                : test_case.secondary_pattern,
+            content_settings::ContentSettingToString(
+                test_case.updated_setting));
+      });
 
-    // Convert the test cases, and the returned dictionary, into tuples for
-    // unordered comparison, as the order of exception is not relevant.
-    std::vector<std::tuple<std::string, std::string, std::string>> expected =
-        base::test::ToVector(test_cases, [&](const auto& test_case) {
-          // make_tuple as we've some temporary rvalues.
-          return std::make_tuple(
-              test_case.primary_pattern,
-              test_case.secondary_pattern ==
-                      ContentSettingsPattern::Wildcard().ToString()
-                  ? ""
-                  : test_case.secondary_pattern,
-              content_settings::ContentSettingToString(
-                  feature_state ? test_case.updated_setting
-                                : test_case.initial_setting));
-        });
+  std::vector<std::tuple<std::string, std::string, std::string>> actual =
+      base::test::ToVector(exceptions, [](const auto& exception) {
+        const base::Value::Dict& dict = exception.GetDict();
+        return std::make_tuple(*dict.FindString(kOrigin),
+                               *dict.FindString(kEmbeddingOrigin),
+                               *dict.FindString(kSetting));
+      });
 
-    std::vector<std::tuple<std::string, std::string, std::string>> actual =
-        base::test::ToVector(exceptions, [](const auto& exception) {
-          const base::Value::Dict& dict = exception.GetDict();
-          return std::make_tuple(*dict.FindString(kOrigin),
-                                 *dict.FindString(kEmbeddingOrigin),
-                                 *dict.FindString(kSetting));
-        });
-
-    EXPECT_THAT(actual, testing::UnorderedElementsAreArray(expected))
-        << "Privacy Sandbox Settings 4 "
-        << (feature_state ? "enabled" : "disabled");
-  }
+  EXPECT_THAT(actual, testing::UnorderedElementsAreArray(expected));
 }
 
 TEST_F(SiteSettingsHelperTest, GetExpirationDescription) {
@@ -752,7 +746,7 @@ void ExpectValidSiteExceptionObject(const base::Value& actual_site_object,
   ASSERT_TRUE(source_value);
   EXPECT_EQ(*source_value, source);
 
-  absl::optional<bool> incognito_value = actual_site_dict.FindBool(kIncognito);
+  std::optional<bool> incognito_value = actual_site_dict.FindBool(kIncognito);
   ASSERT_TRUE(incognito_value.has_value());
   EXPECT_EQ(*incognito_value, incognito);
 }

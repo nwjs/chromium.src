@@ -9,13 +9,28 @@
 
 namespace media {
 
-StatelessDecodeSurface::StatelessDecodeSurface(uint32_t frame_id)
-    : frame_id_(frame_id) {
-  DVLOGF(4) << "Creating surface with id : " << frame_id_;
+StatelessDecodeSurface::StatelessDecodeSurface(uint64_t frame_id,
+                                               base::OnceClosure enqueue_cb)
+    : frame_id_(frame_id), enqueue_cb_(std::move(enqueue_cb)) {
+  DVLOGF(3) << "Creating surface with id  : " << frame_id_;
 }
 
 StatelessDecodeSurface::~StatelessDecodeSurface() {
-  DVLOGF(4) << "Releasing surface with id : " << frame_id_;
+  DVLOGF(3) << "Releasing surface with id : " << frame_id_;
+  std::move(enqueue_cb_).Run();
+}
+
+void StatelessDecodeSurface::SetVisibleRect(const gfx::Rect& visible_rect) {
+  visible_rect_ = visible_rect;
+}
+
+void StatelessDecodeSurface::SetColorSpace(const VideoColorSpace& color_space) {
+  color_space_ = color_space;
+}
+
+void StatelessDecodeSurface::SetVideoFrameTimestamp(
+    const base::TimeDelta timestamp) {
+  video_frame_timestamp_ = timestamp;
 }
 
 uint64_t StatelessDecodeSurface::GetReferenceTimestamp() const {
@@ -28,6 +43,10 @@ void StatelessDecodeSurface::SetReferenceSurfaces(
   DCHECK(reference_surfaces_.empty());
 
   reference_surfaces_ = std::move(ref_surfaces);
+}
+
+void StatelessDecodeSurface::ClearReferenceSurfaces() {
+  reference_surfaces_.clear();
 }
 
 }  // namespace media

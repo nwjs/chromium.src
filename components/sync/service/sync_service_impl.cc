@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/barrier_closure.h"
+#include "base/check_is_test.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -28,6 +29,7 @@
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
+#include "components/sync/android/explicit_passphrase_platform_client.h"
 #include "components/sync/base/command_line_switches.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
@@ -204,7 +206,7 @@ SyncServiceImpl::InitParams::~InitParams() = default;
 SyncServiceImpl::SyncServiceImpl(InitParams init_params)
     : sync_client_(std::move(init_params.sync_client)),
       sync_prefs_(sync_client_->GetPrefService()),
-      identity_manager_(init_params.identity_manager),
+      identity_manager_(std::move(init_params.identity_manager)),
       auth_manager_(std::make_unique<SyncAuthManager>(
           identity_manager_,
           base::BindRepeating(&SyncServiceImpl::AccountStateChanged,
@@ -212,12 +214,13 @@ SyncServiceImpl::SyncServiceImpl(InitParams init_params)
           base::BindRepeating(&SyncServiceImpl::CredentialsChanged,
                               base::Unretained(this)))),
       channel_(init_params.channel),
-      debug_identifier_(init_params.debug_identifier),
+      debug_identifier_(std::move(init_params.debug_identifier)),
       sync_service_url_(
           GetSyncServiceURL(*base::CommandLine::ForCurrentProcess(), channel_)),
       crypto_(this, sync_client_->GetTrustedVaultClient()),
       url_loader_factory_(std::move(init_params.url_loader_factory)),
-      network_connection_tracker_(init_params.network_connection_tracker),
+      network_connection_tracker_(
+          std::move(init_params.network_connection_tracker)),
       create_http_post_provider_factory_cb_(
           base::BindRepeating(&CreateHttpBridgeFactory)),
       sync_poll_immediately_on_every_startup_(
@@ -1177,11 +1180,6 @@ void SyncServiceImpl::OnConfigureDone(
   DCHECK(!user_settings_->IsPassphraseRequiredForPreferredDataTypes() ||
          user_settings_->IsEncryptedDatatypeEnabled());
 
-  // Notify listeners that configuration is done.
-  for (SyncServiceObserver& observer : *observers_) {
-    observer.OnSyncConfigurationCompleted(this);
-  }
-
   DVLOG(2) << "Notify observers OnConfigureDone";
   NotifyObservers();
 
@@ -1293,6 +1291,9 @@ void SyncServiceImpl::SetEncryptionBootstrapToken(
     const std::string& bootstrap_token) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   sync_prefs_.SetEncryptionBootstrapToken(bootstrap_token);
+#if BUILDFLAG(IS_ANDROID)
+  SendExplicitPassphraseToJavaPlatformClient(this);
+#endif
 }
 
 std::string SyncServiceImpl::GetEncryptionBootstrapToken() const {
@@ -1425,6 +1426,13 @@ void SyncServiceImpl::OnPreferredDataTypesPrefChange(
 SyncClient* SyncServiceImpl::GetSyncClientForTest() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return sync_client_.get();
+}
+
+void SyncServiceImpl::ReportDataTypeErrorForTest(ModelType type) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK_IS_TEST();
+  CHECK(data_type_controllers_.find(type) != data_type_controllers_.end());
+  data_type_controllers_[type]->ReportBridgeErrorForTest();  // IN-TEST
 }
 
 void SyncServiceImpl::AddObserver(SyncServiceObserver* observer) {

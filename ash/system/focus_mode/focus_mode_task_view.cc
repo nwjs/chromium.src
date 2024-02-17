@@ -14,12 +14,15 @@
 #include "ash/system/focus_mode/focus_mode_controller.h"
 #include "base/functional/bind.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/focus_ring.h"
+#include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/flex_layout_types.h"
@@ -31,14 +34,22 @@ namespace ash {
 namespace {
 
 constexpr int kIconSize = 20;
-constexpr auto kSelectedStateBoxInsets = gfx::Insets::TLBR(8, 0, 0, 0);
+constexpr int kTextfieldCornerRadius = 8;
+constexpr auto kSelectedStateBoxInsets = gfx::Insets::VH(4, 0);
 constexpr auto kSelectedStateTextfieldInsets = gfx::Insets::TLBR(0, 16, 0, 12);
-
-constexpr int kUnselectedStateBoxCornerRadius = 4;
 constexpr auto kUnselectedStateBoxInsets = gfx::Insets::TLBR(4, 8, 4, 16);
 constexpr auto kUnselectedStateTextfieldInsets = gfx::Insets::TLBR(0, 8, 0, 0);
 
 constexpr base::TimeDelta kStartAnimationDelay = base::Milliseconds(300);
+
+// Clears the focus away from `textfield`.
+void ClearFocusForTextfield(views::Textfield* textfield) {
+  auto* focus_manager = textfield->GetWidget()->GetFocusManager();
+  focus_manager->ClearFocus();
+  // Avoid having the focus restored to the same view when the parent view is
+  // refocused.
+  focus_manager->SetStoredFocusView(nullptr);
+}
 
 }  // namespace
 
@@ -46,14 +57,13 @@ constexpr base::TimeDelta kStartAnimationDelay = base::Milliseconds(300);
 // FocusModeTaskView::TaskTextfield:
 
 class FocusModeTaskView::TaskTextfield : public SystemTextfield {
+  METADATA_HEADER(TaskTextfield, SystemTextfield)
+
  public:
   // The `kMedium` type of `SystemTextfield` has a 20px font size and a 28px
   // container height.
-  TaskTextfield() : SystemTextfield(SystemTextfield::Type::kMedium) {
-    // Don't show focus ring for the textfield.
-    views::FocusRing::Get(this)->SetHasFocusPredicate(
-        base::BindRepeating([](const views::View* view) { return false; }));
-
+  explicit TaskTextfield(base::RepeatingClosure callback)
+      : SystemTextfield(SystemTextfield::Type::kMedium) {
     // `SystemTextfield` separates the "focused" and "active" states. The
     // textfield can be focused but inactive. For example, while editing, if the
     // user presses Enter, it will commit the changes and deactivate the
@@ -61,34 +71,59 @@ class FocusModeTaskView::TaskTextfield : public SystemTextfield {
     // it by pressing Enter agagin. In focused mode case, we only want to show
     // the focus ring when the textfield is active. Thus, we will paint the
     // focus ring of `parent()` each time on the active state changed.
-    SetActiveStateChangedCallback(base::BindRepeating(
-        &FocusModeTaskView::TaskTextfield::PaintParentFocusRing,
-        base::Unretained(this)));
+    SetActiveStateChangedCallback(std::move(callback));
+
+    UpdateElideBehavior(IsActive());
   }
   TaskTextfield(const TaskTextfield&) = delete;
   TaskTextfield& operator=(const TaskTextfield&) = delete;
   ~TaskTextfield() override = default;
 
-  void set_show_tooltip(bool show_tooltip) { show_tooltip_ = show_tooltip; }
+  // The max number of characters (UTF-16) allowed for the textfield.
+  static constexpr size_t kMaxLength = 1023;
 
-  void SetElideTail(bool elide_tail) {
-    GetRenderText()->SetElideBehavior(elide_tail ? gfx::ELIDE_TAIL
-                                                 : gfx::NO_ELIDE);
+  void set_show_selected_state(bool show_selected_state) {
+    show_selected_state_ = show_selected_state;
+  }
+
+  void UpdateElideBehavior(bool active) {
+    GetRenderText()->SetElideBehavior(active ? gfx::NO_ELIDE : gfx::ELIDE_TAIL);
+  }
+
+  // SystemTextfield:
+  void OnFocus() override {
+    if (show_selected_state_) {
+      // If we are in a selected state, we want to make the textfield focused
+      // but not active, so that we can allow the user to press the `Enter` key
+      // to activate the textfield. Thus, we only need to show its focus ring.
+      SetShowFocusRing(true);
+      return;
+    }
+
+    SystemTextfield::OnFocus();
+  }
+
+  void OnBlur() override {
+    SystemTextfield::OnBlur();
+    // Remove the focus ring for the state that the textfield was focused but
+    // not active.
+    if (show_selected_state_) {
+      SetShowFocusRing(false);
+    }
   }
 
   // views::View:
   std::u16string GetTooltipText(const gfx::Point& p) const override {
-    return show_tooltip_ ? GetText() : std::u16string();
+    return show_selected_state_ ? GetText() : std::u16string();
   }
 
  private:
-  void PaintParentFocusRing() {
-    views::FocusRing::Get(parent())->SchedulePaint();
-  }
-
-  // Indicates if the textfield should should show the tooltip.
-  bool show_tooltip_ = false;
+  // True if `FocusModeTaskView` has a selected task.
+  bool show_selected_state_ = false;
 };
+
+BEGIN_METADATA(FocusModeTaskView, TaskTextfield, SystemTextfield)
+END_METADATA
 
 //---------------------------------------------------------------------
 // FocusModeTaskView::TaskTextfieldController:
@@ -107,18 +142,31 @@ class FocusModeTaskView::TaskTextfieldController
   TaskTextfieldController& operator=(const TaskTextfieldController&) = delete;
   ~TaskTextfieldController() override { textfield_->RemoveObserver(this); }
 
-  // views::SystemTextfieldController:
+  // SystemTextfieldController:
+  void ContentsChanged(views::Textfield* sender,
+                       const std::u16string& new_contents) override {
+    DCHECK_EQ(sender, textfield_);
+
+    // Google Tasks have a max length for each task title, so we trim if needed
+    // at kMaxLength UTF-16 boundary.
+    if (new_contents.size() > TaskTextfield::kMaxLength) {
+      textfield_->SetText(new_contents.substr(0, TaskTextfield::kMaxLength));
+    }
+  }
+
   bool HandleKeyEvent(views::Textfield* sender,
                       const ui::KeyEvent& key_event) override {
     if (key_event.type() == ui::ET_KEY_PRESSED &&
         key_event.key_code() == ui::VKEY_RETURN) {
-      views::FocusManager* focus_manager =
-          sender->GetWidget()->GetFocusManager();
-      focus_manager->ClearFocus();
+      // If the textfield is focused but not active, activate the textfield and
+      // highlight all the text.
+      if (!textfield_->IsActive()) {
+        textfield_->SetActive(true);
+        textfield_->SelectAll(/*reversed=*/false);
+        return true;
+      }
 
-      // Avoid having the focus restored to the same view when the parent view
-      // is refocused.
-      focus_manager->SetStoredFocusView(nullptr);
+      ClearFocusForTextfield(textfield_);
       return true;
     }
 
@@ -128,12 +176,8 @@ class FocusModeTaskView::TaskTextfieldController
   }
 
   // views::ViewObserver:
-  void OnViewFocused(View* observed_view) override {
-    owner_->UpdateStyle(/*show_selected_state=*/false);
-  }
-
   void OnViewBlurred(views::View* view) override {
-    owner_->AddTask(textfield_->GetText());
+    owner_->AddOrUpdateTask(textfield_->GetText());
   }
 
  private:
@@ -154,16 +198,16 @@ FocusModeTaskView::FocusModeTaskView() {
       views::BoxLayout::CrossAxisAlignment::kCenter);
   textfield_container_->SetOrientation(
       views::BoxLayout::Orientation::kHorizontal);
-  textfield_container_->SetProperty(
-      views::kFlexBehaviorKey,
-      views::FlexSpecification(views::MinimumFlexSizeRule::kPreferred,
-                               views::MaximumFlexSizeRule::kUnbounded));
-
+  textfield_container_->SetProperty(views::kBoxLayoutFlexKey,
+                                    views::BoxLayoutFlexSpecification());
   radio_button_ = textfield_container_->AddChildView(
       std::make_unique<views::ImageButton>(base::BindRepeating(
           &FocusModeTaskView::OnCompleteTask, base::Unretained(this))));
   radio_button_->SetTooltipText(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_RADIO_BUTTON));
+  views::FocusRing::Install(radio_button_);
+  views::FocusRing::Get(radio_button_)
+      ->SetColorId(cros_tokens::kCrosSysFocusRing);
 
   add_task_button_ = textfield_container_->AddChildView(
       std::make_unique<views::ImageButton>(base::BindRepeating(
@@ -175,23 +219,32 @@ FocusModeTaskView::FocusModeTaskView() {
                                      kIconSize));
   add_task_button_->SetFocusBehavior(View::FocusBehavior::NEVER);
 
-  auto* focus_mode_controller = FocusModeController::Get();
-  task_title_ = focus_mode_controller->selected_task_title();
   textfield_ =
-      textfield_container_->AddChildView(std::make_unique<TaskTextfield>());
+      textfield_container_->AddChildView(std::make_unique<TaskTextfield>(
+          base::BindRepeating(&FocusModeTaskView::PaintFocusRingAndUpdateStyle,
+                              weak_factory_.GetWeakPtr())));
   textfield_->SetAccessibleName(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_TEXTFIELD_PLACEHOLDER));
   textfield_->SetBackgroundColorEnabled(false);
   textfield_->SetPlaceholderText(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_TEXTFIELD_PLACEHOLDER));
   textfield_->SetPlaceholderTextColorId(cros_tokens::kCrosSysSecondary);
+  // Shrink the inactive `textfield_` ring so it's not touching the other views
+  // when focused.
+  views::InstallRoundRectHighlightPathGenerator(
+      textfield_, gfx::Insets::VH(0, 8), kTextfieldCornerRadius);
+
   textfield_container_->SetFlexForView(textfield_, 1);
   // We only show `textfield_container_`'s focus ring when the textfield is
   // active.
   views::FocusRing::Install(textfield_container_);
+  // Set the focus ring corner radius with 8px.
+  views::InstallRoundRectHighlightPathGenerator(
+      textfield_container_, gfx::Insets(), kTextfieldCornerRadius);
   auto* textfield_container_focus_ring =
       views::FocusRing::Get(textfield_container_);
   textfield_container_focus_ring->SetColorId(cros_tokens::kCrosSysFocusRing);
+  textfield_container_focus_ring->SetOutsetFocusRingDisabled(true);
   textfield_container_focus_ring->SetHasFocusPredicate(base::BindRepeating(
       [](const TaskTextfield* textfield, const views::View* view) {
         return textfield && textfield->IsActive();
@@ -209,14 +262,22 @@ FocusModeTaskView::FocusModeTaskView() {
                                      kIconSize));
   deselect_button_->SetTooltipText(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_DESELECT_BUTTON));
+  views::FocusRing::Install(deselect_button_);
+  views::FocusRing::Get(deselect_button_)
+      ->SetColorId(cros_tokens::kCrosSysFocusRing);
 
   chip_carousel_ =
       AddChildView(std::make_unique<FocusModeChipCarousel>(base::BindRepeating(
-          &FocusModeTaskView::SelectTask, base::Unretained(this))));
-  chip_carousel_->SetTasks(
-      focus_mode_controller->tasks_provider().GetTaskList());
+          &FocusModeTaskView::OnTaskSelected, base::Unretained(this))));
+  auto* controller = FocusModeController::Get();
+  const bool has_selected_task = controller->HasSelectedTask();
+  if (has_selected_task) {
+    task_title_ = base::UTF8ToUTF16(controller->selected_task_title());
+  } else {
+    chip_carousel_->SetTasks(controller->tasks_provider().GetTaskList());
+  }
 
-  UpdateStyle(!task_title_.empty());
+  UpdateStyle(/*show_selected_state=*/has_selected_task);
 
   textfield_controller_ =
       std::make_unique<TaskTextfieldController>(textfield_, this);
@@ -224,34 +285,74 @@ FocusModeTaskView::FocusModeTaskView() {
 
 FocusModeTaskView::~FocusModeTaskView() = default;
 
-void FocusModeTaskView::AddTask(const std::u16string& task_title) {
+void FocusModeTaskView::AddOrUpdateTask(const std::u16string& task_title) {
   if (task_title.empty()) {
+    OnClearTask();
     return;
   }
 
-  // If a task is already selected, edit it. Add it otherwise.
   auto* controller = FocusModeController::Get();
-  if (!controller->selected_task_title().empty()) {
-    // TODO(b/306271947): Edit an existing task
+  if (controller->HasSelectedTask()) {
+    controller->tasks_provider().UpdateTaskTitle(
+        controller->selected_task_id(), base::UTF16ToUTF8(task_title),
+        base::BindOnce(&FocusModeTaskView::OnTaskSelected,
+                       weak_factory_.GetWeakPtr()));
   } else {
-    controller->tasks_provider().CreateTask(base::UTF16ToUTF8(task_title));
+    controller->tasks_provider().AddTask(
+        base::UTF16ToUTF8(task_title),
+        base::BindOnce(&FocusModeTaskView::OnTaskSelected,
+                       weak_factory_.GetWeakPtr()));
+  }
+}
+
+void FocusModeTaskView::OnTaskSelected(const api::Task* task) {
+  if (!task) {
+    OnClearTask();
+    return;
   }
 
-  task_title_ = task_title;
-  controller->set_selected_task_title(task_title_);
+  task_title_ = base::UTF8ToUTF16(task->title);
+  textfield_->SetText(task_title_);
+  FocusModeController::Get()->SetSelectedTask(task);
   UpdateStyle(/*show_selected_state=*/true);
 }
 
-void FocusModeTaskView::SelectTask(const api::Task* task) {
-  task_title_ = base::UTF8ToUTF16(task->title);
-  textfield_->SetText(task_title_);
-  FocusModeController::Get()->set_selected_task_title(task_title_);
-  UpdateStyle(/*show_selected_state=*/!task_title_.empty());
-  // TODO(b/306271332): Call the tasks API to either save or update a task.
-  // TODO(b/306271315): Save task info to user prefs.
+void FocusModeTaskView::OnClearTask() {
+  task_title_.clear();
+  textfield_->SetText(std::u16string());
+  auto* controller = FocusModeController::Get();
+  controller->SetSelectedTask(nullptr);
+  // Only update `chip_carousel_` when it's invisible to avoid the crash when
+  // moving focus to it by tabbing from an empty text of `textfield_` to the
+  // `chip_carousel_`.
+  if (!chip_carousel_->GetVisible()) {
+    chip_carousel_->SetTasks(controller->tasks_provider().GetTaskList());
+  }
+  UpdateStyle(/*show_selected_state=*/false);
+}
+
+void FocusModeTaskView::PaintFocusRingAndUpdateStyle() {
+  const bool is_active = textfield_->IsActive();
+  if (is_active) {
+    UpdateStyle(false);
+    // `SystemTextfield::SetActive` will show focus ring when `textfield_` is
+    // active. But in our case, we don't want the textfield to show the focus
+    // ring, but show its parent focus ring. Thus, we need to hide
+    // `textfield_`'s focus ring.
+    textfield_->SetShowFocusRing(false);
+  } else if (textfield_->HasFocus()) {
+    // TODO(b/312226702): Remove the call for clearing the focus for the
+    // `textfield_` after this bug resolved.
+    // Commit changes if `textfield_` is inactive but still has the focus. This
+    // case happens when the user types something in `textfield_` and clicks
+    // outside of `textfield_` to commit changes.
+    ClearFocusForTextfield(textfield_);
+  }
+  textfield_->UpdateElideBehavior(is_active);
 }
 
 void FocusModeTaskView::OnCompleteTask() {
+  FocusModeController::Get()->CompleteTask();
   radio_button_->SetEnabled(false);
   radio_button_->SetImageModel(
       views::Button::STATE_NORMAL,
@@ -262,20 +363,16 @@ void FocusModeTaskView::OnCompleteTask() {
           ->ResolveTypographyToken(TypographyToken::kCrosBody2)
           .DeriveWithStyle(gfx::Font::FontStyle::STRIKE_THROUGH));
   textfield_->SetTextColorId(cros_tokens::kCrosSysSecondary);
-  task_title_.clear();
-  FocusModeController::Get()->set_selected_task_title(task_title_);
 
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
-      base::BindOnce(&FocusModeTaskView::UpdateStyle,
-                     weak_factory_.GetWeakPtr(), false),
+      base::BindOnce(&FocusModeTaskView::OnClearTask,
+                     weak_factory_.GetWeakPtr()),
       kStartAnimationDelay);
 }
 
 void FocusModeTaskView::OnDeselectButtonPressed() {
-  task_title_.clear();
-  FocusModeController::Get()->set_selected_task_title(task_title_);
-  UpdateStyle(/*show_selected_state=*/false);
+  OnClearTask();
 }
 
 void FocusModeTaskView::OnAddTaskButtonPressed() {
@@ -316,13 +413,15 @@ void FocusModeTaskView::UpdateStyle(bool show_selected_state) {
       show_selected_state ? nullptr
                           : views::CreateThemedRoundedRectBackground(
                                 cros_tokens::kCrosSysInputFieldOnShaded,
-                                kUnselectedStateBoxCornerRadius));
+                                kTextfieldCornerRadius));
 
   radio_button_->SetEnabled(true);
   radio_button_->SetVisible(show_selected_state);
   deselect_button_->SetVisible(show_selected_state);
   add_task_button_->SetVisible(!show_selected_state);
+  // Note: don't show the carousel if we are editing a previously selected task.
   chip_carousel_->SetVisible(!show_selected_state &&
+                             !FocusModeController::Get()->HasSelectedTask() &&
                              chip_carousel_->HasTasks());
 
   radio_button_->SetImageModel(
@@ -330,8 +429,14 @@ void FocusModeTaskView::UpdateStyle(bool show_selected_state) {
       ui::ImageModel::FromVectorIcon(kRadioButtonUncheckedIcon,
                                      cros_tokens::kCrosSysPrimary, kIconSize));
 
-  textfield_->set_show_tooltip(/*show_tooltip=*/show_selected_state);
-  textfield_->SetElideTail(/*elide_tail=*/show_selected_state);
+  textfield_->set_show_selected_state(show_selected_state);
+  textfield_->SetAccessibleName(
+      show_selected_state
+          ? l10n_util::GetStringFUTF16(
+                IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_TEXTFIELD_SELECTED_ACCESSIBLE_NAME,
+                task_title_)
+          : l10n_util::GetStringUTF16(
+                IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_TEXTFIELD_UNSELECTED_ACCESSIBLE_NAME));
   textfield_->SetBorder(views::CreateEmptyBorder(
       show_selected_state ? kSelectedStateTextfieldInsets
                           : kUnselectedStateTextfieldInsets));
@@ -342,5 +447,8 @@ void FocusModeTaskView::UpdateStyle(bool show_selected_state) {
   textfield_->SetTextColorId(cros_tokens::kCrosSysOnSurface);
   textfield_->SchedulePaint();
 }
+
+BEGIN_METADATA(FocusModeTaskView)
+END_METADATA
 
 }  // namespace ash

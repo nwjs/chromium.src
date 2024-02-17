@@ -135,14 +135,13 @@ CSSFontSelector* CreateCSSFontSelectorFor(Document& document) {
 enum RuleSetFlags {
   kFontFaceRules = 1 << 0,
   kKeyframesRules = 1 << 1,
-  kFullRecalcRules = 1 << 2,
-  kPropertyRules = 1 << 3,
-  kCounterStyleRules = 1 << 4,
-  kLayerRules = 1 << 5,
-  kFontPaletteValuesRules = 1 << 6,
-  kPositionFallbackRules = 1 << 7,
-  kFontFeatureValuesRules = 1 << 8,
-  kViewTransitionRules = 1 << 9
+  kPropertyRules = 1 << 2,
+  kCounterStyleRules = 1 << 3,
+  kLayerRules = 1 << 4,
+  kFontPaletteValuesRules = 1 << 5,
+  kPositionFallbackRules = 1 << 6,
+  kFontFeatureValuesRules = 1 << 7,
+  kViewTransitionRules = 1 << 8
 };
 
 const unsigned kRuleSetFlagsAll = ~0u;
@@ -236,11 +235,12 @@ StyleEngine::StyleEngine(Document& document)
     force_dark_mode_enabled_ =
         document.GetSettings()->GetForceDarkModeEnabled();
     UpdateColorSchemeMetrics();
+
+    UpdateForcedBackgroundColor();
   }
 
   forced_colors_ =
       WebThemeEngineHelper::GetNativeThemeEngine()->GetForcedColors();
-  UpdateForcedBackgroundColor();
   UpdateColorScheme();
 
   // Mostly for the benefit of unit tests.
@@ -1083,7 +1083,8 @@ void SetNeedsStyleRecalcForViewportUnits(TreeScope& tree_scope,
       SetNeedsStyleRecalcForViewportUnits(*root, dirty_flags);
     }
     const ComputedStyle* style = element->GetComputedStyle();
-    if (style && (style->ViewportUnitFlags() & dirty_flags)) {
+    if (style && ((style->ViewportUnitFlags() & dirty_flags) ||
+                  style->HighlightPseudoElementStylesDependOnViewportUnits())) {
       element->SetNeedsStyleRecalc(kLocalStyleChange,
                                    StyleChangeReasonForTracing::Create(
                                        style_change_reason::kViewportUnits));
@@ -2449,14 +2450,6 @@ void StyleEngine::InvalidateForRuleSetChanges(
     return;
   }
 
-  if (changed_rule_flags & kFullRecalcRules) {
-    invalidation_root.SetNeedsStyleRecalc(
-        kSubtreeStyleChange,
-        StyleChangeReasonForTracing::Create(
-            style_change_reason::kActiveStylesheetsUpdate));
-    return;
-  }
-
   SelectorFilter selector_filter;
   selector_filter.PushAllParentsOf(tree_scope);
 
@@ -3168,12 +3161,17 @@ scoped_refptr<StyleInitialData> StyleEngine::MaybeCreateAndGetInitialData() {
   return initial_data_;
 }
 
-void StyleEngine::RecalcHighlightStylesForContainer(Element& container) {
+bool StyleEngine::RecalcHighlightStylesForContainer(Element& container) {
   const ComputedStyle& style = container.ComputedStyleRef();
+  // If we depend on container queries we need to update styles, and also
+  // the styles for dependents. Hence we return this value, which is used
+  // in RecalcStyleForContainer to set the flag for child recalc.
+  bool depends_on_container_queries =
+      style.HighlightData().DependsOnSizeContainerQueries() ||
+      style.HighlightsDependOnSizeContainerQueries();
   if (!style.HasAnyHighlightPseudoElementStyles() ||
-      !style.HasNonUaHighlightPseudoStyles() ||
-      !style.HighlightData().DependsOnSizeContainerQueries()) {
-    return;
+      !style.HasNonUaHighlightPseudoStyles() || !depends_on_container_queries) {
+    return false;
   }
 
   // We are recalculating styles for a size container whose highlight pseudo
@@ -3189,6 +3187,8 @@ void StyleEngine::RecalcHighlightStylesForContainer(Element& container) {
     container.GetLayoutObject()->SetStyle(new_style,
                                           LayoutObject::ApplyStyleChanges::kNo);
   }
+
+  return depends_on_container_queries;
 }
 
 #if DCHECK_IS_ON()
@@ -3260,7 +3260,9 @@ void StyleEngine::RecalcStyleForContainer(Element& container,
   container.SetChildNeedsStyleRecalc();
   style_recalc_root_.Update(nullptr, &container);
 
-  RecalcHighlightStylesForContainer(container);
+  if (RecalcHighlightStylesForContainer(container)) {
+    change = change.ForceRecalcDescendantSizeContainers();
+  }
 
   // TODO(crbug.com/1145970): Consider use a caching mechanism for FromAncestors
   // as we typically will call it for all containers on the first style/layout
@@ -4062,8 +4064,12 @@ mojom::blink::PreferredColorScheme StyleEngine::ResolveColorSchemeForEmbedding(
 }
 
 void StyleEngine::UpdateForcedBackgroundColor() {
+  CHECK(GetDocument().GetPage());
+  mojom::blink::ColorScheme color_scheme = mojom::blink::ColorScheme::kLight;
   forced_background_color_ = LayoutTheme::GetTheme().SystemColor(
-      CSSValueID::kCanvas, mojom::blink::ColorScheme::kLight);
+      CSSValueID::kCanvas, color_scheme,
+      GetDocument().GetPage()->GetColorProviderForPainting(
+          color_scheme, forced_colors_ != ForcedColors::kNone));
 }
 
 Color StyleEngine::ColorAdjustBackgroundColor() const {
@@ -4251,6 +4257,10 @@ void StyleEngine::MarkForLayoutTreeChangesAfterDetach() {
     }
   }
   parent_for_detached_subtree_ = nullptr;
+}
+
+void StyleEngine::InvalidateSVGResourcesAfterDetach() {
+  GetDocument().InvalidatePendingSVGResources();
 }
 
 bool StyleEngine::AllowSkipStyleRecalcForScope() const {

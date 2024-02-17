@@ -62,7 +62,7 @@ class IsolatedWebAppUninstallBrowserTest
     base::test::TestFuture<InstallResult> future;
     provider()->scheduler().InstallIsolatedWebApp(
         url_info_, src_location_,
-        /*expected_version=*/absl::nullopt,
+        /*expected_version=*/std::nullopt,
         /*optional_keep_alive=*/nullptr,
         /*optional_profile_keep_alive=*/nullptr, future.GetCallback());
     ASSERT_TRUE(future.Wait());
@@ -84,10 +84,6 @@ class IsolatedWebAppUninstallBrowserTest
         }));
 
     base::test::TestFuture<webapps::UninstallResultCode> future;
-    auto job = std::make_unique<RemoveWebAppJob>(
-        webapps::WebappUninstallSource::kAppsPage, *profile(),
-        url_info_.app_id());
-
     provider()->scheduler().UninstallWebApp(
         url_info_.app_id(), webapps::WebappUninstallSource::kAppsPage,
         future.GetCallback());
@@ -119,7 +115,7 @@ class IsolatedWebAppUninstallBrowserTest
 
 IN_PROC_BROWSER_TEST_P(IsolatedWebAppUninstallBrowserTest, Succeeds) {
   ASSERT_NO_FATAL_FAILURE(CreateBundle());
-  absl::optional<base::FilePath> path_to_iwa_in_profile;
+  std::optional<base::FilePath> path_to_iwa_in_profile;
 
   // Install an IWA and check that it is in the desired stated.
   ASSERT_NO_FATAL_FAILURE(Install());

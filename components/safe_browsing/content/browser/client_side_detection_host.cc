@@ -24,6 +24,7 @@
 #include "components/safe_browsing/content/browser/client_side_detection_feature_cache.h"
 #include "components/safe_browsing/content/browser/client_side_detection_service.h"
 #include "components/safe_browsing/content/browser/client_side_phishing_model.h"
+#include "components/safe_browsing/content/browser/unsafe_resource_util.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom-shared.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "components/safe_browsing/content/common/visual_utils.h"
@@ -32,7 +33,6 @@
 #include "components/safe_browsing/core/browser/sync/sync_utils.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
-#include "components/security_interstitials/content/unsafe_resource_util.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -183,13 +183,6 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
       DontClassifyForPhishing(NO_CLASSIFY_ALLOWLISTED_BY_POLICY);
     }
 
-    // Don't start classification if CSD-Phishing is not allowed by enterprise
-    // policy.
-    if (host_ && host_->delegate_->GetPrefs() &&
-        !IsCsdPhishingProtectionAllowed(*host_->delegate_->GetPrefs())) {
-      DontClassifyForPhishing(NO_CLASSIFY_NOT_ALLOWED_BY_POLICY);
-    }
-
     // If the tab has a delayed warning, ignore this second verdict. We don't
     // want to immediately undelay a page that's already blocked as phishy.
     if (host_ && host_->delegate_->HasSafeBrowsingUserInteractionObserver()) {
@@ -248,7 +241,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
     NO_CLASSIFY_HAS_DELAYED_WARNING = 14,
     NO_CLASSIFY_LOCAL_RESOURCE = 15,
     NO_CLASSIFY_CHROME_UI_PAGE = 16,
-    NO_CLASSIFY_NOT_ALLOWED_BY_POLICY = 17,
+    // NO_CLASSIFY_NOT_ALLOWED_BY_POLICY = 17,  Obsolete
 
     NO_CLASSIFY_MAX  // Always add new values before this one.
   };
@@ -628,24 +621,22 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
 
     bool force_request_from_rt_url_lookup = false;
 
-    if (base::FeatureList::IsEnabled(kClientSideDetectionTypeForceRequest)) {
-      if (cache_manager) {
-        safe_browsing::ClientSideDetectionType cached_csd_type =
-            cache_manager->GetCachedRealTimeUrlClientSideDetectionType(
-                current_url_);
-        force_request_from_rt_url_lookup =
-            cached_csd_type ==
-                safe_browsing::ClientSideDetectionType::FORCE_REQUEST &&
-            IsEnhancedProtectionEnabled(*delegate_->GetPrefs());
-        if (force_request_from_rt_url_lookup) {
-          verdict->set_client_side_detection_type(
-              safe_browsing::ClientSideDetectionType::FORCE_REQUEST);
-        }
+    if (cache_manager) {
+      safe_browsing::ClientSideDetectionType cached_csd_type =
+          cache_manager->GetCachedRealTimeUrlClientSideDetectionType(
+              current_url_);
+      force_request_from_rt_url_lookup =
+          cached_csd_type ==
+              safe_browsing::ClientSideDetectionType::FORCE_REQUEST &&
+          IsEnhancedProtectionEnabled(*delegate_->GetPrefs());
+      if (force_request_from_rt_url_lookup) {
+        verdict->set_client_side_detection_type(
+            safe_browsing::ClientSideDetectionType::FORCE_REQUEST);
       }
-
-      base::UmaHistogramBoolean("SBClientPhishing.RTLookupForceRequest",
-                                force_request_from_rt_url_lookup);
     }
+
+    base::UmaHistogramBoolean("SBClientPhishing.RTLookupForceRequest",
+                              force_request_from_rt_url_lookup);
 
     // We only send a phishing verdict if the verdict is phishing OR we get a
     // FORCE_REQUEST from a RTLookupResponse for a SBER/ESB user.

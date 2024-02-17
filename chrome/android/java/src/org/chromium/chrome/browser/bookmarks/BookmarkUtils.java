@@ -47,6 +47,7 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.read_later.ReadingListUtils;
+import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.favicon.FaviconUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
@@ -89,10 +90,8 @@ public class BookmarkUtils {
      * @param existingBookmarkItem The {@link BookmarkItem} if the tab has already been bookmarked.
      * @param bookmarkModel The bookmark model.
      * @param tab The tab to add or edit a bookmark.
-     * @param snackbarManager The {@link SnackbarManager} used to show the snackbar.
      * @param bottomSheetController The {@link BottomSheetController} used to show the bottom sheet.
      * @param activity Current activity.
-     * @param fromCustomTab boolean indicates whether it is called by Custom Tab.
      * @param bookmarkType Type of the added bookmark.
      * @param callback Invoked with the resulting bookmark ID, which could be null if unsuccessful.
      * @param fromExplicitTrackUi Whether the bookmark was added directly from a tracking ui (e.g.
@@ -102,10 +101,8 @@ public class BookmarkUtils {
             @Nullable BookmarkItem existingBookmarkItem,
             BookmarkModel bookmarkModel,
             Tab tab,
-            SnackbarManager snackbarManager,
             BottomSheetController bottomSheetController,
             Activity activity,
-            boolean fromCustomTab,
             @BookmarkType int bookmarkType,
             Callback<BookmarkId> callback,
             boolean fromExplicitTrackUi) {
@@ -139,10 +136,10 @@ public class BookmarkUtils {
      * Shows the bookmark save flow.
      *
      * @param activity The current Activity.
-     * @param bottomSheetController The BottomsheetController, used to show the save flow.
+     * @param bottomSheetController The BottomSheetController, used to show the save flow.
      * @param fromExplicitTrackUi Whether the bookmark was added from the explicit UI.
      * @param bookmarkId The BookmarkId to show the save flow for. Can be null in some cases.
-     * @param wasBookmarkMoved Whether the save flow is shown as a reslult of a moved bookmark.
+     * @param wasBookmarkMoved Whether the save flow is shown as a result of a moved bookmark.
      * @param isNewBookmark Whether the bookmark is newly created.
      * @param profile The profile currently used.
      */
@@ -167,7 +164,8 @@ public class BookmarkUtils {
                         bottomSheetController,
                         shoppingService,
                         new UserEducationHelper(activity, new Handler()),
-                        profile);
+                        profile,
+                        IdentityServicesProvider.get().getIdentityManager(profile));
         bookmarkSaveFlowCoordinator.show(
                 bookmarkId, fromExplicitTrackUi, wasBookmarkMoved, isNewBookmark);
     }
@@ -205,7 +203,7 @@ public class BookmarkUtils {
                     "Bookmarks.AddedPerProfileType", type, BrowserProfileType.MAX_VALUE + 1);
         }
 
-        Snackbar snackbar = null;
+        Snackbar snackbar;
         if (bookmarkId == null) {
             snackbar =
                     Snackbar.make(
@@ -227,7 +225,7 @@ public class BookmarkUtils {
                             bookmarkModel.getBookmarkById(bookmarkId).getParentId());
             SnackbarController snackbarController =
                     createSnackbarControllerForEditButton(activity, bookmarkId);
-            if (getLastUsedParent(activity, bookmarkModel) == null) {
+            if (getLastUsedParent() == null) {
                 if (fromCustomTab) {
                     String packageLabel = BuildInfo.getInstance().hostPackageLabel;
                     snackbar =
@@ -282,7 +280,7 @@ public class BookmarkUtils {
             Context context,
             @NonNull Profile profile) {
         assert bookmarkBridge.isBookmarkModelLoaded();
-        BookmarkId bookmarkId = bookmarkBridge.addToReadingList(title, url);
+        BookmarkId bookmarkId = bookmarkBridge.addToDefaultReadingList(title, url);
 
         if (bookmarkId != null) {
             Snackbar snackbar =
@@ -387,7 +385,7 @@ public class BookmarkUtils {
             GURL url,
             @Nullable BookmarkId parent,
             @BookmarkType int bookmarkType) {
-        parent = parent == null ? getLastUsedParent(context, bookmarkModel) : parent;
+        parent = parent == null ? getLastUsedParent() : parent;
         BookmarkItem parentItem = null;
         if (parent != null) {
             parentItem = bookmarkModel.getBookmarkById(parent);
@@ -404,7 +402,7 @@ public class BookmarkUtils {
         // 2. The last used parent implicitly specifies READING_LIST.
         if (bookmarkType == BookmarkType.READING_LIST
                 || parent.getType() == BookmarkType.READING_LIST) {
-            return bookmarkModel.addToReadingList(title, url);
+            return bookmarkModel.addToReadingList(parent, title, url);
         }
 
         BookmarkId bookmarkId = null;
@@ -416,7 +414,7 @@ public class BookmarkUtils {
         bookmarkId =
                 bookmarkModel.addBookmark(parent, bookmarkModel.getChildCount(parent), title, url);
         if (bookmarkId == null) {
-            setLastUsedParent(context, bookmarkModel.getDefaultFolder());
+            setLastUsedParent(bookmarkModel.getDefaultFolder());
         }
         return bookmarkId;
     }
@@ -484,7 +482,7 @@ public class BookmarkUtils {
             @Nullable Activity activity, @Nullable BookmarkId folderId, boolean isIncognito) {
         ThreadUtils.assertOnUiThread();
         Context context = activity == null ? ContextUtils.getApplicationContext() : activity;
-        String url = getFirstUrlToLoad(context, folderId);
+        String url = getFirstUrlToLoad(folderId);
 
         if (ChromeSharedPreferences.getInstance()
                 .contains(ChromePreferenceKeys.BOOKMARKS_LAST_USED_URL)) {
@@ -547,11 +545,11 @@ public class BookmarkUtils {
     /**
      * @return the bookmark folder URL to open.
      */
-    private static String getFirstUrlToLoad(Context context, @Nullable BookmarkId folderId) {
+    private static String getFirstUrlToLoad(@Nullable BookmarkId folderId) {
         String url;
         if (folderId == null) {
             // Load most recently visited bookmark folder.
-            url = getLastUsedUrl(context);
+            url = getLastUsedUrl();
         } else {
             // Load a specific folder.
             url = BookmarkUiState.createFolderUrl(folderId).toString();
@@ -562,46 +560,39 @@ public class BookmarkUtils {
 
     /**
      * Saves the last used url to preference. The saved url will be later queried by {@link
-     * #getLastUsedUrl(Context)}
+     * #getLastUsedUrl()}.
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
-    public static void setLastUsedUrl(Context context, String url) {
+    public static void setLastUsedUrl(String url) {
         ChromeSharedPreferences.getInstance()
                 .writeString(ChromePreferenceKeys.BOOKMARKS_LAST_USED_URL, url);
     }
 
     /** Fetches url representing the user's state last time they close the bookmark manager. */
     @VisibleForTesting
-    public static String getLastUsedUrl(Context context) {
+    public static String getLastUsedUrl() {
         return ChromeSharedPreferences.getInstance()
                 .readString(
                         ChromePreferenceKeys.BOOKMARKS_LAST_USED_URL, UrlConstants.BOOKMARKS_URL);
     }
 
     /** Save the last used {@link BookmarkId} as a folder to put new bookmarks to. */
-    public static void setLastUsedParent(Context context, BookmarkId bookmarkId) {
+    public static void setLastUsedParent(BookmarkId bookmarkId) {
         ChromeSharedPreferences.getInstance()
                 .writeString(
                         ChromePreferenceKeys.BOOKMARKS_LAST_USED_PARENT, bookmarkId.toString());
     }
 
     /**
-     * @param context The current android {@link Context}.
-     * @param bookmarkModel The bookmark model used to reset the last used parent for type swapping
-     *     edge cases.
      * @return The parent {@link BookmarkId} that the user used the last time or null if the user
      *     has never selected a parent folder to use.
      */
-    static BookmarkId getLastUsedParent(Context context, BookmarkModel bookmarkModel) {
+    static BookmarkId getLastUsedParent() {
         SharedPreferencesManager preferences = ChromeSharedPreferences.getInstance();
         if (!preferences.contains(ChromePreferenceKeys.BOOKMARKS_LAST_USED_PARENT)) return null;
 
-        BookmarkId parent =
-                BookmarkId.getBookmarkIdFromString(
-                        preferences.readString(
-                                ChromePreferenceKeys.BOOKMARKS_LAST_USED_PARENT, null));
-
-        return parent;
+        return BookmarkId.getBookmarkIdFromString(
+                preferences.readString(ChromePreferenceKeys.BOOKMARKS_LAST_USED_PARENT, null));
     }
 
     /** Starts an {@link BookmarkEditActivity} for the given {@link BookmarkId}. */
@@ -639,7 +630,7 @@ public class BookmarkUtils {
 
     /**
      * Given the {@link BookmarkId}s serialized {@link String}s, return a list of the {@link
-     * BookmarkIds}.
+     * BookmarkId}s.
      */
     public static List<BookmarkId> stringListToBookmarkIds(
             BookmarkModel bookmarkModel, List<String> bookmarkIdStrings) {
@@ -728,7 +719,7 @@ public class BookmarkUtils {
     /** Returns whether this bookmark can be moved */
     public static boolean isMovable(BookmarkModel bookmarkModel, BookmarkItem item) {
         if (Objects.equals(item.getParentId(), bookmarkModel.getPartnerFolderId())) return false;
-        return ReadingListUtils.isSwappableReadingListItem(item.getId()) || item.isEditable();
+        return item.isEditable();
     }
 
     /**
@@ -739,7 +730,7 @@ public class BookmarkUtils {
      */
     public static int getChildCountForDisplay(BookmarkId id, BookmarkModel bookmarkModel) {
         if (id.getType() == BookmarkType.READING_LIST) {
-            return bookmarkModel.getUnreadCount();
+            return bookmarkModel.getUnreadCount(id);
         } else {
             return bookmarkModel.getTotalBookmarkCount(id);
         }
@@ -778,7 +769,7 @@ public class BookmarkUtils {
                         iconSize,
                         iconSize,
                         iconSize / 2,
-                        res.getColor(R.color.default_favicon_background_color),
+                        context.getColor(R.color.default_favicon_background_color),
                         getDisplayTextSize(res))
                 : FaviconUtils.createCircularIconGenerator(context);
     }
@@ -822,7 +813,11 @@ public class BookmarkUtils {
      */
     public static boolean canAddFolderToParent(BookmarkModel bookmarkModel, BookmarkId parentId) {
         if (!canAddBookmarkToParent(bookmarkModel, parentId)) return false;
-        if (Objects.equals(parentId, bookmarkModel.getReadingListFolder())) return false;
+        // TODO(crbug.com/1501998): Add account reading list folder support here.
+        if (Objects.equals(parentId, bookmarkModel.getLocalOrSyncableReadingListFolder())
+                || Objects.equals(parentId, bookmarkModel.getAccountReadingListFolder())) {
+            return false;
+        }
 
         return true;
     }
@@ -842,7 +837,7 @@ public class BookmarkUtils {
      * Moves the given {@link BookmarkId}s to the new parent if the parent is valid. Type swapping
      * between regular bookmarks and Reading List items as necessary. This method assumes that the
      * bookmark ids that are passed in are valid bookmarks that are moveable. If the newParent
-     * argument doesn't point to a valid location for all of the {@link bookmarksToMove}, then the
+     * argument doesn't point to a valid location for all of the {@param bookmarksToMove}, then the
      * operation is abandoned and nothing is moved.
      *
      * @param bookmarkModel The underlying BookmarkModel, used to move the bookmarks.
@@ -875,7 +870,7 @@ public class BookmarkUtils {
      * All bookmarks will skip over mobile bookmarks and other bookmarks.
      *
      * @param bookmarkModel The {@link BookmarkModel}.
-     * @param bookmarkId The {@link BookmarkId} to get the bparent for.
+     * @param bookmarkId The {@link BookmarkId} to get the parent for.
      */
     public static BookmarkId getParentFolderForViewing(
             BookmarkModel bookmarkModel, BookmarkId bookmarkId) {

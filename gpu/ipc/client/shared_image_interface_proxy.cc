@@ -4,7 +4,8 @@
 
 #include "gpu/ipc/client/shared_image_interface_proxy.h"
 
-#include "base/bits.h"
+#include <bit>
+
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
@@ -31,7 +32,7 @@ bool SafeIncrementAndAlign(size_t aligned_value,
   sum += increment;
   // Taken from base::bits::Align.
   // TODO(ericrk): Update base::bits::Align to handle CheckedNumeric.
-  DCHECK(base::bits::IsPowerOfTwo(alignment));
+  DCHECK(std::has_single_bit(alignment));
   sum = (sum + alignment - 1) & ~(alignment - 1);
   return sum.AssignIfValid(result);
 }
@@ -513,7 +514,7 @@ bool SharedImageInterfaceProxy::GetSHMForPixelData(
   return true;
 }
 
-SharedImageInterface::SwapChainMailboxes
+SharedImageInterfaceProxy::SwapChainMailboxes
 SharedImageInterfaceProxy::CreateSwapChain(viz::SharedImageFormat format,
                                            const gfx::Size& size,
                                            const gfx::ColorSpace& color_space,
@@ -521,8 +522,8 @@ SharedImageInterfaceProxy::CreateSwapChain(viz::SharedImageFormat format,
                                            SkAlphaType alpha_type,
                                            uint32_t usage) {
 #if BUILDFLAG(IS_WIN)
-  const SharedImageInterface::SwapChainMailboxes mailboxes = {
-      Mailbox::GenerateForSharedImage(), Mailbox::GenerateForSharedImage()};
+  const SwapChainMailboxes mailboxes = {Mailbox::GenerateForSharedImage(),
+                                        Mailbox::GenerateForSharedImage()};
   auto params = mojom::CreateSwapChainParams::New();
   params->front_buffer_mailbox = mailboxes.front_buffer;
   params->back_buffer_mailbox = mailboxes.back_buffer;

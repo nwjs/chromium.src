@@ -31,6 +31,7 @@ import androidx.browser.customtabs.CustomTabsSessionToken;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.IntentUtils;
+import org.chromium.base.cached_flags.AllCachedFieldTrialParameters;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.BackupSigninProcessor;
@@ -43,9 +44,9 @@ import org.chromium.chrome.browser.customtabs.dependency_injection.BaseCustomTab
 import org.chromium.chrome.browser.customtabs.features.CustomTabNavigationBarController;
 import org.chromium.chrome.browser.dependency_injection.ChromeActivityCommonsModule;
 import org.chromium.chrome.browser.firstrun.FirstRunSignInProcessor;
-import org.chromium.chrome.browser.flags.AllCachedFieldTrialParameters;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fonts.FontPreloader;
+import org.chromium.chrome.browser.history.HistoryTabHelper;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
@@ -66,9 +67,12 @@ public class CustomTabActivity extends BaseCustomTabActivity {
 
     /** Contains all the parameters of the EXPERIMENTS_FOR_AGSA feature. */
     public static final AllCachedFieldTrialParameters EXPERIMENTS_FOR_AGSA_PARAMS =
-            new AllCachedFieldTrialParameters(ChromeFeatureList.EXPERIMENTS_FOR_AGSA);
+            ChromeFeatureList.newAllCachedFieldTrialParameters(
+                    ChromeFeatureList.EXPERIMENTS_FOR_AGSA);
 
-    private boolean mPreventTouchFeatureEnabled;
+    /** Prevents Tapjacking on T-. See crbug.com/1430867 */
+    private static final boolean sPreventTouches =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
 
     private CustomTabsOpenTimeRecorder mOpenTimeRecorder;
 
@@ -86,11 +90,13 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                 @Override
                 public void onInitialTabCreated(@NonNull Tab tab, int mode) {
                     resetPostMessageHandlersForCurrentSession();
+                    maybeCreateHistoryTabHelper(tab);
                 }
 
                 @Override
                 public void onTabSwapped(@NonNull Tab tab) {
                     resetPostMessageHandlersForCurrentSession();
+                    maybeCreateHistoryTabHelper(tab);
                 }
 
                 @Override
@@ -98,6 +104,11 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                     resetPostMessageHandlersForCurrentSession();
                 }
             };
+
+    private void maybeCreateHistoryTabHelper(Tab tab) {
+        String appId = mIntentDataProvider.getClientPackageName();
+        if (appId != null) HistoryTabHelper.from(tab).setAppId(appId, tab.getWebContents());
+    }
 
     @Override
     protected BaseCustomTabActivityComponent createComponent(
@@ -186,20 +197,17 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                 getWindowAndroid(),
                 getLifecycleDispatcher(),
                 () -> {
+                    if (ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.CCT_EXTEND_TRUSTED_CDN_PUBLISHER)) {
+                        return mConnection.isTrustedCdnPublisherUrlPackage(
+                                mIntentDataProvider.getClientPackageName());
+                    }
                     String urlPackage = mConnection.getTrustedCdnPublisherUrlPackage();
                     return urlPackage != null
                             && urlPackage.equals(
                                     mConnection.getClientPackageNameForSession(mSession));
                 });
-        initPreventTouchFeatureFlag();
         super.finishNativeInitialization();
-    }
-
-    @VisibleForTesting(otherwise = PRIVATE)
-    void initPreventTouchFeatureFlag() {
-        mPreventTouchFeatureEnabled =
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
-                        && ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_PREVENT_TOUCHES);
     }
 
     @Override
@@ -293,7 +301,7 @@ public class CustomTabActivity extends BaseCustomTabActivity {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        if (mPreventTouchFeatureEnabled && shouldPreventTouch(ev)) {
+        if (sPreventTouches && shouldPreventTouch(ev)) {
             // Discard the events which may be trickling down from an overlay activity above.
             return true;
         }
@@ -381,6 +389,11 @@ public class CustomTabActivity extends BaseCustomTabActivity {
     @Override
     protected LaunchCauseMetrics createLaunchCauseMetrics() {
         return new CustomTabLaunchCauseMetrics(this);
+    }
+
+    @Override
+    protected boolean supportsTabModalDialogs() {
+        return ChromeFeatureList.sCctTabModalDialog.isEnabled();
     }
 
     public NightModeStateProvider getNightModeStateProviderForTesting() {

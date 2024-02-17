@@ -186,7 +186,7 @@ class SecureDnsHandlerTest : public InProcessBrowserTest {
       *out_doh_config = *doh_config;
 
       // Get the forced management description.
-      absl::optional<int> management_mode = dict->FindInt("managementMode");
+      std::optional<int> management_mode = dict->FindInt("managementMode");
       if (!management_mode.has_value())
         return false;
       *out_management_mode = *management_mode;
@@ -213,7 +213,7 @@ class SecureDnsHandlerTest : public InProcessBrowserTest {
       const base::Value::Dict* dict = data->arg2()->GetIfDict();
       if (!dict)
         return false;
-      absl::optional<bool> doh_with_identifiers_active =
+      std::optional<bool> doh_with_identifiers_active =
           dict->FindBool("dohWithIdentifiersActive");
       if (!doh_with_identifiers_active)
         return false;
@@ -368,7 +368,7 @@ IN_PROC_BROWSER_TEST_F(SecureDnsHandlerTest, DropdownListContents) {
   const base::Value::List resolver_list = handler_->GetSecureDnsResolverList();
 
   EXPECT_EQ(entries.size(), resolver_list.size());
-  for (const auto* entry : entries) {
+  for (const net::DohProviderEntry* entry : entries) {
     EXPECT_TRUE(FindDropdownItem(resolver_list, entry->ui_name,
                                  entry->doh_server_config.server_template(),
                                  entry->privacy_policy));

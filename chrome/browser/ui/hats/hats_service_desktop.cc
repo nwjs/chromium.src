@@ -84,19 +84,19 @@ constexpr char kAnyLastSurveyStartedTimePath[] = "any_last_survey_started_time";
 
 HatsServiceDesktop::DelayedSurveyTask::DelayedSurveyTask(
     HatsServiceDesktop* hats_service,
-    const std::string& trigger,
+    std::string trigger,
     content::WebContents* web_contents,
     const SurveyBitsData& product_specific_bits_data,
     const SurveyStringData& product_specific_string_data,
-    bool require_same_origin,
+    NavigationBehaviour navigation_behaviour,
     base::OnceClosure success_callback,
     base::OnceClosure failure_callback,
-    absl::optional<std::string_view> supplied_trigger_id)
+    std::optional<std::string_view> supplied_trigger_id)
     : hats_service_(hats_service),
       trigger_(trigger),
       product_specific_bits_data_(product_specific_bits_data),
       product_specific_string_data_(product_specific_string_data),
-      require_same_origin_(require_same_origin),
+      navigation_behaviour_(navigation_behaviour),
       success_callback_(std::move(success_callback)),
       failure_callback_(std::move(failure_callback)),
       supplied_trigger_id_(std::move(supplied_trigger_id)) {
@@ -123,11 +123,18 @@ void HatsServiceDesktop::DelayedSurveyTask::Launch() {
 
 void HatsServiceDesktop::DelayedSurveyTask::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
-  if (!require_same_origin_ || !navigation_handle ||
-      !navigation_handle->IsInPrimaryMainFrame() ||
-      navigation_handle->IsSameDocument() ||
-      (navigation_handle->HasCommitted() &&
-       navigation_handle->IsSameOrigin())) {
+  if (navigation_behaviour_ == NavigationBehaviour::ALLOW_ANY ||
+      !navigation_handle || !navigation_handle->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  if (navigation_behaviour_ == NavigationBehaviour::REQUIRE_SAME_DOCUMENT &&
+      navigation_handle->IsSameDocument()) {
+    return;
+  }
+
+  if (navigation_behaviour_ == NavigationBehaviour::REQUIRE_SAME_ORIGIN &&
+      navigation_handle->HasCommitted() && navigation_handle->IsSameOrigin()) {
     return;
   }
 
@@ -182,7 +189,12 @@ void HatsServiceDesktop::LaunchSurveyForWebContents(
     const SurveyStringData& product_specific_string_data,
     base::OnceClosure success_callback,
     base::OnceClosure failure_callback,
-    const absl::optional<std::string_view>& supplied_trigger_id) {
+    const std::optional<std::string>& supplied_trigger_id,
+    const SurveyOptions& survey_options) {
+  CHECK(!survey_options.custom_invitation.has_value() &&
+        !survey_options.message_identifier.has_value())
+      << "Custom invitation strings and message types are not supported on "
+         "desktop.";
   if (ShouldShowSurvey(trigger) && web_contents &&
       web_contents->GetVisibility() == content::Visibility::VISIBLE) {
     LaunchSurveyForBrowser(chrome::FindBrowserWithTab(web_contents), trigger,
@@ -213,10 +225,15 @@ bool HatsServiceDesktop::LaunchDelayedSurveyForWebContents(
     int timeout_ms,
     const SurveyBitsData& product_specific_bits_data,
     const SurveyStringData& product_specific_string_data,
-    bool require_same_origin,
+    NavigationBehaviour navigation_behaviour,
     base::OnceClosure success_callback,
     base::OnceClosure failure_callback,
-    const absl::optional<std::string_view>& supplied_trigger_id) {
+    const std::optional<std::string>& supplied_trigger_id,
+    const SurveyOptions& survey_options) {
+  CHECK(!survey_options.custom_invitation.has_value() &&
+        !survey_options.message_identifier.has_value())
+      << "Custom invitation strings and message types are not supported on "
+         "desktop.";
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (survey_configs_by_triggers_.find(trigger) ==
       survey_configs_by_triggers_.end()) {
@@ -234,7 +251,7 @@ bool HatsServiceDesktop::LaunchDelayedSurveyForWebContents(
   }
   auto result = pending_tasks_.emplace(
       this, trigger, web_contents, product_specific_bits_data,
-      product_specific_string_data, require_same_origin,
+      product_specific_string_data, navigation_behaviour,
       std::move(success_callback), std::move(failure_callback),
       supplied_trigger_id);
   if (!result.second) {
@@ -313,31 +330,31 @@ void HatsServiceDesktop::GetSurveyMetadataForTesting(
                               prefs::kHatsSurveyMetadata);
   base::Value::Dict& pref_data = update.Get();
 
-  absl::optional<int> last_major_version =
+  std::optional<int> last_major_version =
       pref_data.FindIntByDottedPath(GetMajorVersionPath(trigger));
   if (last_major_version.has_value()) {
     metadata->last_major_version = last_major_version;
   }
 
-  absl::optional<base::Time> last_survey_started_time = base::ValueToTime(
+  std::optional<base::Time> last_survey_started_time = base::ValueToTime(
       pref_data.FindByDottedPath(GetLastSurveyStartedTime(trigger)));
   if (last_survey_started_time.has_value()) {
     metadata->last_survey_started_time = last_survey_started_time;
   }
 
-  absl::optional<base::Time> any_last_survey_started_time = base::ValueToTime(
+  std::optional<base::Time> any_last_survey_started_time = base::ValueToTime(
       pref_data.FindByDottedPath(kAnyLastSurveyStartedTimePath));
   if (any_last_survey_started_time.has_value()) {
     metadata->any_last_survey_started_time = any_last_survey_started_time;
   }
 
-  absl::optional<bool> is_survey_full =
+  std::optional<bool> is_survey_full =
       pref_data.FindBoolByDottedPath(GetIsSurveyFull(trigger));
   if (is_survey_full.has_value()) {
     metadata->is_survey_full = is_survey_full;
   }
 
-  absl::optional<base::Time> last_survey_check_time = base::ValueToTime(
+  std::optional<base::Time> last_survey_check_time = base::ValueToTime(
       pref_data.FindByDottedPath(GetLastSurveyCheckTime(trigger)));
   if (last_survey_check_time.has_value()) {
     metadata->last_survey_check_time = last_survey_check_time;
@@ -390,7 +407,7 @@ bool HatsServiceDesktop::CanShowSurvey(const std::string& trigger) const {
 
   const base::Value::Dict& pref_data =
       profile()->GetPrefs()->GetDict(prefs::kHatsSurveyMetadata);
-  absl::optional<int> last_major_version =
+  std::optional<int> last_major_version =
       pref_data.FindIntByDottedPath(GetMajorVersionPath(trigger));
   if (last_major_version.has_value() &&
       static_cast<uint32_t>(*last_major_version) ==
@@ -402,7 +419,7 @@ bool HatsServiceDesktop::CanShowSurvey(const std::string& trigger) const {
   }
 
   if (!config.user_prompted) {
-    absl::optional<base::Time> last_survey_started_time = base::ValueToTime(
+    std::optional<base::Time> last_survey_started_time = base::ValueToTime(
         pref_data.FindByDottedPath(GetLastSurveyStartedTime(trigger)));
     if (last_survey_started_time.has_value()) {
       base::TimeDelta elapsed_time_since_last_start =
@@ -418,7 +435,7 @@ bool HatsServiceDesktop::CanShowSurvey(const std::string& trigger) const {
 
   // If an attempt to check with the HaTS servers whether a survey should be
   // delivered was made too recently, another survey cannot be shown.
-  absl::optional<base::Time> last_survey_check_time = base::ValueToTime(
+  std::optional<base::Time> last_survey_check_time = base::ValueToTime(
       pref_data.FindByDottedPath(GetLastSurveyCheckTime(trigger)));
   if (last_survey_check_time.has_value()) {
     base::TimeDelta elapsed_time_since_last_check =
@@ -478,7 +495,7 @@ bool HatsServiceDesktop::CanShowAnySurvey(bool user_prompted) const {
 
     // If a user has received any HaTS survey too recently, they are also
     // ineligible.
-    absl::optional<base::Time> last_any_started_time =
+    std::optional<base::Time> last_any_started_time =
         base::ValueToTime(pref_data.Find(kAnyLastSurveyStartedTimePath));
     if (last_any_started_time.has_value()) {
       base::TimeDelta elapsed_time_any_started = now - *last_any_started_time;
@@ -554,7 +571,7 @@ void HatsServiceDesktop::LaunchSurveyForBrowser(
     base::OnceClosure failure_callback,
     const SurveyBitsData& product_specific_bits_data,
     const SurveyStringData& product_specific_string_data,
-    const absl::optional<std::string_view>& supplied_trigger_id) {
+    const std::optional<std::string_view>& supplied_trigger_id) {
   if (!browser ||
       (!browser->is_type_normal() && !browser->is_type_devtools()) ||
       !profiles::IsRegularOrGuestSession(browser)) {
@@ -592,13 +609,13 @@ void HatsServiceDesktop::CheckSurveyStatusAndMaybeShow(
     base::OnceClosure failure_callback,
     const SurveyBitsData& product_specific_bits_data,
     const SurveyStringData& product_specific_string_data,
-    const absl::optional<std::string_view>& supplied_trigger_id) {
+    const std::optional<std::string_view>& supplied_trigger_id) {
   // Check the survey status in profile first.
   // We record the survey's over capacity information in user profile to avoid
   // duplicated checks since the survey won't change once it is full.
   const base::Value::Dict& pref_data =
       profile()->GetPrefs()->GetDict(prefs::kHatsSurveyMetadata);
-  absl::optional<int> is_full =
+  std::optional<int> is_full =
       pref_data.FindBoolByDottedPath(GetIsSurveyFull(trigger));
   if (is_full.has_value() && is_full) {
     if (!failure_callback.is_null()) {

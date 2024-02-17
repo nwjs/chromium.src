@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "components/autofill/core/browser/autocomplete_history_manager.h"
+
 #include <string>
 #include <vector>
 
@@ -17,12 +19,11 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "components/autofill/core/browser/autocomplete_history_manager.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/suggestions_context.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_clock.h"
-#include "components/autofill/core/browser/webdata/autocomplete_entry.h"
+#include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/browser/webdata/mock_autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_clock.h"
@@ -445,8 +446,8 @@ TEST_F(AutocompleteHistoryManagerTest,
 
   // Simulate request for suggestions.
   EXPECT_FALSE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 }
 
 // Make sure our handler is called at the right time.
@@ -467,14 +468,13 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response triggers a call to the handler's
   // OnSuggestionsReturned
   EXPECT_CALL(mock_callback,
               Run(test_field_.global_id(),
-                  AutofillSuggestionTriggerSource::kFormControlElementClicked,
                   testing::Truly(IsEmptySuggestionVector)));
 
   // Simulate response from DB.
@@ -498,16 +498,12 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response does not trigger a call to the
   // handler's OnSuggestionsReturned.
-  EXPECT_CALL(
-      mock_callback,
-      Run(test_field_.global_id(),
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, _))
-      .Times(0);
+  EXPECT_CALL(mock_callback, Run(test_field_.global_id(), _)).Times(0);
 }
 
 // Tests that no suggestions are queried if the field name is filtered because
@@ -526,16 +522,12 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response does not trigger a call to the
   // handler's OnSuggestionsReturned.
-  EXPECT_CALL(
-      mock_callback,
-      Run(test_field_.global_id(),
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, _))
-      .Times(0);
+  EXPECT_CALL(mock_callback, Run(test_field_.global_id(), _)).Times(0);
 }
 
 // Tests that the suggestions are queried if the field has meaningless substring
@@ -560,14 +552,11 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response triggers a call to the handler's
-  EXPECT_CALL(
-      mock_callback,
-      Run(test_field_.global_id(),
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, _));
+  EXPECT_CALL(mock_callback, Run(test_field_.global_id(), _));
 
   autocomplete_manager_->OnWebDataServiceRequestDone(mocked_db_query_id,
                                                      std::move(mocked_results));
@@ -594,19 +583,17 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response triggers a call to the handler's
-  EXPECT_CALL(
-      mock_callback,
-      Run(test_field_.global_id(),
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, _));
+  EXPECT_CALL(mock_callback, Run(test_field_.global_id(), _));
 
   autocomplete_manager_->OnWebDataServiceRequestDone(mocked_db_query_id,
                                                      std::move(mocked_results));
 }
 
+// Tests that we are correctly returning a suggestion back to the handler.
 TEST_F(AutocompleteHistoryManagerTest,
        SuggestionsReturned_InvokeHandler_SingleValue) {
   int mocked_db_query_id = 100;
@@ -625,50 +612,12 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response triggers a call to the handler's
   EXPECT_CALL(mock_callback,
               Run(test_field_.global_id(),
-                  AutofillSuggestionTriggerSource::kFormControlElementClicked,
-                  UnorderedElementsAre(Field(
-                      &Suggestion::main_text,
-                      Suggestion::Text(expected_values[0].key().value(),
-                                       Suggestion::Text::IsPrimary(true))))));
-
-  // Simulate response from DB.
-  autocomplete_manager_->OnWebDataServiceRequestDone(mocked_db_query_id,
-                                                     std::move(mocked_results));
-}
-
-// Tests that we are correctly forwarding the value of the
-// `AutofillSuggestionTriggerSource` back to the handler.
-TEST_F(AutocompleteHistoryManagerTest,
-       SuggestionsReturned_InvokeHandler_PassesTriggerSource) {
-  int mocked_db_query_id = 100;
-
-  std::vector<AutocompleteEntry> expected_values = {
-      GetAutocompleteEntry(test_field_.name, u"SomePrefixOne")};
-
-  std::unique_ptr<WDTypedResult> mocked_results =
-      GetMockedDbResults(expected_values);
-
-  EXPECT_CALL(*web_data_service_,
-              GetFormValuesForElementName(test_field_.name, test_field_.value,
-                                          _, autocomplete_manager_.get()))
-      .WillOnce(Return(mocked_db_query_id));
-
-  // Simulate request for suggestions.
-  MockSuggestionsReturnedCallback mock_callback;
-  EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
-
-  // Setting up mock to verify that DB response triggers a call to the handler's
-  EXPECT_CALL(mock_callback,
-              Run(test_field_.global_id(),
-                  AutofillSuggestionTriggerSource::kFormControlElementClicked,
                   UnorderedElementsAre(Field(
                       &Suggestion::main_text,
                       Suggestion::Text(expected_values[0].key().value(),
@@ -699,13 +648,12 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response triggers a call to the handler's
   EXPECT_CALL(mock_callback,
               Run(test_field_.global_id(),
-                  AutofillSuggestionTriggerSource::kFormControlElementClicked,
                   testing::Truly(IsEmptySuggestionVector)));
 
   // Simulate response from DB.
@@ -733,13 +681,12 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that DB response triggers a call to the handler's
   EXPECT_CALL(mock_callback,
               Run(test_field_.global_id(),
-                  AutofillSuggestionTriggerSource::kFormControlElementClicked,
                   UnorderedElementsAre(Field(
                       &Suggestion::main_text,
                       Suggestion::Text(expected_values[0].key().value(),
@@ -782,8 +729,8 @@ TEST_F(AutocompleteHistoryManagerTest,
 
   // Simulate request for suggestions.
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Simulate response from DB.
   autocomplete_manager_->OnWebDataServiceRequestDone(mocked_db_query_id,
@@ -826,21 +773,20 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Simulate request for the first suggestions.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Simulate request for the second suggestions (this will cancel the first
   // one).
   EXPECT_CALL(*web_data_service_, CancelRequest(mocked_db_query_id_first))
       .Times(1);
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Setting up mock to verify that we can get the second response first.
   EXPECT_CALL(mock_callback,
               Run(test_field_.global_id(),
-                  AutofillSuggestionTriggerSource::kFormControlElementClicked,
                   UnorderedElementsAre(Field(
                       &Suggestion::main_text,
                       Suggestion::Text(expected_values_second[0].key().value(),
@@ -852,11 +798,7 @@ TEST_F(AutocompleteHistoryManagerTest,
 
   // Setting up mock to verify that the handler doesn't get called for the first
   // request, which was cancelled.
-  EXPECT_CALL(
-      mock_callback,
-      Run(test_field_.global_id(),
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, _))
-      .Times(0);
+  EXPECT_CALL(mock_callback, Run(test_field_.global_id(), _)).Times(0);
 
   // Simulate response from DB, first request comes back after.
   autocomplete_manager_->OnWebDataServiceRequestDone(
@@ -879,19 +821,15 @@ TEST_F(AutocompleteHistoryManagerTest,
 
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      test_field_, autofill_client_, mock_callback.Get(),
+      SuggestionsContext()));
 
   // Simulate cancelling the request.
   EXPECT_CALL(*web_data_service_, CancelRequest(mocked_db_query_id));
   autocomplete_manager_->CancelPendingQueries();
 
   // Make sure the handler is not called when the DB responds.
-  EXPECT_CALL(
-      mock_callback,
-      Run(test_field_.global_id(),
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, _))
-      .Times(0);
+  EXPECT_CALL(mock_callback, Run(test_field_.global_id(), _)).Times(0);
   autocomplete_manager_->OnWebDataServiceRequestDone(
       mocked_db_query_id, std::move(mocked_results_one));
 }
@@ -909,12 +847,10 @@ TEST_F(AutocompleteHistoryManagerTest, NoAutocompleteSuggestionsForTextarea) {
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_CALL(mock_callback,
               Run(field.global_id(),
-                  AutofillSuggestionTriggerSource::kFormControlElementClicked,
                   testing::Truly(IsEmptySuggestionVector)));
 
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, field,
-      autofill_client_, mock_callback.Get(), SuggestionsContext()));
+      field, autofill_client_, mock_callback.Get(), SuggestionsContext()));
 }
 
 TEST_F(AutocompleteHistoryManagerTest, DestructorCancelsRequests) {
@@ -927,8 +863,7 @@ TEST_F(AutocompleteHistoryManagerTest, DestructorCancelsRequests) {
 
   // Simulate request for suggestions.
   EXPECT_TRUE(autocomplete_manager_->OnGetSingleFieldSuggestions(
-      AutofillSuggestionTriggerSource::kFormControlElementClicked, test_field_,
-      autofill_client_, base::DoNothing(), SuggestionsContext()));
+      test_field_, autofill_client_, base::DoNothing(), SuggestionsContext()));
 
   // Expect a cancel call.
   EXPECT_CALL(*web_data_service_, CancelRequest(mocked_db_query_id));

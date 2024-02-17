@@ -9,7 +9,6 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Build.VERSION_CODES;
 import android.view.View;
-import android.view.WindowInsets;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.ColorInt;
@@ -19,8 +18,10 @@ import androidx.annotation.Px;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
+import androidx.core.view.WindowInsetsCompat;
 
 import org.chromium.base.Log;
+import org.chromium.base.ObserverList;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.blink.mojom.ViewportFit;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -38,6 +39,7 @@ import org.chromium.content_public.browser.WebContentsObserver;
  * and Navigation Bars. For Chrome, we intentend to sometimes draw under the Nav Bar but not the
  * Status Bar.
  */
+@RequiresApi(VERSION_CODES.R)
 public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
     private static final String TAG = "E2E_ControllerImpl";
 
@@ -46,6 +48,7 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
 
     private final @NonNull Activity mActivity;
     private final @NonNull TabSupplierObserver mTabSupplierObserver;
+    private final ObserverList<EdgeToEdgePadAdjuster> mPadAdjusters = new ObserverList<>();
     private final @NonNull TabObserver mTabObserver;
 
     /** Multiplier to convert from pixels to DPs. */
@@ -56,7 +59,7 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
     private Tab mCurrentTab;
     private WebContentsObserver mWebContentsObserver;
     private boolean mIsActivityToEdge;
-    private Insets mSystemInsets;
+    private @Nullable Insets mSystemInsets;
     private boolean mDidSetDecorAndListener;
 
     /**
@@ -68,7 +71,6 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
      *     whether to draw under or not for each page.
      * @param edgeToEdgeOSWrapper An optional wrapper for OS calls for testing etc.
      */
-    @RequiresApi(VERSION_CODES.R)
     public EdgeToEdgeControllerImpl(
             Activity activity,
             ObservableSupplier<Tab> tabObservableSupplier,
@@ -102,9 +104,8 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
                 };
     }
 
-    @Override
-    @RequiresApi(VERSION_CODES.R)
-    public void onTabSwitched(@Nullable Tab tab) {
+    @VisibleForTesting
+    void onTabSwitched(@Nullable Tab tab) {
         if (mCurrentTab != null) mCurrentTab.removeObserver(mTabObserver);
         mCurrentTab = tab;
         if (tab != null) {
@@ -113,10 +114,56 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
                 updateWebContentsObserver(tab);
             }
         }
+        maybeDrawToEdge(ROOT_UI_VIEW_ID, tab == null ? null : tab.getWebContents());
+    }
 
-        boolean shouldDrawToEdge = alwaysDrawToEdgeForTabKind(tab);
-        if (!shouldDrawToEdge && tab != null) shouldDrawToEdge = getWasViewportFitCover(tab);
-        drawToEdge(ROOT_UI_VIEW_ID, shouldDrawToEdge, tab == null ? null : tab.getWebContents());
+    /**
+     * @return whether we should draw ToEdge based only on the given Tab and the viewport-fit value
+     *     from the tracking data of the Display Cutout Controller.
+     */
+    private boolean shouldDrawToEdge(Tab tab) {
+        return shouldDrawToEdge(
+                tab,
+                tab == null
+                        ? ChromeFeatureList.sDrawNativeEdgeToEdge.isEnabled()
+                        : getWasViewportFitCover(tab));
+    }
+
+    /**
+     * @return whether we should draw ToEdge based on the given Tab and the given new viewport-fit
+     *     value.
+     */
+    private boolean shouldDrawToEdge(Tab tab, @WebContentsObserver.ViewportFitType int value) {
+        return shouldDrawToEdge(
+                tab, value == ViewportFit.COVER || value == ViewportFit.COVER_FORCED_BY_USER_AGENT);
+    }
+
+    /**
+     * @return whether we should draw ToEdge based on the given Tab and a ToEdge preference boolean.
+     */
+    private boolean shouldDrawToEdge(Tab tab, boolean wantsToEdge) {
+        // The calling infrastructure has already checked the device configuration: mobile vs tablet
+        // and whether the Gesture Navigation is appropriately enabled or not.
+        if (alwaysDrawToEdgeForTabKind(tab)) return true;
+        return wantsToEdge;
+    }
+
+    @Override
+    public void registerAdjuster(EdgeToEdgePadAdjuster adjuster) {
+        mPadAdjusters.addObserver(adjuster);
+        if (mSystemInsets != null) adjuster.adjustToEdge(mIsActivityToEdge, mSystemInsets.bottom);
+    }
+
+    @Override
+    public void unregisterAdjuster(EdgeToEdgePadAdjuster adjuster) {
+        mPadAdjusters.removeObserver(adjuster);
+    }
+
+    @Override
+    public int getBottomInset() {
+        return mSystemInsets == null || !isToEdge()
+                ? 0
+                : (int) Math.ceil(mSystemInsets.bottom * mPxToDp);
     }
 
     /**
@@ -125,19 +172,13 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
      *
      * @param tab The {@link Tab} whose {@link WebContents} we want to observe.
      */
-    @RequiresApi(VERSION_CODES.R)
     private void updateWebContentsObserver(Tab tab) {
         if (mWebContentsObserver != null) mWebContentsObserver.destroy();
         mWebContentsObserver =
                 new WebContentsObserver(tab.getWebContents()) {
                     @Override
                     public void viewportFitChanged(@WebContentsObserver.ViewportFitType int value) {
-                        boolean shouldDrawToEdge = alwaysDrawToEdgeForTabKind(tab);
-                        if (value == ViewportFit.COVER
-                                || value == ViewportFit.COVER_FORCED_BY_USER_AGENT) {
-                            shouldDrawToEdge = true;
-                        }
-                        drawToEdge(ROOT_UI_VIEW_ID, shouldDrawToEdge, tab.getWebContents());
+                        maybeDrawToEdge(ROOT_UI_VIEW_ID, value, tab.getWebContents());
                     }
                 };
         // TODO(https://crbug.com/1482559#c23) remove this logging by end of '23.
@@ -145,14 +186,37 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
     }
 
     /**
-     * Conditionally sets the given view ToEdge or ToNormal based on the {@code toEdge} param.
+     * Conditionally draws the given View ToEdge or ToNormal based on {@link #shouldDrawToEdge(Tab)}
      *
-     * @param viewId The ID of the Root UI View, or some view for testing.
+     * @param viewId The ID of the Root UI View.
+     * @param webContents The {@link WebContents} to notify of inset env() changes.
+     */
+    private void maybeDrawToEdge(int viewId, @Nullable WebContents webContents) {
+        drawToEdge(viewId, shouldDrawToEdge(mCurrentTab), webContents);
+    }
+
+    /**
+     * Conditionally draws the given View ToEdge or ToNormal based on {@link #shouldDrawToEdge(Tab,
+     * int)}.
+     *
+     * @param viewId The ID of the Root UI View.
+     * @param value A new {@link WebContentsObserver.ViewportFitType} value being applied now.
+     * @param webContents The {@link WebContents} to notify of inset env() changes.
+     */
+    private void maybeDrawToEdge(
+            int viewId,
+            @WebContentsObserver.ViewportFitType int value,
+            @Nullable WebContents webContents) {
+        drawToEdge(viewId, shouldDrawToEdge(mCurrentTab, value), webContents);
+    }
+
+    /**
+     * Conditionally draws the given View ToEdge or ToNormal based on the {@code toEdge} param.
+     *
+     * @param viewId The ID of the Root UI View.
      * @param toEdge Whether to draw ToEdge.
      * @param webContents The {@link WebContents} to notify of inset env() changes.
      */
-    @RequiresApi(VERSION_CODES.R)
-    @SuppressWarnings("WrongConstant") // For WindowInsets.Type on U+
     private void drawToEdge(int viewId, boolean toEdge, @Nullable WebContents webContents) {
         if (toEdge == mIsActivityToEdge) return;
 
@@ -171,8 +235,8 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
                     (view, windowInsets) -> {
                         Insets newInsets =
                                 windowInsets.getInsets(
-                                        WindowInsets.Type.navigationBars()
-                                                + WindowInsets.Type.statusBars());
+                                        WindowInsetsCompat.Type.navigationBars()
+                                                + WindowInsetsCompat.Type.statusBars());
                         if (!newInsets.equals(mSystemInsets)) {
                             mSystemInsets = newInsets;
                             Log.w(TAG, "System Bar insets changed to: %s", mSystemInsets);
@@ -210,6 +274,10 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
                 mSystemInsets.right,
                 bottomInset);
 
+        for (var adjuster : mPadAdjusters) {
+            adjuster.adjustToEdge(toEdge, mSystemInsets.bottom);
+        }
+
         // We only make the Nav Bar transparent because it's the only thing we want to draw
         // underneath.
         // TODO(donnd): Use an appropriate background color when not transparent.
@@ -243,7 +311,6 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
      * @param toEdge Whether to draw ToEdge.
      */
     @VisibleForTesting
-    @RequiresApi(VERSION_CODES.R)
     void drawToEdge(int viewId, boolean toEdge) {
         drawToEdge(viewId, toEdge, null);
     }
@@ -307,7 +374,7 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
         return mWebContentsObserver;
     }
 
-    void setToEdgeForTesting(boolean toEdge) {
+    public void setToEdgeForTesting(boolean toEdge) {
         mIsActivityToEdge = toEdge;
     }
 

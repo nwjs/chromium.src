@@ -62,7 +62,8 @@ int64_t GenerateAndStoreClientId(PrefService* pref_service) {
   }
 
   pref_service->SetInt64(
-      optimization_guide::prefs::kModelQualityLogggingClientId, client_id);
+      optimization_guide::prefs::localstate::kModelQualityLogggingClientId,
+      client_id);
   return client_id;
 }
 
@@ -179,24 +180,36 @@ void PopulateApiKeyRequestHeader(network::ResourceRequest* resource_request,
   resource_request->headers.SetHeader(kApiKeyHeader, api_key);
 }
 
+int64_t GetHashedModelQualityClientId(proto::ModelExecutionFeature feature,
+                                      base::Time day,
+                                      int64_t client_id) {
+  std::string date = TimeToYYYYMMDDString(day);
+  return base::FastHash(
+      base::NumberToString(client_id + static_cast<int>(feature)) + date);
+}
+
 int64_t GetOrCreateModelQualityClientId(proto::ModelExecutionFeature feature,
                                         PrefService* pref_service) {
   if (!pref_service) {
     return 0;
   }
   int64_t client_id = pref_service->GetInt64(
-      optimization_guide::prefs::kModelQualityLogggingClientId);
+      optimization_guide::prefs::localstate::kModelQualityLogggingClientId);
   if (!client_id) {
     client_id = GenerateAndStoreClientId(pref_service);
     pref_service->SetInt64(
-        optimization_guide::prefs::kModelQualityLogggingClientId, client_id);
+        optimization_guide::prefs::localstate::kModelQualityLogggingClientId,
+        client_id);
   }
 
   // Hash the client id with the date so that it changes everyday for every
   // feature.
-  std::string date = TimeToYYYYMMDDString(base::Time::Now());
-  return base::FastHash(
-      base::NumberToString(client_id + static_cast<int>(feature)) + date);
+  return GetHashedModelQualityClientId(feature, base::Time::Now(), client_id);
+}
+
+bool ShouldStartModelValidator() {
+  return switches::ShouldValidateModel() ||
+         switches::ShouldValidateModelExecution();
 }
 
 }  // namespace optimization_guide

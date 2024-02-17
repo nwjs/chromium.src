@@ -49,6 +49,10 @@ void AddressFormEventLogger::OnDidFillSuggestion(
     Log(FORM_EVENT_LOCAL_SUGGESTION_FILLED_ONCE, form);
   }
 
+  if (has_logged_undo_after_fill_) {
+    has_logged_fill_after_undo_ = true;
+  }
+
   base::RecordAction(
       base::UserMetricsAction("Autofill_FilledProfileSuggestion"));
 
@@ -60,25 +64,9 @@ void AddressFormEventLogger::OnDidFillSuggestion(
   profile_categories_filled_.insert(GetCategoryOfProfile(profile));
 }
 
-void AddressFormEventLogger::OnDidSeeFillableDynamicForm(
-    AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
-    const FormStructure& form) {
-  signin_state_for_metrics_ = signin_state_for_metrics;
-  Log(FORM_EVENT_DID_SEE_FILLABLE_DYNAMIC_FORM, form);
-}
-
-void AddressFormEventLogger::OnDidRefill(
-    AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
-    const FormStructure& form) {
-  signin_state_for_metrics_ = signin_state_for_metrics;
-  Log(FORM_EVENT_DID_DYNAMIC_REFILL, form);
-}
-
-void AddressFormEventLogger::OnSubsequentRefillAttempt(
-    AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
-    const FormStructure& form) {
-  signin_state_for_metrics_ = signin_state_for_metrics;
-  Log(FORM_EVENT_DYNAMIC_CHANGE_AFTER_REFILL, form);
+void AddressFormEventLogger::OnDidUndoAutofill() {
+  has_logged_undo_after_fill_ = true;
+  base::RecordAction(base::UserMetricsAction("Autofill_UndoAddressAutofill"));
 }
 
 void AddressFormEventLogger::OnLog(const std::string& name,

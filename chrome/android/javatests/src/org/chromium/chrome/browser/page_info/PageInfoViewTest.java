@@ -10,6 +10,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.Visibility.GONE;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
+import static androidx.test.espresso.matcher.ViewMatchers.hasSibling;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
@@ -56,6 +57,8 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.chrome.browser.FederatedIdentityTestUtils;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
@@ -75,8 +78,6 @@ import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.batch.BlankCTATabInitialStateRule;
-import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
-import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.components.browser_ui.site_settings.ContentSettingException;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
@@ -88,8 +89,8 @@ import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.location.LocationUtils;
 import org.chromium.components.page_info.PageInfoAdPersonalizationController;
 import org.chromium.components.page_info.PageInfoController;
-import org.chromium.components.page_info.PageInfoFeatures;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
@@ -218,12 +219,12 @@ public class PageInfoViewTest {
     }
 
     private void loadUrlAndOpenPageInfoWithPermission(
-            String url, @ContentSettingsType int highlightedPermission) {
+            String url, @ContentSettingsType.EnumType int highlightedPermission) {
         sActivityTestRule.loadUrl(url);
         openPageInfo(highlightedPermission);
     }
 
-    private void openPageInfo(@ContentSettingsType int highlightedPermission) {
+    private void openPageInfo(@ContentSettingsType.EnumType int highlightedPermission) {
         ChromeActivity activity = sActivityTestRule.getActivity();
         Tab tab = activity.getActivityTab();
         TestThreadUtils.runOnUiThreadBlocking(
@@ -370,7 +371,7 @@ public class PageInfoViewTest {
     }
 
     private List<ContentSettingException> getNonWildcardContentSettingExceptions(
-            @ContentSettingsType int type) {
+            @ContentSettingsType.EnumType int type) {
         return TestThreadUtils.runOnUiThreadBlockingNoException(
                 () -> {
                     List<ContentSettingException> exceptions =
@@ -516,7 +517,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures(PageInfoFeatures.USER_BYPASS_UI_NAME)
     public void testShowWithPermissionsAndCookieBlockingUserBypass() throws IOException {
         addSomePermissions(mTestServerRule.getServer().getURL("/"));
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
@@ -527,7 +527,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures(PageInfoFeatures.USER_BYPASS_UI_NAME)
     public void testShowWithPermissionsAndCookieBlockingTrackingProtection() throws IOException {
         enableTrackingProtection();
         addSomePermissions(mTestServerRule.getServer().getURL("/"));
@@ -632,34 +631,38 @@ public class PageInfoViewTest {
         onView(allOf(withText(containsString("Sound")), isDisplayed()));
     }
 
-    /** Tests the cookies page of the PageInfo UI. */
     @Test
     @MediumTest
-    @Feature({"RenderTest"})
-    @DisableFeatures(PageInfoFeatures.USER_BYPASS_UI_NAME)
-    public void testShowCookiesSubpageUserBypassOff() throws IOException {
-        setThirdPartyCookieBlocking(CookieControlsMode.BLOCK_THIRD_PARTY);
-        loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
-        onView(withId(R.id.page_info_cookies_row)).perform(click());
-        onViewWaiting(
-                allOf(
-                        withText(containsString("Cookies and other site data are used")),
-                        isDisplayed()));
-        // Verify that the pref was recorded successfully.
+    @Features.EnableFeatures(ContentFeatureList.ONE_TIME_PERMISSION)
+    public void testShowPermissionsSubpageWithEphemeralGrantAndPersistentGrant()
+            throws IOException {
+        GURL url = new GURL(mTestServerRule.getServer().getURL("/"));
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    assertTrue(
-                            UserPrefs.get(Profile.getLastUsedRegularProfile())
-                                    .getBoolean(IN_CONTEXT_COOKIE_CONTROLS_OPENED));
+                    WebsitePreferenceBridgeJni.get()
+                            .setEphemeralGrantForTesting(
+                                    Profile.getLastUsedRegularProfile(),
+                                    ContentSettingsType.GEOLOCATION,
+                                    url,
+                                    url);
+                    WebsitePreferenceBridge.setContentSettingDefaultScope(
+                            Profile.getLastUsedRegularProfile(),
+                            ContentSettingsType.MEDIASTREAM_CAMERA,
+                            url,
+                            url,
+                            ContentSettingValues.ALLOW);
                 });
-        mRenderTestRule.render(getPageInfoView(), "PageInfo_CookiesSubpage_Flag_Off");
+        loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
+        onView(withId(R.id.page_info_permissions_row)).perform(click());
+        onViewWaiting(allOf(withText("Control this site's access to your device"), isDisplayed()));
+        onView(withText("Location")).check(matches(hasSibling(withText("Allowed this time"))));
+        onView(withText("Camera")).check(matches(hasSibling(withText("Allowed"))));
     }
 
     /** Tests the cookies page of the PageInfo UI with the Cookie Controls UI enabled. */
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures(PageInfoFeatures.USER_BYPASS_UI_NAME)
     @DisabledTest(message = "https://crbug.com/1510968")
     public void testShowCookiesSubpageUserBypassOn() throws IOException {
         setThirdPartyCookieBlocking(CookieControlsMode.BLOCK_THIRD_PARTY);
@@ -687,7 +690,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures(PageInfoFeatures.USER_BYPASS_UI_NAME)
     @DisabledTest(message = "https://crbug.com/1510968")
     public void testShowCookiesSubpageTrackingProtection() throws IOException {
         enableTrackingProtection();
@@ -716,7 +718,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures(PageInfoFeatures.USER_BYPASS_UI_NAME)
     @DisabledTest(message = "https://crbug.com/1510968")
     public void testShowCookiesSubpageTrackingProtectionBlockAll() throws IOException {
         enableTrackingProtection();
@@ -792,7 +793,6 @@ public class PageInfoViewTest {
     /** Tests clearing cookies on the cookies page of the PageInfo UI with User Bypass enabled. */
     @Test
     @MediumTest
-    @EnableFeatures({PageInfoFeatures.USER_BYPASS_UI_NAME})
     public void testClearCookiesOnSubpageUserBypass() throws Exception {
         setThirdPartyCookieBlocking(CookieControlsMode.BLOCK_THIRD_PARTY);
         sActivityTestRule.loadUrl(mTestServerRule.getServer().getURL(sSiteDataHtml));
@@ -820,7 +820,6 @@ public class PageInfoViewTest {
     /** Tests clearing cookies on the Tracking Protection page of the PageInfo UI. */
     @Test
     @MediumTest
-    @EnableFeatures({PageInfoFeatures.USER_BYPASS_UI_NAME})
     public void testClearCookiesOnSubpageTrackingProtection() throws Exception {
         enableTrackingProtection();
         setThirdPartyCookieBlocking(CookieControlsMode.BLOCK_THIRD_PARTY);

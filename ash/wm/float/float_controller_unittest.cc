@@ -31,6 +31,7 @@
 #include "ash/wm/overview/overview_item.h"
 #include "ash/wm/overview/overview_test_util.h"
 #include "ash/wm/scoped_window_tucker.h"
+#include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_metrics_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/test/test_non_client_frame_view_ash.h"
@@ -647,7 +648,7 @@ TEST_F(WindowFloatTest, MoveFloatWindowBetweenDesks) {
   EXPECT_EQ(1u, grid->GetNumWindows());
   // Get position of `desk_2`'s desk mini view on the secondary display.
   const auto* desks_bar_view = grid->desks_bar_view();
-  auto* desk_2_mini_view = desks_bar_view->mini_views()[1];
+  auto* desk_2_mini_view = desks_bar_view->mini_views()[1].get();
   gfx::Point desk_2_mini_view_center =
       desk_2_mini_view->GetBoundsInScreen().CenterPoint();
 
@@ -700,7 +701,7 @@ TEST_F(WindowFloatTest, MoveFloatWindowBetweenDesksOnDifferentDisplay) {
 
   // Get position of `desk_2`'s desk mini view on the secondary display.
   const auto* desks_bar_view = grid2->desks_bar_view();
-  auto* desk_2_mini_view = desks_bar_view->mini_views()[1];
+  auto* desk_2_mini_view = desks_bar_view->mini_views()[1].get();
   gfx::Point desk_2_mini_view_center =
       desk_2_mini_view->GetBoundsInScreen().CenterPoint();
 
@@ -2214,7 +2215,8 @@ TEST_F(TabletWindowFloatSplitviewTest, BothSnappedToFloat) {
 
   auto* split_view_controller =
       SplitViewController::Get(Shell::GetPrimaryRootWindow());
-  ASSERT_TRUE(split_view_controller->BothSnapped());
+  ASSERT_EQ(split_view_controller->state(),
+            SplitViewController::State::kBothSnapped);
 
   // Float the left window. Verify that it is floated, the right window becomes
   // maximized and that we are no longer in splitview.
@@ -2256,7 +2258,8 @@ TEST_F(TabletWindowFloatSplitviewTest, FloatToSnapped) {
   // the opposite side.
   WindowState::Get(window.get())->OnWMEvent(&snap_left);
   EXPECT_FALSE(OverviewController::Get()->InOverviewSession());
-  EXPECT_TRUE(split_view_controller->BothSnapped());
+  EXPECT_EQ(split_view_controller->state(),
+            SplitViewController::State::kBothSnapped);
   EXPECT_EQ(split_view_controller->primary_window(), window.get());
   EXPECT_EQ(split_view_controller->secondary_window(), other_window.get());
 
@@ -2306,7 +2309,8 @@ TEST_F(TabletWindowFloatSplitviewTest, ResetFloatToMaximize) {
   WindowState::Get(window_1.get())->OnWMEvent(&snap_left);
   const WindowSnapWMEvent snap_right(WM_EVENT_SNAP_SECONDARY);
   WindowState::Get(window_2.get())->OnWMEvent(&snap_right);
-  EXPECT_TRUE(split_view_controller->BothSnapped());
+  EXPECT_EQ(split_view_controller->state(),
+            SplitViewController::State::kBothSnapped);
   EXPECT_EQ(split_view_controller->primary_window(), window_1.get());
   EXPECT_EQ(split_view_controller->secondary_window(), window_2.get());
 

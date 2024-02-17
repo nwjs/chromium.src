@@ -243,6 +243,7 @@ void WebThemeEngineDefault::Paint(
     const gfx::Rect& rect,
     const WebThemeEngine::ExtraParams* extra_params,
     mojom::ColorScheme color_scheme,
+    const ui::ColorProvider* color_provider,
     const absl::optional<SkColor>& accent_color) {
   ui::NativeTheme::ExtraParams native_theme_extra_params =
       GetNativeThemeExtraParams(part, state, extra_params);
@@ -331,6 +332,7 @@ ForcedColors WebThemeEngineDefault::GetForcedColors() const {
              : ForcedColors::kNone;
 }
 
+// TODO(samomekarajr): Remove this when fully migrated to the color pipeline.
 void WebThemeEngineDefault::OverrideForcedColorsTheme(bool is_dark_theme) {
   // Colors were chosen based on Windows 10 default light and dark high contrast
   // themes.
@@ -367,7 +369,7 @@ void WebThemeEngineDefault::EmulateForcedColors(bool is_dark_theme,
                                                 bool is_web_test) {
   SetEmulateForcedColors(true);
   emulated_forced_colors_provider_ =
-      is_web_test ? ui::CreateEmulatedForcedColorsColorProviderForWebTests()
+      is_web_test ? ui::CreateEmulatedForcedColorsColorProviderForTest()
                   : ui::CreateEmulatedForcedColorsColorProvider(is_dark_theme);
 }
 

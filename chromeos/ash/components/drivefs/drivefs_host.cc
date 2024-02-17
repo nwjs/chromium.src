@@ -96,7 +96,7 @@ class DriveFsHost::MountState : public DriveFsSession {
       DriveFsHost::Delegate* delegate) {
     auto access_token = auth_delegate->GetCachedAccessToken();
     mojom::DriveFsConfigurationPtr config = {
-        absl::in_place,
+        std::in_place,
         auth_delegate->GetAccountId().GetUserEmail(),
         std::move(access_token),
         auth_delegate->IsMetricsCollectionEnabled(),
@@ -107,6 +107,8 @@ class DriveFsHost::MountState : public DriveFsSession {
         base::FeatureList::IsEnabled(ash::features::kDriveFsShowCSEFiles)
             ? mojom::CSESupport::kListing
             : mojom::CSESupport::kNone,
+        ash::features::IsLauncherContinueSectionWithRecentsEnabled(),
+        ash::features::IsShowSharingUserInLauncherContinueSectionEnabled(),
     };
     return DriveFsConnection::Create(delegate->CreateMojoListener(),
                                      std::move(config));
@@ -249,7 +251,7 @@ class DriveFsHost::MountState : public DriveFsSession {
   }
 
   // Owns |this|.
-  const raw_ptr<DriveFsHost, ExperimentalAsh> host_;
+  const raw_ptr<DriveFsHost> host_;
 
   std::unique_ptr<DriveFsSearch> search_;
   std::unique_ptr<DriveFsHttpClient> http_client_;

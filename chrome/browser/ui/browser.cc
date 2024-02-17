@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -153,6 +154,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
@@ -239,7 +241,6 @@
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "net/base/filename_util.h"
 #include "ppapi/buildflags/buildflags.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
@@ -535,6 +536,8 @@ Browser::Browser(const CreateParams& params)
       content_setting_bubble_model_delegate_(
           new BrowserContentSettingBubbleModelDelegate(this)),
       location_bar_model_delegate_(new BrowserLocationBarModelDelegate(this)),
+      location_bar_model_(std::make_unique<LocationBarModelImpl>(
+          location_bar_model_delegate_.get(), content::kMaxURLDisplayChars)),
       live_tab_context_(new BrowserLiveTabContext(this)),
       synced_window_delegate_(new BrowserSyncedWindowDelegate(this)),
       app_controller_(web_app::MaybeCreateAppBrowserController(this)),
@@ -567,9 +570,6 @@ Browser::Browser(const CreateParams& params)
         ProfileKeepAliveOrigin::kBrowserWindow);
   }
   tab_strip_model_->AddObserver(this);
-
-  location_bar_model_ = std::make_unique<LocationBarModelImpl>(
-      location_bar_model_delegate_.get(), content::kMaxURLDisplayChars);
 
   ThemeServiceFactory::GetForProfile(profile_)->AddObserver(this);
 
@@ -721,10 +721,12 @@ bool Browser::NWCanClose(bool user_force) {
   extensions::EventRouter* event_router = extensions::EventRouter::Get(profile_);
   std::string listener_extension_id;
   int instance_id = extensions::ExtensionTabUtil::GetWindowId(this);
+  std::string frame_token;
+  if (tab_strip_model() && tab_strip_model()->GetActiveWebContents())
+    frame_token = tab_strip_model()->GetActiveWebContents()->GetPrimaryMainFrame()->GetFrameToken().ToString();
   bool listening_to_close = event_router->
     ExtensionHasEventListener(extension->id(), extensions::api::windows::OnRemoving::kEventName,
-                              extensions::ExtensionTabUtil::GetWindowId(this),
-                              &listener_extension_id);
+			      frame_token, &listener_extension_id);
   if (listening_to_close) {
     std::unique_ptr<base::Value::List> args(new base::Value::List());
     args->Append(session_id().id());
@@ -986,20 +988,22 @@ Browser::WarnBeforeClosingResult Browser::MaybeWarnBeforeClosing(
   return WarnBeforeClosingResult::kDoNotClose;
 }
 
-bool Browser::ShouldCloseWindow() {
+BrowserClosingStatus Browser::HandleBeforeClose() {
   // If `force_skip_warning_user_` is true, then we should immediately
   // return true.
-  if (force_skip_warning_user_on_close_)
-    return true;
+  if (force_skip_warning_user_on_close_) {
+    return BrowserClosingStatus::kPermitted;
+  }
 
   // If the user needs to see one or more warnings, hold off closing the
   // browser.
   const WarnBeforeClosingResult result = MaybeWarnBeforeClosing(base::BindOnce(
       &Browser::FinishWarnBeforeClosing, weak_factory_.GetWeakPtr()));
-  if (result == WarnBeforeClosingResult::kDoNotClose)
-    return false;
+  if (result == WarnBeforeClosingResult::kDoNotClose) {
+    return BrowserClosingStatus::kDeniedByUser;
+  }
 
-  return unload_controller_.ShouldCloseWindow();
+  return unload_controller_.GetBrowserClosingStatus();
 }
 
 bool Browser::TryToCloseWindow(
@@ -1063,9 +1067,22 @@ StatusBubble* Browser::GetStatusBubbleForTesting() {
   return GetStatusBubble();
 }
 
+void Browser::SetForceShowBookmarkBarFlag(ForceShowBookmarkBarFlag flag) {
+  force_show_bookmark_bar_flags_ |= flag;
+  UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_FORCE_SHOW);
+}
+
+void Browser::ClearForceShowBookmarkBarFlag(ForceShowBookmarkBarFlag flag) {
+  force_show_bookmark_bar_flags_ &= ~flag;
+  UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_FORCE_SHOW);
+}
+
 void Browser::OnWindowClosing() {
-  if (!ShouldCloseWindow())
+  if (const auto closing_status = HandleBeforeClose();
+      closing_status != BrowserClosingStatus::kPermitted) {
+    BrowserList::NotifyBrowserCloseCancelled(this, closing_status);
     return;
+  }
 
   // Application should shutdown on last window close if the user is explicitly
   // trying to quit, or if there is nothing keeping the browser alive (such as
@@ -1133,7 +1150,7 @@ Browser::DownloadCloseType Browser::OkToCloseWithInProgressDownloads(
   // profile, that are relevant for the ok-to-close decision.
   int profile_window_count = 0;
   int total_window_count = 0;
-  for (auto* browser : *BrowserList::GetInstance()) {
+  for (Browser* browser : *BrowserList::GetInstance()) {
     // Don't count this browser window or any other in the process of closing.
     // Window closing may be delayed, and windows that are in the process of
     // closing don't count against our totals.
@@ -1388,7 +1405,7 @@ void Browser::OnTabGroupChanged(const TabGroupChange& change) {
           base::FeatureList::IsEnabled(features::kTabGroupsSave)
               ? SavedTabGroupServiceFactory::GetForProfile(profile_)
               : nullptr;
-      absl::optional<std::string> saved_guid;
+      std::optional<std::string> saved_guid;
 
       if (saved_tab_group_keyed_service) {
         const SavedTabGroup* const saved_group =
@@ -1426,7 +1443,7 @@ void Browser::TabPinnedStateChanged(TabStripModel* tab_strip_model,
 }
 
 void Browser::TabGroupedStateChanged(
-    absl::optional<tab_groups::TabGroupId> group,
+    std::optional<tab_groups::TabGroupId> group,
     content::WebContents* contents,
     int index) {
   // See comment in Browser::OnTabGroupChanged
@@ -1529,7 +1546,7 @@ bool Browser::HandleKeyboardEvent(content::WebContents* source,
          window()->HandleKeyboardEvent(event);
 }
 
-bool Browser::TabsNeedBeforeUnloadFired() {
+bool Browser::TabsNeedBeforeUnloadFired() const {
   return unload_controller_.TabsNeedBeforeUnloadFired();
 }
 
@@ -2536,15 +2553,9 @@ void Browser::OnZoomChanged(
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, ui::SelectFileDialog::Listener implementation:
 
-void Browser::FileSelected(const base::FilePath& path,
+void Browser::FileSelected(const ui::SelectedFileInfo& file_info,
                            int index,
                            void* params) {
-  FileSelectedWithExtraInfo(ui::SelectedFileInfo(path, path), index, params);
-}
-
-void Browser::FileSelectedWithExtraInfo(const ui::SelectedFileInfo& file_info,
-                                        int index,
-                                        void* params) {
   // Transfer the ownership of select file dialog so that the ref count is
   // released after the function returns. This is needed because the passed-in
   // data such as |file_info| and |params| could be owned by the dialog.
@@ -3001,7 +3012,7 @@ void Browser::SyncHistoryWithTabs(int index) {
         session_service->SetTabIndexInWindow(
             session_id(), session_tab_helper->session_id(), i);
 
-        absl::optional<tab_groups::TabGroupId> group_id =
+        std::optional<tab_groups::TabGroupId> group_id =
             tab_strip_model_->GetTabGroupForTab(i);
         session_service->SetTabGroup(session_id(),
                                      session_tab_helper->session_id(),
@@ -3309,7 +3320,8 @@ void Browser::UpdateBookmarkBarState(BookmarkBarStateChangeReason reason) {
     return;
   }
 
-  bool should_animate = reason == BOOKMARK_BAR_STATE_CHANGE_PREF_CHANGE;
+  bool should_animate = reason == BOOKMARK_BAR_STATE_CHANGE_PREF_CHANGE ||
+                        reason == BOOKMARK_BAR_STATE_CHANGE_FORCE_SHOW;
   window_->BookmarkBarStateChanged(
       should_animate ? BookmarkBar::ANIMATE_STATE_CHANGE
                      : BookmarkBar::DONT_ANIMATE_STATE_CHANGE);
@@ -3323,6 +3335,10 @@ bool Browser::ShouldShowBookmarkBar() const {
       profile_->GetPrefs()->GetBoolean(bookmarks::prefs::kShowBookmarkBar) &&
       !ShouldHideUIForFullscreen())
     return true;
+
+  if (force_show_bookmark_bar_flags_ != ForceShowBookmarkBarFlag::kNone) {
+    return true;
+  }
 
   WebContents* web_contents = tab_strip_model_->GetActiveWebContents();
   if (!web_contents)

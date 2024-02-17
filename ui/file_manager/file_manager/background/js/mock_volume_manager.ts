@@ -5,20 +5,16 @@
 import {assert} from 'chrome://resources/js/assert.js';
 
 import {isComputersRoot, isFakeEntry, isSameEntry, isTeamDriveRoot} from '../../common/js/entry_utils.js';
-import {MockEntry, MockFileSystem} from '../../common/js/mock_entry.js';
+import type {FilesAppEntry} from '../../common/js/files_app_entry_types.js';
+import {type MockEntry, MockFileSystem} from '../../common/js/mock_entry.js';
 import {str} from '../../common/js/translations.js';
 import {FileSystemType, getRootTypeFromVolumeType, RootType, Source, VolumeType} from '../../common/js/volume_manager_types.js';
-import {EntryLocation} from '../../externs/entry_location.js';
-import {FilesAppDirEntry, FilesAppEntry} from '../../externs/files_app_entry_interfaces.js';
-import type {VolumeInfo} from '../../externs/volume_info.js';
-import {VolumeInfoList} from '../../externs/volume_info_list.js';
-import type {VolumeManager} from '../../externs/volume_manager.js';
 
-import {EntryLocationImpl} from './entry_location_impl.js';
-import {VolumeInfoImpl} from './volume_info_impl.js';
-import {VolumeInfoListImpl} from './volume_info_list_impl.js';
+import {EntryLocation} from './entry_location_impl.js';
+import {VolumeInfo} from './volume_info.js';
+import {VolumeInfoList} from './volume_info_list.js';
+import {VolumeManager} from './volume_manager.js';
 import {volumeManagerFactory} from './volume_manager_factory.js';
-import {VolumeManagerImpl} from './volume_manager_impl.js';
 
 export const fakeMyFilesVolumeId = VolumeType.DOWNLOADS + ':test_mount_path';
 export const fakeDriveVolumeId = VolumeType.DRIVE + ':test_mount_path';
@@ -28,13 +24,14 @@ let volumeManagerInstance: VolumeManager|null = null;
 /**
  * Mock class for VolumeManager.
  */
-export class MockVolumeManager implements VolumeManager {
-  volumeInfoList: VolumeInfoList = new VolumeInfoListImpl();
+export class MockVolumeManager extends VolumeManager {
+  override volumeInfoList = new VolumeInfoList();
   driveConnectionState: chrome.fileManagerPrivate.DriveConnectionState = {
     type: chrome.fileManagerPrivate.DriveConnectionStateType.ONLINE,
   };
 
   constructor() {
+    super();
     // Create Drive.   Drive attempts to resolve FilesSystemURLs for '/root',
     // '/team_drives' and '/Computers' during initialization. Create a
     // filesystem with those entries now, and mock
@@ -71,15 +68,15 @@ export class MockVolumeManager implements VolumeManager {
         str('DOWNLOADS_DIRECTORY_LABEL'));
   }
 
-  getFuseBoxOnlyFilterEnabled() {
+  override getFuseBoxOnlyFilterEnabled() {
     return false;
   }
 
-  getMediaStoreFilesOnlyFilterEnabled() {
+  override getMediaStoreFilesOnlyFilterEnabled() {
     return false;
   }
 
-  dispose() {}
+  override dispose() {}
 
   /**
    * Replaces the VolumeManager singleton with a MockVolumeManager.
@@ -112,12 +109,12 @@ export class MockVolumeManager implements VolumeManager {
    * @param entry A fake entry.
    * @return Location information.
    */
-  getLocationInfo(entry: Entry|FilesAppEntry): EntryLocation|null {
+  override getLocationInfo(entry: Entry|FilesAppEntry): EntryLocation|null {
     if (isFakeEntry(entry)) {
       const isReadOnly = entry.rootType !== RootType.RECENT &&
           entry.rootType !== RootType.TRASH;
-      return new EntryLocationImpl(
-          this.volumeInfoList.item(0), entry.rootType, /* isRootType= */ true,
+      return new EntryLocation(
+          this.volumeInfoList.item(0), entry.rootType!, /* isRootType= */ true,
           isReadOnly);
     }
 
@@ -144,7 +141,7 @@ export class MockVolumeManager implements VolumeManager {
       } else if (/^\/\.(files|shortcut-targets)-by-id/.test(entry.fullPath)) {
         rootType = RootType.DRIVE_SHARED_WITH_ME;
       }
-      return new EntryLocationImpl(volumeInfo, rootType, isRootEntry, true);
+      return new EntryLocation(volumeInfo, rootType, isRootEntry, true);
     }
 
     const volumeInfo = this.getVolumeInfo(entry);
@@ -156,14 +153,15 @@ export class MockVolumeManager implements VolumeManager {
     assert(volumeInfo.volumeType);
     const rootType = getRootTypeFromVolumeType(volumeInfo.volumeType);
     const isRootEntry = isSameEntry(entry, volumeInfo.fileSystem.root);
-    return new EntryLocationImpl(volumeInfo, rootType, isRootEntry, false);
+    return new EntryLocation(volumeInfo, rootType, isRootEntry, false);
   }
 
   /**
    * @param volumeType Volume type.
    * @return Volume info.
    */
-  getCurrentProfileVolumeInfo(volumeType: VolumeType): null|VolumeInfo {
+  override getCurrentProfileVolumeInfo(volumeType: VolumeType): null
+      |VolumeInfo {
     for (let i = 0; i < this.volumeInfoList.length; i++) {
       const volumeInfo = this.volumeInfoList.item(i);
       if (volumeInfo.profile.isCurrentProfile &&
@@ -177,7 +175,8 @@ export class MockVolumeManager implements VolumeManager {
   /**
    * @return Current drive connection state.
    */
-  getDriveConnectionState(): chrome.fileManagerPrivate.DriveConnectionState {
+  override getDriveConnectionState():
+      chrome.fileManagerPrivate.DriveConnectionState {
     return this.driveConnectionState;
   }
 
@@ -211,7 +210,7 @@ export class MockVolumeManager implements VolumeManager {
 
     // If there's no label set it to volumeId to make it shorter to write
     // tests.
-    const volumeInfo = new VolumeInfoImpl(
+    const volumeInfo = new VolumeInfo(
         type,
         volumeId,
         fileSystem,
@@ -223,7 +222,6 @@ export class MockVolumeManager implements VolumeManager {
         {isCurrentProfile: true, displayName: ''},  // profile
         label || volumeId,                          // label
         providerId,                                 // providerId
-        false,                                      // hasMedia
         false,                                      // configurable
         false,                                      // watchable
         source,                                     // source
@@ -238,63 +236,47 @@ export class MockVolumeManager implements VolumeManager {
     return volumeInfo;
   }
 
-  async mountArchive(_fileUrl: string, _password?: string):
+  override async mountArchive(_fileUrl: string, _password?: string):
       Promise<VolumeInfo> {
     throw new Error('Not implemented');
   }
 
-  async cancelMounting(_fileUrl: string): Promise<void> {
+  override async cancelMounting(_fileUrl: string): Promise<void> {
     throw new Error('Not implemented');
   }
 
-  async unmount(_volumeInfo: VolumeInfo): Promise<void> {
+  override async unmount(_volumeInfo: VolumeInfo): Promise<void> {
     throw new Error('Not implemented');
   }
 
-  async configure(_volumeInfo: VolumeInfo): Promise<void> {
+  override async configure(_volumeInfo: VolumeInfo): Promise<void> {
     throw new Error('Not implemented');
   }
 
-  addEventListener(_type: string, _handler: (arg0: Event) => void) {
+  override addEventListener(_type: string, _handler: any) {
     throw new Error('Not implemented');
   }
 
-  removeEventListener(_type: string, _handler: (arg0: Event) => void) {
+  override removeEventListener(_type: string, _handler: any) {
     throw new Error('Not implemented');
   }
 
-  dispatchEvent(_event: Event): boolean {
+  override dispatchEvent(_event: Event): boolean {
     throw new Error('Not implemented');
   }
 
-  hasDisabledVolumes(): boolean {
+
+  override hasDisabledVolumes(): boolean {
     return false;
   }
 
-  isDisabled(_volume: VolumeType): boolean {
+  override isDisabled(_volume: VolumeType): boolean {
     return false;
   }
 
 
-  isAllowedVolume(_volumeInfo: VolumeInfo): boolean {
+  override isAllowedVolume(_volumeInfo: VolumeInfo): boolean {
     return true;
-  }
-
-  getVolumeInfo(entry: Entry|FilesAppEntry): VolumeInfo|null {
-    return VolumeManagerImpl.prototype.getVolumeInfo.call(this, entry);
-  }
-
-  getDefaultDisplayRoot(
-      callback: (arg0: DirectoryEntry|FilesAppDirEntry|null) => void) {
-    VolumeManagerImpl.prototype.getDefaultDisplayRoot.call(this, callback);
-  }
-
-  findByDevicePath(devicePath: string): VolumeInfo|null {
-    return VolumeManagerImpl.prototype.findByDevicePath.call(this, devicePath);
-  }
-
-  async whenVolumeInfoReady(volumeId: string): Promise<VolumeInfo> {
-    return VolumeManagerImpl.prototype.whenVolumeInfoReady.call(this, volumeId);
   }
 
   /**

@@ -14,6 +14,7 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
+#include "base/memory/raw_ptr.h"
 #include "base/types/optional_util.h"
 #include "build/build_config.h"
 #include "components/autofill/content/browser/bad_message.h"
@@ -157,7 +158,7 @@ AutofillManager& ContentAutofillDriver::GetAutofillManager() {
   return *autofill_manager_;
 }
 
-absl::optional<LocalFrameToken> ContentAutofillDriver::Resolve(
+std::optional<LocalFrameToken> ContentAutofillDriver::Resolve(
     FrameToken query) {
   if (absl::holds_alternative<LocalFrameToken>(query)) {
     return absl::get<LocalFrameToken>(query);
@@ -170,7 +171,7 @@ absl::optional<LocalFrameToken> ContentAutofillDriver::Resolve(
       content::RenderFrameHost::FromPlaceholderToken(rph->GetID(),
                                                      blink_remote_token);
   if (!remote_rfh) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   return LocalFrameToken(remote_rfh->GetFrameToken().value());
 }
@@ -225,19 +226,21 @@ net::IsolationInfo ContentAutofillDriver::IsolationInfo() {
   return render_frame_host_->GetIsolationInfoForSubresources();
 }
 
-std::vector<FieldGlobalId> ContentAutofillDriver::ApplyFormAction(
+base::flat_set<FieldGlobalId> ContentAutofillDriver::ApplyFormAction(
     mojom::ActionType action_type,
     mojom::ActionPersistence action_persistence,
     const FormData& form,
     const url::Origin& triggered_origin,
-    const base::flat_map<FieldGlobalId, ServerFieldType>& field_type_map) {
+    const base::flat_map<FieldGlobalId, FieldType>& field_type_map) {
   return router().ApplyFormAction(
       this, action_type, action_persistence, form, triggered_origin,
       field_type_map,
       [](autofill::AutofillDriver* target, mojom::ActionType action_type,
-         mojom::ActionPersistence action_persistence, const FormData& form) {
+         mojom::ActionPersistence action_persistence,
+         FormRendererId form_renderer_id,
+         const std::vector<FormFieldData>& fields) {
         cast(target)->GetAutofillAgent()->ApplyFormAction(
-            action_type, action_persistence, form);
+            action_type, action_persistence, form_renderer_id, fields);
       });
 }
 
@@ -305,7 +308,7 @@ void ContentAutofillDriver::ExtractForm(FormGlobalId form_id,
       std::move(final_handler));
 
   using RendererFormHandler =
-      base::OnceCallback<void(const absl::optional<::autofill::FormData>&)>;
+      base::OnceCallback<void(const std::optional<::autofill::FormData>&)>;
   // Called on the autofill driver that hosts the form with `form_id`.
   auto make_request = [](autofill::AutofillDriver* request_target,
                          const FormRendererId& form_id,
@@ -334,7 +337,7 @@ void ContentAutofillDriver::ExtractForm(FormGlobalId form_id,
 }
 
 void ContentAutofillDriver::SendAutofillTypePredictionsToRenderer(
-    const std::vector<FormStructure*>& forms) {
+    const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms) {
   std::vector<FormDataPredictions> type_predictions =
       FormStructure::GetFieldTypePredictions(forms);
   // TODO(crbug.com/1185232) Send the FormDataPredictions object only if the
@@ -345,17 +348,6 @@ void ContentAutofillDriver::SendAutofillTypePredictionsToRenderer(
          const std::vector<FormDataPredictions>& type_predictions) {
         cast(target)->GetAutofillAgent()->FieldTypePredictionsAvailable(
             type_predictions);
-      });
-}
-
-void ContentAutofillDriver::SendFieldsEligibleForManualFillingToRenderer(
-    const std::vector<FieldGlobalId>& fields) {
-  router().SendFieldsEligibleForManualFillingToRenderer(
-      this, fields,
-      [](autofill::AutofillDriver* target,
-         const std::vector<FieldRendererId>& fields) {
-        cast(target)->GetAutofillAgent()->SetFieldsEligibleForManualFilling(
-            fields);
       });
 }
 
@@ -422,7 +414,7 @@ void ContentAutofillDriver::ProbablyFormSubmitted(
 }
 
 void ContentAutofillDriver::SetFormToBeProbablySubmitted(
-    const absl::optional<FormData>& form) {
+    const std::optional<FormData>& form) {
   if (!bad_message::CheckFrameNotPrerendering(render_frame_host())) {
     return;
   }

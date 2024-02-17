@@ -128,6 +128,15 @@ class AbstractRebaseliningCommand(Command):
         self._results_dir = None
         self._dry_run = False
 
+    def check_arguments_and_execute(self,
+                                    options: optparse.Values,
+                                    args: List[str],
+                                    tool: Optional['BlinkTool'] = None) -> int:
+        self._tool = tool
+        for option, value in vars(options).items():
+            self._host_port.set_option_default(option, value)
+        return super().check_arguments_and_execute(options, args, tool)
+
     def baseline_directory(self, builder_name):
         port = self._tool.port_factory.get_from_builder_name(builder_name)
         return port.baseline_version_dir()
@@ -169,9 +178,10 @@ class AbstractRebaseliningCommand(Command):
         for wpt_dir, url_base in self._host_port.WPT_DIRS.items():
             if test_name.startswith(wpt_dir):
                 manifest = self._host_port.wpt_manifest(wpt_dir)
-                return manifest.get_test_type(
-                    manifest.file_path_for_test_url(
-                        test_name[len(f'{wpt_dir}/'):]))
+                file_path = manifest.file_path_for_test_url(
+                    test_name[len(f'{wpt_dir}/'):])
+                assert file_path, f'{test_name!r} not in the {url_base!r} manifest'
+                return manifest.get_test_type(file_path)
         return None  # Not a WPT.
 
 
@@ -288,6 +298,12 @@ class TestBaselineSet(collections.abc.Set):
             port_name: This specifies what platform the baseline is for.
         """
         if not port_name:
+            # TODO(crbug.com/1512219): Remove this special logic by either:
+            #  1. Making port a per-suite, not per-builder, property in
+            #     `BuilderList` (e.g., `linux-blink-rel` is `chrome` for
+            #     `webdriver_wpt_tests` or `linux` for `blink_wpt_tests`).
+            #  2. Replace the `chrome` port with regular platform ports with
+            #     chrome-specific logic (detected via the `driver_name` option).
             product = self._builders.product_for_build_step(
                 build.builder_name, step_name)
             if product == 'content_shell':
@@ -381,23 +397,22 @@ class AbstractParallelRebaselineCommand(AbstractRebaseliningCommand):
             else:
                 debug_build_steps.add((builder, step))
 
-        build_steps_to_fallback_paths = collections.defaultdict(dict)
-        #TODO: we should make the selection of (builder, step) deterministic
-        for builder, step in list(release_build_steps) + list(
-                debug_build_steps):
-            # Some result db related unit tests set step to None
-            is_legacy_step = step is None or 'blink_web_tests' in step
-            flag_spec_option = self._tool.builders.flag_specific_option(
-                builder, step)
-            port = self._tool.port_factory.get_from_builder_name(builder)
-            port.set_option_default('flag_specific', flag_spec_option)
-            fallback_path = port.baseline_search_path()
-            if fallback_path not in list(
-                    build_steps_to_fallback_paths[is_legacy_step].values()):
-                build_steps_to_fallback_paths[is_legacy_step][
-                    builder, step] = fallback_path
-        return (set(build_steps_to_fallback_paths[True])
-                | set(build_steps_to_fallback_paths[False]))
+        port_step_pairs, build_steps = set(), set()
+        for builder, step in [
+                *sorted(release_build_steps),
+                *sorted(debug_build_steps),
+        ]:
+            port_name = self._tool.builders.port_name_for_builder_name(builder)
+            # Assume differently named steps provide unique coverage, even if
+            # they have the same fallback path. For example, as of this writing,
+            # there are two cases where a pair of suites run disjoint sets of
+            # tests, so they should both be included:
+            #   * `webdriver_wpt_tests` and `chrome_wpt_tests`
+            #   * `blink_web_tests` and `blink_wpt_tests`
+            if (port_name, step) not in port_step_pairs:
+                port_step_pairs.add((port_name, step))
+                build_steps.add((builder, step))
+        return build_steps
 
     def _copy_baselines(self, groups: Dict[str, TestBaselineSet]) -> None:
         commands = []
@@ -690,7 +705,7 @@ class Rebaseline(AbstractParallelRebaselineCommand):
     argument_names = '[TEST_NAMES]'
 
     def __init__(self):
-        super(Rebaseline, self).__init__(options=[
+        super().__init__(options=[
             self.no_optimize_option,
             self.dry_run_option,
             # FIXME: should we support the platform options in addition to (or instead of) --builders?
@@ -702,6 +717,7 @@ class Rebaseline(AbstractParallelRebaselineCommand):
                 help=
                 ('Comma-separated-list of builders to pull new baselines from '
                  '(can also be provided multiple times).')),
+            *self.wpt_options,
         ])
 
     def _builders_to_pull_from(self):
@@ -711,7 +727,6 @@ class Rebaseline(AbstractParallelRebaselineCommand):
             can_choose_multiple=True)
 
     def execute(self, options, args, tool):
-        self._tool = tool
         self._dry_run = options.dry_run
         if not args:
             _log.error('Must list tests to rebaseline.')

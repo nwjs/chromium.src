@@ -159,7 +159,7 @@ void PrerenderBrowserTest::TestPrerenderAndActivateInNewTab(
   GURL prerender_url = embedded_test_server()->GetURL("/prerender/empty.html");
   int host_id =
       prerender_helper().AddPrerender(prerender_url,
-                                      /*eagerness=*/absl::nullopt, "_blank");
+                                      /*eagerness=*/std::nullopt, "_blank");
   EXPECT_NE(host_id, content::RenderFrameHost::kNoFrameTreeNodeId);
 
   // Activate.
@@ -215,7 +215,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, MainFrameNavigation_InNewTab) {
   // Start a prerender.
   GURL prerender_url = embedded_test_server()->GetURL("/prerender/empty.html");
   int host_id = prerender_helper().AddPrerender(
-      prerender_url, /*eagerness=*/absl::nullopt, "_blank");
+      prerender_url, /*eagerness=*/std::nullopt, "_blank");
   EXPECT_NE(host_id, content::RenderFrameHost::kNoFrameTreeNodeId);
 
   // Navigate a prerendered page to another page.
@@ -625,7 +625,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   // Start a prerender.
   GURL prerender_url = embedded_test_server()->GetURL("/prerender/empty.html");
   int host_id = prerender_helper().AddPrerender(
-      prerender_url, /*eagerness=*/absl::nullopt, "_blank");
+      prerender_url, /*eagerness=*/std::nullopt, "_blank");
 
   // Navigate a prerendered page to another page.
   GURL navigation_url =
@@ -637,10 +637,14 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   auto* prerender_web_contents =
       content::WebContents::FromFrameTreeNodeId(host_id);
   ASSERT_TRUE(prerender_web_contents);
+  content::WebContentsDestroyedWatcher destroyed_watcher(
+      prerender_web_contents);
   prerender_web_contents->Close();
-  EXPECT_EQ(content::test::PrerenderTestHelper::GetHostForUrl(
-                *prerender_web_contents, prerender_url),
-            content::RenderFrameHost::kNoFrameTreeNodeId);
+
+  // WebContents created for the new-tab host will eventually be destroyed after
+  // host cancellation.
+  destroyed_watcher.Wait();
+  EXPECT_FALSE(prerender_helper().HasNewTabHandle(host_id));
 
   histogram_tester.ExpectUniqueSample(
       "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",

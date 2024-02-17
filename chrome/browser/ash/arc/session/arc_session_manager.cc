@@ -379,7 +379,7 @@ ArcSessionManager::ExpansionResult ReadSaltInternal() {
   DCHECK(arc::IsArcVmEnabled());
 
   // For ARCVM, read |kArcSaltPath| if that exists.
-  absl::optional<std::string> salt =
+  std::optional<std::string> salt =
       ReadSaltOnDisk(base::FilePath(kArcSaltPath));
   if (!salt) {
     return ArcSessionManager::ExpansionResult{{}, false};
@@ -715,7 +715,7 @@ void ArcSessionManager::OnProvisioningFinished(
     RequestArcDataRemoval();
   }
 
-  absl::optional<int> error_code;
+  std::optional<int> error_code;
   ArcSupportHost::Error support_error = GetSupportHostError(result);
   if (support_error == ArcSupportHost::Error::SIGN_IN_UNKNOWN_ERROR) {
     error_code = static_cast<std::underlying_type_t<ProvisioningStatus>>(
@@ -982,10 +982,11 @@ void ArcSessionManager::RequestEnable() {
   if (IsDlcRequired()) {
     arc_dlc_installer_->RequestEnable();
   }
-  // |skipped_terms_of_service_negotiation_| flag must be preserved during the
-  // internal ARC restart. So set it only when ARC is externally requested to
-  // start.
-  skipped_terms_of_service_negotiation_ = RequestEnableImpl();
+
+  // |skipped_terms_of_service_negotiation_| is reset only in case terms are shown.
+  // In all other cases it is conidered as skipped.
+  skipped_terms_of_service_negotiation_ = true;
+  RequestEnableImpl();
 }
 
 void ArcSessionManager::AllowActivation() {
@@ -1016,7 +1017,7 @@ void ArcSessionManager::OnVmStarted(
           ->Unregister(*arcvm_mount_provider_id_);
     }
     arcvm_mount_provider_id_ =
-        absl::optional<guest_os::GuestOsMountProviderRegistry::Id>(
+        std::optional<guest_os::GuestOsMountProviderRegistry::Id>(
             guest_os::GuestOsService::GetForProfile(profile())
                 ->MountProviderRegistry()
                 ->Register(std::make_unique<ArcMountProvider>(
@@ -1037,7 +1038,7 @@ void ArcSessionManager::OnVmStopped(
   }
 }
 
-bool ArcSessionManager::RequestEnableImpl() {
+void ArcSessionManager::RequestEnableImpl() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(profile_);
   DCHECK(enable_requested_);
@@ -1051,7 +1052,7 @@ bool ArcSessionManager::RequestEnableImpl() {
     // stopped) or ARC data removal is in progress, postpone the enabling
     // procedure.
     reenable_arc_ = true;
-    return false;
+    return;
   }
 
   PrefService* const prefs = profile_->GetPrefs();
@@ -1093,7 +1094,7 @@ bool ArcSessionManager::RequestEnableImpl() {
     if (!skip_terms_of_service_negotiation && g_ui_enabled) {
       arc::ShowArcMigrationGuideNotification(profile_);
     }
-    return false;
+    return;
   }
 
   if (ArcVmDataMigrationIsInProgress(prefs)) {
@@ -1109,7 +1110,7 @@ bool ArcSessionManager::RequestEnableImpl() {
     for (auto& observer : observer_list_) {
       observer.OnArcSessionBlockedByArcVmDataMigration(auto_resume_enabled);
     }
-    return false;
+    return;
   }
 
   // ARC might be re-enabled and in this case |arc_ui_availability_reporter_| is
@@ -1148,11 +1149,10 @@ bool ArcSessionManager::RequestEnableImpl() {
           base::BindOnce(&ArcSessionManager::OnActivationNecessityChecked,
                          weak_ptr_factory_.GetWeakPtr()));
     }
-    return true;
+    return;
   }
 
   MaybeStartTermsOfServiceNegotiation();
-  return false;
 }
 
 void ArcSessionManager::OnActivationNecessityChecked(bool result) {
@@ -1292,6 +1292,9 @@ void ArcSessionManager::MaybeStartTermsOfServiceNegotiation() {
     // faster.
     StartMiniArc();
   }
+
+  skipped_terms_of_service_negotiation_ =
+      !is_terms_of_service_negotiation_needed;
   requirement_checker_ = std::make_unique<ArcRequirementChecker>(
       profile_, support_host_.get(), android_management_checker_factory_);
   requirement_checker_->AddObserver(this);
@@ -1528,7 +1531,7 @@ void ArcSessionManager::MaybeStartArcDataRemoval() {
                                     weak_ptr_factory_.GetWeakPtr()));
 }
 
-void ArcSessionManager::OnArcDataRemoved(absl::optional<bool> result) {
+void ArcSessionManager::OnArcDataRemoved(std::optional<bool> result) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK_EQ(state_, State::REMOVING_DATA_DIR);
   DCHECK(profile_);
@@ -1575,7 +1578,7 @@ void ArcSessionManager::CheckArcVmDataMigrationNecessity(
 
 void ArcSessionManager::OnArcVmDataMigrationNecessityChecked(
     base::OnceClosure callback,
-    absl::optional<bool> result) {
+    std::optional<bool> result) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   DCHECK_EQ(state_, State::CHECKING_DATA_MIGRATION_NECESSITY);
@@ -1699,6 +1702,13 @@ void ArcSessionManager::OnRetryClicked() {
   // If network-related error occurred, collect UMA stats on user action.
   if (support_host_ && support_host_->GetShouldShowRunNetworkTests()) {
     UpdateOptInNetworkErrorActionUMA(arc::OptInNetworkErrorActionType::RETRY);
+  }
+}
+
+void ArcSessionManager::OnErrorPageShown(bool network_tests_shown) {
+  if (network_tests_shown) {
+    UpdateOptInNetworkErrorActionUMA(
+        arc::OptInNetworkErrorActionType::ERROR_SHOWN);
   }
 }
 

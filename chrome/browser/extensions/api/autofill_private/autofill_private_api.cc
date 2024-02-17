@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -43,7 +44,6 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/browser/extension_function_registry.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_ui.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_ui_component.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/localization.h"
@@ -106,7 +106,7 @@ autofill::BrowserAutofillManager* GetBrowserAutofillManager(
 
 autofill::AutofillProfile CreateNewAutofillProfile(
     autofill::PersonalDataManager* personal_data,
-    absl::optional<base::StringPiece> country_code) {
+    std::optional<base::StringPiece> country_code) {
   autofill::AutofillProfile::Source source =
       personal_data->IsEligibleForAddressAccountStorage()
           ? autofill::AutofillProfile::Source::kAccount
@@ -146,7 +146,7 @@ ExtensionFunction::ResponseAction AutofillPrivateGetAccountInfoFunction::Run() {
     return RespondNow(Error(kErrorDataUnavailable));
   }
 
-  absl::optional<api::autofill_private::AccountInfo> account_info =
+  std::optional<api::autofill_private::AccountInfo> account_info =
       autofill_util::GetAccountInfo(*personal_data);
   if (account_info.has_value()) {
     return RespondNow(
@@ -161,7 +161,7 @@ ExtensionFunction::ResponseAction AutofillPrivateGetAccountInfoFunction::Run() {
 // AutofillPrivateSaveAddressFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateSaveAddressFunction::Run() {
-  absl::optional<api::autofill_private::SaveAddress::Params> parameters =
+  std::optional<api::autofill_private::SaveAddress::Params> parameters =
       api::autofill_private::SaveAddress::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
@@ -188,12 +188,12 @@ ExtensionFunction::ResponseAction AutofillPrivateSaveAddressFunction::Run() {
     if (!existing_profile)
       return RespondNow(Error(kErrorDataUnavailable));
   }
-  absl::optional<base::StringPiece> country_code;
+  std::optional<base::StringPiece> country_code;
   if (auto it = std::find_if(
           address->fields.begin(), address->fields.end(),
           [](const auto& field) {
             return field.type ==
-                   autofill_private::ServerFieldType::kAddressHomeCountry;
+                   autofill_private::FieldType::kAddressHomeCountry;
           });
       it != address->fields.end()) {
     country_code = it->value;
@@ -205,7 +205,7 @@ ExtensionFunction::ResponseAction AutofillPrivateSaveAddressFunction::Run() {
   // TODO(crbug.com/1441904): Fields not visible for the autofill profile's
   // country must be reset.
   for (const api::autofill_private::AddressField& field : address->fields) {
-    if (field.type == autofill_private::ServerFieldType::kNameFull) {
+    if (field.type == autofill_private::FieldType::kNameFull) {
       profile.SetInfoWithVerificationStatus(
           autofill::AutofillType(autofill::NAME_FULL),
           base::UTF8ToUTF16(field.value),
@@ -263,7 +263,7 @@ ExtensionFunction::ResponseAction AutofillPrivateGetCountryListFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AutofillPrivateGetAddressComponentsFunction::Run() {
-  absl::optional<api::autofill_private::GetAddressComponents::Params>
+  std::optional<api::autofill_private::GetAddressComponents::Params>
       parameters =
           api::autofill_private::GetAddressComponents::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
@@ -321,7 +321,7 @@ ExtensionFunction::ResponseAction AutofillPrivateGetAddressListFunction::Run() {
 // AutofillPrivateSaveCreditCardFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateSaveCreditCardFunction::Run() {
-  absl::optional<api::autofill_private::SaveCreditCard::Params> parameters =
+  std::optional<api::autofill_private::SaveCreditCard::Params> parameters =
       api::autofill_private::SaveCreditCard::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
@@ -442,7 +442,7 @@ ExtensionFunction::ResponseAction AutofillPrivateSaveCreditCardFunction::Run() {
 // AutofillPrivateRemoveEntryFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateRemoveEntryFunction::Run() {
-  absl::optional<api::autofill_private::RemoveEntry::Params> parameters =
+  std::optional<api::autofill_private::RemoveEntry::Params> parameters =
       api::autofill_private::RemoveEntry::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
@@ -479,7 +479,7 @@ ExtensionFunction::ResponseAction AutofillPrivateRemoveEntryFunction::Run() {
 // AutofillPrivateMaskCreditCardFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateMaskCreditCardFunction::Run() {
-  absl::optional<api::autofill_private::MaskCreditCard::Params> parameters =
+  std::optional<api::autofill_private::MaskCreditCard::Params> parameters =
       api::autofill_private::MaskCreditCard::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
@@ -593,6 +593,29 @@ AutofillPrivateLogServerCardLinkClickedFunction::Run() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateLogServerIbanLinkClickedFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateLogServerIbanLinkClickedFunction::Run() {
+  autofill::ContentAutofillClient* client =
+      autofill::ContentAutofillClient::FromWebContents(GetSenderWebContents());
+  if (!client) {
+    return RespondNow(Error(kErrorDataUnavailable));
+  }
+
+  // If `personal_data` is not available, then don't do anything.
+  autofill::PersonalDataManager* personal_data =
+      client->GetPersonalDataManager();
+
+  if (!personal_data || !personal_data->IsDataLoaded()) {
+    return RespondNow(Error(kErrorDataUnavailable));
+  }
+
+  personal_data->LogServerIbanLinkClicked();
+  return RespondNow(NoArguments());
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // AutofillPrivateSetCreditCardFIDOAuthEnabledStateFunction
 
 ExtensionFunction::ResponseAction
@@ -603,7 +626,7 @@ AutofillPrivateSetCreditCardFIDOAuthEnabledStateFunction::Run() {
   if (!autofill_manager)
     return RespondNow(Error(kErrorDataUnavailable));
 
-  absl::optional<
+  std::optional<
       api::autofill_private::SetCreditCardFIDOAuthEnabledState::Params>
       parameters = api::autofill_private::SetCreditCardFIDOAuthEnabledState::
           Params::Create(args());
@@ -618,7 +641,7 @@ AutofillPrivateSetCreditCardFIDOAuthEnabledStateFunction::Run() {
 // AutofillPrivateSaveIbanFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateSaveIbanFunction::Run() {
-  absl::optional<api::autofill_private::SaveIban::Params> parameters =
+  std::optional<api::autofill_private::SaveIban::Params> parameters =
       api::autofill_private::SaveIban::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
@@ -709,7 +732,7 @@ ExtensionFunction::ResponseAction AutofillPrivateGetIbanListFunction::Run() {
 // AutofillPrivateIsValidIbanFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateIsValidIbanFunction::Run() {
-  absl::optional<api::autofill_private::IsValidIban::Params> parameters =
+  std::optional<api::autofill_private::IsValidIban::Params> parameters =
       api::autofill_private::IsValidIban::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
   return RespondNow(WithArguments(
@@ -720,7 +743,7 @@ ExtensionFunction::ResponseAction AutofillPrivateIsValidIbanFunction::Run() {
 // AutofillPrivateAddVirtualCardFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateAddVirtualCardFunction::Run() {
-  absl::optional<api::autofill_private::AddVirtualCard::Params> parameters =
+  std::optional<api::autofill_private::AddVirtualCard::Params> parameters =
       api::autofill_private::AddVirtualCard::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
@@ -764,7 +787,7 @@ ExtensionFunction::ResponseAction AutofillPrivateAddVirtualCardFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AutofillPrivateRemoveVirtualCardFunction::Run() {
-  absl::optional<api::autofill_private::RemoveVirtualCard::Params> parameters =
+  std::optional<api::autofill_private::RemoveVirtualCard::Params> parameters =
       api::autofill_private::RemoveVirtualCard::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
@@ -800,7 +823,7 @@ AutofillPrivateRemoveVirtualCardFunction::Run() {
 
   virtual_card_enrollment_manager->Unenroll(
       card->instrument_id(),
-      /*virtual_card_enrollment_update_response_callback=*/absl::nullopt);
+      /*virtual_card_enrollment_update_response_callback=*/std::nullopt);
   return RespondNow(NoArguments());
 }
 
@@ -956,7 +979,7 @@ void AutofillPrivateGetLocalCardFunction::ReturnCreditCard() {
       client->GetPersonalDataManager();
   CHECK(personal_data_manager);
 
-  absl::optional<autofill_private::GetLocalCard::Params> parameters =
+  std::optional<autofill_private::GetLocalCard::Params> parameters =
       autofill_private::GetLocalCard::Params::Create(args());
   if (auto* card_from_guid =
           personal_data_manager->GetCreditCardByGUID(parameters->guid)) {

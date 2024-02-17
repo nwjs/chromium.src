@@ -4,13 +4,13 @@
 
 #include "device/fido/get_assertion_request_handler.h"
 
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/containers/contains.h"
-#include "base/containers/cxx20_erase_map.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/json/json_writer.h"
@@ -567,7 +567,7 @@ bool GetAssertionRequestHandler::AuthenticatorSelectedForPINUVAuthToken(
   state_ = State::kWaitingForToken;
   selected_authenticator_for_pin_uv_auth_token_ = authenticator;
 
-  base::EraseIf(auth_token_requester_map_, [authenticator](auto& entry) {
+  std::erase_if(auth_token_requester_map_, [authenticator](auto& entry) {
     return entry.first != authenticator;
   });
   CancelActiveAuthenticators(authenticator->GetId());
@@ -737,8 +737,7 @@ void GetAssertionRequestHandler::HandleResponse(
       std::move(completion_callback_)
           .Run(GetAssertionStatus::kAuthenticatorResponseInvalid, absl::nullopt,
                authenticator);
-    } else if (authenticator->GetType() == AuthenticatorType::kPhone &&
-               base::FeatureList::IsEnabled(kWebAuthnNewHybridUI)) {
+    } else if (authenticator->GetType() == AuthenticatorType::kPhone) {
       FIDO_LOG(ERROR) << "Status " << static_cast<int>(status) << " from "
                       << authenticator->GetDisplayName()
                       << " is fatal to the request";

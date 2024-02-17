@@ -9,6 +9,7 @@ load("//lib/builders.star", "reclient", "sheriff_rotations")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
+load("//lib/builder_health_indicators.star", "health_spec")
 
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
@@ -17,6 +18,7 @@ ci.defaults.set(
     sheriff_rotations = sheriff_rotations.CHROMIUM_GPU,
     contact_team_email = "chrome-gpu-infra@google.com",
     execution_timeout = 6 * time.hour,
+    health_spec = health_spec.DEFAULT,
     properties = {
         "perf_dashboard_machine_group": "ChromiumGPUFYI",
     },
@@ -276,13 +278,6 @@ ci.gpu.linux_builder(
         ),
         run_tests_serially = True,
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "ChromeOS|LLVM",
-        short_name = "gen",
-    ),
-    # Runs a lot of tests + VMs are slower than real hardware, so increase the
-    # timeout.
-    execution_timeout = 8 * time.hour,
     gn_args = gn_args.config(
         configs = [
             "gpu_tests",
@@ -296,6 +291,13 @@ ci.gpu.linux_builder(
             "no_symbols",
         ],
     ),
+    console_view_entry = consoles.console_view_entry(
+        category = "ChromeOS|LLVM",
+        short_name = "gen",
+    ),
+    # Runs a lot of tests + VMs are slower than real hardware, so increase the
+    # timeout.
+    execution_timeout = 8 * time.hour,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -328,10 +330,6 @@ ci.gpu.linux_builder(
             gs_extra = "chromeos_gpu",
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "ChromeOS|Intel",
-        short_name = "vlt",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_tests",
@@ -345,6 +343,10 @@ ci.gpu.linux_builder(
             "no_symbols",
             "is_skylab",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "ChromeOS|Intel",
+        short_name = "vlt",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -398,10 +400,6 @@ ci.gpu.linux_builder(
             config = "main_builder_rel_mb",
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Android|Builder",
-        short_name = "arm",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_tests",
@@ -411,6 +409,10 @@ ci.gpu.linux_builder(
             "reclient",
             "static_angle",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Android|Builder",
+        short_name = "arm",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -436,10 +438,6 @@ ci.gpu.linux_builder(
             config = "arm64_builder_rel_mb",
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Android|Builder",
-        short_name = "arm64",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_tests",
@@ -450,6 +448,10 @@ ci.gpu.linux_builder(
             "arm64",
             "static_angle",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Android|Builder",
+        short_name = "arm64",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -469,10 +471,6 @@ ci.gpu.linux_builder(
             target_bits = 64,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Lacros|Builder",
-        short_name = "rel",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_tests",
@@ -482,6 +480,10 @@ ci.gpu.linux_builder(
             "try_builder",
             "reclient",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Lacros|Builder",
+        short_name = "rel",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -503,10 +505,6 @@ ci.gpu.linux_builder(
             target_bits = 64,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Linux|Builder",
-        short_name = "rel",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -515,6 +513,10 @@ ci.gpu.linux_builder(
             "reclient",
             "disable_nacl",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Linux|Builder",
+        short_name = "rel",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -534,18 +536,17 @@ ci.gpu.linux_builder(
             target_bits = 64,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Linux|Builder",
-        short_name = "dbg",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
             "debug_builder",
             "reclient",
             "disable_nacl",
-            "use_dummy_lastchange",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Linux|Builder",
+        short_name = "dbg",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -566,10 +567,6 @@ ci.gpu.linux_builder(
         ),
         run_tests_serially = True,
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Linux",
-        short_name = "tsn",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -579,6 +576,10 @@ ci.gpu.linux_builder(
             "tsan",
             "disable_nacl",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Linux",
+        short_name = "tsn",
     ),
 )
 
@@ -598,10 +599,6 @@ ci.gpu.mac_builder(
             target_platform = builder_config.target_platform.MAC,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|Builder",
-        short_name = "rel",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -611,6 +608,10 @@ ci.gpu.mac_builder(
             "disable_nacl",
             "x64",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Mac|Builder",
+        short_name = "rel",
     ),
 )
 
@@ -630,10 +631,6 @@ ci.gpu.mac_builder(
             target_platform = builder_config.target_platform.MAC,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|Builder",
-        short_name = "asn",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -644,6 +641,10 @@ ci.gpu.mac_builder(
             "disable_nacl",
             "x64",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Mac|Builder",
+        short_name = "asn",
     ),
 )
 
@@ -663,19 +664,18 @@ ci.gpu.mac_builder(
             target_platform = builder_config.target_platform.MAC,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|Builder",
-        short_name = "dbg",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
             "debug_builder",
             "reclient",
             "disable_nacl",
-            "use_dummy_lastchange",
             "x64",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Mac|Builder",
+        short_name = "dbg",
     ),
 )
 
@@ -696,10 +696,6 @@ ci.gpu.mac_builder(
             target_platform = builder_config.target_platform.MAC,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|Builder",
-        short_name = "arm",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -709,6 +705,10 @@ ci.gpu.mac_builder(
             "arm64",
             "disable_nacl",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Mac|Builder",
+        short_name = "arm",
     ),
 )
 
@@ -1387,10 +1387,10 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    # console_view_entry = consoles.console_view_entry(
-    #     category = "Windows|10|x64|Nvidia",
-    #     short_name = "exp",
-    # ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|10|x64|Nvidia",
+        short_name = "exp",
+    ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1529,10 +1529,6 @@ gpu_fyi_windows_builder(
             target_bits = 32,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Windows|Builder|Release",
-        short_name = "x86",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -1542,6 +1538,10 @@ gpu_fyi_windows_builder(
             "x86",
             "disable_nacl",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|Builder|Release",
+        short_name = "x86",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -1561,10 +1561,6 @@ gpu_fyi_windows_builder(
             target_bits = 64,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Windows|Builder|Release",
-        short_name = "x64",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -1572,7 +1568,14 @@ gpu_fyi_windows_builder(
             "try_builder",
             "reclient",
             "disable_nacl",
+            # Remove this once the decision to use cross-compilation or not in
+            # crbug.com/1510985 is made.
+            "win_cross",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|Builder|Release",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -1592,18 +1595,17 @@ gpu_fyi_windows_builder(
             target_bits = 64,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Windows|Builder|Debug",
-        short_name = "x64",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
             "debug_builder",
             "reclient",
             "disable_nacl",
-            "use_dummy_lastchange",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|Builder|Debug",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -1623,10 +1625,6 @@ gpu_fyi_windows_builder(
             target_bits = 64,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Windows|Builder|dx12vk",
-        short_name = "rel",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -1636,6 +1634,10 @@ gpu_fyi_windows_builder(
             "reclient",
             "disable_nacl",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|Builder|dx12vk",
+        short_name = "rel",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -1655,10 +1657,6 @@ gpu_fyi_windows_builder(
             target_bits = 64,
         ),
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Windows|Builder|dx12vk",
-        short_name = "dbg",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -1666,8 +1664,11 @@ gpu_fyi_windows_builder(
             "debug_builder",
             "reclient",
             "disable_nacl",
-            "use_dummy_lastchange",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|Builder|dx12vk",
+        short_name = "dbg",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -1694,10 +1695,6 @@ gpu_fyi_windows_builder(
         # builder during a bisect.
         perf_isolate_upload = True,
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Windows|Builder|XR",
-        short_name = "x64",
-    ),
     gn_args = gn_args.config(
         configs = [
             "gpu_fyi_tests",
@@ -1706,6 +1703,10 @@ gpu_fyi_windows_builder(
             "reclient",
             "disable_nacl",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|Builder|XR",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )

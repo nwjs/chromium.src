@@ -95,13 +95,13 @@ class SpeechRecognitionImpl
   void StartHelper(StartCallback callback,
                    const std::string& key,
                    speech::SpeechRecognitionType type,
-                   absl::optional<std::string> error);
+                   std::optional<std::string> error);
 
   // Called after speech recognition stops. Performs final clean up and notifies
   // the caller using the StopCallback.
   void StopHelper(StopCallback callback,
                   const std::string& key,
-                  absl::optional<std::string> error);
+                  std::optional<std::string> error);
 
   // Creates a key given a client ID.
   std::string CreateKey(ax::mojom::AssistiveTechnologyType type);
@@ -128,7 +128,7 @@ class SpeechRecognitionImpl
   std::map<std::string, std::unique_ptr<SpeechRecognitionEventObserverWrapper>>
       event_observer_wrappers_;
   mojo::ReceiverSet<ax::mojom::SpeechRecognition> receivers_;
-  raw_ptr<content::BrowserContext, ExperimentalAsh> profile_ = nullptr;
+  raw_ptr<content::BrowserContext> profile_ = nullptr;
   base::WeakPtrFactory<SpeechRecognitionImpl> weak_ptr_factory_{this};
 };
 

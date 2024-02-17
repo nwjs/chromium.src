@@ -28,7 +28,7 @@
 #import "components/sync_preferences/pref_service_syncable.h"
 #import "ios/chrome/browser/content_settings/model/cookie_settings_factory.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
-#import "ios/chrome/browser/policy/policy_util.h"
+#import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state_manager.h"
@@ -140,6 +140,12 @@ class AuthenticationServiceTest : public PlatformTest {
     EXPECT_CALL(*sync_setup_service_mock(), PrepareForFirstSyncSetup).Times(1);
   }
 
+  void VerifyLastSigninTimestamp() {
+    EXPECT_EQ(
+        browser_state_.get()->GetPrefs()->GetTime(prefs::kLastSigninTimestamp),
+        base::Time::Now());
+  }
+
   void FireApplicationWillEnterForeground() {
     authentication_service()->OnApplicationWillEnterForeground();
   }
@@ -237,7 +243,9 @@ class AuthenticationServiceTest : public PlatformTest {
 
   IOSChromeScopedTestingLocalState local_state_;
   ChromeAccountManagerService* account_manager_;
-  web::WebTaskEnvironment task_environment_;
+  web::WebTaskEnvironment task_environment_{
+      web::WebTaskEnvironment::Options::DEFAULT,
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   signin::IdentityTestEnvironment identity_test_env_;
   std::unique_ptr<TestChromeBrowserState> browser_state_;
   // Used to verify histogram logging.
@@ -256,6 +264,7 @@ TEST_F(AuthenticationServiceTest, TestSignInAndGetPrimaryIdentity) {
   SetExpectationsForSignIn();
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO);
+  VerifyLastSigninTimestamp();
 
   EXPECT_NSEQ(identity(0), authentication_service()->GetPrimaryIdentity(
                                signin::ConsentLevel::kSignin));
@@ -293,6 +302,7 @@ TEST_F(AuthenticationServiceTest, TestHandleForgottenIdentityNoPromptSignIn) {
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   authentication_service()->GrantSyncConsent(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
 
   // Set the authentication service as "In Foreground", remove identity and run
   // the loop.
@@ -317,6 +327,7 @@ TEST_F(AuthenticationServiceTest, TestHandleForgottenIdentityPromptSignIn) {
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   authentication_service()->GrantSyncConsent(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
 
   // Set the authentication service as "In Background", remove identity and run
   // the loop.
@@ -343,6 +354,7 @@ TEST_F(
   SetExpectationsForSignIn();
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
 
   // Set the authentication service as "In Background", remove identity and run
   // the loop.
@@ -371,6 +383,7 @@ TEST_F(
   SetExpectationsForSignIn();
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
 
   // Set the authentication service as "In Background", remove identity and run
   // the loop.
@@ -390,6 +403,7 @@ TEST_F(AuthenticationServiceTest,
   SetExpectationsForSignIn();
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
 
   fake_system_identity_manager()->AddIdentities(@[ @"foo3" ]);
 
@@ -419,80 +433,6 @@ TEST_F(AuthenticationServiceTest,
   EXPECT_EQ(CoreAccountId::FromGaiaId("fooID"), accounts[2].account_id);
 }
 
-// Tests the account list is approved after adding an account with in Chrome.
-TEST_F(AuthenticationServiceTest, AccountListApprovedByUser_AddedByUser) {
-  SetExpectationsForSignIn();
-  authentication_service()->SignIn(
-      identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
-
-  fake_system_identity_manager()->AddIdentities(@[ @"foo3" ]);
-  FireIdentityListChanged(/*notify_user=*/false);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(authentication_service()->IsAccountListApprovedByUser());
-}
-
-// Tests the account list is unapproved after an account is added by an other
-// app (through the keychain).
-TEST_F(AuthenticationServiceTest, AccountListApprovedByUser_ChangedByKeychain) {
-  SetExpectationsForSignIn();
-  authentication_service()->SignIn(
-      identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
-
-  fake_system_identity_manager()->AddIdentities(@[ @"foo3" ]);
-  FireIdentityListChanged(/*notify_user=*/true);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(authentication_service()->IsAccountListApprovedByUser());
-}
-
-// Tests the account list is unapproved after two accounts are added by an other
-// app (through the keychain).
-TEST_F(AuthenticationServiceTest,
-       AccountListApprovedByUser_ChangedTwiceByKeychain) {
-  SetExpectationsForSignIn();
-  authentication_service()->SignIn(
-      identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
-
-  fake_system_identity_manager()->AddIdentities(@[ @"foo3" ]);
-  FireIdentityListChanged(/*notify_user=*/true);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(authentication_service()->IsAccountListApprovedByUser());
-
-  // Simulate a switching to background, changing the accounts while in
-  // background.
-  fake_system_identity_manager()->AddIdentities(@[ @"foo4" ]);
-  FireIdentityListChanged(/*notify_user=*/true);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(authentication_service()->IsAccountListApprovedByUser());
-}
-
-// Regression test for http://crbug.com/1006717
-TEST_F(AuthenticationServiceTest,
-       AccountListApprovedByUser_ResetOntwoBackgrounds) {
-  SetExpectationsForSignIn();
-  authentication_service()->SignIn(
-      identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
-
-  fake_system_identity_manager()->AddIdentities(@[ @"foo3" ]);
-  FireIdentityListChanged(/*notify_user=*/true);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(authentication_service()->IsAccountListApprovedByUser());
-
-  // Clear `kSigninLastAccounts` pref to simulate a case when the list of
-  // accounts in pref `kSigninLastAccounts` are no the same as the ones
-  browser_state_->GetPrefs()->ClearPref(prefs::kSigninLastAccounts);
-
-  // When entering foreground, the have accounts changed state should be
-  // updated.
-  FireApplicationWillEnterForeground();
-  EXPECT_FALSE(authentication_service()->IsAccountListApprovedByUser());
-
-  // Backgrounding and foregrounding the application a second time should update
-  // the list of accounts in `kSigninLastAccounts` and should reset the have
-  // account changed state.
-  FireApplicationWillEnterForeground();
-  EXPECT_FALSE(authentication_service()->IsAccountListApprovedByUser());
-}
-
 TEST_F(AuthenticationServiceTest, HasPrimaryIdentityBackground) {
   // Sign in.
   SetExpectationsForSignIn();
@@ -500,6 +440,7 @@ TEST_F(AuthenticationServiceTest, HasPrimaryIdentityBackground) {
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   EXPECT_TRUE(authentication_service()->HasPrimaryIdentity(
       signin::ConsentLevel::kSignin));
+  VerifyLastSigninTimestamp();
 
   // Remove the signed in identity while in background, and check that
   // HasPrimaryIdentity is up-to-date.
@@ -518,6 +459,7 @@ TEST_F(AuthenticationServiceTest, MDMErrorsClearedOnForeground) {
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   EXPECT_EQ(identity_manager()->GetAccountsWithRefreshTokens().size(), 2UL);
+  VerifyLastSigninTimestamp();
 
   SetCachedMDMInfo(identity(0), CreateRefreshAccessTokenError(identity(0)));
 
@@ -559,6 +501,7 @@ TEST_F(AuthenticationServiceTest, MDMErrorsClearedOnSignout) {
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   EXPECT_EQ(identity_manager()->GetAccountsWithRefreshTokens().size(), 2UL);
+  VerifyLastSigninTimestamp();
 
   SetCachedMDMInfo(identity(0), CreateRefreshAccessTokenError(identity(0)));
   authentication_service()->SignOut(
@@ -577,6 +520,7 @@ TEST_F(AuthenticationServiceTest,
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   EXPECT_EQ(identity_manager()->GetAccountsWithRefreshTokens().size(), 2UL);
+  VerifyLastSigninTimestamp();
 
   SetCachedMDMInfo(identity(0), CreateRefreshAccessTokenError(identity(0)));
   authentication_service()->SignOut(
@@ -598,6 +542,7 @@ TEST_F(AuthenticationServiceTest, SignedInManagedAccountSignOut) {
   EXPECT_EQ(identity_manager()->GetAccountsWithRefreshTokens().size(), 3UL);
   EXPECT_TRUE(authentication_service()->HasPrimaryIdentityManaged(
       signin::ConsentLevel::kSignin));
+  VerifyLastSigninTimestamp();
 
   SetCachedMDMInfo(identity(2), CreateRefreshAccessTokenError(identity(0)));
   authentication_service()->SignOut(
@@ -616,6 +561,7 @@ TEST_F(AuthenticationServiceTest, MDMErrorsDontSeedEmptyAccountIds) {
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   EXPECT_EQ(identity_manager()->GetAccountsWithRefreshTokens().size(), 2UL);
+  VerifyLastSigninTimestamp();
 
   SetCachedMDMInfo(identity(0), CreateRefreshAccessTokenError(identity(0)));
 
@@ -650,6 +596,7 @@ TEST_F(AuthenticationServiceTest, ManagedAccountSignOut) {
   ON_CALL(*mock_sync_service()->GetMockUserSettings(),
           IsInitialSyncFeatureSetupComplete())
       .WillByDefault(Return(true));
+  VerifyLastSigninTimestamp();
 
   SetCachedMDMInfo(identity(2), CreateRefreshAccessTokenError(identity(0)));
   authentication_service()->SignOut(
@@ -668,9 +615,12 @@ TEST_F(AuthenticationServiceTest, ManagedAccountSignOutAndClearBrowsingData) {
   SetExpectationsForSignIn();
   authentication_service()->SignIn(
       identity(2), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
+
   EXPECT_EQ(identity_manager()->GetAccountsWithRefreshTokens().size(), 3UL);
   EXPECT_TRUE(authentication_service()->HasPrimaryIdentityManaged(
       signin::ConsentLevel::kSignin));
+  VerifyLastSigninTimestamp();
 
   SetCachedMDMInfo(identity(2), CreateRefreshAccessTokenError(identity(0)));
   authentication_service()->SignOut(
@@ -687,6 +637,8 @@ TEST_F(AuthenticationServiceTest, HandleMDMNotification) {
   SetExpectationsForSignIn();
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
+
   GoogleServiceAuthError error(
       GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
@@ -729,6 +681,7 @@ TEST_F(AuthenticationServiceTest, HandleMDMBlockedNotification) {
       GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       identity_manager(), GetAccountId(identity(0)), error);
+  VerifyLastSigninTimestamp();
 
   uint32_t invocation_counter = 0;
   id<RefreshAccessTokenError> mdm_error = CreateRefreshAccessTokenError(
@@ -777,6 +730,7 @@ TEST_F(AuthenticationServiceTest, ShowMDMErrorDialog) {
       GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       identity_manager(), GetAccountId(identity(0)), error);
+  VerifyLastSigninTimestamp();
 
   uint32_t invocation_counter = 0;
   SetCachedMDMInfo(identity(0), CreateRefreshAccessTokenError(
@@ -795,6 +749,7 @@ TEST_F(AuthenticationServiceTest, SigninAndSyncDecoupled) {
   SetExpectationsForSignIn();
   authentication_service()->SignIn(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
 
   EXPECT_NSEQ(identity(0), authentication_service()->GetPrimaryIdentity(
                                signin::ConsentLevel::kSignin));
@@ -841,6 +796,7 @@ TEST_F(AuthenticationServiceTest, TestHandleRestrictedIdentityPromptSignIn) {
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   authentication_service()->GrantSyncConsent(
       identity(0), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  VerifyLastSigninTimestamp();
 
   // Set the account restriction.
   SetPattern("foo");

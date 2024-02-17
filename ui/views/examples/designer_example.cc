@@ -50,8 +50,9 @@
 namespace views::examples {
 
 class DesignerSurface : public View {
+  METADATA_HEADER(DesignerSurface, View)
+
  public:
-  METADATA_HEADER(DesignerSurface);
   explicit DesignerSurface(int grid_size = 8);
   DesignerSurface(const DesignerSurface&) = delete;
   DesignerSurface& operator=(const DesignerSurface&) = delete;
@@ -106,7 +107,7 @@ void DesignerSurface::RebuildGridImage() {
   grid_image_ = gfx::ImageSkia::CreateFrom1xBitmap(grid_canvas->GetBitmap());
 }
 
-BEGIN_METADATA(DesignerSurface, View)
+BEGIN_METADATA(DesignerSurface)
 ADD_PROPERTY_METADATA(int, GridSize)
 END_METADATA
 
@@ -515,7 +516,7 @@ void DesignerExample::CreateExampleView(View* container) {
                                   .SetColumns({MakeColumn(0, u"Name", true),
                                                MakeColumn(1, u"Value", false)})
                                   .SetModel(this)
-                                  .SetTableType(views::TEXT_ONLY)
+                                  .SetTableType(views::TableType::kTextOnly)
                                   .SetSingleSelection(true))
                               .SetPreferredSize(gfx::Size(250, 400)))))
       .BuildChildren();

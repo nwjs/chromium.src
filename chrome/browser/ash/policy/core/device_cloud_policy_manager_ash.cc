@@ -28,7 +28,7 @@
 #include "chrome/browser/ash/policy/core/reporting_user_tracker.h"
 #include "chrome/browser/ash/policy/enrollment/auto_enrollment_type_checker.h"
 #include "chrome/browser/ash/policy/networking/euicc_status_uploader.h"
-#include "chrome/browser/ash/policy/remote_commands/crd_admin_session_controller.h"
+#include "chrome/browser/ash/policy/remote_commands/crd/crd_admin_session_controller.h"
 #include "chrome/browser/ash/policy/remote_commands/device_commands_factory_ash.h"
 #include "chrome/browser/ash/policy/reporting/metrics_reporting/metric_reporting_manager.h"
 #include "chrome/browser/ash/policy/reporting/os_updates/os_updates_reporter.h"
@@ -66,7 +66,6 @@ namespace {
 // Zero-touch enrollment flag values.
 
 const char kZeroTouchEnrollmentForced[] = "forced";
-const char kZeroTouchEnrollmentHandsOff[] = "hands-off";
 
 // Default frequency for uploading enterprise status reports. Can be overriden
 // by Device Policy.
@@ -82,7 +81,7 @@ bool IsForcedReEnrollmentEnabled() {
 }  // namespace
 
 DeviceCloudPolicyManagerAsh::DeviceCloudPolicyManagerAsh(
-    std::unique_ptr<DeviceCloudPolicyStoreAsh> store,
+    std::unique_ptr<DeviceCloudPolicyStoreAsh> device_store,
     std::unique_ptr<CloudExternalDataManager> external_data_manager,
     const scoped_refptr<base::SequencedTaskRunner>& task_runner,
     ServerBackedStateKeysBroker* state_keys_broker,
@@ -90,10 +89,10 @@ DeviceCloudPolicyManagerAsh::DeviceCloudPolicyManagerAsh(
     : CloudPolicyManager(
           dm_protocol::kChromeDevicePolicyType,
           std::string(),
-          store.get(),
+          std::move(device_store),
           task_runner,
           base::BindRepeating(&content::GetNetworkConnectionTracker)),
-      device_store_(std::move(store)),
+      device_store_(static_cast<DeviceCloudPolicyStoreAsh*>(store())),
       external_data_manager_(std::move(external_data_manager)),
       state_keys_broker_(state_keys_broker),
       crd_delegate_(&crd_delegate),
@@ -183,9 +182,6 @@ DeviceCloudPolicyManagerAsh::GetZeroTouchEnrollmentMode() {
       ash::switches::kEnterpriseEnableZeroTouchEnrollment);
   if (value == kZeroTouchEnrollmentForced) {
     return ZeroTouchEnrollmentMode::FORCED;
-  }
-  if (value == kZeroTouchEnrollmentHandsOff) {
-    return ZeroTouchEnrollmentMode::HANDS_OFF;
   }
   if (value.empty()) {
     return ZeroTouchEnrollmentMode::ENABLED;

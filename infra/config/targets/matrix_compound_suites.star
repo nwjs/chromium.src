@@ -95,6 +95,28 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
+    name = "android_14_emulator_gtests",
+    basic_suites = {
+        "android_emulator_specific_chrome_public_tests": None,
+        "android_trichrome_smoke_tests": None,
+        "android_smoke_tests": None,
+        "android_specific_chromium_gtests": None,  # Already includes gl_gtests.
+        "chromium_gtests": None,
+        "chromium_gtests_for_devices_with_graphical_output": None,
+        "linux_flavor_specific_chromium_gtests": None,
+        "system_webview_shell_instrumentation_tests": None,  # Not an experimental test
+        "webview_trichrome_64_cts_tests": targets.legacy_matrix_config(
+            variants = [
+                "WEBVIEW_TRICHROME_FULL_CTS_TESTS",
+                "WEBVIEW_TRICHROME_INSTANT_CTS_TESTS",
+            ],
+        ),
+        "webview_trichrome_64_cts_tests_no_field_trial": None,
+        "webview_ui_instrumentation_tests": None,
+    },
+)
+
+targets.legacy_matrix_compound_suite(
     name = "android_fieldtrial_rel_webview_tests",
     basic_suites = {
         "fieldtrial_android_tests": None,
@@ -147,12 +169,17 @@ targets.legacy_matrix_compound_suite(
                 "CROS_BRYA_RELEASE_ASH_LKGM",
             ],
         ),
-        "chromeos_device_only_gtests": targets.legacy_matrix_config(
+        "chromeos_integration_tests": targets.legacy_matrix_config(
             variants = [
                 "CROS_BRYA_RELEASE_ASH_LKGM",
             ],
         ),
-        "chromeos_integration_tests": targets.legacy_matrix_config(
+        "chromeos_system_friendly_gtests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_BRYA_RELEASE_ASH_LKGM",
+            ],
+        ),
+        "chromeos_vaapi_gtests": targets.legacy_matrix_config(
             variants = [
                 "CROS_BRYA_RELEASE_ASH_LKGM",
             ],
@@ -164,6 +191,9 @@ targets.legacy_matrix_compound_suite(
     name = "chromeos_jacuzzi_rel_skylab_tests",
     basic_suites = {
         "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+            mixins = [
+                "chromeos-jacuzzi-skylab-chrome-all-tast-tests",
+            ],
             variants = [
                 "CROS_JACUZZI_CQ_PUBLIC_LKGM",
             ],
@@ -185,6 +215,9 @@ targets.legacy_matrix_compound_suite(
     name = "chromeos_jacuzzi_skylab_tests",
     basic_suites = {
         "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+            mixins = [
+                "chromeos-jacuzzi-skylab-chrome-all-tast-tests",
+            ],
             variants = [
                 "CROS_JACUZZI_RELEASE_CHROME_FROM_TLS_ASH_LKGM",
             ],
@@ -195,6 +228,11 @@ targets.legacy_matrix_compound_suite(
             ],
         ),
         "chromeos_chrome_disabled_tast_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_JACUZZI_RELEASE_CHROME_FROM_TLS_ASH_LKGM",
+            ],
+        ),
+        "chromeos_device_only_gtests": targets.legacy_matrix_config(
             variants = [
                 "CROS_JACUZZI_RELEASE_CHROME_FROM_TLS_ASH_LKGM",
             ],
@@ -226,6 +264,11 @@ targets.legacy_matrix_compound_suite(
                 "CROS_OCTOPUS_RELEASE_CHROME_FROM_TLS_ASH_LKGM",
             ],
         ),
+        "chromeos_device_only_gtests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_OCTOPUS_RELEASE_CHROME_FROM_TLS_ASH_LKGM",
+            ],
+        ),
     },
 )
 
@@ -233,6 +276,14 @@ targets.legacy_matrix_compound_suite(
     name = "chromeos_trogdor_skylab_tests",
     basic_suites = {
         "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+            mixins = [
+                "chromeos-trogdor-skylab-chrome-all-tast-tests",
+            ],
+            variants = [
+                "CROS_TROGDOR_RELEASE_ASH_LKGM",
+            ],
+        ),
+        "chromeos_device_only_gtests": targets.legacy_matrix_config(
             variants = [
                 "CROS_TROGDOR_RELEASE_ASH_LKGM",
             ],
@@ -259,6 +310,11 @@ targets.legacy_matrix_compound_suite(
             ],
         ),
         "chromeos_chrome_disabled_tast_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_VOLTEER_RELEASE_ASH_LKGM",
+            ],
+        ),
+        "chromeos_device_only_gtests": targets.legacy_matrix_config(
             variants = [
                 "CROS_VOLTEER_RELEASE_ASH_LKGM",
             ],
@@ -323,11 +379,6 @@ targets.legacy_matrix_compound_suite(
                 "CROS_JACUZZI_RELEASE_LKGM",
             ],
         ),
-        "gpu_mediapipe_passthrough_telemetry_tests": targets.legacy_matrix_config(
-            variants = [
-                "CROS_JACUZZI_RELEASE_LKGM",
-            ],
-        ),
         "gpu_passthrough_telemetry_tests": targets.legacy_matrix_config(
             variants = [
                 "CROS_JACUZZI_RELEASE_LKGM",
@@ -355,11 +406,6 @@ targets.legacy_matrix_compound_suite(
     name = "gpu_fyi_chromeos_release_telemetry_tests_volteer_skylab",
     basic_suites = {
         "gpu_common_and_optional_telemetry_tests": targets.legacy_matrix_config(
-            variants = [
-                "CROS_VOLTEER_PUBLIC_RELEASE_ASH_LKGM",
-            ],
-        ),
-        "gpu_mediapipe_passthrough_telemetry_tests": targets.legacy_matrix_config(
             variants = [
                 "CROS_VOLTEER_PUBLIC_RELEASE_ASH_LKGM",
             ],
@@ -963,18 +1009,6 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
-    name = "lacros_amd64_generic_rel_skylab_fyi",
-    basic_suites = {
-        "lacros_skylab_tests": targets.legacy_matrix_config(
-            variants = [
-                "CROS_OCTOPUS_PUBLIC_LKGM",
-                "CROS_EVE_PUBLIC_LKGM",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
     name = "lacros_arm64_generic_rel_skylab",
     basic_suites = {
         "lacros_skylab_tests": targets.legacy_matrix_config(
@@ -982,44 +1016,8 @@ targets.legacy_matrix_compound_suite(
                 "CROS_TROGDOR_PUBLIC_LKGM",
             ],
         ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
-    name = "lacros_arm64_generic_rel_skylab_fyi",
-    basic_suites = {
-        "lacros_skylab_tests": targets.legacy_matrix_config(
+        "chromeos_integration_tests": targets.legacy_matrix_config(
             variants = [
-                "CROS_JACUZZI_PUBLIC_LKGM",
-                "CROS_JACUZZI_CQ_PUBLIC_LKGM",
-                "CROS_TROGDOR_PUBLIC_LKGM",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
-    name = "lacros_arm_generic_rel_skylab",
-    basic_suites = {
-        "lacros_skylab_tests": targets.legacy_matrix_config(
-            variants = [
-                "CROS_JACUZZI_PUBLIC_LKGM",
-            ],
-        ),
-        "lacros_skylab_tests_with_gtests": targets.legacy_matrix_config(
-            variants = [
-                "CROS_JACUZZI_PUBLIC_LKGM",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
-    name = "lacros_arm_generic_rel_skylab_fyi",
-    basic_suites = {
-        "lacros_skylab_tests": targets.legacy_matrix_config(
-            variants = [
-                "CROS_JACUZZI_PUBLIC_LKGM",
                 "CROS_TROGDOR_PUBLIC_LKGM",
             ],
         ),
@@ -1032,67 +1030,21 @@ targets.legacy_matrix_compound_suite(
         "chromeos_integration_tests": targets.legacy_matrix_config(
             variants = [
                 "LACROS_AMD64_GENERIC",
-                "LACROS_EVE",
             ],
         ),
         "lacros_all_tast_tests": targets.legacy_matrix_config(
             variants = [
                 "LACROS_AMD64_GENERIC",
-                "LACROS_EVE",
-            ],
-        ),
-        "lacros_cq_tast_tests_eve": targets.legacy_matrix_config(
-            variants = [
-                "LACROS_EVE",
             ],
         ),
         "lacros_device_or_vm_gtests": targets.legacy_matrix_config(
             variants = [
                 "LACROS_AMD64_GENERIC",
-                "LACROS_EVE",
             ],
         ),
         "lacros_vm_gtests": targets.legacy_matrix_config(
             variants = [
                 "LACROS_AMD64_GENERIC",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
-    name = "lacros_device_or_vm_tests_fyi",
-    basic_suites = {
-        "lacros_all_tast_tests_informational": targets.legacy_matrix_config(
-            variants = [
-                "LACROS_AMD64_GENERIC",
-                "LACROS_EVE",
-            ],
-        ),
-        "lacros_device_or_vm_gtests": targets.legacy_matrix_config(
-            variants = [
-                "LACROS_AMD64_GENERIC",
-                "LACROS_EVE",
-            ],
-        ),
-        "lacros_fyi_tast_tests": targets.legacy_matrix_config(
-            variants = [
-                "LACROS_AMD64_GENERIC",
-                "LACROS_EVE",
-            ],
-        ),
-    },
-)
-
-# Check go/lacros-on-skylab for details of Skylab configurations.
-targets.legacy_matrix_compound_suite(
-    name = "lacros_skylab_arm",
-    basic_suites = {
-        "lacros_skylab_tests_version_skew": targets.legacy_matrix_config(
-            variants = [
-                "CROS_JACUZZI_RELEASE_DEV",
-                "CROS_JACUZZI_RELEASE_BETA",
-                "CROS_JACUZZI_RELEASE_STABLE",
             ],
         ),
     },
@@ -1107,23 +1059,9 @@ targets.legacy_matrix_compound_suite(
                 "CROS_STRONGBAD_RELEASE_LKGM",
             ],
         ),
-    },
-)
-
-# Check go/lacros-on-skylab for details of Skylab configurations.
-targets.legacy_matrix_compound_suite(
-    name = "lacros_skylab_arm_fyi",
-    basic_suites = {
-        "lacros_skylab_arm_tests_fyi": targets.legacy_matrix_config(
+        "chromeos_integration_tests": targets.legacy_matrix_config(
             variants = [
-                "CROS_HANA_RELEASE_LKGM",
-                "CROS_HANA_RELEASE_DEV",
-                "CROS_HANA_RELEASE_BETA",
-                "CROS_HANA_RELEASE_STABLE",
                 "CROS_STRONGBAD_RELEASE_LKGM",
-                "CROS_STRONGBAD_RELEASE_DEV",
-                "CROS_STRONGBAD_RELEASE_BETA",
-                "CROS_STRONGBAD_RELEASE_STABLE",
             ],
         ),
     },
@@ -1160,6 +1098,25 @@ targets.legacy_matrix_compound_suite(
                 "CROS_PUFF_RELEASE_LKGM",
             ],
         ),
+        "lacros_skylab_tests_with_gtests_version_skew": targets.legacy_matrix_config(
+            variants = [
+                "CROS_BRYA_RELEASE_DEV",
+                "CROS_BRYA_RELEASE_BETA",
+                "CROS_BRYA_RELEASE_STABLE",
+                "CROS_DEDEDE_RELEASE_DEV",
+                "CROS_DEDEDE_RELEASE_BETA",
+                "CROS_DEDEDE_RELEASE_STABLE",
+                "CROS_FIZZ_RELEASE_DEV",
+                "CROS_FIZZ_RELEASE_BETA",
+                "CROS_FIZZ_RELEASE_STABLE",
+                "CROS_GUYBRUSH_RELEASE_DEV",
+                "CROS_GUYBRUSH_RELEASE_BETA",
+                "CROS_GUYBRUSH_RELEASE_STABLE",
+                "CROS_PUFF_RELEASE_DEV",
+                "CROS_PUFF_RELEASE_BETA",
+                "CROS_PUFF_RELEASE_STABLE",
+            ],
+        ),
         "lacros_skylab_tests_with_gtests": targets.legacy_matrix_config(
             variants = [
                 "CROS_BRYA_RELEASE_LKGM",
@@ -1167,20 +1124,6 @@ targets.legacy_matrix_compound_suite(
                 "CROS_FIZZ_RELEASE_LKGM",
                 "CROS_GUYBRUSH_RELEASE_LKGM",
                 "CROS_PUFF_RELEASE_LKGM",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
-    name = "lacros_skylab_tests_amd64_generic_fyi",
-    basic_suites = {
-        "lacros_skylab_amd64_fyi": targets.legacy_matrix_config(
-            variants = [
-                "CROS_OCTOPUS_RELEASE_LKGM",
-                "CROS_OCTOPUS_RELEASE_DEV",
-                "CROS_OCTOPUS_RELEASE_BETA",
-                "CROS_OCTOPUS_RELEASE_STABLE",
             ],
         ),
     },
@@ -1195,6 +1138,28 @@ targets.legacy_matrix_compound_suite(
             ],
         ),
         "chromeos_integration_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_VOLTEER_PUBLIC_LKGM",
+            ],
+        ),
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    name = "lacros_skylab_tests_amd64_generic_rel_gtest",
+    basic_suites = {
+        "chromeos_integration_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_VOLTEER_PUBLIC_LKGM",
+            ],
+        ),
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    name = "lacros_skylab_tests_amd64_generic_rel_tast",
+    basic_suites = {
+        "lacros_skylab_tests": targets.legacy_matrix_config(
             variants = [
                 "CROS_VOLTEER_PUBLIC_LKGM",
             ],
@@ -1241,29 +1206,9 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
-    name = "linux_lacros_version_skew_tests",
-    basic_suites = {
-        "linux_lacros_chrome_interactive_ui_tests_version_skew": targets.legacy_matrix_config(
-            variants = [
-                "LACROS_VERSION_SKEW_CANARY",
-                "LACROS_VERSION_SKEW_DEV",
-                "LACROS_VERSION_SKEW_BETA",
-                "LACROS_VERSION_SKEW_STABLE",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
     name = "linux_optional_gpu_tests_rel_gpu_telemetry_tests",
     basic_suites = {
         "gpu_common_and_optional_telemetry_tests": targets.legacy_matrix_config(
-            variants = [
-                "LINUX_INTEL_UHD_630_STABLE",
-                "LINUX_NVIDIA_GTX_1660_STABLE",
-            ],
-        ),
-        "gpu_mediapipe_passthrough_telemetry_tests": targets.legacy_matrix_config(
             variants = [
                 "LINUX_INTEL_UHD_630_STABLE",
                 "LINUX_NVIDIA_GTX_1660_STABLE",
@@ -1312,39 +1257,50 @@ targets.legacy_matrix_compound_suite(
                 "MAC_RETINA_NVIDIA_GPU_STABLE",
             ],
         ),
-        "gpu_mediapipe_passthrough_telemetry_tests": targets.legacy_matrix_config(
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-                "MAC_RETINA_NVIDIA_GPU_STABLE",
-            ],
-        ),
         "gpu_gl_passthrough_ganesh_telemetry_tests": targets.legacy_matrix_config(
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
                 "MAC_RETINA_AMD_GPU_STABLE",
             ],
         ),
-        "gpu_metal_passthrough_graphite_telemetry_tests": targets.legacy_matrix_config(
+        "gpu_metal_passthrough_ganesh_telemetry_tests": targets.legacy_matrix_config(
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
                 "MAC_RETINA_AMD_GPU_STABLE",
             ],
         ),
-        "gpu_webcodecs_telemetry_test": targets.legacy_matrix_config(
+        "gpu_webcodecs_gl_passthrough_ganesh_telemetry_test": targets.legacy_matrix_config(
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
                 "MAC_RETINA_AMD_GPU_STABLE",
                 "MAC_RETINA_NVIDIA_GPU_STABLE",
             ],
         ),
-        "gpu_webgl2_conformance_metal_passthrough_telemetry_tests": targets.legacy_matrix_config(
+        "gpu_webcodecs_metal_passthrough_ganesh_telemetry_test": targets.legacy_matrix_config(
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
                 "MAC_RETINA_AMD_GPU_STABLE",
             ],
         ),
-        "gpu_webgl_conformance_gl_passthrough_telemetry_tests": targets.legacy_matrix_config(
+        "gpu_webcodecs_metal_passthrough_graphite_telemetry_test": targets.legacy_matrix_config(
+            variants = [
+                "MAC_MINI_INTEL_GPU_STABLE",
+                "MAC_RETINA_AMD_GPU_STABLE",
+            ],
+        ),
+        "gpu_webgl2_conformance_metal_passthrough_graphite_telemetry_tests": targets.legacy_matrix_config(
+            variants = [
+                "MAC_MINI_INTEL_GPU_STABLE",
+                "MAC_RETINA_AMD_GPU_STABLE",
+            ],
+        ),
+        "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests": targets.legacy_matrix_config(
+            variants = [
+                "MAC_MINI_INTEL_GPU_STABLE",
+                "MAC_RETINA_AMD_GPU_STABLE",
+            ],
+        ),
+        "gpu_webgl_conformance_metal_passthrough_ganesh_telemetry_tests": targets.legacy_matrix_config(
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
                 "MAC_RETINA_AMD_GPU_STABLE",
@@ -1411,15 +1367,21 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
+    name = "webview_trichrome_64_cts_hostside_gtests",
+    basic_suites = {
+        "webview_trichrome_64_cts_hostside_tests": targets.legacy_matrix_config(
+            variants = [
+                "WEBVIEW_TRICHROME_FULL_CTS_TESTS",
+                "WEBVIEW_TRICHROME_INSTANT_CTS_TESTS",
+            ],
+        ),
+    },
+)
+
+targets.legacy_matrix_compound_suite(
     name = "win_optional_gpu_tests_rel_gpu_telemetry_tests",
     basic_suites = {
         "gpu_common_and_optional_telemetry_tests": targets.legacy_matrix_config(
-            variants = [
-                "WIN10_INTEL_UHD_630_STABLE",
-                "WIN10_NVIDIA_GTX_1660_STABLE",
-            ],
-        ),
-        "gpu_mediapipe_passthrough_telemetry_tests": targets.legacy_matrix_config(
             variants = [
                 "WIN10_INTEL_UHD_630_STABLE",
                 "WIN10_NVIDIA_GTX_1660_STABLE",

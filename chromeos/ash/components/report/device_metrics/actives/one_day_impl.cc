@@ -48,9 +48,12 @@ void OneDayImpl::Run(base::OnceCallback<void()> callback) {
   callback_ = std::move(callback);
 
   if (!IsDevicePingRequired()) {
+    utils::RecordIsDevicePingRequired(utils::PsmUseCase::k1DA, false);
     std::move(callback_).Run();
     return;
   }
+
+  utils::RecordIsDevicePingRequired(utils::PsmUseCase::k1DA, true);
 
   // Perform check membership if the local state pref has default value.
   // This is done to avoid duplicate check in if the device pinged already.
@@ -291,7 +294,7 @@ void OneDayImpl::OnCheckMembershipQueryComplete(
 }
 
 void OneDayImpl::CheckIn() {
-  absl::optional<FresnelImportDataRequest> import_request =
+  std::optional<FresnelImportDataRequest> import_request =
       GenerateImportRequestBody();
   if (!import_request.has_value()) {
     LOG(ERROR) << "Failed to create the import request body.";
@@ -350,7 +353,7 @@ void OneDayImpl::SetLastPingTimestamp(base::Time ts) {
 std::vector<psm_rlwe::RlwePlaintextId> OneDayImpl::GetPsmIdentifiersToQuery() {
   std::string window_id =
       utils::TimeToYYYYMMDDString(GetParams()->GetActiveTs());
-  absl::optional<psm_rlwe::RlwePlaintextId> psm_id =
+  std::optional<psm_rlwe::RlwePlaintextId> psm_id =
       utils::GeneratePsmIdentifier(GetParams()->GetHighEntropySeed(),
                                    psm_rlwe::RlweUseCase_Name(kPsmUseCase),
                                    window_id);
@@ -364,7 +367,7 @@ std::vector<psm_rlwe::RlwePlaintextId> OneDayImpl::GetPsmIdentifiersToQuery() {
   return query_psm_ids;
 }
 
-absl::optional<FresnelImportDataRequest>
+std::optional<FresnelImportDataRequest>
 OneDayImpl::GenerateImportRequestBody() {
   // Generate Fresnel PSM import request body.
   FresnelImportDataRequest import_request;
@@ -385,13 +388,13 @@ OneDayImpl::GenerateImportRequestBody() {
 
   std::string window_id =
       utils::TimeToYYYYMMDDString(GetParams()->GetActiveTs());
-  absl::optional<psm_rlwe::RlwePlaintextId> psm_id =
+  std::optional<psm_rlwe::RlwePlaintextId> psm_id =
       utils::GeneratePsmIdentifier(GetParams()->GetHighEntropySeed(),
                                    psm_rlwe::RlweUseCase_Name(kPsmUseCase),
                                    window_id);
 
   if (!psm_id.has_value()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   FresnelImportData* import_data = import_request.add_import_data();

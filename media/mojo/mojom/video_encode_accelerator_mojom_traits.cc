@@ -216,6 +216,7 @@ bool StructTraits<media::mojom::BitstreamBufferMetadataDataView,
   if (!data.ReadTimestamp(&metadata->timestamp)) {
     return false;
   }
+  metadata->end_of_picture = data.end_of_picture();
   metadata->qp = data.qp();
   if (!data.ReadEncodedSize(&metadata->encoded_size)) {
     return false;
@@ -264,7 +265,6 @@ bool StructTraits<media::mojom::Vp9MetadataDataView, media::Vp9Metadata>::Read(
       data.referenced_by_upper_spatial_layers();
   out_metadata->reference_lower_spatial_layers =
       data.reference_lower_spatial_layers();
-  out_metadata->end_of_picture = data.end_of_picture();
   out_metadata->temporal_idx = data.temporal_idx();
   out_metadata->spatial_idx = data.spatial_idx();
   out_metadata->begin_active_spatial_layer_index =
@@ -504,6 +504,10 @@ bool StructTraits<media::mojom::VideoEncodeAcceleratorConfigDataView,
   if (!input.ReadContentType(&content_type))
     return false;
 
+  uint8_t drop_frame_thresh_percentage = input.drop_frame_thresh_percentage();
+  if (drop_frame_thresh_percentage > 100) {
+    return false;
+  }
   std::vector<media::VideoEncodeAccelerator::Config::SpatialLayer>
       spatial_layers;
   if (!input.ReadSpatialLayers(&spatial_layers))
@@ -531,6 +535,7 @@ bool StructTraits<media::mojom::VideoEncodeAcceleratorConfigDataView,
     absl::optional<media::VideoEncodeAccelerator::Config::StorageType>
         storage_type;
     media::VideoEncodeAccelerator::Config::ContentType content_type;
+    uint8_t drop_frame_thresh_percentage;
     std::vector<media::VideoEncodeAccelerator::Config::SpatialLayer>
         spatial_layers;
     media::SVCInterLayerPredMode inter_layer_pred;
@@ -550,6 +555,7 @@ bool StructTraits<media::mojom::VideoEncodeAcceleratorConfigDataView,
   output->is_constrained_h264 = is_constrained_h264;
   output->storage_type = storage_type;
   output->content_type = content_type;
+  output->drop_frame_thresh_percentage = drop_frame_thresh_percentage;
   output->spatial_layers = spatial_layers;
   output->inter_layer_pred = inter_layer_pred;
   output->require_low_delay = input.require_low_delay();

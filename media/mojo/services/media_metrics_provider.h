@@ -92,6 +92,7 @@ class MEDIA_MOJO_EXPORT MediaMetricsProvider
     VideoCodec video_codec = VideoCodec::kUnknown;
     VideoPipelineInfo video_pipeline_info;
     AudioPipelineInfo audio_pipeline_info;
+    std::optional<PipelineStatusCodes> start_status_;
     PipelineStatusCodes last_pipeline_status = PIPELINE_OK;
   };
 
@@ -105,6 +106,7 @@ class MEDIA_MOJO_EXPORT MediaMetricsProvider
   void Initialize(bool is_mse,
                   mojom::MediaURLScheme url_scheme,
                   mojom::MediaStreamType media_stream_type) override;
+  void OnStarted(const PipelineStatus& status) override;
   void OnError(const PipelineStatus& status) override;
   void OnFallback(const PipelineStatus& status) override;
   void SetAudioPipelineInfo(const AudioPipelineInfo& info) override;
@@ -112,6 +114,7 @@ class MEDIA_MOJO_EXPORT MediaMetricsProvider
       container_names::MediaContainerName container_name) override;
   void SetRendererType(RendererType renderer_type) override;
   void SetKeySystem(const std::string& key_system) override;
+  void SetHasWaitingForKey() override;
   void SetIsHardwareSecure() override;
   void SetHasAudio(AudioCodec audio_codec) override;
   void SetHasPlayed() override;
@@ -162,6 +165,7 @@ class MEDIA_MOJO_EXPORT MediaMetricsProvider
 
   RendererType renderer_type_ = RendererType::kRendererImpl;
   std::string key_system_;
+  bool has_waiting_for_key_ = false;
   bool is_hardware_secure_ = false;
 
   base::TimeDelta time_to_metadata_ = kNoTimestamp;

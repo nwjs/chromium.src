@@ -17,7 +17,6 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
-#import "ios/chrome/browser/signin/model/user_approved_account_list_manager.h"
 
 namespace syncer {
 class SyncService;
@@ -93,19 +92,6 @@ class AuthenticationService : public KeyedService,
 
   // Returns whether user should be prompted to Sign in and sync to Chrome.
   bool ShouldReauthPromptForSignInAndSync() const;
-
-  // Returns whether the current account list has been approved by the user.
-  // This method should only be called when there is a primary account.
-  //
-  // TODO(crbug.com/1084491): To make sure IsAccountListApprovedByUser()
-  // a non-stale value, an notification need to be implemented when the SSO
-  // keychain is reloaded. The user can add/remove an account while Chrome
-  // is in foreground (with split screen on iPad).
-  bool IsAccountListApprovedByUser() const;
-
-  // Saves the current account list in Chrome as being approved by the user.
-  // This method should only be called when there is a primary account.
-  void ApproveAccountList();
 
   // SystemIdentity management
 
@@ -194,7 +180,8 @@ class AuthenticationService : public KeyedService,
   // nil if there is no such additional identity to ignore.
   //
   // `should_prompt` indicates whether the user should be prompted with the
-  // resign-in infobar if the method signs out.
+  // resign-in infobar if the method signs the user out.
+  //
   // `device_restore` should be true only when called from `Initialize()` and
   // Chrome is started after a device restore.
   void HandleForgottenIdentity(id<SystemIdentity> invalid_identity,
@@ -204,16 +191,17 @@ class AuthenticationService : public KeyedService,
   // Checks if the authenticated identity was removed by calling
   // `HandleForgottenIdentity`. Reloads the OAuth2 token service accounts if the
   // authenticated identity is still present.
-  // `keychain_reload` indicates if the identity list has to be reloaded because
-  // the keychain has changed.
-  void ReloadCredentialsFromIdentities(bool keychain_reload);
+  //
+  // `should_prompt` indicates whether the user should be prompted with the
+  // resign-in infobar if the method signs the user out of Chrome.
+  void ReloadCredentialsFromIdentities(bool should_prompt);
 
   // signin::IdentityManager::Observer implementation.
   void OnPrimaryAccountChanged(
       const signin::PrimaryAccountChangeEvent& event_details) override;
 
   // ChromeAccountManagerService::Observer implementation.
-  void OnIdentityListChanged(bool need_user_approval) override;
+  void OnIdentityListChanged(bool notify_user) override;
   void OnAccessTokenRefreshFailed(id<SystemIdentity> identity,
                                   id<RefreshAccessTokenError> error) override;
 
@@ -246,9 +234,6 @@ class AuthenticationService : public KeyedService,
   base::ObserverList<AuthenticationServiceObserver, true> observer_list_;
   // Whether Initialized has been called.
   bool initialized_ = false;
-
-  // Manager for the approved account list.
-  UserApprovedAccountListManager user_approved_account_list_manager_;
 
   // Whether the AuthenticationService is currently reloading credentials, used
   // to avoid an infinite reloading loop.

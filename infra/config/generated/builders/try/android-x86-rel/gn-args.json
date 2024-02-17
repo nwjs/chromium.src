@@ -15,8 +15,8 @@
     "target_cpu": "x86",
     "target_os": "android",
     "use_clang_coverage": true,
-    "use_dummy_lastchange": true,
     "use_jacoco_coverage": true,
-    "use_remoteexec": true
+    "use_remoteexec": true,
+    "use_siso": true
   }
 }

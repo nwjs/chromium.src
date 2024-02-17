@@ -1218,14 +1218,14 @@ EVENT_TYPE(HTTP_STREAM_JOB_INIT_CONNECTION)
 //   }
 EVENT_TYPE(HTTP_STREAM_REQUEST_BOUND_TO_JOB)
 
-// Identifies the NetLogSource() for the QuicStreamFactory::Job that the
+// Identifies the NetLogSource() for the QuicSessionPool::Job that the
 // HttpStreamFactory::Job was attached to.
 // The event parameters are:
 //  {
-//      "source_dependency": <Source identifier for the QuicStreamFactory::Job
+//      "source_dependency": <Source identifier for the QuicSessionPool::Job
 //                            to which we were attached>,
 //  }
-EVENT_TYPE(HTTP_STREAM_JOB_BOUND_TO_QUIC_STREAM_FACTORY_JOB)
+EVENT_TYPE(HTTP_STREAM_JOB_BOUND_TO_QUIC_SESSION_POOL_JOB)
 
 // Identifies the NetLogSource() for the Request that the Job was attached to.
 // The event parameters are:
@@ -1776,27 +1776,28 @@ EVENT_TYPE(HTTP2_PROXY_CLIENT_SESSION)
 //   }
 
 // ------------------------------------------------------------------------
-// QuicStreamFactory
+// QuicSessionPool
 // ------------------------------------------------------------------------
 
 // This event is emitted whenever a platform notification is received that
 // could possibly trigger connection migration.
 //   {
-//     "signal": <Type of the platform notification>
+//     "signal": <Type of the platform notification>,
+//     "network": <The network that triggered the notification>,
 //   }
-EVENT_TYPE(QUIC_STREAM_FACTORY_PLATFORM_NOTIFICATION)
+EVENT_TYPE(QUIC_SESSION_POOL_PLATFORM_NOTIFICATION)
 
-// These events track QuicStreamFactory's handling of OnIPAddressChanged and
+// These events track QuicSessionPool's handling of OnIPAddressChanged and
 // whether QuicSessions are closed or marked as going away.
-EVENT_TYPE(QUIC_STREAM_FACTORY_ON_IP_ADDRESS_CHANGED)
-EVENT_TYPE(QUIC_STREAM_FACTORY_CLOSE_ALL_SESSIONS)
-EVENT_TYPE(QUIC_STREAM_FACTORY_MARK_ALL_ACTIVE_SESSIONS_GOING_AWAY)
+EVENT_TYPE(QUIC_SESSION_POOL_ON_IP_ADDRESS_CHANGED)
+EVENT_TYPE(QUIC_SESSION_POOL_CLOSE_ALL_SESSIONS)
+EVENT_TYPE(QUIC_SESSION_POOL_MARK_ALL_ACTIVE_SESSIONS_GOING_AWAY)
 
 // ------------------------------------------------------------------------
-// QuicStreamFactory::Job
+// QuicSessionPool::Job
 // ------------------------------------------------------------------------
 
-// Measures the time taken to execute the QuicStreamFactory::Job.
+// Measures the time taken to execute the QuicSessionPool::Job.
 // The event parameters are:
 //   {
 //     "host": <The origin hostname that the Job serves>,
@@ -1804,7 +1805,7 @@ EVENT_TYPE(QUIC_STREAM_FACTORY_MARK_ALL_ACTIVE_SESSIONS_GOING_AWAY)
 //     "privacy_mode": <The privacy mode of the Job>,
 //     "network_anonymization_key": <The NetworkAnonymizationKey of the Job>,
 //   }
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB)
 
 // Identifies the NetLogSource() for the HttpStreamFactory::Job that the Job was
 // attached to.
@@ -1813,7 +1814,7 @@ EVENT_TYPE(QUIC_STREAM_FACTORY_JOB)
 //     "source_dependency": <Source identifier for the HttpStreamFactory::Job to
 //                           which we were attached>,
 //  }
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_BOUND_TO_HTTP_STREAM_JOB)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB_BOUND_TO_HTTP_STREAM_JOB)
 
 // Measures the time taken to establish a QUIC connection.
 // The event parameters are:
@@ -1821,24 +1822,24 @@ EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_BOUND_TO_HTTP_STREAM_JOB)
 //     "require_confirmation": <True if we require handshake confirmation
 //                              in the connection>
 //  }
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_CONNECT)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB_CONNECT)
 
 // This event indicates that the connection on the default network has failed
 // before the handshake completed and a new connection on the alternate network
 // will be attempted soon.
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_RETRY_ON_ALTERNATE_NETWORK)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB_RETRY_ON_ALTERNATE_NETWORK)
 
 // This event indicates that the stale host result is used to try connecting.
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_TRIED_ON_CONNECTION)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB_STALE_HOST_TRIED_ON_CONNECTION)
 
 // This event indicates that stale host was not used to try connecting.
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_NOT_USED_ON_CONNECTION)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB_STALE_HOST_NOT_USED_ON_CONNECTION)
 
 // This event indicates that the stale host doesn't match with fresh host.
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_RESOLUTION_NO_MATCH)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB_STALE_HOST_RESOLUTION_NO_MATCH)
 
 // This event indicates that stale host matches with fresh resolution.
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_RESOLUTION_MATCHED)
+EVENT_TYPE(QUIC_SESSION_POOL_JOB_STALE_HOST_RESOLUTION_MATCHED)
 
 // ------------------------------------------------------------------------
 // quic::QuicSession
@@ -3319,10 +3320,12 @@ EVENT_TYPE(CERT_VERIFY_PROC_CHROME_ROOT_STORE_VERSION)
 // The event parameters are:
 //   {
 //      "certificate": <The PEM encoded certificate.>
+//      "spki": <The SPKI that this applies to>
 //      "trust": <The trust setting used for this certificate.>
 //      "errors": <Optionally, a string describing any errors or warnings
 //                 encountered while parsing the certificate.>
 //   }
+// Only one of certificate or spki will be provided, never both.
 EVENT_TYPE(CERT_VERIFY_PROC_ADDITIONAL_CERT)
 
 // This event is created for each path building attempt performed by
@@ -3359,6 +3362,14 @@ EVENT_TYPE(CERT_VERIFY_PROC_PATH_BUILD_ATTEMPT)
 //                 encountered while building or verifying the path.>
 //   }
 EVENT_TYPE(CERT_VERIFY_PROC_PATH_BUILT)
+
+// This event is created whenever a debugging message is sent from the path
+// builder.
+// parameters:
+// {
+//    "path_builder_debug": <String - message sent from the path builder>
+// }
+EVENT_TYPE(CERT_VERIFY_PROC_PATH_BUILDER_DEBUG)
 
 // -----------------------------------------------------------------------------
 // FTP events.

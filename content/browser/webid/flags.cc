@@ -39,6 +39,10 @@ bool IsFedCmSelectiveDisclosureEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmSelectiveDisclosure);
 }
 
+bool IsFedCmSkipWellKnownForSameSiteEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmSkipWellKnownForSameSite);
+}
+
 bool IsFedCmIdPRegistrationEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmIdPRegistration);
 }
@@ -75,6 +79,14 @@ bool IsFedCmAddAccountEnabled() {
 bool IsFedCmExemptIdpWithThirdPartyCookiesEnabled() {
   return base::FeatureList::IsEnabled(
       features::kFedCmExemptIdpWithThirdPartyCookies);
+}
+
+bool IsFedCmButtonModeEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmButtonMode);
+}
+
+bool IsFedCmSameSiteLoginStatusEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmSameSiteLoginStatus);
 }
 
 }  // namespace content

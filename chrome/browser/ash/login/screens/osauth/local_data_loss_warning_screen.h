@@ -24,8 +24,10 @@ class LocalDataLossWarningScreen : public BaseOSAuthSetupScreen {
 
   enum class Result {
     kRemoveUser,
-    kBack,
+    kBackToOnlineAuth,
+    kBackToLocalAuth,
     kCryptohomeError,
+    kCancel,
   };
 
   static std::string GetResultString(Result result);
@@ -47,7 +49,7 @@ class LocalDataLossWarningScreen : public BaseOSAuthSetupScreen {
   void OnUserAction(const base::Value::List& args) override;
 
   void OnRemovedUserDirectory(std::unique_ptr<UserContext> user_context,
-                              absl::optional<AuthenticationError> error);
+                              std::optional<AuthenticationError> error);
 
   base::WeakPtr<LocalDataLossWarningScreenView> view_;
 

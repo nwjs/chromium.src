@@ -96,6 +96,9 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   WebViewImpl* GetWebView() const override { return nullptr; }
   void ChromeDestroyed() override {}
   void SetWindowRect(const gfx::Rect&, LocalFrame&) override {}
+  void Minimize(LocalFrame&) override {}
+  void Maximize(LocalFrame&) override {}
+  void Restore(LocalFrame&) override {}
   void SetResizable(bool resizable, LocalFrame&) override {}
   gfx::Rect RootWindowRect(LocalFrame&) override { return gfx::Rect(); }
   void DidAccessInitialMainDocument() override {}
@@ -103,6 +106,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void DidFocusPage() override {}
   bool CanTakeFocus(mojom::blink::FocusType) override { return false; }
   void TakeFocus(mojom::blink::FocusType) override {}
+  bool SupportsAppRegion() override { return false; }
   void Show(LocalFrame& frame,
             LocalFrame& opener_frame,
             NavigationPolicy navigation_policy,
@@ -271,7 +275,7 @@ class EmptyWebWorkerFetchContext : public WebWorkerFetchContext {
   }
   void WillSendRequest(WebURLRequest&) override {}
   WebVector<std::unique_ptr<URLLoaderThrottle>> CreateThrottles(
-      const WebURLRequest&) override {
+      const network::ResourceRequest&) override {
     return {};
   }
   blink::mojom::ControllerServiceWorkerMode GetControllerServiceWorkerMode()

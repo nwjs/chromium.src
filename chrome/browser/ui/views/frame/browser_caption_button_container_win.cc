@@ -241,5 +241,5 @@ void BrowserCaptionButtonContainer::
   }
 }
 
-BEGIN_METADATA(BrowserCaptionButtonContainer, views::View)
+BEGIN_METADATA(BrowserCaptionButtonContainer)
 END_METADATA

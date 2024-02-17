@@ -9,11 +9,11 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/async_check_tracker.h"
 #include "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_service.h"
-#include "components/safe_browsing/core/browser/ping_manager.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
 #include "components/safe_browsing/core/browser/safe_browsing_url_checker_impl.h"
 #include "components/safe_browsing/core/browser/url_checker_delegate.h"
@@ -23,6 +23,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "net/base/load_flags.h"
 #include "net/url_request/redirect_info.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
@@ -116,15 +117,15 @@ std::unique_ptr<BrowserURLLoaderThrottle> BrowserURLLoaderThrottle::Create(
     UrlCheckerOnSB::GetDelegateCallback delegate_getter,
     const base::RepeatingCallback<content::WebContents*()>& web_contents_getter,
     int frame_tree_node_id,
+    absl::optional<int64_t> navigation_id,
     base::WeakPtr<RealTimeUrlLookupServiceBase> url_lookup_service,
     base::WeakPtr<HashRealTimeService> hash_realtime_service,
-    base::WeakPtr<PingManager> ping_manager,
     hash_realtime_utils::HashRealTimeSelection hash_realtime_selection,
     base::WeakPtr<AsyncCheckTracker> async_check_tracker) {
   return base::WrapUnique<BrowserURLLoaderThrottle>(
       new BrowserURLLoaderThrottle(
           std::move(delegate_getter), web_contents_getter, frame_tree_node_id,
-          url_lookup_service, hash_realtime_service, ping_manager,
+          navigation_id, url_lookup_service, hash_realtime_service,
           hash_realtime_selection, async_check_tracker));
 }
 
@@ -132,64 +133,30 @@ BrowserURLLoaderThrottle::BrowserURLLoaderThrottle(
     UrlCheckerOnSB::GetDelegateCallback delegate_getter,
     const base::RepeatingCallback<content::WebContents*()>& web_contents_getter,
     int frame_tree_node_id,
+    absl::optional<int64_t> navigation_id,
     base::WeakPtr<RealTimeUrlLookupServiceBase> url_lookup_service,
     base::WeakPtr<HashRealTimeService> hash_realtime_service,
-    base::WeakPtr<PingManager> ping_manager,
     hash_realtime_utils::HashRealTimeSelection hash_realtime_selection,
     base::WeakPtr<AsyncCheckTracker> async_check_tracker)
-    : async_check_tracker_(async_check_tracker) {
+    : async_check_tracker_(async_check_tracker),
+      url_lookup_service_(url_lookup_service),
+      hash_realtime_service_(hash_realtime_service),
+      hash_realtime_selection_(hash_realtime_selection),
+      frame_tree_node_id_(frame_tree_node_id),
+      navigation_id_(navigation_id),
+      delegate_getter_(delegate_getter),
+      web_contents_getter_(web_contents_getter) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   // Decide whether to do real time URL lookups or not.
   url_real_time_lookup_enabled_ =
-      url_lookup_service ? url_lookup_service->CanPerformFullURLLookup()
-                         : false;
-
-  bool can_urt_check_subresource_url =
-      url_lookup_service && url_lookup_service->CanCheckSubresourceURL();
-
-// This BUILDFLAG check is not strictly necessary because the feature should
-// only be enabled for Desktop. This check is included only as a precaution and
-// for clarity.
-#if BUILDFLAG(FULL_SAFE_BROWSING)
-  bool is_mechanism_experiment_allowed =
-      hash_realtime_service &&
-      hash_realtime_service->IsEnhancedProtectionEnabled() &&
-      base::FeatureList::IsEnabled(kSafeBrowsingLookupMechanismExperiment);
-#else
-  bool is_mechanism_experiment_allowed = false;
-#endif
-
-  // Decide whether safe browsing database can be checked.
-  // If url_lookup_service is null, safe browsing database should be checked by
-  // default.
-  bool can_check_db =
-      url_lookup_service ? url_lookup_service->CanCheckSafeBrowsingDb() : true;
-  bool can_check_high_confidence_allowlist =
-      url_lookup_service
-          ? url_lookup_service->CanCheckSafeBrowsingHighConfidenceAllowlist()
-          : true;
-
+      url_lookup_service_ ? url_lookup_service_->CanPerformFullURLLookup()
+                          : false;
   url_lookup_service_metric_suffix_ =
-      url_real_time_lookup_enabled_ ? url_lookup_service->GetMetricSuffix()
+      url_real_time_lookup_enabled_ ? url_lookup_service_->GetMetricSuffix()
                                     : kNoRealTimeURLLookupService;
-
-  sync_sb_checker_ = std::make_unique<UrlCheckerOnSB>(
-      delegate_getter, frame_tree_node_id, web_contents_getter,
-      /*complete_callback=*/
-      base::BindRepeating(&BrowserURLLoaderThrottle::OnCompleteSyncCheck,
-                          weak_factory_.GetWeakPtr()),
-      /*slow_check_callback=*/
-      base::BindRepeating(&BrowserURLLoaderThrottle::NotifySyncSlowCheck,
-                          weak_factory_.GetWeakPtr()),
-      url_real_time_lookup_enabled_, can_urt_check_subresource_url,
-      can_check_db, can_check_high_confidence_allowlist,
-      url_lookup_service_metric_suffix_, url_lookup_service,
-      hash_realtime_service, ping_manager, is_mechanism_experiment_allowed,
-      hash_realtime_selection);
-
   skip_check_checker_ = std::make_unique<SkipCheckCheckerOnSB>(
-      std::move(delegate_getter), frame_tree_node_id);
+      delegate_getter_, frame_tree_node_id);
 }
 
 BrowserURLLoaderThrottle::~BrowserURLLoaderThrottle() {
@@ -198,7 +165,15 @@ BrowserURLLoaderThrottle::~BrowserURLLoaderThrottle() {
     TRACE_EVENT_NESTABLE_ASYNC_END0("safe_browsing", "Deferred",
                                     TRACE_ID_LOCAL(this));
   }
-
+  // TODO(crbug.com/1501194): If a warning page is opened in a new tab,
+  // `OnCompleteSyncCheck` may not be called, in which case this metric won't
+  // be logged. Once this is fixed, confirm that this metric logs correctly in
+  // this case.
+  if (was_async_faster_than_sync_.has_value()) {
+    base::UmaHistogramBoolean(
+        "SafeBrowsing.BrowserThrottle.IsAsyncCheckFasterThanSyncCheck",
+        was_async_faster_than_sync_.value());
+  }
   DeleteUrlCheckerOnSB();
 }
 
@@ -207,7 +182,9 @@ void BrowserURLLoaderThrottle::WillStartRequest(
     bool* defer) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK_EQ(0u, pending_sync_checks_);
+  DCHECK_EQ(0u, pending_async_checks_);
   DCHECK(!blocked_);
+
   base::UmaHistogramEnumeration(
       "SafeBrowsing.BrowserThrottle.RequestDestination", request->destination);
 
@@ -224,7 +201,6 @@ void BrowserURLLoaderThrottle::WillStartRequest(
         "SafeBrowsing.BrowserThrottle.RequestDestination.Skipped",
         request->destination);
     skip_checks_ = true;
-
     return;
   }
 
@@ -232,7 +208,81 @@ void BrowserURLLoaderThrottle::WillStartRequest(
       "SafeBrowsing.BrowserThrottle.RequestDestination.Checked",
       request->destination);
 
+  // Decide whether safe browsing database can be checked.
+  // If url_lookup_service_ is null, safe browsing database should be checked by
+  // default.
+  bool can_check_db = url_lookup_service_
+                          ? url_lookup_service_->CanCheckSafeBrowsingDb()
+                          : true;
+  bool can_check_high_confidence_allowlist =
+      url_lookup_service_
+          ? url_lookup_service_->CanCheckSafeBrowsingHighConfidenceAllowlist()
+          : true;
+  bool can_urt_check_subresource_url =
+      url_lookup_service_ && url_lookup_service_->CanCheckSubresourceURL();
+
+  if (async_check_tracker_ && navigation_id_.has_value() &&
+      // Once |kSafeBrowsingSkipSubresources| is deprecated, the |kDocument|
+      // check is no longer needed.
+      request->destination == network::mojom::RequestDestination::kDocument &&
+      !(request->load_flags & net::LOAD_PREFETCH)) {
+    CHECK(can_check_db);
+    CHECK(url_real_time_lookup_enabled_ ||
+          hash_realtime_selection_ !=
+              hash_realtime_utils::HashRealTimeSelection::kNone);
+    // If async check is enabled, sync_sb_checker only performs local database
+    // check.
+    sync_sb_checker_ = std::make_unique<UrlCheckerOnSB>(
+        delegate_getter_, frame_tree_node_id_, navigation_id_,
+        web_contents_getter_,
+        /*complete_callback=*/
+        base::BindRepeating(&BrowserURLLoaderThrottle::OnCompleteSyncCheck,
+                            weak_factory_.GetWeakPtr()),
+        /*url_real_time_lookup_enabled=*/false,
+        /*can_urt_check_subresource_url=*/false, can_check_db,
+        /*can_check_high_confidence_allowlist=*/true,
+        /*url_lookup_service_metric_suffix=*/kNoRealTimeURLLookupService,
+        /*url_lookup_service=*/nullptr,
+        /*hash_realtime_service=*/nullptr,
+        /*hash_realtime_selection=*/
+        hash_realtime_utils::HashRealTimeSelection::kNone);
+    async_sb_checker_ = std::make_unique<UrlCheckerOnSB>(
+        delegate_getter_, frame_tree_node_id_, navigation_id_,
+        web_contents_getter_,
+        /*complete_callback=*/
+        base::BindRepeating(&BrowserURLLoaderThrottle::OnCompleteAsyncCheck,
+                            weak_factory_.GetWeakPtr()),
+        url_real_time_lookup_enabled_, can_urt_check_subresource_url,
+        can_check_db, can_check_high_confidence_allowlist,
+        url_lookup_service_metric_suffix_, url_lookup_service_,
+        hash_realtime_service_, hash_realtime_selection_);
+    if (on_sync_sb_checker_created_callback_for_testing_) {
+      std::move(on_sync_sb_checker_created_callback_for_testing_).Run();
+    }
+    if (on_async_sb_checker_created_callback_for_testing_) {
+      std::move(on_async_sb_checker_created_callback_for_testing_).Run();
+    }
+  } else {
+    sync_sb_checker_ = std::make_unique<UrlCheckerOnSB>(
+        delegate_getter_, frame_tree_node_id_, navigation_id_,
+        web_contents_getter_,
+        /*complete_callback=*/
+        base::BindRepeating(&BrowserURLLoaderThrottle::OnCompleteSyncCheck,
+                            weak_factory_.GetWeakPtr()),
+        url_real_time_lookup_enabled_, can_urt_check_subresource_url,
+        can_check_db, can_check_high_confidence_allowlist,
+        url_lookup_service_metric_suffix_, url_lookup_service_,
+        hash_realtime_service_, hash_realtime_selection_);
+    if (on_sync_sb_checker_created_callback_for_testing_) {
+      std::move(on_sync_sb_checker_created_callback_for_testing_).Run();
+    }
+  }
+
   pending_sync_checks_++;
+  if (async_sb_checker_) {
+    pending_async_checks_++;
+  }
+  was_async_faster_than_sync_ = std::nullopt;
   start_request_time_ = base::TimeTicks::Now();
   is_start_request_called_ = true;
 
@@ -273,15 +323,22 @@ void BrowserURLLoaderThrottle::OnSkipCheckCompleteOnOriginalUrl(
     return;
   }
 
+  UrlCheckerOnSB::StartParams params(headers, load_flags, request_destination,
+                                     has_user_gesture, url, method);
   if (base::FeatureList::IsEnabled(kSafeBrowsingOnUIThread)) {
-    sync_sb_checker_->Start(headers, load_flags, request_destination,
-                            has_user_gesture, url, method);
+    sync_sb_checker_->Start(params);
+    if (async_sb_checker_) {
+      async_sb_checker_->Start(params);
+    }
   } else {
     content::GetIOThreadTaskRunner({})->PostTask(
-        FROM_HERE,
-        base::BindOnce(&UrlCheckerOnSB::Start, sync_sb_checker_->AsWeakPtr(),
-                       headers, load_flags, request_destination,
-                       has_user_gesture, url, method));
+        FROM_HERE, base::BindOnce(&UrlCheckerOnSB::Start,
+                                  sync_sb_checker_->AsWeakPtr(), params));
+    if (async_sb_checker_) {
+      content::GetIOThreadTaskRunner({})->PostTask(
+          FROM_HERE, base::BindOnce(&UrlCheckerOnSB::Start,
+                                    async_sb_checker_->AsWeakPtr(), params));
+    }
   }
 }
 
@@ -307,6 +364,10 @@ void BrowserURLLoaderThrottle::WillRedirectRequest(
   }
 
   pending_sync_checks_++;
+  if (async_sb_checker_) {
+    pending_async_checks_++;
+  }
+  was_async_faster_than_sync_ = std::nullopt;
 
   // The check to |skip_check_checker| cannot be skipped because
   // WillRedirectRequest may be called while |skip_check_checker| is still in
@@ -341,10 +402,19 @@ void BrowserURLLoaderThrottle::OnSkipCheckCompleteOnRedirectUrl(
 
   if (base::FeatureList::IsEnabled(kSafeBrowsingOnUIThread)) {
     sync_sb_checker_->CheckUrl(url, method);
+    if (async_sb_checker_) {
+      async_sb_checker_->CheckUrl(url, method);
+    }
   } else {
     content::GetIOThreadTaskRunner({})->PostTask(
         FROM_HERE, base::BindOnce(&UrlCheckerOnSB::CheckUrl,
                                   sync_sb_checker_->AsWeakPtr(), url, method));
+    if (async_sb_checker_) {
+      content::GetIOThreadTaskRunner({})->PostTask(
+          FROM_HERE,
+          base::BindOnce(&UrlCheckerOnSB::CheckUrl,
+                         async_sb_checker_->AsWeakPtr(), url, method));
+    }
   }
 }
 
@@ -358,19 +428,8 @@ void BrowserURLLoaderThrottle::WillProcessResponse(
       "SafeBrowsing.BrowserThrottle.WillProcessResponseCount",
       will_process_response_count_);
 
-  if (sync_sb_checker_) {
-    if (base::FeatureList::IsEnabled(kSafeBrowsingOnUIThread)) {
-      sync_sb_checker_->LogWillProcessResponseTime(base::TimeTicks::Now());
-    } else {
-      content::GetIOThreadTaskRunner({})->PostTask(
-          FROM_HERE, base::BindOnce(&UrlCheckerOnSB::LogWillProcessResponseTime,
-                                    sync_sb_checker_->AsWeakPtr(),
-                                    base::TimeTicks::Now()));
-    }
-  }
-
   if (blocked_) {
-    // OnCheckUrlResult() has set |blocked_| to true and called
+    // OnCompleteCheck() has set |blocked_| to true and called
     // |delegate_->CancelWithError|, but this method is called before the
     // request is actually cancelled. In that case, simply defer the request.
     *defer = true;
@@ -402,6 +461,7 @@ void BrowserURLLoaderThrottle::WillProcessResponse(
   }
 
   if (sync_check_completed) {
+    MaybeTransferAsyncChecker();
     return;
   }
 
@@ -421,43 +481,53 @@ UrlCheckerOnSB* BrowserURLLoaderThrottle::GetSyncSBCheckerForTesting() {
   return sync_sb_checker_.get();
 }
 
+UrlCheckerOnSB* BrowserURLLoaderThrottle::GetAsyncSBCheckerForTesting() {
+  return async_sb_checker_.get();
+}
+
+void BrowserURLLoaderThrottle::SetOnSyncSBCheckerCreatedCallbackForTesting(
+    base::OnceClosure callback) {
+  on_sync_sb_checker_created_callback_for_testing_ = std::move(callback);
+}
+
+void BrowserURLLoaderThrottle::SetOnAsyncSBCheckerCreatedCallbackForTesting(
+    base::OnceClosure callback) {
+  on_async_sb_checker_created_callback_for_testing_ = std::move(callback);
+}
+
 void BrowserURLLoaderThrottle::OnCompleteSyncCheck(
-    bool slow_check,
-    bool proceed,
-    bool showed_interstitial,
-    SafeBrowsingUrlCheckerImpl::PerformedCheck performed_check) {
+    UrlCheckerOnSB::OnCompleteCheckResult result) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(!blocked_);
   DCHECK(url_real_time_lookup_enabled_ ||
-         performed_check !=
+         result.performed_check !=
              SafeBrowsingUrlCheckerImpl::PerformedCheck::kUrlRealTimeCheck);
+
+  // |blocked| may already be set by |async_sb_checker_|.
+  if (blocked_) {
+    return;
+  }
 
   DCHECK_LT(0u, pending_sync_checks_);
   pending_sync_checks_--;
-
-  if (slow_check) {
-    DCHECK_LT(0u, pending_sync_slow_checks_);
-    pending_sync_slow_checks_--;
+  if (async_sb_checker_ && pending_sync_checks_ == 0 &&
+      !was_async_faster_than_sync_.has_value()) {
+    was_async_faster_than_sync_ = false;
   }
 
   // If the resource load is going to finish (either being cancelled or
   // resumed), record the total delay.
-  if (!proceed || pending_sync_checks_ == 0) {
+  if (!result.proceed || pending_sync_checks_ == 0) {
     // If the resource load is currently deferred, there is a delay.
     if (deferred_) {
       total_delay_ = base::TimeTicks::Now() - defer_start_time_;
       LogTotalDelay2MetricsWithResponseType(is_response_from_cache_,
                                             total_delay_);
     }
-    LogTotalDelay2Metrics(GetUrlCheckTypeForLogging(performed_check),
+    LogTotalDelay2Metrics(GetUrlCheckTypeForLogging(result.performed_check),
                           total_delay_);
   }
 
-  if (proceed) {
-    if (pending_sync_slow_checks_ == 0 && slow_check) {
-      delegate_->ResumeReadingBodyFromNet();
-    }
-
+  if (result.proceed) {
     if (pending_sync_checks_ == 0 && deferred_) {
       deferred_ = false;
       TRACE_EVENT_NESTABLE_ASYNC_END0("safe_browsing", "Deferred",
@@ -465,19 +535,54 @@ void BrowserURLLoaderThrottle::OnCompleteSyncCheck(
       base::UmaHistogramTimes("SafeBrowsing.BrowserThrottle.TotalDelay",
                               total_delay_);
       delegate_->Resume();
+      MaybeTransferAsyncChecker();
     }
   } else {
-    blocked_ = true;
-
-    DeleteUrlCheckerOnSB();
-    pending_sync_checks_ = 0;
-    pending_sync_slow_checks_ = 0;
-    // If we didn't show an interstitial, we cancel with ERR_ABORTED to not show
-    // an error page either.
-    delegate_->CancelWithError(
-        showed_interstitial ? kNetErrorCodeForSafeBrowsing : net::ERR_ABORTED,
-        kCustomCancelReasonForURLLoader);
+    BlockUrlLoader(result.showed_interstitial);
   }
+}
+
+void BrowserURLLoaderThrottle::OnCompleteAsyncCheck(
+    UrlCheckerOnSB::OnCompleteCheckResult result) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  // If the async checker is already transferred, notify tracker. This happens
+  // if it is transferred between complete callback is scheduled on the IO
+  // thread and executed on the UI thread.
+  if (!async_sb_checker_ &&
+      !base::FeatureList::IsEnabled(kSafeBrowsingOnUIThread)) {
+    async_check_tracker_->PendingCheckerCompleted(navigation_id_.value(),
+                                                  result);
+    return;
+  }
+
+  // |blocked| may already be set by |sync_sb_checker_|.
+  if (blocked_) {
+    return;
+  }
+
+  DCHECK_LT(0u, pending_async_checks_);
+  pending_async_checks_--;
+  if (pending_async_checks_ == 0 && !was_async_faster_than_sync_.has_value()) {
+    was_async_faster_than_sync_ = true;
+  }
+
+  if (!result.proceed) {
+    BlockUrlLoader(result.showed_interstitial);
+  }
+  // There is no need to set |deferred_| for async check because it never defers
+  // URL loader.
+}
+
+void BrowserURLLoaderThrottle::BlockUrlLoader(bool showed_interstitial) {
+  blocked_ = true;
+
+  DeleteUrlCheckerOnSB();
+  // If we didn't show an interstitial, we cancel with ERR_ABORTED to not show
+  // an error page either.
+  delegate_->CancelWithError(
+      showed_interstitial ? kNetErrorCodeForSafeBrowsing : net::ERR_ABORTED,
+      kCustomCancelReasonForURLLoader);
 }
 
 std::string BrowserURLLoaderThrottle::GetUrlCheckTypeForLogging(
@@ -503,37 +608,40 @@ void BrowserURLLoaderThrottle::SkipChecks() {
   skip_checks_ = true;
 
   pending_sync_checks_--;
+  if (async_sb_checker_) {
+    pending_async_checks_--;
+    // Don't set |was_async_faster_than_sync_| if the counter reaches 0,
+    // because the checks being skipped is considered a tie between sync and
+    // async checks.
+  }
   if (pending_sync_checks_ == 0 && deferred_) {
     delegate_->Resume();
   }
 }
 
-void BrowserURLLoaderThrottle::NotifySyncSlowCheck() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  pending_sync_slow_checks_++;
-
-  // Pending slow checks indicate that the resource may be unsafe. In that case,
-  // pause reading response body from network to minimize the chance of
-  // processing unsafe contents (e.g., writing unsafe contents into cache),
-  // until we get the results. According to the results, we may resume reading
-  // or cancel the resource load.
-  // For real time Safe Browsing checks, we continue reading the response body
-  // but, similar to hash-based checks, do not process it until we know it is
-  // SAFE.
-  if (pending_sync_slow_checks_ == 1) {
-    delegate_->PauseReadingBodyFromNet();
-  }
-}
-
 void BrowserURLLoaderThrottle::DeleteUrlCheckerOnSB() {
+  pending_sync_checks_ = 0;
+  pending_async_checks_ = 0;
   if (base::FeatureList::IsEnabled(kSafeBrowsingOnUIThread)) {
     sync_sb_checker_.reset();
+    async_sb_checker_.reset();
     skip_check_checker_.reset();
   } else {
     content::GetIOThreadTaskRunner({})->DeleteSoon(FROM_HERE,
                                                    std::move(sync_sb_checker_));
     content::GetIOThreadTaskRunner({})->DeleteSoon(
+        FROM_HERE, std::move(async_sb_checker_));
+    content::GetIOThreadTaskRunner({})->DeleteSoon(
         FROM_HERE, std::move(skip_check_checker_));
+  }
+}
+
+void BrowserURLLoaderThrottle::MaybeTransferAsyncChecker() {
+  // If the sync check has completed but the async check has not, move the async
+  // check to AsyncCheckTracker.
+  DCHECK_EQ(pending_sync_checks_, 0u);
+  if (pending_async_checks_ > 0) {
+    async_check_tracker_->TransferUrlChecker(std::move(async_sb_checker_));
   }
 }
 

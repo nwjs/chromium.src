@@ -39,11 +39,13 @@
 #import "ios/chrome/app/application_storage_metrics.h"
 #import "ios/chrome/app/blocking_scene_commands.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
+#import "ios/chrome/app/docking_promo_app_agent.h"
 #import "ios/chrome/app/enterprise_app_agent.h"
 #import "ios/chrome/app/fast_app_terminate_buildflags.h"
 #import "ios/chrome/app/features.h"
 #import "ios/chrome/app/feed_app_agent.h"
 #import "ios/chrome/app/first_run_app_state_agent.h"
+#import "ios/chrome/app/launch_screen_view_controller.h"
 #import "ios/chrome/app/memory_monitor.h"
 #import "ios/chrome/app/post_restore_app_agent.h"
 #import "ios/chrome/app/safe_mode_app_state_agent.h"
@@ -121,7 +123,8 @@
 #import "ios/chrome/browser/ui/main/browser_view_wrangler.h"
 #import "ios/chrome/browser/ui/webui/chrome_web_ui_ios_controller_factory.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
-#import "ios/chrome/browser/web/certificate_policy_app_agent.h"
+#import "ios/chrome/browser/web/model/certificate_policy_app_agent.h"
+#import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/chrome/common/app_group/app_group_field_trial_version.h"
 #import "ios/chrome/common/app_group/app_group_utils.h"
@@ -146,6 +149,10 @@
 #if BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
 #import "ios/chrome/app/dump_documents_statistics.h"
 #endif  // BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
+
+// To get access to web::features::kEnableSessionSerializationOptimizations.
+// TODO(crbug.com/1504753): remove once the feature is fully launched.
+#import "ios/web/common/features.h"
 
 namespace {
 
@@ -384,11 +391,17 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 // Initializes the application to the minimum initialization needed in all
 // cases.
 - (void)startUpBrowserBasicInitialization;
-//  Initializes the browser objects for the background handlers.
+// Initializes the browser objects for the background handlers, perform any
+// background initilisation that are required, and then transition to the
+// next stage.
 - (void)startUpBrowserBackgroundInitialization;
 // Initializes the browser objects for the browser UI (e.g., the browser
 // state).
 - (void)startUpBrowserForegroundInitialization;
+// Performs any background initialisation that are required before the app
+// can progress. If there are no initialisation, `completion` must be called
+// synchronously.
+- (void)performBrowserBackgroundInitialisation:(ProceduralBlock)completion;
 @end
 
 @implementation MainController
@@ -463,6 +476,7 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   ChromeBrowserState* chromeBrowserState = GetApplicationContext()
                                                ->GetChromeBrowserStateManager()
                                                ->GetLastUsedBrowserState();
+  DCHECK(chromeBrowserState);
 
   // Initialize and set the main browser state.
   [self initializeBrowserState:chromeBrowserState];
@@ -481,9 +495,9 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   // this during background initialization when the app is launched into the
   // foreground.
   AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
-      self.appState.mainBrowserState,
+      chromeBrowserState,
       std::make_unique<MainControllerAuthenticationServiceDelegate>(
-          self.appState.mainBrowserState, self));
+          chromeBrowserState, self));
 
   // Initialize the provider UI global state.
   ios::provider::InitializeUI();
@@ -511,18 +525,52 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
   [NSURLCache setSharedURLCache:[EmptyNSURLCache emptyNSURLCache]];
 
-  ChromeBrowserState* browserState = self.appState.mainBrowserState;
-  DCHECK(browserState);
   [self.appState
       addAgent:
           [[PostRestoreAppAgent alloc]
               initWithPromosManager:PromosManagerFactory::GetForBrowserState(
-                                        browserState)
+                                        chromeBrowserState)
               authenticationService:AuthenticationServiceFactory::
-                                        GetForBrowserState(browserState)
+                                        GetForBrowserState(chromeBrowserState)
                     identityManager:IdentityManagerFactory::GetForBrowserState(
-                                        browserState)
+                                        chromeBrowserState)
                          localState:GetApplicationContext()->GetLocalState()]];
+
+  if (IsDockingPromoEnabled()) {
+    switch (DockingPromoExperimentTypeEnabled()) {
+      case DockingPromoDisplayTriggerArm::kDuringFRE:
+        break;
+      case DockingPromoDisplayTriggerArm::kAfterFRE:
+      case DockingPromoDisplayTriggerArm::kAppLaunch:
+        [self.appState
+            addAgent:[[DockingPromoAppAgent alloc]
+                         initWithPromosManager:PromosManagerFactory::
+                                                   GetForBrowserState(
+                                                       chromeBrowserState)]];
+    }
+  }
+
+  // Perform any background initialisation that is required and then
+  // migrate to the next stage.
+  __weak __typeof(self) weakSelf = self;
+  [self performBrowserBackgroundInitialisation:^{
+    [weakSelf.appState queueTransitionToNextInitStage];
+  }];
+}
+
+- (void)performBrowserBackgroundInitialisation:(ProceduralBlock)completion {
+  // Migrate the session storage based on the feature.
+  const SessionRestorationServiceFactory::StorageFormat requested_format =
+      web::features::UseSessionSerializationOptimizations()
+          ? SessionRestorationServiceFactory::kOptimized
+          : SessionRestorationServiceFactory::kLegacy;
+
+  // MigrateSessionStorageFormat is synchronous if the storage is already in
+  // the requested format, so this is safe to call and won't block the app
+  // startup.
+  SessionRestorationServiceFactory::GetInstance()->MigrateSessionStorageFormat(
+      self.appState.mainBrowserState, requested_format,
+      base::BindOnce(completion));
 }
 
 // This initialization must happen before any windows are created.
@@ -547,27 +595,21 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
   RegisterComponentsForUpdate();
 
-#if !defined(NDEBUG)
+  ChromeBrowserState* chromeBrowserState = self.appState.mainBrowserState;
+  DCHECK(chromeBrowserState);
+
   // Legacy code used GetLastUsedBrowserState() in this method. We changed it to
   // use self.appState.mainBrowserState instead. The DCHECK ensures that
   // invariant holds true.
-  ChromeBrowserState* chromeBrowserState = GetApplicationContext()
-                                               ->GetChromeBrowserStateManager()
-                                               ->GetLastUsedBrowserState();
-  DCHECK_EQ(chromeBrowserState, self.appState.mainBrowserState);
-#endif  // !defined(NDEBUG)
+  DCHECK_EQ(chromeBrowserState, GetApplicationContext()
+                                    ->GetChromeBrowserStateManager()
+                                    ->GetLastUsedBrowserState());
 
-  if (!base::ios::IsMultipleScenesSupported()) {
-    NSSet<NSString*>* previousSessions =
-        [PreviousSessionInfo sharedInstance].connectedSceneSessionsIDs;
-    DCHECK(previousSessions.count <= 1);
-    self.appState.previousSingleWindowSessionID = [previousSessions anyObject];
-  }
   [[PreviousSessionInfo sharedInstance] resetConnectedSceneSessionIDs];
 
   feature_engagement::Tracker* tracker =
       feature_engagement::TrackerFactory::GetForBrowserState(
-          self.appState.mainBrowserState);
+          chromeBrowserState);
   // Send "Chrome Opened" event to the feature_engagement::Tracker on cold
   // start.
   tracker->NotifyEvent(feature_engagement::events::kChromeOpened);
@@ -579,18 +621,16 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
         feature_engagement::events::kDefaultBrowserVideoPromoConditionsMet);
   }
 
-  _spotlightManager = [SpotlightManager
-      spotlightManagerWithBrowserState:self.appState.mainBrowserState];
+  _spotlightManager =
+      [SpotlightManager spotlightManagerWithBrowserState:chromeBrowserState];
 
   ShareExtensionService* service =
-      ShareExtensionServiceFactory::GetForBrowserState(
-          self.appState.mainBrowserState);
+      ShareExtensionServiceFactory::GetForBrowserState(chromeBrowserState);
   service->Initialize();
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
   if (IsCredentialProviderExtensionSupported()) {
-    CredentialProviderServiceFactory::GetForBrowserState(
-        self.appState.mainBrowserState);
+    CredentialProviderServiceFactory::GetForBrowserState(chromeBrowserState);
   }
 #endif
 
@@ -659,15 +699,24 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
 - (void)initializeBrowserState:(ChromeBrowserState*)browserState {
   DCHECK(!browserState->IsOffTheRecord());
-  search_engines::UpdateSearchEnginesIfNeeded(
-      browserState->GetPrefs(),
-      ios::TemplateURLServiceFactory::GetForBrowserState(browserState));
+  search_engines::UpdateSearchEngineCountryCodeIfNeeded(
+      browserState->GetPrefs());
 }
 
 #pragma mark - AppStateObserver
 
 - (void)appState:(AppState*)appState sceneConnected:(SceneState*)sceneState {
   [sceneState addObserver:self];
+
+  // If the application is not yet ready to present the UI, install
+  // a LaunchScreenViewController as the root view of the connected
+  // SceneState. This ensures that there is no "blank" window.
+  if (self.appState.initStage < InitStageBrowserObjectsForUI) {
+    LaunchScreenViewController* launchScreen =
+        [[LaunchScreenViewController alloc] init];
+    [sceneState.window setRootViewController:launchScreen];
+    [sceneState.window makeKeyAndVisible];
+  }
 }
 
 // Called when the first scene becomes active.
@@ -706,7 +755,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
       break;
     case InitStageBrowserObjectsForBackgroundHandlers:
       [self startUpBrowserBackgroundInitialization];
-      [appState queueTransitionToNextInitStage];
       break;
     case InitStageEnterprise:
       break;
@@ -1031,7 +1079,7 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
                     if (browserState) {
                       SessionRestorationServiceFactory::GetForBrowserState(
-                          self.appState.mainBrowserState)
+                          browserState)
                           ->PurgeUnassociatedData(base::DoNothing());
                     }
                   }];
@@ -1044,14 +1092,15 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   [self scheduleCrashReportUpload];
 
   // ClearSessionCookies() is not synchronous.
-  if (cookie_util::ShouldClearSessionCookies()) {
+  ChromeBrowserState* browserState = self.appState.mainBrowserState;
+  if (cookie_util::ShouldClearSessionCookies(browserState->GetPrefs())) {
     cookie_util::ClearSessionCookies(
-        self.appState.mainBrowserState->GetOriginalChromeBrowserState());
+        browserState->GetOriginalChromeBrowserState());
     Browser* otrBrowser =
         self.browserProviderInterface.incognitoBrowserProvider.browser;
     if (otrBrowser && !(otrBrowser->GetWebStateList()->empty())) {
       cookie_util::ClearSessionCookies(
-          self.appState.mainBrowserState->GetOffTheRecordChromeBrowserState());
+          browserState->GetOffTheRecordChromeBrowserState());
     }
   }
 
@@ -1421,10 +1470,16 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
       if (willShowActivityIndicator) {
         // User interaction still needs to be disabled as a way to
         // force reload all the web states and to reset NTPs.
-        browserProviderInterface.mainBrowserProvider.userInteractionEnabled =
-            NO;
-        browserProviderInterface.incognitoBrowserProvider
-            .userInteractionEnabled = NO;
+        if (Browser* mainBrowser =
+                browserProviderInterface.mainBrowserProvider.browser) {
+          WebUsageEnablerBrowserAgent::FromBrowser(mainBrowser)
+              ->SetWebUsageEnabled(false);
+        }
+        if (Browser* incognitoBrowser =
+                browserProviderInterface.incognitoBrowserProvider.browser) {
+          WebUsageEnablerBrowserAgent::FromBrowser(incognitoBrowser)
+              ->SetWebUsageEnabled(false);
+        }
 
         if (didShowActivityIndicator &&
             browserProviderInterface.mainBrowserProvider.browser) {
@@ -1435,9 +1490,16 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
           [handler hideActivityOverlay];
         }
       }
-      browserProviderInterface.mainBrowserProvider.userInteractionEnabled = YES;
-      browserProviderInterface.incognitoBrowserProvider.userInteractionEnabled =
-          YES;
+      if (Browser* mainBrowser =
+              browserProviderInterface.mainBrowserProvider.browser) {
+        WebUsageEnablerBrowserAgent::FromBrowser(mainBrowser)
+            ->SetWebUsageEnabled(true);
+      }
+      if (Browser* incognitoBrowser =
+              browserProviderInterface.incognitoBrowserProvider.browser) {
+        WebUsageEnablerBrowserAgent::FromBrowser(incognitoBrowser)
+            ->SetWebUsageEnabled(true);
+      }
       [browserProviderInterface.currentBrowserProvider setPrimary:YES];
     }
     // `completionBlock` is run once, not once per scene.

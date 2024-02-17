@@ -139,9 +139,9 @@ class HoldingSpaceKeyedService : public crosapi::mojom::HoldingSpaceService,
   void RemoveItem(const std::string& id);
 
   // Attempts to mark the specified holding space `item` to open when complete.
-  // Returns `absl::nullopt` on success or the reason if the attempt was not
+  // Returns `std::nullopt` on success or the reason if the attempt was not
   // successful.
-  absl::optional<holding_space_metrics::ItemFailureToLaunchReason>
+  std::optional<holding_space_metrics::ItemLaunchFailureReason>
   OpenItemWhenComplete(const HoldingSpaceItem* item);
 
   // Returns the `profile_` associated with this service.
@@ -212,7 +212,7 @@ class HoldingSpaceKeyedService : public crosapi::mojom::HoldingSpaceService,
       HoldingSpaceImage::PlaceholderImageSkiaResolver
           placeholder_image_skia_resolver);
 
-  const raw_ptr<Profile, ExperimentalAsh> profile_;
+  const raw_ptr<Profile> profile_;
   const AccountId account_id_;
 
   HoldingSpaceClientImpl holding_space_client_;
@@ -226,8 +226,7 @@ class HoldingSpaceKeyedService : public crosapi::mojom::HoldingSpaceService,
   std::vector<std::unique_ptr<HoldingSpaceKeyedServiceDelegate>> delegates_;
 
   // The delegate, owned by `delegates_`, responsible for downloads.
-  raw_ptr<HoldingSpaceDownloadsDelegate, ExperimentalAsh> downloads_delegate_ =
-      nullptr;
+  raw_ptr<HoldingSpaceDownloadsDelegate> downloads_delegate_ = nullptr;
 
   // This class supports any number of connections. This allows the client to
   // have multiple, potentially thread-affine, remotes.

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/ash/sharesheet/sharesheet_header_view.h"
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -18,6 +19,7 @@
 #include "ash/style/typography.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -39,7 +41,6 @@
 #include "components/url_formatter/url_formatter.h"
 #include "components/vector_icons/vector_icons.h"
 #include "storage/browser/file_system/file_system_url.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -236,7 +237,7 @@ class SharesheetHeaderView::SharesheetImagePreview : public views::View {
     AddImageViewTo(parent_view, size);
   }
 
-  std::vector<RoundedImageView*> image_views_;
+  std::vector<raw_ptr<RoundedImageView, VectorExperimental>> image_views_;
 };
 
 BEGIN_METADATA(SharesheetHeaderView, SharesheetImagePreview, views::View)
@@ -263,8 +264,8 @@ SharesheetHeaderView::SharesheetHeaderView(apps::IntentPtr intent,
   SetFocusBehavior(View::FocusBehavior::ACCESSIBLE_ONLY);
   SetAccessibilityProperties(ax::mojom::Role::kGenericContainer,
                              /*name=*/std::u16string(),
-                             /*description=*/absl::nullopt,
-                             /*role_description=*/absl::nullopt,
+                             /*description=*/std::nullopt,
+                             /*role_description=*/std::nullopt,
                              ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
 
   const bool has_files = !intent_->files.empty();

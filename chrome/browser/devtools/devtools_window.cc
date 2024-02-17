@@ -123,7 +123,7 @@ bool FindInspectedBrowserAndTabIndex(
   if (!inspected_web_contents)
     return false;
 
-  for (auto* b : *BrowserList::GetInstance()) {
+  for (Browser* b : *BrowserList::GetInstance()) {
     int tab_index =
         b->tab_strip_model()->GetIndexOfWebContents(inspected_web_contents);
     if (tab_index != TabStripModel::kNoTab) {
@@ -136,7 +136,7 @@ bool FindInspectedBrowserAndTabIndex(
 }
 
 void SetPreferencesFromJson(Profile* profile, const std::string& json) {
-  absl::optional<base::Value> parsed = base::JSONReader::Read(json);
+  std::optional<base::Value> parsed = base::JSONReader::Read(json);
   if (!parsed || !parsed->is_dict())
     return;
   ScopedDictPrefUpdate update(profile->GetPrefs(), prefs::kDevToolsPreferences);
@@ -283,7 +283,7 @@ class DevToolsEventForwarder {
 
 void DevToolsEventForwarder::SetWhitelistedShortcuts(
     const std::string& message) {
-  absl::optional<base::Value> parsed_message = base::JSONReader::Read(message);
+  std::optional<base::Value> parsed_message = base::JSONReader::Read(message);
   if (!parsed_message || !parsed_message->is_list())
     return;
   for (const auto& list_item : parsed_message->GetList()) {
@@ -805,7 +805,7 @@ void DevToolsWindow::ToggleDevToolsWindow(
     bool force_open,
     const DevToolsToggleAction& action,
     const std::string& settings,
-    DevToolsOpenedByAction opened_by) {
+    DevToolsOpenedByAction toggled_by) {
   scoped_refptr<DevToolsAgentHost> agent(
       GetOrCreateDevToolsHostForWebContents(inspected_web_contents));
   DevToolsWindow* window = FindDevToolsWindow(agent.get());
@@ -834,13 +834,13 @@ void DevToolsWindow::ToggleDevToolsWindow(
     }
     window = Create(profile, inspected_web_contents, kFrontendDefault,
                     std::string(), true, settings, panel, agent->IsAttached(),
-                    /* browser_connection */ false, opened_by);
+                    /* browser_connection */ false, toggled_by);
     if (!window)
       return;
     window->bindings_->AttachTo(agent.get());
     do_open = true;
-    if (opened_by != DevToolsOpenedByAction::kUnknown) {
-      LogDevToolsOpenedByAction(opened_by);
+    if (toggled_by != DevToolsOpenedByAction::kUnknown) {
+      LogDevToolsOpenedByAction(toggled_by);
       LogDevToolsOpenedUKM(inspected_web_contents);
     }
   }
@@ -852,10 +852,13 @@ void DevToolsWindow::ToggleDevToolsWindow(
   // undocked, we show (activate) it.
   if (window->headless_)
     return;
-  if (!window->is_docked_ || do_open)
+  if (!window->is_docked_ || do_open) {
     window->ScheduleShow(action);
-  else
-    window->CloseWindow();
+  } else {
+    window->Close(toggled_by == DevToolsOpenedByAction::kMainMenuOrMainShortcut
+                      ? DevToolsClosedByAction::kMainMenuOrMainShortcut
+                      : DevToolsClosedByAction::kToggleShortcut);
+  }
 }
 
 // static
@@ -1120,7 +1123,8 @@ DevToolsWindow::DevToolsWindow(FrontendType frontend_type,
       action_on_load_(DevToolsToggleAction::NoOp()),
       intercepted_page_beforeunload_(false),
       ready_for_test_(false),
-      opened_by_(opened_by) {
+      opened_by_(opened_by),
+      closed_by_(DevToolsClosedByAction::kUnknown) {
   // shouldn't own the web content in embedded cdt use case #6004
   // or it will be double freed on quit
   if (headless)
@@ -1282,7 +1286,10 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       if (base::FeatureList::IsEnabled(::features::kDevToolsConsoleInsights)) {
         url += "&enableAida=true&aidaApiKey=" +
-               features::kDevToolsConsoleInsightsApiKey.Get();
+               features::kDevToolsConsoleInsightsApiKey.Get() +
+               "&aidaTemperature=" +
+               base::NumberToString(
+                   features::kDevToolsConsoleInsightsTemperature.Get());
       }
 #endif
       break;
@@ -1551,9 +1558,14 @@ void DevToolsWindow::ActivateWindow() {
 }
 
 void DevToolsWindow::CloseWindow() {
+  Close(DevToolsClosedByAction::kCloseButton);
+}
+
+void DevToolsWindow::Close(DevToolsClosedByAction closed_by) {
   DCHECK(is_docked_);
   life_stage_ = kClosing;
   main_web_contents_->DispatchBeforeUnload(false /* auto_cancel */);
+  closed_by_ = closed_by;
 }
 
 void DevToolsWindow::Inspect(scoped_refptr<content::DevToolsAgentHost> host) {
@@ -1624,6 +1636,33 @@ void DevToolsWindow::SetIsDocked(bool dock_requested) {
   Show(DevToolsToggleAction::Show());
 }
 
+int DevToolsWindow::GetDockStateForLogging() {
+  const int kUndocked = 0;
+  const int kLeft = 1;
+  const int kBottom = 2;
+  const int kRight = 3;
+  if (!is_docked_) {
+    return kUndocked;
+  }
+
+  gfx::Rect inspected_page_bounds = contents_resizing_strategy_.bounds();
+  if (inspected_page_bounds.x() >= 0) {
+    return kLeft;
+  }
+  gfx::Rect devtools_bounds =
+      main_web_contents_->GetRenderWidgetHostView()->GetViewBounds();
+  return inspected_page_bounds.width() == devtools_bounds.width() ? kBottom
+                                                                  : kRight;
+}
+
+int DevToolsWindow::GetOpenedByForLogging() {
+  return static_cast<int>(opened_by_);
+}
+
+int DevToolsWindow::GetClosedByForLogging() {
+  return static_cast<int>(closed_by_);
+}
+
 void DevToolsWindow::OpenInNewTab(const std::string& url) {
   GURL fixed_url(url);
   WebContents* inspected_web_contents = GetInspectedWebContents();
@@ -1682,6 +1721,7 @@ void DevToolsWindow::ColorPickedInEyeDropper(int r, int g, int b, int a) {
 void DevToolsWindow::InspectedContentsClosing() {
   if (!close_on_detach_)
     return;
+  closed_by_ = DevToolsClosedByAction::kTargetDetach;
   intercepted_page_beforeunload_ = false;
   life_stage_ = kClosing;
   main_web_contents_->ClosePage();
@@ -1706,7 +1746,7 @@ void DevToolsWindow::RenderProcessGone(bool crashed) {
 }
 
 void DevToolsWindow::ShowCertificateViewer(const std::string& cert_chain) {
-  absl::optional<base::Value> value = base::JSONReader::Read(cert_chain);
+  std::optional<base::Value> value = base::JSONReader::Read(cert_chain);
   CHECK(value && value->is_list());
   std::vector<std::string> decoded;
   for (const auto& item : value->GetList()) {

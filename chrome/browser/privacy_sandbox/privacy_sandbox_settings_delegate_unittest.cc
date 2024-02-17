@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -39,7 +40,6 @@
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/webapps/webapp_registry.h"
@@ -54,6 +54,8 @@ constexpr char kTestEmail[] = "test@test.com";
 class PrivacySandboxSettingsDelegateTest : public testing::Test {
  public:
   PrivacySandboxSettingsDelegateTest() {
+    local_state_ = std::make_unique<ScopedTestingLocalState>(
+        TestingBrowserProcess::GetGlobal());
     profile_ = IdentityTestEnvironmentProfileAdaptor::
         CreateProfileForIdentityTestEnvironment();
     adapter_ =
@@ -93,6 +95,7 @@ class PrivacySandboxSettingsDelegateTest : public testing::Test {
   signin::IdentityTestEnvironment* identity_test_env() {
     return adapter_->identity_test_env();
   }
+  ScopedTestingLocalState* local_state() { return local_state_.get(); }
   TestingProfile* profile() { return profile_.get(); }
   sync_preferences::TestingPrefServiceSyncable* prefs() {
     return profile()->GetTestingPrefService();
@@ -105,6 +108,7 @@ class PrivacySandboxSettingsDelegateTest : public testing::Test {
   content::BrowserTaskEnvironment browser_task_environment_;
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor> adapter_;
+  std::unique_ptr<ScopedTestingLocalState> local_state_;
   std::unique_ptr<TestingProfile> profile_;
   std::unique_ptr<tpcd::experiment::MockExperimentManager> experiment_manager_;
   std::unique_ptr<PrivacySandboxSettingsDelegate> delegate_;
@@ -288,19 +292,19 @@ struct CookieDeprecationExperimentEligibilityTestCase {
 #if BUILDFLAG(IS_ANDROID)
   bool exclude_pwa_twa_installed = true;
 #endif
-  absl::optional<bool> is_subject_to_enterprise_policies;
+  std::optional<bool> is_subject_to_enterprise_policies;
   content_settings::CookieControlsMode cookie_controls_mode_pref =
       content_settings::CookieControlsMode::kOff;
   ContentSetting cookie_content_setting = ContentSetting::CONTENT_SETTING_ALLOW;
   bool tracking_protection_3pcd_enabled_pref = false;
   bool privacy_sandbox_eea_notice_acknowledged_pref = false;
   bool privacy_sandbox_row_notice_acknowledged_pref = false;
-  absl::optional<base::Time> install_date = kValidInstallDate;
+  std::optional<base::Time> install_date = kValidInstallDate;
 #if BUILDFLAG(IS_ANDROID)
   std::vector<std::string> origins_with_installed_app;
 #endif
   // The eligibility before the set up, which should be sticky.
-  absl::optional<bool> expected_eligible_before;
+  std::optional<bool> expected_eligible_before;
   bool expected_eligible;
   TpcdExperimentEligibility::Reason expected_current_eligibility;
 };
@@ -369,7 +373,7 @@ const CookieDeprecationExperimentEligibilityTestCase
         },
         {
             .privacy_sandbox_eea_notice_acknowledged_pref = true,
-            .install_date = absl::nullopt,
+            .install_date = std::nullopt,
             .expected_eligible = false,
             .expected_current_eligibility =
                 TpcdExperimentEligibility::Reason::kNewUser,
@@ -443,8 +447,7 @@ class CookieDeprecationExperimentEligibilityTest
       public ::testing::WithParamInterface<
           CookieDeprecationExperimentEligibilityTestCase> {
  public:
-  CookieDeprecationExperimentEligibilityTest()
-      : local_state_(TestingBrowserProcess::GetGlobal()) {
+  CookieDeprecationExperimentEligibilityTest() {
 #if BUILDFLAG(IS_ANDROID)
     auto webapp_registry = std::make_unique<MockWebappRegistry>();
     webapp_registry_ = webapp_registry.get();
@@ -468,7 +471,6 @@ class CookieDeprecationExperimentEligibilityTest
                                         account_info);
   }
 
-  ScopedTestingLocalState local_state_;
 #if BUILDFLAG(IS_ANDROID)
   raw_ptr<MockWebappRegistry> webapp_registry_;
 #endif
@@ -492,7 +494,7 @@ TEST_F(PrivacySandboxSettingsDelegateTest, IsEligible) {
 
   const struct {
     const char* description;
-    absl::optional<bool> is_eligible;
+    std::optional<bool> is_eligible;
     bool expected_eligible;
   } kTestCases[] = {
       {
@@ -568,8 +570,8 @@ TEST_P(CookieDeprecationExperimentEligibilityTest, IsEligible) {
   cookie_settings()->SetDefaultCookieSetting(test_case.cookie_content_setting);
 
   if (test_case.install_date.has_value()) {
-    local_state_.Get()->SetInt64(metrics::prefs::kInstallDate,
-                                 test_case.install_date->ToTimeT());
+    local_state()->Get()->SetInt64(metrics::prefs::kInstallDate,
+                                   test_case.install_date->ToTimeT());
   }
 
 #if BUILDFLAG(IS_ANDROID)

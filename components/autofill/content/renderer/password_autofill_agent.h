@@ -150,7 +150,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // FormTracker::Observer
   void OnProvisionallySaveForm(const blink::WebFormElement& form,
                                const blink::WebFormControlElement& element,
-                               ElementChangeSource source) override;
+                               SaveFormReason source) override;
   void OnProbablyFormSubmitted() override;
   void OnFormSubmitted(const blink::WebFormElement& form) override;
   void OnInferredFormSubmission(mojom::SubmissionSource source) override;
@@ -286,7 +286,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // Stores information about form field structure.
   struct FormFieldInfo {
     FieldRendererId unique_renderer_id;
-    std::string form_control_type;
+    autofill::FormControlType form_control_type;
     std::string autocomplete_attribute;
     bool is_focusable = false;
   };

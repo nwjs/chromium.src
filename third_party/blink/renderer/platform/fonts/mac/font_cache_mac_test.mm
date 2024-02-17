@@ -38,6 +38,22 @@ class FontCacheMacTest : public testing::TestWithParam<FontSelectionValue> {
 
     return font_description;
   }
+
+  void TestSystemUISyntheticBold() {
+    FontSelectionValue weight = GetParam();
+
+    FontCache& font_cache = FontCache::Get();
+    for (size_t size = 5; size <= 30; size++) {
+      FontDescription font_description =
+          CreateFontDescriptionWithFontSynthesisNone(weight, kNormalSlopeValue,
+                                                     kNormalWidthValue);
+      std::unique_ptr<FontPlatformData> font_platform_data =
+          font_cache.CreateFontPlatformData(
+              font_description,
+              FontFaceCreationParams(font_family_names::kSystemUi), size);
+      EXPECT_FALSE(font_platform_data->SyntheticBold());
+    }
+  }
 };
 
 INSTANTIATE_TEST_SUITE_P(SystemUISyntheticBold,
@@ -45,19 +61,13 @@ INSTANTIATE_TEST_SUITE_P(SystemUISyntheticBold,
                          testing::ValuesIn(Weights));
 
 TEST_P(FontCacheMacTest, SystemUISyntheticBoldCoreText) {
-  FontSelectionValue weight = GetParam();
+  ScopedFontMatchingCTMigrationForTest scoped_feature(true);
+  TestSystemUISyntheticBold();
+}
 
-  FontCache& font_cache = FontCache::Get();
-  for (size_t size = 5; size <= 30; size++) {
-    FontDescription font_description =
-        CreateFontDescriptionWithFontSynthesisNone(weight, kNormalSlopeValue,
-                                                   kNormalWidthValue);
-    std::unique_ptr<FontPlatformData> font_platform_data =
-        font_cache.CreateFontPlatformData(
-            font_description,
-            FontFaceCreationParams(font_family_names::kSystemUi), size);
-    EXPECT_FALSE(font_platform_data->SyntheticBold());
-  }
+TEST_P(FontCacheMacTest, SystemUISyntheticBoldAppKit) {
+  ScopedFontMatchingCTMigrationForTest scoped_feature(false);
+  TestSystemUISyntheticBold();
 }
 
 }  // namespace blink

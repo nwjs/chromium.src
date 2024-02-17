@@ -149,6 +149,11 @@ public class IncognitoReauthPromoMessageService extends MessageService
         activityLifecycleDispatcher.register(this);
     }
 
+    void destroy() {
+        // Duplicate unregister is safe if dismiss() was invoked.
+        mActivityLifecycleDispatcher.unregister(this);
+    }
+
     @VisibleForTesting
     void dismiss() {
         sendInvalidNotification();
@@ -223,7 +228,7 @@ public class IncognitoReauthPromoMessageService extends MessageService
         // TODO(crbug.com/1227656):  Confirm with UX to see how the background color of the
         // snackbar needs to be revised.
         snackbar.setBackgroundColor(
-                mContext.getResources().getColor(R.color.snackbar_background_color_baseline_dark));
+                mContext.getColor(R.color.snackbar_background_color_baseline_dark));
         snackbar.setTextAppearance(R.style.TextAppearance_TextMedium_Secondary_Baseline_Light);
         snackbar.setSingleLine(false);
         mSnackBarManager.showSnackbar(snackbar);
@@ -350,8 +355,7 @@ public class IncognitoReauthPromoMessageService extends MessageService
      * A method which gets fired when the re-authentication was successful after the review action.
      */
     private void onAfterReviewActionSuccessful() {
-        UserPrefs.get(Profile.getLastUsedRegularProfile())
-                .setBoolean(Pref.INCOGNITO_REAUTHENTICATION_FOR_ANDROID, true);
+        UserPrefs.get(mProfile).setBoolean(Pref.INCOGNITO_REAUTHENTICATION_FOR_ANDROID, true);
         RecordHistogram.recordEnumeratedHistogram(
                 "Android.IncognitoReauth.PromoAcceptedOrDismissed",
                 IncognitoReauthPromoActionType.PROMO_ACCEPTED,

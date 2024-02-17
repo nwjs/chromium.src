@@ -15,7 +15,11 @@ namespace instance_id {
 
 // static
 bool InstanceIDProfileService::IsInstanceIDEnabled() {
+#if defined(NDEBUG)
   return nw::gcm_enabled() && InstanceIDDriver::IsInstanceIDEnabled();
+#else
+  return InstanceIDDriver::IsInstanceIDEnabled();
+#endif
 }
 
 InstanceIDProfileService::InstanceIDProfileService(gcm::GCMDriver* driver,

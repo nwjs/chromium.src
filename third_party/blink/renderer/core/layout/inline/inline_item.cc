@@ -118,13 +118,6 @@ InlineItem::InlineItem(const InlineItem& other,
 
 InlineItem::~InlineItem() = default;
 
-const ShapeResult* InlineItem::TextShapeResultNotSharedSlow() {
-  DCHECK(shape_result_);
-  DCHECK(!shape_result_->HasOneRef());
-  shape_result_ = ShapeResult::Create(*shape_result_);
-  return shape_result_.get();
-}
-
 void InlineItem::ComputeBoxProperties() {
   DCHECK(!is_empty_item_);
 
@@ -178,7 +171,7 @@ const char* InlineItem::InlineItemTypeToString(InlineItemType val) const {
     case kInitialLetterBox:
       return "InitialLetterBox";
     case kListMarker:
-      return "ListMerker";
+      return "ListMarker";
     case kBidiControl:
       return "BidiControl";
   }
@@ -245,7 +238,7 @@ const Font& InlineItem::FontWithSvgScaling() const {
 String InlineItem::ToString() const {
   String object_info;
   if (const auto* layout_text = DynamicTo<LayoutText>(GetLayoutObject())) {
-    object_info = layout_text->GetText().EncodeForDebugging();
+    object_info = layout_text->TransformedText().EncodeForDebugging();
   } else {
     object_info = GetLayoutObject()->ToString();
   }

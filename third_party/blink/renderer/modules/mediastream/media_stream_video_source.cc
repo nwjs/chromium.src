@@ -570,13 +570,22 @@ bool MediaStreamVideoSource::SupportsEncodedOutput() const {
 
 #if !BUILDFLAG(IS_ANDROID)
 void MediaStreamVideoSource::SendWheel(
-    CapturedWheelAction* action,
+    double relative_x,
+    double relative_y,
+    int wheel_delta_x,
+    int wheel_delta_y,
     base::OnceCallback<void(bool, const String&)> callback) {
   std::move(callback).Run(false, "Unsupported.");
 }
 
 void MediaStreamVideoSource::GetZoomLevel(
     base::OnceCallback<void(absl::optional<int>, const String&)> callback) {
+  std::move(callback).Run(false, "Unsupported.");
+}
+
+void MediaStreamVideoSource::SetZoomLevel(
+    int zoom_level,
+    base::OnceCallback<void(bool success, const String& error)> callback) {
   std::move(callback).Run(false, "Unsupported.");
 }
 

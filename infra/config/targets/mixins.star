@@ -7,19 +7,19 @@ load("//lib/targets.star", "targets")
 targets.mixin(
     name = "10-x86-emulator",
     args = [
-        "--avd-config=../../tools/android/avd/proto/generic_android29.textpb",
+        "--avd-config=../../tools/android/avd/proto/android_29_google_apis_x86.textpb",
     ],
     swarming = targets.swarming(
         # soft affinity so that bots with caches will be picked first
         optional_dimensions = {
             60: {
-                "caches": "generic_android29",
+                "caches": "android_29_google_apis_x86",
             },
         },
         named_caches = [
             swarming.cache(
-                name = "generic_android29",
-                path = ".android_emulator/generic_android29",
+                name = "android_29_google_apis_x86",
+                path = ".android_emulator/android_29_google_apis_x86",
             ),
         ],
     ),
@@ -28,19 +28,19 @@ targets.mixin(
 targets.mixin(
     name = "11-x86-emulator",
     args = [
-        "--avd-config=../../tools/android/avd/proto/generic_android30.textpb",
+        "--avd-config=../../tools/android/avd/proto/android_30_google_apis_x86.textpb",
     ],
     swarming = targets.swarming(
         # soft affinity so that bots with caches will be picked first
         optional_dimensions = {
             60: {
-                "caches": "generic_android30",
+                "caches": "android_30_google_apis_x86",
             },
         },
         named_caches = [
             swarming.cache(
-                name = "generic_android30",
-                path = ".android_emulator/generic_android30",
+                name = "android_30_google_apis_x86",
+                path = ".android_emulator/android_30_google_apis_x86",
             ),
         ],
     ),
@@ -69,20 +69,21 @@ targets.mixin(
 
 targets.mixin(
     name = "12-x64-emulator",
+    description = "Run with android_31_google_apis_x64",
     args = [
-        "--avd-config=../../tools/android/avd/proto/generic_android31.textpb",
+        "--avd-config=../../tools/android/avd/proto/android_31_google_apis_x64.textpb",
     ],
     swarming = targets.swarming(
         # soft affinity so that bots with caches will be picked first
         optional_dimensions = {
             60: {
-                "caches": "generic_android31",
+                "caches": "android_31_google_apis_x64",
             },
         },
         named_caches = [
             swarming.cache(
-                name = "generic_android31",
-                path = ".android_emulator/generic_android31",
+                name = "android_31_google_apis_x64",
+                path = ".android_emulator/android_31_google_apis_x64",
             ),
         ],
     ),
@@ -112,19 +113,19 @@ targets.mixin(
 targets.mixin(
     name = "12l-x64-emulator",
     args = [
-        "--avd-config=../../tools/android/avd/proto/generic_android32_foldable.textpb",
+        "--avd-config=../../tools/android/avd/proto/android_32_google_apis_x64_foldable.textpb",
     ],
     swarming = targets.swarming(
         # soft affinity so that bots with caches will be picked first
         optional_dimensions = {
             60: {
-                "caches": "generic_android32_foldable",
+                "caches": "android_32_google_apis_x64_foldable",
             },
         },
         named_caches = [
             swarming.cache(
-                name = "generic_android32_foldable",
-                path = ".android_emulator/generic_android32_foldable",
+                name = "android_32_google_apis_x64_foldable",
+                path = ".android_emulator/android_32_google_apis_x64_foldable",
             ),
         ],
     ),
@@ -153,20 +154,21 @@ targets.mixin(
 
 targets.mixin(
     name = "13-x64-emulator",
+    description = "Run with android_33_google_apis_x64",
     args = [
-        "--avd-config=../../tools/android/avd/proto/generic_android33.textpb",
+        "--avd-config=../../tools/android/avd/proto/android_33_google_apis_x64.textpb",
     ],
     swarming = targets.swarming(
         # soft affinity so that bots with caches will be picked first
         optional_dimensions = {
             60: {
-                "caches": "generic_android33",
+                "caches": "android_33_google_apis_x64",
             },
         },
         named_caches = [
             swarming.cache(
-                name = "generic_android33",
-                path = ".android_emulator/generic_android33",
+                name = "android_33_google_apis_x64",
+                path = ".android_emulator/android_33_google_apis_x64",
             ),
         ],
     ),
@@ -174,6 +176,7 @@ targets.mixin(
 
 targets.mixin(
     name = "14-x64-emulator",
+    description = "Run with android_34_google_apis_x64",
     args = [
         "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb",
     ],
@@ -400,6 +403,12 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "chromeos-jacuzzi-skylab-chrome-all-tast-tests",
+    # jacuzzi is slow. So that we use more number of shards.
+    shards = 20,
+)
+
+targets.mixin(
     name = "chromeos-octopus",
     swarming = targets.swarming(
         dimensions = {
@@ -419,7 +428,7 @@ targets.mixin(
             "cpu": "x86-64",
             "kvm": "1",
             "gce": "1",
-            "os": "Ubuntu-18.04",
+            "os": "Ubuntu-22.04",
             "pool": "chrome.tests",
         },
         optional_dimensions = {
@@ -436,6 +445,12 @@ targets.mixin(
             ),
         ],
     ),
+)
+
+targets.mixin(
+    name = "chromeos-trogdor-skylab-chrome-all-tast-tests",
+    # jacuzzi is slow. So that we use more number of shards.
+    shards = 20,
 )
 
 targets.mixin(
@@ -725,13 +740,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "linux-archive-rel-args",
-    args = [
-        "linux-release-64/sizes",
-    ],
-)
-
-targets.mixin(
     name = "linux-focal",
     swarming = targets.swarming(
         dimensions = {
@@ -783,7 +791,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "gpu": "1002:7340",
-            "os": "Ubuntu-18.04.6",
+            "os": "Ubuntu-22.04.3",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -868,13 +876,6 @@ targets.mixin(
 targets.mixin(
     name = "long_skylab_timeout",
     timeout_sec = 10800,
-)
-
-targets.mixin(
-    name = "mac-archive-rel-args",
-    args = [
-        "mac-release/sizes",
-    ],
 )
 
 targets.mixin(
@@ -1030,6 +1031,9 @@ targets.mixin(
     ),
 )
 
+# mac_default_x64 is used as a prefered OS dimension for mac platform
+# instead of any mac OS version. It selects the most representative
+# dimension on Swarming.
 targets.mixin(
     name = "mac_default_x64",
     swarming = targets.swarming(
@@ -1148,18 +1152,6 @@ targets.mixin(
                 revision = "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0",
             ),
         ],
-    ),
-)
-
-# mac_x64 is used as a prefered OS dimension for mac platform instead of any
-# mac OS version. It selects the most representative dimension on Swarming.
-targets.mixin(
-    name = "mac_x64",
-    swarming = targets.swarming(
-        dimensions = {
-            "os": "Mac-12",
-            "cpu": "x86-64",
-        },
     ),
 )
 
@@ -1306,19 +1298,19 @@ targets.mixin(
 targets.mixin(
     name = "pie-x86-emulator",
     args = [
-        "--avd-config=../../tools/android/avd/proto/generic_android28.textpb",
+        "--avd-config=../../tools/android/avd/proto/android_28_google_apis_x86.textpb",
     ],
     swarming = targets.swarming(
         # soft affinity so that bots with caches will be picked first
         optional_dimensions = {
             60: {
-                "caches": "generic_android28",
+                "caches": "android_28_google_apis_x86",
             },
         },
         named_caches = [
             swarming.cache(
-                name = "generic_android28",
-                path = ".android_emulator/generic_android28",
+                name = "android_28_google_apis_x86",
+                path = ".android_emulator/android_28_google_apis_x86",
             ),
         ],
     ),
@@ -1449,10 +1441,24 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "vr_instrumentation_test",
+    name = "vaapi_unittest_args",
     args = [
-        "--remove-system-package=com.google.vr.vrcore",
-        "--additional-apk=//third_party/gvr-android-sdk/test-apks/vr_services/vr_services_current.apk",
+        "--stop-ui",
+        "--gtest_filter=\"VaapiTest.*\"",
+    ],
+)
+
+targets.mixin(
+    name = "vaapi_unittest_libfake_args",
+    args = [
+        # Tell libva to do dummy encoding/decoding. For more info, see:
+        # https://github.com/intel/libva/blob/v2.14-branch/va/va_fool.c#L52
+        "--env-var",
+        "LIBVA_DRIVERS_PATH",
+        "./",
+        "--env-var",
+        "LIBVA_DRIVER_NAME",
+        "libfake",
     ],
 )
 
@@ -1510,7 +1516,7 @@ targets.mixin(
             targets.cipd_package(
                 package = "chromium/android_webview/tools/cts_archive",
                 location = "android_webview/tools/cts_archive",
-                revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
+                revision = "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C",
             ),
         ],
     ),
@@ -1587,8 +1593,8 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
-            "gpu": "10de:2184-27.21.14.5638",
-            "os": "Windows-10-18363",
+            "gpu": "10de:2184-31.0.15.4601",
+            "os": "Windows-10-19045",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1623,10 +1629,14 @@ targets.mixin(
     name = "win_arm64",
     swarming = targets.swarming(
         dimensions = {
-            # TODO(https://crbug.com/1422826): Update the right cpu value.
-            "cpu": None,
+            "cpu": "arm64",
             "os": "Windows-11",
-            "pool": "chrome.tests.arm64",
+            "pool": "chrome.tests",
+            # Qualcomm Adreno 690.
+            "gpu": "qcom:043a",
+            # Currently used to limit testing to the homogenous fleet. Can be
+            # removed once the older experimental devices are decommissioned.
+            "zone": "us-sfo",
         },
         # The resources are limited in the pool.
         # The slowest test is expected to run >9 hours.
@@ -1648,12 +1658,12 @@ targets.mixin(
     name = "xcode_15_beta",
     args = [
         "--xcode-build-version",
-        "15c5042i",
+        "15c500b",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_15c5042i",
+                name = "xcode_ios_15c500b",
                 path = "Xcode.app",
             ),
         ],

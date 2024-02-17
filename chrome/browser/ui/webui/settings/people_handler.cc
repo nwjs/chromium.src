@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/webui/settings/people_handler.h"
 
+#include <memory>
+#include <optional>
 #include <string>
 
 #include "base/check_op.h"
@@ -41,6 +43,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/signin_error_controller.h"
 #include "components/signin/public/base/consent_level.h"
@@ -61,7 +64,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "google_apis/gaia/gaia_auth_util.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
@@ -115,14 +117,14 @@ SyncConfigInfo::SyncConfigInfo() : sync_everything(false) {}
 SyncConfigInfo::~SyncConfigInfo() {}
 
 bool GetConfiguration(const std::string& json, SyncConfigInfo* config) {
-  absl::optional<base::Value> parsed_value = base::JSONReader::Read(json);
+  std::optional<base::Value> parsed_value = base::JSONReader::Read(json);
   if (!parsed_value.has_value() || !parsed_value->is_dict()) {
     DLOG(ERROR) << "GetConfiguration() not passed a Dictionary";
     return false;
   }
 
   const base::Value::Dict& root = parsed_value->GetDict();
-  absl::optional<bool> sync_everything = root.FindBool("syncAllDataTypes");
+  std::optional<bool> sync_everything = root.FindBool("syncAllDataTypes");
   if (!sync_everything.has_value()) {
     DLOG(ERROR) << "GetConfiguration() not passed a syncAllDataTypes value";
     return false;
@@ -132,7 +134,7 @@ bool GetConfiguration(const std::string& json, SyncConfigInfo* config) {
   for (syncer::UserSelectableType type : syncer::UserSelectableTypeSet::All()) {
     std::string key_name =
         syncer::GetUserSelectableTypeName(type) + std::string("Synced");
-    absl::optional<bool> type_synced = root.FindBool(key_name);
+    std::optional<bool> type_synced = root.FindBool(key_name);
     if (!type_synced.has_value()) {
       DLOG(ERROR) << "GetConfiguration() not passed a value for " << key_name;
       return false;
@@ -323,8 +325,9 @@ void PeopleHandler::RegisterMessages() {
 
 void PeopleHandler::OnJavascriptAllowed() {
   PrefService* prefs = profile_->GetPrefs();
-  profile_pref_registrar_.Init(prefs);
-  profile_pref_registrar_.Add(
+  profile_pref_registrar_ = std::make_unique<PrefChangeRegistrar>();
+  profile_pref_registrar_->Init(prefs);
+  profile_pref_registrar_->Add(
       prefs::kSigninAllowed,
       base::BindRepeating(&PeopleHandler::UpdateSyncStatus,
                           base::Unretained(this)));
@@ -343,7 +346,7 @@ void PeopleHandler::OnJavascriptAllowed() {
 }
 
 void PeopleHandler::OnJavascriptDisallowed() {
-  profile_pref_registrar_.RemoveAll();
+  profile_pref_registrar_.reset();
   identity_manager_observation_.Reset();
   sync_service_observation_.Reset();
 }

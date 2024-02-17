@@ -71,7 +71,8 @@ class WindowsGetAllFunction : public ExtensionFunction {
   DECLARE_EXTENSION_FUNCTION("windows.getAll", WINDOWS_GETALL)
 };
 class WindowsCreateFunction : public ExtensionFunction {
-  void OnFinishedFirstNavigationOrClosed(ResponseValue result_arg,
+  void OnFinishedFirstNavigationOrClosed(Browser*, const Extension* extension,
+					 mojom::ContextType context,
                                          bool did_finish);
   ~WindowsCreateFunction() override {}
   ResponseAction Run() override;
@@ -129,7 +130,7 @@ class TabsHighlightFunction : public ExtensionFunction {
   ResponseAction Run() override;
   bool HighlightTab(TabStripModel* tabstrip,
                     ui::ListSelectionModel* selection,
-                    absl::optional<size_t>* active_index,
+                    std::optional<size_t>* active_index,
                     int index,
                     std::string* error);
   DECLARE_EXTENSION_FUNCTION("tabs.highlight", TABS_HIGHLIGHT)
@@ -158,7 +159,7 @@ class TabsMoveFunction : public ExtensionFunction {
   bool MoveTab(int tab_id,
                int* new_index,
                base::Value::List& tab_values,
-               const absl::optional<int>& window_id,
+               const std::optional<int>& window_id,
                std::string* error);
   DECLARE_EXTENSION_FUNCTION("tabs.move", TABS_MOVE)
 };

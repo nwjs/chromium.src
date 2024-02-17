@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -17,7 +18,6 @@
 #include "content/browser/attribution_reporting/attribution_beacon_id.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "services/network/public/cpp/attribution_reporting_runtime_features.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/conversions/attribution_data_host.mojom-forward.h"
 
@@ -63,14 +63,23 @@ class AttributionDataHostManager
   // Registers a new data host which is associated with a navigation. The
   // context origin will be provided at a later time in
   // `NotifyNavigationRegistrationStarted()` called with the same
-  // `attribution_src_token`. `expected_registrations` indicates the number of
-  // background registrations requests which will be sent alongside to the
-  // navigation. Returns `false` if `attribution_src_token` was already
-  // registered or if `expected_registrations` is invalid.
+  // `attribution_src_token`. Returns `false` if `attribution_src_token` was
+  // already registered.
   virtual bool RegisterNavigationDataHost(
       mojo::PendingReceiver<blink::mojom::AttributionDataHost> data_host,
+      const blink::AttributionSrcToken& attribution_src_token) = 0;
+
+  // Notifies the manager that an attribution-enabled navigation associated to
+  // the token `attribution_src_token` will start. Alongside the navigation,
+  // `background_registrations_count` requests are sent. This method is only
+  // called when background requests are sent alongside the navigation. It is
+  // guaranteed to be called before `NotifyNavigationRegistrationStarted` with
+  // the same `attribution_src_token`. Returns `false` if
+  // `attribution_src_token` was already registered or if
+  // `expected_registrations` is invalid.
+  virtual bool NotifyNavigationWithBackgroundRegistrationsWillStart(
       const blink::AttributionSrcToken& attribution_src_token,
-      size_t expected_registrations) = 0;
+      size_t background_registrations_count) = 0;
 
   // Notifies the manager that an attribution-enabled navigation has started.
   // This may arrive before or after the attribution configuration is available
@@ -123,8 +132,8 @@ class AttributionDataHostManager
       attribution_reporting::mojom::RegistrationEligibility,
       GlobalRenderFrameHostId render_frame_id,
       int64_t last_navigation_id,
-      absl::optional<blink::AttributionSrcToken> attribution_src_token,
-      std::string devtools_request_id) = 0;
+      std::optional<blink::AttributionSrcToken> attribution_src_token,
+      std::optional<std::string> devtools_request_id) = 0;
 
   // Notifies the manager that a background attribution request has sent a
   // response. May be called multiple times for the same request; for redirects
@@ -150,10 +159,10 @@ class AttributionDataHostManager
   // use. Passes the topmost ancestor of the initiator render frame for
   // obtaining the page access report.
   // `navigation_id` is the id of the navigation for automatic beacons and
-  // `absl::nullopt` for event beacons.
+  // `std::nullopt` for event beacons.
   virtual void NotifyFencedFrameReportingBeaconStarted(
       BeaconId beacon_id,
-      absl::optional<int64_t> navigation_id,
+      std::optional<int64_t> navigation_id,
       attribution_reporting::SuitableOrigin source_origin,
       bool is_within_fenced_frame,
       AttributionInputEvent input_event,

@@ -19,19 +19,20 @@ namespace {
 
 using PickerSearchFieldViewTest = AshTestBase;
 
-TEST_F(PickerSearchFieldViewTest, TriggersSearchOnConstruction) {
+TEST_F(PickerSearchFieldViewTest, DoesNotTriggerSearchOnConstruction) {
   base::test::TestFuture<const std::u16string&> future;
-  PickerSearchFieldView view(future.GetRepeatingCallback());
+  PickerSessionMetrics metrics;
+  PickerSearchFieldView view(future.GetRepeatingCallback(), &metrics);
 
-  EXPECT_EQ(future.Get(), u"");
+  EXPECT_FALSE(future.IsReady());
 }
 
 TEST_F(PickerSearchFieldViewTest, TriggersSearchOnContentsChange) {
   std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
   base::test::TestFuture<const std::u16string&> future;
-  auto* view = widget->SetContentsView(
-      std::make_unique<PickerSearchFieldView>(future.GetRepeatingCallback()));
-  future.Clear();
+  PickerSessionMetrics metrics;
+  auto* view = widget->SetContentsView(std::make_unique<PickerSearchFieldView>(
+      future.GetRepeatingCallback(), &metrics));
 
   view->RequestFocus();
   PressAndReleaseKey(ui::KeyboardCode::VKEY_A, ui::EF_NONE);
@@ -40,7 +41,8 @@ TEST_F(PickerSearchFieldViewTest, TriggersSearchOnContentsChange) {
 }
 
 TEST_F(PickerSearchFieldViewTest, SetPlaceholderText) {
-  PickerSearchFieldView view(base::DoNothing());
+  PickerSessionMetrics metrics;
+  PickerSearchFieldView view(base::DoNothing(), &metrics);
 
   view.SetPlaceholderText(u"hello");
 

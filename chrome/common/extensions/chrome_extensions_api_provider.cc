@@ -4,6 +4,7 @@
 
 #include "chrome/common/extensions/chrome_extensions_api_provider.h"
 
+#include <string_view>
 #include "content/nw/src/api/generated_schemas.h"
 
 #include "chrome/common/extensions/api/api_features.h"
@@ -52,7 +53,7 @@ bool ChromeExtensionsAPIProvider::IsAPISchemaGenerated(
   return api::ChromeGeneratedSchemas::IsGenerated(name) || nwapi::nwjsGeneratedSchemas::IsGenerated(name);
 }
 
-base::StringPiece ChromeExtensionsAPIProvider::GetAPISchema(
+std::string_view ChromeExtensionsAPIProvider::GetAPISchema(
     const std::string& name) {
   base::StringPiece chrome_schema = api::ChromeGeneratedSchemas::Get(name);
   if (!chrome_schema.empty())

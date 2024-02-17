@@ -144,6 +144,16 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       disabledLabel: 'siteSettingsLocationBlocked',
     },
     {
+      route: routes.SITE_SETTINGS_WEB_PRINTING,
+      id: Id.WEB_PRINTING,
+      label: 'siteSettingsWebPrinting',
+      icon: 'settings:printer',
+      enabledLabel: 'siteSettingsWebPrintingAsk',
+      disabledLabel: 'siteSettingsWebPrintingBlock',
+      shouldShow: () =>
+          loadTimeData.getBoolean('enableWebPrintingContentSetting'),
+    },
+    {
       route: routes.SITE_SETTINGS_HID_DEVICES,
       id: Id.HID_DEVICES,
       label: 'siteSettingsHidDevices',
@@ -174,6 +184,14 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       icon: 'settings:code',
       enabledLabel: 'siteSettingsJavascriptAllowed',
       disabledLabel: 'siteSettingsJavascriptBlocked',
+    },
+    {
+      route: routes.SITE_SETTINGS_JAVASCRIPT_JIT,
+      id: Id.JAVASCRIPT_JIT,
+      label: 'siteSettingsJavascriptJit',
+      icon: 'settings:lock-outline',
+      enabledLabel: 'siteSettingsJavascriptJitAllowed',
+      disabledLabel: 'siteSettingsJavascriptJitBlocked',
     },
     {
       route: routes.SITE_SETTINGS_MICROPHONE,
@@ -454,6 +472,7 @@ export class SettingsSiteSettingsPageElement extends
                   Id.AR,
                   Id.VR,
                   Id.IDLE_DETECTION,
+                  Id.WEB_PRINTING,
                   Id.WINDOW_MANAGEMENT,
                   Id.LOCAL_FONTS,
                   Id.AUTO_PICTURE_IN_PICTURE,
@@ -476,6 +495,7 @@ export class SettingsSiteSettingsPageElement extends
               Id.ANTI_ABUSE,
               Id.SITE_DATA,
               Id.PERFORMANCE,
+              Id.JAVASCRIPT_JIT,
             ]),
           };
         },

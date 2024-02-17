@@ -161,12 +161,6 @@ std::optional<int> AwMainDelegate::BasicStartupComplete() {
 
     content::RegisterMediaUrlInterceptor(new AwMediaUrlInterceptor());
     BrowserViewRenderer::CalculateTileMemoryPolicy();
-    // WebView apps can override WebView#computeScroll to achieve custom
-    // scroll/fling. As a result, fling animations may not be ticked,
-    // potentially
-    // confusing the tap suppression controller. Simply disable it for WebView
-    ui::GestureConfiguration::GetInstance()
-        ->set_fling_touchscreen_tap_suppression_enabled(false);
 
     if (AwDrawFnImpl::IsUsingVulkan())
       cl->AppendSwitch(switches::kWebViewDrawFunctorUsesVulkan);
@@ -193,11 +187,6 @@ std::optional<int> AwMainDelegate::BasicStartupComplete() {
     // TODO(crbug.com/1453407): Consider to migrate all the following overrides
     // to the new mechanism in android_webview/browser/aw_field_trials.cc.
     base::ScopedAddFeatureFlags features(cl);
-
-    if (base::android::BuildInfo::GetInstance()->sdk_int() >=
-        base::android::SDK_VERSION_OREO) {
-      features.EnableIfNotSet(autofill::features::kAutofillExtractAllDatalists);
-    }
 
     if (cl->HasSwitch(switches::kWebViewLogJsConsoleMessages)) {
       features.EnableIfNotSet(::features::kLogJsConsoleMessages);
@@ -335,6 +324,16 @@ std::optional<int> AwMainDelegate::PostEarlyInitialization(
     InitIcuAndResourceBundleBrowserSide();
     aw_feature_list_creator_->CreateFeatureListAndFieldTrials();
     content::InitializeMojoCore();
+
+    // WebView apps can override WebView#computeScroll to achieve custom
+    // scroll/fling. As a result, fling animations may not be ticked,
+    // potentially
+    // confusing the tap suppression controller. Simply disable it for WebView
+    if (!base::FeatureList::IsEnabled(
+            ::features::kWebViewSuppressTapDuringFling)) {
+      ui::GestureConfiguration::GetInstance()
+          ->set_fling_touchscreen_tap_suppression_enabled(false);
+    }
   }
 
   InitializeMemorySystem(is_browser_process);

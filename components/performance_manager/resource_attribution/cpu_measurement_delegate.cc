@@ -45,7 +45,11 @@ CPUMeasurementDelegateImpl::CPUMeasurementDelegateImpl(
 }
 
 base::TimeDelta CPUMeasurementDelegateImpl::GetCumulativeCPUUsage() {
+#if BUILDFLAG(IS_WIN)
+  return process_metrics_->GetPreciseCumulativeCPUUsage();
+#else
   return process_metrics_->GetCumulativeCPUUsage();
+#endif
 }
 
 // The default production factory for CPUMeasurementDelegateImpl objects.
@@ -62,10 +66,6 @@ class CPUMeasurementDelegateFactoryImpl final
 
 bool CPUMeasurementDelegateFactoryImpl::ShouldMeasureProcess(
     const ProcessNode* process_node) {
-  if (process_node->GetProcessType() != content::PROCESS_TYPE_RENDERER) {
-    // TODO(crbug.com/1471683): Handle other process types.
-    return false;
-  }
   // The process start time is not available until the ProcessId is assigned.
   if (process_node->GetProcessId() == base::kNullProcessId) {
     return false;
@@ -93,7 +93,7 @@ CPUMeasurementDelegateFactoryImpl::CreateDelegateForProcess(
 // static
 void CPUMeasurementDelegate::SetDelegateFactoryForTesting(Graph* graph,
                                                           Factory* factory) {
-  auto* scheduler = QueryScheduler::GetFromGraph(graph);
+  auto* scheduler = internal::QueryScheduler::GetFromGraph(graph);
   CHECK(scheduler);
   scheduler
       ->GetCPUMonitorForTesting()                      // IN-TEST

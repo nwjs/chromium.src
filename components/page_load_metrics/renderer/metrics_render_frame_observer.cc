@@ -237,7 +237,8 @@ void MetricsRenderFrameObserver::DidStartResponse(
     const url::SchemeHostPort& final_response_url,
     int request_id,
     const network::mojom::URLResponseHead& response_head,
-    network::mojom::RequestDestination request_destination) {
+    network::mojom::RequestDestination request_destination,
+    bool is_ad_resource) {
   if (provisional_frame_resource_data_use_ &&
       blink::IsRequestDestinationFrame(request_destination)) {
     // TODO(rajendrant): This frame request might start before the provisional
@@ -245,10 +246,12 @@ void MetricsRenderFrameObserver::DidStartResponse(
     // case. There should be a guarantee that DidStartProvisionalLoad be called
     // before DidStartResponse for the frame request.
     provisional_frame_resource_data_use_->DidStartResponse(
-        final_response_url, request_id, response_head, request_destination);
+        final_response_url, request_id, response_head, request_destination,
+        is_ad_resource);
   } else if (page_timing_metrics_sender_) {
     page_timing_metrics_sender_->DidStartResponse(
-        final_response_url, request_id, response_head, request_destination);
+        final_response_url, request_id, response_head, request_destination,
+        is_ad_resource);
     UpdateResourceMetadata(request_id);
   }
 }
@@ -261,7 +264,6 @@ void MetricsRenderFrameObserver::DidCompleteResponse(
     provisional_frame_resource_data_use_->DidCompleteResponse(status);
   } else if (page_timing_metrics_sender_) {
     page_timing_metrics_sender_->DidCompleteResponse(request_id, status);
-    MaybeSetCompletedBeforeFCP(request_id);
     UpdateResourceMetadata(request_id);
   }
 }
@@ -307,7 +309,6 @@ void MetricsRenderFrameObserver::DidLoadResourceFromMemoryCache(
   if (page_timing_metrics_sender_) {
     page_timing_metrics_sender_->DidLoadResourceFromMemoryCache(
         response_url, request_id, encoded_body_length, mime_type);
-    MaybeSetCompletedBeforeFCP(request_id);
     UpdateResourceMetadata(request_id);
   }
 }
@@ -372,7 +373,7 @@ void MetricsRenderFrameObserver::DidCreateDocumentElement() {
 
   // We should only track committed navigations for the main frame so ignore new
   // document elements in the main frame.
-  if (render_frame()->IsMainFrame()) {
+  if (IsMainFrame()) {
     return;
   }
 
@@ -399,7 +400,7 @@ void MetricsRenderFrameObserver::DidCreateDocumentElement() {
   page_timing_metrics_sender_ = std::make_unique<PageTimingMetricsSender>(
       CreatePageTimingSender(true /* limited_sending_mode */), CreateTimer(),
       std::move(timing.relative_timing), timing.monotonic_timing,
-      /* initial_request=*/nullptr);
+      /* initial_request=*/nullptr, /* is_main_frame=*/false);
 
   OnMetricsSenderCreated();
 }
@@ -417,26 +418,9 @@ void MetricsRenderFrameObserver::DidCommitProvisionalLoad(
   page_timing_metrics_sender_ = std::make_unique<PageTimingMetricsSender>(
       CreatePageTimingSender(false /* limited_sending_mode*/), CreateTimer(),
       std::move(timing.relative_timing), timing.monotonic_timing,
-      std::move(provisional_frame_resource_data_use_));
+      std::move(provisional_frame_resource_data_use_), IsMainFrame());
 
   OnMetricsSenderCreated();
-}
-
-void MetricsRenderFrameObserver::SetAdResourceTracker(
-    subresource_filter::AdResourceTracker* ad_resource_tracker) {
-  // Remove all sources and set a new source for the observer.
-  scoped_ad_resource_observation_.Reset();
-  scoped_ad_resource_observation_.Observe(ad_resource_tracker);
-}
-
-void MetricsRenderFrameObserver::OnAdResourceTrackerGoingAway() {
-  DCHECK(scoped_ad_resource_observation_.IsObserving());
-
-  scoped_ad_resource_observation_.Reset();
-}
-
-void MetricsRenderFrameObserver::OnAdResourceObserved(int request_id) {
-  ad_request_ids_.insert(request_id);
 }
 
 void MetricsRenderFrameObserver::OnMainFrameIntersectionChanged(
@@ -483,34 +467,6 @@ bool MetricsRenderFrameObserver::SetUpSmoothnessReporting(
   return true;
 }
 
-void MetricsRenderFrameObserver::MaybeSetCompletedBeforeFCP(int request_id) {
-  if (HasNoRenderFrame()) {
-    return;
-  }
-
-  const blink::WebPerformanceMetricsForReporting& perf =
-      render_frame()->GetWebFrame()->PerformanceMetricsForReporting();
-
-  // Blink returns 0 if the performance metrics are unavailable. Check that
-  // navigation start is set to determine if performance metrics are
-  // available.
-  if (perf.NavigationStart() == 0) {
-    return;
-  }
-
-  // This should not be possible, but none the less occasionally fails in edge
-  // case tests. Since we don't expect this to be valid, throw out this entry.
-  // See crbug.com/1027535.
-  if (base::Time::Now() <
-      base::Time::FromSecondsSinceUnixEpoch(perf.NavigationStart())) {
-    return;
-  }
-
-  if (perf.FirstContentfulPaint() == 0) {
-    before_fcp_request_ids_.insert(request_id);
-  }
-}
-
 MetricsRenderFrameObserver::Timing::Timing(
     mojom::PageLoadTimingPtr relative_timing,
     const PageTimingMetadataRecorder::MonotonicTiming& monotonic_timing)
@@ -526,37 +482,16 @@ MetricsRenderFrameObserver::Timing::operator=(Timing&&) = default;
 void MetricsRenderFrameObserver::UpdateResourceMetadata(int request_id) {
   DCHECK(page_timing_metrics_sender_);
 
-  // If the request is an ad, pop it off the list of known ad requests.
-  auto ad_resource_it = ad_request_ids_.find(request_id);
-  bool reported_as_ad_resource =
-      ad_request_ids_.find(request_id) != ad_request_ids_.end();
-  if (reported_as_ad_resource) {
-    ad_request_ids_.erase(ad_resource_it);
-  }
-
-  // If the request completed before fcp, pop it off the list of known
-  // before-fcp requests.
-  auto before_fcp_it = before_fcp_request_ids_.find(request_id);
-  bool completed_before_fcp = before_fcp_it != before_fcp_request_ids_.end();
-  if (completed_before_fcp) {
-    before_fcp_request_ids_.erase(before_fcp_it);
-  }
-
-  bool is_main_frame_resource = render_frame()->IsMainFrame();
+  bool is_main_frame_resource = IsMainFrame();
 
   if (provisional_frame_resource_data_use_ &&
       provisional_frame_resource_data_use_->resource_id() == request_id) {
-    if (reported_as_ad_resource) {
-      provisional_frame_resource_data_use_->SetReportedAsAdResource(
-          reported_as_ad_resource);
-    }
     provisional_frame_resource_data_use_->SetIsMainFrameResource(
         is_main_frame_resource);
     // Don't bother with before-fcp metrics for a provisional frame.
   } else {
-    page_timing_metrics_sender_->UpdateResourceMetadata(
-        request_id, reported_as_ad_resource, is_main_frame_resource,
-        completed_before_fcp);
+    page_timing_metrics_sender_->UpdateResourceMetadata(request_id,
+                                                        is_main_frame_resource);
   }
 }
 
@@ -852,6 +787,8 @@ MetricsRenderFrameObserver::Timing MetricsRenderFrameObserver::GetTiming()
   blink::LargestContentfulPaintDetailsForReporting
       largest_contentful_paint_details =
           perf.LargestContentfulDetailsForMetrics();
+  monotonic_timing.frame_largest_contentful_paint =
+      largest_contentful_paint_details.merged_unclamped_paint_time;
 
   if (largest_contentful_paint_details.image_paint_size > 0) {
     timing->paint_timing->largest_contentful_paint->largest_image_paint_size =
@@ -1010,6 +947,10 @@ bool MetricsRenderFrameObserver::HasNoRenderFrame() const {
   bool no_frame = !render_frame() || !render_frame()->GetWebFrame();
   DCHECK(!no_frame);
   return no_frame;
+}
+
+bool MetricsRenderFrameObserver::IsMainFrame() const {
+  return render_frame()->IsMainFrame();
 }
 
 void MetricsRenderFrameObserver::OnDestruct() {

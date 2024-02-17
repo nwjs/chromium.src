@@ -20,9 +20,39 @@
         The Name of the Monitor.
       </summary>
     </metric>
-    <metric name="ProductCode" type="raw-string">
+    <metric name="ManufacturerId" type="raw-string">
       <summary>
-        An identifier for the display ManufacturerId and ProductId
+        ID of the monitor's manufacturer.
+      </summary>
+    </metric>
+    <metric name="ProductId" type="int">
+      <summary>
+        Monitor's Product ID.
+      </summary>
+    </metric>
+    <metric name="NativeModeSize" type="raw-string">
+      <summary>
+        The Monitor's Native Mode Size.
+      </summary>
+    </metric>
+    <metric name="NativeModeRefreshRate" type="double">
+      <summary>
+        The Monitor's Native Mode Refresh Rate.
+      </summary>
+    </metric>
+    <metric name="PhysicalSize" type="raw-string">
+      <summary>
+        The Physical Size of the Monitor in inches.
+      </summary>
+    </metric>
+    <metric name="ConnectionType" type="raw-string">
+      <summary>
+        The Connection type used to connect the display into the chromebook.
+      </summary>
+    </metric>
+    <metric name="IsVrrCapable" type="int">
+      <summary>
+        The Monitor's Ability to support Variable Refresh Rate.
       </summary>
     </metric>
   </event>
@@ -1539,6 +1569,50 @@
     capabilities offered by Chrome.
   </summary>
 
+  <event name="SessionStart">
+    <summary>
+      Recorded whenever DevTools is opened
+    </summary>
+    <metric name="Trigger" type="int">
+      <summary>
+        What caused DevTools to open (e.g. shortcut, inpsect menu item, etc)
+      </summary>
+    </metric>
+    <metric name="DockSide" type="int">
+      <summary>
+        Which side is devtools docked to
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
+      </summary>
+    </metric>
+  </event>
+
+  <event name="SessionEnd">
+    <summary>
+      Recorded whenever DevTools is closed
+    </summary>
+    <metric name="Trigger" type="int">
+      <summary>
+        What caused DevTools to close (e.g. shortcut, close button, etc)
+      </summary>
+    </metric>
+    <metric name="TimeSinceSessionStart" type="int">
+      <summary>
+        Time in milliseconds since DevTools sessions start.
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
+      </summary>
+    </metric>
+  </event>
+
   <event name="Impression">
     <summary>
       Recorded whenever a new visual element is first shown to the user
@@ -1563,9 +1637,15 @@
         Arbitrary contextual information for the visual element.
       </summary>
     </metric>
-    <metric name="TimeSinceLastAction" type="int">
+    <metric name="TimeSinceSessionStart" type="int">
       <summary>
-        Time in milliseconds since last DevTools event.
+        Time in milliseconds since DevTools sessions start.
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
       </summary>
     </metric>
   </event>
@@ -1589,9 +1669,15 @@
         Arbitrary contextual information for the event.
       </summary>
     </metric>
-    <metric name="TimeSinceLastAction" type="int">
+    <metric name="TimeSinceSessionStart" type="int">
       <summary>
-        Time in milliseconds since last DevTools event.
+        Time in milliseconds since DevTools sessions start.
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
       </summary>
     </metric>
   </event>
@@ -1615,9 +1701,15 @@
         Arbitrary contextual information for the event.
       </summary>
     </metric>
-    <metric name="TimeSinceLastAction" type="int">
+    <metric name="TimeSinceSessionStart" type="int">
       <summary>
-        Time in milliseconds since last DevTools event.
+        Time in milliseconds since DevTools sessions start.
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
       </summary>
     </metric>
   </event>
@@ -1641,9 +1733,15 @@
         Arbitrary contextual information for the event.
       </summary>
     </metric>
-    <metric name="TimeSinceLastAction" type="int">
+    <metric name="TimeSinceSessionStart" type="int">
       <summary>
-        Time in milliseconds since last DevTools event.
+        Time in milliseconds since DevTools sessions start.
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
       </summary>
     </metric>
   </event>
@@ -1662,9 +1760,15 @@
         Arbitrary contextual information for the event.
       </summary>
     </metric>
-    <metric name="TimeSinceLastAction" type="int">
+    <metric name="TimeSinceSessionStart" type="int">
       <summary>
-        Time in milliseconds since last DevTools event.
+        Time in milliseconds since DevTools sessions start.
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
       </summary>
     </metric>
   </event>
@@ -1683,9 +1787,15 @@
         Arbitrary contextual information for the event.
       </summary>
     </metric>
-    <metric name="TimeSinceLastAction" type="int">
+    <metric name="TimeSinceSessionStart" type="int">
       <summary>
-        Time in milliseconds since last DevTools event.
+        Time in milliseconds since DevTools sessions start.
+      </summary>
+    </metric>
+    <metric name="SessionId" type="int">
+      <summary>
+        Unique ID of this debugging session. If DevTools is opened on multiple tabs,
+        each instance would have a unique ID.
       </summary>
     </metric>
   </event>

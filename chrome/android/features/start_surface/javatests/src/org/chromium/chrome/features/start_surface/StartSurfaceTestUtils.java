@@ -5,12 +5,10 @@
 package org.chromium.chrome.features.start_surface;
 
 import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.not;
@@ -24,6 +22,7 @@ import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.util.Base64;
 import android.view.View;
@@ -32,7 +31,6 @@ import android.view.ViewGroup;
 import androidx.annotation.Nullable;
 import androidx.test.espresso.UiController;
 import androidx.test.espresso.ViewAction;
-import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.espresso.matcher.ViewMatchers;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
@@ -59,6 +57,7 @@ import org.chromium.chrome.browser.gesturenav.GestureNavigationUtils;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
+import org.chromium.chrome.browser.logo.LogoUtils;
 import org.chromium.chrome.browser.suggestions.SiteSuggestion;
 import org.chromium.chrome.browser.suggestions.tile.TileSectionType;
 import org.chromium.chrome.browser.suggestions.tile.TileSource;
@@ -82,6 +81,7 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ChromeApplicationTestUtils;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.TestTouchUtils;
 import org.chromium.url.GURL;
@@ -104,8 +104,8 @@ public class StartSurfaceTestUtils {
                     + StartSurfaceConfiguration.START_SURFACE_RETURN_TIME_SECONDS_PARAM
                     + "/0";
     public static final String START_SURFACE_TEST_SINGLE_ENABLED_PARAMS =
-            "force-fieldtrial-params=Study.Group:show_last_active_tab_only/false"
-                    + "/open_ntp_instead_of_start/false/open_start_as_homepage/true";
+            "force-fieldtrial-params=Study.Group:"
+                    + "open_ntp_instead_of_start/false/open_start_as_homepage/true";
     public static final String START_SURFACE_TEST_BASE_PARAMS =
             "force-fieldtrial-params=Study.Group:";
 
@@ -524,6 +524,7 @@ public class StartSurfaceTestUtils {
      * @param cta The ChromeTabbedActivity under test.
      */
     public static void scrollToolbar(ChromeTabbedActivity cta) {
+        boolean isSurfacePolishEnabled = ChromeFeatureList.sSurfacePolish.isEnabled();
         // Toolbar layout should be hidden if start surface toolbar is shown on the top of the
         // screen.
         onView(withId(R.id.toolbar))
@@ -533,24 +534,37 @@ public class StartSurfaceTestUtils {
                 .check(matches(withEffectiveVisibility(ViewMatchers.Visibility.GONE)));
 
         // Drag the Feed header title to scroll the toolbar to the top.
-        int toY = -cta.getResources().getDimensionPixelOffset(R.dimen.toolbar_height_no_shadow);
+        int logoInSurfaceHeight = 0;
+        if (isSurfacePolishEnabled
+                && StartSurfaceConfiguration.SURFACE_POLISH_MOVE_DOWN_LOGO.getValue()) {
+            Resources resources = cta.getResources();
+            if (StartSurfaceConfiguration.SURFACE_POLISH_LESS_BRAND_SPACE.getValue()) {
+                logoInSurfaceHeight =
+                        LogoUtils.getLogoHeightPolishedShort(resources)
+                                + LogoUtils.getTopMarginPolishedSmall(resources)
+                                + LogoUtils.getBottomMarginPolishedSmall(resources);
+            } else {
+                logoInSurfaceHeight =
+                        LogoUtils.getLogoHeightPolished(resources)
+                                + LogoUtils.getTopMarginPolished(resources)
+                                + LogoUtils.getBottomMarginPolished(resources);
+            }
+        }
+        float toY =
+                -cta.getResources().getDimensionPixelSize(R.dimen.toolbar_height_no_shadow)
+                        - logoInSurfaceHeight;
         TestTouchUtils.dragCompleteView(
                 InstrumentationRegistry.getInstrumentation(),
                 cta.findViewById(R.id.header_title),
                 0,
                 0,
                 0,
-                toY,
+                (int) toY,
                 10);
 
         // The start surface toolbar should be scrolled up and not be displayed.
         CriteriaHelper.pollInstrumentationThread(
-                () ->
-                        cta.findViewById(R.id.tab_switcher_toolbar).getTranslationY()
-                                <= (float)
-                                        -cta.getResources()
-                                                .getDimensionPixelOffset(
-                                                        R.dimen.toolbar_height_no_shadow));
+                () -> cta.findViewById(R.id.tab_switcher_toolbar).getTranslationY() <= toY);
 
         // Toolbar layout view should show.
         onViewWaiting(withId(R.id.toolbar));
@@ -560,9 +574,12 @@ public class StartSurfaceTestUtils {
 
         // Check the toolbar's background color.
         ToolbarPhone toolbar = cta.findViewById(R.id.toolbar);
-        Assert.assertEquals(
-                toolbar.getToolbarDataProvider().getPrimaryColor(),
-                toolbar.getBackgroundDrawable().getColor());
+        int expectedToolbarColor =
+                isSurfacePolishEnabled
+                        ? ChromeColors.getSurfaceColor(
+                                cta, R.dimen.home_surface_background_color_elevation)
+                        : toolbar.getToolbarDataProvider().getPrimaryColor();
+        Assert.assertEquals(expectedToolbarColor, toolbar.getBackgroundDrawable().getColor());
     }
 
     /**
@@ -627,23 +644,6 @@ public class StartSurfaceTestUtils {
         TabUiTestHelper.verifyTabModelTabCount(cta, currentTabCount + 1, 0);
     }
 
-    /** Click the first tab in carousel tab switcher. */
-    public static void clickFirstTabInCarousel() {
-        clickTabInCarousel(0);
-    }
-
-    /**
-     * Click the tab at specific position in carousel tab switcher.
-     * @param position The position of the tab which is clicked.
-     */
-    public static void clickTabInCarousel(int position) {
-        onViewWaiting(
-                        allOf(
-                                withParent(withId(R.id.tab_switcher_module_container)),
-                                withId(R.id.tab_list_recycler_view)))
-                .perform(RecyclerViewActions.actionOnItemAtPosition(position, click()));
-    }
-
     /**
      * Click the tab switcher button to navigate to tab switcher surface.
      * @param cta The ChromeTabbedActivity under test.
@@ -652,23 +652,6 @@ public class StartSurfaceTestUtils {
         try {
             TestThreadUtils.runOnUiThreadBlocking(
                     () -> cta.findViewById(R.id.start_tab_switcher_button).performClick());
-        } catch (ExecutionException e) {
-            fail("Failed to tap 'more tabs' " + e.toString());
-        }
-    }
-
-    /**
-     * Click "more_tabs" to navigate to tab switcher surface.
-     * @param cta The ChromeTabbedActivity under test.
-     */
-    public static void clickMoreTabs(ChromeTabbedActivity cta) {
-        // Note that onView(R.id.more_tabs).perform(click()) can not be used since it requires 90
-        // percent of the view's area is displayed to the users. However, this view has negative
-        // margin which makes the percentage is less than 90.
-        // TODO(crbug.com/1186752): Investigate whether this would be a problem for real users.
-        try {
-            TestThreadUtils.runOnUiThreadBlocking(
-                    () -> cta.findViewById(R.id.more_tabs).performClick());
         } catch (ExecutionException e) {
             fail("Failed to tap 'more tabs' " + e.toString());
         }
@@ -734,12 +717,6 @@ public class StartSurfaceTestUtils {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         device.pressHome();
         ChromeApplicationTestUtils.waitUntilChromeInBackground();
-    }
-
-    /** Gets the "tab_list_recycler_view" from the carousel tab switcher module on Start surface. */
-    static View getCarouselTabSwitcherTabListView(ChromeTabbedActivity cta) {
-        return cta.findViewById(R.id.tab_switcher_module_container)
-                .findViewById(R.id.tab_list_recycler_view);
     }
 
     /** Presses the back button and verifies that Chrome goes to the background. */

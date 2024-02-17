@@ -36,6 +36,11 @@ ADC_AUTH_FLAGS = """
 use_application_default_credentials=true
 """
 
+GCLOUD_AUTH_FLAGS = """
+use_gcloud_creds=true
+use_external_auth_token=true
+"""
+
 
 def ClangRevision():
     sys.path.insert(0, os.path.join(CHROMIUM_SRC, "tools", "clang", "scripts"))
@@ -54,14 +59,25 @@ def NaclRevision():
         return None
 
     if os.path.isdir(os.path.join(nacl_dir, ".git")):
-        return subprocess.run(
-            ["git", "log", "-1", "--format=%H"],
-            cwd=nacl_dir,
-            shell=os.name == "nt",
-            text=True,
-            check=True,
-            stdout=subprocess.PIPE,
-        ).stdout.strip()
+        remote_host = subprocess.run(["git", "ls-remote", "--get-url"],
+                                     cwd=nacl_dir,
+                                     shell=os.name == "nt",
+                                     text=True,
+                                     stdout=subprocess.PIPE).stdout.strip()
+        # check nacl dir is checkout of native_client.
+        if re.match(".*native_client.*", remote_host):
+            return subprocess.run(
+                ["git", "log", "-1", "--format=%H"],
+                cwd=nacl_dir,
+                shell=os.name == "nt",
+                text=True,
+                check=True,
+                stdout=subprocess.PIPE,
+            ).stdout.strip()
+        else:
+            logging.warning(
+                'unexpected remote host for native_client dir: %s' %
+                remote_host)
 
     # If we're in a work tree without .git directories, we can fallback to
     # the slower method of looking the revision up via `gclient revinfo`.
@@ -160,6 +176,8 @@ def GenerateReproxyCfg(reproxy_cfg_template, rbe_instance, rbe_project):
     if sys.platform.startswith("win"):
         depsscanner_address += ".exe"
         auth_flags = ADC_AUTH_FLAGS
+    if sys.platform == "darwin":
+        auth_flags = GCLOUD_AUTH_FLAGS
     reproxy_cfg = reproxy_cfg_tmpl.substitute({
         "rbe_instance": rbe_instance,
         "rbe_project": rbe_project,

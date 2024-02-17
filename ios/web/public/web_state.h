@@ -44,11 +44,6 @@ typedef id<CRWWebViewProxy> CRWWebViewProxyType;
 @class UIView;
 typedef UIView<CRWScrollableContent> CRWContentView;
 
-namespace gfx {
-class Image;
-class RectF;
-}
-
 namespace web {
 namespace proto {
 class WebStateStorage;
@@ -308,15 +303,13 @@ class WebState : public base::SupportsUserData {
   // Loads the web content from the HTML you provide as if the HTML were the
   // response to the request.
   virtual void LoadSimulatedRequest(const GURL& url,
-                                    NSString* response_html_string)
-      API_AVAILABLE(ios(15.0)) = 0;
+                                    NSString* response_html_string) = 0;
 
   // Loads the web content from the data you provide as if the data were the
   // response to the request.
   virtual void LoadSimulatedRequest(const GURL& url,
                                     NSData* response_data,
-                                    NSString* mime_type)
-      API_AVAILABLE(ios(15.0)) = 0;
+                                    NSString* mime_type) = 0;
 
   // Stops any pending navigation.
   virtual void Stop() = 0;
@@ -451,7 +444,7 @@ class WebState : public base::SupportsUserData {
   virtual void SetHasOpener(bool has_opener) = 0;
 
   // Callback used to handle snapshots. The parameter is the snapshot image.
-  typedef base::RepeatingCallback<void(const gfx::Image&)> SnapshotCallback;
+  typedef base::RepeatingCallback<void(UIImage*)> SnapshotCallback;
 
   // Returns whether TakeSnapshot() can be executed.  The API may be disabled if
   // the WKWebView IPC mechanism is blocked due to an outstanding JavaScript
@@ -462,8 +455,7 @@ class WebState : public base::SupportsUserData {
   // in the coordinate system of the view returned by GetView(). `callback` is
   // asynchronously invoked after performing the snapshot. Prior to iOS 11, the
   // callback is invoked with a nil snapshot.
-  virtual void TakeSnapshot(const gfx::RectF& rect,
-                            SnapshotCallback callback) = 0;
+  virtual void TakeSnapshot(const CGRect rect, SnapshotCallback callback) = 0;
 
   // Creates PDF representation of the web page and invokes the `callback` with
   // the NSData of the PDF or nil if a PDF couldn't be generated.
@@ -491,26 +483,24 @@ class WebState : public base::SupportsUserData {
 
   // Gets or sets the web state's permission for a specific type, for example
   // camera or microphone, on the device.
-  virtual PermissionState GetStateForPermission(Permission permission) const
-      API_AVAILABLE(ios(15.0)) = 0;
+  virtual PermissionState GetStateForPermission(
+      Permission permission) const = 0;
   virtual void SetStateForPermission(PermissionState state,
-                                     Permission permission)
-      API_AVAILABLE(ios(15.0)) = 0;
+                                     Permission permission) = 0;
 
   // Gets a mapping of all available permissions and their states.
   // Note that both key and value are in NSNumber format, and should be
   // translated to NSUInteger and casted to web::Permission or
   // web::PermissionState before use.
-  virtual NSDictionary<NSNumber*, NSNumber*>* GetStatesForAllPermissions() const
-      API_AVAILABLE(ios(15.0)) = 0;
+  virtual NSDictionary<NSNumber*, NSNumber*>* GetStatesForAllPermissions()
+      const = 0;
 
   // Downloads the displayed webview at `destination_file`. `handler`
   // is used to retrieve the CRWWebViewDownload, so the caller can manage the
   // launched download.
   virtual void DownloadCurrentPage(NSString* destination_file,
                                    id<CRWWebViewDownloadDelegate> delegate,
-                                   void (^handler)(id<CRWWebViewDownload>))
-      API_AVAILABLE(ios(14.5)) = 0;
+                                   void (^handler)(id<CRWWebViewDownload>)) = 0;
 
   // Whether the Find interaction is supported and can be enabled.
   virtual bool IsFindInteractionSupported() = 0;

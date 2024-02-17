@@ -5,7 +5,7 @@
 #include <array>
 #include <string>
 
-#include "ash/accessibility/accessibility_controller_impl.h"
+#include "ash/accessibility/accessibility_controller.h"
 #include "ash/accessibility/test_accessibility_controller_client.h"
 #include "ash/constants/app_types.h"
 #include "ash/constants/ash_features.h"
@@ -50,10 +50,12 @@
 #include "ash/wm/overview/overview_test_base.h"
 #include "ash/wm/overview/overview_test_util.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_types.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -145,7 +147,8 @@ class SavedDeskTest : public OverviewTestBase,
 
   // Gets the current list of saved desk entries from the desk model directly
   // without updating the UI.
-  const std::vector<const DeskTemplate*> GetAllEntries() {
+  const std::vector<raw_ptr<const DeskTemplate, VectorExperimental>>
+  GetAllEntries() {
     auto result = desk_model()->GetAllEntries();
     EXPECT_EQ(desks_storage::DeskModel::GetAllEntriesStatus::kOk,
               result.status);
@@ -173,8 +176,7 @@ class SavedDeskTest : public OverviewTestBase,
     return nullptr;
   }
 
-  const CrOSNextDeskIconButton* GetLibraryButtonForRoot(
-      aura::Window* root_window) {
+  const DeskIconButton* GetLibraryButtonForRoot(aura::Window* root_window) {
     if (auto* desks_bar_view = GetDesksBarViewForRoot(root_window)) {
       return desks_bar_view->library_button();
     }
@@ -244,8 +246,8 @@ class SavedDeskTest : public OverviewTestBase,
 
     SavedDeskGridView* grid_view = nullptr;
     SavedDeskItemView* item_view = nullptr;
-    for (auto* grid : saved_desk_library_view->grid_views()) {
-      for (auto* item : grid->grid_items()) {
+    for (ash::SavedDeskGridView* grid : saved_desk_library_view->grid_views()) {
+      for (ash::SavedDeskItemView* item : grid->grid_items()) {
         if (SavedDeskItemViewTestApi(item).uuid() == uuid) {
           grid_view = grid;
           item_view = item;
@@ -461,7 +463,8 @@ TEST_F(SavedDeskTest, AddDeleteEntry) {
   AddEntry(expected_uuid, expected_name, expected_time,
            DeskTemplateType::kTemplate);
 
-  std::vector<const DeskTemplate*> entries = GetAllEntries();
+  std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+      GetAllEntries();
   ASSERT_EQ(1ul, entries.size());
   EXPECT_EQ(expected_uuid, entries[0]->uuid());
   EXPECT_EQ(base::UTF8ToUTF16(expected_name), entries[0]->template_name());
@@ -478,26 +481,24 @@ TEST_F(SavedDeskTest, LibraryButtonsVisibilityClamshell) {
       [this](bool zero_state_shown, bool expanded_state_shown,
              bool active_state_shown, const std::string& trace_string) {
         SCOPED_TRACE(trace_string);
-        for (auto* root_window : Shell::GetAllRootWindows()) {
+        for (aura::Window* root_window : Shell::GetAllRootWindows()) {
           // There is just one library button with a state that is either zero,
           // expanded, or active.
           auto* desks_bar_view = GetDesksBarViewForRoot(root_window);
           ASSERT_TRUE(desks_bar_view);
-          const CrOSNextDeskIconButton* library_button =
+          const DeskIconButton* library_button =
               desks_bar_view->library_button();
           ASSERT_TRUE(library_button);
-          EXPECT_EQ(zero_state_shown,
-                    library_button->GetVisible() &&
-                        library_button->state() ==
-                            CrOSNextDeskIconButton::State::kZero);
-          EXPECT_EQ(expanded_state_shown,
-                    library_button->GetVisible() &&
-                        library_button->state() ==
-                            CrOSNextDeskIconButton::State::kExpanded);
-          EXPECT_EQ(active_state_shown,
-                    library_button->GetVisible() &&
-                        library_button->state() ==
-                            CrOSNextDeskIconButton::State::kActive);
+          EXPECT_EQ(zero_state_shown, library_button->GetVisible() &&
+                                          library_button->state() ==
+                                              DeskIconButton::State::kZero);
+          EXPECT_EQ(
+              expanded_state_shown,
+              library_button->GetVisible() &&
+                  library_button->state() == DeskIconButton::State::kExpanded);
+          EXPECT_EQ(active_state_shown, library_button->GetVisible() &&
+                                            library_button->state() ==
+                                                DeskIconButton::State::kActive);
         }
       };
 
@@ -587,7 +588,8 @@ TEST_F(SavedDeskTest, NoItemsLabelOnDeletingLastSavedDesk) {
 
   // Open overview and save a template.
   OpenOverviewAndSaveTemplate(Shell::Get()->GetPrimaryRootWindow());
-  std::vector<const DeskTemplate*> entries = GetAllEntries();
+  std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+      GetAllEntries();
   ASSERT_EQ(1ul, desk_model()->GetEntryCount());
   // Exit overview mode.
   ToggleOverview();
@@ -649,8 +651,7 @@ TEST_F(SavedDeskTest, NoAppSplitScreenLabelOnSavedDeskGridShow) {
   SplitViewController* split_view_controller =
       SplitViewController::Get(Shell::GetPrimaryRootWindow());
 
-  split_view_controller->SnapWindow(
-      test_window.get(), SplitViewController::SnapPosition::kPrimary);
+  split_view_controller->SnapWindow(test_window.get(), SnapPosition::kPrimary);
   ASSERT_TRUE(split_view_controller->InSplitViewMode());
   views::Widget* cannot_snap_widget =
       GetCannotSnapWidget(unsnappable_overview_item);
@@ -1029,7 +1030,8 @@ TEST_F(SavedDeskTest, SaveDeskButtonsEnabledDisabled) {
         saved_desk_presenter->GetEntryCount(DeskTemplateType::kTemplate));
 
     // Verify that the button is re-enabled after we delete all entries.
-    std::vector<const DeskTemplate*> entries = GetAllEntries();
+    std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+        GetAllEntries();
     for (size_t i = entries.size(); i > 0; i--) {
       DeleteSavedDeskItem(/*uuid=*/entries[i - 1]->uuid(),
                           /*expected_current_item_count=*/i);
@@ -1074,7 +1076,8 @@ TEST_F(SavedDeskTest, SaveDeskButtonsEnabledDisabled) {
         saved_desk_presenter->GetEntryCount(DeskTemplateType::kSaveAndRecall));
 
     // Verify that the button is re-enabled after we delete all entries.
-    std::vector<const DeskTemplate*> entries = GetAllEntries();
+    std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+        GetAllEntries();
     for (size_t i = entries.size(); i > 0; i--) {
       DeleteSavedDeskItem(/*uuid=*/entries[i - 1]->uuid(),
                           /*expected_current_item_count=*/i);
@@ -1870,7 +1873,7 @@ TEST_F(SavedDeskTest, ClamshellToTabletMode) {
   ASSERT_TRUE(desks_bar_view);
   auto* library_button = GetLibraryButtonForRoot(root);
   EXPECT_TRUE(library_button->GetVisible());
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kZero, library_button->state());
+  EXPECT_EQ(DeskIconButton::State::kZero, library_button->state());
   EXPECT_TRUE(
       GetOverviewGridForRoot(root)->IsSaveDeskAsTemplateButtonVisible());
 
@@ -1906,7 +1909,7 @@ TEST_F(SavedDeskTest, ShowingSavedDeskLibraryToTabletMode) {
   ASSERT_TRUE(desks_bar_view);
   auto* library_button = GetLibraryButtonForRoot(root_window);
   EXPECT_TRUE(library_button->GetVisible());
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kActive, library_button->state());
+  EXPECT_EQ(DeskIconButton::State::kActive, library_button->state());
 
   // Tests that after transitioning, we remain in overview mode and the grid is
   // hidden.
@@ -1932,7 +1935,8 @@ TEST_F(SavedDeskTest, TabletModeActivationIssues) {
 
   // Open overview and save a template.
   OpenOverviewAndSaveTemplate(Shell::Get()->GetPrimaryRootWindow());
-  std::vector<const DeskTemplate*> entries = GetAllEntries();
+  std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+      GetAllEntries();
   ASSERT_EQ(1ul, entries.size());
 
   // Tests that after transitioning into tablet mode, the activation and focus
@@ -2002,7 +2006,7 @@ TEST_F(SavedDeskTest, TabbingInvisibleTemplatesButton) {
   ASSERT_TRUE(desks_bar_view);
   auto* library_button = desks_bar_view->library_button();
   ASSERT_TRUE(library_button->GetVisible());
-  ASSERT_EQ(library_button->state(), CrOSNextDeskIconButton::State::kActive);
+  ASSERT_EQ(library_button->state(), DeskIconButton::State::kActive);
 
   // Test that we do not focus the templates button.
   SendKey(ui::VKEY_TAB, ui::EF_SHIFT_DOWN);
@@ -2029,11 +2033,11 @@ TEST_F(SavedDeskTest, DesksBarDoesNotReturnToZeroState) {
       DesksController::Get()->active_desk());
   LeftClickOn(mini_view->desk_action_view()->close_all_button());
   // The new desk button and the library button should be active state.
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kExpanded,
+  EXPECT_EQ(DeskIconButton::State::kExpanded,
             desks_bar_view->new_desk_button()->state());
   // `OpenOverviewAndShowSavedDeskGrid` clicks on the library button, so it
   // should be active.
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kActive,
+  EXPECT_EQ(DeskIconButton::State::kActive,
             desks_bar_view->library_button()->state());
 
   // Delete the one and only template, we should remain in the desk library.
@@ -2044,7 +2048,7 @@ TEST_F(SavedDeskTest, DesksBarDoesNotReturnToZeroState) {
                   ->IsVisible());
 
   // Test that the new desk button is expanded state.
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kExpanded,
+  EXPECT_EQ(DeskIconButton::State::kExpanded,
             desks_bar_view->new_desk_button()->state());
   EXPECT_FALSE(desks_bar_view->IsZeroState());
 }
@@ -2312,28 +2316,28 @@ TEST_F(SavedDeskTest, DesksTemplatesButtonFocusColor) {
   auto* desks_bar_view = GetDesksBarViewForRoot(Shell::GetPrimaryRootWindow());
   const ui::ColorId active_color_id = cros_tokens::kCrosSysTertiary;
 
-  const CrOSNextDeskIconButton* button = desks_bar_view->library_button();
+  const DeskIconButton* button = desks_bar_view->library_button();
   ASSERT_TRUE(button);
 
   // The library button starts of neither focused nor active.
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kExpanded, button->state());
+  EXPECT_EQ(DeskIconButton::State::kExpanded, button->state());
   EXPECT_FALSE(button->GetFocusColorIdForTesting());
 
   // Tests that when we are viewing the saved desk grid, the button border is
   // active.
   LeftClickOn(button);
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kActive, button->state());
+  EXPECT_EQ(DeskIconButton::State::kActive, button->state());
   EXPECT_EQ(active_color_id, *button->GetFocusColorIdForTesting());
 
   // Tests that when focused, the library button border has a focused color.
   SendKey(ui::VKEY_TAB, ui::EF_SHIFT_DOWN);
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kActive, button->state());
+  EXPECT_EQ(DeskIconButton::State::kActive, button->state());
   EXPECT_EQ(focused_color_id, *button->GetFocusColorIdForTesting());
 
   // Shift focus away from the library button. The button border should be
   // active.
   SendKey(ui::VKEY_TAB, ui::EF_SHIFT_DOWN);
-  EXPECT_EQ(CrOSNextDeskIconButton::State::kActive, button->state());
+  EXPECT_EQ(DeskIconButton::State::kActive, button->state());
   EXPECT_EQ(active_color_id, *button->GetFocusColorIdForTesting());
 }
 
@@ -2346,7 +2350,8 @@ TEST_F(SavedDeskTest, WindowActivatableAfterSaveAndDeleteTemplate) {
 
   // Open overview and save a template.
   OpenOverviewAndSaveTemplate(Shell::Get()->GetPrimaryRootWindow());
-  std::vector<const DeskTemplate*> entries = GetAllEntries();
+  std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+      GetAllEntries();
   ASSERT_EQ(1ul, entries.size());
 
   // Delete the one and only template, which should hide the saved desk grid but
@@ -2826,7 +2831,8 @@ TEST_F(SavedDeskTest, AccessibilityGridItemTraversalOrder) {
   ASSERT_TRUE(grid_view);
 
   // The grid items are sorted and displayed alphabetically.
-  std::vector<SavedDeskItemView*> grid_items = grid_view->grid_items();
+  std::vector<raw_ptr<SavedDeskItemView, VectorExperimental>> grid_items =
+      grid_view->grid_items();
   views::View::Views grid_child_views = grid_view->children();
 
   // Verifies the order of the children matches what is displayed in the grid.
@@ -3262,7 +3268,8 @@ TEST_F(SavedDeskTest, ReplaceTemplateMetric) {
   // The Template has been replaced.
   SavedDeskNameView* name_view = grid_items[0]->name_view();
   EXPECT_EQ(base::UTF8ToUTF16(name_1), name_view->GetText());
-  std::vector<const DeskTemplate*> entries = GetAllEntries();
+  std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+      GetAllEntries();
   EXPECT_EQ(uuid_2, entries[0]->uuid());
   // Assert metrics being recorded.
   histogram_tester.ExpectTotalCount(kReplaceTemplateHistogramName, 1);
@@ -3533,8 +3540,7 @@ TEST_F(SavedDeskTest, ButtonsEnabledForUnsupportedWindowAndSplitView) {
       SplitViewController::Get(root_window);
 
   // Snap the app window into the primary position in the split view.
-  split_view_controller->SnapWindow(
-      app_window.get(), SplitViewController::SnapPosition::kPrimary);
+  split_view_controller->SnapWindow(app_window.get(), SnapPosition::kPrimary);
   ASSERT_TRUE(split_view_controller->InSplitViewMode());
 
   auto* save_as_template_button =
@@ -4277,7 +4283,8 @@ TEST_F(DeskSaveAndRecallTest, SaveDeskForLater) {
 
   // Open overview and save the desk.
   OpenOverviewAndSaveDeskForLater(Shell::Get()->GetPrimaryRootWindow());
-  std::vector<const DeskTemplate*> entries = GetAllEntries();
+  std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+      GetAllEntries();
   ASSERT_EQ(1ul, entries.size());
 
   const DeskTemplate& saved_desk = *entries[0];
@@ -4347,7 +4354,8 @@ TEST_F(DeskSaveAndRecallTest, SaveDeskForLaterWithAllDeskWindow) {
 
   // Open overview and save the desk.
   OpenOverviewAndSaveDeskForLater(Shell::Get()->GetPrimaryRootWindow());
-  std::vector<const DeskTemplate*> entries = GetAllEntries();
+  std::vector<raw_ptr<const DeskTemplate, VectorExperimental>> entries =
+      GetAllEntries();
   ASSERT_EQ(1u, entries.size());
 
   // Verify that saving the desk has closed the two test windows but not all
@@ -4512,7 +4520,7 @@ TEST_F(DeskSaveAndRecallTest, ExitOverviewDeskItemFocusCrash) {
   ui::ScopedAnimationDurationScaleMode animation_scale(
       ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
-  AccessibilityControllerImpl* accessibility_controller =
+  AccessibilityController* accessibility_controller =
       Shell::Get()->accessibility_controller();
   accessibility_controller->spoken_feedback().SetEnabled(true);
   EXPECT_TRUE(accessibility_controller->spoken_feedback().enabled());

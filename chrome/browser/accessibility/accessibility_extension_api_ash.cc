@@ -6,10 +6,11 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <set>
 #include <vector>
 
-#include "ash/public/cpp/accessibility_controller.h"
+#include "ash/accessibility/accessibility_controller.h"
 #include "ash/public/cpp/accessibility_controller_enums.h"
 #include "ash/public/cpp/accessibility_focus_ring_info.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
@@ -44,6 +45,7 @@
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/common/color_parser.h"
 #include "extensions/browser/event_router.h"
+#include "extensions/browser/extension_event_histogram_value.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/error_utils.h"
@@ -141,7 +143,7 @@ AccessibilityPrivateEnableMouseEventsFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetCursorPositionFunction::Run() {
-  absl::optional<accessibility_private::SetCursorPosition::Params> params =
+  std::optional<accessibility_private::SetCursorPosition::Params> params =
       accessibility_private::SetCursorPosition::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   gfx::Point location_in_screen(params->point.x, params->point.y);
@@ -163,8 +165,25 @@ AccessibilityPrivateSetCursorPositionFunction::Run() {
 }
 
 ExtensionFunction::ResponseAction
+AccessibilityPrivateGetDisplayBoundsFunction::Run() {
+  const std::vector<display::Display>& displays =
+      display::Screen::GetScreen()->GetAllDisplays();
+  base::Value::List result;
+  for (auto& display : displays) {
+    const gfx::Rect& bounds = display.bounds();
+    auto screen_rect = accessibility_private::ScreenRect();
+    screen_rect.left = bounds.x();
+    screen_rect.top = bounds.y();
+    screen_rect.width = bounds.width();
+    screen_rect.height = bounds.height();
+    result.Append(screen_rect.ToValue());
+  }
+  return RespondNow(WithArguments(std::move(result)));
+}
+
+ExtensionFunction::ResponseAction
 AccessibilityPrivateForwardKeyEventsToSwitchAccessFunction::Run() {
-  absl::optional<accessibility_private::ForwardKeyEventsToSwitchAccess::Params>
+  std::optional<accessibility_private::ForwardKeyEventsToSwitchAccess::Params>
       params =
           accessibility_private::ForwardKeyEventsToSwitchAccess::Params::Create(
               args());
@@ -190,7 +209,7 @@ AccessibilityPrivateGetBatteryDescriptionFunction::Run() {
 // GetDlcContents after uprreving Google TTS to use GetTtsDlcContents.
 ExtensionFunction::ResponseAction
 AccessibilityPrivateGetDlcContentsFunction::Run() {
-  absl::optional<accessibility_private::GetDlcContents::Params> params(
+  std::optional<accessibility_private::GetDlcContents::Params> params(
       accessibility_private::GetDlcContents::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::DlcType dlc = params->dlc;
@@ -205,7 +224,7 @@ AccessibilityPrivateGetDlcContentsFunction::Run() {
 
 void AccessibilityPrivateGetDlcContentsFunction::OnDlcContentsRetrieved(
     const std::vector<uint8_t>& contents,
-    absl::optional<std::string> error) {
+    std::optional<std::string> error) {
   if (error.has_value()) {
     Respond(Error(error.value()));
     return;
@@ -216,7 +235,7 @@ void AccessibilityPrivateGetDlcContentsFunction::OnDlcContentsRetrieved(
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateGetTtsDlcContentsFunction::Run() {
-  absl::optional<accessibility_private::GetTtsDlcContents::Params> params(
+  std::optional<accessibility_private::GetTtsDlcContents::Params> params(
       accessibility_private::GetTtsDlcContents::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::DlcType dlc = params->dlc;
@@ -232,7 +251,7 @@ AccessibilityPrivateGetTtsDlcContentsFunction::Run() {
 
 void AccessibilityPrivateGetTtsDlcContentsFunction::OnTtsDlcContentsRetrieved(
     const std::vector<uint8_t>& contents,
-    absl::optional<std::string> error) {
+    std::optional<std::string> error) {
   if (error.has_value()) {
     Respond(Error(error.value()));
     return;
@@ -243,7 +262,7 @@ void AccessibilityPrivateGetTtsDlcContentsFunction::OnTtsDlcContentsRetrieved(
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateGetLocalizedDomKeyStringForKeyCodeFunction::Run() {
-  absl::optional<
+  std::optional<
       accessibility_private::GetLocalizedDomKeyStringForKeyCode::Params>
       params = accessibility_private::GetLocalizedDomKeyStringForKeyCode::
           Params::Create(args());
@@ -286,7 +305,7 @@ AccessibilityPrivateGetLocalizedDomKeyStringForKeyCodeFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateHandleScrollableBoundsForPointFoundFunction::Run() {
-  absl::optional<
+  std::optional<
       accessibility_private::HandleScrollableBoundsForPointFound::Params>
       params = accessibility_private::HandleScrollableBoundsForPointFound::
           Params::Create(args());
@@ -296,6 +315,24 @@ AccessibilityPrivateHandleScrollableBoundsForPointFoundFunction::Run() {
   ash::AccessibilityController::Get()->HandleAutoclickScrollableBoundsFound(
       bounds);
   return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
+AccessibilityPrivateInstallFaceGazeAssetsFunction::Run() {
+  AccessibilityManager::Get()->InstallFaceGazeAssets(base::BindOnce(
+      &AccessibilityPrivateInstallFaceGazeAssetsFunction::OnInstallFinished,
+      this));
+  return RespondLater();
+}
+
+void AccessibilityPrivateInstallFaceGazeAssetsFunction::OnInstallFinished(
+    std::optional<accessibility_private::FaceGazeAssets> assets) {
+  if (!assets) {
+    Respond(Error("Couldn't retrieve FaceGaze assets."));
+    return;
+  }
+
+  Respond(WithArguments(assets->ToValue()));
 }
 
 ExtensionFunction::ResponseAction
@@ -309,7 +346,7 @@ AccessibilityPrivateInstallPumpkinForDictationFunction::Run() {
 
 void AccessibilityPrivateInstallPumpkinForDictationFunction::
     OnPumpkinInstallFinished(
-        absl::optional<accessibility_private::PumpkinData> data) {
+        std::optional<accessibility_private::PumpkinData> data) {
   if (!data) {
     Respond(Error("Couldn't retrieve Pumpkin data."));
     return;
@@ -320,7 +357,7 @@ void AccessibilityPrivateInstallPumpkinForDictationFunction::
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateIsFeatureEnabledFunction::Run() {
-  absl::optional<accessibility_private::IsFeatureEnabled::Params> params =
+  std::optional<accessibility_private::IsFeatureEnabled::Params> params =
       accessibility_private::IsFeatureEnabled::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::AccessibilityFeature params_feature = params->feature;
@@ -351,7 +388,7 @@ AccessibilityPrivateIsFeatureEnabledFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateMagnifierCenterOnPointFunction::Run() {
-  absl::optional<accessibility_private::MagnifierCenterOnPoint::Params> params =
+  std::optional<accessibility_private::MagnifierCenterOnPoint::Params> params =
       accessibility_private::MagnifierCenterOnPoint::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   gfx::Point point_in_screen(params->point.x, params->point.y);
@@ -365,7 +402,7 @@ AccessibilityPrivateMagnifierCenterOnPointFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateMoveMagnifierToRectFunction::Run() {
-  absl::optional<accessibility_private::MoveMagnifierToRect::Params> params =
+  std::optional<accessibility_private::MoveMagnifierToRect::Params> params =
       accessibility_private::MoveMagnifierToRect::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   gfx::Rect bounds(params->rect.left, params->rect.top, params->rect.width,
@@ -381,7 +418,7 @@ AccessibilityPrivateMoveMagnifierToRectFunction::Run() {
 ExtensionFunction::ResponseAction
 AccessibilityPrivateOpenSettingsSubpageFunction::Run() {
   using extensions::api::accessibility_private::OpenSettingsSubpage::Params;
-  const absl::optional<Params> params(Params::Create(args()));
+  const std::optional<Params> params(Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
 
   AccessibilityManager::Get()->OpenSettingsSubpage(params->subpage);
@@ -390,7 +427,7 @@ AccessibilityPrivateOpenSettingsSubpageFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivatePerformAcceleratorActionFunction::Run() {
-  absl::optional<accessibility_private::PerformAcceleratorAction::Params>
+  std::optional<accessibility_private::PerformAcceleratorAction::Params>
       params = accessibility_private::PerformAcceleratorAction::Params::Create(
           args());
   EXTENSION_FUNCTION_VALIDATE(params);
@@ -414,7 +451,7 @@ AccessibilityPrivatePerformAcceleratorActionFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSendSyntheticKeyEventFunction::Run() {
-  absl::optional<accessibility_private::SendSyntheticKeyEvent::Params> params =
+  std::optional<accessibility_private::SendSyntheticKeyEvent::Params> params =
       accessibility_private::SendSyntheticKeyEvent::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::SyntheticKeyboardEvent* key_data = &params->key_event;
@@ -466,9 +503,8 @@ AccessibilityPrivateSendSyntheticKeyEventFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSendSyntheticMouseEventFunction::Run() {
-  absl::optional<accessibility_private::SendSyntheticMouseEvent::Params>
-      params = accessibility_private::SendSyntheticMouseEvent::Params::Create(
-          args());
+  std::optional<accessibility_private::SendSyntheticMouseEvent::Params> params =
+      accessibility_private::SendSyntheticMouseEvent::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::SyntheticMouseEvent* mouse_data = &params->mouse_event;
 
@@ -571,7 +607,7 @@ AccessibilityPrivateSendSyntheticMouseEventFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetFocusRingsFunction::Run() {
-  absl::optional<accessibility_private::SetFocusRings::Params> params(
+  std::optional<accessibility_private::SetFocusRings::Params> params(
       accessibility_private::SetFocusRings::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
 
@@ -690,7 +726,7 @@ AccessibilityPrivateSetFocusRingsFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetHighlightsFunction::Run() {
-  absl::optional<accessibility_private::SetHighlights::Params> params(
+  std::optional<accessibility_private::SetHighlights::Params> params(
       accessibility_private::SetHighlights::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
 
@@ -706,6 +742,37 @@ AccessibilityPrivateSetHighlightsFunction::Run() {
 
   // Set the highlights to cover all of these rects.
   AccessibilityManager::Get()->SetHighlights(rects, color);
+
+  return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
+AccessibilityPrivateSetSelectToSpeakFocusFunction::Run() {
+  std::optional<accessibility_private::SetSelectToSpeakFocus::Params> params(
+      accessibility_private::SetSelectToSpeakFocus::Params::Create(args()));
+  EXTENSION_FUNCTION_VALIDATE(params);
+
+  if (features::IsAccessibilityMagnifierFollowsStsEnabled() &&
+      ash::AccessibilityController::Get()->fullscreen_magnifier().enabled()) {
+    // Ship this event to AccessibilityCommon for fullscreen magnifier.
+    auto bounds =
+        std::make_unique<extensions::api::accessibility_private::ScreenRect>();
+    bounds->left = params->bounds.left;
+    bounds->top = params->bounds.top;
+    bounds->width = params->bounds.width;
+    bounds->height = params->bounds.height;
+    auto event_args = extensions::api::accessibility_private::
+        OnSelectToSpeakFocusChanged::Create(params->bounds);
+    auto event = std::make_unique<extensions::Event>(
+        extensions::events::
+            ACCESSIBILITY_PRIVATE_ON_SELECT_TO_SPEAK_FOCUS_CHANGED,
+        extensions::api::accessibility_private::OnSelectToSpeakFocusChanged::
+            kEventName,
+        std::move(event_args));
+    extensions::EventRouter::Get(AccessibilityManager::Get()->profile())
+        ->DispatchEventWithLazyListener(
+            extension_misc::kAccessibilityCommonExtensionId, std::move(event));
+  }
 
   return RespondNow(NoArguments());
 }
@@ -751,7 +818,7 @@ AccessibilityPrivateSetNativeAccessibilityEnabledFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetNativeChromeVoxArcSupportForCurrentAppFunction::Run() {
-  absl::optional<
+  std::optional<
       accessibility_private::SetNativeChromeVoxArcSupportForCurrentApp::Params>
       params = accessibility_private::
           SetNativeChromeVoxArcSupportForCurrentApp::Params::Create(args());
@@ -791,7 +858,7 @@ void AccessibilityPrivateSetNativeChromeVoxArcSupportForCurrentAppFunction::
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetPointScanStateFunction::Run() {
-  absl::optional<accessibility_private::SetPointScanState::Params> params =
+  std::optional<accessibility_private::SetPointScanState::Params> params =
       accessibility_private::SetPointScanState::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::PointScanState params_state = params->state;
@@ -812,7 +879,7 @@ AccessibilityPrivateSetPointScanStateFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetSelectToSpeakStateFunction::Run() {
-  absl::optional<accessibility_private::SetSelectToSpeakState::Params> params =
+  std::optional<accessibility_private::SetSelectToSpeakState::Params> params =
       accessibility_private::SetSelectToSpeakState::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::SelectToSpeakState params_state = params->state;
@@ -837,7 +904,7 @@ AccessibilityPrivateSetSelectToSpeakStateFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetVirtualKeyboardVisibleFunction::Run() {
-  absl::optional<accessibility_private::SetVirtualKeyboardVisible::Params>
+  std::optional<accessibility_private::SetVirtualKeyboardVisible::Params>
       params = accessibility_private::SetVirtualKeyboardVisible::Params::Create(
           args());
   EXTENSION_FUNCTION_VALIDATE(params);
@@ -849,7 +916,7 @@ AccessibilityPrivateSetVirtualKeyboardVisibleFunction::Run() {
 }
 
 ExtensionFunction::ResponseAction AccessibilityPrivateShowToastFunction::Run() {
-  absl::optional<accessibility_private::ShowToast::Params> params(
+  std::optional<accessibility_private::ShowToast::Params> params(
       accessibility_private::ShowToast::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
   ash::AccessibilityController::Get()->ShowToast(
@@ -859,7 +926,7 @@ ExtensionFunction::ResponseAction AccessibilityPrivateShowToastFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateShowConfirmationDialogFunction::Run() {
-  absl::optional<accessibility_private::ShowConfirmationDialog::Params> params =
+  std::optional<accessibility_private::ShowConfirmationDialog::Params> params =
       accessibility_private::ShowConfirmationDialog::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
 
@@ -915,7 +982,7 @@ AccessibilityPrivateToggleDictationFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateUpdateDictationBubbleFunction::Run() {
-  absl::optional<accessibility_private::UpdateDictationBubble::Params> params(
+  std::optional<accessibility_private::UpdateDictationBubble::Params> params(
       accessibility_private::UpdateDictationBubble::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
   accessibility_private::DictationBubbleProperties& properties =
@@ -942,13 +1009,13 @@ AccessibilityPrivateUpdateDictationBubbleFunction::Run() {
   }
 
   // Extract text.
-  absl::optional<std::u16string> text;
+  std::optional<std::u16string> text;
   if (properties.text) {
     text = base::UTF8ToUTF16(*properties.text);
   }
 
   // Extract hints.
-  absl::optional<std::vector<ash::DictationBubbleHintType>> hints;
+  std::optional<std::vector<ash::DictationBubbleHintType>> hints;
   if (properties.hints) {
     std::vector<ash::DictationBubbleHintType> converted_hints;
     for (size_t i = 0; i < (*properties.hints).size(); ++i) {
@@ -969,7 +1036,7 @@ AccessibilityPrivateUpdateDictationBubbleFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateUpdateSelectToSpeakPanelFunction::Run() {
-  absl::optional<accessibility_private::UpdateSelectToSpeakPanel::Params>
+  std::optional<accessibility_private::UpdateSelectToSpeakPanel::Params>
       params = accessibility_private::UpdateSelectToSpeakPanel::Params::Create(
           args());
   EXTENSION_FUNCTION_VALIDATE(params);
@@ -994,7 +1061,7 @@ AccessibilityPrivateUpdateSelectToSpeakPanelFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AccessibilityPrivateUpdateSwitchAccessBubbleFunction::Run() {
-  absl::optional<accessibility_private::UpdateSwitchAccessBubble::Params>
+  std::optional<accessibility_private::UpdateSwitchAccessBubble::Params>
       params = accessibility_private::UpdateSwitchAccessBubble::Params::Create(
           args());
   EXTENSION_FUNCTION_VALIDATE(params);

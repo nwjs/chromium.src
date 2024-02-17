@@ -15,6 +15,7 @@
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_source.h"
 #include "third_party/blink/renderer/modules/mediastream/media_constraints.h"
 #include "third_party/blink/renderer/modules/mediastream/mock_constraint_factory.h"
+#include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
@@ -206,6 +207,8 @@ class MediaStreamConstraintsUtilVideoDeviceTest : public testing::Test {
     return {
         &MediaTrackConstraintSetPlatform::torch,
         &MediaTrackConstraintSetPlatform::background_blur,
+        &MediaTrackConstraintSetPlatform::eye_gaze_correction,
+        &MediaTrackConstraintSetPlatform::face_framing,
     };
   }
 
@@ -218,6 +221,7 @@ class MediaStreamConstraintsUtilVideoDeviceTest : public testing::Test {
     };
   }
 
+  test::TaskEnvironment task_environment_;
   VideoDeviceCaptureCapabilities capabilities_;
   raw_ptr<const VideoInputDeviceCapabilities, ExperimentalRenderer>
       default_device_;
@@ -2618,6 +2622,9 @@ TEST_F(MediaStreamConstraintsUtilVideoDeviceTest,
     // ignored because it contradicts the third set.
     EXPECT_EQ(result.image_capture_device_settings()->torch.has_value(),
               constraint == &MediaTrackConstraintSetPlatform::torch);
+    if (result.image_capture_device_settings()->torch.has_value()) {
+      EXPECT_FALSE(result.image_capture_device_settings()->torch.value());
+    }
     EXPECT_EQ(
         result.image_capture_device_settings()->background_blur.has_value(),
         constraint == &MediaTrackConstraintSetPlatform::background_blur);
@@ -2625,8 +2632,19 @@ TEST_F(MediaStreamConstraintsUtilVideoDeviceTest,
       EXPECT_FALSE(
           result.image_capture_device_settings()->background_blur.value());
     }
-    if (result.image_capture_device_settings()->torch.has_value()) {
-      EXPECT_FALSE(result.image_capture_device_settings()->torch.value());
+    EXPECT_EQ(
+        result.image_capture_device_settings()->eye_gaze_correction.has_value(),
+        constraint == &MediaTrackConstraintSetPlatform::eye_gaze_correction);
+    if (result.image_capture_device_settings()
+            ->eye_gaze_correction.has_value()) {
+      EXPECT_FALSE(
+          result.image_capture_device_settings()->eye_gaze_correction.value());
+    }
+    EXPECT_EQ(result.image_capture_device_settings()->face_framing.has_value(),
+              constraint == &MediaTrackConstraintSetPlatform::face_framing);
+    if (result.image_capture_device_settings()->face_framing.has_value()) {
+      EXPECT_FALSE(
+          result.image_capture_device_settings()->face_framing.value());
     }
   }
 }
@@ -2762,6 +2780,9 @@ TEST_F(MediaStreamConstraintsUtilVideoDeviceTest, BasicImageCapture) {
     ASSERT_TRUE(result.image_capture_device_settings().has_value());
     EXPECT_EQ(result.image_capture_device_settings()->torch.has_value(),
               constraint == &MediaTrackConstraintSetPlatform::torch);
+    if (result.image_capture_device_settings()->torch.has_value()) {
+      EXPECT_FALSE(result.image_capture_device_settings()->torch.value());
+    }
     EXPECT_EQ(
         result.image_capture_device_settings()->background_blur.has_value(),
         constraint == &MediaTrackConstraintSetPlatform::background_blur);
@@ -2769,8 +2790,19 @@ TEST_F(MediaStreamConstraintsUtilVideoDeviceTest, BasicImageCapture) {
       EXPECT_FALSE(
           result.image_capture_device_settings()->background_blur.value());
     }
-    if (result.image_capture_device_settings()->torch.has_value()) {
-      EXPECT_FALSE(result.image_capture_device_settings()->torch.value());
+    EXPECT_EQ(
+        result.image_capture_device_settings()->eye_gaze_correction.has_value(),
+        constraint == &MediaTrackConstraintSetPlatform::eye_gaze_correction);
+    if (result.image_capture_device_settings()
+            ->eye_gaze_correction.has_value()) {
+      EXPECT_FALSE(
+          result.image_capture_device_settings()->eye_gaze_correction.value());
+    }
+    EXPECT_EQ(result.image_capture_device_settings()->face_framing.has_value(),
+              constraint == &MediaTrackConstraintSetPlatform::face_framing);
+    if (result.image_capture_device_settings()->face_framing.has_value()) {
+      EXPECT_FALSE(
+          result.image_capture_device_settings()->face_framing.value());
     }
   }
 }

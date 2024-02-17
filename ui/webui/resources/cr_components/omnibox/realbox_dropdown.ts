@@ -56,6 +56,12 @@ export class RealboxDropdownElement extends PolymerElement {
         value: false,
       },
 
+      chromeRefreshHoverShape: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('realboxCr23HoverFillShape'),
+        reflectToAttribute: true,
+      },
+
       expandedStateLayoutChromeRefresh: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('realboxCr23ExpandedStateLayout'),
@@ -78,6 +84,7 @@ export class RealboxDropdownElement extends PolymerElement {
         type: Boolean,
         computed: `computeHasSecondarySide_(result)`,
         notify: true,
+        reflectToAttribute: true,
       },
 
       result: {
@@ -123,6 +130,7 @@ export class RealboxDropdownElement extends PolymerElement {
   }
 
   canShowSecondarySide: boolean;
+  chromeRefreshHoverShape: boolean;
   expandedStateLayoutChromeRefresh: boolean;
   hadSecondarySide: boolean;
   hasSecondarySide: boolean;
@@ -188,13 +196,18 @@ export class RealboxDropdownElement extends PolymerElement {
     this.selectedMatchIndex = index;
   }
 
-  updateSelection(selection: OmniboxPopupSelection) {
+  updateSelection(
+      oldSelection: OmniboxPopupSelection, selection: OmniboxPopupSelection) {
     if (selection.state === SelectionLineState.kFocusedButtonHeader) {
       // TODO: Focus group header.
       this.unselect();
       return;
     }
-
+    // If the updated selection is a new match, remove any remaining focus on
+    // the previous match.
+    if (oldSelection.line !== selection.line) {
+      this.selectableMatchElements[this.selectedMatchIndex]?.removeSelection();
+    }
     this.selectIndex(selection.line);
     this.selectableMatchElements[this.selectedMatchIndex]?.updateSelection(
         selection);

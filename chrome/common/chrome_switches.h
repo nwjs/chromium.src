@@ -55,6 +55,7 @@ extern const char kAuthServerAllowlist[];
 extern const char kAutoOpenDevToolsForTabs[];
 extern const char kAutoSelectDesktopCaptureSource[];
 extern const char kAutoSelectTabCaptureSourceByTitle[];
+extern const char kAutoSelectWindowCaptureSourceByTitle[];
 extern const char kCheckForUpdateIntervalSec[];
 extern const char kCipherSuiteBlacklist[];
 extern const char kCrashOnHangThreads[];
@@ -91,13 +92,13 @@ extern const char kDumpBrowserHistograms[];
 extern const char kEnableAudioDebugRecordingsFromExtension[];
 extern const char kEnableBookmarkUndo[];
 extern const char kEnableCloudPrintProxy[];
-extern const char kEnableCriticalPersistedTabData[];
 extern const char kEnableDomainReliability[];
 extern const char kEnableDownloadWarningImprovements[];
 extern const char kEnableExtensionActivityLogging[];
 extern const char kEnableExtensionActivityLogTesting[];
 extern const char kEnableHangoutServicesExtensionForTesting[];
 #if BUILDFLAG(IS_CHROMEOS)
+extern const char kEnableLacrosForkZygotesAtLoginScreen[];
 extern const char kEnableLacrosSharedComponentsDir[];
 #endif
 extern const char kEnableNaCl[];
@@ -214,6 +215,7 @@ extern const char kForceDisableSigninFRE[];
 extern const char kForceUpdateMenuType[];
 extern const char kMarketUrlForTesting[];
 extern const char kRequestDesktopSites[];
+extern const char kStartStackProfilerWithJavaNameHashing[];
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

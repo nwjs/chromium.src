@@ -661,12 +661,9 @@ static bool ShouldUseLayoutNG(const LayoutObject& layout_object) {
          layout_object.IsInLayoutNGInlineFormattingContext();
 }
 
-// Get the deepest descendant that is included in the tree.
-// |start_object| does not have to be included in the tree.
-// If |first| is true, returns the deepest first descendant.
-// Otherwise, returns the deepest last descendant.
-static AXObject* GetDeepestAXChildInLayoutTree(AXObject* start_object,
-                                               bool first) {
+AXObject* AXLayoutObject::GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(
+    AXObject* start_object,
+    bool first) const {
   if (!start_object)
     return nullptr;
 
@@ -677,16 +674,31 @@ static AXObject* GetDeepestAXChildInLayoutTree(AXObject* start_object,
   AXObject* result = start_object;
   Node* current_node = start_object->GetNode();
   while (current_node) {
+    // If we find a node that is inline-block, we want to return it rather than
+    // getting the deepest child for that. This is because these are now always
+    // being included in the tree and the Next/PreviousOnLine could be set on
+    // the inline-block element. We exclude list markers since those technically
+    // fulfill the inline-block condition.
+    AXObject* ax_object = start_object->AXObjectCache().Get(current_node);
+    if (ax_object && ax_object->AccessibilityIsIncludedInTree() &&
+        !current_node->IsMarkerPseudoElement()) {
+      if (start_object->GetLayoutObject() &&
+          start_object->GetLayoutObject()->IsInline() &&
+          start_object->GetLayoutObject()->IsAtomicInlineLevel()) {
+        return ax_object;
+      }
+    }
+
     current_node = first ? LayoutTreeBuilderTraversal::FirstChild(*current_node)
                          : LayoutTreeBuilderTraversal::LastChild(*current_node);
     if (!current_node)
       break;
 
-    AXObject* tentative_child =
-        start_object->AXObjectCache().GetOrCreate(current_node);
+    AXObject* tentative_child = start_object->AXObjectCache().Get(current_node);
 
-    if (tentative_child && tentative_child->AccessibilityIsIncludedInTree())
+    if (tentative_child && tentative_child->AccessibilityIsIncludedInTree()) {
       result = tentative_child;
+    }
   }
 
   // Have reached the end of LayoutTreeBuilderTraversal. From here on, traverse
@@ -725,7 +737,8 @@ AXObject* AXLayoutObject::NextOnLine() const {
     // Note that pseudo content is always included in the tree, so
     // NextSiblingIncludingIgnored() will succeed.
     if (AccessibilityIsIncludedInTree()) {
-      return GetDeepestAXChildInLayoutTree(NextSiblingIncludingIgnored(), true);
+      return GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(
+          NextSiblingIncludingIgnored(), true);
     }
     return nullptr;
   }
@@ -757,13 +770,25 @@ AXObject* AXLayoutObject::NextOnLine() const {
   // Found cursor: use it to find next inline leaf.
   if (cursor) {
     cursor.MoveToNextInlineLeafOnLine();
-    if (cursor) {
+    while (cursor) {
       LayoutObject* runner_layout_object = cursor.CurrentMutableLayoutObject();
       DCHECK(runner_layout_object);
-      AXObject* result = AXObjectCache().GetOrCreate(runner_layout_object);
-      result = GetDeepestAXChildInLayoutTree(result, true);
-      if (result)
+      AXObject* result = AXObjectCache().Get(runner_layout_object);
+
+      bool is_inert = result ? result->IsInert() : false;
+
+      result =
+          GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(result, true);
+      if (result) {
         return result;
+      }
+
+      // We want to continue searching for the next inline leaf if the
+      // current one is inert.
+      if (!is_inert) {
+        break;
+      }
+      cursor.MoveToNextInlineLeafOnLine();
     }
   }
 
@@ -814,7 +839,8 @@ AXObject* AXLayoutObject::PreviousOnLine() const {
   if (previous_sibling && previous_sibling->GetLayoutObject() &&
       previous_sibling->GetLayoutObject()->IsLayoutOutsideListMarker()) {
     // A list item should be preceded by a list marker on the same line.
-    return GetDeepestAXChildInLayoutTree(previous_sibling, false);
+    return GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(
+        previous_sibling, false);
   }
 
   if (layout_object->IsBoxListMarkerIncludingNG() ||
@@ -841,13 +867,25 @@ AXObject* AXLayoutObject::PreviousOnLine() const {
   // Found cursor: use it to find previous inline leaf.
   if (cursor) {
     cursor.MoveToPreviousInlineLeafOnLine();
-    if (cursor) {
+    while (cursor) {
       LayoutObject* runner_layout_object = cursor.CurrentMutableLayoutObject();
       DCHECK(runner_layout_object);
-      AXObject* result = AXObjectCache().GetOrCreate(runner_layout_object);
-      result = GetDeepestAXChildInLayoutTree(result, false);
-      if (result)
+      AXObject* result = AXObjectCache().Get(runner_layout_object);
+
+      bool is_inert = result ? result->IsInert() : false;
+
+      result =
+          GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(result, false);
+      if (result) {
         return result;
+      }
+
+      // We want to continue searching for the previous inline leaf if the
+      // current one is inert.
+      if (!is_inert) {
+        break;
+      }
+      cursor.MoveToPreviousInlineLeafOnLine();
     }
   }
 
@@ -916,7 +954,7 @@ String AXLayoutObject::TextAlternative(
           // If no textboxes, this was whitespace at the line's end.
           text_alternative = " ";
         } else {
-          text_alternative = layout_text->GetText();
+          text_alternative = layout_text->TransformedText();
         }
       } else {
         text_alternative = visible_text;
@@ -997,7 +1035,7 @@ AXObject* AXLayoutObject::AccessibilityHitTest(const gfx::Point& point) const {
   }
 
   LayoutObject* obj = node->GetLayoutObject();
-  AXObject* result = AXObjectCache().GetOrCreate(obj);
+  AXObject* result = AXObjectCache().Get(obj);
   if (!result)
     return nullptr;
   result->UpdateChildrenIfNecessary();
@@ -1011,8 +1049,9 @@ AXObject* AXLayoutObject::AccessibilityHitTest(const gfx::Point& point) const {
     // control. The label is ignored because it's already reflected in the name.
     if (auto* label = DynamicTo<HTMLLabelElement>(result->GetNode())) {
       if (HTMLElement* control = label->control()) {
-        if (AXObject* ax_control = AXObjectCache().GetOrCreate(control))
+        if (AXObject* ax_control = AXObjectCache().Get(control)) {
           return ax_control;
+        }
       }
     }
 
@@ -1183,7 +1222,7 @@ AXObject* AXLayoutObject::CellForColumnAndRow(unsigned target_column_index,
             target_column_index <= effective_last_col &&
             target_row_index >= row_index &&
             target_row_index < row_index + row_span) {
-          return AXObjectCache().GetOrCreate(cell);
+          return AXObjectCache().Get(cell);
         }
       }
     }
@@ -1208,7 +1247,7 @@ bool AXLayoutObject::FindAllTableCellsWithRole(ax::mojom::blink::Role role,
          row = row->NextRow()) {
       for (LayoutTableCell* cell = row->FirstCell(); cell;
            cell = cell->NextCell()) {
-        AXObject* ax_cell = AXObjectCache().GetOrCreate(cell);
+        AXObject* ax_cell = AXObjectCache().Get(cell);
         if (ax_cell && ax_cell->RoleValue() == role)
           cells.push_back(ax_cell);
       }
@@ -1240,7 +1279,7 @@ AXObject* AXLayoutObject::HeaderObject() const {
 
   for (LayoutTableCell* cell = row->FirstCell(); cell;
        cell = cell->NextCell()) {
-    AXObject* ax_cell = cell ? AXObjectCache().GetOrCreate(cell) : nullptr;
+    AXObject* ax_cell = cell ? AXObjectCache().Get(cell) : nullptr;
     if (ax_cell && ax_cell->RoleValue() == ax::mojom::blink::Role::kRowHeader)
       return ax_cell;
   }
@@ -1281,7 +1320,7 @@ AXObject* AXLayoutObject::AccessibilityImageMapHitTest(
   if (!area)
     return nullptr;
 
-  AXObject* parent = AXObjectCache().GetOrCreate(area->ImageElement());
+  AXObject* parent = AXObjectCache().Get(area->ImageElement());
   if (!parent)
     return nullptr;
 

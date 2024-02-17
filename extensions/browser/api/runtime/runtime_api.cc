@@ -113,15 +113,16 @@ void DispatchOnStartupEventImpl(
     return;
   }
 
+  if (ExtensionsBrowserClient::Get()->IsShuttingDown() ||
+      !ExtensionsBrowserClient::Get()->IsValidContext(browser_context)) {
+    return;
+  }
+
   // Don't send onStartup events to incognito browser contexts.
   if (browser_context->IsOffTheRecord()) {
     return;
   }
 
-  if (ExtensionsBrowserClient::Get()->IsShuttingDown() ||
-      !ExtensionsBrowserClient::Get()->IsValidContext(browser_context)) {
-    return;
-  }
   ExtensionSystem* system = ExtensionSystem::Get(browser_context);
   if (!system) {
     return;
@@ -135,7 +136,8 @@ void DispatchOnStartupEventImpl(
                                    .GetByID(extension_id);
   if (extension && BackgroundInfo::HasPersistentBackgroundPage(extension) &&
       first_call) {
-    const LazyContextId context_id(browser_context, extension_id);
+    const auto context_id =
+        LazyContextId::ForExtension(browser_context, extension);
     LazyContextTaskQueue* task_queue = context_id.GetTaskQueue();
     if (task_queue->ShouldEnqueueTask(browser_context, extension)) {
       task_queue->AddPendingTask(
@@ -644,9 +646,13 @@ void RuntimeAPI::OnExtensionInstalledAndLoaded(
 }
 
 ExtensionFunction::ResponseAction RuntimeGetBackgroundPageFunction::Run() {
+  if (!BackgroundInfo::HasBackgroundPage(extension())) {
+    return RespondNow(Error(kNoBackgroundPageError));
+  }
   ExtensionHost* host = ProcessManager::Get(browser_context())
                             ->GetBackgroundHostForExtension(extension_id());
-  const LazyContextId context_id(browser_context(), extension_id());
+  const auto context_id =
+      LazyContextId::ForExtension(browser_context(), extension());
   LazyContextTaskQueue* task_queue = context_id.GetTaskQueue();
   if (task_queue->ShouldEnqueueTask(browser_context(), extension())) {
     task_queue->AddPendingTask(
@@ -844,7 +850,9 @@ RuntimeGetContextsFunction::GetWorkerContext() {
 
   std::vector<WorkerId> active_workers =
       process_manager->GetServiceWorkersForExtension(extension()->id());
-  CHECK_LE(active_workers.size(), 1u);
+  // TODO(crbug.com/1493391): Upgrade this to a CHECK once multiple active
+  // workers has been resolved.
+  DCHECK_LE(active_workers.size(), 1u);
 
   if (active_workers.empty()) {
     return std::nullopt;

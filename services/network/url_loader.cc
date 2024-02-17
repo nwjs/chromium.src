@@ -739,6 +739,12 @@ URLLoader::URLLoader(
     url_request_->cookie_setting_overrides().Put(
         net::CookieSettingOverride::kTopLevelStorageAccessGrantEligible);
   }
+  if (network::cors::IsCorsEnabledRequestMode(request_mode_) &&
+      url_request_->site_for_cookies().IsNull() &&
+      url_request_->allow_credentials()) {
+    url_request_->cookie_setting_overrides().Put(
+        net::CookieSettingOverride::kCrossSiteCredentialedWithCORS);
+  }
 
   AddAdsHeuristicCookieSettingOverrides(
       request.is_ad_tagged, url_request_->cookie_setting_overrides());
@@ -1355,8 +1361,6 @@ mojom::URLResponseHeadPtr URLLoader::BuildResponseHead() const {
     url_request_->GetLoadTimingInfo(&response->load_timing);
 
   if (url_request_->ssl_info().cert.get()) {
-    response->ct_policy_compliance =
-        url_request_->ssl_info().ct_policy_compliance;
     response->cert_status = url_request_->ssl_info().cert_status;
     if ((options_ & mojom::kURLLoadOptionSendSSLInfoWithResponse) ||
         (net::IsCertStatusError(url_request_->ssl_info().cert_status) &&

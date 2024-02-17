@@ -170,9 +170,9 @@ Color Color::FromRGBALegacy(absl::optional<int> r,
                             absl::optional<int> g,
                             absl::optional<int> b,
                             absl::optional<int> a) {
-  Color result =
-      Color(ClampInt(a.value_or(0.f)) << 24 | ClampInt(r.value_or(0.f)) << 16 |
-            ClampInt(g.value_or(0.f)) << 8 | ClampInt(b.value_or(0.f)));
+  Color result = Color(
+      ClampInt255(a.value_or(0.f)) << 24 | ClampInt255(r.value_or(0.f)) << 16 |
+      ClampInt255(g.value_or(0.f)) << 8 | ClampInt255(b.value_or(0.f)));
   result.param0_is_none_ = !r;
   result.param1_is_none_ = !g;
   result.param2_is_none_ = !b;
@@ -353,6 +353,47 @@ void Color::CarryForwardAnalogousMissingComponents(
 }
 
 // static
+bool Color::SubstituteMissingParameters(Color& color1, Color& color2) {
+  if (color1.color_space_ != color2.color_space_) {
+    return false;
+  }
+
+  if (color1.param0_is_none_ && !color2.param0_is_none_) {
+    color1.param0_ = color2.param0_;
+    color1.param0_is_none_ = false;
+  } else if (color2.param0_is_none_ && !color1.param0_is_none_) {
+    color2.param0_ = color1.param0_;
+    color2.param0_is_none_ = false;
+  }
+
+  if (color1.param1_is_none_ && !color2.param1_is_none_) {
+    color1.param1_ = color2.param1_;
+    color1.param1_is_none_ = false;
+  } else if (color2.param1_is_none_ && !color1.param1_is_none_) {
+    color2.param1_ = color1.param1_;
+    color2.param1_is_none_ = false;
+  }
+
+  if (color1.param2_is_none_ && !color2.param2_is_none_) {
+    color1.param2_ = color2.param2_;
+    color1.param2_is_none_ = false;
+  } else if (color2.param2_is_none_ && !color1.param2_is_none_) {
+    color2.param2_ = color1.param2_;
+    color2.param2_is_none_ = false;
+  }
+
+  if (color1.alpha_is_none_ && !color2.alpha_is_none_) {
+    color1.alpha_ = color2.alpha_;
+    color1.alpha_is_none_ = false;
+  } else if (color2.alpha_is_none_ && !color1.alpha_is_none_) {
+    color2.alpha_ = color1.alpha_;
+    color2.alpha_is_none_ = false;
+  }
+
+  return true;
+}
+
+// static
 Color Color::InterpolateColors(
     Color::ColorSpace interpolation_space,
     absl::optional<HueInterpolationMethod> hue_method,
@@ -374,37 +415,24 @@ Color Color::InterpolateColors(
   CarryForwardAnalogousMissingComponents(color1, color1_prev_color_space);
   CarryForwardAnalogousMissingComponents(color2, color2_prev_color_space);
 
-  if (color1.alpha_is_none_ && !color2.alpha_is_none_) {
-    color1.alpha_ = color2.alpha_;
-    color1.alpha_is_none_ = false;
-  } else if (color2.alpha_is_none_ && !color1.alpha_is_none_) {
-    color2.alpha_ = color1.alpha_;
-    color2.alpha_is_none_ = false;
+  if (!SubstituteMissingParameters(color1, color2)) {
+    NOTREACHED();
+    return Color();
   }
 
-  absl::optional<float> alpha1 = color1.PremultiplyColor();
-  absl::optional<float> alpha2 = color2.PremultiplyColor();
+  float alpha1 = color1.PremultiplyColor();
+  float alpha2 = color2.PremultiplyColor();
 
-  auto HandleNoneInterpolation = [](float value1, bool value1_is_none,
-                                    float value2, bool value2_is_none) {
-    DCHECK(value1_is_none || value2_is_none);
-
-    if (!value1_is_none) {
-      return absl::optional<float>(value1);
-    }
-
-    if (!value2_is_none) {
-      return absl::optional<float>(value2);
-    }
-
-    DCHECK(value1_is_none && value2_is_none);
-    return absl::optional<float>();
-  };
+  if (!hue_method.has_value()) {
+    // https://www.w3.org/TR/css-color-4/#hue-interpolation
+    // Unless otherwise specified, if no specific hue interpolation algorithm
+    // is selected by the host syntax, the default is shorter.
+    hue_method = HueInterpolationMethod::kShorter;
+  }
 
   absl::optional<float> param0 =
-      (color1.param0_is_none_ || color2.param0_is_none_)
-          ? HandleNoneInterpolation(color1.param0_, color1.param0_is_none_,
-                                    color2.param0_, color2.param0_is_none_)
+      (color1.param0_is_none_ && color2.param0_is_none_)
+          ? absl::optional<float>(absl::nullopt)
       : (interpolation_space == ColorSpace::kHSL ||
          interpolation_space == ColorSpace::kHWB)
           ? HueInterpolation(color1.param0_, color2.param0_, percentage,
@@ -412,27 +440,21 @@ Color Color::InterpolateColors(
           : blink::Blend(color1.param0_, color2.param0_, percentage);
 
   absl::optional<float> param1 =
-      (color1.param1_is_none_ || color2.param1_is_none_)
-          ? HandleNoneInterpolation(color1.param1_, color1.param1_is_none_,
-                                    color2.param1_, color2.param1_is_none_)
+      (color1.param1_is_none_ && color2.param1_is_none_)
+          ? absl::optional<float>(absl::nullopt)
           : blink::Blend(color1.param1_, color2.param1_, percentage);
 
   absl::optional<float> param2 =
-      (color1.param2_is_none_ || color2.param2_is_none_)
-          ? HandleNoneInterpolation(color1.param2_, color1.param2_is_none_,
-                                    color2.param2_, color2.param2_is_none_)
+      (color1.param2_is_none_ && color2.param2_is_none_)
+          ? absl::optional<float>(absl::nullopt)
       : (IsChromaSecondComponent(interpolation_space))
           ? HueInterpolation(color1.param2_, color2.param2_, percentage,
                              hue_method.value())
           : blink::Blend(color1.param2_, color2.param2_, percentage);
 
-  if (color1.alpha_is_none_ || color2.alpha_is_none_) {
-    DCHECK_EQ(color1.alpha_is_none_, color2.alpha_is_none_);
-  }
-  absl::optional<float> alpha =
-      (color1.alpha_is_none_ && color2.alpha_is_none_)
-          ? absl::optional<float>(absl::nullopt)
-          : blink::Blend(alpha1.value(), alpha2.value(), percentage);
+  absl::optional<float> alpha = (color1.alpha_is_none_ && color2.alpha_is_none_)
+                                    ? absl::optional<float>(absl::nullopt)
+                                    : blink::Blend(alpha1, alpha2, percentage);
 
   Color result =
       FromColorSpace(interpolation_space, param0, param1, param2, alpha);
@@ -444,7 +466,10 @@ Color Color::InterpolateColors(
 
 std::tuple<float, float, float> Color::ExportAsXYZD50Floats() const {
   switch (color_space_) {
-    case ColorSpace::kSRGBLegacy:
+    case ColorSpace::kSRGBLegacy: {
+      auto [r, g, b] = gfx::SRGBLegacyToSRGB(param0_, param1_, param2_);
+      return gfx::SRGBToXYZD50(r, g, b);
+    }
     case ColorSpace::kSRGB:
       return gfx::SRGBToXYZD50(param0_, param1_, param2_);
     case ColorSpace::kSRGBLinear:
@@ -662,25 +687,36 @@ void Color::ConvertToColorSpace(ColorSpace destination_color_space,
     }
     case ColorSpace::kSRGB:
     case ColorSpace::kSRGBLegacy: {
-      if (color_space_ == ColorSpace::kSRGB ||
-          color_space_ == ColorSpace::kSRGBLegacy) {
-        color_space_ = destination_color_space;
-        return;
-      }
       if (color_space_ == ColorSpace::kHSL) {
         std::tie(param0_, param1_, param2_) =
             gfx::HSLToSRGB(param0_, param1_, param2_);
       } else if (color_space_ == ColorSpace::kHWB) {
         std::tie(param0_, param1_, param2_) =
             gfx::HWBToSRGB(param0_, param1_, param2_);
-      } else {
+      } else if (color_space_ == ColorSpace::kSRGBLegacy) {
+        std::tie(param0_, param1_, param2_) =
+            gfx::SRGBLegacyToSRGB(param0_, param1_, param2_);
+      } else if (color_space_ != ColorSpace::kSRGB) {
+        // Don't go through the whole conversion to xyz for srgb to avoid
+        // rounding issues.
         auto [x, y, z] = ExportAsXYZD50Floats();
         std::tie(param0_, param1_, param2_) = gfx::XYZD50TosRGB(x, y, z);
       }
+
+      // All the above conversions result in non-legacy srgb.
+      if (destination_color_space == ColorSpace::kSRGBLegacy) {
+        std::tie(param0_, param1_, param2_) =
+            gfx::SRGBToSRGBLegacy(param0_, param1_, param2_);
+      }
+
       color_space_ = destination_color_space;
       return;
     }
     case ColorSpace::kHSL: {
+      if (color_space_ == ColorSpace::kSRGBLegacy) {
+        std::tie(param0_, param1_, param2_) =
+            gfx::SRGBLegacyToSRGB(param0_, param1_, param2_);
+      }
       if (color_space_ == ColorSpace::kSRGB ||
           color_space_ == ColorSpace::kSRGBLegacy) {
         std::tie(param0_, param1_, param2_) =
@@ -706,6 +742,10 @@ void Color::ConvertToColorSpace(ColorSpace destination_color_space,
       return;
     }
     case ColorSpace::kHWB: {
+      if (color_space_ == ColorSpace::kSRGBLegacy) {
+        std::tie(param0_, param1_, param2_) =
+            gfx::SRGBLegacyToSRGB(param0_, param1_, param2_);
+      }
       if (color_space_ == ColorSpace::kSRGB ||
           color_space_ == ColorSpace::kSRGBLegacy) {
         std::tie(param0_, param1_, param2_) =
@@ -753,8 +793,11 @@ SkColor4f Color::toSkColor4f() const {
   }
   switch (color_space_) {
     case ColorSpace::kSRGB:
-    case ColorSpace::kSRGBLegacy:
       return SkColor4f{param0_, param1_, param2_, alpha_};
+    case ColorSpace::kSRGBLegacy: {
+      auto [r, g, b] = gfx::SRGBLegacyToSRGB(param0_, param1_, param2_);
+      return SkColor4f{r, g, b, alpha_};
+    }
     case ColorSpace::kSRGBLinear:
       return gfx::SRGBLinearToSkColor4f(param0_, param1_, param2_, alpha_);
     case ColorSpace::kDisplayP3:
@@ -960,24 +1003,29 @@ String Color::SerializeLegacyColorAsCSSColor() const {
     result.Append("rgba(");
   }
 
-  // hsl and hwb colors need to be serialized in srgb.
+  constexpr float kEpsilon = 1e-07;
   auto [r, g, b] = std::make_tuple(param0_, param1_, param2_);
-  if (color_space_ == Color::ColorSpace::kHSL) {
-    std::tie(r, g, b) = gfx::HSLToSRGB(param0_, param1_, param2_);
-  } else if (color_space_ == Color::ColorSpace::kHWB) {
-    std::tie(r, g, b) = gfx::HWBToSRGB(param0_, param1_, param2_);
+  if (color_space_ == Color::ColorSpace::kHWB ||
+      color_space_ == Color::ColorSpace::kHSL) {
+    // hsl and hwb colors need to be serialized in srgb.
+    if (color_space_ == Color::ColorSpace::kHSL) {
+      std::tie(r, g, b) = gfx::HSLToSRGB(param0_, param1_, param2_);
+    } else if (color_space_ == Color::ColorSpace::kHWB) {
+      std::tie(r, g, b) = gfx::HWBToSRGB(param0_, param1_, param2_);
+    }
+    // Legacy color channels get serialized with integers in the range [0,255].
+    // Channels that have a value of exactly 0.5 can get incorrectly rounded
+    // down to 127 when being converted to an integer. Add a small epsilon to
+    // avoid this. See crbug.com/1425856.
+    std::tie(r, g, b) =
+        gfx::SRGBToSRGBLegacy(r + kEpsilon, g + kEpsilon, b + kEpsilon);
   }
 
-  // Legacy color channels get serialized with integers in the range [0,255].
-  // Channels that have a value of exactly 0.5 can get incorrectly rounded
-  // down to 127 when being converted to an integer. Add a small epsilon to
-  // avoid this. See crbug.com/1425856.
-  constexpr float kEpsilon = 1e-07;
-  result.AppendNumber(ClampTo(round((r + kEpsilon) * 255.0), 0.0, 255.0));
+  result.AppendNumber(round(ClampTo(r, 0.0, 255.0)));
   result.Append(", ");
-  result.AppendNumber(ClampTo(round((g + kEpsilon) * 255.0), 0.0, 255.0));
+  result.AppendNumber(round(ClampTo(g, 0.0, 255.0)));
   result.Append(", ");
-  result.AppendNumber(ClampTo(round((b + kEpsilon) * 255.0), 0.0, 255.0));
+  result.AppendNumber(round(ClampTo(b, 0.0, 255.0)));
 
   if (!IsOpaque()) {
     result.Append(", ");
@@ -1005,11 +1053,7 @@ String Color::SerializeLegacyColorAsCSSColor() const {
   return result.ToString();
 }
 
-String Color::SerializeAsCSSColor() const {
-  if (IsLegacyColorSpace(color_space_)) {
-    return SerializeLegacyColorAsCSSColor();
-  }
-
+String Color::SerializeInternal() const {
   StringBuilder result;
   if (IsLightnessFirstComponent(color_space_)) {
     result.Append(ColorSpaceToString(color_space_));
@@ -1035,6 +1079,14 @@ String Color::SerializeAsCSSColor() const {
   }
   result.Append(")");
   return result.ToString();
+}
+
+String Color::SerializeAsCSSColor() const {
+  if (IsLegacyColorSpace(color_space_)) {
+    return SerializeLegacyColorAsCSSColor();
+  }
+
+  return SerializeInternal();
 }
 
 String Color::NameForLayoutTreeAsText() const {

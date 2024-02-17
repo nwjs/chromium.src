@@ -113,7 +113,7 @@ MATCHER(AddressAndPaymentsFallbacksAdded, "") {
 
 // Generates a ContextMenuParams for the Autofill context menu options.
 content::ContextMenuParams CreateContextMenuParams(
-    absl::optional<autofill::FormRendererId> form_renderer_id = absl::nullopt,
+    std::optional<autofill::FormRendererId> form_renderer_id = std::nullopt,
     autofill::FieldRendererId field_render_id = autofill::FieldRendererId(0)) {
   content::ContextMenuParams rv;
   rv.is_editable = true;
@@ -322,13 +322,8 @@ class AutocompleteUnrecognizedFieldsTest
     : public BaseAutofillContextMenuManagerTest {
  public:
   AutocompleteUnrecognizedFieldsTest() {
-    feature_.InitWithFeaturesAndParameters(
-        {{features::kAutofillPredictionsForAutocompleteUnrecognized, {}},
-         {features::kAutofillFallbackForAutocompleteUnrecognized,
-          {{"show_on_all_address_fields", "true"}}}},
-        // Intentionally disable the Autofill feedback so that corresponding
-        // entry doesn't appear in the context menu model.
-        {features::kAutofillForUnclassifiedFieldsAvailable});
+    feature_.InitAndDisableFeature(
+        features::kAutofillForUnclassifiedFieldsAvailable);
   }
 
  private:
@@ -389,7 +384,7 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     AutocompleteUnrecognizedFieldsTest,
     AutocompleteUnrecognizedFormShown_NoSuitableData_FallbackOptionsNotPresent) {
-  AutofillProfile profile;
+  AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
   profile.SetRawInfo(COMPANY_NAME, u"company");
   AddAutofillProfile(profile);
   FormData form = CreateAndAttachAutocompleteUnrecognizedForm();
@@ -501,16 +496,9 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 class UnclassifiedFieldsTest : public BaseAutofillContextMenuManagerTest {
- public:
-  UnclassifiedFieldsTest() {
-    feature_.InitWithFeatures(
-        {features::kAutofillForUnclassifiedFieldsAvailable},
-        {features::kAutofillPredictionsForAutocompleteUnrecognized,
-         features::kAutofillFallbackForAutocompleteUnrecognized});
-  }
-
  private:
-  base::test::ScopedFeatureList feature_;
+  base::test::ScopedFeatureList feature_{
+      features::kAutofillForUnclassifiedFieldsAvailable};
 };
 
 // Tests that when triggering the context menu on an unclassified form, the
@@ -602,7 +590,7 @@ IN_PROC_BROWSER_TEST_F(UnclassifiedFieldsTest,
 }
 
 // Tests that when the address manual fallback entry for the unclassified fields
-// is selected, suggestions are not triggered.
+// is selected, suggestions are triggered.
 IN_PROC_BROWSER_TEST_F(
     UnclassifiedFieldsTest,
     UnclassifiedFormShown_AddressFallbackTriggersSuggestion) {
@@ -613,8 +601,13 @@ IN_PROC_BROWSER_TEST_F(
                               form.fields[0].unique_renderer_id));
   autofill_context_menu_manager()->AppendItems();
 
-  // Expect that when the entry is selected, suggestions are not triggered.
-  EXPECT_CALL(*driver(), RendererShouldTriggerSuggestions).Times(0);
+  // Expect that when the entry is selected, suggestions are triggered.
+  EXPECT_CALL(
+      *driver(),
+      RendererShouldTriggerSuggestions(
+          FieldGlobalId{LocalFrameToken(main_rfh()->GetFrameToken().value()),
+                        form.fields[0].unique_renderer_id},
+          AutofillSuggestionTriggerSource::kManualFallbackAddress));
   autofill_context_menu_manager()->ExecuteCommand(
       IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_ADDRESS);
 }

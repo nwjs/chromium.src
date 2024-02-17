@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/ui/settings/password/password_manager_view_controller.h"
+#import "ios/chrome/browser/ui/settings/password/password_manager_view_controller+Testing.h"
 
 #import <UIKit/UIKit.h>
 
@@ -30,7 +31,7 @@
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
-#import "ios/chrome/browser/net/crurl.h"
+#import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/passwords/model/password_checkup_metrics.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
@@ -61,7 +62,6 @@
 #import "ios/chrome/browser/ui/settings/password/branded_navigation_item_title_view.h"
 #import "ios/chrome/browser/ui/settings/password/create_password_manager_title_view.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_ui_features.h"
-#import "ios/chrome/browser/ui/settings/password/password_manager_view_controller+private.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_view_controller_delegate.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_view_controller_items.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_view_controller_presentation_delegate.h"
@@ -71,6 +71,7 @@
 #import "ios/chrome/browser/ui/settings/settings_root_table_view_controller+toolbar_add.h"
 #import "ios/chrome/browser/ui/settings/settings_root_table_view_controller+toolbar_settings.h"
 #import "ios/chrome/browser/ui/settings/settings_root_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/utils/password_utils.h"
 #import "ios/chrome/common/string_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/popover_label_view_controller.h"
@@ -210,16 +211,8 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
 // Number of insecure passwords.
 @property(assign) NSInteger insecurePasswordsCount;
 
-// Stores the most recently created or updated Affiliated Group.
-@property(nonatomic, assign) std::optional<password_manager::AffiliatedGroup>
-    mostRecentlyUpdatedAffiliatedGroup;
-
-// Stores the most recently created or updated password form.
-@property(nonatomic, assign) std::optional<password_manager::CredentialUIEntry>
-    mostRecentlyUpdatedPassword;
-
 // Stores the item which has form attribute's username and site equivalent to
-// that of `mostRecentlyUpdatedPassword`.
+// that of `mostRecentlyUpdatedCred`.
 @property(nonatomic, weak) TableViewItem* mostRecentlyUpdatedItem;
 
 // YES, if the user triggered a password check by tapping on the "Check Now"
@@ -290,6 +283,8 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   BOOL _searchPasswordsUserActionWasRecorded;
   // Whether or not the Password Manager widget promo should be shown.
   BOOL _shouldShowPasswordManagerWidgetPromo;
+  // Stores the most recently created or updated password form.
+  std::optional<password_manager::CredentialUIEntry> _mostRecentlyUpdatedCred;
 }
 
 @synthesize manageAccountLinkItem = _manageAccountLinkItem;
@@ -335,11 +330,9 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   _reauthenticationModule = reauthenticationModule;
 }
 
-// TODO(crbug.com/1358978): Receive AffiliatedGroup object instead of a
-// CredentialUIEntry. Store into mostRecentlyUpdatedAffiliatedGroup.
 - (void)setMostRecentlyUpdatedPasswordDetails:
     (const password_manager::CredentialUIEntry&)credential {
-  self.mostRecentlyUpdatedPassword = credential;
+  _mostRecentlyUpdatedCred = credential;
 }
 
 #pragma mark - UIViewController
@@ -371,10 +364,6 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   searchBar.delegate = self;
   searchBar.backgroundColor = UIColor.clearColor;
   searchBar.accessibilityIdentifier = kPasswordsSearchBarID;
-
-  // TODO(crbug.com/1268684): Explicitly set the background color for the search
-  // bar to match with the color of navigation bar in iOS 13/14 to work around
-  // an iOS issue.
 
   // UIKit needs to know which controller will be presenting the
   // searchController. If we don't add this trying to dismiss while
@@ -759,11 +748,20 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   passwordItem.accessibilityTraits |= UIAccessibilityTraitButton;
   passwordItem.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
-  if (self.mostRecentlyUpdatedAffiliatedGroup) {
-    if (self.mostRecentlyUpdatedAffiliatedGroup->GetDisplayName() ==
-        affiliatedGroup.GetDisplayName()) {
+  if (_mostRecentlyUpdatedCred) {
+    // Find the affiliated group item with a credential on the same sign-on
+    // realm as the most recently updated credential.
+    auto groupCreds = affiliatedGroup.GetCredentials();
+    auto mostRecentlyUpdatedCred = *_mostRecentlyUpdatedCred;
+    auto pred = [&mostRecentlyUpdatedCred](
+                    const password_manager::CredentialUIEntry& entry) {
+      return mostRecentlyUpdatedCred.GetFirstSignonRealm() ==
+             entry.GetFirstSignonRealm();
+    };
+    if (auto it = std::find_if(groupCreds.begin(), groupCreds.end(), pred);
+        it != groupCreds.end()) {
       self.mostRecentlyUpdatedItem = passwordItem;
-      self.mostRecentlyUpdatedAffiliatedGroup = std::nullopt;
+      _mostRecentlyUpdatedCred = std::nullopt;
     }
   }
   return passwordItem;
@@ -889,6 +887,14 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
     [self setEditing:NO animated:YES];
     [self reloadData];
     return;
+  }
+
+  // Update the UI for the edit state to make sure it reflects the content in
+  // the table as the content may have changed since the view controller was
+  // created.
+  if ([self.navigationController.topViewController
+          isKindOfClass:[PasswordManagerViewController class]]) {
+    [self updateUIForEditState];
   }
 
   TableViewModel* model = self.tableViewModel;
@@ -1229,22 +1235,40 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   }
 }
 
-- (void)updatePasswordsSectionWithSearchTerm:(NSString*)searchTerm {
+// Adds filtered list of saved passwords.
+- (void)addPasswordsSectionWithSearchTerm:(NSString*)searchTerm {
+  const std::string searchTermStr =
+      searchTerm.length == 0
+          ? std::string()
+          : base::ToLowerASCII(base::SysNSStringToUTF8(searchTerm));
   for (const auto& affiliatedGroup : _affiliatedGroups) {
-    AffiliatedGroupTableViewItem* item =
-        [self savedFormItemForAffiliatedGroup:affiliatedGroup];
-    bool hidden =
-        searchTerm.length > 0 &&
-        ![item.title localizedCaseInsensitiveContainsString:searchTerm];
-    if (hidden) {
-      continue;
+    if (searchTermStr.empty() || password_manager::MatchAffiliatedGroupsForTerm(
+                                     affiliatedGroup, searchTermStr)) {
+      AffiliatedGroupTableViewItem* item =
+          [self savedFormItemForAffiliatedGroup:affiliatedGroup];
+      [self.tableViewModel addItem:item
+           toSectionWithIdentifier:SectionIdentifierSavedPasswords];
     }
-    [self.tableViewModel addItem:item
-         toSectionWithIdentifier:SectionIdentifierSavedPasswords];
   }
 }
 
-// Builds the filtered list of passwords/blocked based on given
+// Adds filtered list of blocked sites.
+- (void)addBlockedSitesSectionWithSearchTerm:(NSString*)searchTerm {
+  const std::string searchTermStr =
+      searchTerm.length == 0
+          ? std::string()
+          : base::ToLowerASCII(base::SysNSStringToUTF8(searchTerm));
+  for (const auto& credential : _blockedSites) {
+    if (searchTermStr.empty() ||
+        password_manager::MatchCredentialForTerm(credential, searchTermStr)) {
+      BlockedSiteTableViewItem* item = [self blockedSiteItem:credential];
+      [self.tableViewModel addItem:item
+           toSectionWithIdentifier:SectionIdentifierBlocked];
+    }
+  }
+}
+
+// Rebuilds the filtered list of passwords/blocked based on given
 // `searchTerm`.
 - (void)filterItems:(NSString*)searchTerm {
   TableViewModel* model = self.tableViewModel;
@@ -1252,20 +1276,12 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   if ([self hasPasswords]) {
     [model deleteAllItemsFromSectionWithIdentifier:
                SectionIdentifierSavedPasswords];
-    [self updatePasswordsSectionWithSearchTerm:searchTerm];
+    [self addPasswordsSectionWithSearchTerm:searchTerm];
   }
 
   if (!_blockedSites.empty()) {
     [model deleteAllItemsFromSectionWithIdentifier:SectionIdentifierBlocked];
-    for (const auto& credential : _blockedSites) {
-      BlockedSiteTableViewItem* item = [self blockedSiteItem:credential];
-      bool hidden =
-          searchTerm.length > 0 &&
-          ![item.title localizedCaseInsensitiveContainsString:searchTerm];
-      if (hidden)
-        continue;
-      [model addItem:item toSectionWithIdentifier:SectionIdentifierBlocked];
-    }
+    [self addBlockedSitesSectionWithSearchTerm:searchTerm];
   }
 }
 

@@ -124,19 +124,14 @@ void IntersectionObservation::Disconnect() {
   observer_.Clear();
 }
 
-bool IntersectionObservation::InvalidateCachedRectsIfNeeded() {
+void IntersectionObservation::InvalidateCachedRectsIfPaintPropertiesChanged() {
   DCHECK(RuntimeEnabledFeatures::IntersectionOptimizationEnabled());
-  if (!cached_rects_.valid) {
-    return true;
-  }
-  if (NeedsInvalidateCachedRects()) {
+  if (cached_rects_.valid && PaintPropertiesChanged()) {
     InvalidateCachedRects();
-    return true;
   }
-  return false;
 }
 
-bool IntersectionObservation::NeedsInvalidateCachedRects() const {
+bool IntersectionObservation::PaintPropertiesChanged() const {
   DCHECK(cached_rects_.valid);
   if (observer_->trackVisibility()) {
     return true;
@@ -251,6 +246,11 @@ unsigned IntersectionObservation::GetIntersectionGeometryFlags(
     geometry_flags |= IntersectionGeometry::kShouldTrackFractionOfRoot;
   if (Observer()->UseOverflowClipEdge())
     geometry_flags |= IntersectionGeometry::kUseOverflowClipEdge;
+  if (Observer()->IsInternal()) {
+    // TODO(wangxianzhu): Let internal clients decide whether to respect
+    // filters.
+    geometry_flags |= IntersectionGeometry::kRespectFilters;
+  }
   return geometry_flags;
 }
 

@@ -58,6 +58,10 @@
 #include "ui/linux/linux_ui.h"
 #endif
 
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 namespace views {
 
 namespace {
@@ -358,6 +362,17 @@ bool Widget::RequiresNonClientView(InitParams::Type type) {
   return type == InitParams::TYPE_WINDOW || type == InitParams::TYPE_BUBBLE;
 }
 
+// static
+bool Widget::IsWindowCompositingSupported() {
+#if BUILDFLAG(IS_WIN)
+  return true;
+#elif BUILDFLAG(IS_OZONE)
+  return ui::OzonePlatform::GetInstance()->IsWindowCompositingSupported();
+#else
+  return false;
+#endif
+}
+
 void Widget::Init(InitParams params) {
   TRACE_EVENT0("views", "Widget::Init");
 
@@ -392,25 +407,16 @@ void Widget::Init(InitParams params) {
     params.opacity = views::Widget::InitParams::WindowOpacity::kOpaque;
   }
 
-  {
-    // ViewsDelegate::OnBeforeWidgetInit() may change `params.delegate` either
-    // by setting it to null or assigning a different value to it, so handle
-    // both cases.
-    ViewsDelegate::GetInstance()->OnBeforeWidgetInit(&params, this);
+  // ViewsDelegate::OnBeforeWidgetInit() may change `params.delegate` either by
+  // setting it to null or assigning a different value to it, so handle both
+  // cases.
+  ViewsDelegate::GetInstance()->OnBeforeWidgetInit(&params, this);
 
-    if (params.delegate) {
-      // TODO(kylixrd): This will be unnecessary once the Widget can no longer
-      // "own" the delegate.
-      if (params.delegate->owned_by_widget()) {
-        owned_widget_delegate_ = base::WrapUnique(params.delegate.get());
-        widget_delegate_ = owned_widget_delegate_->AsWeakPtr();
-      } else {
-        widget_delegate_ = params.delegate->AsWeakPtr();
-      }
-    } else {
-      auto default_delegate = std::make_unique<DefaultWidgetDelegate>();
-      widget_delegate_ = default_delegate.release()->AsWeakPtr();
-    }
+  if (params.delegate) {
+    widget_delegate_ = params.delegate->AsWeakPtr();
+  } else {
+    auto default_delegate = std::make_unique<DefaultWidgetDelegate>();
+    widget_delegate_ = default_delegate.release()->AsWeakPtr();
   }
   DCHECK(widget_delegate_);
 
@@ -422,9 +428,6 @@ void Widget::Init(InitParams params) {
                                     : InitParams::Activatable::kNo;
 
   widget_delegate_->SetCanActivate(can_activate);
-
-  // Henceforth, ensure the delegate outlives the Widget.
-  widget_delegate_->can_delete_this_ = false;
 
   widget_delegate_->WidgetInitializing(this);
 
@@ -1348,11 +1351,6 @@ void Widget::SynthesizeMouseMoveEvent() {
   root_view_->OnMouseMoved(mouse_event);
 }
 
-bool Widget::IsTranslucentWindowOpacitySupported() const {
-  return native_widget_ ? native_widget_->IsTranslucentWindowOpacitySupported()
-                        : false;
-}
-
 ui::GestureRecognizer* Widget::GetGestureRecognizer() {
   return native_widget_ ? native_widget_->GetGestureRecognizer() : nullptr;
 }
@@ -1647,17 +1645,9 @@ void Widget::OnNativeWidgetDestroying() {
 void Widget::OnNativeWidgetDestroyed() {
   for (WidgetObserver& observer : observers_)
     observer.OnWidgetDestroyed(this);
-  // TODO(kylixrd): Remove the references to owned_by_widget once widgets cease
-  // being able to "own" the delegate.
+
   if (widget_delegate_) {
-    if (widget_delegate_->owned_by_widget()) {
-      widget_delegate_->DeleteDelegate();
-      widget_delegate_->can_delete_this_ = true;
-      owned_widget_delegate_.reset();
-    } else {
-      widget_delegate_->can_delete_this_ = true;
-      widget_delegate_->DeleteDelegate();
-    }
+    widget_delegate_->DeleteDelegate();
   }
   // Immediately reset the weak ptr. If NATIVE_WIDGET_OWNS_WIDGET destruction of
   // the NativeWidget can destroy the Widget. We don't want to touch the

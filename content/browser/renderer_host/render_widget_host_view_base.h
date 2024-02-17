@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,17 +27,16 @@
 #include "content/browser/renderer_host/display_feature.h"
 #include "content/common/content_export.h"
 #include "content/common/input/event_with_latency_info.h"
+#include "content/common/input/input_router_impl.h"
 #include "content/public/browser/render_frame_metadata_provider.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/common/page_visibility_state.h"
 #include "content/public/common/widget_type.h"
 #include "services/device/public/mojom/screen_orientation_lock_types.mojom.h"
 #include "services/viz/public/mojom/hit_test/hit_test_region_list.mojom.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom-forward.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
-#include "third_party/blink/public/mojom/input/input_handler.mojom-forward.h"
 #include "third_party/blink/public/mojom/widget/record_content_to_visible_time_request.mojom.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "ui/accessibility/ax_action_handler_registry.h"
@@ -78,7 +78,8 @@ class WebContentsAccessibility;
 class DelegatedFrameHost;
 
 // Basic implementation shared by concrete RenderWidgetHostView subclasses.
-class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
+class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView,
+                                                public StylusInterface {
  public:
   // The TooltipObserver is used in browser tests only.
   class CONTENT_EXPORT TooltipObserver {
@@ -105,9 +106,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   bool GetIsMouseLockedUnadjustedMovementForTesting() override;
   bool CanBeMouseLocked() override;
   bool AccessibilityHasFocus() override;
-  bool LockKeyboard(absl::optional<base::flat_set<ui::DomCode>> codes) override;
+  bool LockKeyboard(std::optional<base::flat_set<ui::DomCode>> codes) override;
   void SetBackgroundColor(SkColor color) override;
-  absl::optional<SkColor> GetBackgroundColor() override;
+  std::optional<SkColor> GetBackgroundColor() override;
   void CopyBackgroundColorIfPresentFrom(
       const RenderWidgetHostView& other) override;
   void UnlockKeyboard() override;
@@ -163,6 +164,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
       const gfx::PointF& point) override;
   gfx::PointF TransformRootPointToViewCoordSpace(
       const gfx::PointF& point) override;
+
+  // Returns the value for whether the auto-resize has been enabled or not.
+  bool IsAutoResizeEnabled();
 
   virtual void UpdateIntrinsicSizingInfo(
       blink::mojom::IntrinsicSizingInfoPtr sizing_info);
@@ -236,15 +240,12 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   virtual void WheelEventAck(const blink::WebMouseWheelEvent& event,
                              blink::mojom::InputEventResultState ack_result);
 
-  virtual void GestureEventAck(
-      const blink::WebGestureEvent& event,
-      blink::mojom::InputEventResultState ack_result,
-      blink::mojom::ScrollResultDataPtr scroll_result_data);
+  virtual void GestureEventAck(const blink::WebGestureEvent& event,
+                               blink::mojom::InputEventResultState ack_result);
 
   virtual void ChildDidAckGestureEvent(
       const blink::WebGestureEvent& event,
-      blink::mojom::InputEventResultState ack_result,
-      blink::mojom::ScrollResultDataPtr scroll_result_data);
+      blink::mojom::InputEventResultState ack_result);
 
   // Create a platform specific SyntheticGestureTarget implementation that will
   // be used to inject synthetic input events.
@@ -260,11 +261,11 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   virtual void FocusedNodeChanged(bool is_editable_node,
                                   const gfx::Rect& node_bounds_in_screen) {}
 
-  // Requests to start stylus writing and returns true if successful.
-  virtual bool RequestStartStylusWriting();
-
+  // StylusInterface overrides
+  // Check if stylus writing can be started.
+  bool ShouldInitiateStylusWriting() override;
   // Notify whether the hovered element action is stylus writable or not.
-  virtual void NotifyHoverActionStylusWritable(bool stylus_writable) {}
+  void NotifyHoverActionStylusWritable(bool stylus_writable) override {}
 
   // This message is received when the stylus writable element is focused.
   // It receives the focused edit element bounds and the current caret bounds
@@ -436,8 +437,8 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   // line bounds, or both.
   virtual void ImeCompositionRangeChanged(
       const gfx::Range& range,
-      const absl::optional<std::vector<gfx::Rect>>& character_bounds,
-      const absl::optional<std::vector<gfx::Rect>>& line_bounds);
+      const std::optional<std::vector<gfx::Rect>>& character_bounds,
+      const std::optional<std::vector<gfx::Rect>>& line_bounds);
 
   //----------------------------------------------------------------------------
   // The following pure virtual methods are implemented by derived classes.
@@ -543,7 +544,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
 
   // Gets the DisplayFeature whose offset and mask_length are expressed in DIPs
   // relative to the view. See display_feature.h for more details.
-  virtual absl::optional<DisplayFeature> GetDisplayFeature() = 0;
+  virtual std::optional<DisplayFeature> GetDisplayFeature() = 0;
 
   virtual void SetDisplayFeatureForTesting(
       const DisplayFeature* display_feature) = 0;
@@ -599,7 +600,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   // SetContentBackgroundColor is called when the renderer wants to update the
   // view's background color.
   void SetContentBackgroundColor(SkColor color);
-  absl::optional<SkColor> content_background_color() const {
+  std::optional<SkColor> content_background_color() const {
     return content_background_color_;
   }
 
@@ -719,11 +720,11 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   raw_ptr<TextInputManager> text_input_manager_ = nullptr;
 
   // The background color used in the current renderer.
-  absl::optional<SkColor> content_background_color_;
+  std::optional<SkColor> content_background_color_;
 
   // The default background color used before getting the
   // |content_background_color|.
-  absl::optional<SkColor> default_background_color_;
+  std::optional<SkColor> default_background_color_;
 
   bool is_currently_scrolling_viewport_ = false;
 
@@ -782,7 +783,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
 
   base::ObserverList<RenderWidgetHostViewBaseObserver>::Unchecked observers_;
 
-  absl::optional<blink::WebGestureEvent> pending_touchpad_pinch_begin_;
+  std::optional<blink::WebGestureEvent> pending_touchpad_pinch_begin_;
 
   // True when StopFlingingIfNecessary() calls StopFling().
   bool view_stopped_flinging_for_test_ = false;

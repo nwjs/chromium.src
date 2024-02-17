@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "base/check_op.h"
@@ -27,7 +28,6 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/events/event_handler.h"
@@ -70,8 +70,10 @@ class EnterExitHandler : public ui::EventHandler {
   base::RepeatingClosure exit_callback_;
 };
 
-constexpr int kExpandableControlCellInsetPadding = 16;
-constexpr int kExpandableControlCellIconSize = 6;
+constexpr int kExpandChildSuggestionsViewWidth = 24;
+constexpr int kExpandChildSuggestionsIconWidth = 16;
+constexpr int kExpandChildSuggestionsViewHorizontalPadding =
+    (kExpandChildSuggestionsViewWidth - kExpandChildSuggestionsIconWidth) / 2;
 
 // Computes the position and set size of the suggestion at `suggestion_index` in
 // `controller`'s suggestions ignoring `PopupItemId::kSeparator`s.
@@ -94,6 +96,32 @@ std::pair<int, int> ComputePositionInSet(
     }
   }
   return {set_index, set_size};
+}
+
+std::u16string GetSuggestionA11yString(const Suggestion& suggestion,
+                                       bool add_call_to_action_if_expandable) {
+  std::vector<std::u16string> text(
+      {popup_cell_utils::GetVoiceOverStringFromSuggestion(suggestion)});
+
+  if (!suggestion.children.empty()) {
+    CHECK(IsExpandablePopupItemId(suggestion.popup_item_id));
+
+    if (suggestion.popup_item_id == PopupItemId::kAddressEntry &&
+        add_call_to_action_if_expandable) {
+      text.push_back(l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_EXPANDABLE_SUGGESTION_FILL_ADDRESS_A11Y_ADDON));
+    }
+
+    std::u16string shortcut = l10n_util::GetStringUTF16(
+        base::i18n::IsRTL()
+            ? IDS_AUTOFILL_EXPANDABLE_SUGGESTION_EXPAND_SHORTCUT_RTL
+            : IDS_AUTOFILL_EXPANDABLE_SUGGESTION_EXPAND_SHORTCUT);
+
+    text.push_back(l10n_util::GetStringFUTF16(
+        IDS_AUTOFILL_EXPANDABLE_SUGGESTION_SUBMENU_HINT, shortcut));
+  }
+
+  return base::JoinString(text, u". ");
 }
 
 }  // namespace
@@ -123,37 +151,6 @@ void EnterExitHandler::OnEvent(ui::Event* event) {
       break;
   }
 }
-
-PopupRowView::ExpandChildSuggestionsView::ExpandChildSuggestionsView() {
-  SetNotifyEnterExitOnChild(true);
-  SetLayoutManager(std::make_unique<views::BoxLayout>(
-      views::BoxLayout::Orientation::kHorizontal,
-      gfx::Insets(kExpandableControlCellInsetPadding)));
-  AddChildView(popup_cell_utils::ImageViewFromVectorIcon(
-      vector_icons::kSubmenuArrowIcon, kExpandableControlCellIconSize));
-}
-
-void PopupRowView::ExpandChildSuggestionsView::GetAccessibleNodeData(
-    ui::AXNodeData* node_data) {
-  node_data->role = ax::mojom::Role::kToggleButton;
-  node_data->SetNameChecked(l10n_util::GetStringUTF16(
-      IDS_AUTOFILL_EXPANDABLE_SUGGESTION_CONTROLL_A11Y_NAME));
-  node_data->SetCheckedState(checked_ ? ax::mojom::CheckedState::kTrue
-                                      : ax::mojom::CheckedState::kFalse);
-}
-
-void PopupRowView::ExpandChildSuggestionsView::SetChecked(bool checked) {
-  if (checked_ == checked) {
-    return;
-  }
-
-  checked_ = checked;
-  NotifyAccessibilityEvent(ax::mojom::Event::kCheckedStateChanged,
-                           /*send_native_event=*/true);
-}
-
-BEGIN_METADATA(PopupRowView, ExpandChildSuggestionsView, views::View)
-END_METADATA
 
 PopupRowView::ScopedNewBadgeTrackerWithAcceptAction::
     ScopedNewBadgeTrackerWithAcceptAction(
@@ -191,11 +188,15 @@ PopupRowView::PopupRowView(
       line_number_(line_number),
       should_ignore_mouse_observed_outside_item_bounds_check_(
           controller &&
-          controller->ShouldIgnoreMouseObservedOutsideItemBoundsCheck()) {
+          controller->ShouldIgnoreMouseObservedOutsideItemBoundsCheck()),
+      suggestion_is_acceptable_(
+          controller && line_number < controller->GetLineCount() &&
+          controller->GetSuggestionAt(line_number).is_acceptable) {
   CHECK(content_view);
   CHECK(controller_);
   CHECK_LT(line_number_, controller_->GetLineCount());
 
+  SetFocusBehavior(FocusBehavior::ALWAYS);
   SetNotifyEnterExitOnChild(true);
   SetProperty(views::kMarginsKey, gfx::Insets::VH(0, GetHorizontalMargin()));
   SetBackground(
@@ -227,7 +228,7 @@ PopupRowView::PopupRowView(
             this, type),
         /*exit_callback=*/base::BindRepeating(
             &SelectionDelegate::SetSelectedCell,
-            base::Unretained(&selection_delegate), absl::nullopt,
+            base::Unretained(&selection_delegate), std::nullopt,
             PopupCellSelectionSource::kMouse));
     // Setting this handler on the cell view removes its original event handler
     // (i.e. overridden methods like OnMouse*). Make sure the root view doesn't
@@ -237,14 +238,16 @@ PopupRowView::PopupRowView(
     return handler;
   };
 
+  const Suggestion& suggestion = controller_->GetSuggestionAt(line_number);
+
   content_view_ = AddChildView(std::move(content_view));
   content_view_->SetFocusBehavior(FocusBehavior::ALWAYS);
   content_view_->AddObserver(this);
   content_view_->GetViewAccessibility().OverrideRole(
       ax::mojom::Role::kListBoxOption);
-  content_view_->GetViewAccessibility().OverrideName(
-      popup_cell_utils::GetVoiceOverStringFromSuggestion(
-          controller_->GetSuggestionAt(line_number)));
+  content_view_->GetViewAccessibility().OverrideName(GetSuggestionA11yString(
+      suggestion,
+      /*add_call_to_action_if_expandable=*/suggestion.is_acceptable));
   auto [position, set_size] = ComputePositionInSet(controller_, line_number);
   content_view_->GetViewAccessibility().OverridePosInSet(position, set_size);
   content_view_->GetViewAccessibility().OverrideIsSelected(false);
@@ -252,10 +255,18 @@ PopupRowView::PopupRowView(
       set_exit_enter_callbacks(CellType::kContent, *content_view_);
   layout->SetFlexForView(content_view_.get(), 1);
 
-  if (!controller_->GetSuggestionAt(line_number_).children.empty()) {
+  if (!suggestion.children.empty()) {
     expand_child_suggestions_view_ =
-        AddChildView(std::make_unique<ExpandChildSuggestionsView>());
-    expand_child_suggestions_view_->SetFocusBehavior(FocusBehavior::ALWAYS);
+        AddChildView(std::make_unique<views::View>());
+    expand_child_suggestions_view_->SetNotifyEnterExitOnChild(true);
+    expand_child_suggestions_view_->SetLayoutManager(
+        std::make_unique<views::BoxLayout>(
+            views::BoxLayout::Orientation::kHorizontal,
+            gfx::Insets(kExpandChildSuggestionsViewHorizontalPadding)));
+    expand_child_suggestions_view_->AddChildView(
+        popup_cell_utils::ImageViewFromVectorIcon(
+            vector_icons::kSubmenuArrowChromeRefreshIcon,
+            kExpandChildSuggestionsIconWidth));
     expand_child_suggestions_view_->AddObserver(this);
     control_event_handler_ = set_exit_enter_callbacks(
         CellType::kControl, *expand_child_suggestions_view_);
@@ -316,6 +327,27 @@ void PopupRowView::OnPaint(gfx::Canvas* canvas) {
   mouse_observed_outside_item_bounds_ |= !IsMouseHovered();
 }
 
+void PopupRowView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
+  views::View::GetAccessibleNodeData(node_data);
+
+  if (controller_ && line_number_ < controller_->GetLineCount()) {
+    ui::AXNodeData content_node_data;
+    content_view_->GetViewAccessibility().GetAccessibleNodeData(
+        &content_node_data);
+
+    node_data->role = content_node_data.role;
+    node_data->AddIntAttribute(
+        ax::mojom::IntAttribute::kPosInSet,
+        content_node_data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+    node_data->AddIntAttribute(
+        ax::mojom::IntAttribute::kSetSize,
+        content_node_data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+    node_data->SetName(
+        GetSuggestionA11yString(controller_->GetSuggestionAt(line_number_),
+                                /*add_call_to_action_if_expandable=*/false));
+  }
+}
+
 void PopupRowView::OnViewFocused(views::View* view) {
   CHECK(view == content_view_ || view == expand_child_suggestions_view_);
 
@@ -329,7 +361,11 @@ void PopupRowView::OnViewFocused(views::View* view) {
       PopupCellSelectionSource::kKeyboard);
 }
 
-void PopupRowView::SetSelectedCell(absl::optional<CellType> new_cell) {
+void PopupRowView::SetSelectedCell(std::optional<CellType> new_cell) {
+  if (!controller_) {
+    return;
+  }
+
   if (new_cell == selected_cell_) {
     return;
   }
@@ -338,31 +374,26 @@ void PopupRowView::SetSelectedCell(absl::optional<CellType> new_cell) {
   if (selected_cell_ == CellType::kContent) {
     content_view_->UpdateStyle(/*selected=*/false);
     content_view_->GetViewAccessibility().OverrideIsSelected(false);
-    if (controller_) {
-      controller_->SelectSuggestion(absl::nullopt);
-    }
+    controller_->UnselectSuggestion();
   }
 
-  if (new_cell == CellType::kContent) {
-    if (controller_) {
-      controller_->SelectSuggestion(line_number_);
-    }
+  if ((new_cell == CellType::kControl && expand_child_suggestions_view_) ||
+      (new_cell == CellType::kContent && !suggestion_is_acceptable_)) {
+    GetA11ySelectionDelegate().NotifyAXSelection(*this);
+    NotifyAccessibilityEvent(ax::mojom::Event::kSelectedChildrenChanged, true);
+    selected_cell_ = new_cell;
+  } else if (new_cell == CellType::kContent) {
+    controller_->SelectSuggestion(line_number_);
     content_view_->UpdateStyle(/*selected=*/true);
     content_view_->GetViewAccessibility().OverrideIsSelected(true);
     GetA11ySelectionDelegate().NotifyAXSelection(*content_view_);
     NotifyAccessibilityEvent(ax::mojom::Event::kSelectedChildrenChanged, true);
     selected_cell_ = new_cell;
-  } else if (new_cell == CellType::kControl && expand_child_suggestions_view_) {
-    expand_child_suggestions_view_->GetViewAccessibility()
-        .SetPopupFocusOverride();
-    expand_child_suggestions_view_->NotifyAccessibilityEvent(
-        ax::mojom::Event::kFocus, true);
-    selected_cell_ = new_cell;
   } else {
     // Set the selected cell to none in case an invalid choice was made (e.g.
     // selecting a control cell when none exists) or the cell was reset
-    // explicitly with `absl::nullopt`.
-    selected_cell_ = absl::nullopt;
+    // explicitly with `std::nullopt`.
+    selected_cell_ = std::nullopt;
   }
 
   UpdateBackground();
@@ -371,10 +402,6 @@ void PopupRowView::SetSelectedCell(absl::optional<CellType> new_cell) {
 void PopupRowView::SetChildSuggestionsDisplayed(
     bool child_suggestions_displayed) {
   child_suggestions_displayed_ = child_suggestions_displayed;
-
-  if (expand_child_suggestions_view_) {
-    expand_child_suggestions_view_->SetChecked(child_suggestions_displayed);
-  }
 
   UpdateBackground();
 }
@@ -436,9 +463,12 @@ void PopupRowView::RunOnAcceptedForEvent(const ui::Event& event) {
 void PopupRowView::UpdateBackground() {
   // The whole row is highlighted when:
   // * The subpopup is open, or
-  // * The expanding control view is being hovered.
+  // * The expanding control view is being hovered, or
+  // * The suggestion is not acceptable and either the control or content part
+  //   is being hovered.
   ui::ColorId kBackgroundColorId =
-      child_suggestions_displayed_ || (selected_cell_ == CellType::kControl)
+      child_suggestions_displayed_ || (selected_cell_ == CellType::kControl) ||
+              (!suggestion_is_acceptable_ && selected_cell_)
           ? ui::kColorDropdownBackgroundSelected
           : ui::kColorDropdownBackground;
   SetBackground(views::CreateThemedRoundedRectBackground(
@@ -447,7 +477,7 @@ void PopupRowView::UpdateBackground() {
 }
 
 BEGIN_METADATA(PopupRowView)
-ADD_PROPERTY_METADATA(absl::optional<PopupRowView::CellType>, SelectedCell)
+ADD_PROPERTY_METADATA(std::optional<PopupRowView::CellType>, SelectedCell)
 END_METADATA
 
 }  // namespace autofill

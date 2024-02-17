@@ -92,12 +92,20 @@ base::flat_map<VkFormat, VkImageUsageFlags> CreateImageUsageCache(
 bool IsFormatSupported(viz::SharedImageFormat format,
                        gfx::GpuMemoryBufferType gmb_type,
                        uint32_t usage) {
+  // Accessing via GL does not work with external sampling. Also, see
+  // https://crbug.com/1394888.
+  // NOTE: At the current time this check is elided on Fuchsia as there is no
+  // alternative backing that can be used in this case on Fuchsia, which results
+  // in test failures if this short-circuit is applied. Fuchsia does not
+  // actually rely on GL interop via ExternalVkImageBacking - instead, it relies
+  // on Skia to do YUV/RGB conversion using Vulkan before accessing textures via
+  // GL (implemented by setting VideoFrame's MailboxHolder::texture_target to
+  // zero on Fuchsia and checking it everywhere necessary).
+  // TODO(crbug.com/1310026): Enable ImageBackingOzone to be used for all planes
+  // in Fuchsia and enable this check for Fuchsia.
 #if !BUILDFLAG(IS_FUCHSIA)
-  if (usage & SHARED_IMAGE_USAGE_GLES2 ||
-      usage & SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT) {
+  if (HasGLES2ReadOrWriteUsage(usage)) {
     if (format.IsLegacyMultiplanar() || format.PrefersExternalSampler()) {
-      // GL interop does not work with external sampler. Also, see
-      // https://crbug.com/1394888.
       return false;
     }
   }
@@ -143,12 +151,13 @@ constexpr uint32_t kSupportedUsage =
     SHARED_IMAGE_USAGE_WEBGPU | SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE |
     SHARED_IMAGE_USAGE_WEBGPU_STORAGE_TEXTURE |
 #endif
-    SHARED_IMAGE_USAGE_GLES2 | SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
+    SHARED_IMAGE_USAGE_GLES2_READ | SHARED_IMAGE_USAGE_GLES2_WRITE |
+    SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
     SHARED_IMAGE_USAGE_DISPLAY_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ |
-    SHARED_IMAGE_USAGE_RASTER | SHARED_IMAGE_USAGE_OOP_RASTERIZATION |
-    SHARED_IMAGE_USAGE_SCANOUT | SHARED_IMAGE_USAGE_VIDEO_DECODE |
-    SHARED_IMAGE_USAGE_HIGH_PERFORMANCE_GPU | SHARED_IMAGE_USAGE_CPU_UPLOAD |
-    SHARED_IMAGE_USAGE_CPU_WRITE;
+    SHARED_IMAGE_USAGE_RASTER_READ | SHARED_IMAGE_USAGE_RASTER_WRITE |
+    SHARED_IMAGE_USAGE_OOP_RASTERIZATION | SHARED_IMAGE_USAGE_SCANOUT |
+    SHARED_IMAGE_USAGE_VIDEO_DECODE | SHARED_IMAGE_USAGE_HIGH_PERFORMANCE_GPU |
+    SHARED_IMAGE_USAGE_CPU_UPLOAD | SHARED_IMAGE_USAGE_CPU_WRITE;
 
 ExternalVkImageBackingFactory::ExternalVkImageBackingFactory(
     scoped_refptr<SharedContextState> context_state)

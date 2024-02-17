@@ -203,7 +203,7 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
 
   ErrorEvent* event = ErrorEvent::Create(
       ToCoreStringWithNullCheck(isolate, message->Get()), std::move(location),
-      ScriptValue::From(script_state, data), &script_state->World());
+      ScriptValue(isolate, data), &script_state->World());
 
   String message_for_console = ExtractMessageForConsole(isolate, data);
   if (!message_for_console.empty())
@@ -240,7 +240,7 @@ void V8Initializer::MessageHandlerInWorker(v8::Local<v8::Message> message,
 
   ErrorEvent* event = ErrorEvent::Create(
       ToCoreStringWithNullCheck(isolate, message->Get()), std::move(location),
-      ScriptValue::From(script_state, data), &script_state->World());
+      ScriptValue(isolate, data), &script_state->World());
 
   const auto sanitize_script_errors = message->IsSharedCrossOrigin()
                                           ? SanitizeScriptErrors::kDoNotSanitize
@@ -483,23 +483,34 @@ V8Initializer::CodeGenerationCheckCallbackInMainThread(
   return {true, std::move(stringified_source)};
 }
 
-bool V8Initializer::WasmCodeGenerationCheckCallbackInMainThread(v8::Local<v8::Context> context,
-                                                 v8::Local<v8::String> source) {
-  if (ExecutionContext* execution_context = ToExecutionContext(context)) {
-    if (ContentSecurityPolicy* policy =
-            execution_context->GetContentSecurityPolicy()) {
-      v8::String::Value source_str(context->GetIsolate(), source);
-      UChar snippet[ContentSecurityPolicy::kMaxSampleLength + 1];
-      size_t len = std::min((sizeof(snippet) / sizeof(UChar)) - 1,
-                            static_cast<size_t>(source_str.length()));
-      memcpy(snippet, *source_str, len * sizeof(UChar));
-      snippet[len] = 0;
-      return policy->AllowWasmCodeGeneration(
-          ReportingDisposition::kReport,
-          ContentSecurityPolicy::kWillThrowException, snippet);
-    }
+bool V8Initializer::WasmCodeGenerationCheckCallbackInMainThread(
+    v8::Local<v8::Context> context,
+    v8::Local<v8::String> source) {
+  ExecutionContext* execution_context = ToExecutionContext(context);
+  if (!execution_context) {
+    return false;
   }
-  return false;
+  ContentSecurityPolicy* policy = execution_context->GetContentSecurityPolicy();
+  if (!policy) {
+    return false;
+  }
+  v8::String::Value source_str(context->GetIsolate(), source);
+  UChar snippet[ContentSecurityPolicy::kMaxSampleLength + 1];
+  size_t len = std::min((sizeof(snippet) / sizeof(UChar)) - 1,
+                        static_cast<size_t>(source_str.length()));
+  memcpy(snippet, *source_str, len * sizeof(UChar));
+  snippet[len] = 0;
+  if (!policy->AllowWasmCodeGeneration(
+          ReportingDisposition::kReport,
+          ContentSecurityPolicy::kWillThrowException, snippet)) {
+    return false;
+  }
+
+  // Set a crash key so we know if a crash report could have been caused by
+  // Wasm.
+  static crash_reporter::CrashKeyString<1> has_wasm_key("has-wasm");
+  has_wasm_key.Set("1");
+  return true;
 }
 
 void V8Initializer::WasmAsyncResolvePromiseCallback(
@@ -598,14 +609,6 @@ bool WasmInstanceOverride(const v8::FunctionCallbackInfo<v8::Value>& args) {
     return true;
   }
   return false;
-}
-
-bool WasmGCEnabledCallback(v8::Local<v8::Context> context) {
-  ExecutionContext* execution_context = ToExecutionContext(context);
-  if (!execution_context) {
-    return false;
-  }
-  return RuntimeEnabledFeatures::WebAssemblyGCEnabled(execution_context);
 }
 
 bool WasmJSStringBuiltinsEnabledCallback(v8::Local<v8::Context> context) {
@@ -765,7 +768,6 @@ void V8Initializer::InitializeV8Common(v8::Isolate* isolate) {
   isolate->SetUseCounterCallback(&UseCounterCallback);
   isolate->SetWasmModuleCallback(WasmModuleOverride);
   isolate->SetWasmInstanceCallback(WasmInstanceOverride);
-  isolate->SetWasmGCEnabledCallback(WasmGCEnabledCallback);
   isolate->SetWasmImportedStringsEnabledCallback(
       WasmJSStringBuiltinsEnabledCallback);
   isolate->SetSharedArrayBufferConstructorEnabledCallback(
@@ -965,6 +967,12 @@ v8::Isolate* V8Initializer::InitializeMainThread() {
 
   isolate->SetHostCreateShadowRealmContextCallback(
       OnCreateShadowRealmV8Context);
+
+  if (Platform::Current()->IsolateStartsInBackground()) {
+    // If we do not track widget visibility, then assume conservatively that
+    // the isolate is in background. This reduces memory usage.
+    isolate->IsolateInBackgroundNotification();
+  }
 
   return isolate;
 }

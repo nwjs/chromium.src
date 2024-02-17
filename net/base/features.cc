@@ -79,21 +79,9 @@ BASE_FEATURE(kEnableIPv6ReachabilityOverride,
              "EnableIPv6ReachabilityOverride",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSHA1ServerSignature,
-             "SHA1ServerSignature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kEnableTLS13EarlyData,
              "EnableTLS13EarlyData",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEncryptedClientHello,
-             "EncryptedClientHello",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEncryptedClientHelloQuic,
-             "EncryptedClientHelloQuic",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRSAKeyUsageForLocalAnchors,
              "RSAKeyUsageForLocalAnchors",
@@ -246,6 +234,14 @@ BASE_FEATURE(kWaitForFirstPartySetsInit,
              "WaitForFirstPartySetsInit",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls the maximum time duration an outermost frame navigation should be
+// deferred by RWS initialization.
+extern const base::FeatureParam<base::TimeDelta>
+    kWaitForFirstPartySetsInitNavigationThrottleTimeout{
+        &kWaitForFirstPartySetsInit,
+        "kWaitForFirstPartySetsInitNavigationThrottleTimeout",
+        base::Seconds(0)};
+
 BASE_FEATURE(kPartitionedCookies,
              "PartitionedCookies",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -275,9 +271,13 @@ BASE_FEATURE(kSupportPartitionedBlobUrl,
              "SupportPartitionedBlobUrl",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTpcdSupportSettings,
+BASE_FEATURE(kTpcdTrialSettings,
              "TpcdSupportSettings",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTopLevelTpcdTrialSettings,
+             "TopLevelTpcdSupportSettings",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTpcdMetadataGrants,
              "TpcdMetadataGrants",
@@ -408,12 +408,29 @@ const base::FeatureParam<bool> kIpPrivacyUseProxyChains{
     &kEnableIpProtectionProxy, /*name=*/"IpPrivacyUseProxyChains",
     /*default_value=*/false};
 
+const base::FeatureParam<bool> kIpPrivacyIncludeOAuthTokenInGetProxyConfig{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyIncludeOAuthTokenInGetProxyConfig",
+    /*default_value=*/false};
+
+const base::FeatureParam<std::string> kIpPrivacyProxyAHostnameOverride{
+    &kEnableIpProtectionProxy, /*name=*/"IpPrivacyProxyAHostnameOverride",
+    /*default_value=*/""};
+
+const base::FeatureParam<std::string> kIpPrivacyProxyBHostnameOverride{
+    &kEnableIpProtectionProxy, /*name=*/"IpPrivacyProxyBHostnameOverride",
+    /*default_value=*/""};
+
+const base::FeatureParam<bool> kIpPrivacyAddHeaderToProxiedRequests{
+    &kEnableIpProtectionProxy, /*name=*/"IpPrivacyAddHeaderToProxiedRequests",
+    /*default_value=*/false};
+
 // Network-change migration requires NetworkHandle support, which are currently
 // only supported on Android (see
 // NetworkChangeNotifier::AreNetworkHandlesSupported).
 #if BUILDFLAG(IS_ANDROID)
 inline constexpr auto kMigrateSessionsOnNetworkChangeV2Default =
-    base::FEATURE_DISABLED_BY_DEFAULT;
+    base::FEATURE_ENABLED_BY_DEFAULT;
 #else   // !BUILDFLAG(IS_ANDROID)
 inline constexpr auto kMigrateSessionsOnNetworkChangeV2Default =
     base::FEATURE_DISABLED_BY_DEFAULT;
@@ -443,9 +460,17 @@ BASE_FEATURE(kEnableSchemeBoundCookies,
              "EnableSchemeBoundCookies",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTimeLimitedInsecureCookies,
+             "TimeLimitedInsecureCookies",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable third-party cookie blocking from the command line.
 BASE_FEATURE(kForceThirdPartyCookieBlocking,
              "ForceThirdPartyCookieBlockingEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kThirdPartyCookieTopLevelSiteCorsException,
+             "ThirdPartyCookieTopLevelSiteCorsException",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableEarlyHintsOnHttp11,
@@ -483,8 +508,12 @@ BASE_FEATURE(kNewCertPathBuilderIterationLimit,
              "NewCertPathBuilderIterationLimit",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUseAlpsNewCodepoint,
-             "UseAlpsNewCodepoint",
+BASE_FEATURE(kUseNewAlpsCodepointHttp2,
+             "UseNewAlpsCodepointHttp2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseNewAlpsCodepointQUIC,
+             "UseNewAlpsCodepointQUIC",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpired,

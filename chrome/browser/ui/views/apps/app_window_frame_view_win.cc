@@ -142,5 +142,5 @@ gfx::Size AppWindowFrameViewWin::GetMaximumSize() const {
   return max_size;
 }
 
-BEGIN_METADATA(AppWindowFrameViewWin, views::NonClientFrameView)
+BEGIN_METADATA(AppWindowFrameViewWin)
 END_METADATA

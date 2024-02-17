@@ -58,13 +58,10 @@ ci.gpu.linux_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Chromium|Linux",
-        short_name = "x64",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -73,6 +70,10 @@ ci.gpu.linux_builder(
             "minimal_symbols",
             "reclient",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Chromium|Linux",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -95,16 +96,11 @@ ci.gpu.linux_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
     ),
-    # Uncomment this entry when this experimental tester is actually in use.
-    # console_view_entry = consoles.console_view_entry(
-    #     category = "Chromium|Linux",
-    #     short_name = "exp",
-    # ),
-    list_view = "chromium.gpu.experimental",
     gn_args = gn_args.config(
         configs = [
             "gpu_tests",
@@ -113,6 +109,12 @@ ci.gpu.linux_builder(
             "reclient",
         ],
     ),
+    # Uncomment this entry when this experimental tester is actually in use.
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Chromium|Linux",
+    #     short_name = "exp",
+    # ),
+    list_view = "chromium.gpu.experimental",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -132,13 +134,10 @@ ci.gpu.linux_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT SwiftShader|Linux",
-        short_name = "x64",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -148,8 +147,11 @@ ci.gpu.linux_builder(
             "reclient",
             "minimal_symbols",
             "dcheck_always_on",
-            "use_dummy_lastchange",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "ToT SwiftShader|Linux",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -168,13 +170,10 @@ ci.gpu.linux_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "DEPS|Linux",
-        short_name = "x64",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -184,8 +183,11 @@ ci.gpu.linux_builder(
             "reclient",
             "minimal_symbols",
             "dcheck_always_on",
-            "use_dummy_lastchange",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "DEPS|Linux",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -204,16 +206,11 @@ ci.gpu.linux_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
     ),
-    # Uncomment this entry when this experimental tester is actually in use.
-    # console_view_entry = consoles.console_view_entry(
-    #     category = "DEPS|Linux",
-    #     short_name = "exp",
-    # ),
-    list_view = "chromium.gpu.experimental",
     gn_args = gn_args.config(
         configs = [
             "angle_deqp_tests",
@@ -222,9 +219,14 @@ ci.gpu.linux_builder(
             "reclient",
             "minimal_symbols",
             "dcheck_always_on",
-            "use_dummy_lastchange",
         ],
     ),
+    # Uncomment this entry when this experimental tester is actually in use.
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "DEPS|Linux",
+    #     short_name = "exp",
+    # ),
+    list_view = "chromium.gpu.experimental",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -246,13 +248,10 @@ ci.gpu.mac_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Chromium|Mac",
-        short_name = "x64",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -261,6 +260,10 @@ ci.gpu.mac_builder(
             "minimal_symbols",
             "reclient",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Chromium|Mac",
+        short_name = "x64",
     ),
 )
 
@@ -282,13 +285,10 @@ ci.gpu.windows_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 32,
+            target_platform = builder_config.target_platform.WIN,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Chromium|Windows",
-        short_name = "x86",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -299,6 +299,10 @@ ci.gpu.windows_builder(
             "x86",
             "resource_allowlisting",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Chromium|Windows",
+        short_name = "x86",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -319,13 +323,10 @@ ci.gpu.windows_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT SwiftShader|Windows",
-        short_name = "x64",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -335,8 +336,11 @@ ci.gpu.windows_builder(
             "reclient",
             "minimal_symbols",
             "dcheck_always_on",
-            "use_dummy_lastchange",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "ToT SwiftShader|Windows",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -357,13 +361,10 @@ ci.gpu.windows_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 32,
+            target_platform = builder_config.target_platform.WIN,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT SwiftShader|Windows",
-        short_name = "x86",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -375,6 +376,10 @@ ci.gpu.windows_builder(
             "dcheck_always_on",
             "x86",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "ToT SwiftShader|Windows",
+        short_name = "x86",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -393,13 +398,10 @@ ci.gpu.windows_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "DEPS|Windows",
-        short_name = "x64",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -409,8 +411,11 @@ ci.gpu.windows_builder(
             "reclient",
             "minimal_symbols",
             "dcheck_always_on",
-            "use_dummy_lastchange",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "DEPS|Windows",
+        short_name = "x64",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -429,13 +434,10 @@ ci.gpu.windows_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 32,
+            target_platform = builder_config.target_platform.WIN,
         ),
         build_gs_bucket = "chromium-swangle-archive",
         run_tests_serially = True,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "DEPS|Windows",
-        short_name = "x86",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -447,6 +449,10 @@ ci.gpu.windows_builder(
             "dcheck_always_on",
             "x86",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "DEPS|Windows",
+        short_name = "x86",
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )

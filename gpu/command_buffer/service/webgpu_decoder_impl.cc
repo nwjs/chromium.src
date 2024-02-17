@@ -48,6 +48,7 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/webgpu_decoder.h"
+#include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_preferences.h"
 #include "gpu/config/webgpu_blocklist.h"
@@ -80,15 +81,6 @@ constexpr wgpu::TextureUsage kAllowedReadableMailboxTextureUsages =
 
 constexpr wgpu::TextureUsage kAllowedMailboxTextureUsages =
     kAllowedWritableMailboxTextureUsages | kAllowedReadableMailboxTextureUsages;
-
-// List of feature names, delimited by ,
-// The FeatureParam may be overridden via Finch config, or via the command line
-// For example:
-//   --enable-field-trial-config \
-//   --force-fieldtrial-params=WebGPU.Enabled:UnsafeFeatures/timestamp-query%2Cshader-f16
-// Note that the comma should be URL-encoded.
-const base::FeatureParam<std::string> kRuntimeUnsafeFeatures{
-    &features::kWebGPUService, "UnsafeFeatures", ""};
 
 template <typename T1, typename T2>
 void ChainStruct(T1& head, T2* struct_to_chain) {
@@ -430,8 +422,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   std::unique_ptr<DawnInstance> dawn_instance_;
   std::unique_ptr<DawnServiceMemoryTransferService> memory_transfer_service_;
 
-  bool enable_unsafe_webgpu_ = false;
-  bool enable_webgpu_developer_features_ = false;
+  webgpu::SafetyLevel safety_level_ = webgpu::SafetyLevel::kSafe;
   WebGPUAdapterName use_webgpu_adapter_ = WebGPUAdapterName::kDefault;
   WebGPUPowerPreference use_webgpu_power_preference_ =
       WebGPUPowerPreference::kNone;
@@ -440,7 +431,6 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   std::vector<std::string> require_enabled_toggles_;
   std::vector<std::string> require_disabled_toggles_;
   base::flat_set<std::string> runtime_unsafe_features_;
-  bool allow_unsafe_apis_;
   bool tiered_adapter_limits_;
 
   // Isolation key that is necessary for device requests. Optional to
@@ -1091,29 +1081,28 @@ WebGPUDecoderImpl::WebGPUDecoderImpl(
               ? std::move(dawn_caching_interface)
               : nullptr,
           /*uma_prefix=*/"GPU.WebGPU.")),
-      dawn_instance_(
-          DawnInstance::Create(dawn_platform_.get(), gpu_preferences)),
       memory_transfer_service_(new DawnServiceMemoryTransferService(this)),
       wire_serializer_(new DawnServiceSerializer(client)),
       isolation_key_provider_(isolation_key_provider) {
-  enable_unsafe_webgpu_ = gpu_preferences.enable_unsafe_webgpu;
-  enable_webgpu_developer_features_ =
-      gpu_preferences.enable_webgpu_developer_features;
+  if (gpu_preferences.enable_webgpu_developer_features) {
+    safety_level_ = webgpu::SafetyLevel::kSafeExperimental;
+  }
+  if (gpu_preferences.enable_unsafe_webgpu) {
+    safety_level_ = webgpu::SafetyLevel::kUnsafe;
+  }
+  dawn_instance_ = DawnInstance::Create(dawn_platform_.get(), gpu_preferences,
+                                        safety_level_);
+
   use_webgpu_adapter_ = gpu_preferences.use_webgpu_adapter;
   use_webgpu_power_preference_ = gpu_preferences.use_webgpu_power_preference;
   force_webgpu_compat_ = gpu_preferences.force_webgpu_compat;
   require_enabled_toggles_ = gpu_preferences.enabled_dawn_features_list;
   require_disabled_toggles_ = gpu_preferences.disabled_dawn_features_list;
   for (std::string f :
-       base::SplitString(kRuntimeUnsafeFeatures.Get(), ",",
+       base::SplitString(features::kWebGPUUnsafeFeatures.Get(), ",",
                          base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL)) {
     runtime_unsafe_features_.insert(std::move(f));
   }
-
-  // Only allow unsafe APIs if the allow_unsafe_apis toggle is explicitly
-  // enabled.
-  allow_unsafe_apis_ =
-      base::Contains(require_enabled_toggles_, "allow_unsafe_apis");
 
   // Force adapters to report their limits in predetermined tiers unless the
   // adapter_limit_tiers toggle is explicitly disabled.
@@ -1204,9 +1193,10 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::ChromiumExperimentalTimestampQueryInsidePasses:
     case wgpu::FeatureName::ChromiumExperimentalSubgroups:
     case wgpu::FeatureName::ChromiumExperimentalSubgroupUniformControlFlow:
-      return allow_unsafe_apis_;
+      return safety_level_ == webgpu::SafetyLevel::kUnsafe;
     case wgpu::FeatureName::AdapterPropertiesMemoryHeaps:
-      return enable_webgpu_developer_features_;
+      return safety_level_ == webgpu::SafetyLevel::kUnsafe ||
+             safety_level_ == webgpu::SafetyLevel::kSafeExperimental;
     case wgpu::FeatureName::DepthClipControl:
     case wgpu::FeatureName::Depth32FloatStencil8:
     case wgpu::FeatureName::TimestampQuery:
@@ -1219,17 +1209,18 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::BGRA8UnormStorage:
     case wgpu::FeatureName::Float32Filterable:
     case wgpu::FeatureName::DawnMultiPlanarFormats: {
-      if (runtime_unsafe_features_.empty()) {
-        // Likely case when no features are blocked.
+      // Likely case when no features are blocked.
+      if (runtime_unsafe_features_.empty() ||
+          safety_level_ == webgpu::SafetyLevel::kUnsafe) {
         return true;
       }
 
-      auto* info =
-          dawn_instance_->GetFeatureInfo(static_cast<WGPUFeatureName>(feature));
-      if (info == nullptr || runtime_unsafe_features_.contains(info->name)) {
-        return allow_unsafe_apis_;
+      auto* info = dawn::native::GetFeatureInfo(feature);
+      if (info == nullptr) {
+        return false;
       }
-      return true;
+
+      return !runtime_unsafe_features_.contains(info->name);
     }
     default:
       return false;
@@ -1394,12 +1385,12 @@ void WebGPUDecoderImpl::RequestDeviceImpl(
 
   // Disallows usage of SPIR-V by default for security (we only ensure that WGSL
   // is secure), unless --enable-unsafe-webgpu is used.
-  if (!enable_unsafe_webgpu_) {
+  if (safety_level_ != webgpu::SafetyLevel::kUnsafe) {
     require_device_enabled_toggles.push_back("disallow_spirv");
   }
   // Enable timestamp quantization by default for privacy, unless
   // --enable-webgpu-developer-features is used.
-  if (!enable_webgpu_developer_features_) {
+  if (safety_level_ == webgpu::SafetyLevel::kSafe) {
     require_device_enabled_toggles.push_back("timestamp_quantization");
   } else {
     require_device_disabled_toggles.push_back("timestamp_quantization");
@@ -1547,7 +1538,7 @@ WebGPUDecoderImpl::CreateQueuedRequestDeviceCallback(
 bool WebGPUDecoderImpl::use_blocklist() const {
   // Enable the blocklist unless --enable-unsafe-webgpu or
   // --disable-dawn-features=adapter_blocklist
-  return !(enable_unsafe_webgpu_ ||
+  return !(safety_level_ == webgpu::SafetyLevel::kUnsafe ||
            base::Contains(require_disabled_toggles_, "adapter_blocklist"));
 }
 
@@ -1700,10 +1691,24 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
         adapter_properties.vendorID == 0x1AE0 &&
         adapter_properties.deviceID == 0xC0DE;
 
-    // The adapter must be able to import external images, or it must be a
+    // The adapter must be able to import external textures, or it must be a
     // SwiftShader adapter. For SwiftShader, we will perform a manual
     // upload/readback to/from shared images.
-    if (!(adapter.SupportsExternalImages() || is_swiftshader)) {
+    bool supports_external_textures = false;
+#if BUILDFLAG(IS_APPLE)
+    // On Apple, Chromium uses SharedTextureMemory to import IOSurfaces.
+    wgpu::Adapter adapter_obj(adapter.Get());
+    supports_external_textures =
+        adapter_obj.HasFeature(wgpu::FeatureName::SharedTextureMemoryIOSurface);
+#else
+    // On all other platforms, Chromium currently uses the platform-specific
+    // ExternalImage API surfaces.
+    // NOTE: These platforms should be switched to the corresponding
+    // SharedTextureMemory feature check as they are converted to using
+    // SharedTextureMemory.
+    supports_external_textures = adapter.SupportsExternalImages();
+#endif
+    if (!(supports_external_textures || is_swiftshader)) {
       return false;
     }
 
@@ -1881,7 +1886,8 @@ WebGPUDecoderImpl::AssociateMailboxDawn(
     std::vector<wgpu::TextureFormat> view_formats) {
   std::unique_ptr<DawnImageRepresentation> shared_image =
       shared_image_representation_factory_->ProduceDawn(
-          mailbox, device, backendType, std::move(view_formats));
+          mailbox, device, backendType, std::move(view_formats),
+          shared_context_state_);
 
   if (!shared_image) {
     DLOG(ERROR) << "AssociateMailbox: Couldn't produce shared image";

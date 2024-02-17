@@ -190,20 +190,11 @@ void DebugDaemonLogSource::Fetch(SysLogsSourceCallback callback) {
         cryptohome::CreateAccountIdentifierFromAccountId(
             user ? user->GetAccountId() : EmptyAccountId());
 
-    if (base::FeatureList::IsEnabled(
-            ash::features::kEnableGetDebugdLogsInParallel)) {
-      // GetFeedbackLogsV3 collects logs in parallel.
-      client->GetFeedbackLogsV3(
-          account_identifier, GetLogTypesForUser(user),
-          base::BindOnce(&DebugDaemonLogSource::OnGetLogs,
-                         weak_ptr_factory_.GetWeakPtr(), start_time));
-    } else {
-      // GetFeedbackLogsV2 collects logs in sequence.
-      client->GetFeedbackLogsV2(
-          account_identifier, GetLogTypesForUser(user),
-          base::BindOnce(&DebugDaemonLogSource::OnGetLogs,
-                         weak_ptr_factory_.GetWeakPtr(), start_time));
-    }
+    client->GetFeedbackLogs(
+        account_identifier, GetLogTypesForUser(user),
+        base::BindOnce(&DebugDaemonLogSource::OnGetLogs,
+                       weak_ptr_factory_.GetWeakPtr(), start_time));
+
   } else {
     client->GetAllLogs(base::BindOnce(&DebugDaemonLogSource::OnGetLogs,
                                       weak_ptr_factory_.GetWeakPtr(),
@@ -214,7 +205,7 @@ void DebugDaemonLogSource::Fetch(SysLogsSourceCallback callback) {
 
 void DebugDaemonLogSource::OnGetRoutes(
     bool is_ipv6,
-    absl::optional<std::vector<std::string>> routes) {
+    std::optional<std::vector<std::string>> routes) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   std::string key = is_ipv6 ? kRoutesv6KeyName : kRoutesKeyName;
   (*response_)[key] = routes.has_value()
@@ -224,7 +215,7 @@ void DebugDaemonLogSource::OnGetRoutes(
 }
 
 void DebugDaemonLogSource::OnGetOneLog(std::string key,
-                                       absl::optional<std::string> status) {
+                                       std::optional<std::string> status) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   (*response_)[std::move(key)] = std::move(status).value_or(kNotAvailable);
@@ -287,7 +278,7 @@ void DebugDaemonLogSource::GetLoggedInUsersLogFiles() {
   std::vector<base::FilePath> profile_dirs;
   const user_manager::UserList& users =
       user_manager::UserManager::Get()->GetLoggedInUsers();
-  for (const auto* user : users) {
+  for (const user_manager::User* user : users) {
     if (user->username_hash().empty()) {
       continue;
     }

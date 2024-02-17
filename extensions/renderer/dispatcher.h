@@ -67,6 +67,7 @@ const int kRendererProfileId = 0;
 class ContentWatcher;
 class DispatcherDelegate;
 class Extension;
+class ExtensionsRendererAPIProvider;
 class IPCMessageSender;
 class ScriptContext;
 class ScriptContextSetIterable;
@@ -86,7 +87,9 @@ class Dispatcher : public content::RenderThreadObserver,
                    public mojom::EventDispatcher,
                    public NativeExtensionBindingsSystem::Delegate {
  public:
-  explicit Dispatcher(std::unique_ptr<DispatcherDelegate> delegate);
+  Dispatcher(std::unique_ptr<DispatcherDelegate> delegate,
+             std::vector<std::unique_ptr<ExtensionsRendererAPIProvider>>
+                 api_providers);
 
   Dispatcher(const Dispatcher&) = delete;
   Dispatcher& operator=(const Dispatcher&) = delete;
@@ -179,7 +182,7 @@ class Dispatcher : public content::RenderThreadObserver,
   void RunScriptsAtDocumentIdle(content::RenderFrame* render_frame);
 
   // Dispatches the event named |event_name| to all render views.
-  void DispatchEventHelper(const std::string& extension_id,
+  void DispatchEventHelper(const mojom::HostID& extension_id,
                            const std::string& event_name,
                            const base::Value::List& event_args,
                            mojom::EventFilteringInfoPtr filtering_info) const;
@@ -342,6 +345,10 @@ class Dispatcher : public content::RenderThreadObserver,
   // |context|.
   void RequireGuestViewModules(ScriptContext* context);
 
+  // Returns true if one of the API providers is able to provide a WebView
+  // module.
+  bool RequireWebViewModulesFromProviders(ScriptContext* context);
+
   // Creates the NativeExtensionBindingsSystem. Note: this may be called on any
   // thread, and thus cannot mutate any state or rely on state which can be
   // mutated in Dispatcher.
@@ -353,6 +360,9 @@ class Dispatcher : public content::RenderThreadObserver,
 
   // The delegate for this dispatcher to handle embedder-specific logic.
   std::unique_ptr<DispatcherDelegate> delegate_;
+
+  // The list of embedder API providers.
+  std::vector<std::unique_ptr<ExtensionsRendererAPIProvider>> api_providers_;
 
   // The IDs of extensions that failed to load, mapped to the error message
   // generated on failure.

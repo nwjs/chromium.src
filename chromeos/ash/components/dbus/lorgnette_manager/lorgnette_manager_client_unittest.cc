@@ -903,41 +903,34 @@ class LorgnetteManagerClientTest : public testing::Test {
   // Holds the client's kScannerListChangedSignal callback.
   dbus::ObjectProxy::SignalCallback scanner_list_changed_signal_callback_;
   // Used to respond to kListScannersMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      list_scanners_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> list_scanners_response_ = nullptr;
   // Used to respond to kStartScannerDiscoveryMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      start_scanner_discovery_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> start_scanner_discovery_response_ =
+      nullptr;
   // Used to respond to kStopScannerDiscoveryMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      stop_scanner_discovery_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> stop_scanner_discovery_response_ =
+      nullptr;
   // Used to respond to kGetScannerCapabilitiesMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
+  raw_ptr<dbus::Response, DanglingUntriaged>
       get_scanner_capabilities_response_ = nullptr;
   // Used to respond to kOpenScannerMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      open_scanner_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> open_scanner_response_ = nullptr;
   // Used to respond to kCloseScannerMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      close_scanner_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> close_scanner_response_ = nullptr;
   // Used to respond to kSetOptionsMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      set_options_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> set_options_response_ = nullptr;
   // Used to respond to kGetCurrentConfigMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      get_current_config_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> get_current_config_response_ =
+      nullptr;
   // Used to respond to kStartPreparedScanMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      start_prepared_scan_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> start_prepared_scan_response_ =
+      nullptr;
   // Used to respond to kStartScanMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      start_scan_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> start_scan_response_ = nullptr;
   // Used to respond to kCancelScanMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      cancel_scan_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> cancel_scan_response_ = nullptr;
   // Used to respond to kReadScanDataMethod D-Bus calls.
-  raw_ptr<dbus::Response, DanglingUntriaged | ExperimentalAsh>
-      read_scan_data_response_ = nullptr;
+  raw_ptr<dbus::Response, DanglingUntriaged> read_scan_data_response_ = nullptr;
   // Used to respond to kGetNextImageMethod D-Bus calls. A single call to some
   // of LorgnetteManagerClient's methods can result in multiple
   // kGetNextImageMethod D-Bus calls, so we need to queue the responses. Also
@@ -962,7 +955,7 @@ TEST_F(LorgnetteManagerClientTest, ListScanners) {
       kClientId,
       /*local_only=*/false,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ListScannersResponse> result) {
+          [&](std::optional<lorgnette::ListScannersResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -996,7 +989,7 @@ TEST_F(LorgnetteManagerClientTest, ListScannersViaAsyncDiscovery) {
       kClientId,
       /*local_only=*/false,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ListScannersResponse> result) {
+          [&](std::optional<lorgnette::ListScannersResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedScannerList));
@@ -1035,7 +1028,7 @@ TEST_F(LorgnetteManagerClientTest, ListScannersAsyncEmptyClient) {
       /*client_id=*/"",
       /*local_only=*/false,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ListScannersResponse> result) {
+          [&](std::optional<lorgnette::ListScannersResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(expected_response));
@@ -1054,8 +1047,8 @@ TEST_F(LorgnetteManagerClientTest, NullResponseToListScanners) {
       kClientId,
       /*local_only=*/false,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ListScannersResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::ListScannersResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1073,8 +1066,8 @@ TEST_F(LorgnetteManagerClientTest, EmptyResponseToListScanners) {
       kClientId,
       /*local_only=*/false,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ListScannersResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::ListScannersResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1133,7 +1126,7 @@ TEST_F(LorgnetteManagerClientTest, AsyncDiscoverySession) {
             }
           }),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::StartScannerDiscoveryResponse>
+          [&](std::optional<lorgnette::StartScannerDiscoveryResponse>
                   response) {
             ASSERT_TRUE(response.has_value());
             EXPECT_TRUE(response->started());
@@ -1174,7 +1167,7 @@ TEST_F(LorgnetteManagerClientTest, GetScannerCapabilities) {
   GetClient()->GetScannerCapabilities(
       kScannerDeviceName,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ScannerCapabilities> result) {
+          [&](std::optional<lorgnette::ScannerCapabilities> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1192,8 +1185,8 @@ TEST_F(LorgnetteManagerClientTest, NullResponseToGetScannerCapabilities) {
   GetClient()->GetScannerCapabilities(
       kScannerDeviceName,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ScannerCapabilities> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::ScannerCapabilities> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1210,8 +1203,8 @@ TEST_F(LorgnetteManagerClientTest, EmptyResponseToGetScannerCapabilities) {
   GetClient()->GetScannerCapabilities(
       kScannerDeviceName,
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ScannerCapabilities> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::ScannerCapabilities> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1231,7 +1224,7 @@ TEST_F(LorgnetteManagerClientTest, OpenScanner) {
   GetClient()->OpenScanner(
       CreateOpenScannerRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::OpenScannerResponse> result) {
+          [&](std::optional<lorgnette::OpenScannerResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1249,8 +1242,8 @@ TEST_F(LorgnetteManagerClientTest, OpenScannerNullResponse) {
   GetClient()->OpenScanner(
       CreateOpenScannerRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::OpenScannerResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::OpenScannerResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1267,8 +1260,8 @@ TEST_F(LorgnetteManagerClientTest, OpenScannerInvalidResponse) {
   GetClient()->OpenScanner(
       CreateOpenScannerRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::OpenScannerResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::OpenScannerResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1288,7 +1281,7 @@ TEST_F(LorgnetteManagerClientTest, CloseScanner) {
   GetClient()->CloseScanner(
       CreateCloseScannerRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::CloseScannerResponse> result) {
+          [&](std::optional<lorgnette::CloseScannerResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1306,8 +1299,8 @@ TEST_F(LorgnetteManagerClientTest, CloseScannerNullResponse) {
   GetClient()->CloseScanner(
       CreateCloseScannerRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::CloseScannerResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::CloseScannerResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1324,8 +1317,8 @@ TEST_F(LorgnetteManagerClientTest, CloseScannerInvalidResponse) {
   GetClient()->CloseScanner(
       CreateCloseScannerRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::CloseScannerResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::CloseScannerResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1345,7 +1338,7 @@ TEST_F(LorgnetteManagerClientTest, SetOptions) {
   GetClient()->SetOptions(
       CreateSetOptionsRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::SetOptionsResponse> result) {
+          [&](std::optional<lorgnette::SetOptionsResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1363,8 +1356,8 @@ TEST_F(LorgnetteManagerClientTest, SetOptionsNullResponse) {
   GetClient()->SetOptions(
       CreateSetOptionsRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::SetOptionsResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::SetOptionsResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1381,8 +1374,8 @@ TEST_F(LorgnetteManagerClientTest, SetOptionsInvalidResponse) {
   GetClient()->SetOptions(
       CreateSetOptionsRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::SetOptionsResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::SetOptionsResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1402,7 +1395,7 @@ TEST_F(LorgnetteManagerClientTest, GetCurrentConfig) {
   GetClient()->GetCurrentConfig(
       CreateGetCurrentConfigRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::GetCurrentConfigResponse> result) {
+          [&](std::optional<lorgnette::GetCurrentConfigResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1420,8 +1413,8 @@ TEST_F(LorgnetteManagerClientTest, GetCurrentConfigNullResponse) {
   GetClient()->GetCurrentConfig(
       CreateGetCurrentConfigRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::GetCurrentConfigResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::GetCurrentConfigResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1438,8 +1431,8 @@ TEST_F(LorgnetteManagerClientTest, GetCurrentConfigInvalidResponse) {
   GetClient()->GetCurrentConfig(
       CreateGetCurrentConfigRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::GetCurrentConfigResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::GetCurrentConfigResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1459,7 +1452,7 @@ TEST_F(LorgnetteManagerClientTest, StartPreparedScan) {
   GetClient()->StartPreparedScan(
       CreateStartPreparedScanRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::StartPreparedScanResponse> result) {
+          [&](std::optional<lorgnette::StartPreparedScanResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1477,8 +1470,8 @@ TEST_F(LorgnetteManagerClientTest, StartPreparedScanNullResponse) {
   GetClient()->StartPreparedScan(
       CreateStartPreparedScanRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::StartPreparedScanResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::StartPreparedScanResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1495,8 +1488,8 @@ TEST_F(LorgnetteManagerClientTest, StartPreparedScanInvalidResponse) {
   GetClient()->StartPreparedScan(
       CreateStartPreparedScanRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::StartPreparedScanResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::StartPreparedScanResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1516,7 +1509,7 @@ TEST_F(LorgnetteManagerClientTest, ReadScanData) {
   GetClient()->ReadScanData(
       CreateReadScanDataRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ReadScanDataResponse> result) {
+          [&](std::optional<lorgnette::ReadScanDataResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1534,8 +1527,8 @@ TEST_F(LorgnetteManagerClientTest, ReadScanDataNullResponse) {
   GetClient()->ReadScanData(
       CreateReadScanDataRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ReadScanDataResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::ReadScanDataResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1551,8 +1544,8 @@ TEST_F(LorgnetteManagerClientTest, ReadScanDataInvalidResponse) {
   GetClient()->ReadScanData(
       CreateReadScanDataRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::ReadScanDataResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::ReadScanDataResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1572,7 +1565,7 @@ TEST_F(LorgnetteManagerClientTest, CancelScan) {
   GetClient()->CancelScan(
       CreateCancelScanJobRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::CancelScanResponse> result) {
+          [&](std::optional<lorgnette::CancelScanResponse> result) {
             run_loop.Quit();
             ASSERT_TRUE(result.has_value());
             EXPECT_THAT(result.value(), EqualsProto(kExpectedResponse));
@@ -1590,8 +1583,8 @@ TEST_F(LorgnetteManagerClientTest, CancelScanNullResponse) {
   GetClient()->CancelScan(
       CreateCancelScanJobRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::CancelScanResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::CancelScanResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 
@@ -1609,8 +1602,8 @@ TEST_F(LorgnetteManagerClientTest, CancelScanInvalidResponse) {
   GetClient()->CancelScan(
       CreateCancelScanJobRequest(),
       base::BindLambdaForTesting(
-          [&](absl::optional<lorgnette::CancelScanResponse> result) {
-            EXPECT_EQ(result, absl::nullopt);
+          [&](std::optional<lorgnette::CancelScanResponse> result) {
+            EXPECT_EQ(result, std::nullopt);
             run_loop.Quit();
           }));
 

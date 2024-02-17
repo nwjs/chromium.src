@@ -24,7 +24,8 @@ void PageResourceDataUse::DidStartResponse(
     const url::SchemeHostPort& final_response_url,
     int resource_id,
     const network::mojom::URLResponseHead& response_head,
-    network::mojom::RequestDestination request_destination) {
+    network::mojom::RequestDestination request_destination,
+    bool is_ad_resource) {
   if (resource_id_ != kUnknownResourceId) {
     CHECK_EQ(resource_id_, resource_id);
   }
@@ -37,6 +38,7 @@ void PageResourceDataUse::DidStartResponse(
   is_secure_scheme_ = GURL::SchemeIsCryptographic(final_response_url.scheme());
   is_primary_frame_resource_ =
       blink::IsRequestDestinationFrame(request_destination);
+  reported_as_ad_resource_ = is_ad_resource;
 }
 
 void PageResourceDataUse::DidReceiveTransferSizeUpdate(
@@ -81,18 +83,8 @@ bool PageResourceDataUse::IsFinishedLoading() {
   return is_complete_ || is_canceled_;
 }
 
-void PageResourceDataUse::SetReportedAsAdResource(
-    bool reported_as_ad_resource) {
-  reported_as_ad_resource_ = reported_as_ad_resource;
-}
-
 void PageResourceDataUse::SetIsMainFrameResource(bool is_main_frame_resource) {
   is_main_frame_resource_ = is_main_frame_resource;
-}
-
-void PageResourceDataUse::SetCompletedBeforeFCP(bool completed_before_fcp) {
-  DCHECK(completed_before_fcp);
-  completed_before_fcp_ = completed_before_fcp;
 }
 
 int PageResourceDataUse::CalculateNewlyReceivedBytes() {
@@ -119,7 +111,6 @@ mojom::ResourceDataUpdatePtr PageResourceDataUse::GetResourceDataUpdate() {
   resource_data_update->is_secure_scheme = is_secure_scheme_;
   resource_data_update->proxy_used = proxy_used_;
   resource_data_update->is_primary_frame_resource = is_primary_frame_resource_;
-  resource_data_update->completed_before_fcp = completed_before_fcp_;
   return resource_data_update;
 }
 }  // namespace page_load_metrics

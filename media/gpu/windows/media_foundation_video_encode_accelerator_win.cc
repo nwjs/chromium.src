@@ -170,6 +170,16 @@ eAVEncH265VProfile GetHEVCProfile(VideoCodecProfile profile) {
   }
 }
 
+// Get distance from current frame to next temporal base layer frame.
+uint32_t GetDistanceToNextTemporalBaseLayer(uint32_t frame_number,
+                                            uint32_t temporal_layer_count) {
+  DCHECK(temporal_layer_count >= 1 && temporal_layer_count <= 3);
+  uint32_t pattern_count = 1 << (temporal_layer_count - 1);
+  return (frame_number % pattern_count == 0)
+             ? 0
+             : pattern_count - (frame_number % pattern_count);
+}
+
 MediaFoundationVideoEncodeAccelerator::DriverVendor GetDriverVendor(
     IMFActivate* encoder) {
   using DriverVendor = MediaFoundationVideoEncodeAccelerator::DriverVendor;
@@ -416,12 +426,17 @@ VideoRateControlWrapper::RateControlConfig CreateRateControllerConfig(
 
 class MediaFoundationVideoEncodeAccelerator::BitstreamParserHelper {
  public:
+  // Describe a slot of reference frame buffer.
+  struct ReferenceBufferSlot {
+    uint32_t frame_id;
+    int temporal_id;
+  };
   // Metadata parsed from encoding bitstream buffer.
   struct BitstreamMetadata {
     int temporal_id = 0;
-    // The differences between the picture id of this frame and picture ids
-    // of reference frames, Currently, only be filled for VP9 non key frames.
-    std::vector<uint8_t> vp9_p_diffs;
+    // A list of referenced frames info for this frame. Currently, only be
+    // filled for VP9 encoding.
+    std::vector<ReferenceBufferSlot> ref_frame_list;
   };
 
   BitstreamParserHelper() = delete;
@@ -464,11 +479,6 @@ class MediaFoundationVideoEncodeAccelerator::BitstreamParserHelper {
   }
 
  private:
-  // Describe a slot of reference frame buffer.
-  struct ReferenceBufferSlot {
-    uint32_t frame_id;
-    int temporal_id;
-  };
 
   bool ParseH264(const uint8_t* stream, off_t size, BitstreamMetadata& md) {
     h264_->SetStream(stream, size);
@@ -552,8 +562,7 @@ class MediaFoundationVideoEncodeAccelerator::BitstreamParserHelper {
             DLOG(ERROR) << "Check reference structure failed.";
             return false;
           }
-          uint32_t ref_frame_id = vp9_ref_buffer_[idx].frame_id;
-          md.vp9_p_diffs.push_back(frame_id - ref_frame_id);
+          md.ref_frame_list.push_back(vp9_ref_buffer_[idx]);
         }
         reference_frame_flags.set(idx, true);
       }
@@ -631,10 +640,15 @@ MediaFoundationVideoEncodeAccelerator::
 
 VideoEncodeAccelerator::SupportedProfiles
 MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
-  TRACE_EVENT0("gpu,startup",
-               "MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles");
+  TRACE_EVENT1("gpu,startup",
+               "MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles",
+               "from_cache", supported_profiles_.has_value());
   DVLOG(3) << __func__;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (supported_profiles_.has_value()) {
+    return supported_profiles_.value();
+  }
 
   std::vector<VideoCodec> supported_codecs(
       {VideoCodec::kH264, VideoCodec::kVP9, VideoCodec::kAV1});
@@ -698,6 +712,8 @@ MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
     }
   }
 
+  supported_profiles_ = profiles;
+
   return profiles;
 }
 
@@ -743,6 +759,7 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
     }
 #endif
   }
+  profile_ = config.output_profile;
 
   if (codec_ == VideoCodec::kUnknown) {
     MEDIA_LOG(ERROR, media_log_)
@@ -756,11 +773,20 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
     return false;
   }
   client_ = client;
+  // Unsupported frame size should be rejected. However, to avoid breaking
+  // existing applications, only a warning is printed.
+  if (!IsFrameSizeAllowed(config.input_visible_size)) {
+    MEDIA_LOG(WARNING, media_log_)
+        << config.input_visible_size.ToString()
+        << " is not supported by profile " << profile_;
+  }
   input_visible_size_ = config.input_visible_size;
-  if (config.initial_framerate.has_value() && config.initial_framerate.value())
+  if (config.initial_framerate.has_value() &&
+      config.initial_framerate.value()) {
     frame_rate_ = config.initial_framerate.value();
-  else
+  } else {
     frame_rate_ = kMaxFrameRateNumerator / kMaxFrameRateDenominator;
+  }
   bitrate_allocation_ = AllocateBitrateForDefaultEncoding(config);
 
   bitstream_buffer_size_ = config.input_visible_size.GetArea();
@@ -795,8 +821,9 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
     }
   }
   input_since_keyframe_count_ = 0;
+  zero_layer_counter_ = 0;
   // Init bitream parser in the case temporal scalability encoding.
-  if (IsTemporaScalabilityCoding()) {
+  if (IsTemporalScalabilityCoding()) {
     parser_ = std::make_unique<BitstreamParserHelper>(codec_);
   }
 
@@ -930,6 +957,9 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
     encoder_info_.fps_allocation[0] = {kFullFramerate};
   }
 
+  encoder_info_.supports_frame_size_change =
+      !workarounds_.disable_media_foundation_frame_size_change;
+
   return true;
 }
 
@@ -951,6 +981,23 @@ void MediaFoundationVideoEncodeAccelerator::Encode(
     EncodeOptions discard_options(/*force_keyframe=*/false);
     EncodeInternal(frame, discard_options, /*discard_output=*/true);
   }
+
+  if (codec_ == VideoCodec::kVP9 && vendor_ == DriverVendor::kIntel &&
+      IsTemporalScalabilityCoding() && options.key_frame) {
+    // Currently, Intel drivers only allow apps to request keyframe on base
+    // layer(T0) when encoding at L1T2/L1T3, any keyframe requests on T1/T2
+    // layer will be ignored by driver and not return a keyframe. For VP9, we
+    // expect when keyframe is requested, encoder will reset the temporal layer
+    // state and produce a keyframe, to work around this issue, MFVEA will add
+    // input and internally discard output until driver transition to T0 layer.
+    uint32_t distance_to_base_layer = GetDistanceToNextTemporalBaseLayer(
+        input_since_keyframe_count_, num_temporal_layers_);
+    for (uint32_t i = 0; i < distance_to_base_layer; ++i) {
+      EncodeOptions discard_options(/*force_keyframe=*/false);
+      EncodeInternal(frame, discard_options, /*discard_output=*/true);
+    }
+  }
+
   EncodeInternal(std::move(frame), options, /*discard_output=*/false);
   last_frame_was_keyframe_request_ = options.key_frame;
 }
@@ -989,8 +1036,8 @@ void MediaFoundationVideoEncodeAccelerator::EncodeInternal(
     default:
       NotifyErrorStatus({EncoderStatus::Codes::kEncoderFailedEncode,
                          "Unexpected encoder state"});
-      DCHECK(false) << "Abandon input frame for video encoder."
-                    << " State: " << static_cast<int>(state_);
+      DVLOG(3) << "Abandon input frame for video encoder."
+               << " State: " << static_cast<int>(state_);
   }
 }
 
@@ -1043,7 +1090,8 @@ void MediaFoundationVideoEncodeAccelerator::RequestEncodingParametersChange(
     uint32_t framerate,
     const absl::optional<gfx::Size>& size) {
   DVLOG(3) << __func__ << ": bitrate=" << bitrate.ToString()
-           << ": framerate=" << framerate;
+           << ": framerate=" << framerate
+           << ": size=" << (size.has_value() ? size->ToString() : "nullopt");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   VideoBitrateAllocation allocation(bitrate.mode());
@@ -1067,7 +1115,8 @@ void MediaFoundationVideoEncodeAccelerator::RequestEncodingParametersChange(
     uint32_t framerate,
     const absl::optional<gfx::Size>& size) {
   DVLOG(3) << __func__ << ": bitrate=" << bitrate_allocation.GetSumBps()
-           << ": framerate=" << framerate;
+           << ": framerate=" << framerate
+           << ": size=" << (size.has_value() ? size->ToString() : "nullopt");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   DCHECK(imf_output_media_type_);
@@ -1079,16 +1128,11 @@ void MediaFoundationVideoEncodeAccelerator::RequestEncodingParametersChange(
     return;
   }
 
-  if (size.has_value()) {
-    NotifyErrorStatus({EncoderStatus::Codes::kEncoderUnsupportedConfig,
-                       "Update output frame size is not supported"});
-    return;
-  }
-
   framerate =
       std::clamp(framerate, 1u, static_cast<uint32_t>(kMaxFrameRateNumerator));
 
-  if (framerate == frame_rate_ && bitrate_allocation == bitrate_allocation_) {
+  if (framerate == frame_rate_ && bitrate_allocation == bitrate_allocation_ &&
+      !size.has_value()) {
     return;
   }
 
@@ -1099,36 +1143,165 @@ void MediaFoundationVideoEncodeAccelerator::RequestEncodingParametersChange(
     rate_ctrl_->UpdateRateControl(
         CreateRateControllerConfig(bitrate_allocation_, input_visible_size_,
                                    frame_rate_, num_temporal_layers_, codec_));
+  } else {
+    VARIANT var;
+    var.vt = VT_UI4;
+    HRESULT hr;
+    switch (bitrate_allocation_.GetMode()) {
+      case Bitrate::Mode::kVariable:
+        var.ulVal = AdjustBitrateToFrameRate(bitrate_allocation_.GetPeakBps(),
+                                             configured_frame_rate_, framerate);
+        hr = codec_api_->SetValue(&CODECAPI_AVEncCommonMaxBitRate, &var);
+        if (FAILED(hr)) {
+          NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                             "Couldn't set max bitrate" + PrintHr(hr)});
+          return;
+        }
+        [[fallthrough]];
+      case Bitrate::Mode::kConstant:
+        var.ulVal = AdjustBitrateToFrameRate(bitrate_allocation_.GetSumBps(),
+                                             configured_frame_rate_, framerate);
+        hr = codec_api_->SetValue(&CODECAPI_AVEncCommonMeanBitRate, &var);
+        if (FAILED(hr)) {
+          NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                             "Couldn't set mean bitrate" + PrintHr(hr)});
+          return;
+        }
+        break;
+      case Bitrate::Mode::kExternal:
+        break;
+    }
+  }
+
+  if (size.has_value()) {
+    UpdateFrameSize(size.value());
+  }
+}
+
+bool MediaFoundationVideoEncodeAccelerator::IsFrameSizeAllowed(
+    const gfx::Size& size) {
+  for (const auto& profile : GetSupportedProfiles()) {
+    if (profile.profile == profile_) {
+      if (size.width() <= profile.max_resolution.width() &&
+          size.height() <= profile.max_resolution.height() &&
+          size.width() >= profile.min_resolution.width() &&
+          size.height() >= profile.min_resolution.height()) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }
+  NOTREACHED();
+  return false;
+}
+
+void MediaFoundationVideoEncodeAccelerator::UpdateFrameSize(
+    const gfx::Size& frame_size) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(imf_output_media_type_);
+  DCHECK(imf_input_media_type_);
+  DCHECK(activate_);
+  DCHECK(encoder_);
+  DCHECK_NE(input_visible_size_, frame_size);
+  DCHECK(pending_input_queue_.empty());
+
+  if (!IsFrameSizeAllowed(frame_size)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kEncoderUnsupportedConfig,
+                       "Unsupported frame size"});
+    return;
+  }
+  input_visible_size_ = frame_size;
+
+  HRESULT hr = S_OK;
+  // As this method is expected to be called after Flush(), it's safe to send
+  // MFT_MESSAGE_COMMAND_FLUSH here. Without MFT_MESSAGE_COMMAND_FLUSH, MFT may
+  // report 0x80004005 (Unspecified error) when encode the first frame after
+  // resolution change on Intel platform.
+  if (vendor_ == DriverVendor::kIntel) {
+    hr = encoder_->ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0);
+    if (FAILED(hr)) {
+      NotifyErrorStatus(
+          {EncoderStatus::Codes::kSystemAPICallError,
+           "Couldn't set ProcessMessage MFT_MESSAGE_COMMAND_FLUSH"});
+      return;
+    }
+  }
+  hr = encoder_->ProcessMessage(MFT_MESSAGE_NOTIFY_END_OF_STREAM, 0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus(
+        {EncoderStatus::Codes::kSystemAPICallError,
+         "Couldn't set ProcessMessage MFT_MESSAGE_NOTIFY_END_OF_STREAM"});
+    return;
+  }
+  hr = encoder_->ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus(
+        {EncoderStatus::Codes::kSystemAPICallError,
+         "Couldn't set ProcessMessage MFT_MESSAGE_NOTIFY_END_STREAMING"});
+    return;
+  }
+  hr = encoder_->SetInputType(input_stream_id_, nullptr, 0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                       "Couldn't set input stream type to nullptr"});
+    return;
+  }
+  hr = encoder_->SetOutputType(output_stream_id_, nullptr, 0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                       "Couldn't set output stream type to nullptr"});
+    return;
+  }
+  hr = MFSetAttributeSize(imf_output_media_type_.Get(), MF_MT_FRAME_SIZE,
+                          input_visible_size_.width(),
+                          input_visible_size_.height());
+  if (FAILED(hr)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                       "Couldn't set output frame size"});
+    return;
+  }
+  hr = encoder_->SetOutputType(output_stream_id_, imf_output_media_type_.Get(),
+                               0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                       "Couldn't set output media type"});
+    return;
+  }
+  hr = MFSetAttributeSize(imf_input_media_type_.Get(), MF_MT_FRAME_SIZE,
+                          input_visible_size_.width(),
+                          input_visible_size_.height());
+  if (FAILED(hr)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                       "Couldn't set input frame size"});
+    return;
+  }
+  hr = encoder_->SetInputType(input_stream_id_, imf_input_media_type_.Get(), 0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
+                       "Couldn't set input media type"});
+    return;
+  }
+  hr = encoder_->ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus(
+        {EncoderStatus::Codes::kSystemAPICallError,
+         "Couldn't set ProcessMessage MFT_MESSAGE_NOTIFY_BEGIN_STREAMING"});
+    return;
+  }
+  hr = encoder_->ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0);
+  if (FAILED(hr)) {
+    NotifyErrorStatus(
+        {EncoderStatus::Codes::kSystemAPICallError,
+         "Couldn't set ProcessMessage MFT_MESSAGE_NOTIFY_START_OF_STREAM"});
     return;
   }
 
-  VARIANT var;
-  var.vt = VT_UI4;
-  HRESULT hr;
-  switch (bitrate_allocation_.GetMode()) {
-    case Bitrate::Mode::kVariable:
-      var.ulVal = AdjustBitrateToFrameRate(bitrate_allocation_.GetPeakBps(),
-                                           configured_frame_rate_, framerate);
-      hr = codec_api_->SetValue(&CODECAPI_AVEncCommonMaxBitRate, &var);
-      if (FAILED(hr)) {
-        NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
-                           "Couldn't set max bitrate" + PrintHr(hr)});
-        return;
-      }
-      [[fallthrough]];
-    case Bitrate::Mode::kConstant:
-      var.ulVal = AdjustBitrateToFrameRate(bitrate_allocation_.GetSumBps(),
-                                           configured_frame_rate_, framerate);
-      hr = codec_api_->SetValue(&CODECAPI_AVEncCommonMeanBitRate, &var);
-      if (FAILED(hr)) {
-        NotifyErrorStatus({EncoderStatus::Codes::kSystemAPICallError,
-                           "Couldn't set mean bitrate" + PrintHr(hr)});
-        return;
-      }
-      break;
-    case Bitrate::Mode::kExternal:
-      break;
-  }
+  input_sample_->RemoveAllBuffers();
+  bitstream_buffer_size_ = input_visible_size_.GetArea();
+  bitstream_buffer_queue_.clear();
+  client_->RequireBitstreamBuffers(kNumInputBuffers, input_visible_size_,
+                                   bitstream_buffer_size_);
 }
 
 void MediaFoundationVideoEncodeAccelerator::Destroy() {
@@ -1509,7 +1682,8 @@ HRESULT MediaFoundationVideoEncodeAccelerator::ProcessInput(
     }
   } else {
     // Reset the frame count when keyframe is requested.
-    if (input.options.key_frame) {
+    if (input.options.key_frame ||
+        (input_since_keyframe_count_ % kDefaultGOPLength) == 0) {
       input_since_keyframe_count_ = 0;
     }
     // Prepare input sample if it hasn't been done yet.
@@ -1686,20 +1860,23 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PopulateInputSampleBuffer(
                                       input_visible_size_.height());
   size_t dst_uv_stride = VideoFrame::RowBytes(
       VideoFrame::kUVPlane, kTargetPixelFormat, input_visible_size_.width());
-  uint8_t* end = dst_uv + dst_uv_stride * frame->rows(VideoFrame::kUVPlane);
+  uint8_t* end =
+      dst_uv + dst_uv_stride * VideoFrame::Rows(VideoFrame::kUVPlane,
+                                                kTargetPixelFormat,
+                                                input_visible_size_.height());
   DCHECK_GE(static_cast<ptrdiff_t>(scoped_buffer.max_length()),
             end - scoped_buffer.get());
 
   // Set up a VideoFrame with the data pointing into the input buffer.
-  // We need it to ease copying and scaling by reusing ConvertAndScaleFrame()
+  // We need it to ease copying and scaling by reusing ConvertAndScale()
   auto frame_in_buffer = VideoFrame::WrapExternalYuvData(
       kTargetPixelFormat, input_visible_size_, gfx::Rect(input_visible_size_),
       input_visible_size_, dst_y_stride, dst_uv_stride, dst_y, dst_uv,
       frame->timestamp());
 
-  auto status = ConvertAndScaleFrame(*frame, *frame_in_buffer, resize_buffer_);
+  auto status = frame_converter_.ConvertAndScale(*frame, *frame_in_buffer);
   if (!status.is_ok()) {
-    LOG(ERROR) << "ConvertAndScaleFrame failed with error code: "
+    LOG(ERROR) << "ConvertAndScale failed with error code: "
                << static_cast<uint32_t>(status.code());
     return E_FAIL;
   }
@@ -1995,7 +2172,7 @@ void MediaFoundationVideoEncodeAccelerator::ProcessOutput() {
   }
 
   int temporal_id = 0;
-  if (IsTemporaScalabilityCoding()) {
+  if (IsTemporalScalabilityCoding()) {
     DCHECK(parser_);
     BitstreamParserHelper::BitstreamMetadata bits_md;
     MediaBufferScopedPointer scoped_buffer(output_buffer.Get());
@@ -2021,9 +2198,45 @@ void MediaFoundationVideoEncodeAccelerator::ProcessOutput() {
         vp9.end_active_spatial_layer_index =
             1 /*vp9.spatial_layer_resolutions.size()*/;
       } else {
+        // For VP9 L1T2/L1T3 encoding on Intel drivers, a T1 frame may ref the
+        // previous T1 frame which leads to not all T0 frame can be a sync point
+        // to go up for higher temporal layers. We need to pick out the T0 frame
+        // based on deterministic pattern and mark it as up-switch.
+        // See https://crbug.com/1358750 for more details.
+        if (vendor_ == DriverVendor::kIntel) {
+          DCHECK(num_temporal_layers_ >= 2 && num_temporal_layers_ <= 3);
+          uint32_t multiplier = num_temporal_layers_ == 3 ? 2 : 4;
+          bool is_single_ref = zero_layer_counter_ % multiplier == 0;
+          vp9.temporal_up_switch = true;
+          if (temporal_id == 0) {
+            zero_layer_counter_++;
+            if (!is_single_ref) {
+              // If |is_single_ref| is false, the subsequent T1 frame will ref
+              // the previous T1 frame, so the current frame can not mark as
+              // up-switch.
+              vp9.temporal_up_switch = false;
+            }
+          } else if (is_single_ref) {
+            // If |is_single_ref| is true, the T1/T2 layer only allowed to ref
+            // the frames with lower temporal layer id, add check to guarantee
+            // the ref dependency follow the deterministic pattern on Intel
+            // drivers.
+            for (const auto ref : bits_md.ref_frame_list) {
+              if (ref.temporal_id >= temporal_id) {
+                NotifyErrorStatus(
+                    {EncoderStatus::Codes::kEncoderHardwareDriverError,
+                     "VP9 referenced frames check failed "});
+                return;
+              }
+            }
+          }
+        }
+        // Fill the encoding metadata for VP9 non key frames.
         vp9.inter_pic_predicted = true;
         vp9.temporal_idx = temporal_id;
-        vp9.p_diffs = bits_md.vp9_p_diffs;
+        for (const auto ref : bits_md.ref_frame_list) {
+          vp9.p_diffs.push_back(metadata.frame_id - ref.frame_id);
+        }
       }
     }
   }
@@ -2159,7 +2372,11 @@ HRESULT MediaFoundationVideoEncodeAccelerator::InitializeD3DVideoProcessing(
   D3D11_TEXTURE2D_DESC input_desc = {};
   input_texture->GetDesc(&input_desc);
   if (vp_desc_.InputWidth == input_desc.Width &&
-      vp_desc_.InputHeight == input_desc.Height) {
+      vp_desc_.InputHeight == input_desc.Height &&
+      scaled_d3d11_texture_desc_.Width ==
+          static_cast<UINT>(input_visible_size_.width()) &&
+      scaled_d3d11_texture_desc_.Height ==
+          static_cast<UINT>(input_visible_size_.height())) {
     return S_OK;
   }
 
@@ -2235,6 +2452,7 @@ HRESULT MediaFoundationVideoEncodeAccelerator::InitializeD3DVideoProcessing(
   video_context_ = std::move(video_context);
   vp_desc_ = std::move(vp_desc);
   scaled_d3d11_texture_ = std::move(scaled_d3d11_texture);
+  scaled_d3d11_texture_->GetDesc(&scaled_d3d11_texture_desc_);
   vp_output_view_ = std::move(vp_output_view);
   return S_OK;
 }

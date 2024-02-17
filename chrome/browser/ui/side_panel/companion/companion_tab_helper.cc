@@ -160,7 +160,7 @@ void CompanionTabHelper::SetTextQuery(const std::string& text_query) {
 void CompanionTabHelper::OnCompanionSidePanelClosed() {
   image_query_.reset();
   text_query_.clear();
-  side_panel_open_trigger_ = absl::nullopt;
+  side_panel_open_trigger_ = std::nullopt;
   delegate_->OnCompanionSidePanelClosed();
 }
 
@@ -201,14 +201,14 @@ void CompanionTabHelper::StartRegionSearch(
 }
 
 void CompanionTabHelper::SetMostRecentSidePanelOpenTrigger(
-    absl::optional<SidePanelOpenTrigger> side_panel_open_trigger) {
+    std::optional<SidePanelOpenTrigger> side_panel_open_trigger) {
   side_panel_open_trigger_ = side_panel_open_trigger;
 }
 
-absl::optional<SidePanelOpenTrigger>
+std::optional<SidePanelOpenTrigger>
 CompanionTabHelper::GetAndResetMostRecentSidePanelOpenTrigger() {
   auto copy = side_panel_open_trigger_;
-  side_panel_open_trigger_ = absl::nullopt;
+  side_panel_open_trigger_ = std::nullopt;
   return copy;
 }
 

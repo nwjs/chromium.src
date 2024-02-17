@@ -250,7 +250,7 @@ class DriveUploadHandlerTest
 
   // `Wait` will not complete until this is called.
   void OnUploadDone(OfficeTaskResult task_result,
-                    absl::optional<GURL> url,
+                    std::optional<GURL> url,
                     int64_t size) {
     if (fail_sync_) {
       ASSERT_FALSE(url);
@@ -343,7 +343,7 @@ class DriveUploadHandlerTest
     drivefs::mojom::SyncingStatusPtr status =
         drivefs::mojom::SyncingStatus::New();
     status->item_events.emplace_back(
-        absl::in_place, 12, 34, observed_relative_drive_path().value(),
+        std::in_place, 12, 34, observed_relative_drive_path().value(),
         drivefs::mojom::ItemEvent::State::kQueued, 123, 456,
         drivefs::mojom::ItemEventReason::kTransfer);
     drivefs_delegate()->OnSyncingStatusUpdate(status.Clone());
@@ -351,7 +351,7 @@ class DriveUploadHandlerTest
 
     status = drivefs::mojom::SyncingStatus::New();
     status->item_events.emplace_back(
-        absl::in_place, 12, 34, observed_relative_drive_path().value(),
+        std::in_place, 12, 34, observed_relative_drive_path().value(),
         drivefs::mojom::ItemEvent::State::kCompleted, 123, 456,
         drivefs::mojom::ItemEventReason::kTransfer);
     drivefs_delegate()->OnSyncingStatusUpdate(status.Clone());
@@ -363,7 +363,7 @@ class DriveUploadHandlerTest
     drivefs::mojom::SyncingStatusPtr status =
         drivefs::mojom::SyncingStatus::New();
     status->item_events.emplace_back(
-        absl::in_place, 12, 34, observed_relative_drive_path().value(),
+        std::in_place, 12, 34, observed_relative_drive_path().value(),
         drivefs::mojom::ItemEvent::State::kQueued, 123, 456,
         drivefs::mojom::ItemEventReason::kTransfer);
     drivefs_delegate()->OnSyncingStatusUpdate(status.Clone());
@@ -372,7 +372,7 @@ class DriveUploadHandlerTest
     drivefs::mojom::SyncingStatusPtr fail_status =
         drivefs::mojom::SyncingStatus::New();
     fail_status->item_events.emplace_back(
-        absl::in_place, 12, 34, observed_relative_drive_path().value(),
+        std::in_place, 12, 34, observed_relative_drive_path().value(),
         drivefs::mojom::ItemEvent::State::kFailed, 123, 456,
         drivefs::mojom::ItemEventReason::kTransfer);
     drivefs_delegate()->OnSyncingStatusUpdate(fail_status->Clone());
@@ -507,7 +507,7 @@ IN_PROC_BROWSER_TEST_F(DriveUploadHandlerTest, UploadFromMyFilesNoConnection) {
   base::RunLoop run_loop;
   base::MockCallback<DriveUploadHandler::UploadCallback> upload_callback;
   EXPECT_CALL(upload_callback, Run(OfficeTaskResult::kFailedToUpload,
-                                   absl::optional<GURL>(absl::nullopt), _))
+                                   std::optional<GURL>(std::nullopt), _))
       .WillOnce(RunClosure(run_loop.QuitClosure()));
   DriveUploadHandler::Upload(profile(), source_file_url, upload_callback.Get(),
                              cloud_open_metrics_ref_);
@@ -543,7 +543,7 @@ IN_PROC_BROWSER_TEST_F(DriveUploadHandlerTest,
   base::RunLoop run_loop;
   base::MockCallback<DriveUploadHandler::UploadCallback> upload_callback;
   EXPECT_CALL(upload_callback, Run(OfficeTaskResult::kFailedToUpload,
-                                   absl::optional<GURL>(absl::nullopt), _))
+                                   std::optional<GURL>(std::nullopt), _))
       .WillOnce(RunClosure(run_loop.QuitClosure()));
   DriveUploadHandler::Upload(profile(), source_file_url, upload_callback.Get(),
                              cloud_open_metrics_ref_);

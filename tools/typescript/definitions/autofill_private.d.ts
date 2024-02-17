@@ -21,7 +21,7 @@ declare global {
        * This enum must be kept in sync with:
        * components/autofill/core/browser/field_types.h.
        */
-      export enum ServerFieldType {
+      export enum FieldType {
         NO_SERVER_DATA,
         UNKNOWN_TYPE,
         EMPTY_TYPE,
@@ -136,7 +136,7 @@ declare global {
       }
 
       export interface AddressField {
-        type: ServerFieldType;
+        type: FieldType;
         value: string|undefined;
       }
 
@@ -155,7 +155,7 @@ declare global {
       }
 
       export interface AddressComponent {
-        field: ServerFieldType;
+        field: FieldType;
         fieldName: string;
         isLongField: boolean;
         isRequired: boolean;
@@ -215,6 +215,7 @@ declare global {
       export function maskCreditCard(guid: string): void;
       export function migrateCreditCards(): void;
       export function logServerCardLinkClicked(): void;
+      export function logServerIbanLinkClicked(): void;
       export function setCreditCardFIDOAuthEnabledState(enabled: boolean): void;
       export function addVirtualCard(cardId: string): void;
       export function removeVirtualCard(cardId: string): void;

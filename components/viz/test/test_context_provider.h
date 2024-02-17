@@ -22,6 +22,7 @@
 #include "components/viz/common/gpu/context_provider.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/test/test_context_support.h"
+#include "components/viz/test/test_gpu_memory_buffer_manager.h"
 #include "gpu/command_buffer/client/gles2_interface_stub.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
@@ -97,6 +98,15 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
       gfx::GpuMemoryBufferHandle buffer_handle) override;
 
   scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
+      SharedImageFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
+      SkAlphaType alpha_type,
+      uint32_t usage,
+      base::StringPiece debug_label) override;
+
+  scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
       gfx::GpuMemoryBuffer* gpu_memory_buffer,
       gpu::GpuMemoryBufferManager* gpu_memory_buffer_manager,
       gfx::BufferPlane plane,
@@ -112,9 +122,10 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
                          std::unique_ptr<gfx::GpuFence> acquire_fence,
                          const gpu::Mailbox& mailbox) override;
 
-  void AddReferenceToSharedImage(const gpu::SyncToken& sync_token,
-                                 const gpu::Mailbox& mailbox,
-                                 uint32_t usage) override;
+  scoped_refptr<gpu::ClientSharedImage> AddReferenceToSharedImage(
+      const gpu::SyncToken& sync_token,
+      const gpu::Mailbox& mailbox,
+      uint32_t usage) override;
 
   void DestroySharedImage(const gpu::SyncToken& sync_token,
                           const gpu::Mailbox& mailbox) override;
@@ -122,12 +133,12 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
       const gpu::SyncToken& sync_token,
       scoped_refptr<gpu::ClientSharedImage> client_shared_image) override;
 
-  SwapChainMailboxes CreateSwapChain(SharedImageFormat format,
-                                     const gfx::Size& size,
-                                     const gfx::ColorSpace& color_space,
-                                     GrSurfaceOrigin surface_origin,
-                                     SkAlphaType alpha_type,
-                                     uint32_t usage) override;
+  SwapChainSharedImages CreateSwapChain(SharedImageFormat format,
+                                        const gfx::Size& size,
+                                        const gfx::ColorSpace& color_space,
+                                        GrSurfaceOrigin surface_origin,
+                                        SkAlphaType alpha_type,
+                                        uint32_t usage) override;
   void PresentSwapChain(const gpu::SyncToken& sync_token,
                         const gpu::Mailbox& mailbox) override;
 
@@ -160,6 +171,14 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
   const gpu::SharedImageCapabilities& GetCapabilities() override;
   void SetCapabilities(const gpu::SharedImageCapabilities& caps);
 
+  void SetFailSharedImageCreationWithBufferUsage(bool value) {
+    fail_shared_image_creation_with_buffer_usage_ = value;
+  }
+
+  void UseTestGMBInSharedImageCreationWithBufferUsage() {
+    test_gmb_manager_ = std::make_unique<TestGpuMemoryBufferManager>();
+  }
+
  private:
   mutable base::Lock lock_;
 
@@ -170,6 +189,11 @@ class TestSharedImageInterface : public gpu::SharedImageInterface {
   base::flat_set<gpu::Mailbox> shared_images_;
 
   gpu::SharedImageCapabilities shared_image_capabilities_;
+  bool fail_shared_image_creation_with_buffer_usage_ = false;
+
+  // If non-null, this will be used to back mappable SharedImages with test
+  // GpuMemoryBuffers.
+  std::unique_ptr<TestGpuMemoryBufferManager> test_gmb_manager_;
 };
 
 class TestContextProvider

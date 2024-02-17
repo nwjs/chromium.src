@@ -15,6 +15,7 @@ import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.Fo
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties.ON_CLICK_HYBRID;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties.ON_CLICK_MANAGE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties.SHOW_HYBRID;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.AVATAR;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.IMAGE_DRAWABLE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.SUBTITLE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.TITLE;
@@ -27,13 +28,19 @@ import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.We
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.WebAuthnCredentialProperties.WEBAUTHN_ITEM_COLLECTION_INFO;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 
 import androidx.annotation.Px;
+import androidx.appcompat.content.res.AppCompatResources;
 
+import org.chromium.base.Callback;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.password_manager.PasswordManagerResourceProviderFactory;
-import org.chromium.chrome.browser.touch_to_fill.TouchToFillComponent.UserAction;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FaviconOrFallback;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties;
@@ -43,12 +50,14 @@ import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.WebAuthnC
 import org.chromium.chrome.browser.touch_to_fill.common.BottomSheetFocusHelper;
 import org.chromium.chrome.browser.touch_to_fill.common.FillableItemCollectionInfo;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
-import org.chromium.chrome.browser.touch_to_fill.data.WebAuthnCredential;
+import org.chromium.chrome.browser.touch_to_fill.data.WebauthnCredential;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
+import org.chromium.components.browser_ui.util.AvatarGenerator;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.favicon.LargeIconBridge.LargeIconCallback;
+import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.ui.modelutil.ListModel;
@@ -57,7 +66,10 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Contains the logic for the TouchToFill component. It sets the state of the model and reacts to
@@ -74,10 +86,15 @@ class TouchToFillMediator {
     private PropertyModel mModel;
     private LargeIconBridge mLargeIconBridge;
     private @Px int mDesiredIconSize;
-    private List<WebAuthnCredential> mWebAuthnCredentials;
+    private List<WebauthnCredential> mWebAuthnCredentials;
     private List<Credential> mCredentials;
     private boolean mManagePasskeysHidesPasswords;
     private BottomSheetFocusHelper mBottomSheetFocusHelper;
+    private final ImageFetcher mImageFetcher;
+
+    public TouchToFillMediator(ImageFetcher imageFetcher) {
+        mImageFetcher = imageFetcher;
+    }
 
     void initialize(
             Context context,
@@ -98,7 +115,7 @@ class TouchToFillMediator {
     void showCredentials(
             GURL url,
             boolean isOriginSecure,
-            List<WebAuthnCredential> webAuthnCredentials,
+            List<WebauthnCredential> webAuthnCredentials,
             List<Credential> credentials,
             boolean showMorePasskeys,
             boolean triggerSubmission,
@@ -111,32 +128,44 @@ class TouchToFillMediator {
         ListModel<ListItem> sheetItems = mModel.get(SHEET_ITEMS);
         sheetItems.clear();
 
-        sheetItems.add(
-                new ListItem(
-                        TouchToFillProperties.ItemType.HEADER,
-                        new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
-                                .with(TITLE, getTitle(webAuthnCredentials, credentials))
-                                .with(
-                                        SUBTITLE,
-                                        getSubtitle(
-                                                url,
-                                                isOriginSecure,
-                                                triggerSubmission,
-                                                credentials))
-                                // TODO(crbug.com/1471888): Use the TTF resource provider instead
-                                // and use a
-                                // 32dp icon.
-                                .with(
-                                        IMAGE_DRAWABLE_ID,
-                                        PasswordManagerResourceProviderFactory.create()
-                                                .getPasswordManagerIcon())
-                                .build()));
+        final PropertyModel headerModel =
+                new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
+                        .with(TITLE, getTitle(webAuthnCredentials, credentials))
+                        .with(
+                                SUBTITLE,
+                                getSubtitle(url, isOriginSecure, triggerSubmission, credentials))
+                        // TODO(crbug.com/1471888): Use the TTF resource provider instead
+                        // and use a 32dp icon.
+                        .with(
+                                IMAGE_DRAWABLE_ID,
+                                PasswordManagerResourceProviderFactory.create()
+                                        .getPasswordManagerIcon())
+                        .build();
+        sheetItems.add(new ListItem(TouchToFillProperties.ItemType.HEADER, headerModel));
+
+        Set<GURL> avatarUrls =
+                getSharedPasswordsThatRequireNotification(credentials).stream()
+                        .map(Credential::getSenderProfileImageUrl)
+                        .collect(Collectors.toSet());
+        if (!avatarUrls.isEmpty()) {
+            // Set a placeholder until the avatar images are loaded.
+            headerModel.set(
+                    AVATAR,
+                    AppCompatResources.getDrawable(mContext, R.drawable.logo_avatar_anonymous));
+            new GenerateAvatarTask(avatarUrls)
+                    .fetchInBackground(
+                            (roundedAvatarImage) -> {
+                                if (roundedAvatarImage != null) {
+                                    headerModel.set(AVATAR, roundedAvatarImage);
+                                }
+                            });
+        }
 
         int fillableItemsTotal = credentials.size() + webAuthnCredentials.size();
         int fillableItemPosition = 0;
 
         mWebAuthnCredentials = webAuthnCredentials;
-        for (WebAuthnCredential credential : webAuthnCredentials) {
+        for (WebauthnCredential credential : webAuthnCredentials) {
             final PropertyModel model =
                     createWebAuthnModel(
                             credential,
@@ -199,7 +228,7 @@ class TouchToFillMediator {
     }
 
     private String getTitle(
-            List<WebAuthnCredential> webAuthnCredentials, List<Credential> credentials) {
+            List<WebauthnCredential> webAuthnCredentials, List<Credential> credentials) {
         int sharedPasswordsRequireNotificationCount =
                 getSharedPasswordsThatRequireNotification(credentials).size();
         if (sharedPasswordsRequireNotificationCount > 0) {
@@ -222,7 +251,6 @@ class TouchToFillMediator {
             boolean isOriginSecure,
             boolean triggerSubmission,
             List<Credential> credentials) {
-        // TODO(http://crbug.com/1504098) :  Format the sender name to be in bold
         String formattedUrl =
                 UrlFormatter.formatUrlForSecurityDisplay(url, SchemeDisplay.OMIT_HTTP_AND_HTTPS);
         List<Credential> sharedCredentials = getSharedPasswordsThatRequireNotification(credentials);
@@ -258,7 +286,7 @@ class TouchToFillMediator {
     }
 
     private String getManageButtonText(
-            List<Credential> credentials, List<WebAuthnCredential> webAuthnCredentials) {
+            List<Credential> credentials, List<WebauthnCredential> webAuthnCredentials) {
         if (webAuthnCredentials.size() == 0) {
             return mContext.getString(R.string.manage_passwords);
         }
@@ -343,15 +371,15 @@ class TouchToFillMediator {
 
     private void onSelectedCredential(Credential credential) {
         mModel.set(VISIBLE, false);
-        reportCredentialSelection(UserAction.SELECT_CREDENTIAL, mCredentials.indexOf(credential));
+        reportCredentialSelection(UserAction.SELECTED_CREDENTIAL, mCredentials.indexOf(credential));
         mDelegate.onCredentialSelected(credential);
     }
 
-    private void onSelectedWebAuthnCredential(WebAuthnCredential credential) {
+    private void onSelectedWebAuthnCredential(WebauthnCredential credential) {
         mModel.set(VISIBLE, false);
         // The index assumes WebAuthn credentials are listed after password credentials.
         reportCredentialSelection(
-                UserAction.SELECT_WEBAUTHN_CREDENTIAL,
+                UserAction.SELECTED_PASSKEY_CREDENTIAL,
                 mCredentials.size() + mWebAuthnCredentials.indexOf(credential));
         mDelegate.onWebAuthnCredentialSelected(credential);
     }
@@ -389,7 +417,7 @@ class TouchToFillMediator {
      */
     private boolean shouldCreateConfirmationButton(
             List<Credential> credentials,
-            List<WebAuthnCredential> webauthnCredentials,
+            List<WebauthnCredential> webauthnCredentials,
             boolean shouldShowMorePasskeys) {
         if (shouldShowMorePasskeys) return false;
         return credentials.size() + webauthnCredentials.size() == 1;
@@ -409,7 +437,7 @@ class TouchToFillMediator {
     }
 
     private PropertyModel createWebAuthnModel(
-            WebAuthnCredential credential, FillableItemCollectionInfo itemCollectionInfo) {
+            WebauthnCredential credential, FillableItemCollectionInfo itemCollectionInfo) {
         return new PropertyModel.Builder(WebAuthnCredentialProperties.ALL_KEYS)
                 .with(WEBAUTHN_CREDENTIAL, credential)
                 .with(ON_WEBAUTHN_CLICK_LISTENER, this::onSelectedWebAuthnCredential)
@@ -433,5 +461,54 @@ class TouchToFillMediator {
             }
         }
         return sharedCredentials;
+    }
+
+    class GenerateAvatarTask {
+        private final Set<GURL> mUrls;
+        private int mRemainingImagesCount;
+        private final List<Bitmap> mAvatarImages = Collections.synchronizedList(new ArrayList<>());
+        private Callback<Drawable> mDoneCallback;
+
+        GenerateAvatarTask(Set<GURL> avatarUrls) {
+            mUrls = avatarUrls;
+            mRemainingImagesCount = avatarUrls.size();
+        }
+
+        void fetchInBackground(Callback<Drawable> doneCallback) {
+            mDoneCallback = doneCallback;
+            PostTask.postTask(TaskTraits.USER_VISIBLE, this::fetchAllUrls);
+        }
+
+        private void fetchAllUrls() {
+            for (GURL url : mUrls) {
+                mImageFetcher.fetchImage(
+                        ImageFetcher.Params.create(
+                                url, ImageFetcher.PASSWORD_BOTTOM_SHEET_CLIENT_NAME),
+                        this::onImageFetched);
+            }
+        }
+
+        private void onImageFetched(Bitmap image) {
+            if (image != null) {
+                mAvatarImages.add(image);
+            }
+            if (--mRemainingImagesCount == 0) {
+                PostTask.postTask(TaskTraits.UI_USER_VISIBLE, this::onAllImagesFetched);
+            }
+        }
+
+        private void onAllImagesFetched() {
+            ThreadUtils.assertOnUiThread();
+            if (mAvatarImages.isEmpty()) {
+                mDoneCallback.onResult(null);
+                return;
+            }
+            mDoneCallback.onResult(
+                    AvatarGenerator.makeRoundAvatar(
+                            mContext.getResources(),
+                            mAvatarImages,
+                            mContext.getResources()
+                                    .getDimensionPixelSize(R.dimen.touch_to_fill_avatar)));
+        }
     }
 }

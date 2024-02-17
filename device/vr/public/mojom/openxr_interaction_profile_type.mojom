@@ -23,5 +23,7 @@ enum OpenXrInteractionProfileType {
   kHandSelectGrasp = 7,
   kViveCosmos = 8,
   kExtHand = 9,
+  kAndroidHandGestures = 10,
+  kMetaHandAim = 11,
   kInvalid,
 };

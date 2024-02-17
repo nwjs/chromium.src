@@ -221,7 +221,7 @@ void PasswordStoreBackendMigrationDecorator::GetAutofillableLoginsAsync(
 }
 
 void PasswordStoreBackendMigrationDecorator::GetAllLoginsForAccountAsync(
-    std::optional<std::string> account,
+    std::string account,
     LoginsOrErrorReply callback) {
   NOTREACHED();
 }
@@ -310,6 +310,11 @@ void PasswordStoreBackendMigrationDecorator::OnSyncServiceInitialized(
   active_backend_->OnSyncServiceInitialized(sync_service);
   if (migrator_)
     migrator_->OnSyncServiceInitialized(sync_service);
+}
+
+base::WeakPtr<PasswordStoreBackend>
+PasswordStoreBackendMigrationDecorator::AsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 void PasswordStoreBackendMigrationDecorator::StartMigrationAfterInit() {

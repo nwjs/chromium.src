@@ -14,10 +14,18 @@ static_library("structured") {
     "event_storage.h",
     "key_data.cc",
     "key_data.h",
+    "key_data_file_delegate.cc",
+    "key_data_file_delegate.h",
+    "key_data_prefs_delegate.cc",
+    "key_data_prefs_delegate.h",
     "key_data_provider.cc",
     "key_data_provider.h",
     "key_data_provider_file.cc",
     "key_data_provider_file.h",
+    "key_data_provider_prefs.cc",
+    "key_data_provider_prefs.h",
+    "key_util.cc",
+    "key_util.h",
     "persistent_proto.cc",
     "persistent_proto.h",
     "reporting/structured_metrics_log_metrics.cc",
@@ -39,7 +47,8 @@ static_library("structured") {
   public_deps = [
     ":common",
     ":events",
-    ":storage",
+    ":proto",
+    "//components/metrics/structured/lib:proto",
     "//third_party/metrics_proto",
   ]
 
@@ -62,7 +71,7 @@ if (is_chromeos_ash) {
     ]
     deps = [
       ":common",
-      ":storage",
+      ":proto",
       ":structured_events",
       "//base",
     ]
@@ -86,13 +95,13 @@ static_library("events") {
   ]
 }
 
-proto_library("storage") {
+proto_library("proto") {
   # These protos are only used internally, so make them visible only to
   # subdirectories.
   visibility = [ "./*" ]
   proto_in_dir = "//"
   generate_python = false
-  sources = [ "storage.proto" ]
+  sources = [ "proto/event_storage.proto" ]
 
   # This is required because metrics_proto/BUILD.gn sets proto_in_dir as ".",
   # which means protos can't be referred to by absolute paths from within other
@@ -117,7 +126,7 @@ source_set("common") {
   ]
 
   deps = [
-    ":storage",
+    ":proto",
     ":structured_metrics_validator",
     "//base",
     "//components/prefs",
@@ -141,8 +150,8 @@ action("gen_structured_events") {
   inputs = [
     "//tools/metrics/structured/codegen.py",
     "//tools/metrics/structured/gen_events.py",
-    "//tools/metrics/structured/model.py",
-    "//tools/metrics/structured/model_util.py",
+    "//tools/metrics/structured/sync/model.py",
+    "//tools/metrics/structured/sync/model_util.py",
     "//tools/metrics/structured/templates_events.py",
   ]
   sources = [ "//tools/metrics/structured/sync/structured.xml" ]
@@ -180,8 +189,8 @@ action("gen_structured_metrics_validator") {
   inputs = [
     "//tools/metrics/structured/codegen.py",
     "//tools/metrics/structured/gen_validator.py",
-    "//tools/metrics/structured/model.py",
-    "//tools/metrics/structured/model_util.py",
+    "//tools/metrics/structured/sync/model.py",
+    "//tools/metrics/structured/sync/model_util.py",
     "//tools/metrics/structured/templates_validator.py",
   ]
   sources = [ "//tools/metrics/structured/sync/structured.xml" ]
@@ -238,7 +247,8 @@ static_library("test_support") {
 source_set("unit_tests") {
   testonly = true
   sources = [
-    "key_data_unittest.cc",
+    "key_data_file_delegate_unittest.cc",
+    "key_data_prefs_delegate_unittest.cc",
     "persistent_proto_unittest.cc",
     "structured_metrics_provider_unittest.cc",
     "structured_metrics_recorder_unittest.cc",
@@ -247,7 +257,7 @@ source_set("unit_tests") {
 
   deps = [
     ":events",
-    ":storage",
+    ":proto",
     ":structured",
     ":structured_events",
     ":structured_metrics_validator",
@@ -256,6 +266,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//components/metrics",
     "//components/metrics:test_support",
+    "//components/metrics/structured/lib:proto",
     "//components/prefs",
     "//components/prefs:test_support",
     "//testing/gtest",

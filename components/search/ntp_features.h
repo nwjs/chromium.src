@@ -34,6 +34,7 @@ BASE_DECLARE_FEATURE(kRealboxCr23All);
 BASE_DECLARE_FEATURE(kRealboxCr23ConsistentRowHeight);
 BASE_DECLARE_FEATURE(kRealboxCr23ExpandedStateIcons);
 BASE_DECLARE_FEATURE(kRealboxCr23ExpandedStateLayout);
+BASE_DECLARE_FEATURE(kRealboxCr23HoverFillShape);
 BASE_DECLARE_FEATURE(kRealboxCr23Theming);
 BASE_DECLARE_FEATURE(kRealboxMatchOmniboxTheme);
 BASE_DECLARE_FEATURE(kRealboxMatchSearchboxTheme);
@@ -50,7 +51,6 @@ BASE_DECLARE_FEATURE(kNtpDriveModuleShowSixFiles);
 BASE_DECLARE_FEATURE(kNtpDummyModules);
 #endif
 BASE_DECLARE_FEATURE(kNtpComprehensiveTheming);
-BASE_DECLARE_FEATURE(kNtpComprehensiveThemeRealbox);
 BASE_DECLARE_FEATURE(kNtpLogo);
 BASE_DECLARE_FEATURE(kNtpReducedLogoSpace);
 BASE_DECLARE_FEATURE(kNtpMiddleSlotPromo);
@@ -71,7 +71,6 @@ BASE_DECLARE_FEATURE(kNtpPhotosModuleCustomizedOptInArtWork);
 BASE_DECLARE_FEATURE(kNtpPhotosModuleSplitSvgOptInArtWork);
 BASE_DECLARE_FEATURE(kNtpFeedModule);
 BASE_DECLARE_FEATURE(kNtpOneGoogleBar);
-BASE_DECLARE_FEATURE(kNtpRealboxLensSearch);
 BASE_DECLARE_FEATURE(kNtpLensDirectUpload);
 BASE_DECLARE_FEATURE(kNtpRecipeTasksModule);
 BASE_DECLARE_FEATURE(kNtpSafeBrowsingModule);
@@ -85,6 +84,7 @@ BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleMinimumImagesRequired);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleCategories);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleLoad);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleMaxClusters);
+BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleRankingMetricsQueryDays);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleSuggestionChipHeader);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleTextOnly);
 BASE_DECLARE_FEATURE(kNtpModulesHeaderIcon);
@@ -94,7 +94,6 @@ BASE_DECLARE_FEATURE(kNtpChromeCartHistoryClusterCoexist);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleFetchClustersUntilExhausted);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleIncludeSyncedVisits);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleEnableContentClustering);
-BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleDiscounts);
 BASE_DECLARE_FEATURE(kNtpTabResumptionModule);
 
 // Parameter for controlling the luminosity difference for NTP elements on light
@@ -191,9 +190,28 @@ extern const char kNtpHistoryClustersModuleCategoriesBoostlistParam[];
 // Parameter for setting the maximum number of candidate clusters for the
 // History Clusters Service to return.
 extern const char kNtpHistoryClustersModuleMaxClustersParam[];
+// Parameter for setting the maximum number of category ids associated with a
+// cluster that will be recorded and queried to determine if a cluster belongs
+// to the most frequently seen or used category.
+extern const char kNtpHistoryClustersModuleMaxCategoriesToRecordParam[];
+// Parameter for setting the minimum category weight required for a category
+// associated with a cluster to be recorded and queried at a later time to
+// determine if a cluster belongs to the most frequently seen or used category.
+extern const char kNtpHistoryClustersModuleMinCategoryWeightToRecordParam[];
+// Parameter for setting the number of days to query for cluster metric data
+// that is used to compute metrics used cluster ranking.
+extern const char kNtpHistoryClustersModuleRankingMetricsQueryDaysParam[];
 extern const char kNtpHistoryClustersModuleScoreThresholdParam[];
 extern const char kNtpRealboxWidthBehaviorParam[];
 extern const char kNtpTabResumptionModuleDataParam[];
+// Parameter determining the trigger delay of the Wallpaper Search HaTS survey.
+extern const char kWallpaperSearchHatsDelayParam[];
+
+// Parameter determining the background color of the expanded state realbox.
+extern const base::FeatureParam<bool>
+    kNtpRealboxCr23ExpandedStateBgMatchesOmnibox;
+// Parameter determining the whether the steady state realbox has a shadow.
+extern const base::FeatureParam<bool> kNtpRealboxCr23SteadyStateShadow;
 
 // Returns the timeout after which the load of a module should be aborted.
 base::TimeDelta GetModulesLoadTimeout();

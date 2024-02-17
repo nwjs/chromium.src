@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/toolbar/recent_tabs_builder_test_helper.h"
+#include "base/memory/raw_ptr.h"
 
 #include <stddef.h>
 
@@ -205,7 +206,7 @@ void RecentTabsBuilderTestHelper::ExportToSessionSync(
   model_type_state.set_initial_sync_state(
       sync_pb::ModelTypeState_InitialSyncState_INITIAL_SYNC_DONE);
   processor->OnUpdateReceived(model_type_state, std::move(updates),
-                              /*gc_directive=*/absl::nullopt);
+                              /*gc_directive=*/std::nullopt);
   // ClientTagBasedModelTypeProcessor uses ModelTypeProcessorProxy during
   // activation, which involves task posting for receiving updates.
   base::RunLoop().RunUntilIdle();
@@ -215,7 +216,8 @@ void RecentTabsBuilderTestHelper::VerifyExport(
     sync_sessions::OpenTabsUIDelegate* delegate) {
   DCHECK(delegate);
   // Make sure data is populated correctly in SessionModelAssociator.
-  std::vector<const sync_sessions::SyncedSession*> sessions;
+  std::vector<raw_ptr<const sync_sessions::SyncedSession, VectorExperimental>>
+      sessions;
   ASSERT_TRUE(delegate->GetAllForeignSessions(&sessions));
   ASSERT_EQ(GetSessionCount(), static_cast<int>(sessions.size()));
   for (int s = 0; s < GetSessionCount(); ++s) {

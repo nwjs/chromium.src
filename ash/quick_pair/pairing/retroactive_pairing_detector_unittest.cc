@@ -39,6 +39,7 @@
 #include "chromeos/ash/services/quick_pair/quick_pair_process_manager.h"
 #include "chromeos/ash/services/quick_pair/quick_pair_process_manager_impl.h"
 #include "device/bluetooth/bluetooth_adapter_factory.h"
+#include "device/bluetooth/floss/floss_features.h"
 #include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "device/bluetooth/test/mock_bluetooth_device.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
@@ -126,8 +127,7 @@ class FakeFastPairGattServiceClientImplFactory
     return fake_fast_pair_gatt_service_client;
   }
 
-  raw_ptr<ash::quick_pair::FakeFastPairGattServiceClient,
-          DanglingUntriaged | ExperimentalAsh>
+  raw_ptr<ash::quick_pair::FakeFastPairGattServiceClient, DanglingUntriaged>
       fake_fast_pair_gatt_service_client_ = nullptr;
 };
 
@@ -273,14 +273,13 @@ class RetroactivePairingDetectorTest
 
   scoped_refptr<FakeBluetoothAdapter> adapter_;
   std::unique_ptr<PairerBroker> pairer_broker_;
-  raw_ptr<MockPairerBroker, ExperimentalAsh> mock_pairer_broker_ = nullptr;
+  raw_ptr<MockPairerBroker> mock_pairer_broker_ = nullptr;
 
   scoped_refptr<FakeBluetoothSocket> fake_socket_ =
       base::MakeRefCounted<FakeBluetoothSocket>();
   std::unique_ptr<MessageStream> message_stream_;
   std::unique_ptr<MessageStreamLookup> message_stream_lookup_;
-  raw_ptr<FakeMessageStreamLookup, ExperimentalAsh>
-      fake_message_stream_lookup_ = nullptr;
+  raw_ptr<FakeMessageStreamLookup> fake_message_stream_lookup_ = nullptr;
   std::unique_ptr<FakeFastPairRepository> fast_pair_repository_;
 
   FakeFastPairGattServiceClientImplFactory fast_pair_gatt_service_factory_;
@@ -2153,7 +2152,8 @@ TEST_F(RetroactivePairingDetectorTest, FastPairHID_Success) {
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kFastPairSavedDevices,
                             features::kFastPairSavedDevicesStrictOptIn,
-                            features::kFastPairHID},
+                            features::kFastPairHID,
+                            floss::features::kFlossEnabled},
       /*disabled_features=*/{});
   fast_pair_repository_->SetOptInStatus(
       nearby::fastpair::OptInStatus::STATUS_OPTED_IN);
@@ -2180,7 +2180,8 @@ TEST_F(RetroactivePairingDetectorTest, FastPairHID_GattConnectionOpen_Success) {
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kFastPairSavedDevices,
                             features::kFastPairSavedDevicesStrictOptIn,
-                            features::kFastPairHID},
+                            features::kFastPairHID,
+                            floss::features::kFlossEnabled},
       /*disabled_features=*/{});
   fast_pair_repository_->SetOptInStatus(
       nearby::fastpair::OptInStatus::STATUS_OPTED_IN);
@@ -2207,7 +2208,8 @@ TEST_F(RetroactivePairingDetectorTest, FastPairHID_GattConnectionFailure) {
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kFastPairSavedDevices,
                             features::kFastPairSavedDevicesStrictOptIn,
-                            features::kFastPairHID},
+                            features::kFastPairHID,
+                            floss::features::kFlossEnabled},
       /*disabled_features=*/{});
   fast_pair_repository_->SetOptInStatus(
       nearby::fastpair::OptInStatus::STATUS_OPTED_IN);
@@ -2232,7 +2234,8 @@ TEST_F(RetroactivePairingDetectorTest, FastPairHID_ReadModelIdFailure) {
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kFastPairSavedDevices,
                             features::kFastPairSavedDevicesStrictOptIn,
-                            features::kFastPairHID},
+                            features::kFastPairHID,
+                            floss::features::kFlossEnabled},
       /*disabled_features=*/{});
   fast_pair_repository_->SetOptInStatus(
       nearby::fastpair::OptInStatus::STATUS_OPTED_IN);

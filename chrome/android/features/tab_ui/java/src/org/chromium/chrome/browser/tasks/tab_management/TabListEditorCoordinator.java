@@ -4,26 +4,29 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.chrome.browser.tasks.tab_management.TabListEditorProperties.IS_VISIBLE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.OTHERS;
-import static org.chromium.chrome.browser.tasks.tab_management.TabListEditorProperties.IS_VISIBLE;
 
-import android.app.Activity;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.library_loader.LibraryLoader;
+import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
@@ -128,10 +131,10 @@ class TabListEditorCoordinator {
         }
     }
 
-    private final Activity mActivity;
+    private final Context mContext;
     private final ViewGroup mParentView;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
-    private final TabModelSelector mTabModelSelector;
+    private final @NonNull ObservableSupplier<TabModelFilter> mCurrentTabModelFilterSupplier;
     private final TabListEditorLayout mTabListEditorLayout;
     private final TabListCoordinator mTabListCoordinator;
     private final SelectionDelegate<Integer> mSelectionDelegate = new SelectionDelegate<>();
@@ -142,10 +145,11 @@ class TabListEditorCoordinator {
     private MultiThumbnailCardProvider mMultiThumbnailCardProvider;
 
     public TabListEditorCoordinator(
-            Activity activity,
+            Context context,
             ViewGroup parentView,
             BrowserControlsStateProvider browserControlsStateProvider,
-            TabModelSelector tabModelSelector,
+            @NonNull ObservableSupplier<TabModelFilter> currentTabModelFilterSupplier,
+            @NonNull Supplier<TabModel> regularTabModelSupplier,
             TabContentManager tabContentManager,
             Callback<RecyclerViewPosition> clientTabListRecyclerViewPositionSetter,
             @TabListMode int mode,
@@ -154,16 +158,16 @@ class TabListEditorCoordinator {
             SnackbarManager snackbarManager,
             @UiType int itemType) {
         try (TraceEvent e = TraceEvent.scoped("TabListEditorCoordinator.constructor")) {
-            mActivity = activity;
+            mContext = context;
             mParentView = parentView;
             mBrowserControlsStateProvider = browserControlsStateProvider;
-            mTabModelSelector = tabModelSelector;
+            mCurrentTabModelFilterSupplier = currentTabModelFilterSupplier;
             mClientTabListRecyclerViewPositionSetter = clientTabListRecyclerViewPositionSetter;
             assert mode == TabListCoordinator.TabListMode.GRID
                     || mode == TabListCoordinator.TabListMode.LIST;
 
             mTabListEditorLayout =
-                    LayoutInflater.from(activity)
+                    LayoutInflater.from(context)
                             .inflate(R.layout.tab_list_editor_layout, parentView, false)
                             .findViewById(R.id.selectable_list);
 
@@ -177,9 +181,10 @@ class TabListEditorCoordinator {
             mTabListCoordinator =
                     new TabListCoordinator(
                             mode,
-                            activity,
+                            context,
                             mBrowserControlsStateProvider,
-                            mTabModelSelector,
+                            currentTabModelFilterSupplier,
+                            regularTabModelSupplier,
                             thumbnailProvider,
                             titleProvider,
                             displayGroups,
@@ -196,10 +201,10 @@ class TabListEditorCoordinator {
 
             // Note: The TabListEditorCoordinator is always created after native is
             // initialized.
-            assert LibraryLoader.getInstance().isInitialized();
-            mTabListCoordinator.initWithNative(null);
+            Profile regularProfile = regularTabModelSupplier.get().getProfile();
+            mTabListCoordinator.initWithNative(regularProfile, null);
             if (mMultiThumbnailCardProvider != null) {
-                mMultiThumbnailCardProvider.initWithNative();
+                mMultiThumbnailCardProvider.initWithNative(regularProfile);
             }
 
             mTabListCoordinator.registerItemType(
@@ -285,8 +290,8 @@ class TabListEditorCoordinator {
             // parentViews in a stack to avoid contention and using new snackbar managers.
             mTabListEditorMediator =
                     new TabListEditorMediator(
-                            mActivity,
-                            mTabModelSelector,
+                            mContext,
+                            mCurrentTabModelFilterSupplier,
                             mTabListCoordinator,
                             resetHandler,
                             mModel,
@@ -313,8 +318,7 @@ class TabListEditorCoordinator {
      * @param quickMode whether to use quick mode.
      */
     void resetWithListOfTabs(@Nullable List<Tab> tabs, int preSelectedCount, boolean quickMode) {
-        mTabListCoordinator.resetWithListOfTabs(
-                PseudoTab.getListOfPseudoTab(tabs), quickMode, /* mruMode= */ false);
+        mTabListCoordinator.resetWithListOfTabs(PseudoTab.getListOfPseudoTab(tabs), quickMode);
 
         if (tabs != null && preSelectedCount > 0 && preSelectedCount < tabs.size()) {
             mTabListCoordinator.addSpecialListItem(
@@ -325,7 +329,8 @@ class TabListEditorCoordinator {
     }
 
     private String getTitle(Context context, PseudoTab tab) {
-        int numRelatedTabs = PseudoTab.getRelatedTabs(context, tab, mTabModelSelector).size();
+        int numRelatedTabs =
+                PseudoTab.getRelatedTabs(context, tab, mCurrentTabModelFilterSupplier.get()).size();
 
         if (numRelatedTabs == 1) return tab.getTitle();
 
@@ -337,10 +342,10 @@ class TabListEditorCoordinator {
         if (displayGroups) {
             mMultiThumbnailCardProvider =
                     new MultiThumbnailCardProvider(
-                            mActivity,
+                            mContext,
                             mBrowserControlsStateProvider,
                             tabContentManager,
-                            mTabModelSelector);
+                            mCurrentTabModelFilterSupplier);
             return mMultiThumbnailCardProvider;
         }
         return (tabId, thumbnailSize, callback, forceUpdate, writeBack, isSelected) -> {

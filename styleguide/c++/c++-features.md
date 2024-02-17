@@ -275,9 +275,10 @@ std::function y = std::bind(foo, args);
 
 **Notes:**
 *** promo
-Use `base::{Once,Repeating}Callback` instead. Compared to `std::function`,
-`base::{Once,Repeating}Callback` directly supports Chromium's refcounting
-classes and weak pointers and deals with additional thread safety concerns.
+Use `base::{Once,Repeating}Callback` or `base::FunctionRef` instead. Compared
+to `std::function`, `base::{Once,Repeating}Callback` directly supports
+Chromium's refcounting classes and weak pointers and deals with additional
+thread safety concerns.
 
 [Discussion thread](https://groups.google.com/a/chromium.org/forum/#!topic/cxx/SoEj7oIDNuA)
 ***
@@ -1627,18 +1628,21 @@ concepts, then enforcing them on template arguments.
 ### Default comparisons <sup>[allowed]</sup>
 
 ```c++
-struct S : public T {
-  bool operator==(const S&) const = default;  // Compares `T` bases, then `x`,
-                                              // then `y`, short-circuiting.
+class S : public T {
+  // Non-member equality operator with access to private members.
+  // Compares `T` bases, then `x`, then `y`, short-circuiting.
+  friend bool operator==(const S&, const S&) = default;
+
   int x;
   bool y;
 };
 ```
 
-**Description:** Requests that the compiler generate the implementation of any
-comparison operator, including `<=>`. Defaulting `<=>` and not declaring `==`
-implicitly defaults `==`, which together are sufficient to allow any comparison
-as long as callers do not need to take the address of any non-declared operator.
+**Description:** Requests that the compiler generate the implementation of
+any comparison operator, including `<=>`. Prefer non-member comparison
+operators. When defaulting `<=>`, also explicitly default `==`. Together these
+are sufficient to allow any comparison as long as callers do not need to take
+the address of any non-declared operator.
 
 **Documentation:**
 [Default comparisons](https://en.cppreference.com/w/cpp/language/default_comparisons)
@@ -1915,7 +1919,7 @@ aligned to at least some particular power of 2.
 
 **Notes:**
 *** promo
-[Migration bug](https://crbug.com/1414637)
+None
 ***
 
 ### std::erase[_if] for containers <sup>[allowed]</sup>
@@ -2039,7 +2043,7 @@ qualifiers from a type.
 
 **Notes:**
 *** promo
-[Migration bug](https://crbug.com/1414646)
+None
 ***
 
 ### std::ssize <sup>[allowed]</sup>
@@ -2093,7 +2097,7 @@ pointer does not refer to a constructed object (in which case an expression like
 
 **Notes:**
 *** promo
-[Migration bug](https://crbug.com/1414648)
+None
 ***
 
 ## C++20 Banned Language Features {#core-blocklist-20}
@@ -2146,8 +2150,6 @@ Has no effect on Windows, for compatibility with Microsoft's ABI. Use
 `NO_UNIQUE_ADDRESS` from `base/compiler_specific.h` instead. Do not use (either
 form) on members of unions due to
 [potential memory safety problems](https://github.com/llvm/llvm-project/issues/60711).
-
-[Migration bug](https://crbug.com/1414621)
 ***
 
 ## C++20 Banned Library Features {#library-blocklist-20}
@@ -2193,6 +2195,32 @@ to `absl::bind_front`.
 **Notes:**
 *** promo
 Overlaps with `base::Bind`.
+***
+
+### std::bit_cast <sup>[banned]</sup>
+
+```c++
+float quake_rsqrt(float number) {
+  long i = std::bit_cast<long>(number);
+  i = 0x5f3759df - (i >> 1);  // wtf?
+  float y = std::bit_cast<float>(i);
+  return y * (1.5f - (0.5f * number * y * y));
+}
+```
+
+**Description:** Returns an value constructed with the same bits as an value of
+a different type.
+
+**Documentation:**
+[`std::bit_cast`](https://en.cppreference.com/w/cpp/numeric/bit_cast)
+
+**Notes:**
+*** promo
+The `std::` version of `bit_cast` allows casting of pointer and reference types,
+which is both useless in that it doesn't avoid UB, and dangerous in that it
+allows arbitrary casting away of modifiers like `const`. Instead of using
+`bit_cast` on pointers, use standard C++ casts. For use on values, use
+`base::bit_cast` which does not allow this unwanted usage.
 ***
 
 ### std::{c8rtomb,mbrtoc8} <sup>[banned]</sup>

@@ -54,8 +54,7 @@ void TextDecorationPainter::UpdateDecorationInfo(
           ? selection_->GetSelectionStyle().selection_text_decoration
           : absl::nullopt;
 
-  if (text_item_.Type() == FragmentItem::kSvgText &&
-      paint_info_.IsRenderingResourceSubtree()) {
+  if (text_item_.IsSvgText() && paint_info_.IsRenderingResourceSubtree()) {
     // Need to recompute a scaled font and a scaling factor because they
     // depend on the scaling factor of an element referring to the text.
     float scaling_factor = 1;
@@ -82,11 +81,11 @@ void TextDecorationPainter::UpdateDecorationInfo(
   } else {
     LineRelativeRect decoration_rect =
         decoration_rect_override.value_or(decoration_rect_);
-    result.emplace(
-        decoration_rect.offset, decoration_rect.InlineSize(), style,
-        text_painter_.InlineContext(), effective_selection_decoration,
-        decoration_override, &text_item_.ScaledFont(),
-        MinimumThickness1(text_item_.Type() != FragmentItem::kSvgText));
+    result.emplace(decoration_rect.offset, decoration_rect.InlineSize(), style,
+                   text_painter_.InlineContext(),
+                   effective_selection_decoration, decoration_override,
+                   &text_item_.ScaledFont(),
+                   MinimumThickness1(!text_item_.IsSvgText()));
   }
 }
 
@@ -130,7 +129,7 @@ void TextDecorationPainter::PaintExceptLineThrough(
     ClipIfNeeded(state_saver);
 
     text_painter_.PaintDecorationsExceptLineThrough(
-        fragment_paint_info, text_item_, paint_info_, style_, text_style_,
+        fragment_paint_info, text_item_, paint_info_, text_style_,
         *decoration_info_, ~TextDecorationLine::kNone);
   }
 
@@ -148,7 +147,7 @@ void TextDecorationPainter::PaintOnlyLineThrough() {
     ClipIfNeeded(state_saver);
 
     text_painter_.PaintDecorationsOnlyLineThrough(
-        text_item_, paint_info_, style_, text_style_, *decoration_info_);
+        text_item_, paint_info_, text_style_, *decoration_info_);
   }
 
   step_ = kBegin;

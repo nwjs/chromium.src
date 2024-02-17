@@ -380,7 +380,9 @@ IPC::ChannelProxy* MockRenderProcessHost::GetChannel() {
   return nullptr;
 }
 
+#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
 void MockRenderProcessHost::AddFilter(BrowserMessageFilter* filter) {}
+#endif
 
 base::TimeDelta MockRenderProcessHost::GetChildProcessIdleTime() {
   return base::Milliseconds(0);
@@ -544,6 +546,10 @@ void MockRenderProcessHost::SetIsUsed() {
 
 bool MockRenderProcessHost::HostHasNotBeenUsed() {
   return IsUnused() && listeners_.IsEmpty() && GetKeepAliveRefCount() == 0;
+}
+
+bool MockRenderProcessHost::IsSpare() const {
+  return this == RenderProcessHostImpl::GetSpareRenderProcessHostForTesting();
 }
 
 void MockRenderProcessHost::SetProcessLock(

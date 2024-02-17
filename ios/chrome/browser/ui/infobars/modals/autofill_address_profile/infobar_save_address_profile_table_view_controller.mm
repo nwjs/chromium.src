@@ -11,7 +11,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/strings/grit/components_strings.h"
-#import "ios/chrome/browser/infobars/infobar_metrics_recorder.h"
+#import "ios/chrome/browser/infobars/model/infobar_metrics_recorder.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_button_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
@@ -26,6 +26,7 @@
 #import "ios/chrome/browser/ui/settings/cells/settings_image_detail_text_item.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
@@ -455,7 +456,7 @@ const CGFloat kInfobarSaveAddressProfileSeparatorInset = 54;
 
 - (UIImage*)symbolForAutofillUIType:(AutofillUIType)type {
   switch (type) {
-    case AutofillUITypeNameFullWithHonorificPrefix:
+    case AutofillUITypeProfileFullName:
       return DefaultSymbolTemplateWithPointSize(kPersonFillSymbol, kSymbolSize);
     case AutofillUITypeAddressHomeAddress:
     case AutofillUITypeProfileHomeAddressStreet:
@@ -500,7 +501,7 @@ const CGFloat kInfobarSaveAddressProfileSeparatorInset = 54;
       } else {
         return ItemTypeSavePhone;
       }
-    case AutofillUITypeNameFullWithHonorificPrefix:
+    case AutofillUITypeProfileFullName:
       if (update) {
         return old ? ItemTypeUpdateNameOld : ItemTypeUpdateNameNew;
       } else {

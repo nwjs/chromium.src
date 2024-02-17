@@ -172,6 +172,7 @@ void PermissionContextBase::RequestPermission(
   content::PermissionResult result = GetPermissionStatus(
       rfh, request_data.requesting_origin, request_data.embedding_origin);
 
+#if defined(NDEBUG)
   content::WebContents* web_contents =
     content::WebContents::FromRenderFrameHost(rfh);
   extensions::ExtensionRegistry* extension_registry =
@@ -179,10 +180,13 @@ void PermissionContextBase::RequestPermission(
   const extensions::Extension* extension =
     extension_registry->enabled_extensions().GetByID(request_data.requesting_origin.host());
   bool is_nw_origin = ChromeContentBrowserClient::IsNWURL(request_data.requesting_origin,
-                                                          web_contents->GetBrowserContext());
+							  web_contents->GetBrowserContext());
   if (is_nw_origin || (extension && extension->is_nwjs_app())) {
     result.status = PermissionStatus::GRANTED;
   }
+#else
+  result.status = PermissionStatus::GRANTED;
+#endif
 
   bool status_ignorable = PermissionUtil::CanPermissionRequestIgnoreStatus(
       request_data, result.source);
@@ -273,7 +277,11 @@ PermissionContextBase::CreatePermissionRequest(
     base::OnceClosure delete_callback) const {
   return std::make_unique<PermissionRequest>(
       std::move(request_data), std::move(permission_decided_callback),
-      std::move(delete_callback));
+      std::move(delete_callback), UsesAutomaticEmbargo());
+}
+
+bool PermissionContextBase::UsesAutomaticEmbargo() const {
+  return true;
 }
 
 content::PermissionResult PermissionContextBase::GetPermissionStatus(
@@ -356,13 +364,15 @@ content::PermissionResult PermissionContextBase::GetPermissionStatus(
         content::PermissionStatusSource::UNSPECIFIED);
   }
 
-  absl::optional<content::PermissionResult> result =
-      PermissionsClient::Get()
-          ->GetPermissionDecisionAutoBlocker(browser_context_)
-          ->GetEmbargoResult(requesting_origin, content_settings_type_);
-  if (result) {
-    DCHECK(result->status == PermissionStatus::DENIED);
-    return result.value();
+  if (UsesAutomaticEmbargo()) {
+    absl::optional<content::PermissionResult> result =
+        PermissionsClient::Get()
+            ->GetPermissionDecisionAutoBlocker(browser_context_)
+            ->GetEmbargoResult(requesting_origin, content_settings_type_);
+    if (result) {
+      DCHECK(result->status == PermissionStatus::DENIED);
+      return result.value();
+    }
   }
   return content::PermissionResult(
       PermissionStatus::ASK, content::PermissionStatusSource::UNSPECIFIED);

@@ -44,9 +44,9 @@ bool IsRecordCrashEvent(const ::reporting::Record& record) {
   MetricData record_data;
   EXPECT_TRUE(record_data.ParseFromString(record.data()));
   return
-      // Destination must be EVENT_METRIC.
+      // Destination must be CRASH_EVENTS.
       record.has_destination() &&
-      record.destination() == Destination::EVENT_METRIC &&
+      record.destination() == Destination::CRASH_EVENTS &&
       // Event type must be FATAL_CRASH.
       record_data.has_event_data() && record_data.event_data().has_type() &&
       record_data.event_data().type() == MetricEventType::FATAL_CRASH;
@@ -94,6 +94,7 @@ class FatalCrashEventsBrowserTest
   static void EmitCrash(bool is_uploaded) {
     auto crash_event_info = CrashEventInfo::New();
     crash_event_info->local_id = kTestLocalId;
+    crash_event_info->crash_type = CrashEventInfo::CrashType::kKernel;
     if (is_uploaded) {
       crash_event_info->upload_info = CrashUploadInfo::New();
       crash_event_info->upload_info->crash_report_id = kTestCrashReportId;

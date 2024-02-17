@@ -27,8 +27,7 @@
         <template is="dom-if"
             if="[[showExperimentalAdvancedPage_(pageVisibility.ai)]]"
             restamp>
-          <settings-section page-title="$i18n{experimentalAdvancedPageTitle}"
-              section="ai">
+          <settings-section page-title="$i18n{aiPageTitle}" section="ai">
             <settings-ai-page prefs="{{prefs}}"></settings-ai-page>
           </settings-section>
         </template>
@@ -80,10 +79,10 @@
         <template is="dom-if"
             if="[[showPerformancePage_(pageVisibility.performance)]]"
             restamp>
-          <settings-section page-title="[[getPerformancePageTitle_()]]"
+          <settings-section page-title="$i18n{memoryPageTitle}"
 <if expr="_google_chrome">
               show-send-feedback-button
-              on-send-feedback="onSendHighEfficiencyFeedbackClick_"
+              on-send-feedback="onSendMemorySaverFeedbackClick_"
 </if>
               section="performance" id="performanceSettingsSection">
             <settings-performance-page prefs="{{prefs}}">

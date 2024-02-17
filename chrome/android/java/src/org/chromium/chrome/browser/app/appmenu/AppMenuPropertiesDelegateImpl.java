@@ -279,7 +279,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     @Override
     public @Nullable List<CustomViewBinder> getCustomViewBinders() {
         List<CustomViewBinder> customViewBinders = new ArrayList<>();
-        customViewBinders.add(new UpdateMenuItemViewBinder());
+        customViewBinders.add(
+                new UpdateMenuItemViewBinder(mTabModelSelector.getModel(false).getProfile()));
         customViewBinders.add(new IncognitoMenuItemViewBinder());
         customViewBinders.add(new DividerLineMenuItemViewBinder());
         return customViewBinders;
@@ -486,7 +487,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         menu.findItem(R.id.update_menu_id).setVisible(mUpdateMenuItemVisible);
         if (mUpdateMenuItemVisible) {
             mAppMenuInvalidator = () -> handler.invalidateAppMenu();
-            UpdateMenuItemHelper.getInstance().registerObserver(mAppMenuInvalidator);
+            UpdateMenuItemHelper.getInstance(mTabModelSelector.getModel(false).getProfile())
+                    .registerObserver(mAppMenuInvalidator);
         }
 
         menu.findItem(R.id.new_window_menu_id).setVisible(shouldShowNewWindow());
@@ -741,19 +743,22 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
      * @return Whether the update Chrome menu item should be displayed.
      */
     protected boolean shouldShowUpdateMenuItem() {
-        return UpdateMenuItemHelper.getInstance().getUiState().itemState != null;
+        return UpdateMenuItemHelper.getInstance(mTabModelSelector.getModel(false).getProfile())
+                        .getUiState()
+                        .itemState
+                != null;
     }
 
     /**
      * @return Whether the "Move to other window" menu item should be displayed.
      */
     protected boolean shouldShowMoveToOtherWindow() {
-        if (!instanceSwitcherEnabled() && shouldShowNewWindow()) return false;
+        if (!instanceSwitcherWithMultiInstanceEnabled() && shouldShowNewWindow()) return false;
         return mMultiWindowModeStateDispatcher.isMoveToOtherWindowSupported(mTabModelSelector);
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    public boolean instanceSwitcherEnabled() {
+    public boolean instanceSwitcherWithMultiInstanceEnabled() {
         return MultiWindowUtils.instanceSwitcherEnabled()
                 && MultiWindowUtils.isMultiInstanceApi31Enabled();
     }
@@ -782,7 +787,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         // Hide the menu on automotive devices.
         if (BuildInfo.getInstance().isAutomotive) return false;
 
-        if (instanceSwitcherEnabled()) {
+        if (instanceSwitcherWithMultiInstanceEnabled()) {
             // Hide the menu if we already have the maximum number of windows.
             if (getInstanceCount() >= MultiWindowUtils.getMaxInstances()) return false;
 
@@ -952,7 +957,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     }
 
     /** Sets visibility of the "Listen to this page" menu item. */
-    private void prepareReadAloudMenuItem(Menu menu, @Nullable Tab currentTab) {
+    protected void prepareReadAloudMenuItem(Menu menu, @Nullable Tab currentTab) {
         boolean visible = false;
         if (mReadAloudControllerSupplier != null) {
             ReadAloudController readAloudController = mReadAloudControllerSupplier.get();
@@ -990,8 +995,11 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     public void onMenuDismissed() {
         mReloadPropertyModel = null;
         if (mUpdateMenuItemVisible) {
-            UpdateMenuItemHelper.getInstance().onMenuDismissed();
-            UpdateMenuItemHelper.getInstance().unregisterObserver(mAppMenuInvalidator);
+            UpdateMenuItemHelper updateHelper =
+                    UpdateMenuItemHelper.getInstance(
+                            mTabModelSelector.getModel(false).getProfile());
+            updateHelper.onMenuDismissed();
+            updateHelper.unregisterObserver(mAppMenuInvalidator);
             mUpdateMenuItemVisible = false;
             mAppMenuInvalidator = null;
         }
@@ -1073,7 +1081,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             bookmarkMenuItemShortcut.setChecked(true);
             bookmarkMenuItemShortcut.setTitleCondensed(mContext.getString(R.string.edit_bookmark));
         } else {
-            bookmarkMenuItemShortcut.setIcon(R.drawable.btn_star);
+            bookmarkMenuItemShortcut.setIcon(R.drawable.star_outline_24dp);
             bookmarkMenuItemShortcut.setChecked(false);
             bookmarkMenuItemShortcut.setTitleCondensed(mContext.getString(R.string.menu_bookmark));
         }
@@ -1190,29 +1198,17 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
         boolean isRequestDesktopSite =
                 currentTab.getWebContents().getNavigationController().getUseDesktopUserAgent();
-        if (ChromeFeatureList.sAppMenuMobileSiteOption.isEnabled()) {
-            requestMenuLabel.setTitle(
-                    isRequestDesktopSite
-                            ? R.string.menu_item_request_mobile_site
-                            : R.string.menu_item_request_desktop_site);
-            requestMenuLabel.setIcon(
-                    isRequestDesktopSite
-                            ? R.drawable.smartphone_black_24dp
-                            : R.drawable.ic_desktop_windows);
-            requestMenuCheck.setVisible(false);
-        } else {
-            requestMenuLabel.setTitle(R.string.menu_request_desktop_site);
-            requestMenuCheck.setVisible(true);
-            // Mark the checkbox if RDS is activated on this page.
-            requestMenuCheck.setChecked(isRequestDesktopSite);
+        requestMenuLabel.setTitle(R.string.menu_request_desktop_site);
+        requestMenuCheck.setVisible(true);
+        // Mark the checkbox if RDS is activated on this page.
+        requestMenuCheck.setChecked(isRequestDesktopSite);
 
-            // This title doesn't seem to be displayed by Android, but it is used to set up
-            // accessibility text in {@link AppMenuAdapter#setupMenuButton}.
-            requestMenuLabel.setTitleCondensed(
-                    isRequestDesktopSite
-                            ? mContext.getString(R.string.menu_request_desktop_site_on)
-                            : mContext.getString(R.string.menu_request_desktop_site_off));
-        }
+        // This title doesn't seem to be displayed by Android, but it is used to set up
+        // accessibility text in {@link AppMenuAdapter#setupMenuButton}.
+        requestMenuLabel.setTitleCondensed(
+                isRequestDesktopSite
+                        ? mContext.getString(R.string.menu_request_desktop_site_on)
+                        : mContext.getString(R.string.menu_request_desktop_site_off));
     }
 
     /**

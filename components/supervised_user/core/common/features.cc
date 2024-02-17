@@ -33,11 +33,6 @@ BASE_FEATURE(kLocalWebApprovals,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// Proto fetcher experiments.
-BASE_FEATURE(kEnableProtoApiForClassifyUrl,
-             "EnableProtoApiForClassifyUrl",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Request priority experiment for ClassifyUrl (for critical path of rendering).
 BASE_FEATURE(kHighestRequestPriorityForClassifyUrl,
              "HighestRequestPriorityForClassifyUrl",
@@ -64,26 +59,36 @@ bool IsLocalWebApprovalsEnabled() {
 #endif
 }
 
-bool IsProtoApiForClassifyUrlEnabled() {
-  return base::FeatureList::IsEnabled(kEnableProtoApiForClassifyUrl);
-}
-
 // The following flags control whether supervision features are enabled on
 // desktop and iOS. There are granular sub-feature flags, which control
 // particular aspects. If one or more of these sub-feature flags are enabled,
 // then child account detection logic is implicitly enabled.
 BASE_FEATURE(kFilterWebsitesForSupervisedUsersOnDesktopAndIOS,
              "FilterWebsitesForSupervisedUsersOnDesktopAndIOS",
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_IOS)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 BASE_FEATURE(kSupervisedPrefsControlledBySupervisedStore,
              "SupervisedPrefsControlledBySupervisedStore",
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // Whether to display a "Managed by your parent" or similar text for supervised
 // users in various UI surfaces.
 BASE_FEATURE(kEnableManagedByParentUi,
              "EnableManagedByParentUi",
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 BASE_FEATURE(kEnableExtensionsPermissionsForSupervisedUsersOnDesktop,
@@ -106,7 +111,11 @@ bool CanDisplayFirstTimeInterstitialBanner() {
 // their google account when cookies are cleared
 BASE_FEATURE(kClearingCookiesKeepsSupervisedUsersSignedIn,
              "ClearingCookiesKeepsSupervisedUsersSignedIn",
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kForceGoogleSafeSearchForSupervisedUsers,
              "ForceGoogleSafeSearchForSupervisedUsers",

@@ -5,6 +5,7 @@
 #ifndef CONTENT_PUBLIC_BROWSER_RENDER_FRAME_HOST_H_
 #define CONTENT_PUBLIC_BROWSER_RENDER_FRAME_HOST_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "base/memory/safety_checks.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "build/buildflag.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/web_exposed_isolation_level.h"
@@ -25,7 +27,6 @@
 #include "net/cookies/cookie_setting_override.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-forward.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
@@ -43,16 +44,13 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/native_widget_types.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "third_party/jni_zero/scoped_java_ref.h"
+#endif
+
 class GURL;
 
 namespace base {
-#if BUILDFLAG(IS_ANDROID)
-namespace android {
-template <typename T>
-class JavaRef;
-}  // namespace android
-#endif
-
 class UnguessableToken;
 }  // namespace base
 
@@ -193,6 +191,9 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Returns the route id for this frame.
   virtual int GetRoutingID() const = 0;
+
+  virtual bool skip_blocking_parser() const = 0;
+  virtual void set_skip_blocking_parser(bool) = 0;
 
   // Returns the frame token for this frame.
   virtual const blink::LocalFrameToken& GetFrameToken() const = 0;
@@ -448,7 +449,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   //
   // TODO(crbug/1098283): Remove the nullopt scenario by creating the token in
   // CreateChildFrame() or similar.
-  virtual absl::optional<base::UnguessableToken> GetEmbeddingToken() = 0;
+  virtual std::optional<base::UnguessableToken> GetEmbeddingToken() = 0;
 
   // Returns the assigned name of the frame, the name of the iframe tag
   // declaring it. For example, <iframe name="framename">[...]</iframe>. It is
@@ -461,7 +462,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Returns the size of the frame in the viewport. The frame may not be aware
   // of its size.
-  virtual const absl::optional<gfx::Size>& GetFrameSize() = 0;
+  virtual const std::optional<gfx::Size>& GetFrameSize() = 0;
 
   // Returns the distance from this frame to its main frame.
   virtual size_t GetFrameDepth() = 0;
@@ -827,8 +828,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
 #if BUILDFLAG(IS_ANDROID)
   // Returns the Java object of this instance.
-  virtual base::android::ScopedJavaLocalRef<jobject>
-  GetJavaRenderFrameHost() = 0;
+  virtual jni_zero::ScopedJavaLocalRef<jobject> GetJavaRenderFrameHost() = 0;
 
   // Returns an InterfaceProvider for Java-implemented interfaces that are
   // scoped to this RenderFrameHost. This provides access to interfaces
@@ -869,8 +869,16 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
       const gfx::Point& location,
       const blink::mojom::MediaPlayerAction& action) = 0;
 
+  // Requests the current video frame of the media player at `location`, scaled
+  // if needed to be bounded by `max_size` with aspect ratio preserved, unless
+  // the original area is already less than `max_area`, where `max_size` and
+  // `max_area` are both in device-independent pixels. This is to avoid scaling
+  // images with very large/small aspect ratio to avoid losing information. If
+  // any of the dimensions is non-positive, no scaling will be performed.
   virtual void RequestVideoFrameAt(
       const gfx::Point& location,
+      const gfx::Size& max_size,
+      int max_area,
       base::OnceCallback<void(const gfx::ImageSkia&)> callback) = 0;
 
   // Creates a Network Service-backed factory from appropriate |NetworkContext|.
@@ -1025,7 +1033,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // to contain HTTP(s) URLs, but may be cross-origin. Should not be considered
   // trustworthy.
   virtual void GetCanonicalUrl(
-      base::OnceCallback<void(const absl::optional<GURL>&)> callback) = 0;
+      base::OnceCallback<void(const std::optional<GURL>&)> callback) = 0;
 
   // Fetch the OpenGraph metadata from the renderer process. The returned data
   // has only been validated as follows:

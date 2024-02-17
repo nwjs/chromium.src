@@ -286,7 +286,8 @@ class GPU_GLES2_EXPORT SharedImageBacking {
       MemoryTypeTracker* tracker,
       const wgpu::Device& device,
       wgpu::BackendType backend_type,
-      std::vector<wgpu::TextureFormat> view_formats);
+      std::vector<wgpu::TextureFormat> view_formats,
+      scoped_refptr<SharedContextState> context_state);
   virtual std::unique_ptr<OverlayImageRepresentation> ProduceOverlay(
       SharedImageManager* manager,
       MemoryTypeTracker* tracker);
@@ -408,7 +409,8 @@ class GPU_GLES2_EXPORT SharedImageBacking {
   // A vector of SharedImageRepresentations which hold references to this
   // backing. The first reference is considered the owner, and the vector is
   // ordered by the order in which references were taken.
-  std::vector<SharedImageRepresentation*> refs_ GUARDED_BY(lock_);
+  std::vector<raw_ptr<SharedImageRepresentation, VectorExperimental>> refs_
+      GUARDED_BY(lock_);
 };
 
 // Helper implementation of SharedImageBacking which tracks a simple

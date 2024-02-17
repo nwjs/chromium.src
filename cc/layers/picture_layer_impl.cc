@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "base/containers/contains.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/system/sys_info.h"
@@ -1059,8 +1060,7 @@ bool PictureLayerImpl::ShouldAnimate(PaintImage::Id paint_image_id) const {
 }
 
 gfx::Size PictureLayerImpl::CalculateTileSize(const gfx::Size& content_bounds) {
-  content_bounds_ = content_bounds;
-  return tile_size_calculator_.CalculateTileSize();
+  return tile_size_calculator_.CalculateTileSize(content_bounds);
 }
 
 void PictureLayerImpl::GetContentsResourceId(
@@ -1672,7 +1672,8 @@ void PictureLayerImpl::AdjustRasterScaleForTransformAnimation(
 }
 
 void PictureLayerImpl::CleanUpTilingsOnActiveLayer(
-    const std::vector<PictureLayerTiling*>& used_tilings) {
+    const std::vector<raw_ptr<PictureLayerTiling, VectorExperimental>>&
+        used_tilings) {
   DCHECK(layer_tree_impl()->IsActiveTree());
   if (tilings_->num_tilings() == 0)
     return;

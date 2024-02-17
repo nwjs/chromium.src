@@ -66,7 +66,10 @@ class WebAppLinkCapturingBrowserTest
     : public WebAppNavigationBrowserTest,
       public testing::WithParamInterface<bool> {
  public:
-  WebAppLinkCapturingBrowserTest() {
+  WebAppLinkCapturingBrowserTest()
+      : prerender_helper_(base::BindRepeating(
+            &WebAppLinkCapturingBrowserTest::prerender_web_contents,
+            base::Unretained(this))) {
     std::vector<base::test::FeatureRefAndParams> features_and_params = {
         {blink::features::kWebAppEnableLaunchHandler, {}}};
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -213,8 +216,12 @@ class WebAppLinkCapturingBrowserTest
     }
   }
 
-  absl::optional<LaunchHandler> GetLaunchHandler(const webapps::AppId& app_id) {
+  std::optional<LaunchHandler> GetLaunchHandler(const webapps::AppId& app_id) {
     return provider().registrar_unsafe().GetAppById(app_id)->launch_handler();
+  }
+
+  content::WebContents* prerender_web_contents() {
+    return browser()->tab_strip_model()->GetActiveWebContents();
   }
 
  protected:
@@ -222,6 +229,7 @@ class WebAppLinkCapturingBrowserTest
 
   const GURL about_blank_{"about:blank"};
 
+  PrerenderTestHelper prerender_helper_;
   base::test::ScopedFeatureList feature_list_;
   OsIntegrationManager::ScopedSuppressForTesting os_hooks_supress_;
 };
@@ -571,6 +579,78 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   ClickLinkAndWait(test_app, in_scope_1, LinkTarget::SELF, /*rel=*/"");
 
   ExpectTabs(chrome::FindBrowserWithTab(test_app), {in_scope_1});
+}
+
+IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
+                       NoLinkCapturePrerenderNavigation) {
+  GURL out_of_scope = embedded_test_server()->GetURL("/empty.html");
+  const auto [app_id, in_scope, _, scope] =
+      InstallTestApp("/web_apps/basic.html");
+
+  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+            base::ok());
+
+  // Start navigation from an out-of-scope URL on the same origin to ensure that
+  // prerendering can happen.
+  Navigate(browser(), out_of_scope);
+
+  // Trigger a prerender of the app URL.
+  PrerenderHostObserver host_observer(*prerender_web_contents(), in_scope);
+  prerender_helper_.AddPrerenderAsync(in_scope);
+  host_observer.WaitForDestroyed();
+
+  // The out of scope URL should still be open in the main browser.
+  ExpectTabs(browser(), {out_of_scope});
+
+  BrowserChangeObserver added_observer(
+      nullptr, BrowserChangeObserver::ChangeType::kAdded);
+  ClickLinkAndWait(prerender_web_contents(), in_scope, LinkTarget::SELF,
+                   /*rel=*/"");
+  EXPECT_TRUE(AppBrowserController::IsForWebApp(added_observer.Wait(), app_id));
+}
+
+IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
+                       NoLinkCapturePopupNavigation) {
+  const auto [app_id, in_scope, _, scope] =
+      InstallTestApp("/web_apps/basic.html");
+
+  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+            base::ok());
+
+  AddTab(browser(), about_blank_);
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  constexpr char kPopupNavigationJs[] = R"js(
+    (() => {
+      let button = document.createElement("button");
+      button.id = 'popup';
+      button.addEventListener('click', () => {
+        window.open('$1', 'foo', 'popup');
+      });
+      document.body.appendChild(button);
+    })();
+  )js";
+  ASSERT_TRUE(content::ExecJs(
+      web_contents,
+      base::ReplaceStringPlaceholders(kPopupNavigationJs, {in_scope.spec()},
+                                      /*offsets=*/nullptr)));
+
+  // Clicking a link that opens a popup should open a regular popup window
+  // without link capturing.
+  BrowserChangeObserver added_observer(
+      nullptr, BrowserChangeObserver::ChangeType::kAdded);
+  auto navigation_observer = GetTestNavigationObserver(in_scope);
+
+  content::SimulateMouseClickOrTapElementWithId(web_contents, "popup");
+  Browser* popup_browser = added_observer.Wait();
+  // We need to wait for the navigation to complete inside the popup browser, to
+  // give link capturing a chance to trigger.
+  navigation_observer->Wait();
+
+  EXPECT_FALSE(AppBrowserController::IsForWebApp(popup_browser, app_id));
+  EXPECT_TRUE(popup_browser->is_type_popup());
+  ExpectTabs(popup_browser, {in_scope});
 }
 
 INSTANTIATE_TEST_SUITE_P(,

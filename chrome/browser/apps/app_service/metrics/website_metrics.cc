@@ -59,7 +59,7 @@ aura::Window* GetWindowWithBrowser(Browser* browser) {
 }
 
 aura::Window* GetWindowWithTabStripModel(TabStripModel* tab_strip_model) {
-  for (auto* browser : *BrowserList::GetInstance()) {
+  for (Browser* browser : *BrowserList::GetInstance()) {
     if (browser->tab_strip_model() == tab_strip_model) {
       return GetWindowWithBrowser(browser);
     }
@@ -135,7 +135,7 @@ WebsiteMetrics::UrlInfo::UrlInfo(const base::Value& value) {
     return;
   }
 
-  absl::optional<base::TimeDelta> running_time_value =
+  std::optional<base::TimeDelta> running_time_value =
       base::ValueToTimeDelta(data_dict->Find(kRunningTimeKey));
   if (!running_time_value.has_value()) {
     return;

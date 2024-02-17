@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/strings/utf_string_conversions.h"
+#include "chromeos/components/quick_answers/utils/unit_conversion_constants.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
@@ -231,9 +232,14 @@ struct QuickAnswersRequest {
 struct Sense {
  public:
   Sense();
+  Sense(const Sense& other);
+  Sense& operator=(const Sense& other);
   ~Sense();
 
   std::string definition;
+  // Not every word sense will have a sample sentence or synonyms.
+  std::optional<std::string> sample_sentence;
+  std::optional<std::vector<std::string>> synonyms_list;
 };
 
 // `DefinitionResult` holds result for definition intent.
@@ -241,11 +247,15 @@ struct Sense {
 struct DefinitionResult {
  public:
   DefinitionResult();
+  DefinitionResult(const DefinitionResult& other);
+  DefinitionResult& operator=(const DefinitionResult& other);
   ~DefinitionResult();
 
   std::string word;
+  std::string word_class;
   PhoneticsInfo phonetics_info;
   Sense sense;
+  std::optional<std::vector<Sense>> subsenses_list;
 };
 
 // `TranslationResult` holds result for translation intent.
@@ -253,13 +263,30 @@ struct DefinitionResult {
 struct TranslationResult {
  public:
   TranslationResult();
+  TranslationResult(const TranslationResult& other);
+  TranslationResult& operator=(const TranslationResult& other);
   ~TranslationResult();
 
-  // TODO(b/278929409): Migrate to `std::string` for strings in structs.
-  std::u16string text_to_translate;
-  std::u16string translated_text;
+  std::string text_to_translate;
+  std::string translated_text;
   std::string source_locale;
   std::string target_locale;
+};
+
+// `StandardUnitConversionRates` must be copyable.
+struct StandardUnitConversionRates {
+ public:
+  StandardUnitConversionRates(double source_rate, double dest_rate);
+  StandardUnitConversionRates(const StandardUnitConversionRates& other);
+  StandardUnitConversionRates& operator=(
+      const StandardUnitConversionRates& other);
+  ~StandardUnitConversionRates();
+
+  // These conversion rates are, respectively, how to convert the source and
+  // destination units to the SI (International System of Units) unit of the
+  // same unit category (e.g. to kilogram for units of mass).
+  double source_to_standard_conversion_rate = kInvalidRateValue;
+  double dest_to_standard_conversion_rate = kInvalidRateValue;
 };
 
 // `UnitConversionResult` holds result for unit conversion intent.
@@ -267,14 +294,15 @@ struct TranslationResult {
 struct UnitConversionResult {
  public:
   UnitConversionResult();
+  UnitConversionResult(const UnitConversionResult& other);
+  UnitConversionResult& operator=(const UnitConversionResult& other);
   ~UnitConversionResult();
 
+  std::string source_text;
   std::string result_text;
   std::string category;
-  std::string source_amount;
-  std::string destination_amount;
-  std::string source_unit;
-  std::string destination_unit;
+  // Not every unit conversion will have a conversion rate.
+  std::optional<StandardUnitConversionRates> standard_unit_conversion_rates;
 };
 
 // `StructuredResult` is NOT copyable as it's not trivial to make a class with

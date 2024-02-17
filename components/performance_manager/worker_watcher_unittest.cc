@@ -24,6 +24,8 @@
 #include "components/performance_manager/performance_manager_impl.h"
 #include "components/performance_manager/process_node_source.h"
 #include "components/performance_manager/public/features.h"
+#include "components/performance_manager/public/render_process_host_id.h"
+#include "components/performance_manager/public/render_process_host_proxy.h"
 #include "content/public/browser/dedicated_worker_creator.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/shared_worker_service.h"
@@ -37,7 +39,8 @@ namespace performance_manager {
 
 namespace {
 
-// Generates a new sequential int ID. Used for things that need a unique ID.
+// Generates a new sequential int ID. Used for things that need a unique ID
+// and don't have a more specific generator.
 int GenerateNextId() {
   static int next_id = 0;
   return next_id++;
@@ -534,17 +537,20 @@ ProcessNodeImpl* TestProcessNodeSource::GetProcessNode(int render_process_id) {
 
 int TestProcessNodeSource::CreateProcessNode() {
   // Generate a render process ID for this process node.
-  int render_process_id = GenerateNextId();
+  static RenderProcessHostId::Generator id_generator;
+  RenderProcessHostId render_process_id = id_generator.GenerateNextId();
 
   // Create the process node and insert it into the map.
-  auto process_node =
-      PerformanceManagerImpl::CreateProcessNode(RenderProcessHostProxy());
+  auto process_node = PerformanceManagerImpl::CreateProcessNode(
+      RenderProcessHostProxy::CreateForTesting(render_process_id),
+      base::TaskPriority::HIGHEST);
   bool inserted =
-      process_node_map_.insert({render_process_id, std::move(process_node)})
+      process_node_map_
+          .insert({render_process_id.value(), std::move(process_node)})
           .second;
   DCHECK(inserted);
 
-  return render_process_id;
+  return render_process_id.value();
 }
 
 // TestFrameNodeSource ---------------------------------------------------------
@@ -649,9 +655,9 @@ content::GlobalRenderFrameHostId TestFrameNodeSource::CreateFrameNode(
                                                         frame_id);
   auto frame_node = PerformanceManagerImpl::CreateFrameNode(
       process_node, page_node_.get(), /*parent_frame_node=*/nullptr,
-      /*fenced_frame_embedder_frame_node*/ nullptr, frame_id,
+      /*outer_document_for_fenced_frame*/ nullptr, frame_id,
       blink::LocalFrameToken(), content::BrowsingInstanceId(0),
-      content::SiteInstanceId(0));
+      content::SiteInstanceId(0), /*is_current=*/true);
 
   bool inserted =
       frame_node_map_.insert({render_frame_host_id, std::move(frame_node)})

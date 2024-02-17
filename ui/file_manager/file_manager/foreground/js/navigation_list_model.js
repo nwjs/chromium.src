@@ -6,12 +6,11 @@ import {assertNotReached} from 'chrome://resources/ash/common/assert.js';
 import {NativeEventTarget as EventTarget} from 'chrome://resources/ash/common/event_target.js';
 
 import {isOneDrive} from '../../common/js/entry_utils.js';
-import {EntryList, VolumeEntry} from '../../common/js/files_app_entry_types.js';
+import {EntryList, FilesAppEntry, VolumeEntry} from '../../common/js/files_app_entry_types.js';
 import {isArcVmEnabled, isGuestOsEnabled, isSinglePartitionFormatEnabled} from '../../common/js/flags.js';
 import {str} from '../../common/js/translations.js';
 import {RootType, VolumeType} from '../../common/js/volume_manager_types.js';
-import {FilesAppEntry} from '../../externs/files_app_entry_interfaces.js';
-import {DialogType} from '../../externs/ts/state.js';
+import {DialogType} from '../../state/state.js';
 import {getStore} from '../../state/store.js';
 
 import {AndroidAppListModel} from './android_app_list_model.js';
@@ -166,8 +165,8 @@ export class NavigationModelAndroidAppItem extends NavigationModelItem {
 export class NavigationModelVolumeItem extends NavigationModelItem {
   /**
    * @param {string} label Label.
-   * @param {!import('../../externs/volume_info.js').VolumeInfo} volumeInfo
-   *     Volume info for the volume. Cannot be null.
+   * @param {!import('../../background/js/volume_info.js').VolumeInfo}
+   *     volumeInfo Volume info for the volume. Cannot be null.
    */
   constructor(label, volumeInfo) {
     super(label, NavigationModelItemType.VOLUME);
@@ -206,7 +205,7 @@ export class NavigationModelFakeItem extends NavigationModelItem {
  */
 export class NavigationListModel extends EventTarget {
   /**
-   * @param {!import('../../externs/volume_manager.js').VolumeManager}
+   * @param {!import('../../background/js/volume_manager.js').VolumeManager}
    *     volumeManager VolumeManager instance.
    * @param {!FolderShortcutsDataModel} shortcutListModel The list of folder
    *     shortcut.
@@ -221,7 +220,7 @@ export class NavigationListModel extends EventTarget {
     super();
 
     /**
-     * @private @type {!import('../../externs/volume_manager.js').VolumeManager}
+     * @private @type {!import('../../background/js/volume_manager.js').VolumeManager}
      * @const
      */
     this.volumeManager_ = volumeManager;
@@ -259,10 +258,8 @@ export class NavigationListModel extends EventTarget {
     /**
      * Root folder for crostini Linux files.
      * This field will be modified when crostini is enabled/disabled.
-     * @private @type {NavigationModelFakeItem}
+     * @private @type {?NavigationModelFakeItem}
      */
-    // @ts-ignore: error TS2322: Type 'null' is not assignable to type
-    // 'NavigationModelFakeItem'.
     this.linuxFilesItem_ = null;
 
     /**
@@ -347,7 +344,9 @@ export class NavigationListModel extends EventTarget {
 
     this.androidAppList_ = [];
     for (let i = 0; i < this.androidAppListModel_.length(); i++) {
-      this.androidAppList_.push(this.androidAppListModel_.item(i));
+      this.androidAppList_.push(
+          /** @type {chrome.fileManagerPrivate.AndroidApp} */ (
+              this.androidAppListModel_.item(i)));
     }
 
     // Reorder volumes, shortcuts, and optional items for initial display.
@@ -360,20 +359,20 @@ export class NavigationListModel extends EventTarget {
       let permutation;
 
       // Build the volumeList.
-      if (listType == ListType.VOLUME_LIST) {
+      if (listType === ListType.VOLUME_LIST) {
         // The volume is mounted or unmounted.
         const newList = [];
 
         // Use the old instances if they just move.
-        for (let i = 0; i < event.permutation.length; i++) {
-          if (event.permutation[i] >= 0) {
+        for (let i = 0; i < event.detail.permutation.length; i++) {
+          if (event.detail.permutation[i] >= 0) {
             // @ts-ignore: error TS2532: Object is possibly 'undefined'.
-            newList[event.permutation[i]] = this.volumeList_[i];
+            newList[event.detail.permutation[i]] = this.volumeList_[i];
           }
         }
 
         // Create missing instances.
-        for (let i = 0; i < event.newLength; i++) {
+        for (let i = 0; i < event.detail.newLength; i++) {
           if (!newList[i]) {
             newList[i] = volumeInfoToModelItem(
                 // @ts-ignore: error TS2339: Property 'volumeManager_' does not
@@ -383,7 +382,7 @@ export class NavigationListModel extends EventTarget {
         }
         this.volumeList_ = newList;
 
-        permutation = event.permutation.slice();
+        permutation = event.detail.permutation.slice();
 
         // shortcutList part has not been changed, so the permutation should be
         // just identity mapping with a shift.
@@ -391,7 +390,7 @@ export class NavigationListModel extends EventTarget {
         for (let i = 0; i < this.shortcutList_.length; i++) {
           permutation.push(i + this.volumeList_.length);
         }
-      } else if (listType == ListType.SHORTCUT_LIST) {
+      } else if (listType === ListType.SHORTCUT_LIST) {
         // Build the shortcutList.
 
         // volumeList part has not been changed, so the permutation should be
@@ -458,7 +457,7 @@ export class NavigationListModel extends EventTarget {
         }
 
         this.shortcutList_ = newList;
-      } else if (listType == ListType.ANDROID_APP_LIST) {
+      } else if (listType === ListType.ANDROID_APP_LIST) {
         this.androidAppList_ = [];
         // @ts-ignore: error TS2551: Property 'androidAppListModel_' does not
         // exist on type 'permutedHandler'. Did you mean 'androidAppList_'?
@@ -475,14 +474,15 @@ export class NavigationListModel extends EventTarget {
       this.refreshNavigationItems();
 
       // Dispatch permuted event.
-      const permutedEvent = new Event('permuted');
-      // @ts-ignore: error TS2532: Object is possibly 'undefined'.
-      permutedEvent.newLength = this.volumeList_.length +
-          // @ts-ignore: error TS2532: Object is possibly 'undefined'.
-          this.shortcutList_.length + this.androidAppList_.length;
-      // @ts-ignore: error TS2339: Property 'permutation' does not exist on type
-      // 'Event'.
-      permutedEvent.permutation = permutation;
+      const permutedEvent = new CustomEvent('permuted', {
+        detail: {
+          // @ts-ignore: error TS2532: Object is possibly 'undefined'
+          newLength: this.volumeList_.length + this.shortcutList_.length +
+              // @ts-ignore: error TS2532: Object is possibly 'undefined'
+              this.androidAppList_.length,
+          permutation,
+        },
+      });
       // @ts-ignore: error TS2339: Property 'dispatchEvent' does not exist on
       // type 'permutedHandler'.
       this.dispatchEvent(permutedEvent);
@@ -511,7 +511,7 @@ export class NavigationListModel extends EventTarget {
 
   /**
    * Set the crostini Linux files root and reorder items.
-   * @param {NavigationModelFakeItem} item Linux files root.
+   * @param {?NavigationModelFakeItem} item Linux files root.
    */
   set linuxFilesItem(item) {
     this.linuxFilesItem_ = item;
@@ -543,6 +543,10 @@ export class NavigationListModel extends EventTarget {
   set fakeTrashItem(item) {
     this.trashItem_ = item;
     this.refreshNavigationItems();
+  }
+
+  get myFilesModel() {
+    return this.myFilesModel_;
   }
 
   /**
@@ -812,11 +816,11 @@ export class NavigationListModel extends EventTarget {
       }
       // For each entry in the list, remove any for volumes that no longer
       // exist.
-      // @ts-ignore: error TS2339: Property 'getUIChildren' does not exist on
+      // @ts-ignore: error TS2339: Property 'getUiChildren' does not exist on
       // type 'FilesAppEntry | EntryList | VolumeEntry'.
-      for (const volume of myFilesEntry.getUIChildren()) {
+      for (const volume of myFilesEntry.getUiChildren()) {
         if (!volume.volumeInfo ||
-            volume.volumeInfo.volumeType != VolumeType.GUEST_OS) {
+            volume.volumeInfo.volumeType !== VolumeType.GUEST_OS) {
           continue;
         }
         // @ts-ignore: error TS7006: Parameter 'v' implicitly has an 'any' type.
@@ -898,7 +902,7 @@ export class NavigationListModel extends EventTarget {
     const disableRemovables =
         this.volumeManager_.isDisabled(VolumeType.REMOVABLE);
     for (const [devicePath, removableGroup] of groupRemovables().entries()) {
-      if (removableGroup.length == 1 && !isSinglePartitionFormatEnabled()) {
+      if (removableGroup.length === 1 && !isSinglePartitionFormatEnabled()) {
         // Add unpartitioned removable device as a regular volume.
         this.navigationItems_.push(removableGroup[0]);
         removableGroup[0].section = NavigationSection.REMOVABLE;
@@ -936,9 +940,9 @@ export class NavigationListModel extends EventTarget {
           // @ts-ignore: error TS7006: Parameter 'p' implicitly has an 'any'
           // type.
           new Set(removableGroup.map(p => p.volumeInfo));
-      // @ts-ignore: error TS2339: Property 'getUIChildren' does not exist on
+      // @ts-ignore: error TS2339: Property 'getUiChildren' does not exist on
       // type 'FilesAppEntry | EntryList'.
-      for (const partition of removableEntry.getUIChildren()) {
+      for (const partition of removableEntry.getUiChildren()) {
         if (!existingVolumeInfos.has(partition.volumeInfo)) {
           // @ts-ignore: error TS2339: Property 'removeChildEntry' does not
           // exist on type 'FilesAppEntry | EntryList'.
@@ -1054,7 +1058,7 @@ export class NavigationListModel extends EventTarget {
   findDownloadsVolumeIndex_() {
     for (let i = 0; i < this.volumeList_.length; i++) {
       // @ts-ignore: error TS2532: Object is possibly 'undefined'.
-      if (this.volumeList_[i].volumeInfo.volumeType == VolumeType.DOWNLOADS) {
+      if (this.volumeList_[i].volumeInfo.volumeType === VolumeType.DOWNLOADS) {
         return i;
       }
     }

@@ -11,6 +11,7 @@
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/metrics/payments/virtual_card_enrollment_metrics.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
@@ -66,8 +67,8 @@ VirtualCardEnrollmentManager::~VirtualCardEnrollmentManager() = default;
 void VirtualCardEnrollmentManager::InitVirtualCardEnroll(
     const CreditCard& credit_card,
     VirtualCardEnrollmentSource virtual_card_enrollment_source,
-    absl::optional<payments::PaymentsNetworkInterface::
-                       GetDetailsForEnrollmentResponseDetails>
+    std::optional<payments::PaymentsNetworkInterface::
+                      GetDetailsForEnrollmentResponseDetails>
         get_details_for_enrollment_response_details,
     PrefService* user_prefs,
     RiskAssessmentFunction risk_assessment_function,
@@ -124,7 +125,7 @@ void VirtualCardEnrollmentManager::OnCardSavedAnimationComplete() {
 }
 
 void VirtualCardEnrollmentManager::Enroll(
-    absl::optional<VirtualCardEnrollmentUpdateResponseCallback>
+    std::optional<VirtualCardEnrollmentUpdateResponseCallback>
         virtual_card_enrollment_update_response_callback) {
   LogUpdateVirtualCardEnrollmentRequestAttempt(
       state_.virtual_card_enrollment_fields.virtual_card_enrollment_source,
@@ -159,7 +160,7 @@ void VirtualCardEnrollmentManager::Enroll(
 
 void VirtualCardEnrollmentManager::Unenroll(
     int64_t instrument_id,
-    absl::optional<VirtualCardEnrollmentUpdateResponseCallback>
+    std::optional<VirtualCardEnrollmentUpdateResponseCallback>
         virtual_card_enrollment_update_response_callback) {
   LogUpdateVirtualCardEnrollmentRequestAttempt(
       VirtualCardEnrollmentSource::kSettingsPage,
@@ -202,30 +203,23 @@ bool VirtualCardEnrollmentManager::ShouldBlockVirtualCardEnrollment(
   if (!GetVirtualCardEnrollmentStrikeDatabase())
     return false;
 
-  VirtualCardEnrollmentStrikeDatabase::BlockedReason reason =
-      VirtualCardEnrollmentStrikeDatabase::kUnknown;
-  if (!GetVirtualCardEnrollmentStrikeDatabase()->ShouldBlockFeature(
-          instrument_id, &reason)) {
-    return false;
-  }
-
-  switch (reason) {
+  VirtualCardEnrollmentStrikeDatabase::StrikeDatabaseDecision decision =
+      GetVirtualCardEnrollmentStrikeDatabase()->GetStrikeDatabaseDecision(
+          instrument_id);
+  switch (decision) {
+    case VirtualCardEnrollmentStrikeDatabase::kDoNotBlock:
+      return false;
     case VirtualCardEnrollmentStrikeDatabase::kMaxStrikeLimitReached:
       LogVirtualCardEnrollmentBubbleMaxStrikesLimitReached(
           virtual_card_enrollment_source);
       LogVirtualCardEnrollmentNotOfferedDueToMaxStrikes(
           virtual_card_enrollment_source);
-      break;
+      return true;
     case VirtualCardEnrollmentStrikeDatabase::kRequiredDelayNotPassed:
       LogVirtualCardEnrollmentNotOfferedDueToRequiredDelay(
           virtual_card_enrollment_source);
-      break;
-    case VirtualCardEnrollmentStrikeDatabase::kUnknown:
-      NOTREACHED();
-      break;
+      return true;
   }
-
-  return true;
 }
 
 void VirtualCardEnrollmentManager::
@@ -310,7 +304,8 @@ void VirtualCardEnrollmentManager::LoadRiskDataAndContinueFlow(
     PrefService* user_prefs,
     base::OnceCallback<void(const std::string&)> callback) {
   if (autofill_client_) {
-    autofill_client_->LoadRiskData(std::move(callback));
+    autofill_client_->GetPaymentsAutofillClient()->LoadRiskData(
+        std::move(callback));
   } else {
     // No |autofill_client_| present indicates we are in the clank settings page
     // use case, so we load risk data using a method that does not require web
@@ -353,7 +348,7 @@ void VirtualCardEnrollmentManager::ShowVirtualCardEnrollBubble() {
       state_.virtual_card_enrollment_fields,
       base::BindOnce(
           &VirtualCardEnrollmentManager::Enroll, weak_ptr_factory_.GetWeakPtr(),
-          /*virtual_card_enrollment_update_response_callback=*/absl::nullopt),
+          /*virtual_card_enrollment_update_response_callback=*/std::nullopt),
       base::BindOnce(
           &VirtualCardEnrollmentManager::OnVirtualCardEnrollmentBubbleCancelled,
           weak_ptr_factory_.GetWeakPtr()));

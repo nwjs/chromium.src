@@ -11,6 +11,7 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "device/vr/openxr/exit_xr_present_reason.h"
 #include "device/vr/openxr/openxr_anchor_manager.h"
 #include "device/vr/openxr/openxr_graphics_binding.h"
 #include "device/vr/openxr/openxr_platform.h"
@@ -20,7 +21,6 @@
 #include "device/vr/public/mojom/vr_service.mojom.h"
 #include "device/vr/public/mojom/xr_session.mojom.h"
 #include "device/vr/vr_export.h"
-#include "device/vr/windows/compositor_base.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/openxr/src/include/openxr/openxr.h"
 
@@ -91,8 +91,7 @@ class OpenXrApiWrapper {
 
   std::vector<mojom::XRViewPtr> GetViews() const;
   mojom::VRPosePtr GetViewerPose() const;
-  std::vector<mojom::XRInputSourceStatePtr> GetInputState(
-      bool hand_input_enabled);
+  std::vector<mojom::XRInputSourceStatePtr> GetInputState();
 
   std::vector<mojom::XRViewPtr> GetDefaultViews() const;
   XrTime GetPredictedDisplayTime() const;

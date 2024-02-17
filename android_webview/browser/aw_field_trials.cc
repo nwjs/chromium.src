@@ -76,10 +76,6 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   aw_feature_overrides.DisableFeature(
       net::features::kThirdPartyStoragePartitioning);
 
-  // Disable network-change migration on WebView due to crbug.com/1430082.
-  aw_feature_overrides.DisableFeature(
-      net::features::kMigrateSessionsOnNetworkChangeV2);
-
   // Disable the passthrough on WebView.
   aw_feature_overrides.DisableFeature(
       ::features::kDefaultPassthroughCommandDecoder);
@@ -91,18 +87,8 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   aw_feature_overrides.DisableFeature(
       blink::features::kReduceUserAgentMinorVersion);
 
-  // Disable using DOM node IDs in Autofill on WebView because of the slower
-  // rollout process for WebView.
-  aw_feature_overrides.DisableFeature(
-      blink::features::kAutofillUseDomNodeIdForRendererId);
-
   // Disable fenced frames on WebView.
   aw_feature_overrides.DisableFeature(blink::features::kFencedFrames);
-
-  // Disable skip Safe Browsing subresource checks on WebView since WebView's
-  // rollout schedule is behind Clank's schedule.
-  aw_feature_overrides.DisableFeature(
-      safe_browsing::kSafeBrowsingSkipSubresources);
 
   // Disable Shared Storage on WebView.
   aw_feature_overrides.DisableFeature(blink::features::kSharedStorageAPI);
@@ -112,10 +98,6 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
 
   // Disable scrollbar-width on WebView.
   aw_feature_overrides.DisableFeature(blink::features::kScrollbarWidth);
-
-  // Disable the new prefetch limits policy on WebView (it is enabled by
-  // default on Android, but we need a slower ramp up on WebView).
-  aw_feature_overrides.DisableFeature(::features::kPrefetchNewLimits);
 
   // Disable Populating the VisitedLinkDatabase on WebView.
   aw_feature_overrides.DisableFeature(history::kPopulateVisitedLinkDatabase);

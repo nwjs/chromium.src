@@ -56,6 +56,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/run_loop.h"
@@ -71,6 +72,7 @@
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "base/test/values_test_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/time/time_override.h"
@@ -399,7 +401,7 @@ class TestWallpaperControllerObserver : public WallpaperControllerObserver {
   }
 
  private:
-  raw_ptr<WallpaperController, ExperimentalAsh> controller_;
+  raw_ptr<WallpaperController> controller_;
 
   base::RepeatingClosure resize_callback_;
   base::RepeatingClosure colors_calculated_callback_;
@@ -849,15 +851,37 @@ class WallpaperControllerTestBase : public AshTestBase {
 
     base::test::TestFuture<bool> set_wallpaper_future;
     controller_->SetSeaPenWallpaper(
-        kAccountId1,
-        {std::move(jpg_bytes), /*id=*/5, /*query=*/std::string(),
-         manta::proto::RESOLUTION_64},
-        set_wallpaper_future.GetCallback());
+        kAccountId1, {std::move(jpg_bytes), /*id=*/5},
+        /*query_info=*/"test query", set_wallpaper_future.GetCallback());
 
     EXPECT_TRUE(set_wallpaper_future.Take());
     EXPECT_EQ(1, observer.wallpaper_changed_count());
     histogram_tester().ExpectUniqueSample("Ash.Wallpaper.SeaPen.Result2",
                                           SetWallpaperResult::kSuccess, 1);
+  }
+
+  base::FilePath WriteSeaPenWallpaperMetadata(
+      const std::string& file_name,
+      const base::Value::Dict& metadata) {
+    base::FilePath sea_pen_dir =
+        online_wallpaper_dir_.GetPath().Append("sea_pen").Append(
+            kAccountId1.GetAccountIdKey());
+    base::CreateDirectory(sea_pen_dir);
+    base::FilePath file_path = sea_pen_dir.Append(file_name);
+    const char test_xmp_data[] = R"(
+            <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 6.0.0">
+               <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+                     <dc:description>%s</dc:description>
+                  </rdf:Description>
+               </rdf:RDF>
+            </x:xmpmeta>
+            ... more image data ...)";
+    CHECK(base::WriteFile(
+        file_path,
+        base::StringPrintf(test_xmp_data,
+                           base::WriteJson(metadata).value_or("").c_str())));
+    return file_path;
   }
 
   TestWallpaperImageDownloader* test_wallpaper_image_downloader() {
@@ -878,10 +902,20 @@ class WallpaperControllerTestBase : public AshTestBase {
     run_loop.Run();
   }
 
-  raw_ptr<WallpaperControllerImpl, DanglingUntriaged | ExperimentalAsh>
-      controller_;
-  raw_ptr<WallpaperPrefManager, DanglingUntriaged | ExperimentalAsh>
-      pref_manager_ = nullptr;  // owned by controller
+  // Returns the last modified time of a file. Returns the old last modified
+  // time if the process fails.
+  base::Time GetLastModifiedTime(const base::FilePath& path) {
+    base::File::Info info;
+    base::File file(path, base::File::FLAG_OPEN | base::File::FLAG_READ);
+    if (file.GetInfo(&info)) {
+      return info.last_modified;
+    }
+    return base::Time();
+  }
+
+  raw_ptr<WallpaperControllerImpl, DanglingUntriaged> controller_;
+  raw_ptr<WallpaperPrefManager, DanglingUntriaged> pref_manager_ =
+      nullptr;  // owned by controller
 
   base::ScopedTempDir user_data_dir_;
   base::ScopedTempDir online_wallpaper_dir_;
@@ -920,6 +954,7 @@ class WallpaperControllerTest
         break;
     }
     enabled_features.push_back(features::kSeaPen);
+    enabled_features.push_back(features::kFeatureManagementSeaPen);
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
 
@@ -2099,7 +2134,8 @@ TEST_P(WallpaperControllerTest, ShowSeaPenWallpaperOnLogin) {
       /*max_deviation=*/1));
 }
 
-TEST_P(WallpaperControllerTest, SetSeaPenWallpaperFromFile) {
+// TODO(https://crbug.com/1511896): Flaky on linux-chromeos-rel.
+TEST_P(WallpaperControllerTest, DISABLED_SetSeaPenWallpaperFromFile) {
   SimulateUserLogin(kAccountId1);
   TestWallpaperControllerObserver observer(controller_);
 
@@ -2117,6 +2153,10 @@ TEST_P(WallpaperControllerTest, SetSeaPenWallpaperFromFile) {
   ASSERT_TRUE(scoped_temp_dir.CreateUniqueTempDir());
   base::FilePath file_path = scoped_temp_dir.GetPath().Append("111.jpg");
   ASSERT_TRUE(base::WriteFile(file_path, jpg_bytes));
+  // Updates the last modified time for the file.
+  ASSERT_TRUE(base::TouchFile(file_path, base::Time::Now() - base::Minutes(5),
+                              base::Time::Now() - base::Minutes(5)));
+  base::Time old_last_modified_time = GetLastModifiedTime(file_path);
 
   base::test::TestFuture<bool> set_wallpaper_future;
   controller_->SetSeaPenWallpaperFromFile(kAccountId1, file_path,
@@ -2134,6 +2174,9 @@ TEST_P(WallpaperControllerTest, SetSeaPenWallpaperFromFile) {
   EXPECT_TRUE(gfx::test::AreBitmapsClose(
       *expected_image.bitmap(), *controller_->GetWallpaperImage().bitmap(),
       /*max_deviation=*/1));
+
+  // Last Modified Time should be updated to current time.
+  EXPECT_TRUE(GetLastModifiedTime(file_path) > old_last_modified_time);
 }
 
 TEST_P(WallpaperControllerTest, SetDefaultWallpaperForRegularAccount) {
@@ -2414,6 +2457,74 @@ TEST_P(WallpaperControllerTest, SetDefaultWallpaperCallbackTiming) {
   loop.Run();
   // Wallpaper observer should have been notified of wallpaper change.
   EXPECT_EQ(1, observer.wallpaper_changed_count());
+}
+
+TEST_P(WallpaperControllerTest, DeleteRecentSeaPenImage) {
+  SimulateUserLogin(kAccountId1);
+  TestWallpaperControllerObserver observer(controller_);
+
+  base::ScopedTempDir scoped_temp_dir;
+  ASSERT_TRUE(scoped_temp_dir.CreateUniqueTempDir());
+  base::FilePath file_path = scoped_temp_dir.GetPath().Append("111.jpg");
+  ASSERT_TRUE(base::WriteFile(file_path, "test data"));
+
+  base::test::TestFuture<bool> delete_sea_pen_image_future;
+  controller_->DeleteRecentSeaPenImage(
+      kAccountId1, file_path, delete_sea_pen_image_future.GetCallback());
+
+  EXPECT_TRUE(delete_sea_pen_image_future.Get());
+  EXPECT_FALSE(base::PathExists(file_path));
+}
+
+TEST_P(WallpaperControllerTest, GetSeaPenMetadata) {
+  SimulateUserLogin(kAccountId1);
+
+  const base::Value::Dict metadata = base::test::ParseJsonDict(
+      R"({"creation_time":"13349580290544213",
+      "user_visible_query_text":"test template query",
+      "user_visible_query_template":"test template title",
+      "options":{"4":"55","5":"64"},
+      "template_id":"2"})");
+  const auto file_path = WriteSeaPenWallpaperMetadata("111.jpg", metadata);
+
+  {
+    base::test::TestFuture<std::optional<base::Value::Dict>>
+        get_sea_pen_metadata_future;
+    controller_->GetSeaPenMetadata(kAccountId1, file_path,
+                                   get_sea_pen_metadata_future.GetCallback());
+
+    EXPECT_EQ(metadata, get_sea_pen_metadata_future.Get());
+  }
+
+  {
+    base::test::TestFuture<std::optional<base::Value::Dict>>
+        get_sea_pen_metadata_future;
+    // Now try an invalid path with known good metadata.
+    const auto invalid_file_path =
+        WriteSeaPenWallpaperMetadata("../111.jpg", metadata);
+    controller_->GetSeaPenMetadata(kAccountId1, invalid_file_path,
+                                   get_sea_pen_metadata_future.GetCallback());
+    EXPECT_FALSE(get_sea_pen_metadata_future.Get().has_value());
+  }
+}
+
+TEST_P(WallpaperControllerTest, GetSeaPenMetadataInvalidJson) {
+  SimulateUserLogin(kAccountId1);
+
+  // Missing a required `template_id` key.
+  const base::Value::Dict metadata = base::test::ParseJsonDict(
+      R"({"creation_time":"13349580290544213",
+      "user_visible_query_text":"test template query",
+      "user_visible_query_template":"test template title",
+      "options":{"4":"55","5":"64"}})");
+  const auto file_path = WriteSeaPenWallpaperMetadata("8888.jpg", metadata);
+
+  base::test::TestFuture<std::optional<base::Value::Dict>>
+      get_sea_pen_metadata_future;
+  controller_->GetSeaPenMetadata(kAccountId1, file_path,
+                                 get_sea_pen_metadata_future.GetCallback());
+
+  EXPECT_FALSE(get_sea_pen_metadata_future.Take().has_value());
 }
 
 TEST_P(WallpaperControllerTest, IgnoreWallpaperRequestInKioskMode) {

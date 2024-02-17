@@ -9,7 +9,9 @@
 #include <utility>
 
 #include "ash/constants/ash_paths.h"
+#include "ash/shell.h"
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -37,6 +39,7 @@
 #include "chrome/browser/ash/policy/external_data/handlers/device_wilco_dtc_configuration_external_data_handler.h"
 #include "chrome/browser/ash/policy/handlers/adb_sideloading_allowance_mode_policy_handler.h"
 #include "chrome/browser/ash/policy/handlers/bluetooth_policy_handler.h"
+#include "chrome/browser/ash/policy/handlers/device_dlc_predownload_list_policy_handler.h"
 #include "chrome/browser/ash/policy/handlers/device_dock_mac_address_source_handler.h"
 #include "chrome/browser/ash/policy/handlers/device_name_policy_handler_impl.h"
 #include "chrome/browser/ash/policy/handlers/device_wifi_allowed_handler.h"
@@ -48,7 +51,7 @@
 #include "chrome/browser/ash/policy/invalidation/affiliated_invalidation_service_provider.h"
 #include "chrome/browser/ash/policy/invalidation/affiliated_invalidation_service_provider_impl.h"
 #include "chrome/browser/ash/policy/remote_commands/affiliated_remote_commands_invalidator.h"
-#include "chrome/browser/ash/policy/remote_commands/crd_admin_session_controller.h"
+#include "chrome/browser/ash/policy/remote_commands/crd/crd_admin_session_controller.h"
 #include "chrome/browser/ash/policy/scheduled_task_handler/device_scheduled_reboot_handler.h"
 #include "chrome/browser/ash/policy/scheduled_task_handler/device_scheduled_update_checker.h"
 #include "chrome/browser/ash/policy/scheduled_task_handler/reboot_notifications_scheduler.h"
@@ -286,7 +289,18 @@ void BrowserPolicyConnectorAsh::Init(
               DeviceScheduledRebootHandler::kRebootTimerTag),
           reboot_notifications_scheduler_.get());
 
-  crd_admin_session_controller_->Init(local_state);
+  device_dlc_predownload_list_policy_handler_ =
+      DeviceDlcPredownloadListPolicyHandler::Create();
+}
+
+void BrowserPolicyConnectorAsh::OnBrowserStarted() {
+  ChromeBrowserPolicyConnector::OnBrowserStarted();
+
+  // `ash::Shell` is not available when `BrowserPolicyConnectorAsh::Init` is
+  // invoked, so we must delay this initialization until now.
+  crd_admin_session_controller_->Init(
+      local_state_,
+      CHECK_DEREF(ash::Shell::Get()).security_curtain_controller());
 }
 
 void BrowserPolicyConnectorAsh::PreShutdown() {
@@ -300,6 +314,10 @@ void BrowserPolicyConnectorAsh::PreShutdown() {
   if (affiliated_invalidation_service_provider_) {
     affiliated_invalidation_service_provider_->Shutdown();
   }
+
+  // This controller depends on the `SecurityCurtainController` which will be
+  // destroyed before `BrowserPolicyConnectorAsh::Shutdown` is invoked.
+  crd_admin_session_controller_->Shutdown();
 }
 
 void BrowserPolicyConnectorAsh::Shutdown() {
@@ -328,6 +346,8 @@ void BrowserPolicyConnectorAsh::Shutdown() {
 
   device_scheduled_reboot_handler_.reset();
 
+  device_dlc_predownload_list_policy_handler_.reset();
+
   reboot_notifications_scheduler_.reset();
 
   // The policy handler is registered as an observer to BuildState which gets
@@ -345,8 +365,6 @@ void BrowserPolicyConnectorAsh::Shutdown() {
   }
 
   adb_sideloading_allowance_mode_policy_handler_.reset();
-
-  crd_admin_session_controller_->Shutdown();
 
   ChromeBrowserPolicyConnector::Shutdown();
 }

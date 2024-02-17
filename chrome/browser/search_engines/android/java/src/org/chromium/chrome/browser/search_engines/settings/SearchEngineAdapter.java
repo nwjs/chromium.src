@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.search_engines.settings;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
@@ -25,7 +26,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.R;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -34,6 +34,7 @@ import org.chromium.components.browser_ui.settings.SettingsLauncher;
 import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.favicon.LargeIconBridge.GoogleFaviconServerCallback;
 import org.chromium.components.favicon.LargeIconBridge.LargeIconCallback;
+import org.chromium.components.search_engines.ChoiceMadeLocation;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.net.NetworkTrafficAnnotationTag;
@@ -43,8 +44,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /** A custom adapter for listing search engines. */
 public class SearchEngineAdapter extends BaseAdapter
@@ -122,6 +125,9 @@ public class SearchEngineAdapter extends BaseAdapter
 
     /** The list of recently visited search engines. */
     private List<TemplateUrl> mRecentSearchEngines = new ArrayList<>();
+
+    /** Cache for storing fetched search icon bitmaps. */
+    private final Map<GURL, Bitmap> mIconCache = new HashMap();
 
     /**
      * The position (index into mPrepopulatedSearchEngines) of the currently selected search engine.
@@ -206,7 +212,8 @@ public class SearchEngineAdapter extends BaseAdapter
         sortAndFilterUnnecessaryTemplateUrl(
                 templateUrls,
                 defaultSearchEngineTemplateUrl,
-                templateUrlService.isEeaChoiceCountry());
+                templateUrlService.isEeaChoiceCountry(),
+                templateUrlService.shouldShowUpdatedSettings());
         boolean forceRefresh = mIsLocationPermissionChanged;
         mIsLocationPermissionChanged = false;
         if (!didSearchEnginesChange(templateUrls)) {
@@ -261,8 +268,12 @@ public class SearchEngineAdapter extends BaseAdapter
     public static void sortAndFilterUnnecessaryTemplateUrl(
             List<TemplateUrl> templateUrls,
             TemplateUrl defaultSearchEngine,
-            boolean isInEeaChoiceCountry) {
-        templateUrls.sort(templateUrlsComparatorWith(defaultSearchEngine, isInEeaChoiceCountry));
+            boolean isEeaChoiceCountry,
+            boolean shouldShowUpdatedSettings) {
+        // In the EEA and when the new settings design is shown, we want to avoid re-sorting, to
+        // stick to the order of prepopulated engines provided by the service.
+        boolean sortPrepopulatedEngines = !(shouldShowUpdatedSettings && isEeaChoiceCountry);
+        templateUrls.sort(templateUrlsComparatorWith(defaultSearchEngine, sortPrepopulatedEngines));
 
         int recentEngineNum = 0;
         long displayTime = System.currentTimeMillis() - MAX_DISPLAY_TIME_SPAN_MS;
@@ -287,7 +298,7 @@ public class SearchEngineAdapter extends BaseAdapter
      * the current user selections.
      */
     private static Comparator<TemplateUrl> templateUrlsComparatorWith(
-            TemplateUrl defaultSearchEngine, boolean isInEeaChoiceCountry) {
+            TemplateUrl defaultSearchEngine, boolean sortPrepopulatedEngines) {
         return (TemplateUrl templateUrl1, TemplateUrl templateUrl2) -> {
             // Don't change the order for duplicates.
             if (templateUrl1.getNativePtr() == templateUrl2.getNativePtr()) {
@@ -296,14 +307,13 @@ public class SearchEngineAdapter extends BaseAdapter
 
             // Prepopulated engines go first and are sorted by prepopulatedID.
             if (templateUrl1.getIsPrepopulated() && templateUrl2.getIsPrepopulated()) {
-                if (ChromeFeatureList.isEnabled(ChromeFeatureList.SEARCH_ENGINE_CHOICE)
-                        && isInEeaChoiceCountry) {
+                if (sortPrepopulatedEngines) {
+                    // Reorder the prepopulated engines by prepopulated ID.
+                    return templateUrl1.getPrepopulatedId() - templateUrl2.getPrepopulatedId();
+                } else {
                     // Don't reorder the prepopulated engines among themselves. They have
                     // been ordered in a specific way by the service.
                     return 0;
-                } else {
-                    // Reorder the prepopulated engines by prepopulated ID.
-                    return templateUrl1.getPrepopulatedId() - templateUrl2.getPrepopulatedId();
                 }
             } else if (templateUrl1.getIsPrepopulated()) {
                 return -1;
@@ -423,8 +433,8 @@ public class SearchEngineAdapter extends BaseAdapter
 
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
-        final boolean showLogo =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.SEARCH_ENGINE_CHOICE);
+        TemplateUrlService templateUrlService = TemplateUrlServiceFactory.getForProfile(mProfile);
+        final boolean showLogo = templateUrlService.shouldShowUpdatedSettings();
 
         View view = convertView;
         int itemViewType = getItemViewType(position);
@@ -459,47 +469,12 @@ public class SearchEngineAdapter extends BaseAdapter
         }
 
         if (showLogo) {
-            int uiElementSizeInPx =
-                    mContext.getResources()
-                            .getDimensionPixelSize(R.dimen.search_engine_favicon_size);
             ImageView logoView = view.findViewById(R.id.logo);
-            // Use a placeholder image while trying to fetch the logo.
-            logoView.setImageBitmap(
-                    FaviconUtils.createGenericFaviconBitmap(mContext, uiElementSizeInPx, null));
-            TemplateUrlService templateUrlService =
-                    TemplateUrlServiceFactory.getForProfile(mProfile);
             GURL faviconUrl =
                     new GURL(
                             templateUrlService.getSearchEngineUrlFromTemplateUrl(
                                     templateUrl.getKeyword()));
-            LargeIconCallback onFaviconAvailable =
-                    (icon, fallbackColor, isFallbackColorDefault, iconType) -> {
-                        if (icon != null) {
-                            logoView.setImageBitmap(icon);
-                        }
-                    };
-            GoogleFaviconServerCallback googleServerCallback =
-                    (status) -> {
-                        // Update the time the icon was last requested to avoid automatic eviction
-                        // from cache.
-                        mLargeIconBridge.touchIconFromGoogleServer(faviconUrl);
-                        // The search engine logo will be fetched from google servers, so the actual
-                        // size of the image is controlled by LargeIconService configuration.
-                        // minSizePx=1 is used to accept logo of any size.
-                        mLargeIconBridge.getLargeIconForUrl(
-                                faviconUrl,
-                                /* minSizePx= */ 1,
-                                /* desiredSizePx= */ uiElementSizeInPx,
-                                onFaviconAvailable);
-                    };
-            // If the icon already exists in the cache no network request will be made, but the
-            // callback will be triggered nonetheless.
-            mLargeIconBridge.getLargeIconOrFallbackStyleFromGoogleServerSkippingLocalCache(
-                    faviconUrl,
-                    /* mayPageUrlBePrivate= */ true,
-                    /* shouldTrimPageUrlPath= */ true,
-                    TRAFFIC_ANNOTATION,
-                    googleServerCallback);
+            updateLogo(logoView, faviconUrl);
         }
 
         // To improve the explore-by-touch experience, the radio button is hidden from accessibility
@@ -525,6 +500,48 @@ public class SearchEngineAdapter extends BaseAdapter
                 });
 
         return view;
+    }
+
+    private void updateLogo(ImageView logoView, GURL faviconUrl) {
+        if (mIconCache.containsKey(faviconUrl)) {
+            logoView.setImageBitmap(mIconCache.get(faviconUrl));
+            return;
+        }
+
+        // Use a placeholder image while trying to fetch the logo.
+        int uiElementSizeInPx =
+                mContext.getResources().getDimensionPixelSize(R.dimen.search_engine_favicon_size);
+        logoView.setImageBitmap(
+                FaviconUtils.createGenericFaviconBitmap(mContext, uiElementSizeInPx, null));
+        LargeIconCallback onFaviconAvailable =
+                (icon, fallbackColor, isFallbackColorDefault, iconType) -> {
+                    if (icon != null) {
+                        logoView.setImageBitmap(icon);
+                        mIconCache.put(faviconUrl, icon);
+                    }
+                };
+        GoogleFaviconServerCallback googleServerCallback =
+                (status) -> {
+                    // Update the time the icon was last requested to avoid automatic eviction
+                    // from cache.
+                    mLargeIconBridge.touchIconFromGoogleServer(faviconUrl);
+                    // The search engine logo will be fetched from google servers, so the actual
+                    // size of the image is controlled by LargeIconService configuration.
+                    // minSizePx=1 is used to accept logo of any size.
+                    mLargeIconBridge.getLargeIconForUrl(
+                            faviconUrl,
+                            /* minSizePx= */ 1,
+                            /* desiredSizePx= */ uiElementSizeInPx,
+                            onFaviconAvailable);
+                };
+        // If the icon already exists in the cache no network request will be made, but the
+        // callback will be triggered nonetheless.
+        mLargeIconBridge.getLargeIconOrFallbackStyleFromGoogleServerSkippingLocalCache(
+                faviconUrl,
+                /* mayPageUrlBePrivate= */ true,
+                /* shouldTrimPageUrlPath= */ true,
+                TRAFFIC_ANNOTATION,
+                googleServerCallback);
     }
 
     // TemplateUrlService.LoadListener
@@ -553,7 +570,8 @@ public class SearchEngineAdapter extends BaseAdapter
         mSelectedSearchEnginePosition = position;
 
         String keyword = toKeyword(mSelectedSearchEnginePosition);
-        TemplateUrlServiceFactory.getForProfile(mProfile).setSearchEngine(keyword);
+        TemplateUrlServiceFactory.getForProfile(mProfile)
+                .setSearchEngine(keyword, ChoiceMadeLocation.SEARCH_ENGINE_SETTINGS);
 
         // If the user has manually set the default search engine, disable auto switching.
         boolean manualSwitch = mSelectedSearchEnginePosition != mInitialEnginePosition;

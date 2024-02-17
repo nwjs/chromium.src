@@ -59,6 +59,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
 
 import org.chromium.android_webview.AwBrowserContext;
+import org.chromium.android_webview.AwBrowserContextStore;
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwContentsStatics;
 import org.chromium.android_webview.AwPrintDocumentAdapter;
@@ -691,9 +692,7 @@ class WebViewChromium
             }
 
             // Needed for https://crbug.com/1417872
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ApiHelperForO.setDefaultFocusHighlightEnabled(mWebView, false);
-            }
+            ApiHelperForO.setDefaultFocusHighlightEnabled(mWebView, false);
 
             if (mAppTargetSdkVersion >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
                 // If the app targets >= JB MR2 then we require that WebView is only used from a
@@ -844,7 +843,7 @@ class WebViewChromium
                     ManifestMetadataUtil.getAppMultiProfileProfileNameTagKey();
             if (appProfileNameTagKey != null
                     && mWebView.getTag(appProfileNameTagKey) instanceof String profileName) {
-                browserContext = AwBrowserContext.getNamedContext(profileName, true);
+                browserContext = AwBrowserContextStore.getNamedContext(profileName, true);
             }
 
             if (browserContext == null) {

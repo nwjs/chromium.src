@@ -306,12 +306,6 @@ void NetworkScreen::StopWaitingForConnection(const std::u16string& network_id) {
   if (UpdateStatusIfConnectedToEthernet()) {
     return;
   }
-
-  // Automatically continue if we are using Zero-Touch Hands-Off Enrollment.
-  if (is_connected && continue_attempts_ == 0 &&
-      WizardController::IsZeroTouchHandsOffOobeFlow()) {
-    OnContinueButtonClicked();
-  }
 }
 
 void NetworkScreen::WaitForConnection(const std::u16string& network_id) {
@@ -333,7 +327,6 @@ void NetworkScreen::OnBackButtonClicked() {
 }
 
 void NetworkScreen::OnContinueButtonClicked() {
-  ++continue_attempts_;
   if (view_) {
     view_->ClearErrors();
   }
@@ -373,7 +366,7 @@ void NetworkScreen::ConfigureWifiNetwork(
 }
 
 void NetworkScreen::OnConfigureWifiNetworkResult(
-    const absl::optional<std::string>& network_guid,
+    const std::optional<std::string>& network_guid,
     const std::string& error_message) {
   if (!network_guid.has_value() || !error_message.empty()) {
     LOG(ERROR) << "Configure network failed with  "

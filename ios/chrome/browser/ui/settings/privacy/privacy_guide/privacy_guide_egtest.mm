@@ -10,8 +10,10 @@
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/testing/earl_grey/app_launch_configuration.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
+#import "ios/testing/earl_grey/matchers.h"
 
 using chrome_test_util::ButtonWithAccessibilityLabelId;
+using chrome_test_util::PromoStylePrimaryActionButtonMatcher;
 using chrome_test_util::PromoStyleSecondaryActionButtonMatcher;
 using chrome_test_util::SettingsMenuPrivacyButton;
 
@@ -28,7 +30,7 @@ using chrome_test_util::SettingsMenuPrivacyButton;
   return config;
 }
 
-// Test that the Privacy Guide can be dismissed via the 'Cancel' button.
+// Tests that the Privacy Guide can be dismissed via the 'Cancel' button.
 - (void)testDismissPrivacyGuideWithCancelButton {
   [self openPrivacyGuide];
 
@@ -38,23 +40,47 @@ using chrome_test_util::SettingsMenuPrivacyButton;
 
   // Verify that the Privacy Guide is dismissed.
   [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(kPrivacyGuideWelcomeViewId)]
+      selectElementWithMatcher:grey_accessibilityID(kPrivacyGuideWelcomeViewID)]
       assertWithMatcher:grey_nil()];
 }
 
-// Test that the Privacy Guide can be dismissed by swipping down.
+// Tests that the Privacy Guide can be dismissed by swipping down.
 - (void)testDismissPrivacyGuideWithSwipeDown {
   [self openPrivacyGuide];
 
   // Dismiss the Privacy Guide by swipping down.
   [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(kPrivacyGuideWelcomeViewId)]
+      selectElementWithMatcher:grey_accessibilityID(kPrivacyGuideWelcomeViewID)]
       performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
 
   // Verify that the Privacy Guide is dismissed.
   [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(kPrivacyGuideWelcomeViewId)]
+      selectElementWithMatcher:grey_accessibilityID(kPrivacyGuideWelcomeViewID)]
       assertWithMatcher:grey_nil()];
+}
+
+// Test the e2e navigation of the Privacy Guide.
+- (void)testForwardAndBackwardNavigation {
+  [self openPrivacyGuide];
+
+  // 1. Test forward navigation.
+  // Tap the 'Let's go' button.
+  [[EarlGrey selectElementWithMatcher:PromoStylePrimaryActionButtonMatcher()]
+      performAction:grey_tap()];
+
+  // Verify that the next step is displayed.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                          kPrivacyGuideURLUsageViewID)]
+      assertWithMatcher:grey_notNil()];
+
+  // 2. Test backward navigation.
+  [[EarlGrey selectElementWithMatcher:[self privacyGuideBackButton]]
+      performAction:grey_tap()];
+
+  // Verify that the previous step is displayed.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kPrivacyGuideWelcomeViewID)]
+      assertWithMatcher:grey_notNil()];
 }
 
 #pragma mark - Helpers
@@ -65,4 +91,12 @@ using chrome_test_util::SettingsMenuPrivacyButton;
   [ChromeEarlGreyUI tapPrivacyMenuButton:ButtonWithAccessibilityLabelId(
                                              IDS_IOS_PRIVACY_GUIDE_TITLE)];
 }
+
+- (id<GREYMatcher>)privacyGuideBackButton {
+  return grey_allOf(
+      testing::NavigationBarBackButton(),
+      grey_ancestor(grey_accessibilityID(kPrivacyGuideNavigationBarViewID)),
+      nil);
+}
+
 @end

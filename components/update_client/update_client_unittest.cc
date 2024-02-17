@@ -31,7 +31,8 @@
 #include "build/build_config.h"
 #include "components/crx_file/crx_verifier.h"
 #include "components/prefs/testing_pref_service.h"
-#include "components/update_client/component_unpacker.h"
+#include "components/services/unzip/in_process_unzipper.h"
+#include "components/update_client/activity_data_service.h"
 #include "components/update_client/crx_downloader_factory.h"
 #include "components/update_client/crx_update_item.h"
 #include "components/update_client/features.h"
@@ -40,10 +41,11 @@
 #include "components/update_client/persisted_data.h"
 #include "components/update_client/ping_manager.h"
 #include "components/update_client/protocol_handler.h"
-#include "components/update_client/puffin_component_unpacker.h"
 #include "components/update_client/test_configurator.h"
 #include "components/update_client/test_installer.h"
 #include "components/update_client/test_utils.h"
+#include "components/update_client/unpacker.h"
+#include "components/update_client/unzip/unzip_impl.h"
 #include "components/update_client/unzipper.h"
 #include "components/update_client/update_checker.h"
 #include "components/update_client/update_client_errors.h"
@@ -270,14 +272,14 @@ class UpdateClientTest : public testing::Test {
 
   std::unique_ptr<TestingPrefServiceSimple> pref_ =
       std::make_unique<TestingPrefServiceSimple>();
-  scoped_refptr<update_client::TestConfigurator> config_ =
-      base::MakeRefCounted<TestConfigurator>(pref_.get());
-  std::unique_ptr<update_client::PersistedData> metadata_ =
-      std::make_unique<PersistedData>(pref_.get(), nullptr);
+  scoped_refptr<update_client::TestConfigurator> config_;
+  std::unique_ptr<update_client::PersistedData> metadata_;
 };
 
 UpdateClientTest::UpdateClientTest() {
-  PersistedData::RegisterPrefs(pref_->registry());
+  RegisterPersistedDataPrefs(pref_->registry());
+  config_ = base::MakeRefCounted<TestConfigurator>(pref_.get());
+  metadata_ = CreatePersistedData(pref_.get(), nullptr);
 }
 
 void UpdateClientTest::RunThreads() {
@@ -596,21 +598,26 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoUpdate) {
   {
     InSequence seq;
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_CHECKING_FOR_UPDATES,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_FOUND,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_DOWNLOADING,
                                   "jebgalgnebhfojomionfpkfelancnnkf"))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_READY,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATED,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
   }
   {
     InSequence seq;
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_CHECKING_FOR_UPDATES,
-                                  "abagagagagagagagagagagagagagagag")).Times(1);
+                                  "abagagagagagagagagagagagagagagag"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_ALREADY_UP_TO_DATE,
                                   "abagagagagagagagagagagagagagagag"))
         .Times(1);
@@ -1063,16 +1070,20 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoCrxComponentData) {
   {
     InSequence seq;
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_CHECKING_FOR_UPDATES,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_FOUND,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_DOWNLOADING,
                                   "jebgalgnebhfojomionfpkfelancnnkf"))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_READY,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATED,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
   }
   {
     InSequence seq;
@@ -1437,9 +1448,11 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
   {
     InSequence seq;
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_CHECKING_FOR_UPDATES,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_FOUND,
-                                  "jebgalgnebhfojomionfpkfelancnnkf")).Times(1);
+                                  "jebgalgnebhfojomionfpkfelancnnkf"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_DOWNLOADING,
                                   "jebgalgnebhfojomionfpkfelancnnkf"))
         .Times(AtLeast(1));
@@ -1458,9 +1471,11 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
   {
     InSequence seq;
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_CHECKING_FOR_UPDATES,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_FOUND,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_WAIT,
                                   "ihfokbkgjpifnbbojhneepfflplebdkc"))
         .Times(AnyNumber());
@@ -1468,9 +1483,11 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
                                   "ihfokbkgjpifnbbojhneepfflplebdkc"))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_READY,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATED,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
   }
 
   std::vector<CrxUpdateItem> items;
@@ -1786,33 +1803,41 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
   {
     InSequence seq;
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_CHECKING_FOR_UPDATES,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_FOUND,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_DOWNLOADING,
                                   "ihfokbkgjpifnbbojhneepfflplebdkc"))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_READY,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_UPDATING,
                                   "ihfokbkgjpifnbbojhneepfflplebdkc"))
         .Times(3);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATED,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_CHECKING_FOR_UPDATES,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_FOUND,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_DOWNLOADING,
                                   "ihfokbkgjpifnbbojhneepfflplebdkc"))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_READY,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATE_UPDATING,
                                   "ihfokbkgjpifnbbojhneepfflplebdkc"))
         .Times(3);
     EXPECT_CALL(observer, OnEvent(Events::COMPONENT_UPDATED,
-                                  "ihfokbkgjpifnbbojhneepfflplebdkc")).Times(1);
+                                  "ihfokbkgjpifnbbojhneepfflplebdkc"))
+        .Times(1);
   }
 
   update_client->AddObserver(&observer);
@@ -1857,8 +1882,9 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
 
     std::vector<int> samples = {-1, -1, -1, -1, -1, -1, -1, 50, 100, 100};
     EXPECT_EQ(items.size(), samples.size());
-    for (size_t i = 0; i != items.size(); ++i)
+    for (size_t i = 0; i != items.size(); ++i) {
       EXPECT_EQ(items[i].install_progress, samples[i]);
+    }
   }
 
   {
@@ -1901,8 +1927,9 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
 
     std::vector<int> samples = {-1, -1, -1, -1, -1, -1, -1, 50, 100, 100};
     EXPECT_EQ(items.size(), samples.size());
-    for (size_t i = 0; i != items.size(); ++i)
+    for (size_t i = 0; i != items.size(); ++i) {
       EXPECT_EQ(items[i].install_progress, samples[i]);
+    }
   }
 
   update_client->RemoveObserver(&observer);
@@ -5440,31 +5467,31 @@ TEST_F(UpdateClientTest, ActionRun_Install) {
 
   update_client->Install(
       std::string("gjpmebpgbhcamgdgjcmnjfhggjpgcimm"),
-      base::BindOnce([](const std::vector<std::string>& ids,
-                        base::OnceCallback<void(
-                            const std::vector<absl::optional<CrxComponent>>&)>
-                            callback) {
-        auto action_handler = base::MakeRefCounted<MockActionHandler>();
-        EXPECT_CALL(*action_handler, Handle(_, _, _))
-            .WillOnce([](const base::FilePath& action,
-                         const std::string& session_id,
-                         ActionHandler::Callback callback) {
-              EXPECT_EQ("ChromeRecovery.crx3",
-                        action.BaseName().MaybeAsASCII());
-              EXPECT_TRUE(!session_id.empty());
-              std::move(callback).Run(true, 1877345072, 0);
-            });
+      base::BindOnce(
+          [](const std::vector<std::string>& ids,
+             base::OnceCallback<void(
+                 const std::vector<absl::optional<CrxComponent>>&)> callback) {
+            auto action_handler = base::MakeRefCounted<MockActionHandler>();
+            EXPECT_CALL(*action_handler, Handle(_, _, _))
+                .WillOnce([](const base::FilePath& action,
+                             const std::string& session_id,
+                             ActionHandler::Callback callback) {
+                  EXPECT_EQ("ChromeRecovery.crx3",
+                            action.BaseName().MaybeAsASCII());
+                  EXPECT_TRUE(!session_id.empty());
+                  std::move(callback).Run(true, 1877345072, 0);
+                });
 
-        CrxComponent crx;
-        crx.app_id = "gjpmebpgbhcamgdgjcmnjfhggjpgcimm";
-        crx.name = "test_gjpm";
-        crx.pk_hash.assign(std::begin(gjpm_hash), std::end(gjpm_hash));
-        crx.version = base::Version("0.0");
-        crx.installer = base::MakeRefCounted<VersionedTestInstaller>();
-        crx.action_handler = action_handler;
-        crx.crx_format_requirement = crx_file::VerifierFormat::CRX3;
-        std::move(callback).Run({crx});
-      }),
+            CrxComponent crx;
+            crx.app_id = "gjpmebpgbhcamgdgjcmnjfhggjpgcimm";
+            crx.name = "test_gjpm";
+            crx.pk_hash.assign(std::begin(gjpm_hash), std::end(gjpm_hash));
+            crx.version = base::Version("0.0");
+            crx.installer = base::MakeRefCounted<VersionedTestInstaller>();
+            crx.action_handler = action_handler;
+            crx.crx_format_requirement = crx_file::VerifierFormat::CRX3;
+            std::move(callback).Run({crx});
+          }),
       {},
       base::BindOnce(
           [](base::OnceClosure quit_closure, Error error) {
@@ -5559,14 +5586,16 @@ TEST_F(UpdateClientTest, ActionRun_NoUpdate) {
     base::RunLoop runloop;
     base::OnceClosure quit_closure = runloop.QuitClosure();
 
-    auto config = base::MakeRefCounted<TestConfigurator>();
-    PuffinComponentUnpacker::Unpack(
+    Unpacker::Unpack(
         std::vector<uint8_t>(std::begin(gjpm_hash), std::end(gjpm_hash)),
         GetTestFilePath("runaction_test_win.crx3"),
-        config->GetUnzipperFactory()->Create(), crx_file::VerifierFormat::CRX3,
+        base::MakeRefCounted<UnzipChromiumFactory>(
+            base::BindRepeating(&unzip::LaunchInProcessUnzipper))
+            ->Create(),
+        crx_file::VerifierFormat::CRX3,
         base::BindOnce(
             [](base::FilePath* unpack_path, base::OnceClosure quit_closure,
-               const PuffinComponentUnpacker::Result& result) {
+               const Unpacker::Result& result) {
               EXPECT_EQ(UnpackerError::kNone, result.error);
               EXPECT_EQ(0, result.extended_error);
               *unpack_path = result.unpack_path;
@@ -5730,8 +5759,9 @@ TEST_F(UpdateClientTest, CustomAttributeNoUpdate) {
         : update_client_(update_client) {}
 
     void OnEvent(Events event, const std::string& id) override {
-      if (event != Events::COMPONENT_ALREADY_UP_TO_DATE)
+      if (event != Events::COMPONENT_ALREADY_UP_TO_DATE) {
         return;
+      }
       ++calls;
       CrxUpdateItem item;
       EXPECT_TRUE(update_client_->GetCrxUpdateState(

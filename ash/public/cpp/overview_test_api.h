@@ -16,7 +16,7 @@
 
 namespace aura {
 class Window;
-}
+}  // namespace aura
 
 namespace ash {
 
@@ -27,7 +27,7 @@ enum class OverviewAnimationState : int32_t {
 
 struct OverviewItemInfo {
   // A window represented by an overview item.
-  raw_ptr<aura::Window, ExperimentalAsh> window = nullptr;
+  raw_ptr<aura::Window> window = nullptr;
 
   // Screen bounds of an overview item.
   gfx::Rect bounds_in_screen;

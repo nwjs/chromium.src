@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win32-official",
-              "project": "chromium-m121"
+              "project": "chromium-m122"
             },
             "builder_spec": {
               "builder_group": "chromium",
@@ -20,7 +20,8 @@
                   "mb"
                 ],
                 "config": "chromium",
-                "target_bits": 32
+                "target_bits": 32,
+                "target_platform": "win"
               },
               "legacy_gclient_config": {
                 "apply_configs": [
@@ -36,9 +37,10 @@
         {
           "bucket": "ci",
           "builder": "win32-official",
-          "project": "chromium-m121"
+          "project": "chromium-m122"
         }
-      ]
+      ],
+      "targets_spec_directory": "src/infra/config/generated/builders/try/win32-official/targets"
     }
   },
   "$build/reclient": {

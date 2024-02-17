@@ -29,11 +29,23 @@ found in the LICENSE file.
       android:visibility="gone"
       app:buttonColor="@android:color/transparent"
       app:buttonTextColor="@color/default_text_color_list"
-      app:tint="@macro/default_icon_color"
       app:verticalInset="0dp" />
 
-    <!-- TODO(https://crbug.com/1496708): Pane switcher goes here. -->
+    <com.google.android.material.tabs.TabLayout
+      android:id="@+id/pane_switcher"
+      style="@style/ToolbarButton"
+      android:layout_width="wrap_content"
+      android:layout_height="match_parent"
+      android:layout_gravity="center"
+      android:visibility="gone"
+      android:layout_marginBottom="3dp"/>
 
-    <!-- TODO(https://crbug.com/1506104): App menu goes here. -->
+    <FrameLayout
+      android:layout_width="wrap_content"
+      android:layout_height="match_parent"
+      android:layout_gravity="end" >
+        <include layout="@layout/menu_button" />
+    </FrameLayout>
+
   </FrameLayout>
 </org.chromium.chrome.browser.hub.HubToolbarView>

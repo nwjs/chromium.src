@@ -64,15 +64,10 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    ssd = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|asan lsan",
-        short_name = "bld",
-    ),
-    cq_mirrors_console_view = "mirrors",
     gn_args = gn_args.config(
         configs = [
             "asan",
@@ -83,6 +78,12 @@ linux_memory_builder(
             "reclient",
         ],
     ),
+    ssd = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|asan lsan",
+        short_name = "bld",
+    ),
+    cq_mirrors_console_view = "mirrors",
 )
 
 linux_memory_builder(
@@ -102,6 +103,7 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
@@ -129,14 +131,10 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|TSan v2",
-        short_name = "bld",
-    ),
-    cq_mirrors_console_view = "mirrors",
     gn_args = gn_args.config(
         configs = [
             "tsan",
@@ -145,6 +143,11 @@ linux_memory_builder(
             "reclient",
         ],
     ),
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|TSan v2",
+        short_name = "bld",
+    ),
+    cq_mirrors_console_view = "mirrors",
 )
 
 linux_memory_builder(
@@ -160,16 +163,10 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    cores = 32,
-    console_view_entry = consoles.console_view_entry(
-        category = "cfi",
-        short_name = "lnx",
-    ),
-    # TODO(thakis): Remove once https://crbug.com/927738 is resolved.
-    execution_timeout = 5 * time.hour,
     gn_args = gn_args.config(
         configs = [
             "cfi_full",
@@ -182,6 +179,13 @@ linux_memory_builder(
             "reclient",
         ],
     ),
+    cores = 32,
+    console_view_entry = consoles.console_view_entry(
+        category = "cfi",
+        short_name = "lnx",
+    ),
+    # TODO(thakis): Remove once https://crbug.com/927738 is resolved.
+    execution_timeout = 5 * time.hour,
 )
 
 linux_memory_builder(
@@ -201,18 +205,10 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.CHROMEOS,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    cores = 16,
-    ssd = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "cros|asan",
-        short_name = "bld",
-    ),
-    # TODO(crbug.com/1030593): Builds take more than 3 hours sometimes. Remove
-    # once the builds are faster.
-    execution_timeout = 6 * time.hour,
     gn_args = gn_args.config(
         configs = [
             "asan",
@@ -223,6 +219,15 @@ linux_memory_builder(
             "reclient",
         ],
     ),
+    cores = 16,
+    ssd = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "cros|asan",
+        short_name = "bld",
+    ),
+    # TODO(crbug.com/1030593): Builds take more than 3 hours sometimes. Remove
+    # once the builds are faster.
+    execution_timeout = 6 * time.hour,
 )
 
 linux_memory_builder(
@@ -244,6 +249,7 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.CHROMEOS,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
@@ -270,21 +276,10 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.CHROMEOS,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    cores = 16,
-    # At this time, MSan is only compatibly with Focal. See
-    # //docs/linux/instrumented_libraries.md.
-    os = os.LINUX_FOCAL,
-    ssd = True,
-    # TODO(crbug.com/1505350): Re-enable tree-closing if/when it's fixed.
-    tree_closing = False,
-    console_view_entry = consoles.console_view_entry(
-        category = "cros|msan",
-        short_name = "bld",
-    ),
-    execution_timeout = 4 * time.hour,
     gn_args = gn_args.config(
         configs = [
             "chromeos",
@@ -293,6 +288,16 @@ linux_memory_builder(
             "reclient",
         ],
     ),
+    cores = 16,
+    # At this time, MSan is only compatibly with Focal. See
+    # //docs/linux/instrumented_libraries.md.
+    os = os.LINUX_FOCAL,
+    ssd = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "cros|msan",
+        short_name = "bld",
+    ),
+    execution_timeout = 4 * time.hour,
 )
 
 linux_memory_builder(
@@ -313,6 +318,7 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.CHROMEOS,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
@@ -342,8 +348,16 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "msan",
+            "release_builder",
+            "reclient",
+        ],
     ),
     # At this time, MSan is only compatibly with Focal. See
     # //docs/linux/instrumented_libraries.md.
@@ -352,13 +366,6 @@ linux_memory_builder(
     console_view_entry = consoles.console_view_entry(
         category = "linux|msan",
         short_name = "bld",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "msan",
-            "release_builder",
-            "reclient",
-        ],
     ),
 )
 
@@ -379,6 +386,7 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
@@ -409,14 +417,9 @@ linux_memory_builder(
             build_config = builder_config.build_config.RELEASE,
             target_arch = builder_config.target_arch.INTEL,
             target_bits = 64,
+            target_platform = builder_config.target_platform.CHROMEOS,
         ),
         build_gs_bucket = "chromium-memory-archive",
-    ),
-    cores = 16,
-    ssd = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "lacros|asan",
-        short_name = "asan",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -428,6 +431,12 @@ linux_memory_builder(
             "lacros_on_linux",
             "also_build_ash_chrome",
         ],
+    ),
+    cores = 16,
+    ssd = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "lacros|asan",
+        short_name = "asan",
     ),
 )
 
@@ -447,15 +456,9 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
         ),
         build_gs_bucket = "chromium-memory-archive",
-    ),
-    builderless = False,
-    cores = None,  # Swapping between 8 and 24
-    os = os.MAC_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "mac",
-        short_name = "bld",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -466,6 +469,13 @@ ci.builder(
             "reclient",
             "dcheck_always_on",
         ],
+    ),
+    builderless = False,
+    cores = None,  # Swapping between 8 and 24
+    os = os.MAC_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "mac",
+        short_name = "bld",
     ),
 )
 
@@ -487,6 +497,7 @@ linux_memory_builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
@@ -513,6 +524,7 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
@@ -542,12 +554,9 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|webkit",
-        short_name = "asn",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -556,6 +565,10 @@ ci.builder(
             "release_builder_blink",
             "reclient",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|webkit",
+        short_name = "asn",
     ),
 )
 
@@ -574,18 +587,19 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|webkit",
-        short_name = "lk",
     ),
     gn_args = gn_args.config(
         configs = [
             "release_builder_blink",
             "reclient",
         ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|webkit",
+        short_name = "lk",
     ),
 )
 
@@ -605,15 +619,9 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
-    ),
-    # At this time, MSan is only compatibly with Focal. See
-    # //docs/linux/instrumented_libraries.md.
-    os = os.LINUX_FOCAL,
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|webkit",
-        short_name = "msn",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -621,6 +629,13 @@ ci.builder(
             "release_builder_blink",
             "reclient",
         ],
+    ),
+    # At this time, MSan is only compatibly with Focal. See
+    # //docs/linux/instrumented_libraries.md.
+    os = os.LINUX_FOCAL,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|webkit",
+        short_name = "msn",
     ),
 )
 
@@ -641,13 +656,6 @@ ci.builder(
         android_config = builder_config.android_config(config = "main_builder"),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    os = os.LINUX_DEFAULT,
-    sheriff_rotations = args.ignore_default(None),
-    tree_closing = False,
-    console_view_entry = consoles.console_view_entry(
-        category = "android",
-        short_name = "asn",
-    ),
     gn_args = gn_args.config(
         configs = [
             "android_builder",
@@ -658,6 +666,13 @@ ci.builder(
             "strip_debug_info",
             "minimal_symbols",
         ],
+    ),
+    os = os.LINUX_DEFAULT,
+    sheriff_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "android",
+        short_name = "asn",
     ),
 )
 
@@ -676,15 +691,9 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-memory-archive",
-    ),
-    builderless = 1,
-    cores = 32,
-    tree_closing = False,
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|ubsan",
-        short_name = "vpt",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -693,6 +702,13 @@ ci.builder(
             "release_builder",
             "reclient",
         ],
+    ),
+    builderless = 1,
+    cores = 32,
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|ubsan",
+        short_name = "vpt",
     ),
     reclient_jobs = reclient.jobs.DEFAULT,
 )
@@ -710,19 +726,10 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    builderless = True,
-    cores = 32,
-    os = os.WINDOWS_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "win",
-        short_name = "asn",
-    ),
-    # This builder is normally using 2.5 hours to run with a cached builder. And
-    # 1.5 hours additional setup time without cache, https://crbug.com/1311134.
-    execution_timeout = 5 * time.hour,
     gn_args = gn_args.config(
         configs = [
             "asan",
@@ -734,6 +741,16 @@ ci.builder(
             "reclient",
         ],
     ),
+    builderless = True,
+    cores = 32,
+    os = os.WINDOWS_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "win",
+        short_name = "asn",
+    ),
+    # This builder is normally using 2.5 hours to run with a cached builder. And
+    # 1.5 hours additional setup time without cache, https://crbug.com/1311134.
+    execution_timeout = 5 * time.hour,
     reclient_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -760,13 +777,6 @@ ci.builder(
             gs_bucket = "chromium-browser-asan",
         ),
     ),
-    cores = None,
-    os = os.MAC_DEFAULT,
-    sheriff_rotations = args.ignore_default(sheriff_rotations.IOS),
-    console_view_entry = consoles.console_view_entry(
-        category = "iOS",
-        short_name = "asn",
-    ),
     gn_args = gn_args.config(
         configs = [
             "ios_simulator",
@@ -777,5 +787,12 @@ ci.builder(
             "xctest",
         ],
     ),
-    xcode = xcode.x15main,
+    cores = None,
+    os = os.MAC_DEFAULT,
+    sheriff_rotations = args.ignore_default(sheriff_rotations.IOS),
+    console_view_entry = consoles.console_view_entry(
+        category = "iOS",
+        short_name = "asn",
+    ),
+    xcode = xcode.xcode_default,
 )

@@ -664,15 +664,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   void RebuildFragmentTreeSpine();
 
-  // Call when NG fragment count or size changed. Only call if the fragment
-  // count is or was larger than 1.
-  void FragmentCountOrSizeDidChange() {
-    NOT_DESTROYED();
-    // The fragment count may change, even if the total block-size remains the
-    // same (if the fragmentainer block-size has changed, for instance).
-    SetShouldDoFullPaintInvalidation();
-  }
-
   const LayoutResult* GetCachedLayoutResult(const BlockBreakToken*) const;
   const LayoutResult* GetCachedMeasureResult(
       const ConstraintSpace&,
@@ -1417,8 +1408,10 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     return *rare_data_.Get();
   }
 
-  bool IsBox() const =
-      delete;  // This will catch anyone doing an unnecessary check.
+  bool IsBox() const final {
+    NOT_DESTROYED();
+    return true;
+  }
 
   void LocationChanged();
 

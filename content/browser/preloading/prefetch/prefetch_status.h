@@ -139,8 +139,8 @@ enum class PrefetchStatus {
   kPrefetchIsPrivacyDecoy = 29,
 
   // The prefetch was eligible, but too much time elapsed between the prefetch
-  // and the interception. No longer used.
-  // kPrefetchIsStale = 30,
+  // and the interception.
+  kPrefetchIsStale = 30,
 
   // Deprecated. NSP no longer supported
   // kPrefetchIsStaleWithNSP = 31,
@@ -151,7 +151,7 @@ enum class PrefetchStatus {
   // initial eligibility check.
   kPrefetchNotUsedCookiesChanged = 34,
 
-  // Deprecated. Support for redirecs added.
+  // Deprecated. Support for redirects added.
   //
   // The prefetch was redirected, but following redirects was disabled.
   // See crbug.com/1266876 for more details.
@@ -208,10 +208,12 @@ enum class PrefetchStatus {
 
   // The prefetch was evicted to make room for a newer prefetch. This currently
   // only happens when |kPrefetchNewLimits| is enabled.
-  kPrefetchEvicted = 49,
+  // kPrefetchEvicted = 49, DEPRECATED
+  kPrefetchEvictedAfterCandidateRemoved = 50,
+  kPrefetchEvictedForNewerPrefetch = 51,
 
   // The max value of the PrefetchStatus. Update this when new enums are added.
-  kMaxValue = kPrefetchEvicted,
+  kMaxValue = kPrefetchEvictedForNewerPrefetch,
 };
 
 // Mapping from `PrefetchStatus` to `PreloadingFailureReason`.

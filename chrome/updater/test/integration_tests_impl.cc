@@ -47,6 +47,7 @@
 #include "base/version.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/updater/activity.h"
 #include "chrome/updater/constants.h"
 #include "chrome/updater/device_management/dm_policy_builder_for_testing.h"
 #include "chrome/updater/device_management/dm_storage.h"
@@ -118,11 +119,12 @@ std::string GetUpdateResponseForApp(
     const base::FilePath& update_file,
     const std::string& run_action,
     const std::string& arguments,
-    const std::optional<std::string>& file_hash = std::nullopt) {
+    const std::optional<std::string>& file_hash = std::nullopt,
+    const std::optional<std::string>& status = std::nullopt) {
   return base::StringPrintf(
       R"(    {)"
       R"(      "appid":"%s",)"
-      R"(      "status":"ok",)"
+      R"(      "status":"%s",)"
       R"(%s)"
       R"(      "updatecheck":{)"
       R"(        "status":"ok",)"
@@ -139,7 +141,7 @@ std::string GetUpdateResponseForApp(
       R"(        })"
       R"(      })"
       R"(    })",
-      base::ToLowerASCII(app_id).c_str(),
+      base::ToLowerASCII(app_id).c_str(), status ? status->c_str() : "ok",
       !install_data_index.empty()
           ? base::StringPrintf(
                 R"(     "data":[{ "status":"ok", "name":"install", )"
@@ -336,7 +338,8 @@ AppUpdateExpectation::AppUpdateExpectation(
     const UpdateService::ErrorCategory error_category,
     const int error_code,
     const int event_type,
-    const std::string& custom_app_response)
+    const std::string& custom_app_response,
+    const std::string& response_status)
     : args(args),
       app_id(app_id),
       from_version(from_version),
@@ -351,7 +354,8 @@ AppUpdateExpectation::AppUpdateExpectation(
       error_category(error_category),
       error_code(error_code),
       event_type(event_type),
-      custom_app_response(custom_app_response) {}
+      custom_app_response(custom_app_response),
+      response_status(response_status.empty() ? "ok" : response_status) {}
 AppUpdateExpectation::AppUpdateExpectation(const AppUpdateExpectation&) =
     default;
 AppUpdateExpectation::~AppUpdateExpectation() = default;
@@ -429,7 +433,8 @@ void InstallUpdaterAndApp(UpdaterScope scope,
                           const std::string& app_id,
                           const bool is_silent_install,
                           const std::string& tag,
-                          const std::string& child_window_text_to_find) {
+                          const std::string& child_window_text_to_find,
+                          const bool always_launch_cmd) {
   const base::FilePath path = GetSetupExecutablePath();
   ASSERT_FALSE(path.empty());
   base::CommandLine command_line(path);
@@ -439,6 +444,9 @@ void InstallUpdaterAndApp(UpdaterScope scope,
   if (is_silent_install) {
     ASSERT_TRUE(child_window_text_to_find.empty());
     command_line.AppendSwitch(kSilentSwitch);
+  }
+  if (always_launch_cmd) {
+    command_line.AppendSwitch(kAlwaysLaunchCmdSwitch);
   }
 
   if (child_window_text_to_find.empty()) {
@@ -565,7 +573,8 @@ void ExpectAppsUpdateSequence(UpdaterScope scope,
                                       : base_name;
     app_responses.push_back(GetUpdateResponseForApp(
         app.app_id, "", test_server->update_url().spec(), app.to_version,
-        crx_path, run_action.MaybeAsASCII().c_str(), app.args));
+        crx_path, run_action.MaybeAsASCII().c_str(), app.args, std::nullopt,
+        app.response_status));
   }
   test_server->ExpectOnce({request::GetPathMatcher(test_server->update_path()),
                            request::GetUpdaterUserAgentMatcher(),
@@ -601,7 +610,7 @@ void ExpectAppsUpdateSequence(UpdaterScope scope,
                app.from_version.GetString().c_str(),
                app.to_version.GetString().c_str())})},
           ")]}'\n");
-    } else if (app.custom_app_response.empty()) {
+    } else if (app.custom_app_response.empty() && app.response_status == "ok") {
       // Event ping for apps that doesn't update.
       test_server->ExpectOnce(
           {request::GetPathMatcher(test_server->update_path()),
@@ -864,7 +873,8 @@ void SetExistenceCheckerPath(UpdaterScope scope,
                              const std::string& app_id,
                              const base::FilePath& path) {
   scoped_refptr<GlobalPrefs> global_prefs = CreateGlobalPrefs(scope);
-  base::MakeRefCounted<PersistedData>(scope, global_prefs->GetPrefService())
+  base::MakeRefCounted<PersistedData>(scope, global_prefs->GetPrefService(),
+                                      nullptr)
       ->SetExistenceCheckerPath(app_id, path);
   PrefsCommitPendingWrites(global_prefs->GetPrefService());
 }
@@ -896,38 +906,27 @@ void ExpectLogRotated(UpdaterScope scope) {
 }
 
 void ExpectRegistered(UpdaterScope scope, const std::string& app_id) {
-  ASSERT_TRUE(
-      base::Contains(base::MakeRefCounted<PersistedData>(
-                         scope, CreateGlobalPrefs(scope)->GetPrefService())
-                         ->GetAppIds(),
-                     app_id));
+  ASSERT_TRUE(base::Contains(
+      base::MakeRefCounted<PersistedData>(
+          scope, CreateGlobalPrefs(scope)->GetPrefService(), nullptr)
+          ->GetAppIds(),
+      app_id));
 }
 
 void ExpectNotRegistered(UpdaterScope scope, const std::string& app_id) {
-  ASSERT_FALSE(
-      base::Contains(base::MakeRefCounted<PersistedData>(
-                         scope, CreateGlobalPrefs(scope)->GetPrefService())
-                         ->GetAppIds(),
-                     app_id));
+  ASSERT_FALSE(base::Contains(
+      base::MakeRefCounted<PersistedData>(
+          scope, CreateGlobalPrefs(scope)->GetPrefService(), nullptr)
+          ->GetAppIds(),
+      app_id));
 }
 
 void ExpectAppTag(UpdaterScope scope,
                   const std::string& app_id,
                   const std::string& tag) {
   EXPECT_EQ(tag, base::MakeRefCounted<PersistedData>(
-                     scope, CreateGlobalPrefs(scope)->GetPrefService())
+                     scope, CreateGlobalPrefs(scope)->GetPrefService(), nullptr)
                      ->GetAP(app_id));
-}
-
-void ExpectAppVersion(UpdaterScope scope,
-                      const std::string& app_id,
-                      const base::Version& version) {
-  const base::Version app_version =
-      base::MakeRefCounted<PersistedData>(
-          scope, CreateGlobalPrefs(scope)->GetPrefService())
-          ->GetProductVersion(app_id);
-  EXPECT_TRUE(app_version.IsValid());
-  EXPECT_EQ(version, app_version);
 }
 
 void Run(UpdaterScope scope, base::CommandLine command_line, int* exit_code) {
@@ -1199,24 +1198,25 @@ void RunRecoveryComponent(UpdaterScope scope,
 
 void SetLastChecked(UpdaterScope updater_scope, const base::Time& time) {
   base::MakeRefCounted<PersistedData>(
-      updater_scope, CreateGlobalPrefs(updater_scope)->GetPrefService())
+      updater_scope, CreateGlobalPrefs(updater_scope)->GetPrefService(),
+      nullptr)
       ->SetLastChecked(time);
 }
 
 void ExpectLastChecked(UpdaterScope updater_scope) {
-  EXPECT_FALSE(
-      base::MakeRefCounted<PersistedData>(
-          updater_scope, CreateGlobalPrefs(updater_scope)->GetPrefService())
-          ->GetLastChecked()
-          .is_null());
+  EXPECT_FALSE(base::MakeRefCounted<PersistedData>(
+                   updater_scope,
+                   CreateGlobalPrefs(updater_scope)->GetPrefService(), nullptr)
+                   ->GetLastChecked()
+                   .is_null());
 }
 
 void ExpectLastStarted(UpdaterScope updater_scope) {
-  EXPECT_FALSE(
-      base::MakeRefCounted<PersistedData>(
-          updater_scope, CreateGlobalPrefs(updater_scope)->GetPrefService())
-          ->GetLastStarted()
-          .is_null());
+  EXPECT_FALSE(base::MakeRefCounted<PersistedData>(
+                   updater_scope,
+                   CreateGlobalPrefs(updater_scope)->GetPrefService(), nullptr)
+                   ->GetLastStarted()
+                   .is_null());
 }
 
 std::set<base::FilePath::StringType> GetTestProcessNames() {

@@ -230,7 +230,7 @@ void BrowserAppMenuButton::UpdateTextAndHighlightColor() {
     text = l10n_util::GetStringUTF16(IDS_APP_MENU_BUTTON_ERROR);
   }
 
-  absl::optional<SkColor> color;
+  std::optional<SkColor> color;
   const auto* const color_provider = GetColorProvider();
   switch (type_and_severity_.severity) {
     case AppMenuIconController::Severity::NONE:
@@ -266,12 +266,12 @@ void BrowserAppMenuButton::UpdateLayoutInsets() {
   }
 }
 
-absl::optional<SkColor> BrowserAppMenuButton::GetHighlightTextColor() const {
+std::optional<SkColor> BrowserAppMenuButton::GetHighlightTextColor() const {
   if (features::IsChromeRefresh2023() && IsLabelPresentAndVisible()) {
     const auto* const color_provider = GetColorProvider();
     return color_provider->GetColor(kColorAppMenuExpandedForegroundDefault);
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void BrowserAppMenuButton::OnTouchUiChanged() {
@@ -284,5 +284,5 @@ void BrowserAppMenuButton::ButtonPressed(const ui::Event& event) {
                               : views::MenuRunner::NO_FLAGS);
 }
 
-BEGIN_METADATA(BrowserAppMenuButton, AppMenuButton)
+BEGIN_METADATA(BrowserAppMenuButton)
 END_METADATA

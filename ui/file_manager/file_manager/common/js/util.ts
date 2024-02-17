@@ -8,7 +8,28 @@
  * which allows finer-grained control over introducing dependencies.
  */
 
-import {promisify} from './api.js';
+import type {ActionFactory} from '../../lib/base_store.js';
+
+/**
+ * Calls the `fn` function which should expect the callback as last argument.
+ *
+ * Resolves with the result of the `fn`.
+ *
+ * Rejects if there is `chrome.runtime.lastError`.
+ */
+export async function promisify<T>(fn: Function, ...args: any[]): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const callback = (result: T) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError.message);
+      } else {
+        resolve(result);
+      }
+    };
+
+    fn(...args, callback);
+  });
+}
 
 export function iconSetToCSSBackgroundImageValue(
     iconSet: chrome.fileManagerPrivate.IconSet): string {
@@ -133,8 +154,8 @@ export function splitExtension(path: string): [string, string] {
     dotPosition = -1;
   }
 
-  const filename = dotPosition != -1 ? path.substr(0, dotPosition) : path;
-  const extension = dotPosition != -1 ? path.substr(dotPosition) : '';
+  const filename = dotPosition !== -1 ? path.substr(0, dotPosition) : path;
+  const extension = dotPosition !== -1 ? path.substr(dotPosition) : '';
   return [filename, extension];
 }
 
@@ -258,3 +279,20 @@ export function canBulkPinningCloudPanelShow(
 
   return false;
 }
+
+type Builtin = Date|Function|Uint8Array|string|number|boolean|undefined;
+
+/**
+ * The native Partial only marks the immediate properties as optional,
+ * DeepPartial is basically a recursive version of Partial: if the immediate
+ * property value is an Object, it allows using partial values for that object.
+ */
+export type DeepPartial<T> = T extends Builtin ? T : T extends {} ?
+    {[K in keyof T]?: DeepPartial<T[K]>} :
+    Partial<T>;
+
+/**
+ * Get Payload's type from ActionFactory<Payload>.
+ */
+export type GetActionFactoryPayload<A extends ActionFactory<any>> =
+    A extends ActionFactory<infer T>? T : unknown;

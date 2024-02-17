@@ -11,6 +11,7 @@
 #include "base/uuid.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
+#include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -30,7 +31,7 @@ class FormAutofillHistoryTest : public testing::Test {
                                    std::string_view name,
                                    std::string_view value,
                                    FormControlType type,
-                                   ServerFieldType field_type,
+                                   FieldType field_type,
                                    bool is_autofilled = false) {
     FormFieldData field = test::CreateTestFormField(label, name, value, type);
     field.is_autofilled = is_autofilled;
@@ -51,7 +52,8 @@ class FormAutofillHistoryTest : public testing::Test {
     for (const AutofillField& autofill_field : filled_autofill_fields_) {
       autofill_fields.push_back(&autofill_field);
     }
-    form_autofill_history_.AddFormFillEntry(fields, autofill_fields, is_refill);
+    form_autofill_history_.AddFormFillEntry(fields, autofill_fields,
+                                            FillingProduct::kNone, is_refill);
   }
 
   std::vector<FormFieldData> filled_fields_;

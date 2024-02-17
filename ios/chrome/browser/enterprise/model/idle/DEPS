@@ -4,8 +4,13 @@
 
 include_rules = [
     "+ios/chrome/browser/browsing_data/model",
-    "+ios/chrome/browser/discover_feed",
+    "+ios/chrome/browser/discover_feed/model",
     "+ios/chrome/browser/signin/model/authentication_service.h",
     "+ios/chrome/browser/signin/model/authentication_service_factory.h",
-    "+ios/chrome/browser/snapshots/model/snapshot_browser_agent.h",
 ]
+
+specific_include_rules = {
+"action.mm": [
+      "+ios/chrome/browser/web_state_list/model",
+]
+}

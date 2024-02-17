@@ -119,10 +119,7 @@ class PrivacySandboxSettingsTest : public testing::Test {
 
   virtual void InitializePrefsBeforeStart() {}
 
-  virtual void InitializeFeaturesBeforeStart() {
-    feature_list_.InitAndDisableFeature(
-        privacy_sandbox::kPrivacySandboxSettings4);
-  }
+  virtual void InitializeFeaturesBeforeStart() {}
 
   virtual void InitializeDelegateBeforeStart() {
     mock_delegate()->SetUpIsPrivacySandboxRestrictedResponse(
@@ -216,16 +213,6 @@ TEST_F(PrivacySandboxSettingsTest, TopicsDataAccessibleSince) {
 TEST_F(PrivacySandboxSettingsTest, FledgeJoiningAllowed) {
   // Whether or not a site can join a user to an interest group is independent
   // of any other profile state.
-  privacy_sandbox_test_util::SetupTestState(
-      prefs(), host_content_settings_map(),
-      /*privacy_sandbox_enabled=*/false,
-      /*block_third_party_cookies=*/true,
-      /*default_cookie_setting=*/ContentSetting::CONTENT_SETTING_BLOCK,
-      /*user_cookie_exceptions=*/
-      {{"https://example.com", "*", ContentSetting::CONTENT_SETTING_BLOCK}},
-      /*managed_cookie_setting=*/ContentSetting::CONTENT_SETTING_BLOCK,
-      /*managed_cookie_exceptions=*/
-      {{"https://example.com", "*", ContentSetting::CONTENT_SETTING_BLOCK}});
   EXPECT_TRUE(privacy_sandbox_settings_impl()->IsFledgeJoiningAllowed(
       url::Origin::Create(GURL("https://example.com"))));
 
@@ -345,9 +332,7 @@ TEST_F(PrivacySandboxSettingsTest, FledgeJoinSettingTimeRangeDeletion) {
 
 TEST_F(PrivacySandboxSettingsTest, OnRelatedWebsiteSetsEnabledChanged) {
   // OnRelatedWebsiteSetsEnabledChanged() should only call observers when the
-  // base::Feature is enabled and the pref changes.
-  base::test::ScopedFeatureList feature_list_;
-  feature_list_.InitAndEnableFeature(features::kFirstPartySets);
+  // pref changes.
   privacy_sandbox_test_util::MockPrivacySandboxObserver observer;
   privacy_sandbox_settings()->AddObserver(&observer);
   EXPECT_CALL(observer, OnFirstPartySetsEnabledChanged(/*enabled=*/true));
@@ -358,18 +343,9 @@ TEST_F(PrivacySandboxSettingsTest, OnRelatedWebsiteSetsEnabledChanged) {
   EXPECT_CALL(observer, OnFirstPartySetsEnabledChanged(/*enabled=*/false));
   prefs()->SetBoolean(prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, false);
   testing::Mock::VerifyAndClearExpectations(&observer);
-
-  feature_list_.Reset();
-  feature_list_.InitAndDisableFeature(features::kFirstPartySets);
-  EXPECT_CALL(observer, OnFirstPartySetsEnabledChanged(testing::_)).Times(0);
-
-  prefs()->SetBoolean(prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, true);
-  prefs()->SetBoolean(prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, false);
 }
 
 TEST_F(PrivacySandboxSettingsTest, OnFirstPartySetsEnabledChanged3pcd) {
-  base::test::ScopedFeatureList feature_list_;
-  feature_list_.InitAndEnableFeature(features::kFirstPartySets);
   privacy_sandbox_test_util::MockPrivacySandboxObserver observer;
   privacy_sandbox_settings()->AddObserver(&observer);
 
@@ -578,93 +554,101 @@ TEST_F(PrivacySandboxSettingsTest, IsCookieDeprecationLabelAllowed) {
   EXPECT_TRUE(privacy_sandbox_settings()->IsCookieDeprecationLabelAllowed());
 }
 
-TEST_F(
-    PrivacySandboxSettingsTest,
-    IsAttributionReportingTransitionalDebuggingAllowed_CanBypassInCookieDeprecationExperiment) {
-  for (bool enabled : {false, true}) {
-    SCOPED_TRACE(enabled);
-
-    base::test::ScopedFeatureList feature_list_;
-    if (enabled) {
-      feature_list_.InitWithFeaturesAndParameters(
-          /*enabled_features=*/
-          {{content_settings::features::kTrackingProtection3pcd, {}},
-           {kAttributionDebugReportingCookieDeprecationTesting, {}}},
-          /*disabled_features=*/{});
-    } else {
-      feature_list_.InitWithFeaturesAndParameters(
-          /*enabled_features=*/{{content_settings::features::
-                                     kTrackingProtection3pcd,
-                                 {}}},
-          /*disabled_features=*/{
-              kAttributionDebugReportingCookieDeprecationTesting});
-    }
-
-    bool ara_transitional_debug_reporting_can_bypass = false;
-
-    if (enabled) {
-      EXPECT_CALL(*mock_delegate(),
-                  AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
-          .WillOnce(testing::Return(false));
-    } else {
-      EXPECT_CALL(*mock_delegate(),
-                  AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
-          .Times(0);
-    }
-
-    // Disallowed not due to cookie deprecation experiment, therefore cannot
-    // bypass.
-    privacy_sandbox_test_util::SetupTestState(
-        prefs(), host_content_settings_map(),
-        /*privacy_sandbox_enabled=*/false,
-        /*block_third_party_cookies=*/false,
-        /*default_cookie_setting=*/ContentSetting::CONTENT_SETTING_ALLOW,
-        /*user_cookie_exceptions=*/{},
-        /*managed_cookie_setting=*/privacy_sandbox_test_util::kNoSetting,
-        /*managed_cookie_exceptions=*/{});
-    EXPECT_FALSE(privacy_sandbox_settings()
-                     ->IsAttributionReportingTransitionalDebuggingAllowed(
-                         url::Origin::Create(GURL("https://test.com")),
-                         url::Origin::Create(GURL("https://embedded.com")),
-                         ara_transitional_debug_reporting_can_bypass));
-    EXPECT_FALSE(ara_transitional_debug_reporting_can_bypass);
-
-    if (enabled) {
-      EXPECT_CALL(*mock_delegate(),
-                  AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
-          .WillOnce(testing::Return(true));
-    } else {
-      EXPECT_CALL(*mock_delegate(),
-                  AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
-          .Times(0);
-    }
-
-    // Disallowed due to cookie deprecation experiment, therefore can bypass
-    // when feature enabled.
-    EXPECT_FALSE(privacy_sandbox_settings()
-                     ->IsAttributionReportingTransitionalDebuggingAllowed(
-                         url::Origin::Create(GURL("https://test.com")),
-                         url::Origin::Create(GURL("https://embedded.com")),
-                         ara_transitional_debug_reporting_can_bypass));
-    EXPECT_EQ(ara_transitional_debug_reporting_can_bypass, enabled);
-
-    // Disallowed due to user's exception, therefore cannot bypass.
-    privacy_sandbox_test_util::SetupTestState(
-        prefs(), host_content_settings_map(),
-        /*privacy_sandbox_enabled=*/false,
-        /*block_third_party_cookies=*/false,
-        /*default_cookie_setting=*/ContentSetting::CONTENT_SETTING_ALLOW,
-        /*user_cookie_exceptions=*/
-        {{"https://embedded.com", "*", ContentSetting::CONTENT_SETTING_BLOCK}},
-        /*managed_cookie_setting=*/privacy_sandbox_test_util::kNoSetting,
-        /*managed_cookie_exceptions=*/{});
-    EXPECT_FALSE(privacy_sandbox_settings()
-                     ->IsAttributionReportingTransitionalDebuggingAllowed(
-                         url::Origin::Create(GURL("https://test.com")),
-                         url::Origin::Create(GURL("https://embedded.com")),
-                         ara_transitional_debug_reporting_can_bypass));
-    EXPECT_FALSE(ara_transitional_debug_reporting_can_bypass);
+class PrivacySandboxSettingsAttributionReportingTransitionalDebugModeTest
+    : public PrivacySandboxSettingsTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  PrivacySandboxSettingsAttributionReportingTransitionalDebugModeTest() =
+      default;
+  bool IsAttributionDebugReportingCookieDeprecationTestingEnabled() {
+    return GetParam();
   }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    PrivacySandboxSettingsAttributionReportingTransitionalDebugModeTest,
+    testing::Bool());
+
+TEST_P(
+    PrivacySandboxSettingsAttributionReportingTransitionalDebugModeTest,
+    IsAttributionReportingTransitionalDebuggingAllowed_CanBypassInCookieDeprecationExperiment) {
+  bool enabled = IsAttributionDebugReportingCookieDeprecationTestingEnabled();
+  SCOPED_TRACE(enabled);
+
+  base::test::ScopedFeatureList feature_list_;
+  if (enabled) {
+    feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {{content_settings::features::kTrackingProtection3pcd, {}},
+         {kAttributionDebugReportingCookieDeprecationTesting, {}}},
+        /*disabled_features=*/{});
+  } else {
+    feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{content_settings::features::
+                                   kTrackingProtection3pcd,
+                               {}}},
+        /*disabled_features=*/{
+            kAttributionDebugReportingCookieDeprecationTesting});
+  }
+
+  bool ara_transitional_debug_reporting_can_bypass = false;
+
+  if (enabled) {
+    EXPECT_CALL(*mock_delegate(),
+                AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
+        .WillOnce(testing::Return(false));
+  } else {
+    EXPECT_CALL(*mock_delegate(),
+                AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
+        .Times(0);
+  }
+
+  // Disallowed not due to cookie deprecation experiment, therefore cannot
+  // bypass.
+  prefs()->SetUserPref(prefs::kCookieControlsMode,
+                       std::make_unique<base::Value>(static_cast<int>(
+                           content_settings::CookieControlsMode::kOff)));
+  EXPECT_FALSE(privacy_sandbox_settings()
+                   ->IsAttributionReportingTransitionalDebuggingAllowed(
+                       url::Origin::Create(GURL("https://test.com")),
+                       url::Origin::Create(GURL("https://embedded.com")),
+                       ara_transitional_debug_reporting_can_bypass));
+  EXPECT_FALSE(ara_transitional_debug_reporting_can_bypass);
+
+  if (enabled) {
+    EXPECT_CALL(*mock_delegate(),
+                AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
+        .WillOnce(testing::Return(true));
+  } else {
+    EXPECT_CALL(*mock_delegate(),
+                AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
+        .Times(0);
+  }
+
+  // Disallowed due to cookie deprecation experiment, therefore can bypass
+  // when feature enabled.
+  EXPECT_FALSE(privacy_sandbox_settings()
+                   ->IsAttributionReportingTransitionalDebuggingAllowed(
+                       url::Origin::Create(GURL("https://test.com")),
+                       url::Origin::Create(GURL("https://embedded.com")),
+                       ara_transitional_debug_reporting_can_bypass));
+  EXPECT_EQ(ara_transitional_debug_reporting_can_bypass, enabled);
+
+  // Disallowed due to user's exception, therefore cannot bypass.
+  prefs()->SetUserPref(prefs::kCookieControlsMode,
+                       std::make_unique<base::Value>(static_cast<int>(
+                           content_settings::CookieControlsMode::kOff)));
+  host_content_settings_map()->SetContentSettingCustomScope(
+      ContentSettingsPattern::FromString("https://embedded.com"),
+      ContentSettingsPattern::Wildcard(), ContentSettingsType::COOKIES,
+      ContentSetting::CONTENT_SETTING_BLOCK);
+  EXPECT_FALSE(privacy_sandbox_settings()
+                   ->IsAttributionReportingTransitionalDebuggingAllowed(
+                       url::Origin::Create(GURL("https://test.com")),
+                       url::Origin::Create(GURL("https://embedded.com")),
+                       ara_transitional_debug_reporting_can_bypass));
+  EXPECT_FALSE(ara_transitional_debug_reporting_can_bypass);
 }
 
 struct PrivateAggregationDebugModeTestCase {
@@ -755,20 +739,15 @@ TEST_P(PrivacySandboxSettingsPrivateAggregationDebugModeTest,
           AreThirdPartyCookiesBlockedByCookieDeprecationExperiment())
       .WillByDefault(testing::Return(test_case.cookies_blocked_by_experiment));
 
-  std::vector<privacy_sandbox_test_util::CookieContentSettingException>
-      user_cookie_exceptions;
+  prefs()->SetUserPref(prefs::kCookieControlsMode,
+                       std::make_unique<base::Value>(static_cast<int>(
+                           test_case.cookie_controls_mode_ui_pref)));
   if (test_case.cookies_blocked_by_user_setting) {
-    user_cookie_exceptions.emplace_back("https://embedded.com", "*",
-                                        ContentSetting::CONTENT_SETTING_BLOCK);
+    host_content_settings_map()->SetContentSettingCustomScope(
+        ContentSettingsPattern::FromString("https://embedded.com"),
+        ContentSettingsPattern::Wildcard(), ContentSettingsType::COOKIES,
+        ContentSetting::CONTENT_SETTING_BLOCK);
   }
-  privacy_sandbox_test_util::SetupTestState(
-      prefs(), host_content_settings_map(),
-      /*privacy_sandbox_enabled=*/false,
-      /*block_third_party_cookies=*/test_case.cookie_controls_mode_ui_pref,
-      /*default_cookie_setting=*/ContentSetting::CONTENT_SETTING_ALLOW,
-      /*user_cookie_exceptions=*/user_cookie_exceptions,
-      /*managed_cookie_setting=*/privacy_sandbox_test_util::kNoSetting,
-      /*managed_cookie_exceptions=*/{});
 
   const bool is_debug_mode_allowed =
       privacy_sandbox_settings()->IsPrivateAggregationDebugModeAllowed(
@@ -786,7 +765,6 @@ class PrivacySandboxSettingsTestCookiesClearOnExitTurnedOff
                          std::make_unique<base::Value>(::base::TimeToValue(
                              base::Time::FromTimeT(12345))));
   }
-  void InitializeFeaturesBeforeStart() override {}
 };
 
 TEST_F(PrivacySandboxSettingsTestCookiesClearOnExitTurnedOff,
@@ -815,12 +793,6 @@ TEST_F(PrivacySandboxSettingsTestCookiesClearOnExitTurnedOn,
             privacy_sandbox_settings()->TopicsDataAccessibleSince());
 }
 
-TEST_F(PrivacySandboxSettingsTest, DisabledInIncognito) {
-  mock_delegate()->SetUpIsIncognitoProfileResponse(/*incognito=*/true);
-  privacy_sandbox_settings()->SetAllPrivacySandboxAllowedForTesting();
-  EXPECT_FALSE(privacy_sandbox_settings()->IsPrivacySandboxEnabled());
-}
-
 class PrivacySandboxSettingsMockDelegateTest
     : public PrivacySandboxSettingsTest {
  public:
@@ -842,27 +814,8 @@ TEST_F(PrivacySandboxSettingsMockDelegateTest, IsSubjectToM1NoticeRestricted) {
   EXPECT_FALSE(privacy_sandbox_settings()->IsSubjectToM1NoticeRestricted());
 }
 
-class PrivacySandboxSettingLocalOverrideTest
-    : public PrivacySandboxSettingsTest {
-  void InitializeFeaturesBeforeStart() override {
-    feature_list_.InitAndEnableFeature(
-        privacy_sandbox::kOverridePrivacySandboxSettingsLocalTesting);
-  }
-};
-
-TEST_F(PrivacySandboxSettingLocalOverrideTest, FollowsOverrideBehavior) {
-  privacy_sandbox_settings()->SetPrivacySandboxEnabled(false);
-  EXPECT_TRUE(privacy_sandbox_settings()->IsPrivacySandboxEnabled());
-}
-
 // Tests class for the PrivacySandboxSettings4 / M1 launch.
 class PrivacySandboxSettingsM1Test : public PrivacySandboxSettingsTest {
- public:
-  void InitializeFeaturesBeforeStart() override {
-    feature_list_.InitAndEnableFeature(
-        privacy_sandbox::kPrivacySandboxSettings4);
-  }
-
  protected:
   void RunTestCase(const TestState& test_state,
                    const TestInput& test_input,
@@ -1565,11 +1518,6 @@ class PrivacySandboxAttestationsTest : public base::test::WithFeatureOverride,
         ->SetAllPrivacySandboxAttestedForTesting(false);
   }
 
-  void InitializeFeaturesBeforeStart() override {
-    feature_list_.InitAndEnableFeature(
-        privacy_sandbox::kPrivacySandboxSettings4);
-  }
-
   bool IsAttestationsDefaultAllowed() { return IsParamFeatureEnabled(); }
 };
 
@@ -2029,14 +1977,9 @@ TEST_P(PrivacySandboxAttestationsTest, AttributionReportingAttestation) {
 }
 
 TEST_P(PrivacySandboxAttestationsTest, SetOverrideFromDevtools) {
-  privacy_sandbox_test_util::SetupTestState(
-      prefs(), host_content_settings_map(),
-      /*privacy_sandbox_enabled=*/true,
-      /*block_third_party_cookies=*/false,
-      /*default_cookie_setting=*/ContentSetting::CONTENT_SETTING_ALLOW,
-      /*user_cookie_exceptions=*/{},
-      /*managed_cookie_setting=*/privacy_sandbox_test_util::kNoSetting,
-      /*managed_cookie_exceptions=*/{});
+  prefs()->SetUserPref(prefs::kCookieControlsMode,
+                       std::make_unique<base::Value>(static_cast<int>(
+                           content_settings::CookieControlsMode::kOff)));
   privacy_sandbox_settings()->SetAllPrivacySandboxAllowedForTesting();
 
   // Set an empty attestations map to prevent the API being default allowed
@@ -2081,14 +2024,9 @@ TEST_P(PrivacySandboxAttestationsTest, SetOverrideFromFlags) {
        GURL("https://embedded.com"), true},
       {"www", "https://www.embedded.com", GURL("https://embedded.com"), true},
   };
-  privacy_sandbox_test_util::SetupTestState(
-      prefs(), host_content_settings_map(),
-      /*privacy_sandbox_enabled=*/true,
-      /*block_third_party_cookies=*/false,
-      /*default_cookie_setting=*/ContentSetting::CONTENT_SETTING_ALLOW,
-      /*user_cookie_exceptions=*/{},
-      /*managed_cookie_setting=*/privacy_sandbox_test_util::kNoSetting,
-      /*managed_cookie_exceptions=*/{});
+  prefs()->SetUserPref(prefs::kCookieControlsMode,
+                       std::make_unique<base::Value>(static_cast<int>(
+                           content_settings::CookieControlsMode::kOff)));
   privacy_sandbox_settings()->SetAllPrivacySandboxAllowedForTesting();
   base::test::ScopedCommandLine scoped_command_line;
 
@@ -2168,8 +2106,6 @@ class PrivacySandbox3pcdExperimentTest
   PrivacySandbox3pcdExperimentTest() = default;
 
   void InitializeFeaturesBeforeStart() override {
-    feature_list_.InitAndEnableFeature(
-        privacy_sandbox::kPrivacySandboxSettings4);
     cookie_deprecation_feature_list_.Reset();
   }
 

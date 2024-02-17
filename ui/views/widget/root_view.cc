@@ -83,10 +83,9 @@ class DanglingMouseMoveHandlerOnViewDestroyingChecker
  private:
   base::ScopedObservation<views::View, views::ViewObserver> scoped_observation{
       this};
-  // Excluded from `raw_ref` rewriter which would otherwise turn this
-  // into a `raw_ref<raw_ptr<>>`. The current `raw_ptr&` setup is
-  // intentional and used to observe the pointer without counting as a
-  // live reference to the underlying memory.
+  // RAW_PTR_EXCLUSION: Avoid turning this into a `raw_ref<raw_ptr<>>`. The
+  // current `raw_ptr&` setup is intentional and used to observe the pointer
+  // without counting as a live reference to the underlying memory.
   RAW_PTR_EXCLUSION const raw_ptr<views::View, AcrossTasksDanglingUntriaged>&
       mouse_move_handler_;
 };
@@ -102,8 +101,9 @@ class DanglingMouseMoveHandlerOnViewDestroyingChecker
 // their own announcements without changing their accessible name or description
 // is the reason this system exists at all).
 class AnnounceTextView : public View {
+  METADATA_HEADER(AnnounceTextView, View)
+
  public:
-  METADATA_HEADER(AnnounceTextView);
   ~AnnounceTextView() override = default;
 
   void AnnounceTextAs(const std::u16string& text,
@@ -148,7 +148,7 @@ class AnnounceTextView : public View {
   ax::mojom::Role announce_role_ = ax::mojom::Role::kNone;
 };
 
-BEGIN_METADATA(AnnounceTextView, View)
+BEGIN_METADATA(AnnounceTextView)
 END_METADATA
 
 // This event handler receives events in the pre-target phase and takes care of
@@ -480,7 +480,7 @@ bool RootView::OnMousePressed(const ui::MouseEvent& event) {
     // Remove the double-click flag if the handler is different than the
     // one which got the first click part of the double-click.
     if (mouse_pressed_handler_ != last_click_handler_)
-      mouse_pressed_event.set_flags(event.flags() & ~ui::EF_IS_DOUBLE_CLICK);
+      mouse_pressed_event.SetFlags(event.flags() & ~ui::EF_IS_DOUBLE_CLICK);
 
     drag_info_.Reset();
     ui::EventDispatchDetails dispatch_details =
@@ -944,6 +944,6 @@ ui::EventDispatchDetails RootView::PostDispatchEvent(ui::EventTarget* target,
   return details;
 }
 
-BEGIN_METADATA(RootView, View)
+BEGIN_METADATA(RootView)
 END_METADATA
 }  // namespace views::internal

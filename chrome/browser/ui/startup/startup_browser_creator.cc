@@ -11,6 +11,7 @@
 
 #include <stddef.h>
 
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -98,7 +99,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/switches.h"
 #include "printing/buildflags/buildflags.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 #include "extensions/browser/extension_system.h"
 #include "chrome/browser/extensions/component_loader.h"
@@ -677,6 +677,8 @@ void StartupBrowserCreator::LaunchBrowser(
     chrome::startup::IsFirstRun is_first_run,
     std::unique_ptr<OldLaunchModeRecorder> launch_mode_recorder) {
   TRACE_EVENT0("ui", "StartupBrowserCreator::LaunchBrowser");
+  SCOPED_UMA_HISTOGRAM_TIMER("Startup.StartupBrowserCreator.LaunchBrowser");
+
   DCHECK(profile);
 #if BUILDFLAG(IS_WIN)
   DCHECK(!command_line.HasSwitch(credential_provider::kGcpwSigninSwitch));
@@ -1237,7 +1239,6 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
       const extensions::Extension* extension = extension_registry->GetExtensionById(id, extensions::ExtensionRegistry::EVERYTHING);
       if (!extension) {
         LOG(FATAL) << "Failed to load default app";
-        return false;
       }
       OpenApplication(profile_info.profile,
                       apps::AppLaunchParams(extension->id(), apps::LaunchContainer::kLaunchContainerWindow,

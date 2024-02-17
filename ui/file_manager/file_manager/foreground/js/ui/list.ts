@@ -6,13 +6,13 @@ import {dispatchSimpleEvent} from 'chrome://resources/ash/common/cr_deprecated.j
 import {assert} from 'chrome://resources/js/assert.js';
 
 import {ArrayDataModel} from '../../../common/js/array_data_model.js';
-import {boolAttrSetter, decorate, PropertyChangeEvent} from '../../../common/js/cr_ui.js';
+import type {ChangeEvent, PermutationEvent} from '../../../common/js/array_data_model.js';
+import {boolAttrSetter, crInjectTypeAndInit, type PropertyChangeEvent} from '../../../common/js/cr_ui.js';
 import {isNullOrUndefined} from '../../../common/js/util.js';
-import type {ArrayDataModelChangeEvent} from '../../../definitions/array_data_model_events.js';
 
 import {createListItem, ListItem} from './list_item.js';
 import {ListSelectionController} from './list_selection_controller.js';
-import {ListSelectionModel, SelectionChangeEvent} from './list_selection_model.js';
+import {ListSelectionModel, type SelectionChangeEvent} from './list_selection_model.js';
 import {ListSingleSelectionModel} from './list_single_selection_model.js';
 
 /**
@@ -29,13 +29,6 @@ interface Size {
 }
 
 type EventHandler = (event: Event) => void;
-
-// TODO: Move ArrayDataModel event types when array_data_model is converted to
-// TS.
-type ArrayDataModelPermutationEvent = Event&{
-  permutation: number[],
-  newLength: number,
-};
 
 /**
  * Whether a mouse event is inside the element viewport. This will return
@@ -59,13 +52,14 @@ function getComputedStyle(el: HTMLElement) {
 
 export function createList(): List {
   const el = document.createElement('list') as List;
-  return decorate(el, List);
+  crInjectTypeAndInit(el, List);
+  return el;
 }
 
 /**
  * Creates a new list element.
  */
-export class List extends HTMLUListElement {
+export abstract class List extends HTMLUListElement {
   /**
    * Measured size of list items. This is lazily calculated the first time it
    * is needed. Note that lead item is allowed to have a different height, to
@@ -155,7 +149,7 @@ export class List extends HTMLUListElement {
 
     if (!this.boundHandleDataModelPermuted_) {
       this.boundHandleDataModelPermuted_ =
-          this.handleDataModelPermuted_.bind(this);
+          this.handleDataModelPermuted_.bind(this) as EventListener;
       this.boundHandleDataModelChange_ =
           this.handleDataModelChange_.bind(this) as EventListener;
     }
@@ -328,14 +322,10 @@ export class List extends HTMLUListElement {
     }
   }
 
-  static decorate(el: HTMLElement, ..._args: any[]) {
-    decorate(el, List);
-  }
-
   /**
    * Initializes the element.
    */
-  decorate() {
+  initialize() {
     // Add fillers.
     this.beforeFiller_ = this.ownerDocument.createElement('div');
     this.afterFiller_ = this.ownerDocument.createElement('div');
@@ -712,12 +702,11 @@ export class List extends HTMLUListElement {
    * model adjustments.
    * @param event The 'permuted' event.
    */
-  private handleDataModelPermuted_(event: Event) {
-    const e = event as ArrayDataModelPermutationEvent;
+  private handleDataModelPermuted_(event: PermutationEvent) {
     const newCachedItems: Record<number, ListItem> = {};
     for (const index in this.cachedItems_) {
-      if (e.permutation[index] !== -1) {
-        const newIndex = e.permutation[index]!;
+      if (event.detail.permutation[index] !== -1) {
+        const newIndex = event.detail.permutation[index]!;
         newCachedItems[newIndex] = this.cachedItems_[index]!;
         newCachedItems[newIndex]!.listIndex = newIndex;
       }
@@ -727,8 +716,8 @@ export class List extends HTMLUListElement {
 
     const newCachedItemHeights: Record<number, number> = {};
     for (const index in this.cachedItemHeights_) {
-      if (e.permutation[index] !== -1) {
-        newCachedItemHeights[e.permutation[index]!] =
+      if (event.detail.permutation[index] !== -1) {
+        newCachedItemHeights[event.detail.permutation[index]!] =
             this.cachedItemHeights_[index]!;
       }
     }
@@ -738,13 +727,13 @@ export class List extends HTMLUListElement {
 
     assert(this.selectionModel);
     const sm = this.selectionModel;
-    sm.adjustLength(e.newLength);
-    sm.adjustToReordering(e.permutation);
+    sm.adjustLength(event.detail.newLength);
+    sm.adjustToReordering(event.detail.permutation);
 
     this.endBatchUpdates();
   }
 
-  private handleDataModelChange_(event: ArrayDataModelChangeEvent) {
+  private handleDataModelChange_(event: ChangeEvent) {
     if (isNullOrUndefined(event.detail.index)) {
       return;
     }
@@ -1448,6 +1437,18 @@ export class List extends HTMLUListElement {
   set hasElementFocus(value: boolean) {
     boolAttrSetter(this, 'hasElementFocus', value);
   }
+
+  /**
+   * Obtains the index list of elements that are hit by a point or rectangle.
+   *
+   * @param x X coordinate value.
+   * @param y Y coordinate value.
+   * @param width Width of the coordinate.
+   * @param height Height of the coordinate.
+   * @return Indexes of the hit elements.
+   */
+  abstract getHitElements(
+      x: number, y: number, width?: number, height?: number): number[];
 }
 
 

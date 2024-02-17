@@ -14,6 +14,7 @@
 #include "base/time/time.h"
 #include "base/types/optional_util.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/chromeos/policy/dlp/dlp_files_controller.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
 #include "chrome/browser/enterprise/data_controls/dlp_reporting_manager.h"
@@ -27,7 +28,6 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/webui/file_manager/url_constants.h"
-#include "chrome/browser/ash/policy/dlp/dlp_files_controller_ash.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 namespace policy {
@@ -54,7 +54,7 @@ bool IsVM(const ui::EndpointType type) {
 }
 
 // Returns true if `endpoint` has no value or its type is kDefault.
-bool IsNullEndpoint(const absl::optional<ui::DataTransferEndpoint>& endpoint) {
+bool IsNullEndpoint(const std::optional<ui::DataTransferEndpoint>& endpoint) {
   return !endpoint.has_value() ||
          endpoint->type() == ui::EndpointType::kDefault;
 }
@@ -110,7 +110,7 @@ DlpRulesManager::Level IsDataTransferAllowed(
     const DlpRulesManager& dlp_rules_manager,
     base::optional_ref<const ui::DataTransferEndpoint> data_src,
     base::optional_ref<const ui::DataTransferEndpoint> data_dst,
-    const absl::optional<size_t> size,
+    const std::optional<size_t> size,
     std::string* src_pattern,
     std::string* dst_pattern,
     DlpRulesManager::RuleMetadata* out_rule_metadata) {
@@ -208,9 +208,7 @@ void MaybeReportWarningProceededEventAndPaste(
   std::move(paste_cb).Run(should_proceed);
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-// Returns file paths from the given file infos. Currently only used in ChromeOS
-// Ash.
+// Returns file paths from the given file infos.
 std::vector<base::FilePath> GetFilePathsFromFileInfos(
     const std::vector<ui::FileInfo>& files) {
   std::vector<base::FilePath> paths;
@@ -220,7 +218,6 @@ std::vector<base::FilePath> GetFilePathsFromFileInfos(
   }
   return paths;
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 }  // namespace
 
@@ -236,7 +233,7 @@ void DataTransferDlpController::Init(const DlpRulesManager& dlp_rules_manager) {
 bool DataTransferDlpController::IsClipboardReadAllowed(
     base::optional_ref<const ui::DataTransferEndpoint> data_src,
     base::optional_ref<const ui::DataTransferEndpoint> data_dst,
-    const absl::optional<size_t> size) {
+    const std::optional<size_t> size) {
   std::string src_pattern;
   std::string dst_pattern;
   DlpRulesManager::RuleMetadata rule_metadata;
@@ -311,17 +308,13 @@ void DataTransferDlpController::PasteIfAllowed(
     base::OnceCallback<void(bool)> paste_cb) {
   if (absl::holds_alternative<std::vector<base::FilePath>>(pasted_content) &&
       !IsFilesApp(data_dst)) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
     auto pasted_files =
         std::move(absl::get<std::vector<base::FilePath>>(pasted_content));
-    auto* files_controller = static_cast<policy::DlpFilesControllerAsh*>(
-        dlp_rules_manager_->GetDlpFilesController());
+    auto* files_controller = dlp_rules_manager_->GetDlpFilesController();
     if (files_controller) {
       files_controller->CheckIfPasteOrDropIsAllowed(
           pasted_files, data_dst.as_ptr(), std::move(paste_cb));
     }
-#endif
-    // TODO(b/269610458): Check dropped files in Lacros.
     return;
   }
 
@@ -341,26 +334,30 @@ void DataTransferDlpController::DropIfAllowed(
     base::OnceClosure drop_cb) {
   DCHECK(drag_data);
 
+  base::optional_ref<const ui::DataTransferEndpoint> source =
+      drag_data->GetSource()
+          ? base::optional_ref<const ui::DataTransferEndpoint>(
+                drag_data->GetSource())
+          : std::nullopt;
+
   if (drag_data->HasFile() && !IsFilesApp(data_dst)) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    auto* files_controller = static_cast<policy::DlpFilesControllerAsh*>(
-        dlp_rules_manager_->GetDlpFilesController());
+    auto* files_controller = dlp_rules_manager_->GetDlpFilesController();
     if (files_controller) {
       std::vector<ui::FileInfo> dropped_files;
       drag_data->GetFilenames(&dropped_files);
       files_controller->CheckIfPasteOrDropIsAllowed(
           GetFilePathsFromFileInfos(dropped_files), data_dst.as_ptr(),
-          base::BindOnce(&DataTransferDlpController::ContinueDropIfAllowed,
-                         weak_ptr_factory_.GetWeakPtr(),
-                         *drag_data->GetSource(), data_dst,
-                         std::move(drop_cb)));
+          base::BindOnce(
+              [](base::OnceClosure drop_cb, bool is_allowed) {
+                if (is_allowed) {
+                  std::move(drop_cb).Run();
+                }
+              },
+              std::move(drop_cb)));
       return;
     }
-#endif
-    // TODO(b/269610458): Check dropped files in Lacros.
   }
-  ContinueDropIfAllowed(*drag_data->GetSource(), data_dst, std::move(drop_cb),
-                        /*is_allowed=*/true);
+  ContinueDropIfAllowed(source, data_dst, std::move(drop_cb));
 }
 
 DataTransferDlpController::DataTransferDlpController(
@@ -565,24 +562,16 @@ void DataTransferDlpController::MaybeReportEvent(
 void DataTransferDlpController::ContinueDropIfAllowed(
     base::optional_ref<const ui::DataTransferEndpoint> data_src,
     base::optional_ref<const ui::DataTransferEndpoint> data_dst,
-    base::OnceClosure drop_cb,
-    bool is_allowed) {
-  DlpRulesManager::Level level;
-  if (!is_allowed) {
-    level = DlpRulesManager::Level::kBlock;
-    // TODO(b/269609831): Return here once the correct UI is implemented in
-    // DlpFilesController.
-  } else {
-    std::string src_pattern;
-    std::string dst_pattern;
-    DlpRulesManager::RuleMetadata rule_metadata;
-    level = IsDataTransferAllowed(*dlp_rules_manager_, data_src, data_dst,
-                                  absl::nullopt, &src_pattern, &dst_pattern,
-                                  &rule_metadata);
+    base::OnceClosure drop_cb) {
+  std::string src_pattern;
+  std::string dst_pattern;
+  DlpRulesManager::RuleMetadata rule_metadata;
+  DlpRulesManager::Level level = IsDataTransferAllowed(
+      *dlp_rules_manager_, data_src, data_dst, std::nullopt, &src_pattern,
+      &dst_pattern, &rule_metadata);
 
-    MaybeReportEvent(data_src, data_dst, src_pattern, dst_pattern, level,
-                     /*is_clipboard_event=*/false, rule_metadata);
-  }
+  MaybeReportEvent(data_src, data_dst, src_pattern, dst_pattern, level,
+                   /*is_clipboard_event=*/false, rule_metadata);
 
   switch (level) {
     case DlpRulesManager::Level::kBlock:

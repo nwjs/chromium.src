@@ -47,6 +47,11 @@ https://doc.rust-lang.org/cargo/reference/manifest.html), though the crate
 itself is never built, it is only used to collect dependencies through the
 `[dependencies]` section.
 
+These instructions require the presence of nightly `cargo` which is normally found
+in `//third_party/rust-toolchain/bin`. But [on Mac Arm](https://crbug.com/1515913)
+it is missing, and will need to be installed separately with
+[`rustup install nightly`](https://rustup.rs/) and added to the `PATH` environment.
+
 To use a third-party crate "bar" version 3 from first party code:
 1. Change directory to the root `src/` dir of Chromium.
 1. Add the crate to `//third_party/rust/chromium_crates_io/Cargo.toml`:
@@ -67,10 +72,6 @@ To use a third-party crate "bar" version 3 from first party code:
    * `git add -f third_party/rust/chromium_crates_io/vendor`
    * The `-f` is important, as files may be skipped otherwise from a
      `.gitignore` inside the crate.
-1. If a crate in `//third_party/rust/chromium_crates_io/patches` was updated
-   as part of vendoring, then reapply patches to it:
-   * Go to the `//third_party/rust/chromium_crates_io` directory.
-   * `./apply_patches.sh` (this currently requires linux).
 1. (optional) If the crate is only to be used by tests and tooling, then
    specify the `"test"` group in `//third_party/rust/chromium_crates_io/gnrt_config.toml`:
    ```
@@ -81,7 +82,26 @@ To use a third-party crate "bar" version 3 from first party code:
    * `vpython3 ./tools/crates/run_gnrt.py gen`
    * Or, directly through (nightly) cargo:
      `cargo run --release --manifest-path tools/crates/gnrt/Cargo.toml --target-dir out/gnrt gen`
-1. Upload the CL, mark any `unsafe` usage with `TODO` code review comments,
+1. Verify if all new dependencies are already audited by running `cargo vet`:
+   * Install `cargo vet` if it's not yet installed:
+      * `./tools/crates/run_cargo.py install --git https://github.com/mozilla/cargo-vet cargo-vet`
+      * We use `--git` to install cargo-vet from HEAD in order to use the `--cargo-arg` argument
+        which is not released yet.
+   * `./tools/crates/run_cargo.py -Zunstable-options -C third_party/rust/chromium_crates_io/ vet check --cargo-arg=-Zbindeps --no-registry-suggestions`
+   * If `check` fails, then there are missing audits, which need to be added to
+     `//third_party/rust/chromium_crates_io/supply-chain/audits.toml`.
+      * See [auditing_standards.md](https://github.com/google/rust-crate-audits/blob/main/auditing_standards.md)
+        for the criteria for audits.
+      * See [Cargo Vet documentation](https://mozilla.github.io/cargo-vet/recording-audits.html)
+        for how to record the audit in `audits.toml`.
+      * Some audits can be done by any engineer ("ub-risk-0" and "safe-to-run")
+        while others will require specialists from the Security team. These are
+        explained in the
+        [auditing_standards.md](https://github.com/google/rust-crate-audits/blob/main/auditing_standards.md).
+   * Audit updates in `audit.toml` should be part of the submitted CL so that
+     `cargo vet` will continue to pass after the CL lands.
+1. Upload the CL. If there is any `unsafe` usage then Security experts will need to
+   audit the "ub-risk" level. Mark any `unsafe` usage with `TODO` code review comments,
    and include a link to it in the request for third-party and security review.
 
 ### Cargo features
@@ -242,6 +262,22 @@ file, rooted in the `gen` output directory, use
    [rust-analyzer](https://rust-analyzer.github.io/) it should detect the
    `rust-project.json` and use this to give you rich browsing, autocompletion,
    type annotations etc. for all the Rust within the Chromium codebase.
+5. Point rust-analyzer to the rust toolchain in Chromium. Otherwise you will
+   need to install Rustc in your system, and Chromium uses the nightly
+   compiler, so you would need that to match. Add the following to
+   `.vscode/settings.json` in the Chromium checkout:
+   ```
+   {
+      // The rest of the settings...
+
+      "rust-analyzer.cargo.extraEnv": {
+        "PATH": "../../third_party/rust-toolchain/bin:$PATH",
+      }
+   }
+   ```
+   This assumes you are working with an output directory like `out/Debug` which
+   has two levels; adjust the number of `..` in the path according to your own
+   setup.
 
 # Using cargo
 

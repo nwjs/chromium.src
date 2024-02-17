@@ -35,13 +35,9 @@ class RenderFrameObserverNatives : public ObjectBackedNativeHandler {
   void OnDocumentElementCreated(
       const v8::FunctionCallbackInfo<v8::Value>& args);
 
-  void InvokeCallback(v8::Global<v8::Function> callback, bool succeeded, int frame_id);
+  void InvokeCallback(v8::Global<v8::Function> callback, bool succeeded);
 
   base::WeakPtrFactory<RenderFrameObserverNatives> weak_ptr_factory_{this};
-
-  void OnDestruct(
-      const v8::FunctionCallbackInfo<v8::Value>& args);
-
 };
 
 }  // namespace extensions

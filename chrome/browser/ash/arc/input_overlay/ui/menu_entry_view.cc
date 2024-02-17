@@ -103,7 +103,7 @@ void MenuEntryView::OnMouseDragEndCallback() {
   // underneath the overlay. So it needs to leave focus to make event target
   // leave from the overlay layer.
   on_position_changed_callback_.Run(/*leave_focus=*/true,
-                                    absl::make_optional(origin()));
+                                    std::make_optional(origin()));
   RecordInputOverlayMenuEntryReposition(
       display_overlay_controller_->GetPackageName(),
       RepositionType::kMouseDragRepostion,
@@ -113,7 +113,7 @@ void MenuEntryView::OnMouseDragEndCallback() {
 void MenuEntryView::OnGestureDragEndCallback() {
   ChangeMenuEntryOnDrag(/*is_dragging=*/false);
   on_position_changed_callback_.Run(/*leave_focus=*/true,
-                                    absl::make_optional(origin()));
+                                    std::make_optional(origin()));
   RecordInputOverlayMenuEntryReposition(
       display_overlay_controller_->GetPackageName(),
       RepositionType::kTouchscreenDragRepostion,
@@ -122,7 +122,7 @@ void MenuEntryView::OnGestureDragEndCallback() {
 
 void MenuEntryView::OnKeyReleasedCallback() {
   on_position_changed_callback_.Run(/*leave_focus=*/false,
-                                    absl::make_optional(origin()));
+                                    std::make_optional(origin()));
   RecordInputOverlayMenuEntryReposition(
       display_overlay_controller_->GetPackageName(),
       RepositionType::kKeyboardArrowKeyReposition,
@@ -178,21 +178,20 @@ void MenuEntryView::Init() {
   focus_ring->SetHaloThickness(kHaloThickness);
   focus_ring->SetColorId(ui::kColorAshInputOverlayFocusRing);
 
-  auto position = CalculatePosition();
+  const auto position = CalculatePosition();
   SetBounds(position.x(), position.y(), kMenuEntrySize, kMenuEntrySize);
 }
 
 gfx::Point MenuEntryView::CalculatePosition() const {
   const auto* touch_injector = display_overlay_controller_->touch_injector();
-  auto normalized_location = touch_injector->menu_entry_location();
-  if (normalized_location) {
-    auto content_bounds = touch_injector->content_bounds_f();
+  if (auto normalized_location = touch_injector->menu_entry_location()) {
+    const auto content_bounds = touch_injector->content_bounds_f();
     return gfx::Point(static_cast<int>(std::round(normalized_location->x() *
                                                   content_bounds.width())),
                       static_cast<int>(std::round(normalized_location->y() *
                                                   content_bounds.height())));
   } else {
-    auto* parent_view =
+    const auto* parent_view =
         display_overlay_controller_->GetOverlayWidgetContentsView();
     if (!parent_view || parent_view->bounds().IsEmpty()) {
       return gfx::Point();
@@ -240,9 +239,8 @@ void MenuEntryView::ChangeMenuEntryOnDrag(bool is_dragging) {
 }
 
 void MenuEntryView::SetCursor(ui::mojom::CursorType cursor_type) {
-  auto* widget = GetWidget();
   // widget is null for test.
-  if (widget) {
+  if (auto* widget = GetWidget()) {
     widget->SetCursor(cursor_type);
   }
 }

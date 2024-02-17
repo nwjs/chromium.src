@@ -15,6 +15,7 @@
 #include "base/task/thread_pool.h"
 #include "base/thread_annotations.h"
 #include "base/trace_event/typed_macros.h"
+#include "base/types/fixed_array.h"
 #include "build/buildflag.h"
 #include "components/ml/webnn/graph_validation_utils.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -105,6 +106,8 @@ String XnnStatusToString(xnn_status status) {
       return "xnn_status_unsupported_hardware";
     case xnn_status_out_of_memory:
       return "xnn_status_out_of_memory";
+    case xnn_status_reallocation_required:
+      return "xnn_status_reallocation_required";
   }
 }
 
@@ -150,6 +153,8 @@ DOMExceptionCode XnnStatusToDOMExceptionCode(xnn_status status) {
       return DOMExceptionCode::kNotSupportedError;
     case xnn_status_out_of_memory:
       return DOMExceptionCode::kQuotaExceededError;
+    case xnn_status_reallocation_required:
+      return DOMExceptionCode::kDataError;
   }
 }
 
@@ -162,7 +167,7 @@ class SharedXnnpackContext : public ThreadSafeRefCounted<SharedXnnpackContext> {
  public:
   static scoped_refptr<SharedXnnpackContext> GetInstance(
       String& error_message) {
-    TRACE_EVENT("blink", "SharedXnnpackContext::GetInstance");
+    ScopedMLTrace scoped_trace("SharedXnnpackContext::GetInstance");
     base::AutoLock auto_lock(SharedXnnpackContextLock());
     if (instance_ == nullptr) {
       // Initializes XNNPACK library. By passing nullptr to allocator argument,
@@ -255,7 +260,7 @@ class XnnRuntimeWrapper : public ThreadSafeRefCounted<XnnRuntimeWrapper> {
       Vector<DataBufferPtr> static_data_buffers,
       uint32_t num_threads,
       String& error_message) {
-    TRACE_EVENT("blink", "XnnRuntimeWrapper::Create");
+    ScopedMLTrace scoped_trace("XnnRuntimeWrapper::Create");
     CHECK(xnn_context);
     CHECK(subgraph);
 
@@ -301,7 +306,7 @@ class XnnRuntimeWrapper : public ThreadSafeRefCounted<XnnRuntimeWrapper> {
   xnn_status Invoke(XnnExternalValuesPtr external_values,
                     String& error_message) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    TRACE_EVENT("blink", "XnnRuntimeWrapper::Invoke");
+    ScopedMLTrace scoped_trace("XnnRuntimeWrapper::Invoke");
     CHECK(external_values);
 
     // Check if any data pointers of the provided `xnn_external_values` changed
@@ -677,38 +682,14 @@ xnn_status DefineXnnNodeForConv2d(xnn_subgraph_t subgraph,
     DCHECK(output);
     output_channels = output->Dimensions()[3];
 
-    // According to WebNN conv2d spec:
-    // https://www.w3.org/TR/webnn/#api-mlgraphbuilder-conv2d, A depthwise
-    // conv2d operation is a variant of grouped convolution where the
-    // options.groups == input_channels == output_channels.
-    depthwise =
-        (groups == input_channels && groups == output_channels && groups != 1);
-    if (!depthwise) {
-      // For regular conv2d, XNNPACK expects weights layout in ohwi that is
-      // [groups * group_output_channels, kernel_height, kernel_width,
-      //  group_input_channels].
-      //
-      // TODO(crbug.com/1273291): support other layouts by transposing the
-      // filter operand.
-      if (options->filterLayout().AsEnum() !=
-          V8MLConv2dFilterOperandLayout::Enum::kOhwi) {
-        error_message = String::Format("The filter layout %s is not supported.",
-                                       options->filterLayout().AsCStr());
-        return xnn_status_unsupported_parameter;
-      }
-    } else {
-      // For depthwise conv2d, XNNPACK expects weights layout in ihwo that is
-      // [1, kernel_height, kernel_width, input_channels * depth_multiplier].
-      //
-      // TODO(crbug.com/1273291): support other layouts by transposing the
-      // filter operand.
-      if (options->filterLayout().AsEnum() !=
-          V8MLConv2dFilterOperandLayout::Enum::kIhwo) {
-        error_message = String::Format("The filter layout %s is not supported.",
-                                       options->filterLayout().AsCStr());
-        return xnn_status_unsupported_parameter;
-      }
+    depthwise = IsDepthwiseConv2d(input_channels, output_channels, groups);
+    auto validation_result = ValidateFilterLayout(
+        depthwise, options->inputLayout(), options->filterLayout());
+    if (!validation_result.has_value()) {
+      error_message = validation_result.error();
+      return xnn_status_unsupported_parameter;
     }
+
     const auto* filter = conv2d->Inputs()[1].Get();
     DCHECK(filter);
     filter_height = filter->Dimensions()[1];
@@ -991,10 +972,10 @@ xnn_status DefineXnnNodeForElementWiseBinary(
       CHECK(!array_buffer_view->IsDetached());
       CHECK_EQ(array_buffer_view->byteLength(), 4U);
       float exp = static_cast<float*>(array_buffer_view->BaseAddress())[0];
-      if (fabs(exp - 2.0f) <= std::numeric_limits<float>::epsilon()) {
+      if (exp == 2.0f) {
         XNN_CHECK_STATUS_AND_SET_ERROR_MESSAGE(
             xnn_define_square(subgraph, lhs_id, output_id, flags));
-      } else if (fabs(exp - 0.5f) <= std::numeric_limits<float>::epsilon()) {
+      } else if (exp == 0.5f) {
         XNN_CHECK_STATUS_AND_SET_ERROR_MESSAGE(
             xnn_define_square_root(subgraph, lhs_id, output_id, flags));
       } else {
@@ -1039,6 +1020,11 @@ xnn_status DefineXnnNodeForElementWiseUnary(
     case MLOperator::OperatorKind::kNeg: {
       XNN_CHECK_STATUS_AND_SET_ERROR_MESSAGE(
           xnn_define_negate(subgraph, input_id, output_id, flags));
+      break;
+    }
+    case MLOperator::OperatorKind::kSqrt: {
+      XNN_CHECK_STATUS_AND_SET_ERROR_MESSAGE(
+          xnn_define_square_root(subgraph, input_id, output_id, flags));
       break;
     }
     default:
@@ -1099,13 +1085,13 @@ xnn_status DefineXnnNodeForGemm(xnn_subgraph_t subgraph,
       return xnn_status_unsupported_parameter;
     }
   }
-  if (fabs(options->alpha() - 1.0f) > std::numeric_limits<float>::epsilon()) {
+  if (options->alpha() != 1.0f) {
     // TODO(crbug.com/1273291): Support alpha by using element-wise
     // multiplication operator.
     error_message = "gemm doesn't support alpha option.";
     return xnn_status_unsupported_parameter;
   }
-  if (fabs(options->beta() - 1.0f) > std::numeric_limits<float>::epsilon()) {
+  if (options->beta() != 1.0f) {
     // TODO(crbug.com/1273291): Support beta by using element-wise
     // multiplication operator.
     error_message = "gemm doesn't support beta option.";
@@ -1231,14 +1217,21 @@ xnn_status DefineXnnNodeForPool2d(xnn_subgraph_t subgraph,
 
   // Set window sizes of XNNPACK pooling 2d Node.
   uint32_t input_height, input_width;
+  uint32_t output_height, output_width;
   uint32_t filter_height, filter_width;
   bool global_pooling = false;
   switch (options->layout().AsEnum()) {
     case V8MLInputOperandLayout::Enum::kNhwc: {
       const auto* input = pool2d->Inputs()[0].Get();
-      DCHECK(input);
+      CHECK(input);
       input_height = input->Dimensions()[1];
       input_width = input->Dimensions()[2];
+
+      const auto* output = pool2d->Outputs()[0].Get();
+      CHECK(output);
+      output_height = output->Dimensions()[1];
+      output_width = output->Dimensions()[2];
+
       if (options->hasWindowDimensions()) {
         filter_height = options->windowDimensions()[0];
         filter_width = options->windowDimensions()[1];
@@ -1263,9 +1256,27 @@ xnn_status DefineXnnNodeForPool2d(xnn_subgraph_t subgraph,
   }
 
   // Set or calculate padding sizes of XNNPACK pooling 2d Node.
-  const auto padding = GetXnnPadding2D(
-      options, input_height, input_width, filter_height, filter_width,
-      stride_height, stride_width, dilation_height, dilation_width);
+  auto padding = GetXnnPadding2D(options, input_height, input_width,
+                                 filter_height, filter_width, stride_height,
+                                 stride_width, dilation_height, dilation_width);
+
+  // Since XNNPACK doesn't support ceil rounding, add bottom and right padding
+  // to bring the output to the sizes after ceil rounding.
+  if (options->roundingType().AsEnum() == V8MLRoundingType::Enum::kCeil &&
+      !options->hasOutputSizes()) {
+    auto checked_padding_bottom =
+        base::MakeCheckedNum<uint32_t>(output_height - 1) * stride_height +
+        (filter_height - 1) * dilation_height + 1 - input_height - padding.top;
+    auto checked_padding_right =
+        base::MakeCheckedNum<uint32_t>(output_width - 1) * stride_width +
+        (filter_width - 1) * dilation_width + 1 - input_width - padding.left;
+
+    if (!checked_padding_bottom.AssignIfValid(&padding.bottom) ||
+        !checked_padding_right.AssignIfValid(&padding.right)) {
+      error_message = "The padding size is too large.";
+      return xnn_status_invalid_parameter;
+    }
+  }
 
   // Define XNNPACK average or max pooling 2d Node for the Subgraph object.
   const float output_min = -std::numeric_limits<float>::infinity();
@@ -1381,10 +1392,6 @@ xnn_status DefineXnnNodeForReduce(xnn_subgraph_t subgraph,
     return base::checked_cast<size_t>(value);
   });
 
-  if (options->keepDimensions()) {
-    error_message = "XNNPACK can't support keep dimensions.";
-    return xnn_status_unsupported_parameter;
-  }
   const uint32_t flags = 0;
   switch (reduce->Kind()) {
     case MLOperator::OperatorKind::kReduceMean: {
@@ -1428,18 +1435,19 @@ xnn_status DefineXnnNodeForReshape(
       GetOperatorOutputValueId(reshape, operand_value_id_map);
   // Set the new shape of XNNPACK reshape Node to the output shape that is
   // already calculated by `MLGraphBuilder::reshape()`.
-  Vector<size_t> new_shape;
-  for (auto& d : reshape->Outputs()[0]->Dimensions()) {
-    new_shape.push_back(base::checked_cast<size_t>(d));
+  const auto& output_dimensions = reshape->Outputs()[0]->Dimensions();
+  const auto output_rank = output_dimensions.size();
+  base::FixedArray<size_t> new_shape(output_rank);
+  for (wtf_size_t i = 0; i < output_rank; ++i) {
+    new_shape[i] = base::checked_cast<size_t>(output_dimensions[i]);
   }
   const uint32_t flags = 0;
   // XNNPACK will memcpy the content of `new_shape` vector to its internal
   // structure, so it is safe to release `new_shape` vector after this call.
   // Please refer to the implementation at:
   // https://source.chromium.org/chromium/chromium/src/+/main:third_party/xnnpack/src/src/subgraph/static-reshape.c;l=246
-  XNN_CHECK_STATUS_AND_SET_ERROR_MESSAGE(
-      xnn_define_static_reshape(subgraph, new_shape.size(), new_shape.data(),
-                                input_id, output_id, flags));
+  XNN_CHECK_STATUS_AND_SET_ERROR_MESSAGE(xnn_define_static_reshape(
+      subgraph, output_rank, new_shape.data(), input_id, output_id, flags));
   return xnn_status_success;
 }
 
@@ -1763,7 +1771,8 @@ xnn_status DefineXnnNode(xnn_subgraph_t subgraph,
     case MLOperator::OperatorKind::kAbs:
     case MLOperator::OperatorKind::kCeil:
     case MLOperator::OperatorKind::kFloor:
-    case MLOperator::OperatorKind::kNeg: {
+    case MLOperator::OperatorKind::kNeg:
+    case MLOperator::OperatorKind::kSqrt: {
       XNN_CHECK_STATUS(DefineXnnNodeForElementWiseUnary(
           subgraph, ml_operator, operand_value_id_map, error_message));
       break;
@@ -1862,11 +1871,13 @@ xnn_status DefineXnnNode(xnn_subgraph_t subgraph,
 }  // namespace
 
 // static
-void MLGraphXnnpack::ValidateAndBuildAsync(MLContext* context,
+void MLGraphXnnpack::ValidateAndBuildAsync(ScopedMLTrace scoped_trace,
+                                           MLContext* context,
                                            const MLNamedOperands& named_outputs,
                                            ScriptPromiseResolver* resolver) {
+  scoped_trace.AddStep("MLGraphXnnpack::ValidateAndBuildAsync");
   auto* graph = MakeGarbageCollected<MLGraphXnnpack>(context);
-  graph->BuildAsync(named_outputs, resolver);
+  graph->BuildAsync(std::move(scoped_trace), named_outputs, resolver);
 }
 
 // static
@@ -1907,14 +1918,15 @@ const Vector<xnn_external_value>& MLGraphXnnpack::GetXnnExternalValuesTesting()
   return xnn_runtime_wrapper_->GetXnnExternalValuesTesting();
 }
 
-void MLGraphXnnpack::BuildAsyncImpl(const MLNamedOperands& named_outputs,
+void MLGraphXnnpack::BuildAsyncImpl(ScopedMLTrace scoped_trace,
+                                    const MLNamedOperands& named_outputs,
                                     ScriptPromiseResolver* resolver) {
   CHECK(IsMainThread());
   CHECK(!xnn_runtime_wrapper_);
   PostCrossThreadTask(
       *xnnpack_task_runner_, FROM_HERE,
       CrossThreadBindOnce(
-          &GetSharedXnnpackContextOnBackgroundThread,
+          &GetSharedXnnpackContextOnBackgroundThread, std::move(scoped_trace),
           MakeCrossThreadHandle(this),
           MakeCrossThreadHandle(
               MakeGarbageCollected<MLNamedOperands>(named_outputs)),
@@ -1923,6 +1935,7 @@ void MLGraphXnnpack::BuildAsyncImpl(const MLNamedOperands& named_outputs,
 
 // static
 void MLGraphXnnpack::GetSharedXnnpackContextOnBackgroundThread(
+    ScopedMLTrace scoped_trace,
     CrossThreadHandle<MLGraphXnnpack> graph,
     CrossThreadHandle<MLNamedOperands> named_outputs,
     CrossThreadHandle<ScriptPromiseResolver> resolver,
@@ -1936,13 +1949,14 @@ void MLGraphXnnpack::GetSharedXnnpackContextOnBackgroundThread(
       CrossThreadBindOnce(
           &MLGraphXnnpack::OnDidGetSharedXnnpackContext,
           MakeUnwrappingCrossThreadHandle(std::move(graph)),
-          std::move(xnn_context),
+          std::move(scoped_trace), std::move(xnn_context),
           MakeUnwrappingCrossThreadHandle(std::move(named_outputs)),
           MakeUnwrappingCrossThreadHandle(std::move(resolver)),
           std::move(error_message)));
 }
 
 void MLGraphXnnpack::OnDidGetSharedXnnpackContext(
+    ScopedMLTrace scoped_trace,
     scoped_refptr<SharedXnnpackContext> xnn_context,
     MLNamedOperands* named_outputs,
     ScriptPromiseResolver* resolver,
@@ -1969,14 +1983,16 @@ void MLGraphXnnpack::OnDidGetSharedXnnpackContext(
   PostCrossThreadTask(
       *xnnpack_task_runner_, FROM_HERE,
       CrossThreadBindOnce(
-          &CreateXnnRuntimeOnBackgroundThread, std::move(subgraph),
-          std::move(xnn_context), std::move(static_data_buffers),
-          MakeCrossThreadHandle(this), ml_context_->GetNumThreads(),
-          MakeCrossThreadHandle(resolver), resolver_task_runner_));
+          &CreateXnnRuntimeOnBackgroundThread, std::move(scoped_trace),
+          std::move(subgraph), std::move(xnn_context),
+          std::move(static_data_buffers), MakeCrossThreadHandle(this),
+          ml_context_->GetNumThreads(), MakeCrossThreadHandle(resolver),
+          resolver_task_runner_));
 }
 
 // static
 void MLGraphXnnpack::CreateXnnRuntimeOnBackgroundThread(
+    ScopedMLTrace scoped_trace,
     XnnSubgraphPtr subgraph,
     scoped_refptr<SharedXnnpackContext> xnn_context,
     Vector<DataBufferPtr> static_data_buffers,
@@ -1993,12 +2009,14 @@ void MLGraphXnnpack::CreateXnnRuntimeOnBackgroundThread(
       *resolver_task_runner, FROM_HERE,
       CrossThreadBindOnce(&MLGraphXnnpack::OnDidCreateXnnRuntime,
                           MakeUnwrappingCrossThreadHandle(std::move(graph)),
+                          std::move(scoped_trace),
                           std::move(xnn_runtime_wrapper),
                           MakeUnwrappingCrossThreadHandle(std::move(resolver)),
                           std::move(error_message)));
 }
 
 void MLGraphXnnpack::OnDidCreateXnnRuntime(
+    ScopedMLTrace scoped_trace,
     scoped_refptr<XnnRuntimeWrapper> xnn_runtime_wrapper,
     ScriptPromiseResolver* resolver,
     String error_message) {
@@ -2046,10 +2064,13 @@ MLGraph* MLGraphXnnpack::BuildSyncImpl(ScriptState* script_state,
   return this;
 }
 
-void MLGraphXnnpack::ComputeAsyncImpl(const MLNamedArrayBufferViews& inputs,
+void MLGraphXnnpack::ComputeAsyncImpl(ScopedMLTrace scoped_trace,
+                                      const MLNamedArrayBufferViews& inputs,
                                       const MLNamedArrayBufferViews& outputs,
                                       ScriptPromiseResolver* resolver,
                                       ExceptionState& exception_state) {
+  scoped_trace.AddStep("MLGraphXnnpack::TransferNamedArrayBufferViews");
+
   // `MLNamedArrayBufferViews` objects should be accessed on the thread owning
   // the heap before transferring.
   auto external_values = CreateExternalValues(inputs, outputs);
@@ -2064,6 +2085,7 @@ void MLGraphXnnpack::ComputeAsyncImpl(const MLNamedArrayBufferViews& inputs,
         "Invalid inputs: " + exception_state.Message()));
     return;
   }
+
   auto outputs_info = TransferNamedArrayBufferViews(
       resolver->GetScriptState()->GetIsolate(), outputs, exception_state);
   if (!outputs_info) {
@@ -2077,15 +2099,17 @@ void MLGraphXnnpack::ComputeAsyncImpl(const MLNamedArrayBufferViews& inputs,
   // re-creation in `OnDidCompute()`.
   PostCrossThreadTask(
       *xnnpack_task_runner_, FROM_HERE,
-      CrossThreadBindOnce(&ComputeOnBackgroundThread, xnn_runtime_wrapper_,
-                          std::move(external_values), std::move(inputs_info),
-                          std::move(outputs_info), MakeCrossThreadHandle(this),
+      CrossThreadBindOnce(&ComputeOnBackgroundThread, std::move(scoped_trace),
+                          xnn_runtime_wrapper_, std::move(external_values),
+                          std::move(inputs_info), std::move(outputs_info),
+                          MakeCrossThreadHandle(this),
                           MakeCrossThreadHandle(resolver),
                           resolver_task_runner_));
 }
 
 // static
 void MLGraphXnnpack::ComputeOnBackgroundThread(
+    ScopedMLTrace scoped_trace,
     scoped_refptr<XnnRuntimeWrapper> xnn_runtime_wrapper,
     XnnExternalValuesPtr external_values,
     NamedArrayBufferViewsInfoPtr inputs_info,
@@ -2094,6 +2118,8 @@ void MLGraphXnnpack::ComputeOnBackgroundThread(
     CrossThreadHandle<ScriptPromiseResolver> resolver,
     scoped_refptr<base::SequencedTaskRunner> resolver_task_runner) {
   CHECK(!IsMainThread());
+  scoped_trace.AddStep("MLGraphXnnpack::ComputeOnBackgroundThread");
+
   String error_message;
   xnn_status status =
       xnn_runtime_wrapper->Invoke(std::move(external_values), error_message);
@@ -2101,13 +2127,14 @@ void MLGraphXnnpack::ComputeOnBackgroundThread(
       *resolver_task_runner, FROM_HERE,
       CrossThreadBindOnce(&MLGraphXnnpack::OnDidCompute,
                           MakeUnwrappingCrossThreadHandle(std::move(graph)),
-                          status, std::move(inputs_info),
-                          std::move(outputs_info),
+                          std::move(scoped_trace), status,
+                          std::move(inputs_info), std::move(outputs_info),
                           MakeUnwrappingCrossThreadHandle(std::move(resolver)),
                           std::move(error_message)));
 }
 
-void MLGraphXnnpack::OnDidCompute(xnn_status status,
+void MLGraphXnnpack::OnDidCompute(ScopedMLTrace scoped_trace,
+                                  xnn_status status,
                                   NamedArrayBufferViewsInfoPtr inputs_info,
                                   NamedArrayBufferViewsInfoPtr outputs_info,
                                   ScriptPromiseResolver* resolver,
@@ -2143,7 +2170,7 @@ xnn_status MLGraphXnnpack::CreateXnnSubgraph(
     XnnSubgraphPtr& out_subgraph,
     Vector<DataBufferPtr>& out_static_data_buffers,
     String& error_message) {
-  TRACE_EVENT("blink", "MLGraphXnnpack::CreateXnnSubgraph");
+  ScopedMLTrace scoped_trace("MLGraphXnnpack::CreateXnnSubgraph");
 
   // The number of external value IDs that is reserved by XNNPACK Subgraph. Set
   // its value to the number of graph input and output resources.

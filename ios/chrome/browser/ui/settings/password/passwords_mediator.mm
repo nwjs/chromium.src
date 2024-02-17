@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/ui/settings/password/passwords_mediator.h"
+#import "ios/chrome/browser/ui/settings/password/passwords_mediator+Testing.h"
 
 #import "base/memory/raw_ptr.h"
 #import "components/feature_engagement/public/event_constants.h"
@@ -13,7 +14,7 @@
 #import "components/password_manager/core/browser/password_sync_util.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "ios/chrome/browser/favicon/favicon_loader.h"
-#import "ios/chrome/browser/net/crurl.h"
+#import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/passwords/model/password_check_observer_bridge.h"
 #import "ios/chrome/browser/passwords/model/password_checkup_utils.h"
 #import "ios/chrome/browser/passwords/model/password_manager_util_ios.h"
@@ -23,7 +24,6 @@
 #import "ios/chrome/browser/sync/model/sync_setup_service.h"
 #import "ios/chrome/browser/ui/settings/password/account_storage_utils.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_consumer.h"
-#import "ios/chrome/browser/ui/settings/password/passwords_mediator+private.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_table_view_constants.h"
 #import "ios/chrome/browser/ui/settings/password/saved_passwords_presenter_observer.h"
 #import "ios/chrome/browser/ui/settings/utils/password_auto_fill_status_manager.h"
@@ -41,6 +41,14 @@ using password_manager::WarningType;
 @interface PasswordsMediator () <PasswordCheckObserver,
                                  SavedPasswordsPresenterObserver,
                                  SyncObserverModelBridge>
+
+// Whether or not the Feature Engagement Tracker should be notified that the
+// Password Manager widget promo is not displayed anymore. Will be `true` when
+// the Password Manager view controller is dismissed while presenting the
+// promo.
+@property(nonatomic, assign)
+    BOOL shouldNotifyFETToDismissPasswordManagerWidgetPromo;
+
 @end
 
 @implementation PasswordsMediator {
@@ -151,7 +159,8 @@ using password_manager::WarningType;
 }
 
 - (void)startPasswordCheck {
-  _passwordCheckManager->StartPasswordCheck();
+  _passwordCheckManager->StartPasswordCheck(
+      password_manager::LeakDetectionInitiator::kBulkSyncedPasswordsCheck);
 }
 
 - (NSString*)formattedElapsedTimeSinceLastCheck {

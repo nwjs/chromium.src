@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include "base/check_op.h"
 #include "base/functional/bind.h"
@@ -39,7 +41,6 @@
 #include "printing/printing_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size_f.h"
 
@@ -151,9 +152,8 @@ enum class PrintBackendFeatureVariation {
   kOopUnsandboxedService,
 };
 
-const char* GetPrintBackendTestSuffix(
-    const testing::TestParamInfo<PrintBackendFeatureVariation>& info) {
-  switch (info.param) {
+const char* GetPrintBackendString(PrintBackendFeatureVariation variation) {
+  switch (variation) {
     case PrintBackendFeatureVariation::kInBrowserProcess:
       return "InBrowser";
     case PrintBackendFeatureVariation::kOopSandboxedService:
@@ -162,6 +162,89 @@ const char* GetPrintBackendTestSuffix(
       return "OopUnsandboxed";
   }
 }
+
+enum class PlatformPrintApiVariation {
+#if BUILDFLAG(IS_WIN)
+  kGdi,
+  kXps,
+#else
+  kCups,
+#endif
+};
+
+const char* GetPlatformPrintApiString(PlatformPrintApiVariation variation) {
+  switch (variation) {
+#if BUILDFLAG(IS_WIN)
+    case PlatformPrintApiVariation::kGdi:
+      return "Gdi";
+    case PlatformPrintApiVariation::kXps:
+      return "Xps";
+#else
+    case PlatformPrintApiVariation::kCups:
+      return "Cups";
+#endif
+  }
+}
+
+const char* GetPlatformPrintApiTestSuffix(
+    const testing::TestParamInfo<PlatformPrintApiVariation>& info) {
+  return GetPlatformPrintApiString(info.param);
+}
+
+const PlatformPrintApiVariation kSandboxedServicePlatformPrintApiVariations[] =
+    {
+#if BUILDFLAG(IS_WIN)
+        // TODO(crbug.com/1008222):  Include XPS variation.
+        PlatformPrintApiVariation::kGdi,
+#else
+        PlatformPrintApiVariation::kCups,
+#endif
+};
+
+// Caution must be taken with platform API variations, as `kXps` should not
+// be generated with `kInBrowserProcess`.  Use of `testing::Combine()` between
+// `PrintBackendFeatureVariation` and `PlatformPrintApiVariation` could
+// inadvertently cause this illegal combination.  This can be avoided by using
+// a local helper method to generate the allowed combinations.
+struct PrintBackendAndPlatformPrintApiVariation {
+  PrintBackendFeatureVariation print_backend;
+  PlatformPrintApiVariation platform_api;
+};
+
+std::string GetPrintBackendAndPlatformPrintApiString(
+    const PrintBackendAndPlatformPrintApiVariation& variation) {
+  return base::JoinString({GetPrintBackendString(variation.print_backend),
+                           GetPlatformPrintApiString(variation.platform_api)},
+                          /*separator=*/"_");
+}
+
+std::string GetPrintBackendAndPlatformPrintApiTestSuffix(
+    const testing::TestParamInfo<PrintBackendAndPlatformPrintApiVariation>&
+        info) {
+  return GetPrintBackendAndPlatformPrintApiString(info.param);
+}
+
+std::vector<PrintBackendAndPlatformPrintApiVariation>
+GeneratePrintBackendAndPlatformPrintApiVariations(
+    std::vector<PrintBackendFeatureVariation> print_backend_variations) {
+  std::vector<PrintBackendAndPlatformPrintApiVariation> variations;
+
+  for (PrintBackendFeatureVariation print_backend_variation :
+       print_backend_variations) {
+#if BUILDFLAG(IS_WIN)
+    // TODO(crbug.com/1008222):  Include XPS variation, only when the
+    // `print_backend_variation` is not `kInBrowserProcess`.
+    variations.emplace_back(print_backend_variation,
+                            PlatformPrintApiVariation::kGdi);
+#else
+    variations.emplace_back(print_backend_variation,
+                            PlatformPrintApiVariation::kCups);
+#endif
+  }
+
+  return variations;
+}
+
 #endif  // BUILDFLAG(ENABLE_OOP_PRINTING)
 
 }  // namespace
@@ -180,6 +263,7 @@ using OnDidAskUserForSettingsCallback =
 #endif
 using OnDidUpdatePrintSettingsCallback =
     base::RepeatingCallback<void(mojom::ResultCode result)>;
+using OnFinishDocumentDoneCallback = base::RepeatingCallback<void(int job_id)>;
 using OnDidStartPrintingCallback =
     base::RepeatingCallback<void(mojom::ResultCode result)>;
 #if BUILDFLAG(IS_WIN)
@@ -190,7 +274,7 @@ using OnDidRenderPrintedPageCallback =
 using OnDidRenderPrintedDocumentCallback =
     base::RepeatingCallback<void(mojom::ResultCode result)>;
 using OnDidDocumentDoneCallback =
-    base::RepeatingCallback<void(mojom::ResultCode result)>;
+    base::RepeatingCallback<void(int job_id, mojom::ResultCode result)>;
 using OnDidCancelCallback = base::RepeatingClosure;
 using OnDidShowErrorDialog = base::RepeatingClosure;
 
@@ -202,6 +286,7 @@ class TestPrintJobWorker : public PrintJobWorker {
     OnUseDefaultSettingsCallback did_use_default_settings_callback;
     OnGetSettingsWithUICallback did_get_settings_with_ui_callback;
     OnDidUpdatePrintSettingsCallback did_update_print_settings_callback;
+    OnFinishDocumentDoneCallback did_finish_document_done_callback;
   };
 
   TestPrintJobWorker(
@@ -224,6 +309,10 @@ class TestPrintJobWorker : public PrintJobWorker {
 
  private:
   // `PrintJobWorker` overrides:
+  void FinishDocumentDone(int job_id) override {
+    callbacks_->did_finish_document_done_callback.Run(job_id);
+    PrintJobWorker::FinishDocumentDone(job_id);
+  }
   void OnCancel() override {
     callbacks_->error_check_callback.Run(mojom::ResultCode::kCanceled);
     PrintJobWorker::OnCancel();
@@ -320,8 +409,8 @@ class TestPrintJobWorkerOop : public PrintJobWorkerOop {
   TestPrintJobWorkerOop(
       std::unique_ptr<PrintingContext::Delegate> printing_context_delegate,
       std::unique_ptr<PrintingContext> printing_context,
-      absl::optional<PrintBackendServiceManager::ClientId> client_id,
-      absl::optional<PrintBackendServiceManager::ContextId> context_id,
+      std::optional<PrintBackendServiceManager::ClientId> client_id,
+      std::optional<PrintBackendServiceManager::ContextId> context_id,
       PrintJob* print_job,
       bool print_from_system_dialog,
       bool simulate_spooling_memory_errors,
@@ -339,10 +428,10 @@ class TestPrintJobWorkerOop : public PrintJobWorkerOop {
   ~TestPrintJobWorkerOop() override = default;
 
  private:
-  void OnDidStartPrinting(mojom::ResultCode result) override {
+  void OnDidStartPrinting(mojom::ResultCode result, int job_id) override {
     DVLOG(1) << "Observed: start printing of document";
     callbacks_->error_check_callback.Run(result);
-    PrintJobWorkerOop::OnDidStartPrinting(result);
+    PrintJobWorkerOop::OnDidStartPrinting(result, job_id);
     callbacks_->did_start_printing_callback.Run(result);
   }
 
@@ -367,7 +456,7 @@ class TestPrintJobWorkerOop : public PrintJobWorkerOop {
     DVLOG(1) << "Observed: document done";
     callbacks_->error_check_callback.Run(result);
     PrintJobWorkerOop::OnDidDocumentDone(job_id, result);
-    callbacks_->did_document_done_callback.Run(result);
+    callbacks_->did_document_done_callback.Run(job_id, result);
   }
 
   void OnDidCancel(scoped_refptr<PrintJob> job,
@@ -477,23 +566,14 @@ class SystemAccessProcessPrintBrowserTestBase
   // Only of interest when `UseService()` returns true.
   virtual bool SandboxService() = 0;
 
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
-  // Only of interest for content analysis tests. This will enable/disable the
-  // kEnableCloudScanAfterPreview features so that content analysis is done
-  // after the printing settings are picked from a dialog.
-  virtual bool EnableContentAnalysisAfterDialog() = 0;
+#if BUILDFLAG(IS_WIN)
+  // Only applicable when `UseService()` returns true.
+  virtual bool UseXps() = 0;
 #endif
 
   void SetUpFeatures() {
     std::vector<base::test::FeatureRefAndParams> enabled_features;
     std::vector<base::test::FeatureRef> disabled_features;
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
-    if (EnableContentAnalysisAfterDialog()) {
-      enabled_features.push_back({features::kEnableCloudScanAfterPreview, {}});
-    } else {
-      disabled_features.push_back(features::kEnableCloudScanAfterPreview);
-    }
-#endif
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
     if (UseService()) {
       enabled_features.push_back(
@@ -501,8 +581,24 @@ class SystemAccessProcessPrintBrowserTestBase
            {{features::kEnableOopPrintDriversJobPrint.name, "true"},
             {features::kEnableOopPrintDriversSandbox.name,
              SandboxService() ? "true" : "false"}}});
+#if BUILDFLAG(IS_WIN)
+      if (UseXps()) {
+        enabled_features.push_back({features::kUseXpsForPrinting, {}});
+      } else {
+        disabled_features.push_back(features::kUseXpsForPrinting);
+      }
+      // TODO(crbug.com/1034053):  Support `kUseXpsForPrintingFromPdf`.
+      disabled_features.push_back(features::kUseXpsForPrintingFromPdf);
+      // TODO(crbug.com/1291257):  Support `kReadPrinterCapabilitiesWithXps`.
+      disabled_features.push_back(features::kReadPrinterCapabilitiesWithXps);
+#endif
     } else {
       disabled_features.push_back(features::kEnableOopPrintDrivers);
+#if BUILDFLAG(IS_WIN)
+      disabled_features.push_back(features::kUseXpsForPrinting);
+      disabled_features.push_back(features::kUseXpsForPrintingFromPdf);
+      disabled_features.push_back(features::kReadPrinterCapabilitiesWithXps);
+#endif
     }
 #endif
     feature_list_.InitWithFeaturesAndParameters(enabled_features,
@@ -583,6 +679,10 @@ class SystemAccessProcessPrintBrowserTestBase
           .did_update_print_settings_callback = base::BindRepeating(
           &SystemAccessProcessPrintBrowserTestBase::OnDidUpdatePrintSettings,
           base::Unretained(this));
+      test_print_job_worker_callbacks_.did_finish_document_done_callback =
+          base::BindRepeating(
+              &SystemAccessProcessPrintBrowserTestBase::OnFinishDocumentDone,
+              base::Unretained(this));
     }
     test_create_printer_query_callback_ = base::BindRepeating(
         &SystemAccessProcessPrintBrowserTestBase::CreatePrinterQuery,
@@ -914,7 +1014,7 @@ class SystemAccessProcessPrintBrowserTestBase
   }
 #endif
 
-  const absl::optional<bool> system_print_registration_succeeded() const {
+  const std::optional<bool> system_print_registration_succeeded() const {
     return system_print_registration_succeeded_;
   }
 
@@ -960,8 +1060,12 @@ class SystemAccessProcessPrintBrowserTestBase
     return document_done_result_;
   }
 
+  std::optional<int> document_done_job_id() const {
+    return document_done_job_id_;
+  }
+
   int cancel_count() const { return cancel_count_; }
-  absl::optional<mojom::ResultCode> in_process_last_error_result_code() const {
+  std::optional<mojom::ResultCode> in_process_last_error_result_code() const {
     return in_process_last_error_result_code_;
   }
 
@@ -1068,10 +1172,13 @@ class SystemAccessProcessPrintBrowserTestBase
     CheckForQuit();
   }
 
-  void OnDidDocumentDone(mojom::ResultCode result) {
+  void OnDidDocumentDone(int job_id, mojom::ResultCode result) {
+    document_done_job_id_ = job_id;
     document_done_result_ = result;
     CheckForQuit();
   }
+
+  void OnFinishDocumentDone(int job_id) { document_done_job_id_ = job_id; }
 
   void OnDidCancel() {
     ++cancel_count_;
@@ -1110,18 +1217,18 @@ class SystemAccessProcessPrintBrowserTestBase
   TestPrintJobWorker::PrintCallbacks test_print_job_worker_callbacks_;
   TestPrintJobWorkerOop::PrintCallbacks test_print_job_worker_oop_callbacks_;
   CreatePrinterQueryCallback test_create_printer_query_callback_;
-  absl::optional<bool> system_print_registration_succeeded_;
+  std::optional<bool> system_print_registration_succeeded_;
   bool did_use_default_settings_ = false;
   bool did_get_settings_with_ui_ = false;
   bool print_backend_service_use_detected_ = false;
   bool simulate_spooling_memory_errors_ = false;
 #if BUILDFLAG(IS_WIN)
-  absl::optional<uint32_t> simulate_pdf_conversion_error_on_page_index_;
+  std::optional<uint32_t> simulate_pdf_conversion_error_on_page_index_;
 #endif
   mojo::Remote<mojom::PrintBackendService> test_remote_;
   std::unique_ptr<PrintBackendServiceTestImpl> print_backend_service_;
 #endif  // BUILDFLAG(ENABLE_OOP_PRINTING)
-  absl::optional<mojom::ResultCode> in_process_last_error_result_code_;
+  std::optional<mojom::ResultCode> in_process_last_error_result_code_;
   bool reset_errors_after_check_ = true;
   int did_print_document_count_ = 0;
   mojom::ResultCode use_default_settings_result_ = mojom::ResultCode::kFailed;
@@ -1137,6 +1244,7 @@ class SystemAccessProcessPrintBrowserTestBase
   mojom::ResultCode render_printed_document_result_ =
       mojom::ResultCode::kFailed;
   mojom::ResultCode document_done_result_ = mojom::ResultCode::kFailed;
+  std::optional<int> document_done_job_id_;
   int cancel_count_ = 0;
   int print_job_construction_count_ = 0;
   int print_job_destruction_count_ = 0;
@@ -1148,66 +1256,86 @@ class SystemAccessProcessPrintBrowserTestBase
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
 
 class SystemAccessProcessSandboxedServicePrintBrowserTest
-    : public SystemAccessProcessPrintBrowserTestBase {
+    : public SystemAccessProcessPrintBrowserTestBase,
+      public testing::WithParamInterface<PlatformPrintApiVariation> {
  public:
   SystemAccessProcessSandboxedServicePrintBrowserTest() = default;
   ~SystemAccessProcessSandboxedServicePrintBrowserTest() override = default;
 
   bool UseService() override { return true; }
   bool SandboxService() override { return true; }
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
-  bool EnableContentAnalysisAfterDialog() override { return false; }
+#if BUILDFLAG(IS_WIN)
+  bool UseXps() override {
+    return GetParam() == PlatformPrintApiVariation::kXps;
+  }
 #endif
 };
 
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    SystemAccessProcessSandboxedServicePrintBrowserTest,
+    testing::ValuesIn(kSandboxedServicePlatformPrintApiVariations),
+    GetPlatformPrintApiTestSuffix);
+
 class SystemAccessProcessServicePrintBrowserTest
     : public SystemAccessProcessPrintBrowserTestBase,
-      public testing::WithParamInterface<PrintBackendFeatureVariation> {
+      public testing::WithParamInterface<
+          PrintBackendAndPlatformPrintApiVariation> {
  public:
   SystemAccessProcessServicePrintBrowserTest() = default;
   ~SystemAccessProcessServicePrintBrowserTest() override = default;
 
   bool UseService() override { return true; }
   bool SandboxService() override {
-    return GetParam() == PrintBackendFeatureVariation::kOopSandboxedService;
+    return GetParam().print_backend ==
+           PrintBackendFeatureVariation::kOopSandboxedService;
   }
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
-  bool EnableContentAnalysisAfterDialog() override { return false; }
+#if BUILDFLAG(IS_WIN)
+  bool UseXps() override {
+    return GetParam().platform_api == PlatformPrintApiVariation::kXps;
+  }
 #endif
 };
 
 INSTANTIATE_TEST_SUITE_P(
     All,
     SystemAccessProcessServicePrintBrowserTest,
-    testing::Values(PrintBackendFeatureVariation::kOopSandboxedService,
-                    PrintBackendFeatureVariation::kOopUnsandboxedService),
-    GetPrintBackendTestSuffix);
+    testing::ValuesIn(GeneratePrintBackendAndPlatformPrintApiVariations(
+        {PrintBackendFeatureVariation::kOopSandboxedService,
+         PrintBackendFeatureVariation::kOopUnsandboxedService})),
+    GetPrintBackendAndPlatformPrintApiTestSuffix);
 
 class SystemAccessProcessPrintBrowserTest
     : public SystemAccessProcessPrintBrowserTestBase,
-      public testing::WithParamInterface<PrintBackendFeatureVariation> {
+      public testing::WithParamInterface<
+          PrintBackendAndPlatformPrintApiVariation> {
  public:
   SystemAccessProcessPrintBrowserTest() = default;
   ~SystemAccessProcessPrintBrowserTest() override = default;
 
   bool UseService() override {
-    return GetParam() != PrintBackendFeatureVariation::kInBrowserProcess;
+    return GetParam().print_backend !=
+           PrintBackendFeatureVariation::kInBrowserProcess;
   }
   bool SandboxService() override {
-    return GetParam() == PrintBackendFeatureVariation::kOopSandboxedService;
+    return GetParam().print_backend ==
+           PrintBackendFeatureVariation::kOopSandboxedService;
   }
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
-  bool EnableContentAnalysisAfterDialog() override { return false; }
+#if BUILDFLAG(IS_WIN)
+  bool UseXps() override {
+    return GetParam().platform_api == PlatformPrintApiVariation::kXps;
+  }
 #endif
 };
 
 INSTANTIATE_TEST_SUITE_P(
     All,
     SystemAccessProcessPrintBrowserTest,
-    testing::Values(PrintBackendFeatureVariation::kInBrowserProcess,
-                    PrintBackendFeatureVariation::kOopSandboxedService,
-                    PrintBackendFeatureVariation::kOopUnsandboxedService),
-    GetPrintBackendTestSuffix);
+    testing::ValuesIn(GeneratePrintBackendAndPlatformPrintApiVariations(
+        {PrintBackendFeatureVariation::kInBrowserProcess,
+         PrintBackendFeatureVariation::kOopSandboxedService,
+         PrintBackendFeatureVariation::kOopUnsandboxedService})),
+    GetPrintBackendAndPlatformPrintApiTestSuffix);
 
 IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
                        UpdatePrintSettings) {
@@ -1351,10 +1479,12 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
   EXPECT_EQ(error_dialog_shown_count(), 0u);
 }
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrinting) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
+  constexpr int kJobId = 1;
+  SetNewDocumentJobId(kJobId);
 
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/test3.html"));
@@ -1385,11 +1515,12 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
   EXPECT_EQ(render_printed_document_result(), mojom::ResultCode::kSuccess);
 #endif
   EXPECT_EQ(document_done_result(), mojom::ResultCode::kSuccess);
+  EXPECT_THAT(document_done_job_id(), testing::Optional(kJobId));
   EXPECT_EQ(error_dialog_shown_count(), 0u);
   EXPECT_EQ(print_job_destruction_count(), 1);
 
 #if BUILDFLAG(IS_LINUX) && BUILDFLAG(USE_CUPS)
-  absl::optional<PrintSettings> settings = document_print_settings();
+  std::optional<PrintSettings> settings = document_print_settings();
   ASSERT_TRUE(settings);
   // Collect just the keys to compare the info options vs. advanced settings.
   std::vector<std::string> advanced_setting_keys;
@@ -1407,10 +1538,12 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 #endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(USE_CUPS)
 }
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrintingMultipage) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
+  constexpr int kJobId = 1;
+  SetNewDocumentJobId(kJobId);
 
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/3_pages.html"));
@@ -1457,6 +1590,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
   EXPECT_EQ(render_printed_document_result(), mojom::ResultCode::kSuccess);
 #endif
   EXPECT_EQ(document_done_result(), mojom::ResultCode::kSuccess);
+  EXPECT_THAT(document_done_job_id(), testing::Optional(kJobId));
   EXPECT_EQ(error_dialog_shown_count(), 0u);
   EXPECT_EQ(print_job_destruction_count(), 1);
 }
@@ -1640,10 +1774,12 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
   EXPECT_EQ(print_job_destruction_count(), 1);
 }
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrintingAccessDenied) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
+  constexpr int kJobId = 1;
+  SetNewDocumentJobId(kJobId);
   PrimeForAccessDeniedErrorsInNewDocument();
 
   ASSERT_TRUE(embedded_test_server()->Started());
@@ -1677,11 +1813,12 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
   EXPECT_EQ(render_printed_document_result(), mojom::ResultCode::kSuccess);
 #endif
   EXPECT_EQ(document_done_result(), mojom::ResultCode::kSuccess);
+  EXPECT_THAT(document_done_job_id(), testing::Optional(kJobId));
   EXPECT_EQ(error_dialog_shown_count(), 0u);
   EXPECT_EQ(print_job_destruction_count(), 1);
 }
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrintingRepeatedAccessDenied) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -1718,7 +1855,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 }
 
 #if BUILDFLAG(IS_WIN)
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrintingRenderPageAccessDenied) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -1755,7 +1892,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
   EXPECT_EQ(print_job_destruction_count(), 1);
 }
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrintingMultipageMidJobError) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -1806,7 +1943,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 
 // TODO(crbug.com/1008222)  Include Windows once XPS print pipeline is added.
 #if !BUILDFLAG(IS_WIN)
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrintingRenderDocumentAccessDenied) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -1843,7 +1980,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 }
 #endif  // !BUILDFLAG(IS_WIN)
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartPrintingDocumentDoneAccessDenied) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -1894,6 +2031,8 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
                        SystemPrintFromPrintPreview) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
+  constexpr int kJobId = 1;
+  SetNewDocumentJobId(kJobId);
 
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/test3.html"));
@@ -1977,6 +2116,7 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
     EXPECT_EQ(*test::MakeUserModifiedPrintSettings("printer1"),
               *document_print_settings());
   }
+  EXPECT_THAT(document_done_job_id(), testing::Optional(kJobId));
   EXPECT_EQ(error_dialog_shown_count(), 0u);
   EXPECT_EQ(print_job_destruction_count(), 1);
 }
@@ -2023,7 +2163,7 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
 // `UpdatePrintSettings()` before displaying the system dialog.  Other
 // platforms end up going through `PrintViewManager::PrintForSystemDialogNow()`
 // and thus do not update print settings before the system dialog is displayed.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     SystemAccessProcessSandboxedServicePrintBrowserTest,
     PrintPreviewAfterSystemPrintFromPrintPreviewUpdatePrintSettingsFails) {
   AddPrinter("printer1");
@@ -2085,7 +2225,7 @@ IN_PROC_BROWSER_TEST_F(
 // From that system dialog we can cause a cancel to occur.
 // TODO(crbug.com/809738):  Expand this to also cover in-browser, once an
 // appropriate signal is available to use for tracking expected events.
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        SystemPrintFromPrintPreviewCancelRetry) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -2209,10 +2349,12 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
 }
 #endif  // BUILDFLAG(IS_WIN)
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartBasicPrint) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
+  constexpr int kJobId = 1;
+  SetNewDocumentJobId(kJobId);
 
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/test3.html"));
@@ -2260,6 +2402,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
   EXPECT_EQ(render_printed_document_result(), mojom::ResultCode::kSuccess);
 #endif
   EXPECT_EQ(document_done_result(), mojom::ResultCode::kSuccess);
+  EXPECT_THAT(document_done_job_id(), testing::Optional(kJobId));
   EXPECT_EQ(error_dialog_shown_count(), 0u);
   EXPECT_EQ(did_print_document_count(), 1);
   EXPECT_EQ(print_job_destruction_count(), 1);
@@ -2434,7 +2577,7 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
 
 #if BUILDFLAG(ENABLE_CONCURRENT_BASIC_PRINT_DIALOGS)
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartBasicPrintConcurrentAllowed) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -2450,7 +2593,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
       SetUpAndReturnPrintViewManager(web_contents);
 
   // Pretend that a window has started a system print.
-  absl::optional<PrintBackendServiceManager::ClientId> client_id =
+  std::optional<PrintBackendServiceManager::ClientId> client_id =
       PrintBackendServiceManager::GetInstance().RegisterQueryWithUiClient();
   ASSERT_TRUE(client_id.has_value());
 
@@ -2479,7 +2622,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 }
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        SystemPrintFromPrintPreviewConcurrentAllowed) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -2496,7 +2639,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
   // Pretend that another tab has started a system print.
   // TODO(crbug.com/809738)  Improve on this test by using a persistent fake
   // system print dialog.
-  absl::optional<PrintBackendServiceManager::ClientId> client_id =
+  std::optional<PrintBackendServiceManager::ClientId> client_id =
       PrintBackendServiceManager::GetInstance().RegisterQueryWithUiClient();
   ASSERT_TRUE(client_id.has_value());
 
@@ -2526,7 +2669,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 
 #else  // BUILDFLAG(ENABLE_CONCURRENT_BASIC_PRINT_DIALOGS)
 
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        StartBasicPrintConcurrentNotAllowed) {
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/test3.html"));
@@ -2539,7 +2682,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
       SetUpAndReturnPrintViewManager(web_contents);
 
   // Pretend that a window has started a system print.
-  absl::optional<PrintBackendServiceManager::ClientId> client_id =
+  std::optional<PrintBackendServiceManager::ClientId> client_id =
       PrintBackendServiceManager::GetInstance().RegisterQueryWithUiClient();
   ASSERT_TRUE(client_id.has_value());
 
@@ -2556,7 +2699,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 }
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessSandboxedServicePrintBrowserTest,
                        SystemPrintFromPrintPreviewConcurrentNotAllowed) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
@@ -2573,7 +2716,7 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
   // Pretend that another tab has started a system print.
   // TODO(crbug.com/809738)  Improve on this test by using a persistent fake
   // system print dialog.
-  absl::optional<PrintBackendServiceManager::ClientId> client_id =
+  std::optional<PrintBackendServiceManager::ClientId> client_id =
       PrintBackendServiceManager::GetInstance().RegisterQueryWithUiClient();
   ASSERT_TRUE(client_id.has_value());
 
@@ -2632,6 +2775,8 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessServicePrintBrowserTest,
 IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest, OpenPdfInPreview) {
   AddPrinter("printer1");
   SetPrinterNameForSubsequentContexts("printer1");
+  constexpr int kJobId = 1;
+  SetNewDocumentJobId(kJobId);
 
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/test3.html"));
@@ -2667,6 +2812,7 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest, OpenPdfInPreview) {
   } else {
     EXPECT_FALSE(in_process_last_error_result_code().has_value());
   }
+  EXPECT_THAT(document_done_job_id(), testing::Optional(kJobId));
   EXPECT_TRUE(destination_is_preview());
   EXPECT_EQ(error_dialog_shown_count(), 0u);
   EXPECT_EQ(print_job_destruction_count(), 1);
@@ -2709,8 +2855,7 @@ class TestPrintViewManagerForContentAnalysis : public TestPrintViewManager {
   TestPrintViewManagerForContentAnalysis(
       content::WebContents* web_contents,
       const char* policy_value,
-      absl::optional<enterprise_connectors::ContentAnalysisRequest::Reason>
-          expected_reason,
+      enterprise_connectors::ContentAnalysisRequest::Reason expected_reason,
       OnDidCreatePrintJobCallback create_print_job_callback,
       OnDidCompositeForContentAnalysis composite_for_content_analysis_callback)
       : TestPrintViewManager(web_contents,
@@ -2735,11 +2880,9 @@ class TestPrintViewManagerForContentAnalysis : public TestPrintViewManager {
     return observer_.scripted_print_called();
   }
 
-  const absl::optional<bool>& preview_allowed() const {
+  const std::optional<bool>& preview_allowed() const {
     return preview_allowed_;
   }
-
-  int got_snapshot_count() const { return got_snapshot_count_; }
 
 #if BUILDFLAG(IS_CHROMEOS)
   void set_allowed_by_dlp(bool allowed) { allowed_by_dlp_ = allowed; }
@@ -2750,73 +2893,6 @@ class TestPrintViewManagerForContentAnalysis : public TestPrintViewManager {
   }
 
  protected:
-  void OnGotSnapshotCallback(
-      base::OnceCallback<void(bool should_proceed)> callback,
-      enterprise_connectors::ContentAnalysisDelegate::Data data,
-      content::GlobalRenderFrameHostId rfh_id,
-      mojom::DidPrintDocumentParamsPtr params) override {
-    ASSERT_TRUE(web_contents());
-    ASSERT_TRUE(params);
-    EXPECT_TRUE(params->content->metafile_data_region.IsValid());
-    EXPECT_EQ(data.url,
-              web_contents()->GetOutermostWebContents()->GetLastCommittedURL());
-    // TODO(http://b/285243428): Change `expected_reason_` to a normal enum
-    // value instead of an optional to check it in every test.
-    if (expected_reason_) {
-      EXPECT_EQ(data.reason, *expected_reason_);
-    }
-
-    PrintViewManager::OnGotSnapshotCallback(
-        std::move(callback), std::move(data), rfh_id, std::move(params));
-    got_snapshot_count_++;
-  }
-
-  void OnCompositedForContentAnalysis(
-      base::OnceCallback<void(bool should_proceed)> callback,
-      enterprise_connectors::ContentAnalysisDelegate::Data data,
-      content::GlobalRenderFrameHostId rfh_id,
-      mojom::PrintCompositor::Status status,
-      base::ReadOnlySharedMemoryRegion page_region) override {
-    EXPECT_TRUE(content::RenderFrameHost::FromID(rfh_id));
-    EXPECT_EQ(status, mojom::PrintCompositor::Status::kSuccess);
-
-    // The settings passed to this function should match the content of the
-    // print Connector policy.
-    EXPECT_EQ(data.settings.tags.size(), 1u);
-    EXPECT_TRUE(base::Contains(data.settings.tags, "dlp"));
-    if (data.settings.cloud_or_local_settings.is_cloud_analysis()) {
-      EXPECT_EQ(data.settings.cloud_or_local_settings.dm_token(), kFakeDmToken);
-    } else {
-      EXPECT_EQ(data.settings.cloud_or_local_settings.local_path(),
-                "path_user");
-      EXPECT_TRUE(data.settings.cloud_or_local_settings.user_specific());
-    }
-    EXPECT_TRUE(ExpectedBlockUntilVerdict(data.settings.block_until_verdict));
-    EXPECT_TRUE(data.settings.block_large_files);
-    EXPECT_EQ(data.url,
-              web_contents()->GetOutermostWebContents()->GetLastCommittedURL());
-    // TODO(http://b/285243428): Change `expected_reason_` to a normal enum
-    // value instead of an optional to check it in every test.
-    if (expected_reason_) {
-      EXPECT_EQ(data.reason, *expected_reason_);
-    }
-
-    // The snapshot should be valid and populated.
-    EXPECT_TRUE(LooksLikePdf(page_region.Map().GetMemoryAsSpan<char>()));
-
-    PrintViewManager::OnCompositedForContentAnalysis(
-        base::BindOnce(
-            [](base::OnceCallback<void(bool should_proceed)> callback,
-               OnDidCompositeForContentAnalysis*
-                   did_composite_for_content_analysis_callback,
-               bool allowed) {
-              std::move(callback).Run(allowed);
-              did_composite_for_content_analysis_callback->Run(allowed);
-            },
-            std::move(callback), &did_composite_for_content_analysis_callback_),
-        std::move(data), rfh_id, status, std::move(page_region));
-  }
-
   void ContentAnalysisBeforePrintingDocument(
       enterprise_connectors::ContentAnalysisDelegate::Data scanning_data,
       scoped_refptr<base::RefCountedMemory> print_data,
@@ -2841,11 +2917,7 @@ class TestPrintViewManagerForContentAnalysis : public TestPrintViewManager {
     EXPECT_TRUE(scanning_data.settings.block_large_files);
     EXPECT_EQ(scanning_data.url,
               web_contents()->GetOutermostWebContents()->GetLastCommittedURL());
-    // TODO(http://b/285243428): Change `expected_reason_` to a normal enum
-    // value instead of an optional to check it in every test.
-    if (expected_reason_) {
-      EXPECT_EQ(scanning_data.reason, *expected_reason_);
-    }
+    EXPECT_EQ(scanning_data.reason, expected_reason_);
 
     // The data of the document should be a valid PDF as this code should be
     // called as the print job is about to start printing.
@@ -2904,14 +2976,12 @@ class TestPrintViewManagerForContentAnalysis : public TestPrintViewManager {
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Indicates whether the preview was allowed after checking against content
-  // analysis and DLP (if on CrOS). This is `absl::nullopt` until then.
-  absl::optional<bool> preview_allowed_;
+  // analysis and DLP (if on CrOS). This is `std::nullopt` until then.
+  std::optional<bool> preview_allowed_;
 
   // Used to validate the corresponding `ContentAnalysisDelegate::Data` passed
-  // in various content analysis-related functions. A value of `absl::nullopt`
-  // means the value shouldn't be checked.
-  absl::optional<enterprise_connectors::ContentAnalysisRequest::Reason>
-      expected_reason_;
+  // in various content analysis-related functions.
+  enterprise_connectors::ContentAnalysisRequest::Reason expected_reason_;
 
   // Used to validate the corresponding `ContentAnalysisDelegate::Data` passed
   // in various content analysis-related functions. Corresponds to the value
@@ -2921,15 +2991,12 @@ class TestPrintViewManagerForContentAnalysis : public TestPrintViewManager {
   base::RunLoop preview_run_loop_;
   OnDidCompositeForContentAnalysis did_composite_for_content_analysis_callback_;
   Observer observer_;
-
-  // Tracks how many times a snapshot is obtained for doing analysis.
-  int got_snapshot_count_ = 0;
 };
 
-using ContentAnalysisConfigurationVariation =
-    testing::tuple<const char* /*policy_value*/,
-                   bool /*content_analysis_allows_print*/,
-                   bool /*oop_enabled*/>;
+using ContentAnalysisConfigurationVariation = testing::tuple<
+    const char* /*policy_value*/,
+    bool /*content_analysis_allows_print*/,
+    PrintBackendAndPlatformPrintApiVariation /*backend_and_print_api*/>;
 
 class ContentAnalysisPrintBrowserTestBase
     : public SystemAccessProcessPrintBrowserTestBase {
@@ -2999,8 +3066,7 @@ class ContentAnalysisPrintBrowserTestBase
   TestPrintViewManagerForContentAnalysis*
   SetUpAndReturnPrintViewManagerForContentAnalysis(
       content::WebContents* web_contents,
-      absl::optional<enterprise_connectors::ContentAnalysisRequest::Reason>
-          expected_reason) {
+      enterprise_connectors::ContentAnalysisRequest::Reason expected_reason) {
     // Safe to use `base::Unretained(this)` since this testing class
     // necessarily must outlive all interactions from the tests which will
     // run through `PrintViewManagerBase`, which is what causes new jobs to
@@ -3024,8 +3090,6 @@ class ContentAnalysisPrintBrowserTestBase
 
   bool SandboxService() override { return true; }
 
-  bool EnableContentAnalysisAfterDialog() override { return false; }
-
   int GetExpectedNewDocumentCalledCount() {
     return PrintAllowedOrNonBlockingPolicy() ? (UseService() ? 2 : 1) : 0;
   }
@@ -3048,14 +3112,15 @@ class ContentAnalysisPrintBrowserTestBase
   static std::string GetTestSuffix(
       const testing::TestParamInfo<ContentAnalysisConfigurationVariation>&
           info) {
-    return base::JoinString({GetPolicyTestSuffix(std::get<0>(info.param)),
-                             GetAllowsPrintTestSuffix(std::get<1>(info.param)),
-                             GetPrintDriverTestSuffix(std::get<2>(info.param))},
-                            /*separator=*/"_");
+    return base::JoinString(
+        {GetPolicyTypeString(std::get<0>(info.param)),
+         GetAllowsPrintString(std::get<1>(info.param)),
+         GetPrintBackendAndPlatformPrintApiString(std::get<2>(info.param))},
+        /*separator=*/"_");
   }
 
  protected:
-  static const char* GetPolicyTestSuffix(const char* policy_value) {
+  static const char* GetPolicyTypeString(const char* policy_value) {
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
     if (policy_value == kLocalAnalysisPolicy) {
       return "LocalPolicy";
@@ -3068,12 +3133,8 @@ class ContentAnalysisPrintBrowserTestBase
     return "NonBlockingCloudPolicy";
   }
 
-  static const char* GetAllowsPrintTestSuffix(bool allows_print) {
+  static const char* GetAllowsPrintString(bool allows_print) {
     return allows_print ? "AllowsPrint" : "DisallowsPrint";
-  }
-
-  static const char* GetPrintDriverTestSuffix(bool oop_enabled) {
-    return oop_enabled ? "PrintDriverOop" : "PrintDriverInBrowser";
   }
 
  private:
@@ -3086,34 +3147,33 @@ class ContentAnalysisPrintBrowserTestBase
   int scanning_responses_ = 0;
 };
 
-class ContentAnalysisBeforePrintPreviewBrowserTest
-    : public ContentAnalysisPrintBrowserTestBase,
-      public testing::WithParamInterface<
-          ContentAnalysisConfigurationVariation> {
- public:
-  bool EnableContentAnalysisAfterDialog() override { return false; }
-  const char* PolicyValue() const override { return std::get<0>(GetParam()); }
-  bool ContentAnalysisAllowsPrint() const override {
-    return std::get<1>(GetParam());
-  }
-  bool UseService() override { return std::get<2>(GetParam()); }
-};
-
 class ContentAnalysisAfterPrintPreviewBrowserTest
     : public ContentAnalysisPrintBrowserTestBase,
       public testing::WithParamInterface<
           ContentAnalysisConfigurationVariation> {
  public:
-  bool EnableContentAnalysisAfterDialog() override { return true; }
-
   const char* PolicyValue() const override { return std::get<0>(GetParam()); }
   bool ContentAnalysisAllowsPrint() const override {
     return std::get<1>(GetParam());
   }
-  bool UseService() override { return std::get<2>(GetParam()); }
+  bool UseService() override {
+    return backend_and_print_api().print_backend !=
+           PrintBackendFeatureVariation::kInBrowserProcess;
+  }
+#if BUILDFLAG(IS_WIN)
+  bool UseXps() override {
+    return backend_and_print_api().platform_api ==
+           PlatformPrintApiVariation::kXps;
+  }
+#endif
 
   // PrintJob::Observer:
   void OnCanceling() override { CheckForQuit(); }
+
+ private:
+  PrintBackendAndPlatformPrintApiVariation backend_and_print_api() const {
+    return std::get<2>(GetParam());
+  }
 };
 
 class ContentAnalysisScriptedPreviewlessPrintBrowserTestBase
@@ -3125,100 +3185,31 @@ class ContentAnalysisScriptedPreviewlessPrintBrowserTestBase
   bool ContentAnalysisAllowsPrint() const override {
     return std::get<1>(GetParam());
   }
-  bool UseService() override { return std::get<2>(GetParam()); }
+  bool UseService() override {
+    return backend_and_print_api().print_backend !=
+           PrintBackendFeatureVariation::kInBrowserProcess;
+  }
+#if BUILDFLAG(IS_WIN)
+  bool UseXps() override {
+    return backend_and_print_api().platform_api ==
+           PlatformPrintApiVariation::kXps;
+  }
+#endif
 
   void SetUpCommandLine(base::CommandLine* cmd_line) override {
     cmd_line->AppendSwitch(switches::kDisablePrintPreview);
     ContentAnalysisPrintBrowserTestBase::SetUpCommandLine(cmd_line);
   }
-};
 
-class ContentAnalysisScriptedPreviewlessPrintBeforeDialogBrowserTest
-    : public ContentAnalysisScriptedPreviewlessPrintBrowserTestBase {
- public:
-  bool EnableContentAnalysisAfterDialog() override { return false; }
-
-  void RunScriptedPrintTest(const std::string& script) {
-    AddPrinter("printer_name");
-
-    ASSERT_TRUE(embedded_test_server()->Started());
-    GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-    content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
-    ASSERT_TRUE(web_contents);
-    auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-        web_contents,
-        enterprise_connectors::ContentAnalysisRequest::SYSTEM_DIALOG_PRINT);
-
-    if (PrintAllowedOrNonBlockingPolicy()) {
-      if (UseService()) {
-        // The expected events are:
-        // 1.  The document is composited for content analysis.
-        // 2.  The print job used for scanning is destroyed.
-        // 3.  Get the default settings.
-        // 4.  Ask the user for settings.
-        // 5.  A print job is started.
-        // 6.  The one page of the document is rendered.
-        // 7.  Receive document done notification.
-        // 8.  Wait until all processing for DidPrintDocument is known to have
-        //     completed, to ensure printing finished cleanly before completing
-        //     the test.
-        // 9.  Wait for the one print job to be destroyed, to ensure printing
-        //     finished cleanly before completing the test.
-        SetNumExpectedMessages(/*num=*/9);
-      } else {
-        // The expected events for this are:
-        // 1.  The document is composited for content analysis.
-        // 2.  The print job used for scanning is destroyed.
-        // 3.  Use default settings.
-        // 4.  Ask the user for settings.
-        // 5.  Wait until all processing for DidPrintDocument is known to have
-        //     completed, to ensure printing finished cleanly before completing
-        //     the test.
-        // 6.  Wait for the actual printing job to be destroyed, to ensure
-        //     printing finished cleanly before completing the test.
-        SetNumExpectedMessages(/*num=*/6);
-      }
-    } else {
-      // The expected events for this are:
-      // 1.  Use default settings.
-      // 2.  The document is composited for content analysis.
-      // 3.  The print job used for scanning is destroyed.
-      SetNumExpectedMessages(/*num=*/3);
-
-      if (UseService()) {
-        // When printing is denied, the printing context in the Print Backend
-        // service leaks with no way to delete it.  It will persist there until
-        // there is a gap with no printing activity from the user, at which
-        // point the Print Backend service is shutdown.
-        SkipPersistentContextsCheckOnShutdown();
-      }
-    }
-
-    content::ExecuteScriptAsync(web_contents->GetPrimaryMainFrame(), script);
-
-    WaitUntilCallbackReceived();
-
-    ASSERT_EQ(print_view_manager->scripted_print_called(),
-              PrintAllowedOrNonBlockingPolicy());
-    EXPECT_EQ(composited_for_content_analysis_count(), 1);
-    EXPECT_EQ(scanning_responses_count(), 1);
-
-    // Validate that `NewDocument()` is only called for actual printing, not as
-    // part of content analysis, since that can needlessly prompt the user.
-    // When printing OOP, an extra call for a new document will occur since it
-    // gets called in both the browser process and in the Print Backend service.
-    EXPECT_EQ(new_document_called_count(), GetExpectedNewDocumentCalledCount());
+ private:
+  PrintBackendAndPlatformPrintApiVariation backend_and_print_api() const {
+    return std::get<2>(GetParam());
   }
 };
 
 class ContentAnalysisScriptedPreviewlessPrintAfterDialogBrowserTest
     : public ContentAnalysisScriptedPreviewlessPrintBrowserTestBase {
  public:
-  bool EnableContentAnalysisAfterDialog() override { return true; }
-
   void RunScriptedPrintTest(const std::string& script) {
     AddPrinter("printer_name");
 
@@ -3291,425 +3282,9 @@ class ContentAnalysisScriptedPreviewlessPrintAfterDialogBrowserTest
 };
 
 #if !BUILDFLAG(IS_CHROMEOS)
-IN_PROC_BROWSER_TEST_P(ContentAnalysisBeforePrintPreviewBrowserTest,
-                       PrintWithPreview) {
-  AddPrinter("printer_name");
-
-  if (UseService()) {
-    // Test does not do extra cleanup beyond the check for analysis permission.
-    SkipPersistentContextsCheckOnShutdown();
-  }
-
-  ASSERT_TRUE(embedded_test_server()->Started());
-  GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-  auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-      web_contents,
-      enterprise_connectors::ContentAnalysisRequest::PRINT_PREVIEW_PRINT);
-
-  if (PrintAllowedOrNonBlockingPolicy()) {
-    if (UseService()) {
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Update print settings.
-      // 4.  A print job is started.
-      // 5.  Rendering for 1 page of document of content.
-      // 6.  Completes with document done.
-      // 7.  Wait for the one print job to be destroyed, to ensure printing
-      //     finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/7);
-    } else {
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Update print settings for actual printing job.
-      // 4.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/4);
-    }
-    PrintAfterPreviewIsReadyAndLoaded();
-  } else {
-    // The expected events for this are:
-    // 1.  The document is composited for content analysis.
-    // 2.  The print job used for scanning is destroyed.
-    SetNumExpectedMessages(/*num=*/2);
-    test::StartPrint(web_contents);
-    WaitUntilCallbackReceived();
-  }
-
-  ASSERT_EQ(print_view_manager->preview_allowed(),
-            PrintAllowedOrNonBlockingPolicy());
-  EXPECT_EQ(composited_for_content_analysis_count(), 1);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(), 1);
-  EXPECT_EQ(scanning_responses_count(), 1);
-  // Validate that `NewDocument()` is only called for actual printing, not as
-  // part of content analysis, since that can needlessly prompt the user.
-  // When printing OOP, an extra call for a new document will occur since it
-  // gets called in both the browser process and in the Print Backend service.
-  EXPECT_EQ(new_document_called_count(), GetExpectedNewDocumentCalledCount());
-}
-
-IN_PROC_BROWSER_TEST_P(ContentAnalysisBeforePrintPreviewBrowserTest,
-                       WindowDotPrint) {
-  if (UseService()) {
-    // TODO(crbug.com/1464566):  Enable this test variant once an extra system
-    // dialog is not being displayed before analysis completes.
-    GTEST_SKIP();
-  }
-
-  AddPrinter("printer_name");
-
-  if (UseService()) {
-    // Test does not do extra cleanup beyond the check for analysis permission.
-    SkipPersistentContextsCheckOnShutdown();
-  }
-
-  ASSERT_TRUE(embedded_test_server()->Started());
-  GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-  auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-      web_contents,
-      enterprise_connectors::ContentAnalysisRequest::PRINT_PREVIEW_PRINT);
-
-  if (PrintAllowedOrNonBlockingPolicy()) {
-    if (UseService()) {
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Update print settings.
-      // 4.  A print job is started.
-      // 5.  Rendering for 1 page of document of content.
-      // 6.  Completes with document done.
-      // 7.  Wait for the one print job to be destroyed, to ensure printing
-      //     finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/7);
-    } else {
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Update print settings for actual printing job.
-      // 4.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/4);
-    }
-    const PrintParams kParams{.invoke_method =
-                                  InvokePrintMethod::kWindowDotPrint};
-    PrintAfterPreviewIsReadyAndLoaded(kParams);
-  } else {
-    // The expected events for this are:
-    // 1.  The document is composited for content analysis.
-    // 2.  The print job used for scanning is destroyed.
-    SetNumExpectedMessages(/*num=*/2);
-    content::ExecuteScriptAsync(web_contents->GetPrimaryMainFrame(),
-                                "window.print();");
-    WaitUntilCallbackReceived();
-  }
-
-  ASSERT_EQ(print_view_manager->preview_allowed(),
-            PrintAllowedOrNonBlockingPolicy());
-  EXPECT_EQ(composited_for_content_analysis_count(), 1);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(), 1);
-  EXPECT_EQ(scanning_responses_count(), 1);
-  // Validate that `NewDocument()` is only called for actual printing, not as
-  // part of content analysis, since that can needlessly prompt the user.
-  // When printing OOP, an extra call for a new document will occur since it
-  // gets called in both the browser process and in the Print Backend service.
-  EXPECT_EQ(new_document_called_count(), GetExpectedNewDocumentCalledCount());
-}
-
-IN_PROC_BROWSER_TEST_P(ContentAnalysisBeforePrintPreviewBrowserTest,
-                       SystemPrintFromPrintPreview) {
-  AddPrinter("printer_name");
-
-  ASSERT_TRUE(embedded_test_server()->Started());
-  GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-
-#if BUILDFLAG(IS_WIN)
-  // `PRINT_PREVIEW_PRINT` is expected here since scanning takes place before
-  // the print preview dialog where the system dialog print is selected.
-  auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-      web_contents,
-      enterprise_connectors::ContentAnalysisRequest::PRINT_PREVIEW_PRINT);
-#else
-  // TODO(http://b/285243428): Update expectation once a second analysis scan
-  // isn't done for system print from Print Preview.
-  auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-      web_contents, absl::nullopt);
-#endif
-
-  // Since the content analysis scan happens before the Print Preview dialog,
-  // checking behavior when requesting the system print dialog from print
-  // preview only is possible if the scan permits it.
-  // TODO(http://b/266119859):  Update test behavior and expectations for when
-  // scans are done after hitting Print from Print Preview.
-  if (PrintAllowedOrNonBlockingPolicy()) {
-    if (UseService()) {
-#if BUILDFLAG(IS_WIN)
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Update print settings.
-      // 4.  A second print job is started, for actual printing.
-      // 5.  Rendering for 1 page of document of content.
-      // 6.  Completes with document done.
-      // 7.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/7);
-#else
-      // TODO(http://b/285243428):  Update expectation once a second analysis
-      // scan isn't done for system print from Print Preview.
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning before Print Preview is destroyed.
-      // 3.  Use default settings.
-      // 4.  Ask the user for settings.
-      // 5.  The document is composited again for content analysis.
-      // 6.  The print job used for scanning before system print is destroyed.
-      // 7.  A print job is started for actual printing.
-      // 8.  The print compositor will complete generating the document.
-      // 9.  Rendering for 1 page of document of content.
-      // 10. Completes with document done.
-      // 11. Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/11);
-#endif
-    } else {
-#if BUILDFLAG(IS_WIN)
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Update print settings for actual printing job.
-      // 4.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/4);
-#else
-      // TODO(http://b/285243428):  Update expectation once a second analysis
-      // scan isn't done for system print from Print Preview.
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  The document is composited again for content analysis.
-      // 4.  The print job used for a second scan is destroyed.
-      // 5.  Use default settings.
-      // 6.  Ask the user for settings.
-      // 7.  Wait until all processing for DidPrintDocument is known to have
-      //     completed, to ensure printing finished cleanly before completing
-      //     the test.
-      // 8.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/8);
-#endif
-    }
-    SystemPrintFromPreviewOnceReadyAndLoaded(/*wait_for_callback=*/true);
-  } else {
-    // The expected events for this are:
-    // 1.  The document is composited for content analysis.
-    // 2.  The print job used for scanning is destroyed.
-    SetNumExpectedMessages(/*num=*/2);
-    test::StartPrint(browser()->tab_strip_model()->GetActiveWebContents());
-    WaitUntilCallbackReceived();
-  }
-
-  // TODO(http://b/266119859):  Change this check when scans are done after
-  // clicking Print from Print Preview instead of before displaying the dialog.
-  ASSERT_EQ(print_view_manager->preview_allowed(),
-            PrintAllowedOrNonBlockingPolicy());
-#if BUILDFLAG(IS_WIN)
-  const int kCompositedForContentAnalysisCount = 1;
-#else
-  // TODO(http://b/285243428):  Update expectation once a second analysis scan
-  // isn't done for system print from Print Preview.
-  const int kCompositedForContentAnalysisCount =
-      PrintAllowedOrNonBlockingPolicy() ? 2 : 1;
-#endif
-  EXPECT_EQ(composited_for_content_analysis_count(),
-            kCompositedForContentAnalysisCount);
-  EXPECT_EQ(scanning_responses_count(), kCompositedForContentAnalysisCount);
-
-#if BUILDFLAG(IS_WIN)
-  // One print job is always used to do scanning, and if printing is allowed
-  // then a second print job will be used for actual printing.
-  EXPECT_EQ(print_job_destruction_count(),
-            PrintAllowedOrNonBlockingPolicy() ? 2 : 1);
-
-  // There should be only one scan made, even though there could be up to two
-  // printing dialogs presented to the user.
-  EXPECT_EQ(print_view_manager->got_snapshot_count(), 1);
-#else
-  // TODO(http://b/285243428):  Update expectations to match Windows behavior
-  // once a second analysis scan isn't done for system print from Print Preview.
-
-  // A separate print job is always used for each scan, and if printing is
-  // allowed then another print job will be used for actual printing.
-  EXPECT_EQ(print_job_destruction_count(),
-            PrintAllowedOrNonBlockingPolicy() ? 3 : 1);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(),
-            PrintAllowedOrNonBlockingPolicy() ? 2 : 1);
-#endif
-
-  // Validate that `NewDocument()` is only called for actual printing, not as
-  // part of content analysis, since that can needlessly prompt the user.
-  // When printing OOP, an extra call for a new document will occur since it
-  // gets called in both the browser process and in the Print Backend service.
-  EXPECT_EQ(new_document_called_count(), GetExpectedNewDocumentCalledCount());
-}
-
-#if BUILDFLAG(IS_MAC)
-IN_PROC_BROWSER_TEST_P(ContentAnalysisBeforePrintPreviewBrowserTest,
-                       OpenPdfInPreviewFromPrintPreview) {
-  AddPrinter("printer_name");
-
-  ASSERT_TRUE(embedded_test_server()->Started());
-  GURL url(embedded_test_server()->GetURL("/printing/test3.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-  auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-      web_contents,
-      enterprise_connectors::ContentAnalysisRequest::PRINT_PREVIEW_PRINT);
-
-  // Since the content analysis scan happens before the Print Preview dialog,
-  // checking behavior when requesting opening in Preview from the print preview
-  // preview only is possible if the scan permits it.
-  if (PrintAllowedOrNonBlockingPolicy()) {
-    if (UseService()) {
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning before Print Preview is destroyed.
-      // 3.  Ask the user for settings.
-      // 4.  A print job is started for actual printing.
-      // 5.  The print compositor will complete generating the document.
-      // 6.  Completes with document done.
-      // 7.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/7);
-    } else {
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Update printer settings.
-      // 4.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/4);
-    }
-    OpenPdfInPreviewOnceReadyAndLoaded();
-  } else {
-    // The expected events for this are:
-    // 1.  The document is composited for content analysis.
-    // 2.  The print job used for scanning is destroyed.
-    SetNumExpectedMessages(/*num=*/2);
-    test::StartPrint(browser()->tab_strip_model()->GetActiveWebContents());
-    WaitUntilCallbackReceived();
-  }
-
-  ASSERT_EQ(print_view_manager->preview_allowed(),
-            PrintAllowedOrNonBlockingPolicy());
-  EXPECT_EQ(composited_for_content_analysis_count(), 1);
-  EXPECT_EQ(scanning_responses_count(), 1);
-
-  // A separate print job is always used for each scan, and if printing is
-  // allowed then another print job will be used for actual printing.
-  EXPECT_EQ(print_job_destruction_count(),
-            PrintAllowedOrNonBlockingPolicy() ? 2 : 1);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(),
-            PrintAllowedOrNonBlockingPolicy() ? 1 : 1);
-
-  // Validate that `NewDocument()` is only called for actual printing, not as
-  // part of content analysis, since that can needlessly prompt the user.
-  // When printing OOP, an extra call for a new document will occur since it
-  // gets called in both the browser process and in the Print Backend service.
-  EXPECT_EQ(new_document_called_count(), GetExpectedNewDocumentCalledCount());
-}
-#endif  // BUILDFLAG(IS_MAC)
 
 IN_PROC_BROWSER_TEST_P(ContentAnalysisAfterPrintPreviewBrowserTest,
-                       PrintWithPreview) {
-  AddPrinter("printer_name");
-
-  if (UseService()) {
-    // Test does not do extra cleanup beyond the check for analysis permission.
-    SkipPersistentContextsCheckOnShutdown();
-  }
-
-  ASSERT_TRUE(embedded_test_server()->Started());
-  GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-  auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-      web_contents,
-      enterprise_connectors::ContentAnalysisRequest::PRINT_PREVIEW_PRINT);
-
-  if (PrintAllowedOrNonBlockingPolicy() && UseService()) {
-    // The expected events for this are:
-    // 1.  Update print settings.
-    // 2.  A print job is started.
-    // 3.  Rendering for 1 page of document of content.
-    // 4.  Completes with document done.
-    // 5.  Wait for the one print job to be destroyed, to ensure printing
-    //     finished cleanly before completing the test.
-    SetNumExpectedMessages(/*num=*/5);
-  } else {
-    print_view_manager->set_on_print_preview_done_closure(base::BindOnce(
-        &ContentAnalysisBeforePrintPreviewBrowserTest::CheckForQuit,
-        base::Unretained(this)));
-    if (PrintAllowedOrNonBlockingPolicy()) {
-      // The expected events for this are:
-      // 1.  Update print settings.
-      // 2.  Print preview completes.
-      // 3.  Wait for the one print job to be destroyed, to ensure printing
-      //     finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/3);
-    } else {
-      // The expected events for this are:
-      // 1.  Print preview completes.  No print job is created.
-      SetNumExpectedMessages(/*num=*/1);
-    }
-  }
-
-  PrintAfterPreviewIsReadyAndLoaded();
-
-  EXPECT_THAT(print_view_manager->preview_allowed(), testing::Optional(true));
-
-  // Since the scanned document was the one shown in the print preview dialog,
-  // no snapshotting should have taken place.
-  EXPECT_EQ(composited_for_content_analysis_count(), 0);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(), 0);
-  EXPECT_EQ(scanning_responses_count(), 1);
-
-  // Validate that `NewDocument()` is only called for actual printing, not as
-  // part of content analysis, since that can needlessly prompt the user.
-  // When printing OOP, an extra call for a new document will occur since it
-  // gets called in both the browser process and in the Print Backend service.
-  EXPECT_EQ(new_document_called_count(), GetExpectedNewDocumentCalledCount());
-}
-
-// TODO(crbug.com/1496991): Timeout on Mac
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_PrintWithPreviewBeforeLoaded DISABLED_PrintWithPreviewBeforeLoaded
-#else
-#define MAYBE_PrintWithPreviewBeforeLoaded PrintWithPreviewBeforeLoaded
-#endif
-IN_PROC_BROWSER_TEST_P(ContentAnalysisAfterPrintPreviewBrowserTest,
-                       MAYBE_PrintWithPreviewBeforeLoaded) {
+                       PrintWithPreviewBeforeLoaded) {
   AddPrinter("printer_name");
 
   ASSERT_TRUE(embedded_test_server()->Started());
@@ -3734,7 +3309,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisAfterPrintPreviewBrowserTest,
     SetNumExpectedMessages(/*num=*/5);
   } else {
     print_view_manager->set_on_print_preview_done_closure(base::BindOnce(
-        &ContentAnalysisBeforePrintPreviewBrowserTest::CheckForQuit,
+        &ContentAnalysisAfterPrintPreviewBrowserTest::CheckForQuit,
         base::Unretained(this)));
     if (PrintAllowedOrNonBlockingPolicy()) {
       // The expected events for this are:
@@ -3754,11 +3329,6 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisAfterPrintPreviewBrowserTest,
                                          /*wait_for_loaded=*/false);
 
   EXPECT_THAT(print_view_manager->preview_allowed(), testing::Optional(true));
-
-  // Since the scanned document was the one shown in the print preview dialog,
-  // no snapshotting should have taken place.
-  EXPECT_EQ(composited_for_content_analysis_count(), 0);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(), 0);
   EXPECT_EQ(scanning_responses_count(), 1);
 
   // Validate that `NewDocument()` is only called for actual printing, not as
@@ -3851,12 +3421,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisAfterPrintPreviewBrowserTest,
   }
 
   EXPECT_THAT(print_view_manager->preview_allowed(), testing::Optional(true));
-
-  // TODO(crbug.com/1457901): Update these assertions once all cases for this
-  // test are re-enabled.
-  EXPECT_EQ(composited_for_content_analysis_count(), 0);
   EXPECT_EQ(print_job_destruction_count(), 1);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(), 0);
   EXPECT_EQ(scanning_responses_count(), 1);
 
   // Validate that `NewDocument()` is only called for actual printing, not as
@@ -3908,7 +3473,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisAfterPrintPreviewBrowserTest,
     }
   } else {
     print_view_manager->set_on_print_preview_done_closure(base::BindOnce(
-        &ContentAnalysisBeforePrintPreviewBrowserTest::CheckForQuit,
+        &ContentAnalysisAfterPrintPreviewBrowserTest::CheckForQuit,
         base::Unretained(this)));
     // The expected events for this are:
     // 1.  Print Preview is done.
@@ -3918,10 +3483,8 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisAfterPrintPreviewBrowserTest,
 
   EXPECT_THAT(print_view_manager->preview_allowed(), testing::Optional(true));
 
-  EXPECT_EQ(composited_for_content_analysis_count(), 0);
   EXPECT_EQ(print_job_destruction_count(),
             PrintAllowedOrNonBlockingPolicy() ? 1 : 0);
-  EXPECT_EQ(print_view_manager->got_snapshot_count(), 0);
   EXPECT_EQ(scanning_responses_count(), 1);
 
   // Validate that `NewDocument()` is only called for actual printing, not as
@@ -3993,7 +3556,6 @@ IN_PROC_BROWSER_TEST_P(
   WaitUntilCallbackReceived();
 
   ASSERT_TRUE(print_view_manager->scripted_print_called());
-  EXPECT_EQ(composited_for_content_analysis_count(), 0);
   EXPECT_EQ(scanning_responses_count(), 1);
 
   // Validate that `NewDocument()` is only called for actual printing, not as
@@ -4011,143 +3573,10 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     ContentAnalysisScriptedPreviewlessPrintAfterDialogBrowserTest,
-    WindowPrint) {
-  RunScriptedPrintTest("window.print()");
-}
-
-IN_PROC_BROWSER_TEST_P(
-    ContentAnalysisScriptedPreviewlessPrintBeforeDialogBrowserTest,
-    PrintNow) {
-  AddPrinter("printer_name");
-
-  if (UseService() && !PrintAllowedOrNonBlockingPolicy()) {
-    // This results in a stranded context left in the Print Backend service.
-    // It will persist harmlessly until the service terminates after a short
-    // period of no printing activity.
-    SkipPersistentContextsCheckOnShutdown();
-  }
-
-  ASSERT_TRUE(embedded_test_server()->Started());
-  GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-  auto* print_view_manager = SetUpAndReturnPrintViewManagerForContentAnalysis(
-      web_contents,
-      enterprise_connectors::ContentAnalysisRequest::SYSTEM_DIALOG_PRINT);
-
-  if (PrintAllowedOrNonBlockingPolicy()) {
-    if (UseService()) {
-      // The expected events are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Get the default settings.
-      // 4.  Ask the user for settings.
-      // 5.  A print job is started.
-      // 6.  The one page of the document is rendered.
-      // 7.  Receive document done notification.
-      // 8.  Wait until all processing for DidPrintDocument is known to have
-      //     completed, to ensure printing finished cleanly before completing
-      //     the test.
-      // 9.  Wait for the one print job to be destroyed, to ensure printing
-      //     finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/9);
-    } else {
-      // The expected events for this are:
-      // 1.  The document is composited for content analysis.
-      // 2.  The print job used for scanning is destroyed.
-      // 3.  Use default settings.
-      // 4.  Ask the user for settings.
-      // 5.  Wait until all processing for DidPrintDocument is known to have
-      //     completed, to ensure printing finished cleanly before completing
-      //     the test.
-      // 6.  Wait for the actual printing job to be destroyed, to ensure
-      //     printing finished cleanly before completing the test.
-      SetNumExpectedMessages(/*num=*/6);
-    }
-  } else {
-    // The expected events for this are:
-    // 1.  Get the default settings.
-    // 2.  The document is composited for content analysis.
-    // 3.  The print job used for scanning is destroyed.
-    SetNumExpectedMessages(/*num=*/3);
-  }
-
-  StartPrint(browser()->tab_strip_model()->GetActiveWebContents(),
-             /*print_preview_disabled=*/true,
-             /*has_selection=*/false);
-
-  WaitUntilCallbackReceived();
-
-  // PrintNow uses the same code path as scripted prints to scan printed
-  // pages, so print_now_called() should always happen and
-  // scripted_print_called() should be called with the same result that is
-  // expected from scanning.
-  EXPECT_TRUE(print_view_manager->print_now_called());
-  EXPECT_EQ(print_view_manager->scripted_print_called(),
-            PrintAllowedOrNonBlockingPolicy());
-  EXPECT_EQ(composited_for_content_analysis_count(), 1);
-  EXPECT_EQ(scanning_responses_count(), 1);
-
-  // Validate that `NewDocument()` is only called for actual printing, not as
-  // part of content analysis, since that can needlessly prompt the user.
-  // When printing OOP, an extra call for a new document will occur since it
-  // gets called in both the browser process and in the Print Backend service.
-  EXPECT_EQ(new_document_called_count(), GetExpectedNewDocumentCalledCount());
-}
-
-IN_PROC_BROWSER_TEST_P(
-    ContentAnalysisScriptedPreviewlessPrintBeforeDialogBrowserTest,
-    DocumentExecPrint) {
-  RunScriptedPrintTest("document.execCommand('print');");
-}
-
-IN_PROC_BROWSER_TEST_P(
-    ContentAnalysisScriptedPreviewlessPrintBeforeDialogBrowserTest,
     WindowPrint) {
   RunScriptedPrintTest("window.print()");
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_CHROMEOS)
-IN_PROC_BROWSER_TEST_P(ContentAnalysisBeforePrintPreviewBrowserTest,
-                       BlockedByDLPThenNoContentAnalysis) {
-  AddPrinter("printer_name");
-  ASSERT_TRUE(embedded_test_server()->Started());
-  GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-  auto* print_view_manager =
-      TestPrintViewManagerForContentAnalysis::CreateForWebContents(
-          web_contents,
-          enterprise_connectors::ContentAnalysisRequest::PRINT_PREVIEW_PRINT);
-  print_view_manager->set_allowed_by_dlp(false);
-
-  test::StartPrint(browser()->tab_strip_model()->GetActiveWebContents());
-
-  print_view_manager->WaitOnPreview();
-  EXPECT_THAT(print_view_manager->preview_allowed(), testing::Optional(false));
-  EXPECT_EQ(scanning_responses_count(), 0);
-
-  // This is always 0 because printing is always blocked by the DLP policy.
-  ASSERT_EQ(new_document_called_count(), 0);
-}
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ContentAnalysisBeforePrintPreviewBrowserTest,
-    testing::Combine(
-        /*policy_value=*/testing::Values(kCloudAnalysisBlockingPolicy,
-                                         kCloudAnalysisNonBlockingPolicy),
-        /*content_analysis_allows_print=*/testing::Bool(),
-        /*oop_enabled=*/testing::Bool()),
-    ContentAnalysisBeforePrintPreviewBrowserTest::GetTestSuffix);
 
 INSTANTIATE_TEST_SUITE_P(
     All,
@@ -4162,20 +3591,13 @@ INSTANTIATE_TEST_SUITE_P(
                                          kCloudAnalysisNonBlockingPolicy),
 #endif
         /*content_analysis_allows_print=*/testing::Bool(),
-        /*oop_enabled=*/testing::Bool()),
+        /*backend_and_print_api=*/
+        testing::ValuesIn(GeneratePrintBackendAndPlatformPrintApiVariations(
+            {PrintBackendFeatureVariation::kInBrowserProcess,
+             PrintBackendFeatureVariation::kOopSandboxedService}))),
     ContentAnalysisAfterPrintPreviewBrowserTest::GetTestSuffix);
 
 #if BUILDFLAG(ENABLE_BASIC_PRINT_DIALOG)
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ContentAnalysisScriptedPreviewlessPrintBeforeDialogBrowserTest,
-    testing::Combine(
-        /*policy_value=*/testing::Values(kCloudAnalysisBlockingPolicy,
-                                         kCloudAnalysisNonBlockingPolicy),
-        /*content_analysis_allows_print=*/testing::Bool(),
-        /*oop_enabled=*/testing::Bool()),
-    ContentAnalysisScriptedPreviewlessPrintBeforeDialogBrowserTest::
-        GetTestSuffix);
 
 INSTANTIATE_TEST_SUITE_P(
     All,
@@ -4190,7 +3612,10 @@ INSTANTIATE_TEST_SUITE_P(
                                          kCloudAnalysisNonBlockingPolicy),
 #endif  // BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
         /*content_analysis_allows_print=*/testing::Bool(),
-        /*oop_enabled=*/testing::Bool()),
+        /*backend_and_print_api=*/
+        testing::ValuesIn(GeneratePrintBackendAndPlatformPrintApiVariations(
+            {PrintBackendFeatureVariation::kInBrowserProcess,
+             PrintBackendFeatureVariation::kOopSandboxedService}))),
     ContentAnalysisScriptedPreviewlessPrintAfterDialogBrowserTest::
         GetTestSuffix);
 

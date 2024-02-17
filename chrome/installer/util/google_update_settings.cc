@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <optional>
 #include <string_view>
 
 #include "base/command_line.h"
@@ -28,7 +29,6 @@
 #include "chrome/installer/util/additional_parameters.h"
 #include "chrome/installer/util/install_util.h"
 #include "chrome/installer/util/installation_state.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 using base::win::RegKey;
 using installer::InstallationState;
@@ -74,7 +74,7 @@ bool ReadGoogleUpdateStrKeyFromRoot(HKEY root,
 
 // Returns the value |name| from the app's ClientState cohort registry key in
 // |root|.
-absl::optional<std::wstring> ReadGoogleUpdateCohortStrKeyFromRoot(
+std::optional<std::wstring> ReadGoogleUpdateCohortStrKeyFromRoot(
     HKEY root,
     const wchar_t* const name) {
   std::wstring value;
@@ -86,7 +86,7 @@ absl::optional<std::wstring> ReadGoogleUpdateCohortStrKeyFromRoot(
       key.ReadValue(name, &value) == ERROR_SUCCESS) {
     return value;
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 // Reads the value |name| from the app's ClientState registry key in
@@ -109,7 +109,7 @@ bool ReadGoogleUpdateStrKey(const wchar_t* const name, std::wstring* value) {
 }
 
 // Reads the value |name| from the app's ClientState/cohort registry key.
-absl::optional<std::wstring> ReadGoogleUpdateCohortStrKey(
+std::optional<std::wstring> ReadGoogleUpdateCohortStrKey(
     const wchar_t* const name) {
   return ReadGoogleUpdateCohortStrKeyFromRoot(install_static::IsSystemInstall()
                                                   ? HKEY_LOCAL_MACHINE
@@ -327,11 +327,11 @@ GoogleUpdateSettings::LoadMetricsClientInfo() {
 }
 
 // static
-absl::optional<uint32_t> GoogleUpdateSettings::GetHashedCohortId() {
-  absl::optional<std::wstring> id =
+std::optional<uint32_t> GoogleUpdateSettings::GetHashedCohortId() {
+  std::optional<std::wstring> id =
       ReadGoogleUpdateCohortStrKey(google_update::kRegDefaultField);
   if (!id) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   std::string id_utf8 = base::WideToUTF8(*id);
   // Duplicate the logic of
@@ -344,7 +344,7 @@ absl::optional<uint32_t> GoogleUpdateSettings::GetHashedCohortId() {
   if (last_colon == std::string::npos) {
     // No colon separator indicates some unexpected id format; abandon trying
     // to interpret it.
-    return absl::nullopt;
+    return std::nullopt;
   }
   return base::PersistentHash(std::string_view(id_utf8.c_str(), last_colon));
 }

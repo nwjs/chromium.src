@@ -24,7 +24,10 @@ enum class PasswordStoreBackendErrorType {
   // A Keychain error that prevents the password store from decrypting the
   // passwords. Used on Mac.
   kKeychainError = 3,
-  kMaxValue = kKeychainError,
+  // Error related only to on-device encryption users when the encryption
+  // key is missing. Used on Android.
+  kKeyRetrievalRequired = 4,
+  kMaxValue = kKeyRetrievalRequired,
 };
 
 enum class PasswordStoreBackendErrorRecoveryType {
@@ -46,6 +49,9 @@ struct PasswordStoreBackendError {
       PasswordStoreBackendErrorType error_type,
       PasswordStoreBackendErrorRecoveryType recovery_type);
 
+  friend bool operator==(const PasswordStoreBackendError&,
+                         const PasswordStoreBackendError&) = default;
+
   // The type of the error.
   PasswordStoreBackendErrorType type;
 
@@ -53,8 +59,6 @@ struct PasswordStoreBackendError {
   PasswordStoreBackendErrorRecoveryType recovery_type;
 };
 
-bool operator==(const PasswordStoreBackendError& lhs,
-                const PasswordStoreBackendError& rhs);
 
 }  // namespace password_manager
 

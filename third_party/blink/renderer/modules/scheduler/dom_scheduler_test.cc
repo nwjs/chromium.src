@@ -22,6 +22,8 @@ namespace blink {
 
 class DOMSchedulerTest : public PageTestBase {
  public:
+  DOMSchedulerTest()
+      : PageTestBase(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
   void SetUp() override {
     EnablePlatform();
     PageTestBase::SetUp();
@@ -140,14 +142,5 @@ TEST_F(DOMSchedulerTest, DynamicPriorityTaskQueueGarbageCollection) {
   ThreadState::Current()->CollectAllGarbageForTesting();
   EXPECT_EQ(GetDynamicPriorityTaskQueueCount(), 0u);
 }
-
-class DOMSchedulerTestWithCompositionDisabled : public DOMSchedulerTest {
- public:
-  DOMSchedulerTestWithCompositionDisabled()
-      : scoped_signal_composition_(false) {}
-
- private:
-  ScopedAbortSignalCompositionForTest scoped_signal_composition_;
-};
 
 }  // namespace blink

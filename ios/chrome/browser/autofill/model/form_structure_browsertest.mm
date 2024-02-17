@@ -35,7 +35,7 @@
 #import "components/sync_user_events/fake_user_event_service.h"
 #import "ios/chrome/browser/autofill/model/address_normalizer_factory.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_controller.h"
-#import "ios/chrome/browser/infobars/infobar_manager_impl.h"
+#import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/password_controller.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
@@ -366,12 +366,10 @@ std::string FormStructureBrowserTest::FormStructuresToString(
         }
       }
 
-      forms_string += field->Type().ToString();
-      forms_string += " | " + name;
-      forms_string += " | " + base::UTF16ToUTF8(field->label);
-      forms_string += " | " + base::UTF16ToUTF8(field->value);
-      forms_string += " | " + section;
-      forms_string += "\n";
+      forms_string +=
+          base::StrCat({field->Type().ToStringView(), " | ", name, " | ",
+                        base::UTF16ToUTF8(field->label), " | ",
+                        base::UTF16ToUTF8(field->value), " | ", section, "\n"});
     }
   }
   return forms_string;

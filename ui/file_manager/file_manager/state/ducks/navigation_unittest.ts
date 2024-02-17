@@ -7,13 +7,13 @@ import {EntryList, FakeEntryImpl, VolumeEntry} from '../../common/js/files_app_e
 import {MockFileEntry, MockFileSystem} from '../../common/js/mock_entry.js';
 import {TrashRootEntry} from '../../common/js/trash.js';
 import {RootType, VolumeType} from '../../common/js/volume_manager_types.js';
-import {AndroidApp, FileData, NavigationSection, NavigationType, State, Volume} from '../../externs/ts/state.js';
-import {constants} from '../../foreground/js/constants.js';
+import {ICON_TYPES, ODFS_EXTENSION_ID} from '../../foreground/js/constants.js';
+import {type AndroidApp, type FileData, NavigationSection, NavigationType, type State, type Volume} from '../../state/state.js';
 import {convertEntryToFileData} from '../ducks/all_entries.js';
 import {createFakeVolumeMetadata, setUpFileManagerOnWindow, setupStore, waitDeepEquals} from '../for_tests.js';
 import {getEmptyState} from '../store.js';
 
-import {refreshNavigationRoots, updateNavigationEntry} from './navigation.js';
+import {refreshNavigationRoots} from './navigation.js';
 import {convertVolumeInfoAndMetadataToVolume, driveRootEntryListKey, myFilesEntryListKey, recentRootKey, trashRootKey} from './volumes.js';
 
 export function setUp() {
@@ -80,7 +80,7 @@ function createAndroidApps(): [AndroidApp, AndroidApp] {
       packageName: 'com.test.app2',
       activityName: 'Activity2',
       iconSet: {icon16x16Url: '', icon32x32Url: ''},
-      icon: constants.ICON_TYPES.GENERIC,
+      icon: ICON_TYPES.GENERIC,
     },
   ];
 }
@@ -195,8 +195,7 @@ export async function testNavigationRoots(done: () => void) {
   initialState.volumes[smbVolume.volume.volumeId] = smbVolume.volume;
 
   const odfsVolume = createVolumeFileData(
-      VolumeType.PROVIDED, 'provided:odfs', '', '',
-      constants.ODFS_EXTENSION_ID);
+      VolumeType.PROVIDED, 'provided:odfs', '', '', ODFS_EXTENSION_ID);
   initialState.allEntries[odfsVolume.fileData.entry.toURL()] =
       odfsVolume.fileData;
   initialState.volumes[odfsVolume.volume.volumeId] = odfsVolume.volume;
@@ -641,41 +640,6 @@ export async function testNavigationRootsWithFilteredVolume(done: () => void) {
     },
   ];
   await waitDeepEquals(store, want, (state) => state.navigation.roots);
-
-  done();
-}
-
-/** Tests that navigation entry can be updated correctly. */
-export async function testUpdateNavigationEntry(done: () => void) {
-  const initialState = getEmptyState();
-  // Add MyFiles entry to the store.
-  const myFilesVolume = createMyFilesEntryFileData();
-  const myFilesEntryKey = myFilesVolume.fileData.entry.toURL();
-  initialState.allEntries[myFilesEntryKey] = myFilesVolume.fileData;
-
-  const store = setupStore(initialState);
-
-  // Dispatch an action to update navigation entry.
-  store.dispatch(updateNavigationEntry({key: myFilesEntryKey, expanded: true}));
-
-  // Expect MyFiles entry is expanded in the store.
-  await waitDeepEquals(
-      store, true, (state) => state.allEntries[myFilesEntryKey]?.expanded);
-
-  done();
-}
-
-/** Tests that navigation entry won't be updated without valid file data. */
-export async function testUpdateNavigationEntryWithoutValidFileData(
-    done: () => void) {
-  const initialState = getEmptyState();
-  const store = setupStore(initialState);
-
-  // Dispatch an action to update an non existed navigation entry.
-  store.dispatch(updateNavigationEntry({key: 'not-exist-key', expanded: true}));
-
-  // Check state won't be touched.
-  await waitDeepEquals(store, initialState, (state) => state);
 
   done();
 }

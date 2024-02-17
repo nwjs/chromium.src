@@ -43,6 +43,7 @@
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/component_updater/chrome_component_updater_configurator.h"
+#include "chrome/browser/controlled_frame/controlled_frame_extensions_browser_api_provider.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/devtools/remote_debugging_server.h"
 #include "chrome/browser/download/download_request_limiter.h"
@@ -145,6 +146,8 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "base/win/windows_version.h"
+#include "chrome/browser/browser_features.h"
+#include "components/os_crypt/async/browser/dpapi_key_provider.h"
 #elif BUILDFLAG(IS_MAC)
 #include "chrome/browser/chrome_browser_main_mac.h"
 #include "chrome/browser/media/webrtc/system_media_capture_permissions_stats_mac.h"
@@ -169,6 +172,7 @@
 #include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
+#include "chrome/browser/search_engine_choice/search_engine_choice_profile_tagger.h"
 #include "chrome/browser/serial/serial_policy_allowed_ports.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -234,10 +238,6 @@
 #include "chrome/browser/usb/usb_status_icon.h"
 #endif
 
-#if BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
-#include "chrome/browser/search_engine_choice/search_engine_choice_profile_tagger.h"
-#endif  // BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
-
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
 // How often to check if the persistent instance of Chrome needs to restart
 // to install an update.
@@ -264,10 +264,6 @@ BrowserProcessImpl::BrowserProcessImpl(StartupData* startup_data)
       platform_part_(std::make_unique<BrowserProcessPlatformPart>()) {
   CHECK(!g_browser_process);
   g_browser_process = this;
-
-  // Initialize the SessionIdGenerator instance, providing a PrefService to
-  // ensure the persistent storage of current max SessionId.
-  sessions::SessionIdGenerator::GetInstance()->Init(local_state_.get());
 
   DCHECK(browser_policy_connector_);
   DCHECK(local_state_);
@@ -319,6 +315,9 @@ void BrowserProcessImpl::Init() {
       std::make_unique<extensions::ChromeExtensionsBrowserClient>();
   extensions_browser_client_->AddAPIProvider(
       std::make_unique<chrome_apps::ChromeAppsBrowserAPIProvider>());
+  extensions_browser_client_->AddAPIProvider(
+      std::make_unique<
+          controlled_frame::ControlledFrameExtensionsBrowserAPIProvider>());
   extensions::ExtensionsBrowserClient::Set(extensions_browser_client_.get());
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -724,7 +723,9 @@ void BrowserProcessImpl::EndSession() {
 metrics_services_manager::MetricsServicesManager*
 BrowserProcessImpl::GetMetricsServicesManager() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!metrics_services_manager_) {
+  // Only create the objects if teardown hasn't started yet, as otherwise these
+  // may have already been destroyed.
+  if (!metrics_services_manager_ && !tearing_down_) {
     auto client =
         std::make_unique<ChromeMetricsServicesManagerClient>(local_state());
     metrics_services_manager_client_ = client.get();
@@ -737,7 +738,11 @@ BrowserProcessImpl::GetMetricsServicesManager() {
 
 metrics::MetricsService* BrowserProcessImpl::metrics_service() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return GetMetricsServicesManager()->GetMetricsService();
+  auto* metrics_services_manager = GetMetricsServicesManager();
+  if (metrics_services_manager_) {
+    return metrics_services_manager->GetMetricsService();
+  }
+  return nullptr;
 }
 
 embedder_support::OriginTrialsSettingsStorage*
@@ -785,7 +790,11 @@ PrefService* BrowserProcessImpl::local_state() {
 
 variations::VariationsService* BrowserProcessImpl::variations_service() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return GetMetricsServicesManager()->GetVariationsService();
+  auto* metrics_services_manager = GetMetricsServicesManager();
+  if (metrics_services_manager_) {
+    return metrics_services_manager->GetVariationsService();
+  }
+  return nullptr;
 }
 
 BrowserProcessPlatformPart* BrowserProcessImpl::platform_part() {
@@ -1167,10 +1176,10 @@ void BrowserProcessImpl::CreateProfileManager() {
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   profile_manager_ = std::make_unique<ProfileManager>(user_data_dir);
 
-#if BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
+#if !BUILDFLAG(IS_ANDROID)
   search_engine_choice_profile_tagger_ =
       SearchEngineChoiceProfileTagger::Create(*profile_manager_.get());
-#endif  // BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
+#endif
 }
 
 void BrowserProcessImpl::PreCreateThreads() {
@@ -1210,6 +1219,10 @@ void BrowserProcessImpl::PreCreateThreads() {
 
 void BrowserProcessImpl::PreMainMessageLoopRun() {
   TRACE_EVENT0("startup", "BrowserProcessImpl::PreMainMessageLoopRun");
+
+  // Initialize the SessionIdGenerator instance, providing a PrefService to
+  // ensure the persistent storage of current max SessionId.
+  sessions::SessionIdGenerator::GetInstance()->Init(local_state_.get());
 
   // browser_policy_connector() is created very early because local_state()
   // needs policy to be initialized with the managed preference values.
@@ -1283,13 +1296,26 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
     breadcrumbs::DeleteBreadcrumbFiles(user_data_dir);
   }
 
-  // For now, initialize OSCryptAsync with no providers. This delegates all
+  // OSCryptAsync provider configuration. If empty, this delegates all
   // encryption operations to OSCrypt.
-  // TODO(crbug.com/1373092): Add providers behind features, as support for them
-  // is added.
-  os_crypt_async_ = std::make_unique<os_crypt_async::OSCryptAsync>(
-      std::vector<
-          std::pair<size_t, std::unique_ptr<os_crypt_async::KeyProvider>>>());
+  std::vector<std::pair<size_t, std::unique_ptr<os_crypt_async::KeyProvider>>>
+      providers;
+
+#if BUILDFLAG(IS_WIN)
+  // TODO(crbug.com/1373092): For Windows, continue to add providers behind
+  // features, as support for them is added.
+  if (base::FeatureList::IsEnabled(features::kEnableDPAPIEncryptionProvider)) {
+    // The DPAPI key provider requires OSCrypt::Init to have already been called
+    // to initialize the key storage. This happens in
+    // ChromeBrowserMainPartsWin::PreCreateMainMessageLoop.
+    providers.emplace_back(std::make_pair(
+        /*precedence=*/10u,
+        std::make_unique<os_crypt_async::DPAPIKeyProvider>(local_state())));
+  }
+#endif  // BUILDFLAG(IS_WIN)
+
+  os_crypt_async_ =
+      std::make_unique<os_crypt_async::OSCryptAsync>(std::move(providers));
 
   // Trigger async initialization of OSCrypt key providers.
   std::ignore = os_crypt_async_->GetInstance(base::DoNothing());
@@ -1335,7 +1361,7 @@ void BrowserProcessImpl::CreatePrintPreviewDialogController() {
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
   DCHECK(!print_preview_dialog_controller_);
   print_preview_dialog_controller_ =
-      base::MakeRefCounted<printing::PrintPreviewDialogController>();
+      std::make_unique<printing::PrintPreviewDialogController>();
 #else
   NOTIMPLEMENTED();
 #endif

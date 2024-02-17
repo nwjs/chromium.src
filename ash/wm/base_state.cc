@@ -11,6 +11,7 @@
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_types.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/window_util.h"
@@ -128,9 +129,8 @@ void BaseState::CycleSnap(WindowState* window_state, WMEventType event) {
       DCHECK(SplitViewController::Get(window)->IsWindowInSplitView(window));
       SplitViewController::Get(window)->SnapWindow(
           window,
-          is_desired_primary_snapped
-              ? SplitViewController::SnapPosition::kPrimary
-              : SplitViewController::SnapPosition::kSecondary,
+          is_desired_primary_snapped ? SnapPosition::kPrimary
+                                     : SnapPosition::kSecondary,
           WindowSnapActionSource::kKeyboardShortcutToSnap);
     } else {
       const WindowSnapWMEvent wm_event(
@@ -196,8 +196,8 @@ gfx::Rect BaseState::GetSnappedWindowBoundsInParent(
     // clamshell state it only manages windows in split view.
     return split_view_controller->GetSnappedWindowBoundsInParent(
         (state_type == WindowStateType::kPrimarySnapped)
-            ? SplitViewController::SnapPosition::kPrimary
-            : SplitViewController::SnapPosition::kSecondary,
+            ? SnapPosition::kPrimary
+            : SnapPosition::kSecondary,
         window, snap_ratio);
   }
   return ash::GetSnappedWindowBoundsInParent(
@@ -215,7 +215,7 @@ void BaseState::HandleWindowSnapping(
          event_type == WM_EVENT_SNAP_SECONDARY);
   DCHECK(window_state->CanSnap());
 
-  window_state->set_bounds_changed_by_user(true);
+  window_state->SetBoundsChangedByUser(true);
   aura::Window* window = window_state->window();
   // `SplitViewController` will decide if the window needs to be snapped in
   // split view.

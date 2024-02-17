@@ -129,7 +129,7 @@
       },
       "WINDOW_ID_CURRENT": {
         "value": -2,
-        "description": "The windowId value that represents the <a href='windows#current-window'>current window</a>."
+        "description": "The windowId value that represents the <a href='#the_current_window'>current window</a>."
       }
     },
     "functions": [
@@ -419,7 +419,7 @@
           }
         ],
         "parameters": [
-          {"type": "integer", "name": "windowId", "minimum": 0, "description": "ID of the removed window."},
+          {"type": "integer", "name": "windowId", "minimum": 0, "description": "token of the top frame in the removed window."},
           {"type": "string", "optional": true, "name": "flag", "description": ""}
         ]
       },

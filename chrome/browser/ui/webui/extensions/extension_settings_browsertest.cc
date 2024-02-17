@@ -232,23 +232,20 @@ class SafetyHubExtensionSettingsUIBrowserTest
 IN_PROC_BROWSER_TEST_F(SafetyHubExtensionSettingsUIBrowserTest,
                        TestSafetyHubMenuNotificationDismissed) {
   Profile* profile = browser()->profile();
-  // Add a couple of extensions that will be marked as unpublished and malware.
-  InstallGoodExtension();
-  InstallGoodExtension();
   InstallGoodExtension();
   SafetyHubMenuNotificationService* notification_service =
       SafetyHubMenuNotificationServiceFactory::GetForProfile(profile);
   // No unpublished extensions yet, so there shouldn't be a menu notifications.
-  absl::optional<MenuNotificationEntry> notification =
+  std::optional<MenuNotificationEntry> notification =
       notification_service->GetNotificationToShow();
   ASSERT_FALSE(notification.has_value());
 
-  // Make all extensions unpublished and malware.
+  // Make all extensions unpublished.
   const extensions::CWSInfoService::CWSInfo cws_info_unpublished{
       /*is_present=*/true,
       /*is_live=*/false,
       /*last_update_time=*/base::Time::Now(),
-      /*violation_type=*/extensions::CWSInfoService::CWSViolationType::kMalware,
+      /*violation_type=*/extensions::CWSInfoService::CWSViolationType::kNone,
       /*unpublished_long_ago=*/true,
       /*no_privacy_practice=*/false};
   testing::NiceMock<safety_hub_test_util::MockCWSInfoService>

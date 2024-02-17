@@ -53,9 +53,6 @@ void FakeLocalFrame::AddMessageToConsole(
     const std::string& message,
     bool discard_duplicates) {}
 
-void FakeLocalFrame::AddInspectorIssue(
-    blink::mojom::InspectorIssueInfoPtr info) {}
-
 void FakeLocalFrame::SwapInImmediately() {}
 
 void FakeLocalFrame::CheckCompleted() {}
@@ -89,6 +86,8 @@ void FakeLocalFrame::MediaPlayerActionAt(
     blink::mojom::MediaPlayerActionPtr action) {}
 
 void FakeLocalFrame::RequestVideoFrameAt(const gfx::Point& window_point,
+                                         const gfx::Size& max_size,
+                                         int max_area,
                                          RequestVideoFrameAtCallback callback) {
 }
 
@@ -97,7 +96,7 @@ void FakeLocalFrame::PluginActionAt(const gfx::Point& location,
 
 void FakeLocalFrame::AdvanceFocusInFrame(
     blink::mojom::FocusType focus_type,
-    const absl::optional<blink::RemoteFrameToken>& source_frame_token) {}
+    const std::optional<blink::RemoteFrameToken>& source_frame_token) {}
 
 void FakeLocalFrame::AdvanceFocusForIME(blink::mojom::FocusType focus_type) {}
 
@@ -108,7 +107,7 @@ void FakeLocalFrame::DidUpdateFramePolicy(
     const blink::FramePolicy& frame_policy) {}
 
 void FakeLocalFrame::PostMessageEvent(
-    const absl::optional<blink::RemoteFrameToken>& source_frame_token,
+    const std::optional<blink::RemoteFrameToken>& source_frame_token,
     const std::u16string& source_origin,
     const std::u16string& target_origin,
     blink::TransferableMessage message) {}
@@ -154,7 +153,7 @@ void FakeLocalFrame::BindReportingObserver(
     mojo::PendingReceiver<blink::mojom::ReportingObserver> receiver) {}
 
 void FakeLocalFrame::UpdateOpener(
-    const absl::optional<blink::FrameToken>& opener_frame_token) {}
+    const std::optional<blink::FrameToken>& opener_frame_token) {}
 
 void FakeLocalFrame::MixedContentFound(
     const GURL& main_resource_url,
@@ -180,7 +179,7 @@ void FakeLocalFrame::ExtractSmartClipData(
 void FakeLocalFrame::HandleRendererDebugURL(const GURL& url) {}
 
 void FakeLocalFrame::GetCanonicalUrlForSharing(
-    base::OnceCallback<void(const absl::optional<GURL>&)> callback) {}
+    base::OnceCallback<void(const std::optional<GURL>&)> callback) {}
 
 void FakeLocalFrame::GetOpenGraphMetadata(
     base::OnceCallback<void(blink::mojom::OpenGraphMetadataPtr)>) {}

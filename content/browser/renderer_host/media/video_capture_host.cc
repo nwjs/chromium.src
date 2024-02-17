@@ -73,7 +73,9 @@ class VideoCaptureHost::RenderFrameHostDelegateImpl
                          RenderFrameHostImpl* host =
                              RenderFrameHostImpl::FromID(render_frame_host_id);
                          if (host) {
-                           host->OnMediaStreamAdded();
+                           host->OnMediaStreamAdded(
+                               RenderFrameHostImpl::MediaStreamType::
+                                   kCapturingMediaStream);
                          }
                        },
                        render_frame_host_id_));
@@ -87,7 +89,9 @@ class VideoCaptureHost::RenderFrameHostDelegateImpl
                          RenderFrameHostImpl* host =
                              RenderFrameHostImpl::FromID(render_frame_host_id);
                          if (host) {
-                           host->OnMediaStreamRemoved();
+                           host->OnMediaStreamRemoved(
+                               RenderFrameHostImpl::MediaStreamType::
+                                   kCapturingMediaStream);
                          }
                        },
                        render_frame_host_id_));
@@ -251,8 +255,8 @@ void VideoCaptureHost::OnFrameWithEmptyRegionCapture(
     return;
   }
 
-  if (region_capture_rect_ != absl::nullopt) {
-    region_capture_rect_ = absl::nullopt;
+  if (region_capture_rect_ != std::nullopt) {
+    region_capture_rect_ = std::nullopt;
     media_stream_manager_->OnRegionCaptureRectChanged(controller_id,
                                                       region_capture_rect_);
   }

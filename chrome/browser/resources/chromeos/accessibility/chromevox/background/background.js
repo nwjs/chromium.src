@@ -34,9 +34,9 @@ import {RangeAutomationHandler} from './event/range_automation_handler.js';
 import {EventSource} from './event_source.js';
 import {FindHandler} from './find_handler.js';
 import {InjectedScriptLoader} from './injected_script_loader.js';
+import {BackgroundKeyboardHandler} from './input/background_keyboard_handler.js';
 import {CommandHandler} from './input/command_handler.js';
 import {GestureCommandHandler} from './input/gesture_command_handler.js';
-import {BackgroundKeyboardHandler} from './input/keyboard_handler.js';
 import {SmartStickyMode} from './input/smart_sticky_mode.js';
 import {LiveRegions} from './live_regions.js';
 import {EventStreamLogger} from './logging/event_stream_logger.js';
@@ -99,6 +99,7 @@ export class Background extends ChromeVoxState {
     ChromeVoxPrefs.init();
     ChromeVoxRange.init();
     TtsBackground.init();
+    LogStore.init();
 
     ChromeVoxState.instance = new Background();
 
@@ -117,7 +118,6 @@ export class Background extends ChromeVoxState {
     JaPhoneticData.init(JaPhoneticMap.MAP);
     LiveRegions.init();
     LocaleOutputHelper.init();
-    LogStore.init();
     LogUrlWatcher.init();
     PanelBackground.init();
     RangeAutomationHandler.init();

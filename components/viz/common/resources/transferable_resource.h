@@ -130,8 +130,7 @@ struct VIZ_COMMON_EXPORT TransferableResource {
 
   // The |mailbox| inside here holds the gpu::Mailbox when this is a gpu
   // resource, or the SharedBitmapId when it is a software resource.
-  // The |texture_target| and sync_token| inside here only apply for gpu
-  // resources.
+  // The |texture_target| inside here only apply for gpu resources.
   gpu::MailboxHolder mailbox_holder;
 
   // The color space that is used for pixel path operations (e.g, TexImage,
@@ -178,6 +177,10 @@ struct VIZ_COMMON_EXPORT TransferableResource {
   // Indicates that this resource would like a promotion hint.
   bool wants_promotion_hint = false;
 #endif
+
+  // If true, we need to run a detiling image processor on the quad before we
+  // can scan it out.
+  bool needs_detiling = false;
 
   // The source that originally allocated this resource. For determining which
   // sources are maintaining lifetime after surface eviction.

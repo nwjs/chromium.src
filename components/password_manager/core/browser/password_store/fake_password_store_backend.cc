@@ -109,8 +109,9 @@ void FakePasswordStoreBackend::GetAutofillableLoginsAsync(
 }
 
 void FakePasswordStoreBackend::GetAllLoginsForAccountAsync(
-    std::optional<std::string> account,
+    std::string account,
     LoginsOrErrorReply callback) {
+  CHECK(!account.empty());
   GetAllLoginsAsync(std::move(callback));
 }
 
@@ -207,6 +208,10 @@ FakePasswordStoreBackend::CreateSyncControllerDelegate() {
 void FakePasswordStoreBackend::OnSyncServiceInitialized(
     syncer::SyncService* sync_service) {
   NOTIMPLEMENTED();
+}
+
+base::WeakPtr<PasswordStoreBackend> FakePasswordStoreBackend::AsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 LoginsResult FakePasswordStoreBackend::GetAllLoginsInternal() {

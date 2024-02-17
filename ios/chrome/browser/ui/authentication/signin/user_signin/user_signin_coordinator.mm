@@ -87,8 +87,12 @@ using signin_metrics::PromoAction;
                                    browser:(Browser*)browser
                                   identity:(id<SystemIdentity>)identity
                               signinIntent:(UserSigninIntent)signinIntent
-                                    logger:(UserSigninLogger*)logger {
-  self = [super initWithBaseViewController:viewController browser:browser];
+                                    logger:(UserSigninLogger*)logger
+                               accessPoint:
+                                   (signin_metrics::AccessPoint)accessPoint {
+  self = [super initWithBaseViewController:viewController
+                                   browser:browser
+                               accessPoint:accessPoint];
   if (self) {
     _defaultIdentity = identity;
     _signinIntent = signinIntent;
@@ -409,7 +413,8 @@ using signin_metrics::PromoAction;
           self.viewController
                                                       browser:self.browser
                                                   signinState:
-                                                      self.signinStateOnStart];
+                                                      self.signinStateOnStart
+                                                  accessPoint:self.accessPoint];
   __weak UserSigninCoordinator* weakSelf = self;
   self.advancedSettingsSigninCoordinator.signinCompletion = ^(
       SigninCoordinatorResult advancedSigninResult,
@@ -500,9 +505,8 @@ using signin_metrics::PromoAction;
     // UIKit doesn't allow a view controller to be dismissed during the
     // animation. The interruption has to be processed when the view controller
     // will be fully presented.
-    // See crbug.com/1126170
-    // TODO(crbug.com/1493398): Convert to CHECK.
-    DUMP_WILL_BE_CHECK(!self.interruptCallback)
+    // See crbug.com/1126170 and crbug.com/1499576.
+    DCHECK(!self.interruptCallback)
         << "Action: " << static_cast<int>(action) << ", "
         << base::SysNSStringToUTF8([self description]);
     __weak __typeof(self) weakSelf = self;

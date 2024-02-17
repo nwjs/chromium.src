@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_TABS_ORGANIZATION_TAB_ORGANIZATION_SESSION_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,9 +15,10 @@
 #include "chrome/browser/ui/tabs/organization/tab_organization_request.h"
 
 class Browser;
-namespace Content {
+
+namespace content {
 class WebContents;
-}
+}  // namespace content
 
 class TabOrganizationSession : public TabOrganization::Observer {
  public:

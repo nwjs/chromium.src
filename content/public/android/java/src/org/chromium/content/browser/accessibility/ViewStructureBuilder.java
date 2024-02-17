@@ -4,6 +4,10 @@
 
 package org.chromium.content.browser.accessibility;
 
+import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_PAGE_ABSOLUTE_HEIGHT;
+import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_PAGE_ABSOLUTE_LEFT;
+import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_PAGE_ABSOLUTE_TOP;
+import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_PAGE_ABSOLUTE_WIDTH;
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_UNCLIPPED_HEIGHT;
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_UNCLIPPED_LEFT;
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_UNCLIPPED_TOP;
@@ -11,7 +15,6 @@ import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBu
 
 import android.app.assist.AssistStructure.ViewNode;
 import android.graphics.Rect;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.ViewStructure;
 
@@ -27,14 +30,7 @@ import java.util.Arrays;
 public class ViewStructureBuilder {
     private RenderCoordinatesImpl mRenderCoordinates;
 
-    public static ViewStructureBuilder create(RenderCoordinatesImpl renderCoordinates) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            return new OViewStructureBuilder(renderCoordinates);
-        }
-        return new ViewStructureBuilder(renderCoordinates);
-    }
-
-    protected ViewStructureBuilder(RenderCoordinatesImpl renderCoordinates) {
+    public ViewStructureBuilder(RenderCoordinatesImpl renderCoordinates) {
         this.mRenderCoordinates = renderCoordinates;
     }
 
@@ -85,7 +81,11 @@ public class ViewStructureBuilder {
             int unclippedLeft,
             int unclippedTop,
             int unclippedWidth,
-            int unclippedHeight) {
+            int unclippedHeight,
+            int pageAbsoluteLeft,
+            int pageAbsoluteTop,
+            int pageAbsoluteWidth,
+            int pageAbsoluteHeight) {
         Rect boundsInParent =
                 new Rect(
                         parentRelativeLeft,
@@ -99,22 +99,28 @@ public class ViewStructureBuilder {
 
         node.setDimens(boundsInParent.left, boundsInParent.top, 0, 0, width, height);
 
-        // Add unclipped bounds in the Bundle extras for services interested in these values.
+        // Add other bound types to the Bundle extras for services interested in these values.
         Bundle extras = node.getExtras();
         extras.putInt(EXTRAS_KEY_UNCLIPPED_LEFT, unclippedLeft);
         extras.putInt(EXTRAS_KEY_UNCLIPPED_TOP, unclippedTop);
         extras.putInt(EXTRAS_KEY_UNCLIPPED_WIDTH, unclippedWidth);
         extras.putInt(EXTRAS_KEY_UNCLIPPED_HEIGHT, unclippedHeight);
+        extras.putInt(EXTRAS_KEY_PAGE_ABSOLUTE_LEFT, pageAbsoluteLeft);
+        extras.putInt(EXTRAS_KEY_PAGE_ABSOLUTE_TOP, pageAbsoluteTop);
+        extras.putInt(EXTRAS_KEY_PAGE_ABSOLUTE_WIDTH, pageAbsoluteWidth);
+        extras.putInt(EXTRAS_KEY_PAGE_ABSOLUTE_HEIGHT, pageAbsoluteHeight);
     }
 
     @CalledByNative
     protected void setViewStructureNodeHtmlInfo(
             ViewStructure node, String htmlTag, String cssDisplay, String[][] htmlAttributes) {
-        Bundle extras = node.getExtras();
-        extras.putCharSequence("htmlTag", htmlTag);
-        extras.putCharSequence("display", cssDisplay);
-        for (String[] attr : htmlAttributes) {
-            extras.putCharSequence(attr[0], attr[1]);
+        ViewStructure.HtmlInfo.Builder htmlBuilder = node.newHtmlInfoBuilder(htmlTag);
+        if (htmlBuilder != null) {
+            htmlBuilder.addAttribute("display", cssDisplay);
+            for (String[] attr : htmlAttributes) {
+                htmlBuilder.addAttribute(attr[0], attr[1]);
+            }
+            node.setHtmlInfo(htmlBuilder.build());
         }
     }
 
