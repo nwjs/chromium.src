@@ -62,6 +62,9 @@ content::WebContents* TestBrowserWindow::TestLocationBar::GetWebContents() {
 
 // TestBrowserWindow ----------------------------------------------------------
 
+
+TestBrowserWindow::TestBrowserWindow() = default;
+
 void TestBrowserWindow::UpdateDraggableRegions(
     const std::vector<extensions::mojom::DraggableRegionPtr>& regions) {
 }
@@ -69,13 +72,13 @@ SkRegion* TestBrowserWindow::GetDraggableRegion() {
   return nullptr;
 }
 
-TestBrowserWindow::TestBrowserWindow() {}
-
-TestBrowserWindow::~TestBrowserWindow() {}
+TestBrowserWindow::~TestBrowserWindow() = default;
 
 void TestBrowserWindow::Close() {
-  if (close_callback_)
+  if (close_callback_) {
     std::move(close_callback_).Run();
+  }
+  is_closed_ = true;
 }
 
 bool TestBrowserWindow::IsActive() const {
