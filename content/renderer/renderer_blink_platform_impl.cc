@@ -869,26 +869,33 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
 
       v8::Isolate* isolate = v8::Isolate::GetCurrent();
       v8::HandleScope scope(isolate);
-      v8::MicrotasksScope microtasks(worker, v8::MicrotasksScope::kDoNotRunMicrotasks);
 
-      worker->SetSecurityToken(v8::String::NewFromUtf8(isolate, "nw-token", v8::NewStringType::kNormal).ToLocalChecked());
-      worker->Enter();
+      v8::Local<v8::Context> new_node_context;
+      new_node_context = v8::Context::New(isolate);
+      void* data = worker->GetAlignedPointerFromEmbedderData(2); //v8ContextPerContextDataIndex
+      new_node_context->SetAlignedPointerInEmbedderData(2, data);
+      new_node_context->SetAlignedPointerInEmbedderData(50, (void*)0x08110800);
 
-      ::g_start_nw_instance_fn(argc, argv, worker, nullptr);
+      v8::MicrotasksScope microtasks(new_node_context, v8::MicrotasksScope::kDoNotRunMicrotasks);
+
+      new_node_context->SetSecurityToken(v8::String::NewFromUtf8(isolate, "nw-token", v8::NewStringType::kNormal).ToLocalChecked());
+      new_node_context->Enter();
+
+      ::g_start_nw_instance_fn(argc, argv, new_node_context, nullptr);
       {
         v8::Local<v8::Script> script =
-          v8::Script::Compile(worker, v8::String::NewFromUtf8(isolate,
+          v8::Script::Compile(new_node_context, v8::String::NewFromUtf8(isolate,
                                                       (std::string("process.versions['nw'] = '" NW_VERSION_STRING "';") +
                                                        "process.versions['node-webkit'] = '" NW_VERSION_STRING "';"
                                                        "process.versions['nw-commit-id'] = '" NW_COMMIT_HASH "';"
                                                        "process.versions['chromium'] = '" + "';").c_str(), v8::NewStringType::kNormal
                                                               ).ToLocalChecked()).ToLocalChecked();
-        std::ignore = script->Run(worker);
+        std::ignore = script->Run(new_node_context);
       }
       {
         v8::Local<v8::Script> script =
-          v8::Script::Compile(worker, v8::String::NewFromUtf8(isolate, main_script.c_str(), v8::NewStringType::kNormal).ToLocalChecked()).ToLocalChecked();
-        std::ignore = script->Run(worker);
+          v8::Script::Compile(new_node_context, v8::String::NewFromUtf8(isolate, main_script.c_str(), v8::NewStringType::kNormal).ToLocalChecked()).ToLocalChecked();
+        std::ignore = script->Run(new_node_context);
       }
   }
 }
