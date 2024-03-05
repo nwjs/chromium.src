@@ -138,6 +138,11 @@ using blink::WebString;
 using blink::WebURL;
 using blink::WebVector;
 
+// NEED TO STAY SYNC WITH NODE
+#ifndef NODE_CONTEXT_EMBEDDER_DATA_INDEX
+#define NODE_CONTEXT_EMBEDDER_DATA_INDEX 32
+#endif
+
 #include "third_party/node-nw/src/node_webkit.h"
 #include "nw/id/commit.h"
 
@@ -896,6 +901,26 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
         v8::Local<v8::Script> script =
           v8::Script::Compile(new_node_context, v8::String::NewFromUtf8(isolate, main_script.c_str(), v8::NewStringType::kNormal).ToLocalChecked()).ToLocalChecked();
         std::ignore = script->Run(new_node_context);
+      }
+      worker->SetAlignedPointerInEmbedderData(NODE_CONTEXT_EMBEDDER_DATA_INDEX, g_get_node_env_fn());
+      worker->SetSecurityToken(new_node_context->GetSecurityToken());
+
+      v8::Handle<v8::Object> nw = v8::Object::New(isolate);
+      v8::Handle<v8::String> nw_string(
+          v8::String::NewFromUtf8(isolate, "nw", v8::NewStringType::kNormal).ToLocalChecked());
+      std::ignore = new_node_context->Global()->Set(worker, nw_string, nw);
+
+      v8::Local<v8::Array> symbols = v8::Array::New(isolate, 4);
+      std::ignore = symbols->Set(worker, 0, v8::String::NewFromUtf8(isolate, "global", v8::NewStringType::kNormal).ToLocalChecked());
+      std::ignore = symbols->Set(worker, 1, v8::String::NewFromUtf8(isolate, "process", v8::NewStringType::kNormal).ToLocalChecked());
+      std::ignore = symbols->Set(worker, 2, v8::String::NewFromUtf8(isolate, "Buffer", v8::NewStringType::kNormal).ToLocalChecked());
+      std::ignore = symbols->Set(worker, 3, v8::String::NewFromUtf8(isolate, "require", v8::NewStringType::kNormal).ToLocalChecked());
+
+      for (unsigned i = 0; i < symbols->Length(); ++i) {
+	v8::Local<v8::Value> key = symbols->Get(worker, i).ToLocalChecked();
+	v8::Local<v8::Value> val = new_node_context->Global()->Get(worker, key).ToLocalChecked();
+	std::ignore = nw->Set(worker, key, val);
+	std::ignore = worker->Global()->Set(worker, key, val);
       }
   }
 }
