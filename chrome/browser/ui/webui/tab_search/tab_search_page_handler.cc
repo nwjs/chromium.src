@@ -199,6 +199,10 @@ TabSearchPageHandler::TabSearchPageHandler(
       tab_search_prefs::kTabSearchTabIndex,
       base::BindRepeating(&TabSearchPageHandler::NotifyTabIndexPrefChanged,
                           base::Unretained(this), profile));
+  pref_change_registrar_.Add(
+      tab_search_prefs::kTabOrganizationShowFRE,
+      base::BindRepeating(&TabSearchPageHandler::NotifyShowFREPrefChanged,
+                          base::Unretained(this), profile));
   if (TabOrganizationUtils::GetInstance()->IsEnabled(profile)) {
     organization_service_ =
         TabOrganizationServiceFactory::GetForProfile(profile);
@@ -231,7 +235,7 @@ TabSearchPageHandler::~TabSearchPageHandler() {
     optimization_guide_keyed_service_
         ->RemoveModelExecutionSettingsEnabledObserver(this);
   }
-  pref_change_registrar_.RemoveAll();
+  pref_change_registrar_.Reset();
 }
 
 void TabSearchPageHandler::CloseTab(int32_t tab_id) {
@@ -264,13 +268,6 @@ void TabSearchPageHandler::AcceptTabOrganization(
     return;
   }
 
-  Profile* profile = Profile::FromWebUI(web_ui_);
-  if (browser->profile() != profile) {
-    return;
-  }
-
-  profile->GetPrefs()->SetBoolean(tab_search_prefs::kTabOrganizationShowFRE,
-                                  false);
   if (!organization_service_) {
     return;
   }
@@ -460,6 +457,9 @@ void TabSearchPageHandler::RequestTabOrganization() {
     session->AddObserver(this);
     listened_sessions_.emplace_back(session);
   }
+
+  browser->profile()->GetPrefs()->SetBoolean(
+      tab_search_prefs::kTabOrganizationShowFRE, false);
   organization_service_->StartRequest(browser);
 }
 
@@ -546,7 +546,7 @@ void TabSearchPageHandler::StartTabGroupTutorial() {
   const ui::ElementContext context = browser->window()->GetElementContext();
   CHECK(context);
 
-  user_education::TutorialIdentifier tutorial_id = kTabGroupTutorialId;
+  user_education::TutorialIdentifier tutorial_id = kSavedTabGroupTutorialId;
   tutorial_service->StartTutorial(tutorial_id, context);
 }
 
@@ -1028,6 +1028,12 @@ void TabSearchPageHandler::NotifyTabIndexPrefChanged(const Profile* profile) {
   const int32_t index =
       profile->GetPrefs()->GetInteger(tab_search_prefs::kTabSearchTabIndex);
   page_->TabSearchTabIndexChanged(index);
+}
+
+void TabSearchPageHandler::NotifyShowFREPrefChanged(const Profile* profile) {
+  const bool show_fre = profile->GetPrefs()->GetBoolean(
+      tab_search_prefs::kTabOrganizationShowFRE);
+  page_->ShowFREChanged(show_fre);
 }
 
 bool TabSearchPageHandler::IsWebContentsVisible() {

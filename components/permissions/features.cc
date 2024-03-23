@@ -40,10 +40,6 @@ BASE_FEATURE(kBlockRepeatedNotificationPermissionPrompts,
              "BlockRepeatedNotificationPermissionPrompts",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kNotificationInteractionHistory,
-             "NotificationInteractionHistory",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kOneTimePermission,
              "OneTimePermission",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -121,12 +117,7 @@ BASE_FEATURE(kMitigateUnpartitionedWebviewPermissions,
 // omnibox integration.
 BASE_FEATURE(kPermissionStorageAccessAPI,
              "PermissionStorageAccessAPI",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled "window-placement" may be used as an alias for
 // "window-management". Additionally, reverse mappings (i.e. enum to string)
@@ -140,6 +131,12 @@ BASE_FEATURE(kWindowPlacementPermissionAlias,
 // visible in the Embedded content settings page.
 BASE_FEATURE(kShowRelatedWebsiteSetsPermissionGrants,
              "ShowRelatedWebsiteSetsPermissionGrants",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, Quiet prompts triggered by CPSS will have "Get Notifications?"
+// as the the chip text instead of the usual "Notifications Blocked".
+BASE_FEATURE(kCpssQuietChipTextUpdate,
+             "CpssQuietChipTextUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

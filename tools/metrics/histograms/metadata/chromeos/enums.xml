@@ -180,6 +180,7 @@ chromium-metrics-reviews@google.com.
   <int value="126" label="WindowMinimize"/>
   <int value="127" label="MinimizeTopWindowOnBack"/>
   <int value="128" label="VolumeMuteToggle"/>
+  <int value="129" label="TogglePicker"/>
   <int value="9000" label="DebugClearUseKMeansPref"/>
   <int value="9001" label="DebugKeyboardBacklightToggle"/>
   <int value="9002" label="DebugMicrophoneMuteToggle"/>
@@ -626,6 +627,22 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="SAML Chrome Credentials Passing API not used"/>
 </enum>
 
+<enum name="ChromeOSSamlIncorrectAttestation">
+  <summary>
+    Different method that can repport Incorrect Attestation in SamlHandler in
+    ChromeOS.
+  </summary>
+  <int value="0" label="onBeforeRequest">
+    SamlHandler repport Incorrect Attestation in onBeforeRequest_.
+  </int>
+  <int value="1" label="onBeforeSendHeaders">
+    SamlHandler repport Incorrect Attestation in onBeforeSendHeaders_.
+  </int>
+  <int value="2" label="continueDelayedRedirect">
+    SamlHandler repport Incorrect Attestation in continueDelayedRedirect_.
+  </int>
+</enum>
+
 <enum name="ChromeOSSamlProvider">
   <summary>
     Different SAML providers that uses SAML login flow in ChromeOS.
@@ -804,14 +821,6 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Side"/>
 </enum>
 
-<enum name="DetailedViewSection">
-  <int value="0" label="WiFi section shown"/>
-  <int value="1" label="Mobile section shown"/>
-  <int value="2" label="Ethernet section shown"/>
-  <int value="3" label="Detailed view shown"/>
-  <int value="4" label="Tether Hosts section shown"/>
-</enum>
-
 <enum name="DeviceSettingsStaticShortcutAction">
   <int value="0" label="Disable"/>
   <int value="1" label="Copy"/>
@@ -960,6 +969,11 @@ chromium-metrics-reviews@google.com.
       label="Multiple YUV streams of different aspect ratio with BLOB"/>
 </enum>
 
+<enum name="HeartdActionType">
+  <int value="0" label="Normal reboot"/>
+  <int value="1" label="Force reboot"/>
+</enum>
+
 <enum name="IntentPickerDialogAction">
   <summary>
     Defines actions taken by the user in the Intent Picker dialog
@@ -973,6 +987,52 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="ARC app selected and preferred"/>
   <int value="7" label="PWA selected"/>
   <int value="8" label="PWA selected and preferred"/>
+</enum>
+
+<enum name="KeyboardTopRowActionKeys">
+  <summary>
+    List of possible keyboard top-row action keys. This is defined in
+    ui/events/ash/keyboard_capability.h (enum TopRowActionKey).
+  </summary>
+  <int value="0" label="None"/>
+  <int value="1" label="Unknown"/>
+  <int value="2" label="Back"/>
+  <int value="3" label="Forward"/>
+  <int value="4" label="Refresh"/>
+  <int value="5" label="Fullscreen"/>
+  <int value="6" label="Overview"/>
+  <int value="7" label="Screenshot"/>
+  <int value="8" label="ScreenBrightnessDown"/>
+  <int value="9" label="ScreenBrightnessUp"/>
+  <int value="10" label="MicrophoneMute"/>
+  <int value="11" label="VolumeMute"/>
+  <int value="12" label="VolumeDown"/>
+  <int value="13" label="VolumeUp"/>
+  <int value="14" label="KeyboardBacklightToggle"/>
+  <int value="15" label="KeyboardBacklightDown"/>
+  <int value="16" label="KeyboardBacklightUp"/>
+  <int value="17" label="NextTrack"/>
+  <int value="18" label="PreviousTrack"/>
+  <int value="19" label="PlayPause"/>
+  <int value="20" label="AllApplications"/>
+  <int value="21" label="EmojiPicker"/>
+  <int value="22" label="Dictation"/>
+  <int value="23" label="PrivacyScreenToggle"/>
+</enum>
+
+<enum name="KeyboardTopRowLayoutWithExtraSublayout">
+  <summary>
+    List of possible top-row layouts for keyboards, including an additional
+    sub-layout. This is defined in ui/events/ash/keyboard_info_metrics.h (enum
+    KeyboardTopRowLayoutForMetric).
+  </summary>
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Layout1"/>
+  <int value="2" label="Layout2"/>
+  <int value="3" label="Layout2WithAssistant"/>
+  <int value="4" label="Layout3"/>
+  <int value="5" label="Layout4"/>
+  <int value="6" label="LayoutCustom1"/>
 </enum>
 
 <enum name="KeyPermissionsManagerMigrationStatus">
@@ -1008,6 +1068,7 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="0" label="UNKNOWN"/>
   <int value="1" label="HANDWRITING"/>
   <int value="2" label="TTS"/>
+  <int value="3" label="FONTS"/>
 </enum>
 
 <enum name="LanguagePackFeatureSuccess">
@@ -1025,6 +1086,8 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="3" label="Handwriting failure"/>
   <int value="4" label="TTS success"/>
   <int value="5" label="TTS failure"/>
+  <int value="6" label="Fonts success"/>
+  <int value="7" label="Fonts failure"/>
 </enum>
 
 <enum name="LanguagePackLanguageCodes">
@@ -1128,13 +1191,6 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="9" label="Backspace"/>
   <int value="10" label="Escape"/>
   <int value="11" label="Assistant"/>
-</enum>
-
-<enum name="NetworkRowClickedAction">
-  <int value="0" label="Connect to Network"/>
-  <int value="1" label="Open Network settings page"/>
-  <int value="2" label="Open SIM unlock dialog"/>
-  <int value="3" label="Open portal signin"/>
 </enum>
 
 <enum name="OwnerKeyUmaEvent">

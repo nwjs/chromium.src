@@ -956,11 +956,16 @@ void SearchResultView::UpdateIconAndBadgeIcon() {
       features::IsSeparateWebAppShortcutBadgeIconEnabled();
 
   const auto* color_provider = GetColorProvider();
-  const SkColor background_color =
-      GetColorProvider()->GetColor(cros_tokens::kCrosSysSystemOnBaseOpaque);
 
+  if (!GetColorProvider()) {
+    return;
+  }
+
+  const SkColor background_color =
+      color_provider->GetColor(cros_tokens::kCrosSysSystemOnBaseOpaque);
   const gfx::ImageSkia& icon_image =
       result()->icon().icon.Rasterize(color_provider);
+
   const gfx::Size icon_size = use_webapp_shortcut_style_
                                   ? gfx::Size(kSearchListShortcutIconDimension,
                                               kSearchListShortcutIconDimension)
@@ -1011,8 +1016,8 @@ void SearchResultView::UpdateIconAndBadgeIcon() {
             background_color, std::move(resized_badge_icon_image));
     badge_icon_view_->SetImage(std::move(badge_icon_with_background));
   } else {
-    // Badge icon that isn't part of App Shortcuts or using background needs to
-    // add shadows.
+    // Badge icon that isn't part of App Shortcuts or using background needs
+    // to add shadows.
     gfx::ShadowValues shadow_values = {
         gfx::ShadowValue(gfx::Vector2d(0, kBadgeIconShadowWidth), 0,
                          SkColorSetARGB(0x33, 0, 0, 0)),
@@ -1323,7 +1328,7 @@ gfx::Rect SearchResultView::GetIconBadgeViewBounds(
                    std::move(host_badge_container_view_size));
 }
 
-void SearchResultView::Layout() {
+void SearchResultView::Layout(PassKey) {
   // TODO(crbug/1311101) add test coverage for search result view layout.
   gfx::Rect rect(GetContentsBounds());
   if (rect.IsEmpty()) {
@@ -1508,6 +1513,7 @@ void SearchResultView::VisibilityChanged(View* starting_from, bool is_visible) {
 
 void SearchResultView::OnThemeChanged() {
   views::View::OnThemeChanged();
+  UpdateIconAndBadgeIcon();
   rating_star_->SetImage(gfx::CreateVectorIcon(
       kBadgeRatingIcon, kSearchRatingStarSize,
       GetColorProvider()->GetColor(kColorAshTextColorSecondary)));
@@ -1594,7 +1600,7 @@ bool SearchResultView::IsSearchResultHoveredOrSelected() {
   return IsMouseHovered() || selected();
 }
 
-BEGIN_METADATA(SearchResultView, SearchResultBaseView)
+BEGIN_METADATA(SearchResultView)
 END_METADATA
 
 }  // namespace ash

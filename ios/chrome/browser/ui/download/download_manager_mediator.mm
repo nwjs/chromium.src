@@ -45,6 +45,10 @@ void DownloadManagerMediator::SetDriveService(
   drive_service_ = drive_service;
 }
 
+void DownloadManagerMediator::SetPrefService(PrefService* pref_service) {
+  pref_service_ = pref_service;
+}
+
 void DownloadManagerMediator::SetConsumer(
     id<DownloadManagerConsumer> consumer) {
   consumer_ = consumer;
@@ -58,10 +62,13 @@ void DownloadManagerMediator::SetDownloadTask(web::DownloadTask* task) {
   download_task_ = task;
   if (download_task_) {
     download_task_->AddObserver(this);
-    UpdateConsumer();
   }
   // Update upload task associated with `download_task_`.
   UpdateUploadTask();
+  // In case download updates were missed, check for any.
+  if (download_task_) {
+    OnDownloadUpdated(download_task_);
+  }
 }
 
 base::FilePath DownloadManagerMediator::GetDownloadPath() {
@@ -126,7 +133,7 @@ DownloadManagerState DownloadManagerMediator::GetDownloadManagerState() const {
 
 bool DownloadManagerMediator::IsSaveToDriveAvailable() const {
   return drive::IsSaveToDriveAvailable(is_incognito_, identity_manager_,
-                                       drive_service_);
+                                       drive_service_, pref_service_);
 }
 
 #pragma mark - Private
@@ -134,9 +141,6 @@ bool DownloadManagerMediator::IsSaveToDriveAvailable() const {
 void DownloadManagerMediator::UpdateConsumer() {
   DownloadManagerState state = GetDownloadManagerState();
 
-  if (state == kDownloadManagerStateSucceeded && !IsGoogleDriveAppInstalled()) {
-    [consumer_ setInstallDriveButtonVisible:YES animated:YES];
-  }
 
   if (base::FeatureList::IsEnabled(kIOSSaveToDrive)) {
     [consumer_ setMultipleDestinationsAvailable:IsSaveToDriveAvailable()];
@@ -149,6 +153,11 @@ void DownloadManagerMediator::UpdateConsumer() {
     id<SystemIdentity> identity =
         upload_task_ ? upload_task_->GetIdentity() : nil;
     [consumer_ setSaveToDriveUserEmail:identity.userEmail];
+    [consumer_ setInstallDriveButtonVisible:!IsGoogleDriveAppInstalled()
+                                   animated:NO];
+  } else if (state == kDownloadManagerStateSucceeded &&
+             !IsGoogleDriveAppInstalled()) {
+    [consumer_ setInstallDriveButtonVisible:YES animated:YES];
   }
 
   [consumer_ setState:state];
@@ -235,12 +244,17 @@ float DownloadManagerMediator::GetDownloadManagerProgress() const {
 }
 
 void DownloadManagerMediator::UpdateUploadTask() {
-  if (!base::FeatureList::IsEnabled(kIOSSaveToDrive) || !download_task_) {
+  if (!base::FeatureList::IsEnabled(kIOSSaveToDrive)) {
     return;
   }
-  DriveTabHelper* drive_tab_helper =
-      DriveTabHelper::FromWebState(download_task_->GetWebState());
-  SetUploadTask(drive_tab_helper->GetUploadTaskForDownload(download_task_));
+  UploadTask* new_upload_task = nullptr;
+  if (download_task_) {
+    DriveTabHelper* drive_tab_helper =
+        DriveTabHelper::FromWebState(download_task_->GetWebState());
+    new_upload_task =
+        drive_tab_helper->GetUploadTaskForDownload(download_task_);
+  }
+  SetUploadTask(new_upload_task);
 }
 
 void DownloadManagerMediator::SetUploadTask(UploadTask* task) {

@@ -90,7 +90,7 @@ class BrowserFrameViewWin : public BrowserNonClientFrameView,
 
   // views::View:
   void OnPaint(gfx::Canvas* canvas) override;
-  void Layout() override;
+  void Layout(PassKey) override;
 
  private:
   friend class BrowserCaptionButtonContainer;

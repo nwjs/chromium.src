@@ -22,6 +22,8 @@ class LabelButton;
 
 namespace ash {
 
+class SystemTextfield;
+
 namespace api {
 struct Task;
 }  // namespace api
@@ -42,9 +44,9 @@ struct Task;
 // | +-----------------+ +---------------------------------------+ |
 // +---------------------------------------------------------------+
 class ASH_EXPORT GlanceablesTaskViewV2 : public views::FlexLayoutView {
- public:
-  METADATA_HEADER(GlanceablesTaskViewV2);
+  METADATA_HEADER(GlanceablesTaskViewV2, views::FlexLayoutView)
 
+ public:
   using MarkAsCompletedCallback =
       base::RepeatingCallback<void(const std::string& task_id, bool completed)>;
   using SaveCallback = base::RepeatingCallback<void(
@@ -74,6 +76,9 @@ class ASH_EXPORT GlanceablesTaskViewV2 : public views::FlexLayoutView {
   class CheckButton;
   class TaskTitleButton;
 
+  // Updates the margins of views in `contents_view_`.
+  void UpdateContentsMargins(TaskTitleViewState state);
+
   // Handles press events on `check_button_`.
   void CheckButtonPressed();
 
@@ -93,6 +98,7 @@ class ASH_EXPORT GlanceablesTaskViewV2 : public views::FlexLayoutView {
   raw_ptr<views::FlexLayoutView> contents_view_ = nullptr;
   raw_ptr<views::FlexLayoutView> tasks_title_view_ = nullptr;
   raw_ptr<TaskTitleButton> task_title_button_ = nullptr;
+  raw_ptr<SystemTextfield> task_title_textfield_ = nullptr;
   raw_ptr<views::FlexLayoutView> tasks_details_view_ = nullptr;
   raw_ptr<views::LabelButton> edit_in_browser_button_ = nullptr;
 

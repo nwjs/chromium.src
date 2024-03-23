@@ -47,7 +47,7 @@
 #import "ios/web/public/test/http_server/data_response_provider.h"
 #import "ios/web/public/test/http_server/http_server.h"
 #import "ios/web/public/test/http_server/http_server_util.h"
-#import "net/base/mac/url_conversions.h"
+#import "net/base/apple/url_conversions.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -598,7 +598,15 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 // Tests that the Undo button is no longer available after tapping Close All,
 // then creating a new tab, then coming back to the tab grid.
 // Validates this case when Tab Grid Bulk Actions feature is enabled.
-- (void)testUndoCloseAllNotAvailableAfterNewTabCreation {
+// TODO(crbug.com/1521789): Test fails on device.
+#if !TARGET_IPHONE_SIMULATOR
+#define MAYBE_testUndoCloseAllNotAvailableAfterNewTabCreation \
+  DISABLED_testUndoCloseAllNotAvailableAfterNewTabCreation
+#else
+#define MAYBE_testUndoCloseAllNotAvailableAfterNewTabCreation \
+  testUndoCloseAllNotAvailableAfterNewTabCreation
+#endif
+- (void)MAYBE_testUndoCloseAllNotAvailableAfterNewTabCreation {
   [ChromeEarlGreyUI openTabGrid];
 
   [[EarlGrey selectElementWithMatcher:VisibleTabGridEditButton()]
@@ -842,7 +850,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [self longPressTabWithTitle:kTitle1];
 
   NSString* snackbarMessage = base::SysUTF16ToNSString(
-      l10n_util::GetPluralStringFUTF16(IDS_IOS_BOOKMARK_PAGE_SAVED, 1));
+      l10n_util::GetPluralStringFUTF16(IDS_IOS_BOOKMARKS_BULK_SAVED, 1));
   [self waitForSnackBarMessageText:snackbarMessage
       triggeredByTappingItemWithMatcher:AddToBookmarksButton()];
 
@@ -2282,7 +2290,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [self longPressTabWithTitle:kTitle2];
 
   NSString* snackbarMessage = base::SysUTF16ToNSString(
-      l10n_util::GetPluralStringFUTF16(IDS_IOS_BOOKMARK_PAGE_SAVED, 1));
+      l10n_util::GetPluralStringFUTF16(IDS_IOS_BOOKMARKS_BULK_SAVED, 1));
   [self waitForSnackBarMessageText:snackbarMessage
       triggeredByTappingItemWithMatcher:AddToBookmarksButton()];
 
@@ -2789,7 +2797,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
   // Sign-in with fake identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];
+  [SigninEarlGrey signinWithFakeIdentity:fakeIdentity];
 
   [ChromeEarlGrey loadURL:_URL1];
   [ChromeEarlGrey waitForWebStateContainingText:kResponse1];
@@ -2811,8 +2819,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 // sheet but only the history opt-in.
 // kReplaceSyncPromosWithSignInPromos is enabled.
 - (void)testPromoInTabsFromOtherDevicesListensToSignin {
-  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]
-                                enableSync:NO];
+  [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
 
   [ChromeEarlGreyUI openTabGrid];
   [[EarlGrey selectElementWithMatcher:TabGridOtherDevicesPanelButton()]

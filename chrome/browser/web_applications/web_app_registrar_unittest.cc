@@ -25,6 +25,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/web_applications/commands/run_on_os_login_command.h"
+#include "chrome/browser/web_applications/commands/web_app_uninstall_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -183,20 +184,25 @@ class WebAppRegistrarTest : public WebAppTest {
   }
 
   void Uninstall(const webapps::AppId& app_id) {
-    base::test::TestFuture<webapps::UninstallResultCode> future;
-    fake_provider().scheduler().UninstallWebApp(
-        app_id, webapps::WebappUninstallSource::kTestCleanup,
-        future.GetCallback());
-    EXPECT_TRUE(future.Wait());
-    EXPECT_EQ(future.Get<webapps::UninstallResultCode>(),
-              webapps::UninstallResultCode::kSuccess);
+    // There is no longer a universal uninstall, so just remove each management.
+    WebAppManagementTypes managements =
+        registrar().GetAppById(app_id)->GetSources();
+    for (WebAppManagement::Type type : managements) {
+      base::test::TestFuture<webapps::UninstallResultCode> future;
+      fake_provider().scheduler().RemoveInstallManagementMaybeUninstall(
+          app_id, type, webapps::WebappUninstallSource::kTestCleanup,
+          future.GetCallback());
+      EXPECT_TRUE(future.Wait());
+      EXPECT_EQ(future.Get<webapps::UninstallResultCode>(),
+                webapps::UninstallResultCode::kSuccess);
+    }
   }
 
   void UninstallViaRemoveSource(
       const webapps::AppId& app_id,
       web_app::WebAppManagement::Type management_type) {
     base::test::TestFuture<webapps::UninstallResultCode> future;
-    fake_provider().scheduler().RemoveInstallSource(
+    fake_provider().scheduler().RemoveInstallManagementMaybeUninstall(
         app_id, management_type, webapps::WebappUninstallSource::kTestCleanup,
         future.GetCallback());
     EXPECT_TRUE(future.Wait());
@@ -914,6 +920,8 @@ TEST_F(WebAppRegistrarTest, GetAllIsolatedWebAppStoragePartitionConfigs) {
 
   constexpr char kIwaHostname[] =
       "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic";
+  constexpr char kExpectedIwaStoragePartitionDomain[] =
+      "i1kr80qqyjuuVC4UFPN7ovBngVoA2HbXGtTXtmQn6/H4=";
   GURL start_url(base::StrCat({chrome::kIsolatedAppScheme,
                                url::kStandardSchemeSeparator, kIwaHostname}));
   auto isolated_web_app = test::CreateWebApp(start_url);
@@ -928,7 +936,7 @@ TEST_F(WebAppRegistrarTest, GetAllIsolatedWebAppStoragePartitionConfigs) {
       registrar().GetIsolatedWebAppStoragePartitionConfigs(app_id);
 
   auto expected_config = content::StoragePartitionConfig::Create(
-      profile(), /*partition_domain=*/base::StrCat({"iwa-", kIwaHostname}),
+      profile(), kExpectedIwaStoragePartitionDomain,
       /*partition_name=*/"", /*in_memory=*/false);
   ASSERT_EQ(1UL, storage_partition_configs.size());
   EXPECT_EQ(expected_config, storage_partition_configs[0]);
@@ -964,6 +972,8 @@ TEST_F(WebAppRegistrarTest, SaveAndGetInMemoryControlledFramePartitionConfig) {
 
   constexpr char kIwaHostname[] =
       "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic";
+  constexpr char kExpectedIwaStoragePartitionDomain[] =
+      "i1kr80qqyjuuVC4UFPN7ovBngVoA2HbXGtTXtmQn6/H4=";
   GURL start_url(base::StrCat({chrome::kIsolatedAppScheme,
                                url::kStandardSchemeSeparator, kIwaHostname}));
   auto isolated_web_app = test::CreateWebApp(start_url);
@@ -981,7 +991,7 @@ TEST_F(WebAppRegistrarTest, SaveAndGetInMemoryControlledFramePartitionConfig) {
           url_info.value(), "partition_1");
 
   auto expected_config_cf_1 = content::StoragePartitionConfig::Create(
-      profile(), /*partition_domain=*/base::StrCat({"iwa-", kIwaHostname}),
+      profile(), kExpectedIwaStoragePartitionDomain,
       /*partition_name=*/"partition_1", /*in_memory=*/true);
 
   EXPECT_EQ(expected_config_cf_1, output_config);

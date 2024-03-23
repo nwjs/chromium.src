@@ -155,10 +155,10 @@ TEST(HeapArray, First) {
   for (size_t i = 0; i < vec.size(); ++i) {
     vec[i] = i;
   }
-  base::span<uint32_t> empty = vec.first(0);
+  base::span<uint32_t> empty = vec.first(0u);
   EXPECT_TRUE(empty.empty());
 
-  base::span<uint32_t> some = vec.first(2);
+  base::span<uint32_t> some = vec.first(2u);
   EXPECT_EQ(some.size(), 2u);
   EXPECT_EQ(some[0], 0u);
   EXPECT_EQ(some[1], 1u);
@@ -169,10 +169,10 @@ TEST(HeapArray, Last) {
   for (size_t i = 0; i < vec.size(); ++i) {
     vec[i] = i;
   }
-  base::span<uint32_t> empty = vec.first(0);
+  base::span<uint32_t> empty = vec.first(0u);
   EXPECT_TRUE(empty.empty());
 
-  base::span<uint32_t> some = vec.first(2);
+  base::span<uint32_t> some = vec.first(2u);
   EXPECT_EQ(some.size(), 2u);
   EXPECT_EQ(some[0], 0u);
   EXPECT_EQ(some[1], 1u);
@@ -240,6 +240,25 @@ TEST(HeapArray, CopyFrom) {
   other.copy_from(something);
   EXPECT_EQ(1000u, other[0]);
   EXPECT_EQ(1001u, other[1]);
+}
+
+TEST(HeapArray, Leak) {
+  size_t count = 0;
+  span<DestructCounter> leaked;
+  {
+    auto vec = base::HeapArray<DestructCounter>::WithSize(2);
+    vec[0].set_where(&count);
+    vec[1].set_where(&count);
+
+    auto* data = vec.data();
+    leaked = std::move(vec).leak();
+    ASSERT_EQ(data, leaked.data());
+
+    EXPECT_EQ(count, 0u);
+  }
+  EXPECT_EQ(count, 0u);
+
+  delete[] leaked.data();
 }
 
 }  // namespace base

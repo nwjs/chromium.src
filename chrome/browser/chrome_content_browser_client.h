@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_CHROME_CONTENT_BROWSER_CLIENT_H_
 
 #include <stddef.h>
-
 #include <memory>
 #include <optional>
 #include <set>
@@ -39,6 +38,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
 
 class ChromeContentBrowserClientParts;
 class PrefRegistrySimple;
@@ -84,6 +84,7 @@ class AsyncCheckTracker;
 class RealTimeUrlLookupServiceBase;
 class SafeBrowsingService;
 class UrlCheckerDelegate;
+
 namespace hash_realtime_utils {
 enum class HashRealTimeSelection;
 }
@@ -289,14 +290,16 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldTryToUpdateServiceWorkerRegistration(
       const GURL& scope,
       content::BrowserContext* browser_context) override;
-  bool AllowSharedWorker(const GURL& worker_url,
-                         const net::SiteForCookies& site_for_cookies,
-                         const std::optional<url::Origin>& top_frame_origin,
-                         const std::string& name,
-                         const blink::StorageKey& storage_key,
-                         content::BrowserContext* context,
-                         int render_process_id,
-                         int render_frame_id) override;
+  bool AllowSharedWorker(
+      const GURL& worker_url,
+      const net::SiteForCookies& site_for_cookies,
+      const std::optional<url::Origin>& top_frame_origin,
+      const std::string& name,
+      const blink::StorageKey& storage_key,
+      const blink::mojom::SharedWorkerSameSiteCookies same_site_cookies,
+      content::BrowserContext* context,
+      int render_process_id,
+      int render_frame_id) override;
   bool DoesSchemeAllowCrossOriginSharedWorker(
       const std::string& scheme) override;
   bool AllowSignedExchange(content::BrowserContext* browser_context) override;
@@ -351,14 +354,17 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin* conversion_origin,
       const url::Origin* reporting_origin,
       bool* can_bypass) override;
-  bool IsSharedStorageAllowed(content::BrowserContext* browser_context,
-                              content::RenderFrameHost* rfh,
-                              const url::Origin& top_frame_origin,
-                              const url::Origin& accessing_origin) override;
+  bool IsSharedStorageAllowed(
+      content::BrowserContext* browser_context,
+      content::RenderFrameHost* rfh,
+      const url::Origin& top_frame_origin,
+      const url::Origin& accessing_origin,
+      std::string* out_debug_message = nullptr) override;
   bool IsSharedStorageSelectURLAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
-      const url::Origin& accessing_origin) override;
+      const url::Origin& accessing_origin,
+      std::string* out_debug_message = nullptr) override;
   bool IsPrivateAggregationAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
@@ -485,6 +491,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       base::Time expiration_time) override;
   base::flat_map<int, base::Time> GetDevToolsBackgroundServiceExpirations(
       content::BrowserContext* browser_context) override;
+  std::optional<base::TimeDelta> GetSpareRendererDelayForSiteURL(
+      const GURL& site_url) override;
   content::TracingDelegate* GetTracingDelegate() override;
   bool IsPluginAllowedToCallRequestOSFileHandle(
       content::BrowserContext* browser_context,
@@ -613,7 +621,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       int render_frame_id,
       const std::optional<url::Origin>& request_initiator_origin,
       NonNetworkURLLoaderFactoryMap* factories) override;
-  bool WillCreateURLLoaderFactory(
+  void WillCreateURLLoaderFactory(
       content::BrowserContext* browser_context,
       content::RenderFrameHost* frame,
       int render_process_id,
@@ -621,7 +629,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& request_initiator,
       std::optional<int64_t> navigation_id,
       ukm::SourceIdObj ukm_source_id,
-      mojo::PendingReceiver<network::mojom::URLLoaderFactory>* factory_receiver,
+      network::URLLoaderFactoryBuilder& factory_builder,
       mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
           header_client,
       bool* bypass_redirect_checks,
@@ -712,8 +720,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       mojo::PendingReceiver<payments::mojom::PaymentCredential> receiver)
       override;
 #if BUILDFLAG(IS_CHROMEOS)
-  content::SmartCardDelegate* GetSmartCardDelegate(
-      content::BrowserContext* browser_context) override;
+  content::SmartCardDelegate* GetSmartCardDelegate() override;
 #endif
   bool ShowPaymentHandlerWindow(
       content::BrowserContext* browser_context,
@@ -782,9 +789,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* context,
       content::RenderFrameHost* render_frame_host) override;
 
-  ui::AXMode GetAXModeForBrowserContext(
-      content::BrowserContext* browser_context) override;
-
 #if BUILDFLAG(IS_ANDROID)
   ContentBrowserClient::WideColorGamutHeuristic GetWideColorGamutHeuristic()
       override;
@@ -843,10 +847,11 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       ClipboardPasteData clipboard_paste_data,
       IsClipboardPasteAllowedCallback callback) override;
 
-  bool IsClipboardCopyAllowed(content::BrowserContext* browser_context,
-                              const GURL& url,
-                              size_t data_size_in_bytes,
-                              std::u16string& replacement_data) override;
+  void IsClipboardCopyAllowedByPolicy(
+      const content::ClipboardEndpoint& source,
+      const content::ClipboardMetadata& metadata,
+      const std::u16string& data,
+      IsClipboardCopyAllowedCallback callback) override;
 
 #if BUILDFLAG(ENABLE_VR)
   content::XrIntegrationClient* GetXrIntegrationClient() override;
@@ -951,6 +956,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsTransientActivationRequiredForShowFileOrDirectoryPicker(
       content::WebContents* web_contents) override;
 
+  bool IsTransientActivationRequiredForHtmlFullscreen(
+      content::RenderFrameHost* render_frame_host) override;
+
   bool ShouldUseFirstPartyStorageKey(const url::Origin& origin) override;
 
   std::unique_ptr<content::ResponsivenessCalculatorDelegate>
@@ -993,6 +1001,12 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   GetIpProtectionProxyBypassPolicy() override;
   void MaybePrewarmHttpDiskCache(content::BrowserContext& browser_context,
                                  const GURL& navigation_url) override;
+#if BUILDFLAG(IS_CHROMEOS)
+  void NotifyMultiCaptureStateChanged(
+      content::GlobalRenderFrameHostId capturer_rfh_id,
+      const std::string& label,
+      MultiCaptureChanged state) override;
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
  protected:
   static bool HandleWebUI(GURL* url, content::BrowserContext* browser_context);

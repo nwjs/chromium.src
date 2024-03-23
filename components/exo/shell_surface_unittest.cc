@@ -34,7 +34,6 @@
 #include "components/exo/buffer.h"
 #include "components/exo/client_controlled_shell_surface.h"
 #include "components/exo/permission.h"
-#include "components/exo/security_delegate.h"
 #include "components/exo/shell_surface_util.h"
 #include "components/exo/sub_surface.h"
 #include "components/exo/surface.h"
@@ -93,6 +92,7 @@ uint32_t ConfigureFullscreen(
     bool activated,
     const gfx::Vector2d& origin_offset,
     float raster_scale,
+    aura::Window::OcclusionState occlusion_state,
     std::optional<chromeos::WindowStateType> restore_state_type) {
   EXPECT_EQ(chromeos::WindowStateType::kFullscreen, state_type);
   return serial;
@@ -127,7 +127,7 @@ struct ConfigureData {
   bool is_active = false;
   std::optional<chromeos::WindowStateType> restore_state_type = std::nullopt;
   float raster_scale = 1.0f;
-
+  aura::Window::OcclusionState occlusion_state;
   size_t count = 0;
 };
 
@@ -139,12 +139,14 @@ uint32_t Configure(
     bool activated,
     const gfx::Vector2d& origin_offset,
     float raster_scale,
+    aura::Window::OcclusionState occlusion_state,
     std::optional<chromeos::WindowStateType> restore_state_type) {
   config_data->suggested_bounds = bounds;
   config_data->state_type = state_type;
   config_data->is_resizing = resizing;
   config_data->is_active = activated;
   config_data->raster_scale = raster_scale;
+  config_data->occlusion_state = occlusion_state;
   config_data->restore_state_type = restore_state_type;
   config_data->count++;
   return 0;
@@ -158,12 +160,14 @@ uint32_t ConfigureSerial(
     bool activated,
     const gfx::Vector2d& origin_offset,
     float raster_scale,
+    aura::Window::OcclusionState occlusion_state,
     std::optional<chromeos::WindowStateType> restore_state_type) {
   config_data->suggested_bounds = bounds;
   config_data->state_type = state_type;
   config_data->is_resizing = resizing;
   config_data->is_active = activated;
   config_data->raster_scale = raster_scale;
+  config_data->occlusion_state = occlusion_state;
   config_data->restore_state_type = restore_state_type;
   config_data->count++;
   return config_data->count;
@@ -1025,13 +1029,11 @@ TEST_F(ShellSurfaceTest, ActivationPermissionLegacy) {
 
 TEST_F(ShellSurfaceTest, WidgetActivationLegacy) {
   constexpr gfx::Size kBufferSize(64, 64);
-  std::unique_ptr<SecurityDelegate> default_security_delegate =
-      SecurityDelegate::GetDefaultSecurityDelegate();
+  auto security_delegate = std::make_unique<test::TestSecurityDelegate>();
 
-  auto shell_surface1 =
-      test::ShellSurfaceBuilder(kBufferSize)
-          .SetSecurityDelegate(default_security_delegate.get())
-          .BuildShellSurface();
+  auto shell_surface1 = test::ShellSurfaceBuilder(kBufferSize)
+                            .SetSecurityDelegate(security_delegate.get())
+                            .BuildShellSurface();
   auto* surface1 = shell_surface1->root_surface();
 
   // The window is active.
@@ -1039,10 +1041,9 @@ TEST_F(ShellSurfaceTest, WidgetActivationLegacy) {
   EXPECT_TRUE(widget1->IsActive());
 
   // Create a second window.
-  auto shell_surface2 =
-      test::ShellSurfaceBuilder(kBufferSize)
-          .SetSecurityDelegate(default_security_delegate.get())
-          .BuildShellSurface();
+  auto shell_surface2 = test::ShellSurfaceBuilder(kBufferSize)
+                            .SetSecurityDelegate(security_delegate.get())
+                            .BuildShellSurface();
   auto* surface2 = shell_surface2->root_surface();
 
   // Now the second window is active.
@@ -1301,6 +1302,7 @@ TEST_F(ShellSurfaceTest, StartResizeAndDestroyShell) {
       [](uint32_t* const serial_ptr, const gfx::Rect& bounds,
          chromeos::WindowStateType state_type, bool resizing, bool activated,
          const gfx::Vector2d& origin_offset, float raster_scale,
+         aura::Window::OcclusionState occlusion_state,
          std::optional<chromeos::WindowStateType>) { return ++(*serial_ptr); },
       &serial);
 
@@ -1321,7 +1323,8 @@ TEST_F(ShellSurfaceTest, StartResizeAndDestroyShell) {
   shell_surface->set_configure_callback(base::BindRepeating(
       [](const gfx::Rect& bounds, chromeos::WindowStateType state_type,
          bool resizing, bool activated, const gfx::Vector2d& origin_offset,
-         float raster_scale, std::optional<chromeos::WindowStateType>) {
+         float raster_scale, aura::Window::OcclusionState occlusion_state,
+         std::optional<chromeos::WindowStateType>) {
         ADD_FAILURE() << "Configure Should not be called";
         return uint32_t{0};
       }));
@@ -2502,7 +2505,8 @@ TEST_F(ShellSurfaceTest, DragMaximizedWindow) {
   shell_surface->set_configure_callback(base::BindLambdaForTesting(
       [&](const gfx::Rect& bounds, chromeos::WindowStateType state,
           bool resizing, bool activated, const gfx::Vector2d& origin_offset,
-          float raster_scale, std::optional<chromeos::WindowStateType>) {
+          float raster_scale, aura::Window::OcclusionState occlusion_state,
+          std::optional<chromeos::WindowStateType>) {
         configured_state = state;
         return uint32_t{0};
       }));
@@ -2721,6 +2725,7 @@ TEST_F(ShellSurfaceTest, ServerStartResizeComponent) {
       [](uint32_t* const serial_ptr, const gfx::Rect& bounds,
          chromeos::WindowStateType state_type, bool resizing, bool activated,
          const gfx::Vector2d& origin_offset, float raster_scale,
+         aura::Window::OcclusionState occlusion_state,
          std::optional<chromeos::WindowStateType>) { return ++(*serial_ptr); },
       &serial);
 
@@ -2996,6 +3001,7 @@ TEST_F(ShellSurfaceTest, ResizeShadowIndependentBounds) {
       [](uint32_t* const serial_ptr, const gfx::Rect& bounds,
          chromeos::WindowStateType state_type, bool resizing, bool activated,
          const gfx::Vector2d& origin_offset, float raster_scale,
+         aura::Window::OcclusionState occlusion_state,
          std::optional<chromeos::WindowStateType>) { return ++(*serial_ptr); },
       &serial);
 
@@ -3499,6 +3505,7 @@ struct ShellSurfaceCallbacks {
       bool activated,
       const gfx::Vector2d& origin_offset,
       float raster_scale,
+      aura::Window::OcclusionState occlusion_state,
       std::optional<chromeos::WindowStateType> restore_state_type) {
     configure_state.emplace();
     *configure_state = {bounds, state_type, resizing, activated};
@@ -3509,8 +3516,8 @@ struct ShellSurfaceCallbacks {
     configure_state.reset();
     origin.reset();
   }
-  absl::optional<ConfigureState> configure_state;
-  absl::optional<gfx::Point> origin;
+  std::optional<ConfigureState> configure_state;
+  std::optional<gfx::Point> origin;
   int32_t serial = 0;
 };
 
@@ -3740,7 +3747,8 @@ TEST_F(ShellSurfaceTest, PostWindowChangeCallback) {
   auto test_callback = base::BindRepeating(
       [](chromeos::WindowStateType* state_type, const gfx::Rect&,
          chromeos::WindowStateType new_type, bool, bool, const gfx::Vector2d&,
-         float, std::optional<chromeos::WindowStateType>) -> uint32_t {
+         float, aura::Window::OcclusionState,
+         std::optional<chromeos::WindowStateType>) -> uint32_t {
         *state_type = new_type;
         return 0;
       },
@@ -3773,7 +3781,8 @@ TEST_F(ShellSurfaceTest, ConfigureOnlySentOnceForBoundsAndWindowStateChange) {
   auto test_callback = base::BindRepeating(
       [](int* times_configured, const gfx::Rect&,
          chromeos::WindowStateType new_type, bool, bool, const gfx::Vector2d&,
-         float, std::optional<chromeos::WindowStateType>) -> uint32_t {
+         float, aura::Window::OcclusionState,
+         std::optional<chromeos::WindowStateType>) -> uint32_t {
         ++(*times_configured);
         return 0;
       },
@@ -3806,7 +3815,8 @@ TEST_F(ShellSurfaceTest, SetImmersiveModeTriggersConfigure) {
   auto test_callback = base::BindRepeating(
       [](int* times_configured, const gfx::Rect&,
          chromeos::WindowStateType new_type, bool, bool, const gfx::Vector2d&,
-         float, std::optional<chromeos::WindowStateType>) -> uint32_t {
+         float, aura::Window::OcclusionState,
+         std::optional<chromeos::WindowStateType>) -> uint32_t {
         ++(*times_configured);
         return 0;
       },
@@ -3970,7 +3980,7 @@ TEST_F(ShellSurfaceTest, SetShapeUpdatesAndUnsetsCorrectlyAfterCommit) {
   EXPECT_EQ(shape_region_3, CreateRegion(*layer_shape_rects));
 
   // Setting a null shape should unset the host window's layer shape.
-  shell_surface->SetShape(absl::nullopt);
+  shell_surface->SetShape(std::nullopt);
   shell_surface->root_surface()->Commit();
   layer_shape_rects = widget->GetNativeWindow()->layer()->alpha_shape();
   EXPECT_FALSE(layer_shape_rects);
@@ -4295,6 +4305,7 @@ TEST_F(ShellSurfaceTest,
       [](uint32_t* const serial_ptr, const gfx::Rect& bounds,
          chromeos::WindowStateType state_type, bool resizing, bool activated,
          const gfx::Vector2d& origin_offset, float raster_scale,
+         aura::Window::OcclusionState occlusion_state,
          std::optional<chromeos::WindowStateType>) { return ++(*serial_ptr); },
       &serial);
   shell_surface->set_configure_callback(configure_callback);
@@ -4482,6 +4493,38 @@ TEST_F(ShellSurfaceTest, DisplayScaleChangeDoesNotSendOcclusionUpdates) {
 
   surface1->RemoveSurfaceObserver(&observer1);
   surface2->RemoveSurfaceObserver(&observer2);
+}
+
+TEST_F(ShellSurfaceTest, GetWidgetHitTestMask) {
+  auto shell_surface = test::ShellSurfaceBuilder({256, 256})
+                           .SetOrigin({100, 100})
+                           .BuildShellSurface();
+
+  EXPECT_TRUE(shell_surface->WidgetHasHitTestMask());
+  SkPath mask;
+  shell_surface->GetWidgetHitTestMask(&mask);
+  // Returned HitMask should be in the widget local coordinates.
+  EXPECT_EQ(SkRect::MakeLTRB(0, 0, 256, 256), mask.getBounds());
+}
+
+// Regression test for crbug.com/322388171. Ensure shell surfaces with no
+// backing widget handle display changes without crashing.
+TEST_F(ShellSurfaceTest, HandlesDisplayChangeNoWidget) {
+  // Start with a single display configuration.
+  UpdateDisplay("800x600");
+
+  // Create the surface.
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+  EXPECT_TRUE(shell_surface->GetWidget());
+
+  // Keep the shell surface alive but close the widget.
+  shell_surface->GetWidget()->CloseNow();
+  EXPECT_FALSE(shell_surface->GetWidget());
+
+  // Trigger an update to the display configuration, the shell surface should
+  // handle this without crashing.
+  UpdateDisplay("1200x800");
 }
 
 }  // namespace exo

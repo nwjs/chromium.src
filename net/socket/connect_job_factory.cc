@@ -5,7 +5,9 @@
 #include "net/socket/connect_job_factory.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
+#include <vector>
 
 #include "base/check.h"
 #include "base/containers/flat_set.h"
@@ -26,7 +28,6 @@
 #include "net/socket/transport_connect_job.h"
 #include "net/ssl/ssl_config.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/gurl.h"
 #include "url/scheme_host_port.h"
@@ -171,8 +172,8 @@ ConnectJobFactory::~ConnectJobFactory() = default;
 std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
     url::SchemeHostPort endpoint,
     const ProxyChain& proxy_chain,
-    const absl::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
-    const SSLConfig* ssl_config_for_origin,
+    const std::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
+    const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,
     ConnectJobFactory::AlpnMode alpn_mode,
     bool force_tunnel,
     PrivacyMode privacy_mode,
@@ -186,7 +187,7 @@ std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
     ConnectJob::Delegate* delegate) const {
   return CreateConnectJob(
       Endpoint(std::move(endpoint)), proxy_chain, proxy_annotation_tag,
-      ssl_config_for_origin, alpn_mode, force_tunnel, privacy_mode,
+      allowed_bad_certs, alpn_mode, force_tunnel, privacy_mode,
       resolution_callback, request_priority, socket_tag,
       network_anonymization_key, secure_dns_policy,
       disable_cert_network_fetches, common_connect_job_params, delegate);
@@ -196,8 +197,7 @@ std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
     bool using_ssl,
     HostPortPair endpoint,
     const ProxyChain& proxy_chain,
-    const absl::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
-    const SSLConfig* ssl_config_for_origin,
+    const std::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
     bool force_tunnel,
     PrivacyMode privacy_mode,
     const OnHostResolutionCallback& resolution_callback,
@@ -210,7 +210,7 @@ std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
   SchemelessEndpoint schemeless_endpoint{using_ssl, std::move(endpoint)};
   return CreateConnectJob(
       std::move(schemeless_endpoint), proxy_chain, proxy_annotation_tag,
-      ssl_config_for_origin, ConnectJobFactory::AlpnMode::kDisabled,
+      /*allowed_bad_certs=*/{}, ConnectJobFactory::AlpnMode::kDisabled,
       force_tunnel, privacy_mode, resolution_callback, request_priority,
       socket_tag, network_anonymization_key, secure_dns_policy,
       /*disable_cert_network_fetches=*/false, common_connect_job_params,
@@ -220,8 +220,8 @@ std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
 std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
     Endpoint endpoint,
     const ProxyChain& proxy_chain,
-    const absl::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
-    const SSLConfig* ssl_config_for_origin,
+    const std::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
+    const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,
     ConnectJobFactory::AlpnMode alpn_mode,
     bool force_tunnel,
     PrivacyMode privacy_mode,
@@ -349,10 +349,10 @@ std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
 
   // Deal with SSL - which layers on top of any given proxy.
   if (UsingSsl(endpoint)) {
-    DCHECK(ssl_config_for_origin);
     scoped_refptr<TransportSocketParams> ssl_tcp_params;
 
-    SSLConfig ssl_config = *ssl_config_for_origin;
+    SSLConfig ssl_config;
+    ssl_config.allowed_bad_certs = allowed_bad_certs;
 
     ConfigureAlpn(endpoint, alpn_mode, network_anonymization_key,
                   *common_connect_job_params, ssl_config,
@@ -392,15 +392,15 @@ std::unique_ptr<ConnectJob> ConnectJobFactory::CreateConnectJob(
         delegate, /*net_log=*/nullptr);
   }
 
-  const ProxyServer& first_proxy_server =
-      proxy_chain.GetProxyServer(/*chain_index=*/0);
-  if (first_proxy_server.is_http_like()) {
+  const ProxyServer& last_proxy_server = proxy_chain.Last();
+  if (http_proxy_params) {
+    DCHECK(last_proxy_server.is_http_like());
     return http_proxy_connect_job_factory_->Create(
         request_priority, socket_tag, common_connect_job_params,
         std::move(http_proxy_params), delegate, /*net_log=*/nullptr);
   }
 
-  DCHECK(first_proxy_server.is_socks());
+  DCHECK(last_proxy_server.is_socks());
   return socks_connect_job_factory_->Create(
       request_priority, socket_tag, common_connect_job_params,
       std::move(socks_params), delegate, /*net_log=*/nullptr);

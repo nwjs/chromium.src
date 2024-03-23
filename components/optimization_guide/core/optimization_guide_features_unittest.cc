@@ -239,7 +239,20 @@ TEST(OptimizationGuideFeaturesTest, ShouldPersistSalientImageMetadata) {
   EXPECT_FALSE(features::ShouldPersistSalientImageMetadata("badlocale", "US"));
 }
 
-TEST(OptimizationGuideFeaturesTest, OptimizationGuidePersonalizedFetching) {
+TEST(OptimizationGuideFeaturesTest,
+     OptimizationGuidePersonalizedFetchingDefaultBehaviour) {
+  features::RequestContextSet allowedContexts =
+      features::GetAllowedContextsForPersonalizedMetadata();
+
+  // Check contexts.
+  EXPECT_FALSE(
+      allowedContexts.Has(optimization_guide::proto::CONTEXT_UNSPECIFIED));
+  EXPECT_TRUE(allowedContexts.Has(
+      optimization_guide::proto::CONTEXT_PAGE_INSIGHTS_HUB));
+}
+
+TEST(OptimizationGuideFeaturesTest,
+     OptimizationGuidePersonalizedFetchingPopulatedParam) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       features::kOptimizationGuidePersonalizedFetching,
@@ -247,13 +260,39 @@ TEST(OptimizationGuideFeaturesTest, OptimizationGuidePersonalizedFetching) {
           {"allowed_contexts", "CONTEXT_PAGE_NAVIGATION,CONTEXT_BOOKMARKS"},
       });
 
+  features::RequestContextSet allowedContexts =
+      features::GetAllowedContextsForPersonalizedMetadata();
+
   // Check contexts.
-  EXPECT_FALSE(features::ShouldEnablePersonalizedMetadata(
-      optimization_guide::proto::CONTEXT_UNSPECIFIED));
-  EXPECT_TRUE(features::ShouldEnablePersonalizedMetadata(
-      optimization_guide::proto::CONTEXT_PAGE_NAVIGATION));
-  EXPECT_TRUE(features::ShouldEnablePersonalizedMetadata(
-      optimization_guide::proto::CONTEXT_BOOKMARKS));
+  EXPECT_FALSE(
+      allowedContexts.Has(optimization_guide::proto::CONTEXT_UNSPECIFIED));
+  EXPECT_FALSE(allowedContexts.Has(
+      optimization_guide::proto::CONTEXT_PAGE_INSIGHTS_HUB));
+  EXPECT_TRUE(
+      allowedContexts.Has(optimization_guide::proto::CONTEXT_PAGE_NAVIGATION));
+  EXPECT_TRUE(
+      allowedContexts.Has(optimization_guide::proto::CONTEXT_BOOKMARKS));
+}
+
+TEST(OptimizationGuideFeaturesTest,
+     OptimizationGuidePersonalizedFetchingEmptyParam) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      features::kOptimizationGuidePersonalizedFetching,
+      {
+          {"allowed_contexts", ""},
+      });
+
+  features::RequestContextSet allowedContexts =
+      features::GetAllowedContextsForPersonalizedMetadata();
+
+  // Check contexts.
+  EXPECT_FALSE(
+      allowedContexts.Has(optimization_guide::proto::CONTEXT_UNSPECIFIED));
+  EXPECT_FALSE(
+      allowedContexts.Has(optimization_guide::proto::CONTEXT_PAGE_NAVIGATION));
+  EXPECT_FALSE(allowedContexts.Has(
+      optimization_guide::proto::CONTEXT_PAGE_INSIGHTS_HUB));
 }
 
 TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
@@ -261,7 +300,7 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
     std::string label;
     bool enabled;
     std::map<std::string, std::string> params;
-    std::vector<std::pair<proto::OptimizationTarget, absl::optional<int>>> want;
+    std::vector<std::pair<proto::OptimizationTarget, std::optional<int>>> want;
   };
 
   struct TestCase tests[] = {
@@ -271,8 +310,8 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
           .params = {},
           .want =
               {
-                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, absl::nullopt},
-                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, absl::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, std::nullopt},
               },
       },
       {
@@ -281,8 +320,8 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
           .params = {},
           .want =
               {
-                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, absl::nullopt},
-                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, absl::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, std::nullopt},
               },
       },
       {
@@ -294,7 +333,7 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
               },
           .want =
               {
-                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, absl::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt},
                   {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, 1},
               },
       },
@@ -307,8 +346,8 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
               },
           .want =
               {
-                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, absl::nullopt},
-                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, absl::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, std::nullopt},
               },
       },
       {
@@ -320,8 +359,8 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
               },
           .want =
               {
-                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, absl::nullopt},
-                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, absl::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, std::nullopt},
               },
       },
       {
@@ -333,7 +372,7 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
               },
           .want =
               {
-                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, absl::nullopt},
+                  {proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt},
                   {proto::OPTIMIZATION_TARGET_PAGE_VISIBILITY, -1},
               },
       },
@@ -381,7 +420,7 @@ TEST(OptimizationGuideFeaturesTest, TestOverrideNumThreadsForOptTarget) {
 
     for (const auto& expectation : test.want) {
       proto::OptimizationTarget opt_target = expectation.first;
-      absl::optional<int> num_threads = expectation.second;
+      std::optional<int> num_threads = expectation.second;
 
       EXPECT_EQ(num_threads,
                 features::OverrideNumThreadsForOptTarget(opt_target))

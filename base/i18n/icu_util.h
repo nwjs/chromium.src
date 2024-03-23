@@ -68,6 +68,8 @@ BASE_I18N_EXPORT const uint8_t* GetRawIcuMemory();
 // these will be separate copies of base.)
 BASE_I18N_EXPORT bool InitializeICUFromRawMemory(const uint8_t* raw_memory);
 
+// Calls `u_cleanup()` to reset the ICU library, and clears global state,
+// notably releasing the mapped ICU data file, and handle.
 BASE_I18N_EXPORT void ResetGlobalsForTesting();
 
 #if BUILDFLAG(IS_FUCHSIA)

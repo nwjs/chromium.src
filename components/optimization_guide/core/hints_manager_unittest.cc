@@ -231,7 +231,7 @@ class TestHintsFetcher : public HintsFetcher {
     request_context_requested_ = request_context;
     switch (fetch_state) {
       case HintsFetcherEndState::kFetchFailed:
-        std::move(hints_fetched_callback).Run(absl::nullopt);
+        std::move(hints_fetched_callback).Run(std::nullopt);
         return false;
       case HintsFetcherEndState::kFetchSuccessWithHostHints:
         base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -510,6 +510,7 @@ class HintsManagerTest : public ProtoDatabaseProviderTestBase {
   }
 
  protected:
+  OptimizationGuideLogger optimization_guide_logger_;
   std::unique_ptr<HintsManager> hints_manager_;
 
  private:
@@ -529,7 +530,6 @@ class HintsManagerTest : public ProtoDatabaseProviderTestBase {
   std::unique_ptr<sync_preferences::TestingPrefServiceSyncable> pref_service_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   network::TestURLLoaderFactory test_url_loader_factory_;
-  OptimizationGuideLogger optimization_guide_logger_;
 };
 
 TEST_F(HintsManagerTest, ProcessHintsWithValidCommandLineOverride) {
@@ -558,7 +558,7 @@ TEST_F(HintsManagerTest, ProcessHintsWithValidCommandLineOverride) {
 
   std::string encoded_config;
   config.SerializeToString(&encoded_config);
-  base::Base64Encode(encoded_config, &encoded_config);
+  encoded_config = base::Base64Encode(encoded_config);
 
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kHintsProtoOverride, encoded_config);
@@ -630,7 +630,7 @@ TEST_F(HintsManagerTest,
 
   std::string encoded_config;
   config.SerializeToString(&encoded_config);
-  base::Base64Encode(encoded_config, &encoded_config);
+  encoded_config = base::Base64Encode(encoded_config);
 
   {
     base::HistogramTester histogram_tester;
@@ -2161,7 +2161,7 @@ TEST_F(HintsManagerFetchingTest,
   opt->set_optimization_type(proto::DEFER_ALL_SCRIPT);
   std::string encoded_config;
   config.SerializeToString(&encoded_config);
-  base::Base64Encode(encoded_config, &encoded_config);
+  encoded_config = base::Base64Encode(encoded_config);
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kHintsProtoOverride, encoded_config);
 

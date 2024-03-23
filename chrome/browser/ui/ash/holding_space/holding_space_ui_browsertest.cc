@@ -43,6 +43,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_locale.h"
 #include "base/uuid.h"
@@ -624,19 +625,12 @@ class HoldingSpaceUiDragAndDropBrowserTest
     return GetStorageLocationFlags() & flag;
   }
 
-  raw_ptr<DropSenderView> drop_sender_view_ = nullptr;
-  raw_ptr<DropTargetView> drop_target_view_ = nullptr;
+  raw_ptr<DropSenderView, DanglingUntriaged> drop_sender_view_ = nullptr;
+  raw_ptr<DropTargetView, DanglingUntriaged> drop_target_view_ = nullptr;
 };
 
-// Flaky on ChromeOS bots: crbug.com/1338054
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_DragAndDrop DISABLED_DragAndDrop
-#else
-#define MAYBE_DragAndDrop DragAndDrop
-#endif
 // Verifies that drag-and-drop of holding space items works.
-IN_PROC_BROWSER_TEST_P(HoldingSpaceUiDragAndDropBrowserTest,
-                       MAYBE_DragAndDrop) {
+IN_PROC_BROWSER_TEST_P(HoldingSpaceUiDragAndDropBrowserTest, DragAndDrop) {
   ui::ScopedAnimationDurationScaleMode scoped_animation_duration_scale_mode(
       ui::ScopedAnimationDurationScaleMode::ZERO_DURATION);
 
@@ -695,15 +689,8 @@ IN_PROC_BROWSER_TEST_P(HoldingSpaceUiDragAndDropBrowserTest,
   ASSERT_FALSE(test_api().IsShowing());
 }
 
-// Disabled due to flakiness. http://crbug.com/1261364
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_DragAndDropToPin DISABLED_DragAndDropToPin
-#else
-#define MAYBE_DragAndDropToPin DragAndDropToPin
-#endif
 // Verifies that drag-and-drop to pin holding space items works.
-IN_PROC_BROWSER_TEST_P(HoldingSpaceUiDragAndDropBrowserTest,
-                       MAYBE_DragAndDropToPin) {
+IN_PROC_BROWSER_TEST_P(HoldingSpaceUiDragAndDropBrowserTest, DragAndDropToPin) {
   ui::ScopedAnimationDurationScaleMode scoped_animation_duration_scale_mode(
       ui::ScopedAnimationDurationScaleMode::ZERO_DURATION);
 

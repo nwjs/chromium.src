@@ -357,6 +357,9 @@ popoverShowDelay
 position
 positionFallback
 positionFallbackBounds
+positionTry
+positionTryOptions
+positionTryOrder
 prefix
 quotes
 r
@@ -488,6 +491,7 @@ viewTimeline
 viewTimelineAxis
 viewTimelineInset
 viewTimelineName
+viewTransitionClass
 viewTransitionName
 visibility
 webkitAlignContent

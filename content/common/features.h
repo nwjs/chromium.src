@@ -54,6 +54,9 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kFontSrcLocalMatching);
 #if !BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kForwardMemoryPressureEventsToGpuProcess);
 #endif
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFrameRoutingCache);
+CONTENT_EXPORT extern const base::FeatureParam<int>
+    kFrameRoutingCacheResponseSize;
 #if BUILDFLAG(IS_WIN)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kGpuInfoCollectionSeparatePrefetch);
 #endif
@@ -89,6 +92,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivacySandboxAdsAPIsM1Override);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kPrivateNetworkAccessForNavigationsWarningOnly);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProactivelySwapBrowsingInstance);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessReuseOnPrerenderCOOPSwap);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessSharingWithDefaultSiteInstances);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessSharingWithStrictSiteInstances);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReloadHiddenTabsWithCrashedSubframes);

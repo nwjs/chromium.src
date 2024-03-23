@@ -134,6 +134,7 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
+#include "services/network/public/cpp/url_loader_factory_builder.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/test/test_url_loader_client.h"
 #include "third_party/blink/public/common/features.h"
@@ -358,7 +359,7 @@ class ExtensionWebRequestApiTest : public ExtensionApiTest {
         network::mojom::URLLoaderFactoryParams::New();
     params->process_id = network::mojom::kBrowserProcessId;
     params->automatically_assign_isolation_info = true;
-    params->is_corb_enabled = false;
+    params->is_orb_enabled = false;
     mojo::PendingRemote<network::mojom::URLLoaderFactory> loader_factory;
     profile()
         ->GetDefaultStoragePartition()
@@ -1144,8 +1145,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
   ResultCatcher catcher;
 
   ExtensionRegistry* registry = ExtensionRegistry::Get(browser()->profile());
-  const Extension* extension = registry->GetExtensionById(
-      last_loaded_extension_id(), extensions::ExtensionRegistry::ENABLED);
+  const Extension* extension =
+      registry->enabled_extensions().GetByID(last_loaded_extension_id());
   GURL url = extension->GetResourceURL("newTab/a.html");
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -2001,7 +2002,8 @@ class ExtensionWebRequestApiWebTransportTest
 
 // Test that the webRequest events are dispatched for the WebTransport
 // handshake.
-IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiWebTransportTest, Main) {
+// TODO(crbug.com/326122304): Re-enable this test
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiWebTransportTest, DISABLED_Main) {
   ASSERT_TRUE(RunTest("test_webtransport.html")) << message_;
 }
 
@@ -2296,8 +2298,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
   api->ForceProxyForTesting();
   temp_profile->GetDefaultStoragePartition()->FlushNetworkInterfaceForTesting();
 
-  mojo::Remote<network::mojom::URLLoaderFactory> factory;
-  auto pending_receiver = factory.BindNewPipeAndPassReceiver();
+  network::URLLoaderFactoryBuilder factory_builder;
+
   auto temp_web_contents =
       WebContents::Create(WebContents::CreateParams(temp_profile.get()));
   content::RenderFrameHost* frame = temp_web_contents->GetPrimaryMainFrame();
@@ -2305,14 +2307,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
       frame->GetProcess()->GetBrowserContext(), frame,
       frame->GetProcess()->GetID(),
       content::ContentBrowserClient::URLLoaderFactoryType::kDocumentSubResource,
-      std::nullopt, ukm::kInvalidSourceIdObj, &pending_receiver, nullptr,
+      std::nullopt, ukm::kInvalidSourceIdObj, factory_builder, nullptr,
       nullptr));
   temp_web_contents.reset();
   auto params = network::mojom::URLLoaderFactoryParams::New();
   params->process_id = 0;
-  temp_profile->GetDefaultStoragePartition()
-      ->GetNetworkContext()
-      ->CreateURLLoaderFactory(std::move(pending_receiver), std::move(params));
+  mojo::Remote<network::mojom::URLLoaderFactory> factory(
+      std::move(factory_builder)
+          .Finish<mojo::PendingRemote<network::mojom::URLLoaderFactory>>(
+              temp_profile->GetDefaultStoragePartition()->GetNetworkContext(),
+              std::move(params)));
 
   network::TestURLLoaderClient client;
   mojo::PendingRemote<network::mojom::URLLoader> loader;

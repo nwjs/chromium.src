@@ -21,7 +21,6 @@ class Document;
 class HTMLAnchorElement;
 class IntersectionObserver;
 class IntersectionObserverEntry;
-class AnchorElementMetrics;
 class PointerEvent;
 
 // AnchorElementMetricsSender is responsible to send anchor element metrics to
@@ -140,7 +139,7 @@ class CORE_EXPORT AnchorElementMetricsSender final
   void RegisterForLifecycleNotifications();
 
   // Mock timestamp for navigation start used for testing.
-  absl::optional<base::TimeTicks> mock_navigation_start_for_testing_;
+  std::optional<base::TimeTicks> mock_navigation_start_for_testing_;
 
   // Use WeakMember to make sure we don't leak memory on long-lived pages.
   HeapHashSet<WeakMember<HTMLAnchorElement>> anchor_elements_to_report_;
@@ -165,8 +164,8 @@ class CORE_EXPORT AnchorElementMetricsSender final
   using AnchorId = uint32_t;
   struct AnchorElementTimingStats {
     bool entered_viewport_should_be_enqueued_{true};
-    absl::optional<base::TimeTicks> viewport_entry_time_;
-    absl::optional<base::TimeTicks> pointer_over_timer_;
+    std::optional<base::TimeTicks> viewport_entry_time_;
+    std::optional<base::TimeTicks> pointer_over_timer_;
   };
   WTF::HashMap<AnchorId, AnchorElementTimingStats>
       anchor_elements_timing_stats_;

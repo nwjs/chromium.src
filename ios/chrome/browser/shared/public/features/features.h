@@ -19,9 +19,6 @@ class TimeDelta;
 // Feature flag to enable the Keyboard Accessory Upgrade.
 BASE_DECLARE_FEATURE(kIOSKeyboardAccessoryUpgrade);
 
-// Feature flag to enable the Payments Bottom Sheet.
-BASE_DECLARE_FEATURE(kIOSPaymentsBottomSheet);
-
 // Test-only: Feature flag used to verify that EG2 can trigger flags. Must be
 // always disabled by default, because it is used to verify that enabling
 // features in tests works.
@@ -50,7 +47,16 @@ BASE_DECLARE_FEATURE(kDefaultBrowserIntentsShowSettings);
 BASE_DECLARE_FEATURE(kIOSBrowserEditMenuMetrics);
 
 // Docking Promo experiment variations.
+
+// A parameter representing the experimental arm for when the Docking Promo is
+// displayed: during the FRE, or after the FRE.
 extern const char kIOSDockingPromoExperimentType[];
+// A parameter representing how many hours of inactivity are required (for users
+// no older than 2 days) before the Docking Promo is shown.
+extern const char kIOSDockingPromoNewUserInactiveThresholdHours[];
+// A parameter representing how many hours of inactivity are required (for users
+// no older than 14 days) before the Docking Promo is shown.
+extern const char kIOSDockingPromoOldUserInactiveThresholdHours[];
 
 // Feature flag to enable the Docking Promo.
 BASE_DECLARE_FEATURE(kIOSDockingPromo);
@@ -67,6 +73,14 @@ bool IsDockingPromoEnabled();
 
 // Returns the experiment type for the Docking Promo feature.
 DockingPromoDisplayTriggerArm DockingPromoExperimentTypeEnabled();
+
+// For users no older than 2 days, how many hours of inactivity must pass before
+// showing the Docking Promo.
+int HoursInactiveForNewUsersUntilShowingDockingPromo();
+
+// For users no older than 14 days, how many hours of inactivity must pass
+// before showing the Docking Promo.
+int HoursInactiveForOldUsersUntilShowingDockingPromo();
 
 // Feature flag to enable the non-modal DB promo cooldown refactor separating
 // the cooldown periods for full screen and non-modal promos, as well as
@@ -141,9 +155,6 @@ BASE_DECLARE_FEATURE(kEnableShortenedPasswordAutoFillInstruction);
 // Feature flag to enable startup latency improvements.
 BASE_DECLARE_FEATURE(kEnableStartupImprovements);
 
-// Feature flag to enable Apple Calendar event in experience kit.
-BASE_DECLARE_FEATURE(kEnableExpKitAppleCalendar);
-
 // Feature flag / Kill Switch for TCRex.
 BASE_DECLARE_FEATURE(kTCRexKillSwitch);
 
@@ -195,9 +206,6 @@ bool IsConsistencyNewAccountInterfaceEnabled();
 // Feature flag to enable the new layout of the NTP omnibox.
 BASE_DECLARE_FEATURE(kNewNTPOmniboxLayout);
 
-// Feature flag to move the steady-state (unfocused) omnibox to the bottom.
-BASE_DECLARE_FEATURE(kBottomOmniboxSteadyState);
-
 // Feature param under kBottomOmniboxDefaultSetting to select the default
 // setting.
 extern const char kBottomOmniboxDefaultSettingParam[];
@@ -207,18 +215,9 @@ extern const char kBottomOmniboxDefaultSettingParamSafariSwitcher[];
 // Feature flag to change the default position of the omnibox.
 BASE_DECLARE_FEATURE(kBottomOmniboxDefaultSetting);
 
-// Feature flag to retrieve device switcher results for omnibox default
-// position. Enabled by default.
-BASE_DECLARE_FEATURE(kBottomOmniboxDeviceSwitcherResults);
-
-// Returns true if `kBottomOmniboxSteadyState` feature flag is enabled and the
-// current device is a phone. This checks that the flag is enabled, not that the
-// omnibox is currently at the bottom.
+// Returns true if the bottom omnibox feature is enabled. This does not check
+// that the omnibox is currently at the bottom.
 bool IsBottomOmniboxSteadyStateEnabled();
-
-// Returns true if `kBottomOmniboxDeviceSwitcherResults` feature flag is
-// enabled.
-bool IsBottomOmniboxDeviceSwitcherResultsEnabled();
 
 // Feature flag to enable the bottom omnibox FRE promo.
 BASE_DECLARE_FEATURE(kBottomOmniboxPromoFRE);
@@ -489,6 +488,11 @@ bool IsContentPushNotificationsSetUpListEnabled();
 // YES when the Content Provisional Push Notifications are enabled.
 bool IsContentPushNotificationsProvisionalEnabled();
 
+// TODO(b/322348322): Remove provisional notifications bypass conditions testing
+// flag param. YES when the Content Provisional Push Notifications are enabled
+// and the time based conditions should be ignored.
+bool IsContentPushNotificationsProvisionalBypass();
+
 // Returns true when the IOSLargeFakebox feature is enabled.
 bool IsIOSLargeFakeboxEnabled();
 
@@ -579,7 +583,21 @@ BASE_DECLARE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch);
 // Feature flag to enable Tips Notifications.
 BASE_DECLARE_FEATURE(kIOSTipsNotifications);
 
+// Feature param to specify how much time after the app starts to trigger
+// Tips notifications.
+extern const char kIOSTipsNotificationsTriggerTimeParam[];
+
+// Feature param containing a bitfield to specify which notifications should be
+// enabled. Bits are assigned based on the enum `TipsNotificationType`.
+extern const char kIOSTipsNotificationsEnabledParam[];
+
 // Helper for whether Tips Notifications are enabled.
 bool IsIOSTipsNotificationsEnabled();
+
+// Feature flag to use a UICollectionView for the Magic Stack.
+BASE_DECLARE_FEATURE(kIOSMagicStackCollectionView);
+
+// Returns true if the MagicStack UICollectionView implementation is enabled.
+bool IsIOSMagicStackCollectionViewEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

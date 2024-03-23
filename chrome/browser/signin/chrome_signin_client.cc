@@ -102,6 +102,7 @@
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 #include "chrome/browser/signin/bound_session_credentials/bound_session_cookie_refresh_service.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_cookie_refresh_service_factory.h"
+#include "chrome/browser/signin/bound_session_credentials/bound_session_oauth_multilogin_delegate_impl.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_request_throttled_handler_browser_impl.h"
 #include "chrome/browser/signin/bound_session_credentials/throttled_gaia_auth_fetcher.h"
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
@@ -134,6 +135,9 @@ signin_metrics::ProfileSignout kAlwaysAllowedSignoutSources[] = {
     // to the web only before showing the sync confirmation dialog. The account
     // was signed in to the profile in order to show the sync confirmation.
     signin_metrics::ProfileSignout::kCancelSyncConfirmationOnWebOnlySignedIn,
+    // Allowed as the user wasn't signed in initially and data has not been
+    // synced yet.
+    signin_metrics::ProfileSignout::kCancelSyncConfirmationRemoveAccount,
 };
 
 // Returns the histogram suffix name per group of `signin_metrics::AccessPoint`.
@@ -248,6 +252,10 @@ ChromeSigninClient::GetURLLoaderFactory() {
 network::mojom::CookieManager* ChromeSigninClient::GetCookieManager() {
   return profile_->GetDefaultStoragePartition()
       ->GetCookieManagerForBrowserProcess();
+}
+
+network::mojom::NetworkContext* ChromeSigninClient::GetNetworkContext() {
+  return profile_->GetDefaultStoragePartition()->GetNetworkContext();
 }
 
 bool ChromeSigninClient::AreSigninCookiesAllowed() {
@@ -409,6 +417,19 @@ void ChromeSigninClient::OnPrimaryAccountChangedWithEventSource(
     }
   }
 }
+
+#if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
+std::unique_ptr<signin::BoundSessionOAuthMultiLoginDelegate>
+ChromeSigninClient::CreateBoundSessionOAuthMultiloginDelegate() const {
+  if (BoundSessionCookieRefreshService* bound_session_cookie_refresh_service =
+          BoundSessionCookieRefreshServiceFactory::GetForProfile(profile_);
+      bound_session_cookie_refresh_service) {
+    return std::make_unique<BoundSessionOAuthMultiLoginDelegateImpl>(
+        bound_session_cookie_refresh_service->GetWeakPtr());
+  }
+  return nullptr;
+}
+#endif
 
 SigninClient::SignoutDecision ChromeSigninClient::GetSignoutDecision(
     bool has_sync_account,

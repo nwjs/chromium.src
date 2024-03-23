@@ -626,6 +626,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidChangePerformanceTiming() override;
   void DidObserveUserInteraction(base::TimeTicks max_event_start,
                                  base::TimeTicks max_event_end,
+                                 base::TimeTicks max_event_queued_main_thread,
                                  blink::UserInteractionType interaction_type,
                                  uint64_t interaction_offset) override;
   void DidChangeCpuTiming(base::TimeDelta time) override;
@@ -653,7 +654,7 @@ class CONTENT_EXPORT RenderFrameImpl
   bool AllowContentInitiatedDataUrlNavigations(
       const blink::WebURL& url) override;
   void PostAccessibilityEvent(const ui::AXEvent& event) override;
-  void AXReadyCallback() override;
+  bool AXReadyCallback() override;
   void CheckIfAudioSinkExistsAndIsAuthorized(
       const blink::WebString& sink_id,
       blink::WebSetSinkIdCompleteCallback callback) override;
@@ -852,6 +853,12 @@ class CONTENT_EXPORT RenderFrameImpl
   FRIEND_TEST_ALL_PREFIXES(RenderFrameImplTest,
                            TestOverlayRoutingTokenSendsNow);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameImplTest, SendUpdateCancelsPending);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameImplMojoJsDeathTest,
+                           EnabledBindingsTampered);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameImplMojoJsDeathTest,
+                           EnableMojoJsBindingsTampered);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameImplMojoJsDeathTest,
+                           MojoJsInterfaceBrokerTampered);
 
   // Similar to base::AutoReset, but skips restoration of the original value if
   // |this| is already destroyed.
@@ -1330,7 +1337,8 @@ class CONTENT_EXPORT RenderFrameImpl
 
   // Plugins -------------------------------------------------------------------
 #if BUILDFLAG(ENABLE_PPAPI)
-  typedef std::set<PepperPluginInstanceImpl*> PepperPluginSet;
+  typedef std::set<raw_ptr<PepperPluginInstanceImpl, SetExperimental>>
+      PepperPluginSet;
   PepperPluginSet active_pepper_instances_;
 
   // Whether or not the focus is on a PPAPI plugin

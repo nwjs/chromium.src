@@ -188,7 +188,8 @@ void AccountSelectionViewAndroid::Show(
       ConvertUTF8ToJavaString(env, identity_provider_data[0].idp_for_display),
       accounts_obj, idp_metadata_obj, client_id_metadata_obj,
       sign_in_mode == Account::SignInMode::kAuto,
-      ConvertRpContextToJavaString(env, identity_provider_data[0].rp_context));
+      ConvertRpContextToJavaString(env, identity_provider_data[0].rp_context),
+      identity_provider_data[0].request_permission);
 }
 
 void AccountSelectionViewAndroid::ShowFailureDialog(
@@ -317,13 +318,19 @@ void AccountSelectionViewAndroid::OnDismiss(JNIEnv* env, jint dismiss_reason) {
 
 void AccountSelectionViewAndroid::OnLoginToIdP(
     JNIEnv* env,
+    const JavaParamRef<jobject>& idp_config_url,
     const JavaParamRef<jobject>& idp_login_url) {
+  GURL config_url = *url::GURLAndroid::ToNativeGURL(env, idp_config_url);
   GURL login_url = *url::GURLAndroid::ToNativeGURL(env, idp_login_url);
-  delegate_->OnLoginToIdP(login_url);
+  delegate_->OnLoginToIdP(config_url, login_url);
 }
 
 void AccountSelectionViewAndroid::OnMoreDetails(JNIEnv* env) {
   delegate_->OnMoreDetails();
+}
+
+void AccountSelectionViewAndroid::OnAccountsDisplayed(JNIEnv* env) {
+  delegate_->OnAccountsDisplayed();
 }
 
 bool AccountSelectionViewAndroid::MaybeCreateJavaObject() {

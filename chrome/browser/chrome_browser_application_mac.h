@@ -20,6 +20,9 @@
 // application, i.e., begins a process which may lead to termination. This
 // method cancels that process.
 - (void)cancelTerminate:(id)sender;
+
+- (BOOL)voiceOverStateForTesting;
+
 - (void)closeAllWindowsQuit:(id)sender;
 
 @end

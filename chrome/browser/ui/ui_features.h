@@ -60,7 +60,7 @@ BASE_DECLARE_FEATURE(kHaTSWebUI);
 BASE_DECLARE_FEATURE(kLightweightExtensionOverrideConfirmations);
 #endif
 
-BASE_DECLARE_FEATURE(kQuickCommands);
+BASE_DECLARE_FEATURE(kPreloadTopChromeWebUI);
 
 BASE_DECLARE_FEATURE(kResponsiveToolbar);
 
@@ -71,6 +71,7 @@ BASE_DECLARE_FEATURE(kScrollableTabStripWithDragging);
 extern const char kTabScrollingWithDraggingModeName[];
 
 BASE_DECLARE_FEATURE(kSplitTabStrip);
+BASE_DECLARE_FEATURE(kTabStripCollectionStorage);
 
 BASE_DECLARE_FEATURE(kTabScrollingButtonPosition);
 extern const char kTabScrollingButtonPositionParameterName[];
@@ -86,10 +87,6 @@ BASE_DECLARE_FEATURE(kSidePanelCompanionDefaultPinned);
 BASE_DECLARE_FEATURE(kSidePanelPinning);
 
 bool IsSidePanelPinningEnabled();
-
-BASE_DECLARE_FEATURE(kSidePanelMinimumWidth);
-extern const base::FeatureParam<int> kSidePanelMinimumWidthParameter;
-int GetSidePanelMinimumWidth();
 #endif
 
 BASE_DECLARE_FEATURE(kSidePanelJourneysQueryless);
@@ -105,8 +102,7 @@ extern const base::FeatureParam<int> kSideSearchAutoTriggeringReturnCount;
 BASE_DECLARE_FEATURE(kTabGroupsCollapseFreezing);
 
 BASE_DECLARE_FEATURE(kTabGroupsSave);
-
-BASE_DECLARE_FEATURE(kTabHoverCardImageSettings);
+BASE_DECLARE_FEATURE(kTabGroupsSaveV2);
 
 BASE_DECLARE_FEATURE(kTabHoverCardImages);
 
@@ -134,6 +130,8 @@ extern const char kTabHoverCardAdditionalMaxWidthDelay[];
 
 BASE_DECLARE_FEATURE(kTabOrganization);
 bool IsTabOrganization();
+
+BASE_DECLARE_FEATURE(kMultiTabOrganization);
 
 // The target (and minimum) interval between proactive nudge triggers. Measured
 // against a clock that only runs while Chrome is in the foreground.
@@ -215,6 +213,10 @@ BASE_DECLARE_FEATURE(kTabSearchUseMetricsReporter);
 
 BASE_DECLARE_FEATURE(kTearOffWebAppTabOpensWebAppWindow);
 
+BASE_DECLARE_FEATURE(kToolbarPinning);
+
+bool IsToolbarPinningEnabled();
+
 // Determines how screenshots of the toolbar uses Software or Hardware drawing.
 // Works on Android 10+.
 BASE_DECLARE_FEATURE(kToolbarUseHardwareBitmapDraw);
@@ -225,6 +227,8 @@ BASE_DECLARE_FEATURE(kTopChromeWebUIUsesSpareRenderer);
 BASE_DECLARE_FEATURE(kUpdateTextOptions);
 extern const base::FeatureParam<int> kUpdateTextOptionNumber;
 #endif
+
+BASE_DECLARE_FEATURE(kEnterpriseProfileBadging);
 
 BASE_DECLARE_FEATURE(kWebUIBubblePerProfilePersistence);
 

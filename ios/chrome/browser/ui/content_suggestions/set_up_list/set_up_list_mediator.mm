@@ -7,6 +7,7 @@
 #import <AuthenticationServices/AuthenticationServices.h>
 
 #import "base/ios/crb_protocol_observers.h"
+#import "base/memory/raw_ptr.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
@@ -25,7 +26,11 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_consumer.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_delegate.h"
+#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_recorder.h"
+#import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_config.h"
+#import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_consumer_source.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_item_view_data.h"
+#import "ios/chrome/browser/ui/content_suggestions/set_up_list/utils.h"
 #import "ios/chrome/browser/ui/credential_provider_promo/credential_provider_promo_metrics.h"
 
 using credential_provider_promo::IOSCredentialProviderPromoAction;
@@ -43,13 +48,12 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
 
 }  // namespace
 
-#pragma mark - SetUpListMediatorObserverList
+#pragma mark - SetUpListConsumerList
 
-@interface SetUpListMediatorObserverList
-    : CRBProtocolObservers <SetUpListMediatorObserver>
+@interface SetUpListConsumerList : CRBProtocolObservers <SetUpListConsumer>
 @end
 
-@implementation SetUpListMediatorObserverList
+@implementation SetUpListConsumerList
 @end
 
 @interface SetUpListMediator () <AuthenticationServiceObserving,
@@ -57,22 +61,23 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
                                  PrefObserverDelegate,
                                  SceneStateObserver,
                                  SetUpListDelegate,
+                                 SetUpListConsumerSource,
                                  SyncObserverModelBridge>
 
 @end
 
 @implementation SetUpListMediator {
   SetUpList* _setUpList;
-  PrefService* _localState;
+  raw_ptr<PrefService> _localState;
   // Used by SetUpList to get the sync status.
-  syncer::SyncService* _syncService;
+  raw_ptr<syncer::SyncService> _syncService;
   // Observer for sync service status changes.
   std::unique_ptr<SyncObserverBridge> _syncObserverBridge;
   // Observes changes to signed-in status.
   std::unique_ptr<signin::IdentityManagerObserverBridge>
       _identityObserverBridge;
   // Used by SetUpList to get signed-in status.
-  AuthenticationService* _authenticationService;
+  raw_ptr<AuthenticationService> _authenticationService;
   // Observer for auth service status changes.
   std::unique_ptr<AuthenticationServiceObserverBridge>
       _authServiceObserverBridge;
@@ -81,7 +86,7 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   // Registrar for pref changes notifications.
   PrefChangeRegistrar _prefChangeRegistrar;
   SceneState* _sceneState;
-  SetUpListMediatorObserverList* _observers;
+  SetUpListConsumerList* _consumers;
 }
 
 - (instancetype)initWithPrefService:(PrefService*)prefService
@@ -123,11 +128,10 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
                                 localState:_localState
                                syncService:syncService
                      authenticationService:authService];
-    //        [_setUpList addObserver:self];
     _setUpList.delegate = self;
 
-    _observers = [SetUpListMediatorObserverList
-        observersWithProtocol:@protocol(SetUpListMediatorObserver)];
+    _consumers = [SetUpListConsumerList
+        observersWithProtocol:@protocol(SetUpListConsumer)];
   }
   return self;
 }
@@ -147,12 +151,12 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   _localState = nullptr;
 }
 
-- (void)addObserver:(id<SetUpListMediatorObserver>)observer {
-  [_observers addObserver:observer];
+- (void)addConsumer:(id<SetUpListConsumer>)consumer {
+  [_consumers addObserver:consumer];
 }
 
-- (void)removeObserver:(id<SetUpListMediatorObserver>)observer {
-  [_observers removeObserver:observer];
+- (void)removeConsumer:(id<SetUpListConsumer>)consumer {
+  [_consumers removeObserver:consumer];
 }
 
 - (NSArray<SetUpListItemViewData*>*)allItems {
@@ -177,12 +181,84 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   }
   return items;
 }
+
 - (BOOL)allItemsComplete {
   return [_setUpList allItemsComplete];
 }
 
-- (void)disableSetUpList {
+- (void)disableModule {
   set_up_list_prefs::DisableSetUpList(_localState);
+}
+
+- (BOOL)shouldShowSetUpList {
+  if (!set_up_list_utils::IsSetUpListActive(_localState)) {
+    return NO;
+  }
+
+  if ([self setUpListItems].count == 0) {
+    return NO;
+  }
+
+  return YES;
+}
+
+- (void)showSetUpList {
+  NSArray<SetUpListItemViewData*>* items = [self setUpListItems];
+  if (IsMagicStackEnabled()) {
+    if ([self allItemsComplete]) {
+      SetUpListItemViewData* allSetItem =
+          [[SetUpListItemViewData alloc] initWithType:SetUpListItemType::kAllSet
+                                             complete:NO];
+      allSetItem.compactLayout = NO;
+      allSetItem.heroCellMagicStackLayout = YES;
+
+      SetUpListConfig* config = [[SetUpListConfig alloc] init];
+      config.setUpListConsumerSource = self;
+      config.commandHandler = self.commandHandler;
+      config.setUpListItems = @[ allSetItem ];
+      [self.consumer showSetUpListModuleWithConfigs:@[ config ]];
+    } else {
+      BOOL shouldShowCompactedSetUpListModule =
+          set_up_list_utils::ShouldShowCompactedSetUpListModule();
+      if (shouldShowCompactedSetUpListModule) {
+        SetUpListConfig* config = [[SetUpListConfig alloc] init];
+        config.shouldShowCompactModule = YES;
+        config.shouldShowSeeMore = YES;
+        config.setUpListConsumerSource = self;
+        config.commandHandler = self.commandHandler;
+
+        if ([items count] > 2) {
+          items = [items subarrayWithRange:NSMakeRange(0, 2)];
+        }
+        for (SetUpListItemViewData* data in items) {
+          data.compactLayout = YES;
+          data.heroCellMagicStackLayout = NO;
+        }
+        config.setUpListItems = items;
+        [self.consumer showSetUpListModuleWithConfigs:@[ config ]];
+      } else {
+        // Iterate through all items and create config for each hero module.
+        NSMutableArray<SetUpListConfig*>* configs = [NSMutableArray array];
+        for (SetUpListItemViewData* data in items) {
+          data.compactLayout = NO;
+          data.heroCellMagicStackLayout = YES;
+          SetUpListConfig* config = [[SetUpListConfig alloc] init];
+          config.setUpListConsumerSource = self;
+          config.commandHandler = self.commandHandler;
+
+          config.setUpListItems = @[ data ];
+          [configs addObject:config];
+        }
+        [self.consumer showSetUpListModuleWithConfigs:configs];
+      }
+    }
+  } else {
+    [self.consumer showSetUpListWithItems:items];
+  }
+  [self.contentSuggestionsMetricsRecorder recordSetUpListShown];
+  for (SetUpListItemViewData* item in items) {
+    [self.contentSuggestionsMetricsRecorder recordSetUpListItemShown:item.type];
+  }
 }
 
 #pragma mark - SetUpListDelegate
@@ -204,7 +280,13 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
                              SetUpListModuleTypeForSetUpListType(item.type)];
     }
   };
-  [self.consumer markSetUpListItemComplete:item.type completion:completion];
+  if (IsMagicStackEnabled()) {
+    [_consumers setUpListItemDidComplete:item
+                       allItemsCompleted:completed
+                              completion:completion];
+  } else {
+    [self.consumer markSetUpListItemComplete:item.type completion:completion];
+  }
 }
 
 #pragma mark - IdentityManagerObserverBridgeDelegate

@@ -1243,6 +1243,10 @@ void SendSharedStorageMetadata(
     error_message += "Unable to retrieve `remainingBudget`. ";
   }
 
+  if (metadata.bytes_used == -1) {
+    error_message += "Unable to retrieve `bytes_used`. ";
+  }
+
   if (!error_message.empty()) {
     callback->sendFailure(Response::ServerError(error_message));
     return;
@@ -1253,6 +1257,7 @@ void SendSharedStorageMetadata(
           .SetLength(metadata.length)
           .SetCreationTime(metadata.creation_time.InSecondsFSinceUnixEpoch())
           .SetRemainingBudget(metadata.remaining_budget)
+          .SetBytesUsed(metadata.bytes_used)
           .Build();
 
   callback->sendSuccess(std::move(protocol_metadata));
@@ -2028,16 +2033,37 @@ ToAggregatableTriggerData(
   return out;
 }
 
-std::unique_ptr<Array<Storage::AttributionReportingAggregatableValueEntry>>
-ToAggregatableValueEntries(
-    const attribution_reporting::AggregatableValues& values) {
+std::unique_ptr<Array<Storage::AttributionReportingAggregatableValueDictEntry>>
+ToAggregatableValueDictEntries(
+    const attribution_reporting::AggregatableValues::Values&
+        aggregatable_value) {
   auto out = std::make_unique<
-      Array<Storage::AttributionReportingAggregatableValueEntry>>();
-  for (const auto& [key, value] : values.values()) {
+      Array<Storage::AttributionReportingAggregatableValueDictEntry>>();
+  out->reserve(aggregatable_value.size());
+  for (const auto& [key, value] : aggregatable_value) {
     out->emplace_back(
-        Storage::AttributionReportingAggregatableValueEntry::Create()
+        Storage::AttributionReportingAggregatableValueDictEntry::Create()
             .SetKey(key)
             .SetValue(value)
+            .Build());
+  }
+
+  return out;
+}
+
+std::unique_ptr<Array<Storage::AttributionReportingAggregatableValueEntry>>
+ToAggregatableValueEntries(
+    const std::vector<attribution_reporting::AggregatableValues>&
+        aggregatable_values) {
+  auto out = std::make_unique<
+      Array<Storage::AttributionReportingAggregatableValueEntry>>();
+  out->reserve(aggregatable_values.size());
+  for (const auto& aggregatable_value : aggregatable_values) {
+    out->emplace_back(
+        Storage::AttributionReportingAggregatableValueEntry::Create()
+            .SetValues(
+                ToAggregatableValueDictEntries(aggregatable_value.values()))
+            .SetFilters(ToFilterPair(aggregatable_value.filters()))
             .Build());
   }
 
@@ -2089,12 +2115,7 @@ void StorageHandler::OnSourceHandled(
           .SetAggregationKeys(
               ToAggregationKeysEntries(registration.aggregation_keys))
           .SetExpiry(registration.expiry.InSeconds())
-          // TODO(crbug.com/1499890): Replace defaults with
-          // `registration.trigger_specs` once that field is added.
-          .SetTriggerSpecs(
-              ToTriggerSpecs(attribution_reporting::TriggerSpecs::Default(
-                  common_info.source_type(),
-                  registration.event_report_windows)))
+          .SetTriggerSpecs(ToTriggerSpecs(registration.trigger_specs))
           .SetAggregatableReportWindow(
               registration.aggregatable_report_window.InSeconds())
           .SetTriggerDataMatching(
@@ -2186,6 +2207,38 @@ void StorageHandler::NotifyInterestGroupAuctionEventOccurred(
       parent_auction_id.has_value() ? Maybe<String>(*parent_auction_id)
                                     : Maybe<String>(),
       std::make_unique<base::Value::Dict>(auction_config.Clone()));
+}
+
+void StorageHandler::NotifyInterestGroupAuctionNetworkRequestCreated(
+    content::InterestGroupAuctionFetchType type,
+    const std::string& request_id,
+    const std::vector<std::string>& devtools_auction_ids) {
+  if (!interest_group_auction_tracking_enabled_) {
+    return;
+  }
+  std::string type_enum;
+  switch (type) {
+    case content::InterestGroupAuctionFetchType::kBidderJs:
+      type_enum = Storage::InterestGroupAuctionFetchTypeEnum::BidderJs;
+      break;
+    case content::InterestGroupAuctionFetchType::kBidderWasm:
+      type_enum = Storage::InterestGroupAuctionFetchTypeEnum::BidderWasm;
+      break;
+    case content::InterestGroupAuctionFetchType::kSellerJs:
+      type_enum = Storage::InterestGroupAuctionFetchTypeEnum::SellerJs;
+      break;
+    case content::InterestGroupAuctionFetchType::kBidderTrustedSignals:
+      type_enum =
+          Storage::InterestGroupAuctionFetchTypeEnum::BidderTrustedSignals;
+      break;
+    case content::InterestGroupAuctionFetchType::kSellerTrustedSignals:
+      type_enum =
+          Storage::InterestGroupAuctionFetchTypeEnum::SellerTrustedSignals;
+      break;
+  };
+  frontend_->InterestGroupAuctionNetworkRequestCreated(
+      type_enum, request_id,
+      std::make_unique<std::vector<std::string>>(devtools_auction_ids));
 }
 
 }  // namespace protocol

@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/containers/flat_map.h"
+#include "base/gtest_prod_util.h"
 #include "base/token.h"
 #include "chrome/browser/compose/compose_enabling.h"
 #include "chrome/browser/compose/compose_session.h"
@@ -42,7 +43,7 @@ class ChromeComposeClient
     : public compose::ComposeClient,
       public content::WebContentsObserver,
       public content::WebContentsUserData<ChromeComposeClient>,
-      public compose::mojom::ComposeClientPageHandler,
+      public compose::mojom::ComposeClientUntrustedPageHandler,
       public InnerTextProvider {
  public:
   using EntryPoint = autofill::AutofillComposeDelegate::UiEntryPoint;
@@ -63,7 +64,7 @@ class ChromeComposeClient
       const autofill::FormFieldData& trigger_field) override;
   compose::PageUkmTracker* getPageUkmTracker() override;
 
-  // ComposeClientPageHandler
+  // ComposeClientUntrustedPageHandler
   // Shows the compose dialog.
   void ShowUI() override;
   // Closes the compose dialog. `reason` describes the user action that
@@ -88,10 +89,11 @@ class ChromeComposeClient
                                         content::ContextMenuParams& params);
 
   void BindComposeDialog(
-      mojo::PendingReceiver<compose::mojom::ComposeClientPageHandler>
+      mojo::PendingReceiver<compose::mojom::ComposeClientUntrustedPageHandler>
           client_handler,
-      mojo::PendingReceiver<compose::mojom::ComposeSessionPageHandler> handler,
-      mojo::PendingRemote<compose::mojom::ComposeDialog> dialog);
+      mojo::PendingReceiver<compose::mojom::ComposeSessionUntrustedPageHandler>
+          handler,
+      mojo::PendingRemote<compose::mojom::ComposeUntrustedDialog> dialog);
 
   void SetModelQualityLogsUploaderForTest(
       optimization_guide::ModelQualityLogsUploader* model_quality_uploader);
@@ -151,6 +153,10 @@ class ChromeComposeClient
 
  private:
   friend class content::WebContentsUserData<ChromeComposeClient>;
+  FRIEND_TEST_ALL_PREFIXES(ChromeComposeClientTest,
+                           TestComposeQualityFeedbackPositive);
+  FRIEND_TEST_ALL_PREFIXES(ChromeComposeClientTest,
+                           TestComposeQualityFeedbackNegative);
 
   raw_ptr<Profile> profile_;
   raw_ptr<PrefService> pref_service_;
@@ -216,13 +222,13 @@ class ChromeComposeClient
   // next bind call. With mojo, there is no need to immediately reset the
   // binding when the pipe disconnects. Any callbacks in receiver methods can be
   // safely called even when the pipe is disconnected.
-  mojo::Receiver<compose::mojom::ComposeClientPageHandler>
+  mojo::Receiver<compose::mojom::ComposeClientUntrustedPageHandler>
       client_page_receiver_;
 
   // Time that the last call to show the dialog was started.
   base::TimeTicks show_dialog_start_;
 
-  // Used to test Compose in a tab at |chrome://compose|.
+  // Used to test Compose in a tab at |chrome-untrusted://compose|.
   std::unique_ptr<ComposeSession> debug_session_;
 
   // Collects per-pageload UKM metrics and reports them on destruction (if any

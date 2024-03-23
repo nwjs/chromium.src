@@ -29,6 +29,14 @@ BASE_DECLARE_FEATURE(kAddWarningShownTSToClientSafeBrowsingReport);
 // OptimizationGuide.
 BASE_DECLARE_FEATURE(kClientSideDetectionKillswitch);
 
+// Expand CSD-Phishing beyond phishing and trigger when a notification prompt
+// occurs on the page.
+BASE_DECLARE_FEATURE(kClientSideDetectionNotificationPrompt);
+
+// Creates and sends CSBRRs when notification permissions are accepted for an
+// abusive site whose interstitial has been bypassed.
+BASE_DECLARE_FEATURE(kCreateNotificationsAcceptedClientSafeBrowsingReports);
+
 // Creates and sends CSBRRs when warnings are first shown to users.
 BASE_DECLARE_FEATURE(kCreateWarningShownClientSafeBrowsingReports);
 
@@ -50,6 +58,10 @@ BASE_DECLARE_FEATURE(kDownloadTailoredWarnings);
 // passwords for local decryption on encrypted archives.
 BASE_DECLARE_FEATURE(kEncryptedArchivesMetadata);
 
+// Controls whether the Enhanced Safe Browsing (ESB) download row promotion
+// should show.
+BASE_DECLARE_FEATURE(kEsbDownloadRowPromo);
+
 // Allows the Extension Telemetry Service to accept and use configurations
 // sent by the server.
 BASE_DECLARE_FEATURE(kExtensionTelemetryConfiguration);
@@ -61,6 +73,10 @@ BASE_DECLARE_FEATURE(kExtensionTelemetryFileDataForCommandLineExtensions);
 // Enables collection of telemetry signal whenever an extension invokes the
 // chrome.tabs API methods.
 BASE_DECLARE_FEATURE(kExtensionTelemetryTabsApiSignal);
+
+// Enables collection of telemetry signal whenever an extension invokes the
+// chrome.tabs.captureVisibleTab API method.
+BASE_DECLARE_FEATURE(kExtensionTelemetryTabsApiSignalCaptureVisibleTab);
 
 // Enables collection of telemetry signal whenever an extension invokes the
 // tabs.executeScript API call.
@@ -107,6 +123,9 @@ BASE_DECLARE_FEATURE(kImprovedDownloadPageWarnings);
 
 // Enable logging of the account enhanced protection setting in Protego pings.
 BASE_DECLARE_FEATURE(kLogAccountEnhancedProtectionStateInProtegoPings);
+
+// If enabled, do not run Maldoca over downloaded office documents.
+BASE_DECLARE_FEATURE(kMaldocaSkipCheck);
 
 // If enabled, the Safe Browsing database will be stored in a separate file and
 // mapped into memory.

@@ -4,7 +4,6 @@
 
 #include "base/allocator/partition_alloc_support.h"
 
-#include <base/ranges/algorithm.h>
 #include <array>
 #include <cinttypes>
 #include <cstdint>
@@ -364,8 +363,11 @@ std::map<std::string, std::string> ProposeSyntheticFinchTrials() {
 #if BUILDFLAG(IS_ANDROID)
     BootloaderOverride bootloader_override = GetBootloaderOverride();
     partition_alloc::TagViolationReportingMode reporting_mode =
-        allocator_shim::internal::PartitionAllocMalloc::Allocator()
-            ->memory_tagging_reporting_mode();
+        partition_alloc::TagViolationReportingMode::kUndefined;
+#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+    reporting_mode = allocator_shim::internal::PartitionAllocMalloc::Allocator()
+                         ->memory_tagging_reporting_mode();
+#endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
     switch (bootloader_override) {
       case BootloaderOverride::kDefault:
         trials.emplace("MemoryTaggingBootloaderOverride", "Default");
@@ -669,7 +671,7 @@ void CheckDanglingRawPtrBufferEmpty() {
     std::vector<std::array<const void*, 32>> stack_traces =
         internal::InstanceTracer::GetStackTracesForDanglingRefs(entry->id);
     for (const auto& raw_stack_trace : stack_traces) {
-      LOG(ERROR) << "Live reference from:\n";
+      LOG(ERROR) << "Dangling reference from:\n";
       LOG(ERROR) << debug::StackTrace(raw_stack_trace.data(),
                                       raw_stack_trace.size() -
                                           static_cast<size_t>(ranges::count(
@@ -1129,9 +1131,6 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
   const size_t scheduler_loop_quarantine_capacity_in_bytes =
       static_cast<size_t>(
           base::features::kPartitionAllocSchedulerLoopQuarantineCapacity.Get());
-  const size_t scheduler_loop_quarantine_capacity_count = static_cast<size_t>(
-      base::features::kPartitionAllocSchedulerLoopQuarantineCapacityCount
-          .Get());
   const bool zapping_by_free_flags = base::FeatureList::IsEnabled(
       base::features::kPartitionAllocZappingByFreeFlags);
 
@@ -1210,7 +1209,6 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       memory_tagging_reporting_mode, bucket_distribution,
       allocator_shim::SchedulerLoopQuarantine(scheduler_loop_quarantine),
       scheduler_loop_quarantine_capacity_in_bytes,
-      scheduler_loop_quarantine_capacity_count,
       allocator_shim::ZappingByFreeFlags(zapping_by_free_flags));
 
   const uint32_t extras_size = allocator_shim::GetMainPartitionRootExtrasSize();

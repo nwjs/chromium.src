@@ -333,9 +333,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       search_engine_choice_dialog_service =
           search_engines::SearchEngineChoiceServiceFactory::GetForProfile(
               profile);
-  const bool is_eea_country = search_engines::IsEeaChoiceCountry(
+  const bool is_eea_choice_country = search_engines::IsEeaChoiceCountry(
       search_engine_choice_dialog_service->GetCountryId());
-  html_source->AddBoolean("useLargeSearchEngineIcons", is_eea_country);
+  html_source->AddBoolean("isEeaChoiceCountry", is_eea_choice_country);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   html_source->AddBoolean(
@@ -374,10 +374,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(features::kCbdTimeframeRequired));
 
   html_source->AddBoolean(
-      "enableExtendedSettingsDescriptions",
-      base::FeatureList::IsEnabled(features::kExtendedSettingsDescriptions));
-
-  html_source->AddBoolean(
       "enableFriendlierSafeBrowsingSettings",
       base::FeatureList::IsEnabled(
           safe_browsing::kFriendlierSafeBrowsingSettingsEnhancedProtection) &&
@@ -392,6 +388,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableHttpsFirstModeNewSettings",
       base::FeatureList::IsEnabled(features::kHttpsFirstModeIncognito));
+
+  html_source->AddBoolean(
+      "enableLinkedServicesSetting",
+      base::FeatureList::IsEnabled(features::kLinkedServicesSetting));
 
   html_source->AddBoolean(
       "enablePageContentSetting",
@@ -516,10 +516,17 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("enableSafetyHub",
                           base::FeatureList::IsEnabled(features::kSafetyHub));
 
+  // Tracking Protection
   html_source->AddBoolean(
       "is3pcdCookieSettingsRedesignEnabled",
       TrackingProtectionSettingsFactory::GetForProfile(profile)
           ->IsTrackingProtection3pcdEnabled());
+  html_source->AddBoolean("isCookieSettingsUiAlignmentEnabled",
+                          base::FeatureList::IsEnabled(
+                              privacy_sandbox::kCookieSettingsUiAlignment));
+  html_source->AddBoolean(
+      "isIpProtectionV1Enabled",
+      base::FeatureList::IsEnabled(privacy_sandbox::kIpProtectionUx) && false);
   auto* onboarding_service =
       TrackingProtectionOnboardingFactory::GetForProfile(profile);
   html_source->AddBoolean(
@@ -527,6 +534,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       onboarding_service && onboarding_service->IsOffboarded() &&
           base::FeatureList::IsEnabled(
               privacy_sandbox::kTrackingProtectionSettingsPageRollbackNotice));
+
   html_source->AddBoolean(
       "isProactiveTopicsBlockingEnabled",
       base::FeatureList::IsEnabled(
@@ -542,9 +550,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "isDiscardExceptionsImprovementsEnabled",
       base::FeatureList::IsEnabled(
           performance_manager::features::kDiscardExceptionsImprovements));
-  html_source->AddBoolean(
-      "isPerformanceSettingsPreloadingSubpageV2Enabled",
-      features::kPerformanceSettingsPreloadingSubpageV2.Get());
   html_source->AddBoolean(
       "isBatterySaverModeManagedByOS",
       performance_manager::user_tuning::IsBatterySaverModeManagedByOS());

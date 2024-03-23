@@ -93,7 +93,11 @@ enum class OfficeDriveOpenErrors {
   kNoDriveService = 9,
   kDriveAuthenticationNotReady = 10,
   kMeteredConnection = 11,
-  kMaxValue = kMeteredConnection,
+  kEmptyAlternateUrl = 12,
+  kWaitingForUpload = 13,
+  kDisableDrivePreferenceSet = 14,
+  kDriveDisabledForAccountType = 15,
+  kMaxValue = kDriveDisabledForAccountType,
 };
 
 // List of UMA enum values for opening Office files from OneDrive, with the
@@ -158,7 +162,10 @@ enum class OfficeTaskResult {
   kLocalFileTask = 10,
   kFileAlreadyBeingUploaded = 11,
   kCannotGetFallbackChoice = 12,
-  kMaxValue = kCannotGetFallbackChoice,
+  kCannotShowSetupDialog = 13,
+  kCannotShowMoveConfirmation = 14,
+  kNoFilesToOpen = 15,
+  kMaxValue = kNoFilesToOpen,
 };
 
 // The result of the "Upload to cloud" workflow for Office files.
@@ -328,6 +335,11 @@ file_system_provider::ProvidedFileSystemInterface* GetODFS(Profile* profile);
 bool IsODFSMounted(Profile* profile);
 bool IsODFSInstalled(Profile* profile);
 bool IsOfficeWebAppInstalled(Profile* profile);
+
+// Returns true if the IsMicrosoftOfficeOneDriveIntegrationAllowed() returns
+// true and if the ODFS extension is installed. It returns false otherwise.
+bool IsMicrosoftOfficeOneDriveIntegrationAllowedAndOdfsInstalled(
+    Profile* profile);
 
 // Returns true if url refers to an entry on any current mount provided by the
 // ODFS file system provider.

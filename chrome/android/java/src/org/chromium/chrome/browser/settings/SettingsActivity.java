@@ -61,9 +61,12 @@ import org.chromium.chrome.browser.password_manager.settings.PasswordSettings;
 import org.chromium.chrome.browser.privacy_guide.PrivacyGuideFragment;
 import org.chromium.chrome.browser.privacy_sandbox.ChromeTrackingProtectionDelegate;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxSettingsBaseFragment;
+import org.chromium.chrome.browser.privacy_sandbox.TopicsManageFragment;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
 import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFragmentBase;
+import org.chromium.chrome.browser.safety_check.SafetyCheckBridge;
 import org.chromium.chrome.browser.safety_check.SafetyCheckCoordinator;
 import org.chromium.chrome.browser.safety_check.SafetyCheckSettingsFragment;
 import org.chromium.chrome.browser.safety_check.SafetyCheckUpdatesDelegateImpl;
@@ -159,7 +162,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         // killed, or for tests. This should happen before super.onCreate() because it might
         // recreate a fragment, and a fragment might depend on the native library.
         ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
-        mProfile = Profile.getLastUsedRegularProfile();
+        mProfile = ProfileManager.getLastUsedRegularProfile();
 
         super.onCreate(savedInstanceState);
 
@@ -311,7 +314,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                         (sheet) -> {},
                         getWindow(),
                         KeyboardVisibilityDelegate.getInstance(),
-                        () -> sheetContainer);
+                        () -> sheetContainer,
+                        () -> 0);
 
         mBottomSheetControllerSupplier.set(mBottomSheetController);
     }
@@ -525,6 +529,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
             SafetyCheckCoordinator.create(
                     (SafetyCheckSettingsFragment) fragment,
                     new SafetyCheckUpdatesDelegateImpl(),
+                    new SafetyCheckBridge(mProfile),
                     mSettingsLauncher,
                     SyncConsentActivityLauncherImpl.get(),
                     getModalDialogManagerSupplier(),
@@ -618,6 +623,10 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         }
         if (fragment instanceof AutofillCreditCardEditor) {
             ((AutofillCreditCardEditor) fragment)
+                    .setModalDialogManagerSupplier(getModalDialogManagerSupplier());
+        }
+        if (fragment instanceof TopicsManageFragment) {
+            ((TopicsManageFragment) fragment)
                     .setModalDialogManagerSupplier(getModalDialogManagerSupplier());
         }
     }

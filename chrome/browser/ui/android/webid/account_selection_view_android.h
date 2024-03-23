@@ -57,8 +57,10 @@ class AccountSelectionViewAndroid : public AccountSelectionView {
       bool is_sign_in);
   void OnDismiss(JNIEnv* env, jint dismiss_reason);
   void OnLoginToIdP(JNIEnv* env,
+                    const base::android::JavaParamRef<jobject>& idp_config_url,
                     const base::android::JavaParamRef<jobject>& idp_login_url);
   void OnMoreDetails(JNIEnv* env);
+  void OnAccountsDisplayed(JNIEnv* env);
 
  private:
   // Returns either true if the java counterpart of this bridge is initialized

@@ -5,6 +5,7 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 
 #include "base/check_op.h"
+#include "base/no_destructor.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -13,6 +14,7 @@
 #include "components/crx_file/id_util.h"
 #include "components/password_manager/content/common/web_ui_constants.h"
 #include "components/webapps/common/web_app_id.h"
+#include "content/public/common/url_constants.h"
 #include "crypto/sha2.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
 #include "url/gurl.h"
@@ -127,6 +129,15 @@ webapps::ManifestId GenerateManifestIdUnsafe(
   return manifest_id.GetWithoutRef();
 }
 
+namespace {
+
+base::flat_set<std::string>& ValidChromeUrlHosts() {
+  static base::NoDestructor<base::flat_set<std::string>> hosts;
+  return *hosts.get();
+}
+
+}  // namespace
+
 bool IsValidWebAppUrl(const GURL& app_url) {
   if (app_url.is_empty() || app_url.inner_url())
     return false;
@@ -135,8 +146,20 @@ bool IsValidWebAppUrl(const GURL& app_url) {
   return app_url.SchemeIs(url::kHttpScheme) ||
          app_url.SchemeIs(url::kHttpsScheme) ||
          app_url.SchemeIs("chrome-extension") ||
-         (app_url.SchemeIs("chrome") &&
-          (app_url.host() == password_manager::kChromeUIPasswordManagerHost));
+         (app_url.SchemeIs(content::kChromeUIScheme) &&
+          ((app_url.host() == password_manager::kChromeUIPasswordManagerHost) ||
+           ValidChromeUrlHosts().contains(app_url.host())));
+}
+
+base::ScopedClosureRunner AddValidWebAppChromeUrlHostForTesting(  // IN-TEST
+    const std::string& host) {
+  CHECK(ValidChromeUrlHosts().insert(host).second);
+  return base::ScopedClosureRunner(base::BindOnce(
+      [](const std::string& host) {
+        CHECK(ValidChromeUrlHosts().contains(host));
+        ValidChromeUrlHosts().erase(host);
+      },
+      host));
 }
 
 std::optional<webapps::AppId> FindInstalledAppWithUrlInScope(Profile* profile,

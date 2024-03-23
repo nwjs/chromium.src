@@ -46,7 +46,7 @@ public class HomeModulesContextMenuManager {
 
     private final ModuleDelegate mModuleDelegate;
     private final Point mContextMenuStartPosition;
-    private final ModuleRegistry mModuleRegistry;
+    private final HomeModulesConfigManager mHomeModuleConfigManager;
 
     private Boolean mHasModuleToCustomize;
 
@@ -57,10 +57,10 @@ public class HomeModulesContextMenuManager {
     public HomeModulesContextMenuManager(
             @NonNull ModuleDelegate moduleDelegate,
             @NonNull Point startPosition,
-            ModuleRegistry moduleRegistry) {
+            @NonNull HomeModulesConfigManager homeModulesConfigManager) {
         mModuleDelegate = moduleDelegate;
         mContextMenuStartPosition = startPosition;
-        mModuleRegistry = moduleRegistry;
+        mHomeModuleConfigManager = homeModulesConfigManager;
     }
 
     /**
@@ -91,11 +91,9 @@ public class HomeModulesContextMenuManager {
                         .setOnMenuItemClickListener(listener);
             } else {
                 Context context = associatedView.getContext();
-                String item =
-                        context.getString(
-                                R.string.home_modules_context_menu_hide_module,
-                                moduleProvider.getModuleTitle(context));
-                contextMenu.add(item).setOnMenuItemClickListener(listener);
+                contextMenu
+                        .add(moduleProvider.getModuleContextMenuHideText(context))
+                        .setOnMenuItemClickListener(listener);
             }
             hasItems = true;
         }
@@ -136,7 +134,7 @@ public class HomeModulesContextMenuManager {
     @VisibleForTesting
     boolean shouldShowItem(@ContextMenuItemId int itemId, @NonNull ModuleProvider moduleProvider) {
         if (mHasModuleToCustomize == null) {
-            mHasModuleToCustomize = mModuleRegistry.hasCustomizableModule();
+            mHasModuleToCustomize = mHomeModuleConfigManager.hasModuleShownInSettings();
         }
         if (itemId == ContextMenuItemId.SHOW_CUSTOMIZE_SETTINGS && mHasModuleToCustomize) {
             return true;

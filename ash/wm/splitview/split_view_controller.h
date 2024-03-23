@@ -19,6 +19,7 @@
 #include "ash/wm/overview/overview_types.h"
 #include "ash/wm/snap_group/snap_group_controller.h"
 #include "ash/wm/splitview/layout_divider_controller.h"
+#include "ash/wm/splitview/split_view_divider.h"
 #include "ash/wm/splitview/split_view_types.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state_observer.h"
@@ -50,7 +51,6 @@ namespace ash {
 class AutoSnapController;
 class OverviewSession;
 class SplitViewOverviewSession;
-class SplitViewDivider;
 class SplitViewMetricsController;
 class SplitViewObserver;
 class SplitViewOverviewSessionTest;
@@ -162,7 +162,7 @@ class ASH_EXPORT SplitViewController : public aura::WindowObserver,
 
   State state() const { return state_; }
   SnapPosition default_snap_position() const { return default_snap_position_; }
-  SplitViewDivider* split_view_divider() { return split_view_divider_.get(); }
+  SplitViewDivider* split_view_divider() { return &split_view_divider_; }
   EndReason end_reason() const { return end_reason_; }
   SplitViewMetricsController* split_view_metrics_controller() {
     return split_view_metrics_controller_.get();
@@ -196,9 +196,9 @@ class ASH_EXPORT SplitViewController : public aura::WindowObserver,
   // Returns true if `window` can keep snapped with the current snap ratio.
   bool CanKeepCurrentSnapRatio(aura::Window* window) const;
 
-  // Returns true if, after a window is snapped, it will get put into split
-  // overview eventually.
-  bool WillStartOverview() const;
+  // Returns true if partial overview should start on the opposite side of the
+  // screen on the given `window` snapped.
+  bool WillStartPartialOverview(aura::Window* window) const;
 
   // Returns the snap ratio (if valid) for `window` depending on the default
   // window. Returns null if `window` cannot get snapped. If there is no default
@@ -206,7 +206,7 @@ class ASH_EXPORT SplitViewController : public aura::WindowObserver,
   // if `window` can be snapped opposite of the default window. If default
   // window is 2/3 and `window` cannot be snapped 1/3 but can be snapped 1/2, it
   // will be snapped 1/2 unless default window cannot be snapped 1/2.
-  std::optional<float> ComputeSnapRatio(aura::Window* window);
+  std::optional<float> ComputeAutoSnapRatio(aura::Window* window);
 
   // Snap `window` in the split view at `snap_position`. It will send snap
   // WMEvent to `window` and rely on WindowState to do the actual work to
@@ -384,7 +384,7 @@ class ASH_EXPORT SplitViewController : public aura::WindowObserver,
 
   // SnapGroupController::Observer:
   void OnSnapGroupCreated() override;
-  void OnSnapGroupRemoved() override;
+  void OnSnapGroupRemoved(SnapGroup* snap_group) override;
 
   // LayoutDividerController:
   void StartResizeWithDivider(const gfx::Point& location_in_screen) override;
@@ -432,9 +432,15 @@ class ASH_EXPORT SplitViewController : public aura::WindowObserver,
   // Notifies observers that the windows are swappped.
   void NotifyWindowSwapped();
 
-  // Creates the `split_view_divider_`, adjusts its stacking order, updates the
-  // windows bounds and notifies the divider position changes.
-  void CreateSplitViewDividerInClamshell();
+  // Creates a snap group and its associated `split_view_divider_` for two
+  // eligible windows. Or just refreshes the `split_view_divider_` when
+  // restoring the snap group.
+  void RefreshSnapGroup();
+
+  // Creates the `split_view_divider_` for snap group, adjusts its stacking
+  // order, updates the windows bounds and notifies the divider position
+  // changes.
+  void RefreshSplitViewDividerInClamshell();
 
   // Updates the black scrim layer's bounds and opacity while dragging the
   // divider. The opacity increases as the split divider gets closer to the edge
@@ -619,7 +625,7 @@ class ASH_EXPORT SplitViewController : public aura::WindowObserver,
   // will be used in these two cases:
   // 1. Tablet splitview mode;
   // 2. Clamshell splitview mode when `kSnapGroup` is enabled.
-  std::unique_ptr<SplitViewDivider> split_view_divider_;
+  SplitViewDivider split_view_divider_;
 
   // A black scrim layer that fades in over a window when its width drops under
   // 1/3 of the width of the screen, increasing in opacity as the divider gets

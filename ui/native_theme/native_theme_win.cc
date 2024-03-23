@@ -4,12 +4,13 @@
 
 #include "ui/native_theme/native_theme_win.h"
 
-#include <windows.h>
 #include <stddef.h>
 #include <uxtheme.h>
 #include <vsstyle.h>
 #include <vssym32.h>
+#include <windows.h>
 
+#include <optional>
 #include <tuple>
 
 #include "base/check.h"
@@ -29,7 +30,6 @@
 #include "cc/paint/paint_flags.h"
 #include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_win.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkColorPriv.h"
@@ -264,7 +264,7 @@ void NativeThemeWin::Paint(cc::PaintCanvas* canvas,
                            const gfx::Rect& rect,
                            const ExtraParams& extra,
                            ColorScheme color_scheme,
-                           const absl::optional<SkColor>& accent_color) const {
+                           const std::optional<SkColor>& accent_color) const {
   if (rect.IsEmpty())
     return;
 
@@ -340,15 +340,12 @@ NativeThemeWin::NativeThemeWin(bool configure_web_instance,
 }
 
 void NativeThemeWin::ConfigureWebInstance() {
-  if (!IsForcedDarkMode() && !IsForcedHighContrast() &&
-      base::SequencedTaskRunner::HasCurrentDefault()) {
-    // Add the web native theme as an observer to stay in sync with color scheme
-    // changes.
-    color_scheme_observer_ =
-        std::make_unique<NativeTheme::ColorSchemeNativeThemeObserver>(
-            NativeTheme::GetInstanceForWeb());
-    AddObserver(color_scheme_observer_.get());
-  }
+  // Add the web native theme as an observer to stay in sync with color scheme
+  // changes.
+  color_scheme_observer_ =
+      std::make_unique<NativeTheme::ColorSchemeNativeThemeObserver>(
+          NativeTheme::GetInstanceForWeb());
+  AddObserver(color_scheme_observer_.get());
 
   // Initialize the native theme web instance with the system color info.
   NativeTheme* web_instance = NativeTheme::GetInstanceForWeb();

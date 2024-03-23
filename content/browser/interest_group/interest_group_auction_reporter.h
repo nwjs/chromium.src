@@ -337,6 +337,11 @@ class CONTENT_EXPORT InterestGroupAuctionReporter {
   // number (more specifically, bfloat16). Public to enable testing.
   static double RoundStochasticallyToKBits(double value, unsigned k);
 
+  // As above, but passes nullopts through.
+  static std::optional<double> RoundStochasticallyToKBits(
+      std::optional<double> maybe_value,
+      unsigned k);
+
  private:
   // Starts request for a seller worklet. Invokes OnSellerWorkletReceived() on
   // success, OnSellerWorkletFatalError() on error.
@@ -481,7 +486,7 @@ class CONTENT_EXPORT InterestGroupAuctionReporter {
   // SellerWinningBidInfo, it points to an AuctionConfig contained within it.
   const std::unique_ptr<blink::AuctionConfig> auction_config_;
 
-  const std::optional<std::string> devtools_auction_id_;
+  const std::string devtools_auction_id_;
   const url::Origin main_frame_origin_;
   const url::Origin frame_origin_;
   const network::mojom::ClientSecurityStatePtr client_security_state_;

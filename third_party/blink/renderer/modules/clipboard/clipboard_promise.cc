@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/modules/clipboard/clipboard.h"
+#include "third_party/blink/renderer/modules/clipboard/clipboard_item.h"
 #include "third_party/blink/renderer/modules/clipboard/clipboard_reader.h"
 #include "third_party/blink/renderer/modules/clipboard/clipboard_writer.h"
 #include "third_party/blink/renderer/modules/permissions/permission_utils.h"
@@ -109,18 +110,20 @@ class ClipboardPromise::BlobPromiseResolverFunction final
 };
 
 // static
-ScriptPromise ClipboardPromise::CreateForRead(
+ScriptPromiseTyped<IDLSequence<ClipboardItem>> ClipboardPromise::CreateForRead(
     ExecutionContext* context,
     ScriptState* script_state,
     ClipboardUnsanitizedFormats* formats,
     ExceptionState& exception_state) {
   if (!script_state->ContextIsValid()) {
-    return ScriptPromise();
+    return ScriptPromiseTyped<IDLSequence<ClipboardItem>>();
   }
+  auto* resolver = MakeGarbageCollected<
+      ScriptPromiseResolverTyped<IDLSequence<ClipboardItem>>>(
+      script_state, exception_state.GetContext());
+  auto promise = resolver->Promise();
   ClipboardPromise* clipboard_promise = MakeGarbageCollected<ClipboardPromise>(
-      context, script_state, exception_state);
-  ScriptPromise promise =
-      clipboard_promise->script_promise_resolver_->Promise();
+      context, resolver, exception_state);
   clipboard_promise->HandleRead(formats);
   return promise;
 }
@@ -178,10 +181,17 @@ ScriptPromise ClipboardPromise::CreateForWriteText(
 ClipboardPromise::ClipboardPromise(ExecutionContext* context,
                                    ScriptState* script_state,
                                    ExceptionState& exception_state)
+    : ClipboardPromise(context,
+                       MakeGarbageCollected<ScriptPromiseResolver>(
+                           script_state,
+                           exception_state.GetContext()),
+                       exception_state) {}
+
+ClipboardPromise::ClipboardPromise(ExecutionContext* context,
+                                   ScriptPromiseResolver* resolver,
+                                   ExceptionState& exception_state)
     : ExecutionContextLifecycleObserver(context),
-      script_promise_resolver_(MakeGarbageCollected<ScriptPromiseResolver>(
-          script_state,
-          exception_state.GetContext())),
+      script_promise_resolver_(resolver),
       permission_service_(context) {}
 
 ClipboardPromise::~ClipboardPromise() = default;
@@ -380,7 +390,8 @@ void ClipboardPromise::ResolveRead() {
   }
   HeapVector<Member<ClipboardItem>> clipboard_items = {
       MakeGarbageCollected<ClipboardItem>(items)};
-  script_promise_resolver_->Resolve(clipboard_items);
+  script_promise_resolver_->DowncastTo<IDLSequence<ClipboardItem>>()->Resolve(
+      clipboard_items);
 }
 
 void ClipboardPromise::OnReadAvailableFormatNames(
@@ -390,7 +401,7 @@ void ClipboardPromise::OnReadAvailableFormatNames(
 
   clipboard_item_data_.ReserveInitialCapacity(format_names.size());
   for (const String& format_name : format_names) {
-    if (ClipboardWriter::IsValidType(format_name)) {
+    if (ClipboardItem::supports(format_name)) {
       clipboard_item_data_.emplace_back(format_name,
                                         /* Placeholder value. */ nullptr);
     }
@@ -508,7 +519,7 @@ void ClipboardPromise::HandleWriteWithPermission(
     const String& type = type_and_promise_to_blob.first;
     write_clipboard_item_types_.emplace_back(type);
     promise_list.emplace_back(type_and_promise_to_blob.second);
-    if (!ClipboardWriter::IsValidType(type)) {
+    if (!ClipboardItem::supports(type)) {
       script_promise_resolver_->RejectWithDOMException(
           DOMExceptionCode::kNotAllowedError,
           "Type " + type + " not supported on write.");

@@ -154,21 +154,16 @@ public class OmniboxFeatures {
     }
 
     /** Returns whether the visible url in the url bar should be truncated. */
-    public static boolean shouldTruncateVisibleUrl() {
-        return ChromeFeatureList.sVisibleUrlTruncation.isEnabled();
-    }
-
     public static boolean shouldTruncateVisibleUrlV2() {
         return ChromeFeatureList.sVisibleUrlTruncationV2.isEnabled();
     }
 
     /**
-     * @param context The activity context.
-     * @return Whether to calculate the visible hint. We always calculate the visible hint, except
-     *     on tablets that have sNoVisibleHintForTablets enabled.
+     * Returns if we should omit calculating the visible hint if the TLD is different than the
+     * previous call to setText().
      */
-    public static boolean shouldCalculateVisibleHint(Context context) {
-        return !(isTablet(context) && ChromeFeatureList.sNoVisibleHintForTablets.isEnabled());
+    public static boolean shouldOmitVisibleHintCalculationForDifferentTLD() {
+        return ChromeFeatureList.sNoVisibleHintForDifferentTLD.isEnabled();
     }
 
     /** Returns whether to show the incognito status for tablet. */

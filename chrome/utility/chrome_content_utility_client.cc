@@ -25,6 +25,10 @@
 #include "sandbox/policy/mojom/sandbox.mojom.h"
 #include "sandbox/policy/sandbox_type.h"
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chromeos/ash/components/mojo_service_manager/connection.h"
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
 #if defined(OS_WIN)
 #pragma warning(disable:4065)
 #endif
@@ -97,3 +101,10 @@ void ChromeContentUtilityClient::RegisterIOThreadServices(
     mojo::ServiceFactory& services) {
   return ::RegisterIOThreadServices(services);
 }
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+mojo::GenericPendingReceiver
+ChromeContentUtilityClient::InitMojoServiceManager() {
+  return ash::mojo_service_manager::BootstrapServiceManagerInUtilityProcess();
+}
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)

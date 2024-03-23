@@ -653,7 +653,7 @@ bool DragController::ConcludeEditDrag(DragData* drag_data) {
       MakeGarbageCollected<DragAndDropCommand>(*inner_frame->GetDocument()));
 
   if (DragIsMove(inner_frame->Selection(), drag_data) ||
-      IsRichlyEditablePosition(drag_caret.Base())) {
+      IsRichlyEditablePosition(drag_caret.Anchor())) {
     DragSourceType drag_source_type = DragSourceType::kHTMLSource;
     DocumentFragment* fragment = DocumentFragmentFromDragData(
         drag_data, inner_frame, range, true, drag_source_type);
@@ -680,8 +680,9 @@ bool DragController::ConcludeEditDrag(DragData* drag_data) {
                   *inner_frame,
                   inner_frame->Selection()
                       .ComputeVisibleSelectionInDOMTreeDeprecated()),
-              delete_mode, drag_caret.Base()))
+              delete_mode, drag_caret.Anchor())) {
         return false;
+      }
 
       inner_frame->Selection().SetSelectionAndEndTyping(
           SelectionInDOMTree::Builder()
@@ -1220,7 +1221,7 @@ void SelectEnclosingAnchorIfContentEditable(LocalFrame* frame) {
     if (Node* anchor = EnclosingAnchorElement(
             frame->Selection()
                 .ComputeVisibleSelectionInDOMTreeDeprecated()
-                .Base())) {
+                .Anchor())) {
       frame->Selection().SetSelectionAndEndTyping(
           SelectionInDOMTree::Builder().SelectAllChildren(*anchor).Build());
     }

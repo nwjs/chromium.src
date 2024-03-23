@@ -25,10 +25,11 @@ void FakeIdentityRequestDialogController::ShowAccountsDialog(
     const std::vector<content::IdentityProviderData>& identity_provider_data,
     IdentityRequestAccount::SignInMode sign_in_mode,
     blink::mojom::RpMode rp_mode,
-    bool show_auto_reauthn_checkbox,
+    const std::optional<content::IdentityProviderData>& new_account_idp,
     AccountSelectionCallback on_selected,
     LoginToIdPCallback on_add_account,
-    DismissCallback dismiss_callback) {
+    DismissCallback dismiss_callback,
+    AccountsDisplayedCallback accounts_displayed_callback) {
   // TODO(crbug.com/1348262): Temporarily support only the first IDP, extend to
   // support multiple IDPs.
   std::vector<IdentityRequestAccount> accounts =

@@ -22,11 +22,11 @@
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_model.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_view.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/test_isolated_web_app_installer_model_observer.h"
-#include "chrome/browser/ui/web_applications/test/isolated_web_app_builder.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/signed_web_bundle_metadata.h"
+#include "chrome/browser/web_applications/isolated_web_apps/test/test_signed_web_bundle_builder.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/fake_web_app_ui_manager.h"
 #include "chrome/browser/web_applications/test/fake_web_contents_manager.h"
@@ -155,7 +155,7 @@ class MockView : public IsolatedWebAppInstallerView {
               ShowInstallSuccessScreen,
               (const SignedWebBundleMetadata& bundle_metadata),
               (override));
-  MOCK_METHOD(void,
+  MOCK_METHOD(views::Widget*,
               ShowDialog,
               (const IsolatedWebAppInstallerModel::Dialog& dialog),
               (override));
@@ -336,7 +336,7 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest,
 }
 
 TEST_F(IsolatedWebAppInstallerViewControllerTest,
-       OutdatedBundleShowsErrorDialog) {
+       OutdatedBundleShowsAlreadyInstalledDialog) {
   base::FilePath bundle_path = CreateBundlePath("test_bundle.swbn");
   IsolatedWebAppUrlInfo url_info = CreateAndWriteTestBundle(bundle_path, "1.0");
   MockIconAndPageState(url_info, "1.0");
@@ -361,7 +361,43 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest,
   EXPECT_CALL(
       view,
       ShowDialog(
-          VariantWith<IsolatedWebAppInstallerModel::BundleOutdatedDialog>(_)));
+          VariantWith<
+              IsolatedWebAppInstallerModel::BundleAlreadyInstalledDialog>(_)));
+
+  controller.Start(base::DoNothing(), base::DoNothing());
+
+  TestIsolatedWebAppInstallerModelObserver(&model).WaitForChildDialog();
+  EXPECT_EQ(model.step(), Step::kGetMetadata);
+}
+
+TEST_F(IsolatedWebAppInstallerViewControllerTest,
+       NewerBundleShowsAlreadyInstalledDialog) {
+  base::FilePath bundle_path = CreateBundlePath("test_bundle.swbn");
+  IsolatedWebAppUrlInfo url_info = CreateAndWriteTestBundle(bundle_path, "2.0");
+  MockIconAndPageState(url_info, "2.0");
+
+  AddDummyIsolatedAppToRegistry(
+      profile(), url_info.origin().GetURL(), "app",
+      WebApp::IsolationData(InstalledBundle{.path = base::FilePath()},
+                            base::Version("1.0")));
+
+  IsolatedWebAppInstallerModel model(CreateBundlePath("test_bundle.swbn"));
+  model.SetStep(Step::kGetMetadata);
+
+  auto pref_observer =
+      std::make_unique<FakeIsolatedWebAppsEnabledPrefObserver>(true);
+  IsolatedWebAppInstallerViewController controller(
+      profile(), fake_provider(), &model, std::move(pref_observer));
+  testing::StrictMock<MockView> view;
+  controller.SetViewForTesting(&view);
+
+  EXPECT_CALL(view, UpdateGetMetadataProgress(_)).Times(AnyNumber());
+  EXPECT_CALL(view, ShowGetMetadataScreen());
+  EXPECT_CALL(
+      view,
+      ShowDialog(
+          VariantWith<
+              IsolatedWebAppInstallerModel::BundleAlreadyInstalledDialog>(_)));
 
   controller.Start(base::DoNothing(), base::DoNothing());
 

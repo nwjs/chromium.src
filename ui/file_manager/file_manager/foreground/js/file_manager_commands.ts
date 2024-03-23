@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://resources/cr_elements/cr_input/cr_input.js';
+import 'chrome://resources/ash/common/cr_elements/cr_input/cr_input.js';
 
+import {CrButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_button/cr_button.js';
 import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
-import {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import {assert} from 'chrome://resources/js/assert.js';
 
 import type {VolumeInfo} from '../../background/js/volume_info.js';
@@ -259,8 +259,7 @@ export class EraseDeviceCommand extends FilesCommand {
     const root = getEventEntry(event, fileManager);
 
     if (root && root instanceof EntryList) {
-      /** @type {FilesFormatDialog} */ (fileManager.ui.formatDialog)
-          .showEraseModal(root);
+      fileManager.ui.formatDialog.showEraseModal(root);
     }
   }
 
@@ -1865,64 +1864,6 @@ export class ZipSelectionCommand extends FilesCommand {
     event.canExecute = !!dirEntry && !fileManager.directoryModel.isReadOnly() &&
         isOnEligibleLocation && selection && selection.totalCount > 0 &&
         !hasEncryptedFile;
-  }
-}
-
-/**
- * Shows the share dialog for the current selection (single only).
- */
-export class ShareCommand extends FilesCommand {
-  execute(event: CommandEvent, fileManager: CommandHandlerDeps) {
-    const entries = getCommandEntries(fileManager, event.target);
-    const actionsController = fileManager.actionsController;
-
-    fileManager.actionsController.getActionsForEntries(entries).then(
-        (actionsModel: ActionsModel|void) => {
-          if (!actionsModel) {
-            return;
-          }
-          const action = actionsModel.getAction(CommonActionId.SHARE);
-          if (action) {
-            actionsController.executeAction(action);
-          }
-        });
-  }
-
-  override canExecute(event: CanExecuteEvent, fileManager: CommandHandlerDeps) {
-    const entries = getCommandEntries(fileManager, event.target);
-    const command = event.command;
-    const actionsController = fileManager.actionsController;
-
-    // Avoid flickering menu height: synchronously define command visibility.
-    if (!isDriveEntries(entries, fileManager.volumeManager)) {
-      command.setHidden(true);
-      return;
-    }
-
-    command.setHidden(false);
-
-    function canExecuteShare(actionsModel: ActionsModel|void) {
-      if (!actionsModel) {
-        return;
-      }
-      const action = actionsModel.getAction(CommonActionId.SHARE);
-      event.canExecute = !!action && action.canExecute();
-      command.disabled = !event.canExecute;
-      command.setHidden(!action);
-    }
-
-    // Run synchrounously if possible.
-    const actionsModel =
-        actionsController.getInitializedActionsForEntries(entries);
-    if (actionsModel) {
-      canExecuteShare(actionsModel);
-      return;
-    }
-
-    event.canExecute = true;
-    command.setHidden(false);
-    // Run async, otherwise.
-    actionsController.getActionsForEntries(entries).then(canExecuteShare);
   }
 }
 

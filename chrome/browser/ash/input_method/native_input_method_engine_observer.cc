@@ -11,6 +11,8 @@
 #include "ash/webui/settings/public/constants/routes.mojom.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -24,7 +26,6 @@
 #include "chrome/browser/ash/input_method/assistive_suggester_switch.h"
 #include "chrome/browser/ash/input_method/autocorrect_manager.h"
 #include "chrome/browser/ash/input_method/autocorrect_prefs.h"
-#include "chrome/browser/ash/input_method/diacritics_checker.h"
 #include "chrome/browser/ash/input_method/input_method_quick_settings_helpers.h"
 #include "chrome/browser/ash/input_method/input_method_settings.h"
 #include "chrome/browser/ash/input_method/suggestion_enums.h"
@@ -596,7 +597,8 @@ void OverrideXkbLayoutIfNeeded(ImeKeyboard* keyboard,
                                const mojom::InputMethodSettingsPtr& settings) {
   if (settings && settings->is_pinyin_settings()) {
     keyboard->SetCurrentKeyboardLayoutByName(
-        MojomLayoutToXkbLayout(settings->get_pinyin_settings()->layout));
+        MojomLayoutToXkbLayout(settings->get_pinyin_settings()->layout),
+        base::DoNothing());
   }
 }
 
@@ -1343,13 +1345,6 @@ void NativeInputMethodEngineObserver::FinishComposition() {
   TextInputTarget* input_context = IMEBridge::Get()->GetInputContextHandler();
 
   input_context->ConfirmComposition(/*reset_engine=*/false);
-
-  auto* manager = InputMethodManager::Get();
-  if (!manager ||
-      !extension_ime_util::IsExperimentalMultilingual(
-          manager->GetActiveIMEState()->GetCurrentInputMethod().id())) {
-    return;
-  }
 }
 
 void NativeInputMethodEngineObserver::DeleteSurroundingText(

@@ -5,6 +5,7 @@
 #include "ui/android/event_forwarder.h"
 
 #include "base/android/jni_array.h"
+#include "base/numerics/ranges.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
 #include "ui/android/ui_android_jni_headers/EventForwarder_jni.h"
@@ -17,24 +18,25 @@
 #include "ui/events/android/motion_event_android.h"
 
 namespace ui {
-
+namespace {
+static constexpr float kEpsilon = 1e-5f;
 using base::android::AppendJavaStringArrayToStringVector;
 using base::android::JavaParamRef;
 using base::android::ScopedJavaLocalRef;
+}  // namespace
 
 EventForwarder::EventForwarder(ViewAndroid* view) : view_(view) {}
 
 EventForwarder::~EventForwarder() {
   if (!java_obj_.is_null()) {
-    Java_EventForwarder_destroy(base::android::AttachCurrentThread(),
-                                java_obj_);
+    Java_EventForwarder_destroy(jni_zero::AttachCurrentThread(), java_obj_);
     java_obj_.Reset();
   }
 }
 
 ScopedJavaLocalRef<jobject> EventForwarder::GetJavaObject() {
   if (java_obj_.is_null()) {
-    JNIEnv* env = base::android::AttachCurrentThread();
+    JNIEnv* env = jni_zero::AttachCurrentThread();
     java_obj_.Reset(
         Java_EventForwarder_create(env, reinterpret_cast<intptr_t>(this),
                                    switches::IsTouchDragDropEnabled()));
@@ -84,10 +86,27 @@ jboolean EventForwarder::OnTouchEvent(JNIEnv* env,
         auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
         auto* forwarder = event->set_event_forwarder();
         forwarder->set_history_size(history_size);
-        forwarder->set_time_ns(oldest_event_time_ns);
+        forwarder->set_latest_time_ns(latest_event_time_ns);
+        // In the case of unbuffered input that chrome uses usually history_size
+        // == 0 and oldest_time == latest_time so to save trace buffer space we
+        // emit it only if they are different.
+        if (oldest_event_time_ns != latest_event_time_ns) {
+          forwarder->set_oldest_time_ns(oldest_event_time_ns);
+        }
         forwarder->set_x_pixel(pos_x_0);
         forwarder->set_y_pixel(pos_y_0);
+        // Only record if there was movement for Action::Move (we'll update the
+        // last position on the first Motion::TouchDown).
+        if (android_action ==
+            MotionEventAndroid::GetAndroidAction(MotionEvent::Action::DOWN)) {
+          forwarder->set_has_x_movement(
+              !base::IsApproximatelyEqual(pos_x_0, last_x_pos_, kEpsilon));
+          forwarder->set_has_y_movement(
+              !base::IsApproximatelyEqual(pos_y_0, last_y_pos_, kEpsilon));
+        }
       });
+  last_x_pos_ = pos_x_0;
+  last_y_pos_ = pos_y_0;
 
   ui::MotionEventAndroid::Pointer pointer0(
       pointer_id_0, pos_x_0, pos_y_0, touch_major_0, touch_minor_0,

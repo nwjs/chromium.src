@@ -102,6 +102,7 @@
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_response.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -565,7 +566,7 @@ void LocalFrameClientImpl::BeginNavigation(
     mojo::PendingRemote<mojom::blink::BlobURLToken> blob_url_token,
     base::TimeTicks input_start_time,
     const String& href_translate,
-    const absl::optional<Impression>& impression,
+    const std::optional<Impression>& impression,
     const LocalFrameToken* initiator_frame_token,
     std::unique_ptr<SourceLocation> source_location,
     mojo::PendingRemote<mojom::blink::PolicyContainerHostKeepAliveHandle>
@@ -600,12 +601,14 @@ void LocalFrameClientImpl::BeginNavigation(
       base::OptionalFromPtr(initiator_frame_token);
   navigation_info->initiator_policy_container_keep_alive_handle =
       std::move(initiator_policy_container_keep_alive_handle);
-  if (origin_window && origin_window->GetFrame()) {
+  LocalFrame* origin_frame =
+      origin_window ? origin_window->GetFrame() : nullptr;
+  if (origin_frame) {
     // Many navigation paths do not pass an |initiator_frame_token|, so we need
     // to compute it here.
     if (!navigation_info->initiator_frame_token) {
       navigation_info->initiator_frame_token =
-          origin_window->GetFrame()->GetLocalFrameToken();
+          origin_frame->GetLocalFrameToken();
     }
     // Similarly, many navigation paths do not pass an
     // |initiator_policy_container_keep_alive_handle|.
@@ -622,6 +625,14 @@ void LocalFrameClientImpl::BeginNavigation(
 
   navigation_info->impression = impression;
   navigation_info->is_fullscreen_requested = is_fullscreen_requested;
+  // TODO(crbug.com/1142516): Enforce requirements here, before IPC to browser?
+  if (is_fullscreen_requested && !request.HasUserGesture() && origin_frame &&
+      origin_frame->GetSettings() &&
+      !origin_frame->GetSettings()
+           ->GetRequireTransientActivationForHtmlFullscreen()) {
+    UseCounter::Count(origin_frame->GetDocument(),
+                      WebFeature::kFullscreenAllowedByContentSetting);
+  }
 
   // Allow cookie access via Storage Access API during the navigation, if the
   // initiator has obtained storage access. Note that the network service still
@@ -654,15 +665,14 @@ void LocalFrameClientImpl::BeginNavigation(
   if (form)
     navigation_info->form = WebFormElement(form);
 
-  LocalFrame* frame = origin_window ? origin_window->GetFrame() : nullptr;
-  if (frame) {
+  if (origin_frame) {
     navigation_info->is_opener_navigation =
-        frame->Opener() == ToCoreFrame(web_frame_);
+        origin_frame->Opener() == ToCoreFrame(web_frame_);
     navigation_info->initiator_frame_has_download_sandbox_flag =
         origin_window->IsSandboxed(
             network::mojom::blink::WebSandboxFlags::kDownloads);
-    navigation_info->initiator_frame_is_ad = frame->IsAdFrame();
-    navigation_info->is_ad_script_in_stack = frame->IsAdScriptInStack();
+    navigation_info->initiator_frame_is_ad = origin_frame->IsAdFrame();
+    navigation_info->is_ad_script_in_stack = origin_frame->IsAdScriptInStack();
   }
 
   // The frame has navigated either by itself or by the action of the
@@ -749,7 +759,7 @@ void LocalFrameClientImpl::DidStopLoading() {
 
 bool LocalFrameClientImpl::NavigateBackForward(
     int offset,
-    absl::optional<scheduler::TaskAttributionId>
+    std::optional<scheduler::TaskAttributionId>
         soft_navigation_heuristics_task_id) const {
   WebViewImpl* webview = web_frame_->ViewImpl();
   DCHECK(webview->Client());
@@ -781,10 +791,12 @@ void LocalFrameClientImpl::DidChangePerformanceTiming() {
 void LocalFrameClientImpl::DidObserveUserInteraction(
     base::TimeTicks max_event_start,
     base::TimeTicks max_event_end,
+    base::TimeTicks max_event_queued_main_thread,
     UserInteractionType interaction_type,
     uint64_t interaction_offset) {
   web_frame_->Client()->DidObserveUserInteraction(
-      max_event_start, max_event_end, interaction_type, interaction_offset);
+      max_event_start, max_event_end, max_event_queued_main_thread,
+      interaction_type, interaction_offset);
 }
 
 void LocalFrameClientImpl::DidChangeCpuTiming(base::TimeDelta time) {
@@ -872,10 +884,10 @@ String LocalFrameClientImpl::UserAgent() {
   return user_agent_;
 }
 
-absl::optional<UserAgentMetadata> LocalFrameClientImpl::UserAgentMetadata() {
+std::optional<UserAgentMetadata> LocalFrameClientImpl::UserAgentMetadata() {
   bool ua_override_on = web_frame_->Client() &&
                         !web_frame_->Client()->UserAgentOverride().IsEmpty();
-  absl::optional<blink::UserAgentMetadata> user_agent_metadata =
+  std::optional<blink::UserAgentMetadata> user_agent_metadata =
       ua_override_on ? web_frame_->Client()->UserAgentMetadataOverride()
                      : Platform::Current()->UserAgentMetadata();
 

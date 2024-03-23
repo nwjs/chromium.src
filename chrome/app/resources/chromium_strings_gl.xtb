@@ -17,7 +17,6 @@
 <translation id="1153368717515616349">Fai clic no menú de Chromium</translation>
 <translation id="1185134272377778587">Acerca de Chromium</translation>
 <translation id="1203500561924088507">Grazas por levar a cabo a instalación. Para utilizar <ph name="BUNDLE_NAME" />, debes reiniciar o navegador.</translation>
-<translation id="1261119230216066228">Chromium funciona máis rápido grazas a Aforro de memoria</translation>
 <translation id="1262876892872089030">Mentres esta pestana estaba inactiva, liberouse memoria para que Chromium siga funcionando rápido. Podes optar por excluír este sitio para que nunca estea inactivo.</translation>
 <translation id="1265577313130862557">Chromium bloqueou esta descarga porque o ficheiro é perigoso</translation>
 <translation id="1315551408014407711">Configura o teu novo perfil de Chromium</translation>
@@ -114,6 +113,7 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="3032706164202344641">Chromium non puido comprobar os teus contrasinais. Téntao de novo máis tarde.</translation>
 <translation id="3032787606318309379">Engadindo a Chromium...</translation>
 <translation id="3038232873781883849">Esperando para realizar a instalación…</translation>
+<translation id="3068187312562070417">Outros perfís de Chromium</translation>
 <translation id="3068515742935458733">Axudar a mellorar Chromium enviando informes sobre fallos e <ph name="UMA_LINK" /> a Google</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{Unha ou varias extensións de Chromium estaban accedendo a 1 dispositivo USB}=1{Unha ou varias extensións de Chromium estaban accedendo a 1 dispositivo USB}other{Unha ou varias extensións de Chromium estaban accedendo a # dispositivos USB}}</translation>
 <translation id="3101560983689755071">O teu historial de navegación aféctalles aos anuncios que se che mostran e aos intereses estimados que se indican abaixo. Para protexer a túa privacidade, Chromium elimina automaticamente os teus intereses cada mes. A menos que os quites, os intereses poden actualizarse.</translation>
@@ -231,6 +231,7 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="5294316920224716406">Cando navegues no modo de incógnito, Chromium mostrarache unha advertencia antes de cargar un sitio cunha conexión pouco segura</translation>
 <translation id="5296845517486664001">Cando as probas están activas e Chromium te inclúe de forma aleatoria nunha delas, o teu historial de navegación aféctalles aos anuncios que se che mostran e aos intereses estimados que se indican abaixo. Para protexer a túa privacidade, Chromium elimina os teus intereses cada mes.</translation>
 <translation id="5352264705793813212">Chromium atopou algunhas recomendacións de seguranza para que as revises</translation>
+<translation id="5352361688875342522">Outros perfís de Chromium</translation>
 <translation id="5358375970380395591">Estás iniciando sesión cunha conta xestionada e concedendo control ao seu administrador sobre o teu perfil de Chromium. Os teus datos de Chromium, como as túas aplicacións, marcadores, historial, contrasinais e outras configuracións ligaranse permanentemente a <ph name="USER_NAME" />. Poderás eliminar estes datos a través do Panel de control das contas de Google, pero non poderás asociar estes datos a outra conta. <ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">Código adicional: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5383439451358640070">Descubre por que Chromium bloquea algúns ficheiros</translation>
@@ -326,12 +327,12 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="6669284030132180248">Se tamén gardas os marcadores na túa Conta de Google, poderás facer un seguimento dos prezos dos produtos en Chromium e recibir notificacións cando baixen</translation>
 <translation id="6676384891291319759">Accede a Internet</translation>
 <translation id="668175097507315160">Chromium OS non puido sincronizar os teus datos porque se produciu un erro ao iniciar sesión.</translation>
+<translation id="6692797197837897398">Chromium ofréceche máis control sobre os anuncios que ves e limita a información que os sitios poden obter sobre ti cando che mostran anuncios personalizados</translation>
 <translation id="6709350901466051922">Chromium necesita permiso de acceso ao micrófono para este sitio</translation>
 <translation id="6712881677154121168">Produciuse un erro na descarga: <ph name="DOWNLOAD_ERROR" />.</translation>
 <translation id="6717134281241384636">No se pode utilizar o teu perfil porque procede dunha versión de Chromium máis actualizada.
 
 É posible que algunhas funcións non estean dispoñibles. Especifica un directorio de perfil diferente ou utiliza unha versión máis actualizada de Chromium.</translation>
-<translation id="6730677189742196061">Chromium funciona máis rápido grazas a Aforro de memoria</translation>
 <translation id="6734291798041940871">Chromium xa está instalado para todos os usuarios no teu ordenador.</translation>
 <translation id="673636774878526923">Se queres acceder ás túas cousas de Chromium desde calquera dos teus dispositivos, inicia sesión e activa a sincronización.</translation>
 <translation id="67706546131546258">Chromium recomenda analizar este ficheiro porque pode ser perigoso.</translation>
@@ -385,7 +386,6 @@ Chromium non pode recuperar a túa configuración.</translation>
 <translation id="7617377681829253106">Chromium introduciu melloras</translation>
 <translation id="7649070708921625228">Axuda</translation>
 <translation id="7682213815243802460">Podes obter máis información sobre estas funcións na configuración de Chromium.</translation>
-<translation id="7682601070171973634">Chromium está explorando novas funcións que lles permiten aos sitios ofrecer a mesma experiencia de navegación usando menos datos</translation>
 <translation id="7686590090926151193">Chromium non é o teu navegador predeterminado</translation>
 <translation id="7689606757190482937">Sincroniza e personaliza Chromium nos teus dispositivos</translation>
 <translation id="7699779824407626136">Actualización de Chromium</translation>
@@ -393,6 +393,7 @@ Chromium non pode recuperar a túa configuración.</translation>
 <translation id="7747138024166251722">O programa de instalación non puido crear un directorio temporal. Comproba se hai espazo libre no disco e se tes autorización para instalar o software.</translation>
 <translation id="7786760609782648049">Fai que Chromium sexa máis rápido</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> (versión experimental de Chromium)</translation>
+<translation id="7803986347287457849">Fai que ás persoas que teñan acceso ao teu tráfico de Internet lles resulte máis difícil ver os sitios que visitas. Chromium usa unha conexión segura para buscar o enderezo IP dos sitios no DNS (Sistema de nomes de dominios).</translation>
 <translation id="7828947555739565424">Neste dispositivo xa existe un perfil de Chromium con esta conta</translation>
 <translation id="7845233973568007926">Grazas por levar a cabo a instalación. Para utilizar <ph name="BUNDLE_NAME" />, debes reiniciar o ordenador.</translation>
 <translation id="7859018312476869945">Cando escribes algo na barra de enderezos ou na caixa de busca, Chromium envíallo ao motor de busca predeterminado para obter mellores suxestións. Esta opción está desactivada no modo de incógnito.</translation>

@@ -959,8 +959,8 @@ IN_PROC_BROWSER_TEST_P(
   auto subframe_result = MatchesNotRestoredReasons(
       /*id=*/"", /*name=*/"", /*src=*/url_a_no_store.spec(),
       /*reasons=*/
-      {"JsNetworkRequestReceivedCacheControlNoStoreResource",
-       "MainResourceHasCacheControlNoStore"},
+      {MatchesDetailedReason("cache-control-no-store",
+                             /*source=*/std::nullopt)},
       MatchesSameOriginDetails(
           /*url=*/url_a_no_store.spec(),
           /*children=*/{}));
@@ -968,7 +968,9 @@ IN_PROC_BROWSER_TEST_P(
       current_frame_host()->NotRestoredReasonsForTesting(),
       MatchesNotRestoredReasons(
           /*id=*/std::nullopt, /*name=*/std::nullopt, /*src=*/std::nullopt,
-          /*reasons=*/{"MainResourceHasCacheControlNoStore"},
+          /*reasons=*/
+          {MatchesDetailedReason("cache-control-no-store",
+                                 /*source=*/std::nullopt)},
           MatchesSameOriginDetails(
               /*url=*/url_a_no_store.spec(),
               /*children=*/

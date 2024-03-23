@@ -963,8 +963,7 @@ bool TemplateURLService::CanMakeDefault(const TemplateURL* url) const {
               DefaultSearchManager::FROM_FALLBACK) &&
          (url != GetDefaultSearchProvider()) &&
          url->url_ref().SupportsReplacement(search_terms_data()) &&
-         (url->type() == TemplateURL::NORMAL) &&
-         (url->starter_pack_id() != TemplateURLStarterPackData::kTabs);
+         (url->type() == TemplateURL::NORMAL) && (url->starter_pack_id() == 0);
 }
 
 void TemplateURLService::SetUserSelectedDefaultSearchProvider(
@@ -988,6 +987,14 @@ void TemplateURLService::SetUserSelectedDefaultSearchProvider(
       ApplyDefaultSearchChange(url ? &url->data() : nullptr,
                                DefaultSearchManager::FROM_USER);
       selection_added = true;
+    } else {
+      // When we are setting the search engine choice from choice screens,
+      // the DSP source is expected to allow the search engine to be changed by
+      // the user. So we are guaranteed to not drop one of the choices coming
+      // from these screens here.
+      // TODO(crbug.com/323905627): Remove milestone if no hits by then.
+      CHECK_NE(choice_made_location, search_engines::ChoiceMadeLocation::kOther,
+               base::NotFatalUntil::M124);
     }
   } else {
     // We rely on the DefaultSearchManager to call ApplyDefaultSearchChange if,
@@ -1053,11 +1060,11 @@ GURL TemplateURLService::GenerateSearchURLForDefaultSearchProvider(
                           : GURL();
 }
 
-absl::optional<TemplateURLService::SearchMetadata>
+std::optional<TemplateURLService::SearchMetadata>
 TemplateURLService::ExtractSearchMetadata(const GURL& url) const {
   const TemplateURL* template_url = GetTemplateURLForHost(url.host());
   if (!template_url) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   GURL normalized_url;
@@ -1070,7 +1077,7 @@ TemplateURLService::ExtractSearchMetadata(const GURL& url) const {
                           /*normalize_search_terms=*/true, &normalized_url,
                           &normalized_search_terms);
   if (!is_valid_search_url) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return SearchMetadata{template_url, normalized_url, normalized_search_terms};
@@ -1347,12 +1354,15 @@ void TemplateURLService::OnWebDataServiceRequestDone(
 
 std::u16string TemplateURLService::GetKeywordShortName(
     const std::u16string& keyword,
-    bool* is_omnibox_api_extension_keyword) const {
+    bool* is_omnibox_api_extension_keyword,
+    bool* is_ask_google_keyword) const {
   const TemplateURL* template_url = GetTemplateURLForKeyword(keyword);
 
   // TODO(sky): Once LocationBarView adds a listener to the TemplateURLService
   // to track changes to the model, this should become a DCHECK.
   if (template_url) {
+    *is_ask_google_keyword = template_url->starter_pack_id() ==
+                             TemplateURLStarterPackData::kAskGoogle;
     *is_omnibox_api_extension_keyword =
         template_url->type() == TemplateURL::OMNIBOX_API_EXTENSION;
     return template_url->AdjustedShortNameForLocaleDirection();
@@ -1417,7 +1427,7 @@ syncer::SyncDataList TemplateURLService::GetAllSyncData(
   return current_data;
 }
 
-absl::optional<syncer::ModelError> TemplateURLService::ProcessSyncChanges(
+std::optional<syncer::ModelError> TemplateURLService::ProcessSyncChanges(
     const base::Location& from_here,
     const syncer::SyncChangeList& change_list) {
   if (!models_associated_) {
@@ -1436,7 +1446,7 @@ absl::optional<syncer::ModelError> TemplateURLService::ProcessSyncChanges(
       &dsp_change_origin_, DSP_CHANGE_SYNC_UNINTENTIONAL);
 
   syncer::SyncChangeList new_changes;
-  absl::optional<syncer::ModelError> error;
+  std::optional<syncer::ModelError> error;
   for (auto iter = change_list.begin(); iter != change_list.end(); ++iter) {
     DCHECK_EQ(syncer::SEARCH_ENGINES, iter->sync_data().GetDataType());
 
@@ -1522,7 +1532,7 @@ base::WeakPtr<syncer::SyncableService> TemplateURLService::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
-absl::optional<syncer::ModelError> TemplateURLService::MergeDataAndStartSyncing(
+std::optional<syncer::ModelError> TemplateURLService::MergeDataAndStartSyncing(
     syncer::ModelType type,
     const syncer::SyncDataList& initial_sync_data,
     std::unique_ptr<syncer::SyncChangeProcessor> sync_processor) {
@@ -1628,7 +1638,7 @@ absl::optional<syncer::ModelError> TemplateURLService::MergeDataAndStartSyncing(
   PruneSyncChanges(&sync_data_map, &new_changes);
 
   LogDuplicatesHistogram(GetTemplateURLs());
-  absl::optional<syncer::ModelError> error =
+  std::optional<syncer::ModelError> error =
       sync_processor_->ProcessSyncChanges(FROM_HERE, new_changes);
   if (!error.has_value()) {
     // The ACTION_DELETEs from this set are processed. Empty it so we don't try
@@ -1804,6 +1814,14 @@ TemplateURLService::CreateTemplateURLFromTemplateURLAndSyncData(
                            sync_data));
     UMA_HISTOGRAM_ENUMERATION(kDeleteSyncedEngineHistogramName,
         DELETE_ENGINE_EMPTY_FIELD, DELETE_ENGINE_MAX);
+    return nullptr;
+  }
+
+  // Throw out anything from sync that has an invalid starter pack ID.  This
+  // might happen occasionally when the starter pack gets new entries that are
+  // not yet supported in this version of Chrome.
+  if (specifics.starter_pack_id() >=
+      TemplateURLStarterPackData::kMaxStarterPackID) {
     return nullptr;
   }
 
@@ -2907,7 +2925,7 @@ bool TemplateURLService::MatchesDefaultSearchProvider(TemplateURL* turl) const {
 std::unique_ptr<EnterpriseSiteSearchManager>
 TemplateURLService::GetEnterpriseSiteSearchManager(PrefService* prefs) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS_ASH)
+    BUILDFLAG(IS_CHROMEOS)
   return base::FeatureList::IsEnabled(omnibox::kSiteSearchSettingsPolicy)
              ? std::make_unique<EnterpriseSiteSearchManager>(
                    prefs, base::BindRepeating(

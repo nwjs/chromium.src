@@ -62,7 +62,6 @@ content::WebContents* TestBrowserWindow::TestLocationBar::GetWebContents() {
 
 // TestBrowserWindow ----------------------------------------------------------
 
-
 TestBrowserWindow::TestBrowserWindow() = default;
 
 void TestBrowserWindow::UpdateDraggableRegions(

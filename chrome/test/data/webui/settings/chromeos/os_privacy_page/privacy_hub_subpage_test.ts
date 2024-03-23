@@ -50,6 +50,7 @@ function overriddenValues(privacyHubVersion: string) {
         showPrivacyHubPage: true,
         showPrivacyHubLocationControl: false,
         showSpeakOnMuteDetectionPage: true,
+        showAppPermissionsInsidePrivacyHub: false,
       };
     }
     case PrivacyHubVersion.V0AndLocation: {
@@ -57,6 +58,7 @@ function overriddenValues(privacyHubVersion: string) {
         showPrivacyHubPage: true,
         showPrivacyHubLocationControl: true,
         showSpeakOnMuteDetectionPage: true,
+        showAppPermissionsInsidePrivacyHub: false,
       };
     }
     default: {
@@ -439,8 +441,7 @@ async function parametrizedPrivacyHubSubpageTestsuite(
 
   test('Toggle camera button', async () => {
     const fakeMetricsPrivate = new FakeMetricsPrivate();
-    chrome.metricsPrivate =
-        fakeMetricsPrivate as unknown as typeof chrome.metricsPrivate;
+    chrome.metricsPrivate = fakeMetricsPrivate;
     flush();
 
     mediaDevices.addDevice('videoinput', 'Fake Camera');
@@ -494,8 +495,7 @@ async function parametrizedPrivacyHubSubpageTestsuite(
 
   test('Toggle microphone button', async () => {
     const fakeMetricsPrivate = new FakeMetricsPrivate();
-    chrome.metricsPrivate =
-        fakeMetricsPrivate as unknown as typeof chrome.metricsPrivate;
+    chrome.metricsPrivate = fakeMetricsPrivate;
     flush();
 
     mediaDevices.addDevice('audioinput', 'Fake Mic');
@@ -636,19 +636,21 @@ async function parametrizedPrivacyHubSubpageTestsuite(
   });
 }
 
-suite(
-    '<settings-privacy-hub-subpage> Privacy Hub V0',
-    () => parametrizedPrivacyHubSubpageTestsuite(PrivacyHubVersion.V0, false));
-suite(
-    '<settings-privacy-hub-subpage> V0 using camera LED Fallback Mechanism',
-    () => parametrizedPrivacyHubSubpageTestsuite(PrivacyHubVersion.V0, true));
-suite(
-    '<settings-privacy-hub-subpage> Location access control with V0 features.',
-    () => parametrizedPrivacyHubSubpageTestsuite(
-        PrivacyHubVersion.V0AndLocation, false));
+suite('<settings-privacy-hub-subpage> AllBuilds', () => {
+  suite(
+      'Privacy Hub V0',
+      () =>
+          parametrizedPrivacyHubSubpageTestsuite(PrivacyHubVersion.V0, false));
+  suite(
+      'V0 using camera LED Fallback Mechanism',
+      () => parametrizedPrivacyHubSubpageTestsuite(PrivacyHubVersion.V0, true));
+  suite(
+      'Location access control with V0 features.',
+      () => parametrizedPrivacyHubSubpageTestsuite(
+          PrivacyHubVersion.V0AndLocation, false));
+});
 
-
-suite('<settings-privacy-hub-subpage> app permissions', () => {
+suite('<settings-privacy-hub-subpage> AllBuilds app permissions', () => {
   let metrics: FakeMetricsPrivate;
   let privacyHubSubpage: SettingsPrivacyHubSubpage;
   let privacyHubBrowserProxy: TestPrivacyHubBrowserProxy;
@@ -891,6 +893,34 @@ suite('<settings-privacy-hub-subpage> app permissions', () => {
         getMicrophoneRowSubtext());
   });
 
+  function getMicrophoneToggleAriaLabel(): string {
+    return getMicrophoneCrToggle().getAttribute('aria-label')!.trim();
+  }
+
+  function getMicrophoneToggleAriaDescription(): string {
+    return getMicrophoneCrToggle().getAttribute('aria-description')!.trim();
+  }
+
+  test('Microphone toggle aria label and description', async () => {
+    mediaDevices.addDevice('audioinput', 'Fake Mic');
+    await flushTasks();
+
+    assertEquals(
+        privacyHubSubpage.i18n('microphoneToggleTitle'),
+        getMicrophoneToggleAriaLabel());
+    assertEquals(
+        getMicrophoneRowSubtext(), getMicrophoneToggleAriaDescription());
+
+    getMicrophoneCrToggle().click();
+    flush();
+
+    assertEquals(
+        privacyHubSubpage.i18n('microphoneToggleTitle'),
+        getMicrophoneToggleAriaLabel());
+    assertEquals(
+        getMicrophoneRowSubtext(), getMicrophoneToggleAriaDescription());
+  });
+
   test('Camera row subtext', async () => {
     mediaDevices.addDevice('videoinput', 'Fake Camera');
     await flushTasks();
@@ -923,6 +953,32 @@ suite('<settings-privacy-hub-subpage> app permissions', () => {
     assertEquals(
         privacyHubSubpage.i18n('privacyHubPageCameraRowFallbackSubtext'),
         getCameraRowSubtext());
+  });
+
+  function getCameraToggleAriaLabel(): string {
+    return getCameraCrToggle().getAttribute('aria-label')!.trim();
+  }
+
+  function getCameraToggleAriaDescription(): string {
+    return getCameraCrToggle().getAttribute('aria-description')!.trim();
+  }
+
+  test('Camera toggle aria label and description', async () => {
+    mediaDevices.addDevice('videoinput', 'Fake Camera');
+    await flushTasks();
+
+    assertEquals(
+        privacyHubSubpage.i18n('cameraToggleTitle'),
+        getCameraToggleAriaLabel());
+    assertEquals(getCameraRowSubtext(), getCameraToggleAriaDescription());
+
+    getCameraCrToggle().click();
+    flush();
+
+    assertEquals(
+        privacyHubSubpage.i18n('cameraToggleTitle'),
+        getCameraToggleAriaLabel());
+    assertEquals(getCameraRowSubtext(), getCameraToggleAriaDescription());
   });
 });
 

@@ -129,13 +129,15 @@ AwSafeBrowsingUIManager::CreateBlockingPage(
     content::WebContents* contents,
     const GURL& blocked_url,
     const UnsafeResource& unsafe_resource,
-    bool forward_extension_event) {
+    bool forward_extension_event,
+    absl::optional<base::TimeTicks> blocked_page_shown_timestamp) {
   // The AwWebResourceRequest can't be provided yet, since the navigation hasn't
   // started. Once it has, it will be provided via
   // AwSafeBrowsingBlockingPage::CreatedErrorPageNavigation.
   AwSafeBrowsingBlockingPage* blocking_page =
       AwSafeBrowsingBlockingPage::CreateBlockingPage(
-          this, contents, blocked_url, unsafe_resource, nullptr);
+          this, contents, blocked_url, unsafe_resource, nullptr,
+          blocked_page_shown_timestamp);
   return blocking_page;
 }
 
@@ -145,7 +147,7 @@ void AwSafeBrowsingUIManager::CreateURLLoaderFactoryForSB(
   auto url_loader_factory_params =
       network::mojom::URLLoaderFactoryParams::New();
   url_loader_factory_params->process_id = network::mojom::kBrowserProcessId;
-  url_loader_factory_params->is_corb_enabled = false;
+  url_loader_factory_params->is_orb_enabled = false;
   network_context_->GetNetworkContext()->CreateURLLoaderFactory(
       std::move(receiver), std::move(url_loader_factory_params));
 }

@@ -315,16 +315,8 @@ void ParseIdentityProviderMetadata(const base::Value::Dict& idp_metadata_value,
                                    IdentityProviderMetadata& idp_metadata) {
   idp_metadata.brand_background_color =
       ParseCssColor(idp_metadata_value.FindString(kIdpBrandingBackgroundColor));
-  if (idp_metadata.brand_background_color) {
-    idp_metadata.brand_text_color = ParseCssColor(
-        idp_metadata_value.FindString(kIdpBrandingForegroundColor));
-    if (idp_metadata.brand_text_color) {
-      float text_contrast_ratio = color_utils::GetContrastRatio(
-          *idp_metadata.brand_background_color, *idp_metadata.brand_text_color);
-      if (text_contrast_ratio < color_utils::kMinimumReadableContrastRatio)
-        idp_metadata.brand_text_color = std::nullopt;
-    }
-  }
+  idp_metadata.brand_text_color =
+      ParseCssColor(idp_metadata_value.FindString(kIdpBrandingForegroundColor));
 
   const base::Value::List* icons_value =
       idp_metadata_value.FindList(kIdpBrandingIcons);
@@ -543,7 +535,7 @@ void OnConfigParsed(const GURL& provider,
   }
   idp_metadata.idp_login_url =
       ExtractEndpoint(provider, response, kLoginUrlKey);
-  if (IsFedCmAddAccountEnabled()) {
+  if (IsFedCmUseOtherAccountEnabled()) {
     const base::Value::Dict* modes_dict = response.FindDict(kModesKey);
     const base::Value::Dict* selected_mode_dict = nullptr;
     if (modes_dict) {
@@ -721,6 +713,9 @@ void OnTokenRequestParsed(
       if (fetch_status.response_code == net::HTTP_INTERNAL_SERVER_ERROR) {
         token_result.error = TokenError{kServerError, GURL()};
         type = ErrorDialogType::kServerErrorWithoutUrl;
+      } else if (fetch_status.response_code == net::HTTP_SERVICE_UNAVAILABLE) {
+        token_result.error = TokenError{kTemporarilyUnavailable, GURL()};
+        type = ErrorDialogType::kTemporarilyUnavailableWithoutUrl;
       } else {
         token_result.error = TokenError{kGenericEmpty, GURL()};
         type = ErrorDialogType::kGenericEmptyWithoutUrl;

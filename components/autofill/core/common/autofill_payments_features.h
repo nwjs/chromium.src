@@ -19,7 +19,6 @@ BASE_DECLARE_FEATURE(kAutofillEnableCardArtServerSideStretching);
 BASE_DECLARE_FEATURE(kAutofillEnableCardBenefits);
 BASE_DECLARE_FEATURE(kAutofillEnableCardProductName);
 BASE_DECLARE_FEATURE(kAutofillEnableCvcStorageAndFilling);
-BASE_DECLARE_FEATURE(kAutofillEnableEmailOtpForVcnYellowPath);
 BASE_DECLARE_FEATURE(kAutofillEnableFIDOProgressDialog);
 BASE_DECLARE_FEATURE(kAutofillEnableFpanRiskBasedAuthentication);
 
@@ -46,6 +45,11 @@ BASE_DECLARE_FEATURE(kAutofillEnableSaveCardLoadingAndConfirmation);
 BASE_DECLARE_FEATURE(kAutofillEnableSaveCardLocalSaveFallback);
 BASE_DECLARE_FEATURE(kAutofillEnableServerIban);
 BASE_DECLARE_FEATURE(kAutofillEnableStickyManualFallbackForCards);
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_DECLARE_FEATURE(kAutofillEnableSyncingOfPixBankAccounts);
+#endif
+
 BASE_DECLARE_FEATURE(kAutofillEnableUpdateVirtualCardEnrollment);
 BASE_DECLARE_FEATURE(kAutofillEnableUserAvatarInSaveCardFooter);
 BASE_DECLARE_FEATURE(kAutofillEnableVcn3dsAuthentication);

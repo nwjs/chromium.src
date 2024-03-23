@@ -5,10 +5,10 @@
 #include "components/global_media_controls/public/views/media_item_ui_detailed_view.h"
 
 #include "base/metrics/histogram_functions.h"
+#include "components/global_media_controls/public/views/media_progress_view.h"
 #include "components/media_message_center/media_notification_container.h"
 #include "components/media_message_center/media_notification_item.h"
 #include "components/media_message_center/media_notification_util.h"
-#include "components/media_message_center/media_squiggly_progress_view.h"
 #include "components/media_message_center/vector_icons/vector_icons.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -61,8 +61,9 @@ constexpr gfx::Size kControlsButtonSize = gfx::Size(32, 32);
 constexpr char kMediaDisplayPageHistogram[] = "Media.Notification.DisplayPage";
 
 class MediaLabelButton : public views::Button {
+  METADATA_HEADER(MediaLabelButton, views::Button)
+
  public:
-  METADATA_HEADER(MediaLabelButton);
   MediaLabelButton(const views::Label::CustomFont& font,
                    int text_line_height,
                    ui::ColorId text_color_id,
@@ -79,8 +80,8 @@ class MediaLabelButton : public views::Button {
     // Hide the label button if the label text is empty.
     SetEnabled(false);
 
-    label_ = AddChildView(
-        std::make_unique<views::Label>(base::EmptyString16(), font));
+    label_ =
+        AddChildView(std::make_unique<views::Label>(std::u16string(), font));
     label_->SetLineHeight(text_line_height);
     label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     label_->SetEnabledColorId(text_color_id);
@@ -96,12 +97,13 @@ class MediaLabelButton : public views::Button {
   raw_ptr<views::Label> label_;
 };
 
-BEGIN_METADATA(MediaLabelButton, views::Button)
+BEGIN_METADATA(MediaLabelButton)
 END_METADATA
 
 class MediaButton : public views::ImageButton {
+  METADATA_HEADER(MediaButton, views::ImageButton)
+
  public:
-  METADATA_HEADER(MediaButton);
   MediaButton(PressedCallback callback,
               int button_id,
               const gfx::VectorIcon& vector_icon,
@@ -153,7 +155,7 @@ class MediaButton : public views::ImageButton {
   const ui::ColorId foreground_disabled_color_id_;
 };
 
-BEGIN_METADATA(MediaButton, views::ImageButton)
+BEGIN_METADATA(MediaButton)
 END_METADATA
 
 // If the image does not fit the square view, scale the image to fill the view
@@ -312,9 +314,9 @@ MediaItemUIDetailedView::MediaItemUIDetailedView(
       media_message_center::kMediaPreviousTrackIcon,
       IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_PREVIOUS_TRACK);
 
-  // Create the squiggly progress view.
-  squiggly_progress_view_ = controls_row->AddChildView(
-      std::make_unique<media_message_center::MediaSquigglyProgressView>(
+  // Create the progress view.
+  progress_view_ =
+      controls_row->AddChildView(std::make_unique<MediaProgressView>(
           theme_.playing_progress_foreground_color_id,
           theme_.playing_progress_background_color_id,
           theme_.paused_progress_foreground_color_id,
@@ -324,7 +326,7 @@ MediaItemUIDetailedView::MediaItemUIDetailedView(
                               base::Unretained(this)),
           base::BindRepeating(&MediaItemUIDetailedView::SeekTo,
                               base::Unretained(this))));
-  controls_row->SetFlexForView(squiggly_progress_view_, 1);
+  controls_row->SetFlexForView(progress_view_, 1);
 
   // Create the next track button.
   CreateMediaButton(
@@ -338,9 +340,9 @@ MediaItemUIDetailedView::MediaItemUIDetailedView(
         controls_row, kNotMediaActionButtonId,
         media_message_center::kMediaCastStartIcon,
         IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_SHOW_DEVICE_LIST);
-    start_casting_button_->SetCallback(base::BindRepeating(
-        &MediaItemUIDetailedView::StartCastingButtonPressed,
-        base::Unretained(this)));
+    start_casting_button_->SetCallback(
+        base::BindRepeating(&MediaItemUIDetailedView::StartCastingButtonPressed,
+                            base::Unretained(this)));
     start_casting_button_->SetVisible(false);
   }
 
@@ -457,7 +459,7 @@ void MediaItemUIDetailedView::UpdateWithMediaActions(
 void MediaItemUIDetailedView::UpdateWithMediaPosition(
     const media_session::MediaPosition& position) {
   position_ = position;
-  squiggly_progress_view_->UpdateProgress(position);
+  progress_view_->UpdateProgress(position);
 }
 
 void MediaItemUIDetailedView::UpdateWithMediaArtwork(
@@ -508,6 +510,12 @@ void MediaItemUIDetailedView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kListItem;
   node_data->SetNameChecked(l10n_util::GetStringUTF8(
       IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACCESSIBLE_NAME));
+}
+
+bool MediaItemUIDetailedView::OnKeyPressed(const ui::KeyEvent& event) {
+  // As soon as the media view gets the focus, it should be able to handle key
+  // events that can change the progress.
+  return progress_view_->OnKeyPressed(event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -625,7 +633,8 @@ void MediaItemUIDetailedView::StartCastingButtonPressed() {
       break;
     }
     case MediaDisplayPage::kQuickSettingsMediaDetailedView:
-    case MediaDisplayPage::kSystemShelfMediaDetailedView: {
+    case MediaDisplayPage::kSystemShelfMediaDetailedView:
+    case MediaDisplayPage::kMediaDialogView: {
       // Clicking the button on the media detailed view will toggle the device
       // list in the device selector view.
       if (device_selector_view_->IsDeviceSelectorExpanded()) {
@@ -704,6 +713,10 @@ views::Button* MediaItemUIDetailedView::GetActionButtonForTesting(
   return (i == action_buttons_.end()) ? nullptr : *i;
 }
 
+MediaProgressView* MediaItemUIDetailedView::GetProgressViewForTesting() {
+  return progress_view_;
+}
+
 media_session::MediaPosition MediaItemUIDetailedView::GetPositionForTesting() {
   return position_;
 }
@@ -725,7 +738,7 @@ views::View* MediaItemUIDetailedView::GetDeviceSelectorSeparatorForTesting() {
   return device_selector_view_separator_;
 }
 
-BEGIN_METADATA(MediaItemUIDetailedView, views::View)
+BEGIN_METADATA(MediaItemUIDetailedView)
 END_METADATA
 
 }  // namespace global_media_controls

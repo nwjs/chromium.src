@@ -181,7 +181,8 @@ constexpr uint32_t kSupportedUsage =
     SHARED_IMAGE_USAGE_DISPLAY_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ |
     SHARED_IMAGE_USAGE_RASTER_READ | SHARED_IMAGE_USAGE_RASTER_WRITE |
     SHARED_IMAGE_USAGE_OOP_RASTERIZATION | SHARED_IMAGE_USAGE_SCANOUT |
-    SHARED_IMAGE_USAGE_WEBGPU | SHARED_IMAGE_USAGE_VIDEO_DECODE |
+    SHARED_IMAGE_USAGE_WEBGPU_READ | SHARED_IMAGE_USAGE_WEBGPU_WRITE |
+    SHARED_IMAGE_USAGE_VIDEO_DECODE |
     SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE |
     SHARED_IMAGE_USAGE_HIGH_PERFORMANCE_GPU |
     SHARED_IMAGE_USAGE_WEBGPU_STORAGE_TEXTURE |
@@ -201,6 +202,7 @@ class AHardwareBufferImageBacking : public AndroidImageBacking {
                               GrSurfaceOrigin surface_origin,
                               SkAlphaType alpha_type,
                               uint32_t usage,
+                              std::string debug_label,
                               base::android::ScopedHardwareBufferHandle handle,
                               size_t estimated_size,
                               bool is_thread_safe,
@@ -334,6 +336,7 @@ AHardwareBufferImageBacking::AHardwareBufferImageBacking(
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
     uint32_t usage,
+    std::string debug_label,
     base::android::ScopedHardwareBufferHandle handle,
     size_t estimated_size,
     bool is_thread_safe,
@@ -347,6 +350,7 @@ AHardwareBufferImageBacking::AHardwareBufferImageBacking(
                           surface_origin,
                           alpha_type,
                           usage,
+                          std::move(debug_label),
                           estimated_size,
                           is_thread_safe,
                           std::move(initial_upload_fd)),
@@ -730,6 +734,7 @@ AHardwareBufferImageBackingFactory::MakeBacking(
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
     uint32_t usage,
+    std::string debug_label,
     bool is_thread_safe,
     base::span<const uint8_t> pixel_data) {
   DCHECK(base::AndroidHardwareBufferCompat::IsSupportAvailable());
@@ -824,8 +829,9 @@ AHardwareBufferImageBackingFactory::MakeBacking(
 
   auto backing = std::make_unique<AHardwareBufferImageBacking>(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
-      std::move(handle), estimated_size.value(), is_thread_safe,
-      std::move(initial_upload_fd), use_passthrough_, gl_format_caps_);
+      std::move(debug_label), std::move(handle), estimated_size.value(),
+      is_thread_safe, std::move(initial_upload_fd), use_passthrough_,
+      gl_format_caps_);
 
   // If we uploaded initial data, set the backing as cleared.
   if (!pixel_data.empty())
@@ -847,7 +853,8 @@ AHardwareBufferImageBackingFactory::CreateSharedImage(
     std::string debug_label,
     bool is_thread_safe) {
   return MakeBacking(mailbox, format, size, color_space, surface_origin,
-                     alpha_type, usage, is_thread_safe, base::span<uint8_t>());
+                     alpha_type, usage, std::move(debug_label), is_thread_safe,
+                     base::span<uint8_t>());
 }
 
 std::unique_ptr<SharedImageBacking>
@@ -862,7 +869,8 @@ AHardwareBufferImageBackingFactory::CreateSharedImage(
     std::string debug_label,
     base::span<const uint8_t> pixel_data) {
   return MakeBacking(mailbox, format, size, color_space, surface_origin,
-                     alpha_type, usage, false, pixel_data);
+                     alpha_type, usage, std::move(debug_label), false,
+                     pixel_data);
 }
 
 bool AHardwareBufferImageBackingFactory::CanImportGpuMemoryBuffer(
@@ -942,8 +950,9 @@ AHardwareBufferImageBackingFactory::CreateSharedImage(
 
   auto backing = std::make_unique<AHardwareBufferImageBacking>(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
-      std::move(handle.android_hardware_buffer), estimated_size.value(), false,
-      base::ScopedFD(), use_passthrough_, gl_format_caps_);
+      std::move(debug_label), std::move(handle.android_hardware_buffer),
+      estimated_size.value(), false, base::ScopedFD(), use_passthrough_,
+      gl_format_caps_);
 
   backing->SetCleared();
   return backing;
@@ -969,7 +978,7 @@ AHardwareBufferImageBackingFactory::CreateSharedImage(
   return CreateSharedImage(mailbox,
                            viz::GetSinglePlaneSharedImageFormat(buffer_format),
                            size, color_space, surface_origin, alpha_type, usage,
-                           debug_label, std::move(handle));
+                           std::move(debug_label), std::move(handle));
 }
 
 }  // namespace gpu

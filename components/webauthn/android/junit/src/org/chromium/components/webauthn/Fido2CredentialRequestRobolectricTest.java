@@ -20,6 +20,7 @@ import android.content.Context;
 import android.credentials.CredentialManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.ResultReceiver;
 
 import androidx.test.filters.SmallTest;
 
@@ -218,8 +219,6 @@ public class Fido2CredentialRequestRobolectricTest {
 
         FeatureList.TestValues testValues = new FeatureList.TestValues();
         testValues.addFeatureFlagOverride(DeviceFeatureList.WEBAUTHN_ANDROID_CRED_MAN, false);
-        testValues.addFeatureFlagOverride(
-                DeviceFeatureList.WEBAUTHN_ANDROID_CRED_MAN_FOR_HYBRID, true);
         FeatureList.setTestValues(testValues);
 
         final byte[] clientDataHash = new byte[] {1, 2, 3};
@@ -434,8 +433,6 @@ public class Fido2CredentialRequestRobolectricTest {
 
         FeatureList.TestValues testValues = new FeatureList.TestValues();
         testValues.addFeatureFlagOverride(DeviceFeatureList.WEBAUTHN_ANDROID_CRED_MAN, false);
-        testValues.addFeatureFlagOverride(
-                DeviceFeatureList.WEBAUTHN_ANDROID_CRED_MAN_FOR_HYBRID, true);
         FeatureList.setTestValues(testValues);
 
         mRequest.setIsHybridRequest(true);
@@ -1022,6 +1019,7 @@ public class Fido2CredentialRequestRobolectricTest {
                 PublicKeyCredentialCreationOptions options,
                 Uri uri,
                 byte[] clientDataHash,
+                ResultReceiver resultReceiver,
                 OnSuccessListener<PendingIntent> successCallback,
                 OnFailureListener failureCallback)
                 throws NoSuchAlgorithmException {
@@ -1040,6 +1038,7 @@ public class Fido2CredentialRequestRobolectricTest {
                 PublicKeyCredentialRequestOptions options,
                 Uri uri,
                 byte[] clientDataHash,
+                ResultReceiver resultReceiver,
                 OnSuccessListener<PendingIntent> successCallback,
                 OnFailureListener failureCallback) {
             mGetAssertionCalled = true;

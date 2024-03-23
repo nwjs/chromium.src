@@ -17,7 +17,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="1153368717515616349">Klicka på Chromium-menyn</translation>
 <translation id="1185134272377778587">Om Chromium</translation>
 <translation id="1203500561924088507">Tack för att du installerat programmet. Du måste starta om webbläsaren innan du använder <ph name="BUNDLE_NAME" />.</translation>
-<translation id="1261119230216066228">Minnessparläget har gjort Chromium snabbare</translation>
 <translation id="1262876892872089030">När den här fliken var inaktiv frigjordes minne för att hålla Chromium snabbt. Du kan välja att aldrig inaktivera den här webbplatsen.</translation>
 <translation id="1265577313130862557">Den här nedladdningen blockerades av Chromium eftersom filen är farlig</translation>
 <translation id="1315551408014407711">Konfigurera din nya profil i Chromium</translation>
@@ -114,6 +113,7 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="3032706164202344641">Chromium kan inte kontrollera dina lösenord. Försök igen senare.</translation>
 <translation id="3032787606318309379">Lägger till i Chromium ...</translation>
 <translation id="3038232873781883849">Väntar på installation …</translation>
+<translation id="3068187312562070417">Andra Chromium-profiler</translation>
 <translation id="3068515742935458733">Hjälp oss att göra Chromium bättre genom att skicka felrapporter och <ph name="UMA_LINK" /> till Google</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{Minst ett Chromium-tillägg har fått åtkomst till 1 USB-enhet}=1{Minst ett Chromium-tillägg har åtkomst till 1 USB-enhet}other{Minst ett Chromium-tillägg har åtkomst till # USB-enheter}}</translation>
 <translation id="3101560983689755071">Webbhistoriken påverkar vilka annonser som visas och vilka intressen som du uppskattas ha. Av integritetsskäl raderas dina intressen automatiskt och löpande varje månad. Intressen kan förnyas om du inte tar bort dem.</translation>
@@ -231,6 +231,7 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="5294316920224716406">När du surfar i inkognitoläge visas en varning i Chromium innan en webbplats läses in med en osäker anslutning</translation>
 <translation id="5296845517486664001">Om provfunktioner är aktiverade och du slumpmässigt har valts ut för en aktiv provfunktion påverkar webbhistoriken vilka annonser som visas och vilka intressen som du uppskattas ha. Av integritetsskäl raderas dina intressen från Chromium löpande varje månad.</translation>
 <translation id="5352264705793813212">Chromium har hittat säkerhetsrekommendationer som du bör granska</translation>
+<translation id="5352361688875342522">Andra Chromium-profiler</translation>
 <translation id="5358375970380395591">Du loggar in med ett hanterat konto och ger dess administratör kontroll över din Chromium-profil. Dina uppgifter i Chromium, t.ex. dina appar, bokmärken, din historik, ditt lösenord och andra inställningar, kopplas då permanent till <ph name="USER_NAME" />. Du kommer att kunna ta bort dessa uppgifter via instrumentpanelen i Google Konton, men du kommer inte att kunna koppla dem till något annat konto. <ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">Extra kod: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5383439451358640070">Läs mer om varför vissa filer blockeras i Chromium</translation>
@@ -326,12 +327,12 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="6669284030132180248">Om du även sparar bokmärken i Google-kontot kan du bevaka produktpriser i Chromium och få en avisering när priset sänks.</translation>
 <translation id="6676384891291319759">Gå ut på Internet</translation>
 <translation id="668175097507315160">Det gick inte att synkronisera data med Chromium OS på grund av ett inloggningsfel.</translation>
+<translation id="6692797197837897398">Chromium ger dig större kontroll över annonserna du ser och begränsar vilken information webbplatser kan få om dig när de visar anpassade annonser</translation>
 <translation id="6709350901466051922">Du behöver ge Chromium mikrofonbehörighet för den här webbplatsen</translation>
 <translation id="6712881677154121168">Nedladdningsfel: <ph name="DOWNLOAD_ERROR" /></translation>
 <translation id="6717134281241384636">Din profil kan inte användas eftersom den kommer från en nyare version av Chromium.
 
 Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog eller använd en nyare version av Chromium.</translation>
-<translation id="6730677189742196061">Minnessparläget har gjort Chromium snabbare</translation>
 <translation id="6734291798041940871">Chromium har redan installerats för alla användare på datorn.</translation>
 <translation id="673636774878526923">Logga in och aktivera synkronisering om du vill få tillgång till dina saker i Chromium på olika enheter.</translation>
 <translation id="67706546131546258">Den här filen bör genomsökas eftersom den kan vara farlig.</translation>
@@ -386,7 +387,6 @@ Chromium kan inte återställa dina inställningar.</translation>
 <translation id="7617377681829253106">Vi har förbättrat Chromium</translation>
 <translation id="7649070708921625228">Hjälp</translation>
 <translation id="7682213815243802460">Du kan läsa mer om de här funktionerna i inställningarna för Chromium.</translation>
-<translation id="7682601070171973634">Chromium utforskar nya funktioner som gör att webbplatser kan leverera samma upplevelse av webbläsaren med mindre av din data</translation>
 <translation id="7686590090926151193">Chromium är inte din standardwebbläsare</translation>
 <translation id="7689606757190482937">Synkronisera och anpassa Chromium på alla enheter du använder</translation>
 <translation id="7699779824407626136">Chromium-uppdatering</translation>
@@ -394,6 +394,7 @@ Chromium kan inte återställa dina inställningar.</translation>
 <translation id="7747138024166251722">Det gick inte att skapa en tillfällig katalog för installationsfilen. Kontrollera diskutrymmet och att du har behörighet att installera program.</translation>
 <translation id="7786760609782648049">Gör Chromium snabbare</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> – Chromium Canary</translation>
+<translation id="7803986347287457849">Gör det svårare för personer som har åtkomst till din internettrafik att se vilka webbplatser du besöker. Chromium använder en säker anslutning för att söka efter en webbplats IP-adress i domännamnssystemet (DNS).</translation>
 <translation id="7828947555739565424">Det finns redan en Chromium-profil med detta konto på enheten</translation>
 <translation id="7845233973568007926">Tack för att du installerat programmet. Du måste starta om datorn innan du använder <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7859018312476869945">När du skriver i adressfältet eller sökrutan skickar Chromium det du skriver till standardsökmotorn för att du ska få bättre förslag. Detta är inaktiverat i inkognitoläge.</translation>

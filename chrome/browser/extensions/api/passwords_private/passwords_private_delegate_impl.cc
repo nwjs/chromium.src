@@ -50,8 +50,8 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/keyed_service/core/service_access_type.h"
-#include "components/password_manager/core/browser/affiliation/affiliation_utils.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_request_utils.h"
@@ -62,6 +62,7 @@
 #include "components/password_manager/core/browser/sharing/recipients_fetcher_impl.h"
 #include "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #include "components/password_manager/core/browser/ui/credential_utils.h"
+#include "components/password_manager/core/common/password_manager_constants.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -89,6 +90,7 @@ namespace {
 using password_manager::CredentialFacet;
 using password_manager::CredentialUIEntry;
 using password_manager::FetchFamilyMembersRequestStatus;
+using password_manager::constants::kPasswordManagerAuthValidity;
 
 // The error message returned to the UI when Chrome refuses to start multiple
 // exports.
@@ -442,7 +444,9 @@ bool PasswordsPrivateDelegateImpl::AddPassword(
   DCHECK(client);
   // Update the default store to the last used one.
   if (success &&
-      client->GetPasswordFeatureManager()->IsOptedInForAccountStorage()) {
+      client->GetPasswordFeatureManager()->IsOptedInForAccountStorage() &&
+      !base::FeatureList::IsEnabled(
+          password_manager::features::kButterOnDesktopFollowup)) {
     client->GetPasswordFeatureManager()->SetDefaultPasswordStore(store_to_use);
   }
   return success;
@@ -537,8 +541,7 @@ void PasswordsPrivateDelegateImpl::RequestPlaintextPassword(
     PlaintextPasswordCallback callback,
     content::WebContents* web_contents) {
   AuthenticateUser(
-      web_contents, PasswordAccessAuthTimeoutHandler::GetAuthValidityPeriod(),
-      GetReauthPurpose(reason),
+      web_contents, kPasswordManagerAuthValidity, GetReauthPurpose(reason),
       base::BindOnce(
           &PasswordsPrivateDelegateImpl::OnRequestPlaintextPasswordAuthResult,
           weak_ptr_factory_.GetWeakPtr(), id, reason, std::move(callback)));
@@ -549,7 +552,7 @@ void PasswordsPrivateDelegateImpl::RequestCredentialsDetails(
     UiEntriesCallback callback,
     content::WebContents* web_contents) {
   AuthenticateUser(
-      web_contents, PasswordAccessAuthTimeoutHandler::GetAuthValidityPeriod(),
+      web_contents, kPasswordManagerAuthValidity,
       GetReauthPurpose(api::passwords_private::PlaintextReason::kView),
       base::BindOnce(
           &PasswordsPrivateDelegateImpl::OnRequestCredentialDetailsAuthResult,
@@ -752,7 +755,9 @@ void PasswordsPrivateDelegateImpl::ImportPasswords(
   auto* client = ChromePasswordManagerClient::FromWebContents(web_contents);
   DCHECK(client);
   // Update the default store to the last used one.
-  if (client->GetPasswordFeatureManager()->IsOptedInForAccountStorage()) {
+  if (client->GetPasswordFeatureManager()->IsOptedInForAccountStorage() &&
+      !base::FeatureList::IsEnabled(
+          password_manager::features::kButterOnDesktopFollowup)) {
     client->GetPasswordFeatureManager()->SetDefaultPasswordStore(store_to_use);
   }
 }
@@ -814,7 +819,7 @@ PasswordsPrivateDelegateImpl::GetExportProgressStatus() {
 
 bool PasswordsPrivateDelegateImpl::IsOptedInForAccountStorage() {
   return password_manager::features_util::IsOptedInForAccountStorage(
-      SyncServiceFactory::GetForProfile(profile_));
+      profile_->GetPrefs(), SyncServiceFactory::GetForProfile(profile_));
 }
 
 void PasswordsPrivateDelegateImpl::SetAccountStorageOptIn(
@@ -827,8 +832,13 @@ void PasswordsPrivateDelegateImpl::SetAccountStorageOptIn(
     return;
   }
   if (!opt_in) {
-    client->GetPasswordFeatureManager()
-        ->OptOutOfAccountStorageAndClearSettings();
+    if (base::FeatureList::IsEnabled(
+            password_manager::features::kButterOnDesktopFollowup)) {
+      client->GetPasswordFeatureManager()->OptOutOfAccountStorage();
+    } else {
+      client->GetPasswordFeatureManager()
+          ->OptOutOfAccountStorageAndClearSettings();
+    }
     return;
   }
   // The opt in pref is automatically set upon successful reauth.

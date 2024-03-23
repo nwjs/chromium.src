@@ -4,6 +4,8 @@
 
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 
+#include <optional>
+
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/logging.h"
@@ -12,7 +14,6 @@
 #include "build/build_config.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "google_apis/google_api_keys.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace optimization_guide {
 namespace switches {
@@ -88,6 +89,14 @@ const char kModelOverride[] = "optimization-guide-model-override";
 const char kOnDeviceModelExecutionOverride[] =
     "optimization-guide-ondevice-model-execution-override";
 
+// Enables the on-device model to run validation at startup after a delay. A
+// text file can be provided used as input for the validation job and an output
+// file path can be provided to write the response to.
+const char kOnDeviceValidationRequestOverride[] =
+    "ondevice-validation-request-override";
+const char kOnDeviceValidationWriteToFile[] =
+    "ondevice-validation-write-to-file";
+
 // Triggers validation of the model. Used for manual testing.
 const char kModelValidate[] = "optimization-guide-model-validate";
 
@@ -160,11 +169,11 @@ bool IsDebugLogsEnabled() {
 // Parses a list of hosts to have hints fetched for. This overrides scheduling
 // of the first hints fetch and forces it to occur immediately. If no hosts are
 // provided, nullopt is returned.
-absl::optional<std::vector<std::string>>
+std::optional<std::vector<std::string>>
 ParseHintsFetchOverrideFromCommandLine() {
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (!cmd_line->HasSwitch(kFetchHintsOverride))
-    return absl::nullopt;
+    return std::nullopt;
 
   std::string override_hosts_value =
       cmd_line->GetSwitchValueASCII(kFetchHintsOverride);
@@ -174,7 +183,7 @@ ParseHintsFetchOverrideFromCommandLine() {
                         base::SPLIT_WANT_NONEMPTY);
 
   if (hosts.size() == 0)
-    return absl::nullopt;
+    return std::nullopt;
 
   return hosts;
 }
@@ -240,19 +249,35 @@ bool ShouldValidateModelExecution() {
   return command_line->HasSwitch(kModelExecutionValidate);
 }
 
-absl::optional<std::string> GetModelOverride() {
+std::optional<std::string> GetModelOverride() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(kModelOverride))
-    return absl::nullopt;
+    return std::nullopt;
   return command_line->GetSwitchValueASCII(kModelOverride);
 }
 
-absl::optional<std::string> GetOnDeviceModelExecutionOverride() {
+std::optional<std::string> GetOnDeviceModelExecutionOverride() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(kOnDeviceModelExecutionOverride)) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   return command_line->GetSwitchValueASCII(kOnDeviceModelExecutionOverride);
+}
+
+std::optional<base::FilePath> GetOnDeviceValidationRequestOverride() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(kOnDeviceValidationRequestOverride)) {
+    return std::nullopt;
+  }
+  return command_line->GetSwitchValuePath(kOnDeviceValidationRequestOverride);
+}
+
+std::optional<base::FilePath> GetOnDeviceValidationWriteToFile() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(kOnDeviceValidationWriteToFile)) {
+    return std::nullopt;
+  }
+  return command_line->GetSwitchValuePath(kOnDeviceValidationWriteToFile);
 }
 
 bool ShouldLogPageContentAnnotationsInput() {
@@ -261,11 +286,11 @@ bool ShouldLogPageContentAnnotationsInput() {
   return enabled;
 }
 
-absl::optional<base::TimeDelta> PageContentAnnotationsValidationStartupDelay() {
+std::optional<base::TimeDelta> PageContentAnnotationsValidationStartupDelay() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(
           kPageContentAnnotationsValidationStartupDelaySeconds)) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   std::string value = command_line->GetSwitchValueASCII(
@@ -275,14 +300,14 @@ absl::optional<base::TimeDelta> PageContentAnnotationsValidationStartupDelay() {
   if (base::StringToSizeT(value, &seconds)) {
     return base::Seconds(seconds);
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
-absl::optional<size_t> PageContentAnnotationsValidationBatchSize() {
+std::optional<size_t> PageContentAnnotationsValidationBatchSize() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(
           kPageContentAnnotationsValidationBatchSizeOverride)) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   std::string value = command_line->GetSwitchValueASCII(
@@ -292,7 +317,7 @@ absl::optional<size_t> PageContentAnnotationsValidationBatchSize() {
   if (base::StringToSizeT(value, &size)) {
     return size;
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 bool LogPageContentAnnotationsValidationToConsole() {
@@ -305,7 +330,7 @@ bool LogPageContentAnnotationsValidationToConsole() {
              kPageContentAnnotationsValidationTextEmbedding);
 }
 
-absl::optional<std::vector<std::string>>
+std::optional<std::vector<std::string>>
 PageContentAnnotationsValidationInputForType(AnnotationType type) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
@@ -327,17 +352,17 @@ PageContentAnnotationsValidationInputForType(AnnotationType type) {
       break;
   }
   if (value.empty()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return base::SplitString(value, ",", base::KEEP_WHITESPACE,
                            base::SPLIT_WANT_ALL);
 }
 
-absl::optional<base::FilePath> PageContentAnnotationsValidationWriteToFile() {
+std::optional<base::FilePath> PageContentAnnotationsValidationWriteToFile() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(kPageContentAnnotationsValidationWriteToFile)) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   return command_line->GetSwitchValuePath(
       kPageContentAnnotationsValidationWriteToFile);

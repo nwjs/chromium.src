@@ -16,6 +16,7 @@
 #include "base/logging.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
+#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ash/crosapi/download_status_updater_ash.h"
 #include "chrome/browser/ash/file_manager/open_util.h"
 #include "chrome/browser/ui/ash/download_status/display_client.h"
@@ -49,8 +50,16 @@ std::string GetPrintString(const std::optional<int64_t>& data) {
 
 // Returns the progress indicated by `download_status`.
 Progress GetProgress(const crosapi::mojom::DownloadStatus& download_status) {
-  const std::optional<int64_t>& received_bytes = download_status.received_bytes;
-  const std::optional<int64_t>& total_bytes = download_status.total_bytes;
+  std::optional<int64_t> received_bytes;
+  std::optional<int64_t> total_bytes;
+  bool visible = false;
+
+  if (const crosapi::mojom::DownloadProgressPtr& progress_ptr =
+          download_status.progress) {
+    received_bytes = progress_ptr->received_bytes;
+    total_bytes = progress_ptr->total_bytes;
+    visible = progress_ptr->visible;
+  }
 
   // `received_bytes` and `total_bytes` could be invalid. Correct these numbers
   // if necessary. NOTE: `total_bytes` could be negative but `Progress` expects
@@ -101,7 +110,8 @@ Progress GetProgress(const crosapi::mojom::DownloadStatus& download_status) {
     updated_total_bytes = updated_received_bytes;
   }
 
-  return Progress(updated_received_bytes, updated_total_bytes, complete);
+  return Progress(updated_received_bytes, updated_total_bytes, complete,
+                  !visible);
 }
 
 // Returns the text to display for the download specified by `download_status`.
@@ -254,6 +264,18 @@ DisplayMetadata DisplayManager::CalculateDisplayMetadata(
               &DisplayManager::PerformCommand, weak_ptr_factory_.GetWeakPtr(),
               CommandType::kShowInBrowser, download_status.guid),
           /*icon=*/nullptr, /*text_id=*/-1, CommandType::kShowInBrowser);
+
+      if (!download_status.cancellable.value_or(false) &&
+          !download_status.pausable.value_or(false) &&
+          !download_status.resumable.value_or(false)) {
+        command_infos.emplace_back(
+            base::BindRepeating(
+                &DisplayManager::PerformCommand, weak_ptr_factory_.GetWeakPtr(),
+                CommandType::kViewDetailsInBrowser, download_status.guid),
+            &kOpenInBrowserIcon,
+            IDS_ASH_DOWNLOAD_COMMAND_TEXT_VIEW_DETAILS_IN_BROWSER,
+            CommandType::kViewDetailsInBrowser);
+      }
       break;
     case crosapi::mojom::DownloadState::kCancelled:
     case crosapi::mojom::DownloadState::kInterrupted:
@@ -297,6 +319,11 @@ void DisplayManager::PerformCommand(
       break;
     case CommandType::kShowInFolder:
       ShowInFolder(profile_, std::get<base::FilePath>(param));
+      break;
+    case CommandType::kViewDetailsInBrowser:
+      download_status_updater_->ShowInBrowser(
+          /*guid=*/std::get<std::string>(param),
+          /*callback=*/base::DoNothing());
       break;
   }
 }

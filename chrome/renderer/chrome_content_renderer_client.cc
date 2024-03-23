@@ -38,7 +38,6 @@
 #include "chrome/common/pdf_util.h"
 #include "chrome/common/pepper_permission_util.h"
 #include "chrome/common/ppapi_utils.h"
-#include "chrome/common/privacy_budget/privacy_budget_settings_provider.h"
 #include "chrome/common/profiler/thread_profiler.h"
 #include "chrome/common/profiler/unwind_util.h"
 #include "chrome/common/secure_origin_allowlist.h"
@@ -100,6 +99,7 @@
 #include "components/page_load_metrics/renderer/metrics_render_frame_observer.h"
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/password_manager/core/common/password_manager_features.h"
+#include "components/pdf/common/constants.h"
 #include "components/permissions/features.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/renderer/threat_dom_details.h"
@@ -138,7 +138,6 @@
 #include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/mojom/page/page_visibility_state.mojom.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -218,7 +217,6 @@
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "chrome/renderer/pdf/chrome_pdf_internal_plugin_delegate.h"
-#include "components/pdf/common/internal_plugin_helpers.h"
 #include "components/pdf/renderer/internal_plugin_renderer_helpers.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
 
@@ -290,9 +288,14 @@ using content::RenderFrame;
 using content::RenderThread;
 using content::WebPluginInfo;
 using content::WebPluginMimeType;
-using UsesKeyboardAccessoryForSuggestions =
-    AutofillAgent::UsesKeyboardAccessoryForSuggestions;
 using ExtractAllDatalists = autofill::AutofillAgent::ExtractAllDatalists;
+using FocusRequiresScroll = autofill::AutofillAgent::FocusRequiresScroll;
+using QueryPasswordSuggestions =
+    autofill::AutofillAgent::QueryPasswordSuggestions;
+using SecureContextRequired = autofill::AutofillAgent::SecureContextRequired;
+using UserGestureRequired = autofill::AutofillAgent::UserGestureRequired;
+using UsesKeyboardAccessoryForSuggestions =
+    autofill::AutofillAgent::UsesKeyboardAccessoryForSuggestions;
 
 namespace {
 
@@ -455,6 +458,8 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   chrome_extensions_renderer_client->RenderThreadStarted();
   WebSecurityPolicy::RegisterURLSchemeAsExtension(
       WebString::FromASCII(extensions::kExtensionScheme));
+  WebSecurityPolicy::RegisterURLSchemeAsCodeCacheWithHashing(
+      WebString::FromASCII(extensions::kExtensionScheme));
 #endif
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -578,10 +583,6 @@ void ChromeContentRendererClient::RenderThreadStarted() {
       metrics::CallStackProfileBuilder::
           SetParentProfileCollectorForChildProcess(std::move(collector));
     }
-
-    // This is superfluous in single-process mode and triggers a DCHECK
-    blink::IdentifiabilityStudySettings::SetGlobalProvider(
-        std::make_unique<PrivacyBudgetSettingsProvider>());
   }
 }
 
@@ -706,8 +707,10 @@ void ChromeContentRendererClient::RenderFrameCreated(
         render_frame, password_autofill_agent.get(), associated_interfaces);
     new AutofillAgent(
         render_frame,
-        {UsesKeyboardAccessoryForSuggestions(BUILDFLAG(IS_ANDROID)),
-         ExtractAllDatalists(false)},
+        {ExtractAllDatalists(false), FocusRequiresScroll(true),
+         QueryPasswordSuggestions(false), SecureContextRequired(false),
+         UserGestureRequired(true),
+         UsesKeyboardAccessoryForSuggestions(BUILDFLAG(IS_ANDROID))},
         std::move(password_autofill_agent),
         std::move(password_generation_agent), associated_interfaces);
 
@@ -918,7 +921,7 @@ bool ChromeContentRendererClient::OverrideCreatePlugin(
   *plugin = CreatePlugin(render_frame, params, *plugin_info);
 #else  // !BUILDFLAG(ENABLE_PLUGINS)
   PluginUMAReporter::GetInstance()->ReportPluginMissing(orig_mime_type, url);
-  if (orig_mime_type == kPDFMimeType) {
+  if (orig_mime_type == pdf::kPDFMimeType) {
     ReportPDFLoadStatus(
         PDFLoadStatus::kShowedDisabledPluginPlaceholderForEmbeddedPdf);
 

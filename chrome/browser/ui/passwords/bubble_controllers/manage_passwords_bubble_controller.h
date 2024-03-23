@@ -9,6 +9,7 @@
 
 #include <string>
 
+#include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
@@ -24,12 +25,17 @@ struct FaviconImageResult;
 
 namespace password_manager {
 class PasswordStoreInterface;
-enum class SyncState;
 }  // namespace password_manager
 
 // This controller provides data and actions for the ManagePasswordsView.
 class ManagePasswordsBubbleController : public PasswordBubbleControllerBase {
  public:
+  enum class SyncState {
+    kNotActive,
+    kActiveWithSyncFeatureEnabled,
+    kActiveWithAccountPasswords,
+  };
+
   explicit ManagePasswordsBubbleController(
       base::WeakPtr<PasswordsModelDelegate> delegate);
   ~ManagePasswordsBubbleController() override;
@@ -46,7 +52,7 @@ class ManagePasswordsBubbleController : public PasswordBubbleControllerBase {
   void RequestFavicon(
       base::OnceCallback<void(const gfx::Image&)> favicon_ready_callback);
 
-  password_manager::SyncState GetPasswordSyncState();
+  SyncState GetPasswordSyncState() const;
 
   // Returns the email of current primary account. Returns empty string if no
   // account is signed in.
@@ -61,7 +67,7 @@ class ManagePasswordsBubbleController : public PasswordBubbleControllerBase {
   void OnMovePasswordLinkClicked();
 
   // Returns the available credentials which match the current site.
-  const std::vector<std::unique_ptr<password_manager::PasswordForm>>&
+  base::span<std::unique_ptr<password_manager::PasswordForm> const>
   GetCredentials() const;
 
   // Calls the password store backend to update the currently selected password

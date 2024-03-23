@@ -309,7 +309,10 @@ void CheckExternalValues(const MLGraphXnnpack* xnnpack_graph,
                        return external_value.id == value_id;
                      });
     DCHECK(it);
-    EXPECT_EQ(it->data, array_buffer_view->BaseAddress());
+    // MLGraphXnnpack internally allocates new input buffer with extra bytes
+    // whose address should be different from the base address of input array
+    // buffer.
+    EXPECT_NE(it->data, array_buffer_view->BaseAddress());
   }
   for (const auto& [name, array_buffer_view] : outputs) {
     const auto& output_external_values =
@@ -531,7 +534,7 @@ TEST_P(MLGraphXnnpackTest, InputAndOutputUseSameNameTest) {
   }
 }
 
-TEST_F(MLGraphXnnpackTest, ComputeAsyncTest) {
+TEST_F(MLGraphXnnpackTest, ComputeTest) {
   V8TestingScope scope;
   auto* builder =
       CreateMLGraphBuilder(scope.GetExecutionContext(), scope.GetScriptState(),
@@ -570,10 +573,9 @@ TEST_F(MLGraphXnnpackTest, ComputeAsyncTest) {
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver>(scope.GetScriptState());
     ScriptPromiseTester tester(scope.GetScriptState(), resolver->Promise());
-    graph->ComputeAsync(ScopedMLTrace("ComputeAsync"),
-                        {{"a", a_buffer_view}, {"b", b_buffer_view}},
-                        {{"output", output_buffer_view}}, resolver,
-                        scope.GetExceptionState());
+    graph->Compute(
+        ScopedMLTrace("Compute"), {{"a", a_buffer_view}, {"b", b_buffer_view}},
+        {{"output", output_buffer_view}}, resolver, scope.GetExceptionState());
     tester.WaitUntilSettled();
     EXPECT_FALSE(tester.IsFulfilled());
     auto* exception = V8DOMException::ToWrappable(scope.GetIsolate(),
@@ -598,10 +600,9 @@ TEST_F(MLGraphXnnpackTest, ComputeAsyncTest) {
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver>(scope.GetScriptState());
     ScriptPromiseTester tester(scope.GetScriptState(), resolver->Promise());
-    graph->ComputeAsync(ScopedMLTrace("ComputeAsync"),
-                        {{"a", a_buffer_view}, {"b", b_buffer_view}},
-                        {{"output", output_buffer_view}}, resolver,
-                        scope.GetExceptionState());
+    graph->Compute(
+        ScopedMLTrace("Compute"), {{"a", a_buffer_view}, {"b", b_buffer_view}},
+        {{"output", output_buffer_view}}, resolver, scope.GetExceptionState());
     tester.WaitUntilSettled();
     EXPECT_FALSE(tester.IsFulfilled());
     auto* exception = V8DOMException::ToWrappable(scope.GetIsolate(),
@@ -626,10 +627,9 @@ TEST_F(MLGraphXnnpackTest, ComputeAsyncTest) {
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver>(scope.GetScriptState());
     ScriptPromiseTester tester(scope.GetScriptState(), resolver->Promise());
-    graph->ComputeAsync(ScopedMLTrace("ComputeAsync"),
-                        {{"a", a_buffer_view}, {"b", b_buffer_view}},
-                        {{"output", output_buffer_view}}, resolver,
-                        scope.GetExceptionState());
+    graph->Compute(
+        ScopedMLTrace("Compute"), {{"a", a_buffer_view}, {"b", b_buffer_view}},
+        {{"output", output_buffer_view}}, resolver, scope.GetExceptionState());
     tester.WaitUntilSettled();
     EXPECT_FALSE(tester.IsFulfilled());
     auto* exception = V8DOMException::ToWrappable(scope.GetIsolate(),
@@ -646,17 +646,16 @@ TEST_F(MLGraphXnnpackTest, ComputeAsyncTest) {
   }
   {
     // Test the input and output ArrayBufferViews are detached if
-    // ComputeAsync() call succeeds.
+    // Compute() call succeeds.
     auto a_buffer_view = CreateArrayBufferViewForOperand(a_operand);
     auto b_buffer_view = CreateArrayBufferViewForOperand(b_operand);
     auto output_buffer_view = CreateArrayBufferViewForOperand(output_operand);
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver>(scope.GetScriptState());
     ScriptPromiseTester tester(scope.GetScriptState(), resolver->Promise());
-    graph->ComputeAsync(ScopedMLTrace("ComputeAsync"),
-                        {{"a", a_buffer_view}, {"b", b_buffer_view}},
-                        {{"output", output_buffer_view}}, resolver,
-                        scope.GetExceptionState());
+    graph->Compute(
+        ScopedMLTrace("Compute"), {{"a", a_buffer_view}, {"b", b_buffer_view}},
+        {{"output", output_buffer_view}}, resolver, scope.GetExceptionState());
     EXPECT_TRUE(a_buffer_view->IsDetached());
     EXPECT_TRUE(b_buffer_view->IsDetached());
     EXPECT_TRUE(output_buffer_view->IsDetached());
@@ -666,7 +665,7 @@ TEST_F(MLGraphXnnpackTest, ComputeAsyncTest) {
   {
     // Test the input and output ArrayBufferViews of MLComputeResult have the
     // same type, byte offset, byte length and base address of those passed to
-    // ComputeAsync().
+    // Compute().
     auto a_buffer_view = CreateArrayBufferViewForOperand(a_operand);
     auto a_buffer_view_type = a_buffer_view->GetType();
     size_t a_buffer_view_byte_offset = a_buffer_view->byteOffset();
@@ -695,10 +694,9 @@ TEST_F(MLGraphXnnpackTest, ComputeAsyncTest) {
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver>(scope.GetScriptState());
     ScriptPromiseTester tester(scope.GetScriptState(), resolver->Promise());
-    graph->ComputeAsync(ScopedMLTrace("ComputeAsync"),
-                        {{"a", a_buffer_view}, {"b", b_buffer_view}},
-                        {{"output", output_buffer_view}}, resolver,
-                        scope.GetExceptionState());
+    graph->Compute(
+        ScopedMLTrace("Compute"), {{"a", a_buffer_view}, {"b", b_buffer_view}},
+        {{"output", output_buffer_view}}, resolver, scope.GetExceptionState());
     tester.WaitUntilSettled();
     EXPECT_TRUE(tester.IsFulfilled());
     auto* compute_result = NativeValueTraits<MLComputeResult>::NativeValue(
@@ -859,7 +857,7 @@ struct SoftmaxTester {
 
     xnn_operator_t softmax_op = nullptr;
     const xnn_status status = xnn_create_softmax_nc_f32(
-        channels, channels, channels, /*flags=*/0, &softmax_op);
+        /*flags=*/0, &softmax_op);
     ASSERT_EQ(xnn_status_success, status);
     ASSERT_THAT(softmax_op, testing::NotNull());
     std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(
@@ -872,7 +870,8 @@ struct SoftmaxTester {
     Vector<float> xnnpack_output(batch_size * channels +
                                  XNN_EXTRA_BYTES / sizeof(float));
     ASSERT_EQ(xnn_status_success,
-              xnn_reshape_softmax_nc_f32(softmax_op, batch_size,
+              xnn_reshape_softmax_nc_f32(softmax_op, channels, channels,
+                                         channels, batch_size,
                                          /*threadpool=*/nullptr));
     ASSERT_EQ(xnn_status_success,
               xnn_setup_softmax_nc_f32(softmax_op, xnnpack_input.data(),
@@ -1243,8 +1242,7 @@ TEST_P(MLGraphXnnpackTest, ThreadPoolTest) {
 }
 
 const TestVariety kXnnpackGraphTestVariety[] = {
-    {BackendType::kXnnpack, ExecutionMode::kAsync},
-    {BackendType::kXnnpack, ExecutionMode::kSync},
+    {BackendType::kXnnpack},
 };
 
 INSTANTIATE_TEST_SUITE_P(All,

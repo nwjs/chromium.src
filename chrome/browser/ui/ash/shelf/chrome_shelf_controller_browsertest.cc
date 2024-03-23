@@ -253,7 +253,7 @@ ash::ShelfID CreateAppShortcutItem(const ash::ShelfID& shelf_id) {
 
   return controller->CreateAppItem(
       std::make_unique<AppShortcutShelfItemController>(shelf_id),
-      ash::STATUS_CLOSED, /*pinned=*/true, /*title=*/base::EmptyString16());
+      ash::STATUS_CLOSED, /*pinned=*/true, /*title=*/std::u16string());
 }
 
 // A class that waits for the child removal to occur on a parent view.
@@ -2694,7 +2694,7 @@ class HotseatShelfAppBrowserTest : public ShelfAppBrowserTest {
     // Disable contextual nudges to prevent in-app to home nudge from being
     // announced in the ChromeVox test.
     scoped_feature_list_.InitAndDisableFeature(
-        ash::features::kContextualNudges);
+        ash::features::kHideShelfControlsInTabletMode);
     ShelfAppBrowserTest::SetUp();
   }
 

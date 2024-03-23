@@ -28,6 +28,10 @@ void AddSeaPenStrings(content::WebUIDataSource* source) {
       {"seaPenDeleteWallpaper", IDS_SEA_PEN_DELETE_WALLPAPER},
       {"seaPenCreateMore", IDS_SEA_PEN_CREATE_MORE},
       {"seaPenAbout", IDS_SEA_PEN_ABOUT},
+      {"seaPenAboutDialogTitle", IDS_SEA_PEN_ABOUT_DIALOG_TITLE},
+      {"seaPenAboutDialogPrompt", IDS_SEA_PEN_ABOUT_DIALOG_PROMPT},
+      {"seaPenAboutDialogDate", IDS_SEA_PEN_ABOUT_DIALOG_DATE},
+      {"seaPenAboutDialogClose", IDS_SEA_PEN_ABOUT_DIALOG_CLOSE},
       {"seaPenErrorNoInternet", IDS_SEA_PEN_ERROR_NO_INTERNET},
       {"seaPenErrorResourceExhausted", IDS_SEA_PEN_ERROR_RESOURCE_EXHAUSTED},
       {"seaPenErrorGeneric", IDS_SEA_PEN_ERROR_GENERIC},
@@ -41,6 +45,7 @@ void AddSeaPenStrings(content::WebUIDataSource* source) {
        IDS_SEA_PEN_WALLPAPER_TERMS_REFUSE_BUTTON},
       {"seaPenWallpaperTermsOfServiceDesc",
        IDS_SEA_PEN_WALLPAPER_TERMS_OF_SERVICE_DESC},
+      {"seaPenCreatingHighResImage", IDS_SEA_PEN_CREATING_HIGH_RES_IMAGE},
   };
   source->AddLocalizedStrings(kLocalizedStrings);
 }

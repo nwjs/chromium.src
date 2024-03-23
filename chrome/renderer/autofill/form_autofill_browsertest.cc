@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/format_macros.h"
+#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -285,10 +286,17 @@ FormCache::UpdateFormCacheResult UpdateFormCache(FormCache& form_cache) {
   return form_cache.UpdateFormCache(*base::MakeRefCounted<FieldDataManager>());
 }
 
-void ApplyFillFormAction(base::span<const FormFieldData> fields,
-                         const blink::WebFormControlElement& initiating_element,
-                         mojom::ActionPersistence action_persistence) {
-  ApplyFormAction(fields, initiating_element, mojom::ActionType::kFill,
+void ApplyFillFormAction(
+    base::span<const FormFieldData> fields,
+    const blink::WebFormControlElement& initiating_element,
+    mojom::ActionPersistence action_persistence,
+    mojom::ActionType action_type = mojom::ActionType::kFill) {
+  std::vector<FormFieldData::FillData> filling_fields;
+  filling_fields.reserve(fields.size());
+  for (const FormFieldData& field : fields) {
+    filling_fields.emplace_back(field);
+  }
+  ApplyFormAction(filling_fields, initiating_element, action_type,
                   action_persistence,
                   *base::MakeRefCounted<FieldDataManager>());
 }
@@ -2565,7 +2573,7 @@ TEST_F(FormAutofillTest,
   expected.name = expected.id_attribute;
   expected.max_length = 0;
   expected.form_control_type = FormControlType::kSelectOne;
-  // We check that the extra attributes have been copied to |result1|.
+  // We check that the extra attributes have been copied to `result1`.
   expected.is_autofilled = true;
   expected.autocomplete_attribute = "off";
   expected.should_autocomplete = false;
@@ -2978,7 +2986,7 @@ TEST_F(FormAutofillTest, WebFormElementToFormData) {
   WebLocalFrame* frame = GetMainFrame();
   ASSERT_NE(nullptr, frame);
 
-  WebVector<WebFormElement> forms = frame->GetDocument().Forms();
+  WebVector<WebFormElement> forms = frame->GetDocument().GetTopLevelForms();
   ASSERT_EQ(1U, forms.size());
 
   WebInputElement input_element = GetInputElementById("firstname");
@@ -2990,7 +2998,7 @@ TEST_F(FormAutofillTest, WebFormElementToFormData) {
   auto& [form, field] = *form_and_field;
 
   EXPECT_EQ(u"TestForm", form.name);
-  EXPECT_EQ(GetFormRendererId(forms[0]), form.unique_renderer_id);
+  EXPECT_EQ(GetFormRendererId(forms[0]), form.renderer_id);
   EXPECT_EQ(GURL("http://cnn.com/submit/"), form.action);
 
   const std::vector<FormFieldData>& fields = form.fields;
@@ -3045,12 +3053,12 @@ TEST_F(FormAutofillTest, WebFormElementToFormData) {
   expected.max_length = 0;
   EXPECT_FORM_FIELD_DATA_EQUALS(expected, fields[5]);
 
-  // Check unique_renderer_id.
+  // Check renderer_id.
   WebVector<WebFormControlElement> form_control_elements =
       forms[0].GetFormControlElements();
   for (size_t i = 0; i < fields.size(); ++i)
     EXPECT_EQ(GetFieldRendererId(form_control_elements[i]),
-              fields[i].unique_renderer_id);
+              fields[i].renderer_id);
 }
 
 TEST_F(FormAutofillTest, WebFormElementConsiderNonControlLabelableElements) {
@@ -3091,7 +3099,7 @@ TEST_F(FormAutofillTest, WebFormElementToFormData_TooManyFields) {
   WebLocalFrame* frame = GetMainFrame();
   ASSERT_NE(nullptr, frame);
 
-  WebVector<WebFormElement> forms = frame->GetDocument().Forms();
+  WebVector<WebFormElement> forms = frame->GetDocument().GetTopLevelForms();
   ASSERT_EQ(1U, forms.size());
   ASSERT_FALSE(forms.front().GetFormControlElements().empty());
 
@@ -3104,7 +3112,7 @@ TEST_F(FormAutofillTest, WebFormElementToFormData_TooManyFields) {
       {ExtractOption::kValue}));
 }
 
-// Tests that the |should_autocomplete| is set to false for all the fields when
+// Tests that the `should_autocomplete` is set to false for all the fields when
 // an autocomplete='off' attribute is set for the form in HTML.
 TEST_F(FormAutofillTest, WebFormElementToFormData_AutocompleteOff_OnForm) {
   LoadHTML(
@@ -3134,7 +3142,7 @@ TEST_F(FormAutofillTest, WebFormElementToFormData_AutocompleteOff_OnForm) {
   }
 }
 
-// Tests that the |should_autocomplete| is set to false only for the field
+// Tests that the `should_autocomplete` is set to false only for the field
 // which has an autocomplete='off' attribute set for it in HTML.
 TEST_F(FormAutofillTest, WebFormElementToFormData_AutocompleteOff_OnField) {
   LoadHTML(
@@ -3166,7 +3174,7 @@ TEST_F(FormAutofillTest, WebFormElementToFormData_AutocompleteOff_OnField) {
   EXPECT_TRUE(form.fields[2].should_autocomplete);
 }
 
-// |should_autocomplete| must be set to false for the field with
+// `should_autocomplete` must be set to false for the field with
 // autocomplete='one-time-code' attribute set in HTML.
 TEST_F(FormAutofillTest, WebFormElementToFormData_AutocompleteOff_OneTimeCode) {
   LoadHTML(
@@ -3491,7 +3499,8 @@ TEST_F(FormAutofillTest, WebFormElementToFormData_Autocomplete) {
     WebLocalFrame* web_frame = GetMainFrame();
     ASSERT_NE(nullptr, web_frame);
 
-    WebVector<WebFormElement> web_forms = web_frame->GetDocument().Forms();
+    WebVector<WebFormElement> web_forms =
+        web_frame->GetDocument().GetTopLevelForms();
     ASSERT_EQ(1U, web_forms.size());
     WebFormElement web_form = web_forms[0];
 
@@ -4821,7 +4830,7 @@ TEST_F(FormAutofillTest, ThreePartPhone) {
   WebLocalFrame* frame = GetMainFrame();
   ASSERT_NE(nullptr, frame);
 
-  WebVector<WebFormElement> forms = frame->GetDocument().Forms();
+  WebVector<WebFormElement> forms = frame->GetDocument().GetTopLevelForms();
   ASSERT_EQ(1U, forms.size());
 
   FormData form = *WebFormElementToFormDataForTesting(
@@ -4878,7 +4887,7 @@ TEST_F(FormAutofillTest, MaxLengthFields) {
   WebLocalFrame* frame = GetMainFrame();
   ASSERT_NE(nullptr, frame);
 
-  WebVector<WebFormElement> forms = frame->GetDocument().Forms();
+  WebVector<WebFormElement> forms = frame->GetDocument().GetTopLevelForms();
   ASSERT_EQ(1U, forms.size());
 
   FormData form = *WebFormElementToFormDataForTesting(
@@ -4918,14 +4927,14 @@ TEST_F(FormAutofillTest, MaxLengthFields) {
   expected.max_length = 5;
   EXPECT_FORM_FIELD_DATA_EQUALS(expected, fields[3]);
 
-  // When unspecified |size|, default is returned.
+  // When unspecified `size`, default is returned.
   expected.name_attribute = u"default1";
   expected.label.clear();
   expected.name = expected.name_attribute;
   expected.max_length = FormFieldData::kDefaultMaxLength;
   EXPECT_FORM_FIELD_DATA_EQUALS(expected, fields[4]);
 
-  // When invalid |size|, default is returned.
+  // When invalid `size`, default is returned.
   expected.name_attribute = u"invalid1";
   expected.label.clear();
   expected.name = expected.name_attribute;
@@ -5117,7 +5126,8 @@ TEST_F(FormAutofillTest, UndoAutofill) {
               HasAutofillValue("autofill_selectlist_option_2",
                                WebAutofillState::kAutofilled));
 
-  WebVector<WebFormElement> forms = GetMainFrame()->GetDocument().Forms();
+  WebVector<WebFormElement> forms =
+      GetMainFrame()->GetDocument().GetTopLevelForms();
   EXPECT_EQ(1U, forms.size());
 
   FormData form = *WebFormElementToFormDataForTesting(
@@ -5136,11 +5146,10 @@ TEST_F(FormAutofillTest, UndoAutofill) {
     undo_fields.push_back(form.fields[i]);
   }
 
-  scoped_refptr<FieldDataManager> field_data_manager(new FieldDataManager);
-
   form.fields = undo_fields;
-  ApplyFormAction(form.fields, text_element_1, mojom::ActionType::kUndo,
-                  mojom::ActionPersistence::kFill, *field_data_manager);
+  ApplyFillFormAction(form.fields, text_element_1,
+                      mojom::ActionPersistence::kFill,
+                      mojom::ActionType::kUndo);
   EXPECT_THAT(text_element_1,
               HasAutofillValue("undo_text_1", WebAutofillState::kNotFilled));
   EXPECT_THAT(text_element_2, HasAutofillValue("autofill_text_2",
@@ -5422,7 +5431,7 @@ TEST_F(FormAutofillTest, SelectOneAsText) {
       frame->GetDocument().GetElementById("country").To<WebSelectElement>();
   select_element.SetValue(WebString::FromUTF8("AL"));
 
-  WebVector<WebFormElement> forms = frame->GetDocument().Forms();
+  WebVector<WebFormElement> forms = frame->GetDocument().GetTopLevelForms();
   ASSERT_EQ(1U, forms.size());
 
   // Extract the country select-one value as text.
@@ -5626,7 +5635,7 @@ TEST_F(FormAutofillTest, FormCache_ExtractNewForms) {
     std::vector<FormData> forms = UpdateFormCache(form_cache).updated_forms;
     EXPECT_EQ(test_case.number_of_extracted_forms, forms.size());
     if (!forms.empty())
-      EXPECT_EQ(test_case.is_form_tag, forms.back().is_form_tag);
+      EXPECT_EQ(test_case.is_form_tag, !forms.back().renderer_id.is_null());
   }
 }
 

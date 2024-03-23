@@ -14,6 +14,7 @@
 #include "chrome/browser/ash/login/oobe_screen.h"
 #include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/wizard_context.h"
+#include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/webui/ash/login/consumer_update_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_info_screen_handler.h"
@@ -30,6 +31,8 @@
 #include "chromeos/ash/components/quick_start/quick_start_metrics.h"
 #include "chromeos/ash/components/quick_start/types.h"
 #include "components/account_id/account_id.h"
+#include "components/session_manager/core/session_manager.h"
+#include "components/session_manager/session_manager_types.h"
 #include "components/user_manager/user_type.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_oauth_client.h"
@@ -127,10 +130,20 @@ gaia::OAuthClientInfo GetClientInfo() {
 QuickStartController::QuickStartController() {
   gaia_client_ = std::make_unique<gaia::GaiaOAuthClient>(
       g_browser_process->shared_url_loader_factory());
-  if (features::IsOobeQuickStartEnabled()) {
-    InitTargetDeviceBootstrapController();
-    StartObservingBluetoothState();
+  // Main feature flag
+  if (!features::IsOobeQuickStartEnabled()) {
+    return;
   }
+
+  // QuickStart may not be available on the login screen.
+  if (session_manager::SessionManager::Get()->session_state() !=
+          session_manager::SessionState::OOBE &&
+      !features::IsOobeQuickStartOnLoginScreenEnabled()) {
+    return;
+  }
+
+  InitTargetDeviceBootstrapController();
+  StartObservingBluetoothState();
 }
 
 QuickStartController::~QuickStartController() {
@@ -165,6 +178,8 @@ void QuickStartController::ForceEnableQuickStart() {
   }
 
   InitTargetDeviceBootstrapController();
+  QS_LOG(INFO) << "Force enabling LocalPasswordsForConsumers!";
+  ash::features::ForceEnableLocalPasswordsForConsumers();
 }
 
 void QuickStartController::DetermineEntryPointVisibility(
@@ -225,6 +240,7 @@ void QuickStartController::InitTargetDeviceBootstrapController() {
     LoginDisplayHost::default_host()
         ->GetWizardContext()
         ->quick_start_setup_ongoing = true;
+    controller_state_ = ControllerState::WAITING_TO_RESUME_AFTER_UPDATE;
   }
 
   StartObservingScreenTransitions();
@@ -347,6 +363,8 @@ void QuickStartController::OnStatusChanged(
       }
       AbortFlow(AbortFlowReason::ERROR);
       return;
+    case Step::FLOW_ABORTED:
+      [[fallthrough]];
     case Step::SETUP_COMPLETE:
       return;
   }
@@ -464,11 +482,23 @@ void QuickStartController::HandleTransitionToQuickStartScreen() {
     }
 
     StartAdvertising();
+  } else if (controller_state_ ==
+             ControllerState::WAITING_TO_RESUME_AFTER_UPDATE) {
+    exit_point_ = QuickStartController::EntryPoint::GAIA_INFO_SCREEN;
+
+    if (IsBluetoothDisabled()) {
+      controller_state_ = ControllerState::WAITING_FOR_BLUETOOTH_PERMISSION;
+      UpdateUiState(UiState::SHOWING_BLUETOOTH_DIALOG);
+      return;
+    }
+
+    StartAdvertising();
   } else {
     // If the setup has finished, transitioning to QuickStart should
     // show the last step of the flow.
     if (controller_state_ == ControllerState::SETUP_COMPLETE) {
       UpdateUiState(UiState::SETUP_COMPLETE);
+      SavePhoneInstanceID();
       bootstrap_controller_->OnSetupComplete();
       return;
     }
@@ -535,7 +565,6 @@ void QuickStartController::FinishAccountCreation() {
   CHECK(!gaia_creds_.email.empty());
   CHECK(!gaia_creds_.gaia_id.empty());
 
-  SavePhoneInstanceID();
   UpdateUiState(UiState::CREATING_ACCOUNT);
   controller_state_ = ControllerState::SETUP_COMPLETE;
 
@@ -545,7 +574,7 @@ void QuickStartController::FinishAccountCreation() {
   // The user type is known to be regular. The unicorn flow transitions to the
   // Gaia screen and uses its own mechanism for account creation.
   login::BuildUserContextForGaiaSignIn(
-      /*user_type=*/user_manager::USER_TYPE_REGULAR,
+      /*user_type=*/user_manager::UserType::kRegular,
       /*account_id=*/account_id,
       /*using_saml=*/false,
       /*using_saml_api=*/false,
@@ -625,7 +654,7 @@ void QuickStartController::OnBluetoothPermissionGranted() {
 
   if (IsBluetoothDisabled()) {
     CHECK(cros_bluetooth_config_remote_);
-    cros_bluetooth_config_remote_->SetBluetoothHidDetectionActive();
+    cros_bluetooth_config_remote_->SetBluetoothEnabledWithoutPersistence();
     // Advertising will start once we are notified that bluetooth is enabled.
   }
 }

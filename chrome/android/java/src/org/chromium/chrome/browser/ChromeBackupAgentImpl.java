@@ -17,6 +17,7 @@ import androidx.annotation.VisibleForTesting;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.PathUtils;
@@ -25,10 +26,11 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.base.SplitCompatApplication;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.AsyncInitTaskRunner;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.components.signin.AccountManagerFacade;
@@ -198,7 +200,7 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
         final ArrayList<String> backupNames = new ArrayList<>();
         final ArrayList<byte[]> backupValues = new ArrayList<>();
 
-        // TODO(crbug.com/1462552): Remove syncAccount once UNO is launched, given the sync feature
+        // TODO(crbug.com/40066949): Remove syncAccount once UNO is launched, given the sync feature
         // and consent will disappear.
         final AtomicReference<CoreAccountInfo> syncAccount = new AtomicReference<>();
         final AtomicReference<CoreAccountInfo> signedInAccount = new AtomicReference<>();
@@ -215,13 +217,21 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
 
                             syncAccount.set(
                                     IdentityServicesProvider.get()
-                                            .getIdentityManager(Profile.getLastUsedRegularProfile())
+                                            .getIdentityManager(
+                                                    ProfileManager.getLastUsedRegularProfile())
                                             .getPrimaryAccountInfo(ConsentLevel.SYNC));
 
                             signedInAccount.set(
                                     IdentityServicesProvider.get()
-                                            .getIdentityManager(Profile.getLastUsedRegularProfile())
+                                            .getIdentityManager(
+                                                    ProfileManager.getLastUsedRegularProfile())
                                             .getPrimaryAccountInfo(ConsentLevel.SIGNIN));
+
+                            if (syncAccount.get() != null
+                                    && !syncAccount.get().equals(signedInAccount.get())) {
+                                throw new IllegalStateException(
+                                        "Recorded signed in account differs from syncing account");
+                            }
 
                             Natives jni = ChromeBackupAgentImplJni.get();
 
@@ -458,22 +468,43 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
             }
         }
 
-        // TODO(crbug.com/1493706): Do not enable sync if kReplaceSyncPromosWithSignInPromos is
-        // enabled.
         if (syncAccountInfo != null) {
-            // This will sign in the user on first run to the account in
-            // BACKUP_FLOW_SIGNIN_ACCOUNT_NAME if any.
-            editor.putString(
-                    ChromePreferenceKeys.BACKUP_FLOW_SIGNIN_ACCOUNT_NAME, restoredSyncUserEmail);
-            editor.apply();
+            // Both accounts are recorded at the same time. Since only one account is in signed-in
+            // state at a given time, they should be identical if both are valid.
+            if (signedInAccountInfo != null && !signedInAccountInfo.equals(syncAccountInfo)) {
+                throw new IllegalStateException(
+                        "Recorded signed in account differs from syncing account");
+            }
 
-            // The silent first run will change things, so there is no point in trying to prevent
-            // additional backups at this stage. Don't write anything to |newState|.
-            setRestoreStatus(RestoreStatus.RESTORE_COMPLETED);
+            if (ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+                editor.apply();
+                signInAndWaitForResult(syncAccountInfo);
+            } else {
+                // This will sign in the user on first run to the account in
+                // BACKUP_FLOW_SIGNIN_ACCOUNT_NAME if any.
+                editor.putString(
+                        ChromePreferenceKeys.BACKUP_FLOW_SIGNIN_ACCOUNT_NAME,
+                        restoredSyncUserEmail);
+                editor.apply();
+
+                // The silent first run will change things, so there is no point in trying to
+                // prevent
+                // additional backups at this stage. Don't write anything to |newState|.
+                setRestoreStatus(RestoreStatus.RESTORE_COMPLETED);
+            }
         } else {
             editor.apply();
-            assert signedInAccountInfo != null;
-            // Start asynchronous sign-in.
+
+            // signedInAccountInfo and syncAccountInfo should not be null at the same at this point.
+            // If there's no valid syncing account and the signed-in account restore is disabled,
+            // the restore should already be stopped and the restore state set to `NOT_SIGNED_IN`.
+            if (signedInAccountInfo == null
+                    || !SigninFeatureMap.isEnabled(
+                            SigninFeatures.RESTORE_SIGNED_IN_ACCOUNT_AND_SETTINGS_FROM_BACKUP)) {
+                throw new IllegalStateException("No valid account can be signed-in");
+            }
+
             signInAndWaitForResult(signedInAccountInfo);
         }
         Log.i(TAG, "Restore complete");
@@ -570,23 +601,12 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
                 () -> {
                     SigninManager signinManager =
                             IdentityServicesProvider.get()
-                                    .getSigninManager(Profile.getLastUsedRegularProfile());
+                                    .getSigninManager(ProfileManager.getLastUsedRegularProfile());
                     final AccountManagerFacade accountManagerFacade =
                             AccountManagerFacadeProvider.getInstance();
 
-                    AccountUtils.checkChildAccountStatus(
-                            accountManagerFacade,
-                            getAccountInfos(),
-                            (isChild, unused) -> {
-                                if (isChild) {
-                                    // TODO(crbug.com/1318350):
-                                    // Pre-AllowSyncOffForChildAccounts, the backup sign-in for
-                                    // child accounts would happen in SigninChecker anyways.
-                                    // Maybe it should be handled by this  class once the feature
-                                    // launches.
-                                    return;
-                                }
-
+                    Runnable signinRunnable =
+                            () -> {
                                 // signinManager.addSignInStateObserver(observer);
                                 signinManager.runAfterOperationInProgress(
                                         () -> {
@@ -596,7 +616,40 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
                                                             .POST_DEVICE_RESTORE_BACKGROUND_SIGNIN,
                                                     callback);
                                         });
-                            });
+                            };
+
+                    Callback<Boolean> accountManagedCallback =
+                            (isManaged) -> {
+                                // If restoring a managed account, the user most likely already
+                                // accepted account management previously and we don't have the
+                                // ability to re-show the confirmation dialog here anyways.
+                                if (isManaged) signinManager.setUserAcceptedAccountManagement(true);
+                                signinRunnable.run();
+                            };
+
+                    AccountManagerFacade.ChildAccountStatusListener listener =
+                            (isChild, unused) -> {
+                                if (isChild) {
+                                    // TODO(crbug.com/1318350):
+                                    // Pre-AllowSyncOffForChildAccounts, the backup sign-in for
+                                    // child accounts would happen in SigninChecker anyways.
+                                    // Maybe it should be handled by this  class once the
+                                    // feature launches.
+                                    callback.onSignInAborted();
+                                    return;
+                                }
+
+                                if (SigninFeatureMap.isEnabled(
+                                        SigninFeatures.ENTERPRISE_POLICY_ON_SIGNIN)) {
+                                    signinManager.isAccountManaged(
+                                            accountInfo, accountManagedCallback);
+                                } else {
+                                    signinRunnable.run();
+                                }
+                            };
+
+                    AccountUtils.checkChildAccountStatus(
+                            accountManagerFacade, getAccountInfos(), listener);
                 });
     }
 

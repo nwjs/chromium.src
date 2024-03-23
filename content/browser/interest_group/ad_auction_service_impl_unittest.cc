@@ -90,9 +90,9 @@
 
 namespace content {
 
-namespace {
-
 class BrowserContext;
+
+namespace {
 
 constexpr char kInterestGroupName[] = "interest-group-name";
 constexpr char kOriginStringA[] = "https://a.test";
@@ -8650,11 +8650,16 @@ TEST_F(AdAuctionServiceImplEventReportingAttestationTest, NoneAllowed) {
   EXPECT_EQ(network_responder_->ReportCount(), 0u);
 }
 
-// TODO(crbug.com/1422301): The auction must operate on the same fenced frame
-// mapping that was used at the beginning of the auction. If not, we fail the
-// auction and dump without crashing the browser. Once the root cause is known
-// and the issue fixed, remove this test.
-TEST_F(AdAuctionServiceImplTest, FencedFrameUrlMappingChangedDuringAuction) {
+// In some scenarios, the `PageImpl` used in auction may change in middle of the
+// auction. See MainFrameDocumentAssociatedDataChangesOnSameSiteNavigation in
+// SitePerProcessBrowserTest for an example. When this happens, auction must be
+// able to detect the change and abort the auction.
+//
+// See more info about this issue in crbug.com/1422301.
+//
+// TODO(crbug.com/936696): Once RenderDocument is launched, this issue will be
+// resolved, remove this test.
+TEST_F(AdAuctionServiceImplTest, PageImplChangedDuringAuction) {
   network_responder_->RegisterDeferredScriptResponse(kBiddingUrlPath);
   network_responder_->RegisterScriptResponse(kDecisionUrlPath,
                                              BasicSellerReportScript());
@@ -8663,11 +8668,14 @@ TEST_F(AdAuctionServiceImplTest, FencedFrameUrlMappingChangedDuringAuction) {
   interest_group.bidding_url = kUrlA.Resolve(kBiddingUrlPath);
   interest_group.ads.emplace();
   blink::InterestGroup::Ad ad(
-      /*render_url=*/GURL("https://example.com/render"),
+      /*render_gurl=*/GURL("https://example.com/render"),
       /*metadata=*/std::nullopt);
   interest_group.ads->emplace_back(std::move(ad));
 
   JoinInterestGroupAndFlush(interest_group);
+  ASSERT_NE(
+      static_cast<RenderFrameHostImpl*>(main_rfh())->auction_initiator_page(),
+      nullptr);
   EXPECT_EQ(1, GetJoinCount(kOriginA, kInterestGroupName));
 
   blink::AuctionConfig auction_config;
@@ -8700,23 +8708,158 @@ TEST_F(AdAuctionServiceImplTest, FencedFrameUrlMappingChangedDuringAuction) {
   network_responder_->DoDeferredScriptResponse(kBiddingUrlPath,
                                                BasicBiddingReportScript());
 
-  FencedFrameURLMapping& fenced_frame_urls_map =
-      static_cast<RenderFrameHostImpl*>(main_rfh())
-          ->GetPage()
-          .fenced_frame_urls_map();
+  // Simulate invalidating the `PageImpl` used by the auction.
+  static_cast<RenderFrameHostImpl*>(main_rfh())
+      ->set_auction_initiator_page(nullptr);
 
-  FencedFrameURLMappingTestPeer test_peer(&fenced_frame_urls_map);
-
-  // Change the id of the fenced frame url mapping used by the current auction
-  // to simulate the scenario we've seen in crbug.com/1422301: the fenced frame
-  // url mapping used at the beginning of the auction is not the same as the one
-  // at the end of the auction.
-  test_peer.SetId(test_peer.GetNextId());
-
-  // Complete the auction. It should fail due to the fenced frame url mapping
-  // mismatch.
+  // Complete the auction. It should fail due to the `PageImpl` mismatch.
   run_loop.Run();
   EXPECT_FALSE(maybe_config.has_value());
+}
+
+// Similar to PageImplChangedDuringAuction, but the `PageImpl` is changed before
+// auction starts.
+//
+// TODO(crbug.com/936696): Once RenderDocument is launched, remove this test.
+TEST_F(AdAuctionServiceImplTest, PageImplChangedBeforeAuction) {
+  network_responder_->RegisterDeferredScriptResponse(kBiddingUrlPath);
+  network_responder_->RegisterScriptResponse(kDecisionUrlPath,
+                                             BasicSellerReportScript());
+
+  blink::InterestGroup interest_group = CreateInterestGroup();
+  interest_group.bidding_url = kUrlA.Resolve(kBiddingUrlPath);
+  interest_group.ads.emplace();
+  blink::InterestGroup::Ad ad(
+      /*render_gurl=*/GURL("https://example.com/render"),
+      /*metadata=*/std::nullopt);
+  interest_group.ads->emplace_back(std::move(ad));
+
+  JoinInterestGroupAndFlush(interest_group);
+  ASSERT_NE(
+      static_cast<RenderFrameHostImpl*>(main_rfh())->auction_initiator_page(),
+      nullptr);
+  EXPECT_EQ(1, GetJoinCount(kOriginA, kInterestGroupName));
+
+  blink::AuctionConfig auction_config;
+  auction_config.seller = kOriginA;
+  auction_config.decision_logic_url = kUrlA.Resolve(kDecisionUrlPath);
+  auction_config.non_shared_params.interest_group_buyers = {kOriginA};
+
+  AdAuctionServiceImpl::CreateMojoService(
+      main_rfh(), ad_auction_service_.BindNewPipeAndPassReceiver());
+
+  // Simulate invalidating the `PageImpl` used by the auction.
+  static_cast<RenderFrameHostImpl*>(main_rfh())
+      ->set_auction_initiator_page(nullptr);
+
+  // Start the auction.
+  base::RunLoop run_loop;
+  std::optional<blink::FencedFrame::RedactedFencedFrameConfig> maybe_config;
+  ad_auction_service_->RunAdAuction(
+      auction_config, mojo::NullReceiver(),
+      base::BindLambdaForTesting(
+          [&run_loop, &maybe_config](
+              bool aborted_by_script,
+              const std::optional<
+                  blink::FencedFrame::RedactedFencedFrameConfig>& config) {
+            EXPECT_FALSE(aborted_by_script);
+            maybe_config = config;
+            run_loop.Quit();
+          }));
+
+  // Try to run the auction. It should fail due to the `PageImpl` mismatch.
+  task_environment()->RunUntilIdle();
+  run_loop.Run();
+  EXPECT_FALSE(maybe_config.has_value());
+}
+
+// The weak pointer to the auction initiator page should be reset upon a cross-
+// document navigation.
+// TODO(crbug.com/936696): Once RenderDocument is launched, remove this test.
+TEST_F(AdAuctionServiceImplTest,
+       ResetAuctionInitiatorPageOnCrossDocumentNavigation) {
+  content::RenderFrameHostTester* rfh_tester =
+      content::RenderFrameHostTester::For(main_rfh());
+  content::RenderFrameHost* subframe = rfh_tester->AppendChild("subframe");
+  subframe =
+      NavigationSimulator::NavigateAndCommitFromDocument(kUrlA, subframe);
+  RenderFrameHostImpl* subframe_rfh =
+      static_cast<RenderFrameHostImpl*>(subframe);
+
+  // Act as if there was an infinite unload handler in the subframe.
+  subframe_rfh->DoNotDeleteForTesting();
+
+  // Set an arbitrarily long timeout to ensure the subframe unload timer doesn't
+  // fire before OnDetach() is called.
+  subframe_rfh->SetSubframeUnloadTimeoutForTesting(base::Seconds(30));
+
+  blink::InterestGroup interest_group = CreateInterestGroup();
+  interest_group.update_url = kUpdateUrlA;
+  interest_group.bidding_url = kBiddingLogicUrlA;
+  interest_group.ads.emplace();
+  blink::InterestGroup::Ad ad(
+      /*render_gurl=*/GURL("https://example.com/render"),
+      /*metadata=*/std::nullopt);
+  interest_group.ads->emplace_back(std::move(ad));
+  JoinInterestGroupAndFlush(interest_group, subframe);
+  EXPECT_EQ(1, GetJoinCount(kOriginA, kInterestGroupName));
+
+  base::WeakPtr<PageImpl> auction_initator_page =
+      subframe_rfh->auction_initiator_page();
+  ASSERT_NE(auction_initator_page, nullptr);
+  EXPECT_EQ(auction_initator_page.get(), &(subframe_rfh->GetPage()));
+
+  // Commit a cross-document navigation in the subframe.
+  NavigationSimulator::NavigateAndCommitFromDocument(kUrlB, subframe);
+
+  // The weak pointer to the auction initiator page should be reset.
+  ASSERT_NE(subframe_rfh, nullptr);
+  EXPECT_EQ(subframe_rfh->auction_initiator_page(), nullptr);
+}
+
+// The weak pointer to the auction initiator page should not be reset upon a
+// same-document navigation.
+// TODO(crbug.com/936696): Once RenderDocument is launched, remove this test.
+TEST_F(AdAuctionServiceImplTest,
+       DoNotResetAuctionInitiatorPageOnSameDocumentNavigation) {
+  content::RenderFrameHostTester* rfh_tester =
+      content::RenderFrameHostTester::For(main_rfh());
+  content::RenderFrameHost* subframe = rfh_tester->AppendChild("subframe");
+  subframe = NavigationSimulator::NavigateAndCommitFromDocument(
+      GURL("https://a.test/#frag1"), subframe);
+  RenderFrameHostImpl* subframe_rfh =
+      static_cast<RenderFrameHostImpl*>(subframe);
+
+  blink::InterestGroup interest_group = CreateInterestGroup();
+  interest_group.update_url = kUpdateUrlA;
+  interest_group.bidding_url = kBiddingLogicUrlA;
+  interest_group.ads.emplace();
+  blink::InterestGroup::Ad ad(
+      /*render_gurl=*/GURL("https://example.com/render"),
+      /*metadata=*/std::nullopt);
+  interest_group.ads->emplace_back(std::move(ad));
+  JoinInterestGroupAndFlush(interest_group, subframe);
+  EXPECT_EQ(1, GetJoinCount(kOriginA, kInterestGroupName));
+
+  base::WeakPtr<PageImpl> auction_initator_page =
+      subframe_rfh->auction_initiator_page();
+  ASSERT_NE(auction_initator_page, nullptr);
+  EXPECT_EQ(auction_initator_page.get(), &(subframe_rfh->GetPage()));
+
+  GURL same_document_url = GURL("https://a.test/#frag2");
+
+  // Commit a same-document navigation in the subframe.
+  auto simulator =
+      NavigationSimulator::CreateRendererInitiated(same_document_url, subframe);
+  simulator->CommitSameDocument();
+
+  // The weak pointer to the auction initiator page should not be reset.
+  ASSERT_NE(subframe_rfh, nullptr);
+  ASSERT_NE(subframe_rfh->auction_initiator_page(), nullptr);
+  EXPECT_EQ(subframe_rfh->auction_initiator_page().get(),
+            &(subframe_rfh->GetPage()));
+  EXPECT_EQ(subframe_rfh->auction_initiator_page().get(),
+            auction_initator_page.get());
 }
 
 class AdAuctionServiceImplSharedStorageEnabledTest
@@ -10122,6 +10265,95 @@ class AdAuctionServiceImplBAndATest : public AdAuctionServiceImplTest {
                                                  JSONSerializedKeys());
   }
 
+  std::string GetSingleSellerResponse() {
+    std::string response;
+    // CBOR response computed using https://cbor.me/
+    /* Response:
+    {
+      "adRenderURL":"https://c.test/ad.html",
+      "interestGroupName":"cars",
+      "interestGroupOwner":"https://a.test/",
+      "bid": 1.0,
+      "biddingGroups": {
+        "https://a.test/": [0]
+        },
+      "winReportingURLs": {
+        "buyerReportingURLs": {
+          "reportingURL": "https://d.test/buyerReporting",
+          "interactionReportingURLs": {
+            "click": "https://e.test/buyerInteractionReporting"
+            }
+          },
+        "topLevelSellerReportingURLs": {
+          "reportingURL": "https://d.test/sellerReporting",
+          "interactionReportingURLs": {
+            "click": "https://e.test/sellerInteractionReporting"
+            }
+          }
+        }
+      }
+    */
+    // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
+    // base64`
+    EXPECT_TRUE(base::Base64Decode(
+        "AgAAAM4fiwgAAAAAAAADhZBBCsIwEEU9hiC61k27F/"
+        "ciiELFA6TJoME0iZNpG5cepS68oztLS6EpRZfz+e/"
+        "xmTdPpfhsJjcmEtAC8JzsiyuRdes45hGBo5iJ6EqZyuqmkPqyRZNbV5muxdrWc2JLqROwB"
+        "ql"
+        "u1R73wjR/AIaZwt7p551FtJYQ8FOpCZBxkiZUV8CV5De/7Hjo8bsRyM/"
+        "I2D0UoE6g1O9Ri8EoFxL/V60Gq1rB2Kx7o6o7zVcPLAPBGToM4mOpAYf//"
+        "gI0JYFGugEAAA==",
+        &response));
+    return response;
+  }
+
+  std::string GetMultiSellerResponse() {
+    std::string response;
+    // CBOR response computed using https://cbor.me/
+    /* Response:
+    {
+      "adRenderURL":"https://c.test/ad.html",
+      "interestGroupName":"cars",
+      "interestGroupOwner":"https://a.test/",
+      "biddingGroups": {
+        "https://a.test/": [0]
+        },
+      "bid": 100,
+      "bidCurrency":"XAU",
+      "winReportingURLs": {
+        "buyerReportingURLs": {
+          "reportingURL": "https://d.test/buyerReporting",
+          "interactionReportingURLs": {
+            "click": "https://e.test/buyerInteractionReporting"
+          }
+        },
+        "componentSellerReportingURLs": {
+          "reportingURL": "https://d.test/sellerReporting",
+          "interactionReportingURLs": {
+            "click": "https://e.test/sellerInteractionReporting"
+          }
+        }
+      },
+      "topLevelSeller": "https://a.test/",
+      "adMetadata": "\"foo\""
+    }
+    */
+    // Converted to base64 with `cat | xxd -r -p | gzip |
+    //   xxd -ps -c0 | sed 's/^/02000000dc/' | xxd -r -p | base64 -w0`
+    EXPECT_TRUE(base::Base64Decode(
+        "AgAAAPEfiwgAAAAAAAADhZCxTsMwEED5jA7QoRMszc6GGBBSC1JQJdar76BuHJ85X9p07K"
+        "eU"
+        "jb/EahSpDhUdfbr3/HQ/"
+        "ZmlxhGvAOSkgKNDkg3lSAZbkkWRRzjYr1RDvi8JMlaIWgNOV1q5K5GMjQt7szPvDok5vtP"
+        "7z"
+        "SbgJ8cA9BR21v/LKYUYbcm/"
+        "kHMlwIWytLymwaJKkb+O3LJsdST5zcvJsb3oHdo4caEfWKwkYtZyrD2ScNVV72/"
+        "N0wj+fgdprw3VgT167+v+qxoOqmBOXs+4GWZ3gXNfXUZV2jld/gZrQgETJxq9b//"
+        "fcv0dAW536AQAA",
+        &response));
+    return response;
+  }
+
   struct AdAuctionDataAndId {
     std::string request;
     std::optional<base::Uuid> request_id;
@@ -10226,6 +10458,34 @@ TEST_F(AdAuctionServiceImplTest, HandlesInvalidCoordinatorOrigin) {
         ADD_FAILURE() << "This callback should not be invoked.";
       }));
   run_loop.Run();
+}
+
+// Expect bad mojo message if we use an unsupported coordinator origin. The
+// coordinator origin must match one of the ones in our list.
+TEST_F(AdAuctionServiceImplTest, HandlesUnsupportedCoordinatorOrigin) {
+  url::Origin test_origin = url::Origin::Create(GURL(kOriginStringA));
+  url::Origin bad_coordinator =
+      url::Origin::Create(GURL("https://unsupported.coordinator.test/"));
+
+  mojo::Remote<blink::mojom::AdAuctionService> interest_service;
+  AdAuctionServiceImpl::CreateMojoService(
+      main_rfh(), interest_service.BindNewPipeAndPassReceiver());
+  base::RunLoop run_loop;
+  interest_service->GetInterestGroupAdAuctionData(
+      /*seller=*/test_origin,
+      /*coordinator=*/bad_coordinator,
+      /*callback=*/
+      base::BindLambdaForTesting([&](mojo_base::BigBuffer result,
+                                     const std::optional<base::Uuid>& id,
+                                     const std::string& error_message) {
+        EXPECT_EQ("Invalid Coordinator", error_message);
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+
+  // Keep running callbacks to ensure the failed request is cleaned up
+  // properly.
+  task_environment()->RunUntilIdle();
 }
 
 // Test that interest_group_manager serialize the blob correctly.
@@ -10863,42 +11123,7 @@ TEST_F(AdAuctionServiceImplBAndATest, RunBAndAAuction) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "bid": 1.0,
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-          }
-        },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-          }
-        }
-      }
-    }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAM4fiwgAAAAAAAADhZBBCsIwEEU9hiC61k27F/"
-      "ciiELFA6TJoME0iZNpG5cepS68oztLS6EpRZfz+e/"
-      "xmTdPpfhsJjcmEtAC8JzsiyuRdes45hGBo5iJ6EqZyuqmkPqyRZNbV5muxdrWc2JLqROwBql"
-      "u1R73wjR/AIaZwt7p551FtJYQ8FOpCZBxkiZUV8CV5De/7Hjo8bsRyM/"
-      "I2D0UoE6g1O9Ri8EoFxL/V60Gq1rB2Kx7o6o7zVcPLAPBGToM4mOpAYf//"
-      "gI0JYFGugEAAA==",
-      &response));
+  std::string response = GetSingleSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -10962,6 +11187,10 @@ TEST_F(AdAuctionServiceImplBAndATest, RunBAndAAuction) {
   hist.ExpectUniqueSample("Ads.InterestGroup.BaDataSize", kExpectedBaDataSize,
                           1);
   hist.ExpectTotalCount("Ads.InterestGroup.BaDataConstructionTime", 1);
+  hist.ExpectUniqueSample("Ads.InterestGroup.ServerAuction.Request.NumGroups",
+                          1, 1);
+  hist.ExpectUniqueSample(
+      "Ads.InterestGroup.ServerAuction.Request.RelativeCompressedSize", 122, 1);
   hist.ExpectTotalCount(
       "Ads.InterestGroup.Auction.ParseBaServerResponseDuration", 1);
   hist.ExpectTotalCount("Ads.InterestGroup.ServerAuction.EndToEndTime", 1);
@@ -11244,42 +11473,7 @@ TEST_F(AdAuctionServiceImplBAndATest, RunBAndAAuctionWithoutCustomMediaType) {
           R"(BF34AF8421A3A028B52C3C33AFB821332B3F330F2CC80800BE10ED8B4E000000)"
           R"('}, "enableDebugReporting": true})"));
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "bid": 1.0,
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-          }
-        },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-          }
-        }
-      }
-    }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAM4fiwgAAAAAAAADhZBBCsIwEEU9hiC61k27F/"
-      "ciiELFA6TJoME0iZNpG5cepS68oztLS6EpRZfz+e/"
-      "xmTdPpfhsJjcmEtAC8JzsiyuRdes45hGBo5iJ6EqZyuqmkPqyRZNbV5muxdrWc2JLqROwBql"
-      "u1R73wjR/AIaZwt7p551FtJYQ8FOpCZBxkiZUV8CV5De/7Hjo8bsRyM/"
-      "I2D0UoE6g1O9Ri8EoFxL/V60Gq1rB2Kx7o6o7zVcPLAPBGToM4mOpAYf//"
-      "gI0JYFGugEAAA==",
-      &response));
+  std::string response = GetSingleSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -11457,42 +11651,7 @@ TEST_F(AdAuctionServiceImplBAndATest,
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    }
-    "topLevelSeller": "https://a.test/"
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000cd/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAM0fiwgAAAAAAAADhZBNCsIwEEY9hiC61k279wIiFIWKB0iTwYamSZxMf1x6lLrwnJaW"
-      "QlOLLmf4vjePeWdMxKAF4DWOypTIun0Y8oDAUchEkFKu8kQKIfXtgKawrjFDivWp50KTsRGU"
-      "oC6gFOA0YCupY7AGqYW0Z9wLk+IB6O8UjsZ6PTBEz/"
-      "AL9VJqAmScpPHRDXAleVZvhz6M+seZUr3y5X9JbSZSzm/"
-      "8t9pNrHrAnNa9Q7WZ7uknloPgDB1663Olv7/9AfcS+HfSAQAA",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -11586,39 +11745,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-          }
-        },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-          }
-        }
-      }
-    }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAMcfiwgAAAAAAAADhZBBCsIwEEU9hiC61k279wIiFIWKB0iTwQbTJE6mbVx6lAre09JS"
-      "aErR5Xz+e3zmc2ciBS0Ar2lS5UTW7eOYRwSOYiainApVZFIIqW8HNKV1jRlarG+"
-      "9FraWOgVrkNpW63FvzMonYJgpHJ1+PVhEbwkBv5SaABknaUJ1A1xJfvfbgYcRf5yB/"
-      "IqMTaACdQGlfo/aTEa5kPi/ajdZ1QvmZj06VdvpvnpiBQjO0GEQn2sNOP33Fyx+ip+zAQAA",
-      &response));
+  std::string response = GetSingleSellerResponse();
 
   network_responder_->RegisterScriptResponse(kDecisionUrlPath, kDecisionScript);
   network_responder_->RegisterReportResponse("/buyerReporting",
@@ -11708,42 +11835,7 @@ TEST_F(AdAuctionServiceImplBAndATest, RunMultiSellerBAndAAuctionWrongSeller) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    }
-    "topLevelSeller": "https://a.test/"
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000cd/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAM0fiwgAAAAAAAADhZBNCsIwEEY9hiC61k279wIiFIWKB0iTwYamSZxMf1x6lLrwnJaW"
-      "QlOLLmf4vjePeWdMxKAF4DWOypTIun0Y8oDAUchEkFKu8kQKIfXtgKawrjFDivWp50KTsRGU"
-      "oC6gFOA0YCupY7AGqYW0Z9wLk+IB6O8UjsZ6PTBEz/"
-      "AL9VJqAmScpPHRDXAleVZvhz6M+seZUr3y5X9JbSZSzm/"
-      "8t9pNrHrAnNa9Q7WZ7uknloPgDB1663Olv7/9AfcS+HfSAQAA",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -11850,46 +11942,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "bidCurrency":"XAU",
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    },
-    "topLevelSeller": "https://a.test/",
-    "adMetadata": "\"foo\""
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000dc/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAOwfiwgAAAAAAAADhZCxbsIwEED7GUhVGZjahezdUIeqUmilVEhdD98VTBzbPV8gjHwK"
-      "bPwlFlEknCIYfbr3/"
-      "HRHNdc4wBXglAQQBGj069yoBCzIIvGsyNdLER9es0yNhYJkgOOlVKaM5FvNTFZt1c9kVsU3a"
-      "rt4Z1f7sHcdBS21e7DifE5rMt9kDHF/"
-      "wW+0Lcg7liiJ34YDz+stcTozfPFsnjoHto4UaAbaCjEo0S5V70kZrcrmuePpgv+"
-      "4AjWPafytqGEvKqTE/aqXXlUruJb1d1bFnfPRP6EiVMCBk/HXxv6/9gnuKQ6/+QEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -12018,43 +12071,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    }
-    "topLevelSeller": "https://a.test/"
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000cd/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAANEfiwgAAAAAAAADhZBNCsIwEEY9RkF0rZt27wVEKAoVD5Amgw1NkziZ/"
-      "rj0KHXjNS0thaaKLmf4vjePefFUikDkTCSgBeAliauMyLpdFPGQwFHERJhRoYouKKS+"
-      "7tGU1rVmTLEh9VhoMjaGCtQZlAKcB2wtdQLWIHWQ7ox7YlreAf2dwsnYrEaGGBh+"
-      "oQmkJkDGSRof3QJXkufNZuzDpH/4UmqWvvwvqfVMyvmN/1bbmdUA+KZ161Fdpn/"
-      "6kRUgOEOH3vpU689vvwFDT7FZ2AEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -12225,43 +12242,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    }
-    "topLevelSeller": "https://a.test/"
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000cd/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAANEfiwgAAAAAAAADhZBNCsIwEEY9RkF0rZt27wVEKAoVD5Amgw1NkziZ/"
-      "rj0KHXjNS0thaaKLmf4vjePefFUikDkTCSgBeAliauMyLpdFPGQwFHERJhRoYouKKS+"
-      "7tGU1rVmTLEh9VhoMjaGCtQZlAKcB2wtdQLWIHWQ7ox7YlreAf2dwsnYrEaGGBh+"
-      "oQmkJkDGSRof3QJXkufNZuzDpH/4UmqWvvwvqfVMyvmN/1bbmdUA+KZ161Fdpn/"
-      "6kRUgOEOH3vpU689vvwFDT7FZ2AEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -12433,43 +12414,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    }
-    "topLevelSeller": "https://a.test/"
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000cd/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAANEfiwgAAAAAAAADhZBNCsIwEEY9RkF0rZt27wVEKAoVD5Amgw1NkziZ/"
-      "rj0KHXjNS0thaaKLmf4vjePefFUikDkTCSgBeAliauMyLpdFPGQwFHERJhRoYouKKS+"
-      "7tGU1rVmTLEh9VhoMjaGCtQZlAKcB2wtdQLWIHWQ7ox7YlreAf2dwsnYrEaGGBh+"
-      "oQmkJkDGSRof3QJXkufNZuzDpH/4UmqWvvwvqfVMyvmN/1bbmdUA+KZ161Fdpn/"
-      "6kRUgOEOH3vpU689vvwFDT7FZ2AEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -12617,43 +12562,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    }
-    "topLevelSeller": "https://a.test/"
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000cd/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAANEfiwgAAAAAAAADhZBNCsIwEEY9RkF0rZt27wVEKAoVD5Amgw1NkziZ/"
-      "rj0KHXjNS0thaaKLmf4vjePefFUikDkTCSgBeAliauMyLpdFPGQwFHERJhRoYouKKS+"
-      "7tGU1rVmTLEh9VhoMjaGCtQZlAKcB2wtdQLWIHWQ7ox7YlreAf2dwsnYrEaGGBh+"
-      "oQmkJkDGSRof3QJXkufNZuzDpH/4UmqWvvwvqfVMyvmN/1bbmdUA+KZ161Fdpn/"
-      "6kRUgOEOH3vpU689vvwFDT7FZ2AEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/localWinner",
                                              /*response=*/"");
@@ -13036,46 +12945,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "bidCurrency":"XAU",
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    },
-    "topLevelSeller": "https://a.test/",
-    "adMetadata": "\"foo\""
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000dc/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAOwfiwgAAAAAAAADhZCxbsIwEED7GUhVGZjahezdUIeqUmilVEhdD98VTBzbPV8gjHwK"
-      "bPwlFlEknCIYfbr3/"
-      "HRHNdc4wBXglAQQBGj069yoBCzIIvGsyNdLER9es0yNhYJkgOOlVKaM5FvNTFZt1c9kVsU3a"
-      "rt4Z1f7sHcdBS21e7DifE5rMt9kDHF/"
-      "wW+0Lcg7liiJ34YDz+stcTozfPFsnjoHto4UaAbaCjEo0S5V70kZrcrmuePpgv+"
-      "4AjWPafytqGEvKqTE/aqXXlUruJb1d1bFnfPRP6EiVMCBk/HXxv6/9gnuKQ6/+QEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -13201,46 +13071,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "bidCurrency":"XAU",
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    },
-    "topLevelSeller": "https://a.test/",
-    "adMetadata": "\"foo\""
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000dc/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAOwfiwgAAAAAAAADhZCxbsIwEED7GUhVGZjahezdUIeqUmilVEhdD98VTBzbPV8gjHwK"
-      "bPwlFlEknCIYfbr3/"
-      "HRHNdc4wBXglAQQBGj069yoBCzIIvGsyNdLER9es0yNhYJkgOOlVKaM5FvNTFZt1c9kVsU3a"
-      "rt4Z1f7sHcdBS21e7DifE5rMt9kDHF/"
-      "wW+0Lcg7liiJ34YDz+stcTozfPFsnjoHto4UaAbaCjEo0S5V70kZrcrmuePpgv+"
-      "4AjWPafytqGEvKqTE/aqXXlUruJb1d1bFnfPRP6EiVMCBk/HXxv6/9gnuKQ6/+QEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -13340,46 +13171,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "bidCurrency":"XAU",
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    },
-    "topLevelSeller": "https://a.test/",
-    "adMetadata": "\"foo\""
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000dc/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAOwfiwgAAAAAAAADhZCxbsIwEED7GUhVGZjahezdUIeqUmilVEhdD98VTBzbPV8gjHwK"
-      "bPwlFlEknCIYfbr3/"
-      "HRHNdc4wBXglAQQBGj069yoBCzIIvGsyNdLER9es0yNhYJkgOOlVKaM5FvNTFZt1c9kVsU3a"
-      "rt4Z1f7sHcdBS21e7DifE5rMt9kDHF/"
-      "wW+0Lcg7liiJ34YDz+stcTozfPFsnjoHto4UaAbaCjEo0S5V70kZrcrmuePpgv+"
-      "4AjWPafytqGEvKqTE/aqXXlUruJb1d1bFnfPRP6EiVMCBk/HXxv6/9gnuKQ6/+QEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -13479,46 +13271,7 @@ function reportResult(auctionConfig, browserSignals) {
   AdAuctionRequestContext* request_context =
       page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
 
-  std::string response;
-  // CBOR response computed using https://cbor.me/
-  /* Response:
-  {
-    "adRenderURL":"https://c.test/ad.html",
-    "interestGroupName":"cars",
-    "interestGroupOwner":"https://a.test/",
-    "biddingGroups": {
-      "https://a.test/": [0]
-      },
-    "bid": 100,
-    "bidCurrency":"XAU",
-    "winReportingURLs": {
-      "buyerReportingURLs": {
-        "reportingURL": "https://d.test/buyerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/buyerInteractionReporting"
-        }
-      },
-      "topLevelSellerReportingURLs": {
-        "reportingURL": "https://d.test/sellerReporting",
-        "interactionReportingURLs": {
-          "click": "https://e.test/sellerInteractionReporting"
-        }
-      }
-    },
-    "topLevelSeller": "https://a.test/",
-    "adMetadata": "\"foo\""
-  }
-  */
-  // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-  //   xxd -ps -c 0 | sed 's/^/02000000dc/' | xxd -r -p | base64`
-  ASSERT_TRUE(base::Base64Decode(
-      "AgAAAOwfiwgAAAAAAAADhZCxbsIwEED7GUhVGZjahezdUIeqUmilVEhdD98VTBzbPV8gjHwK"
-      "bPwlFlEknCIYfbr3/"
-      "HRHNdc4wBXglAQQBGj069yoBCzIIvGsyNdLER9es0yNhYJkgOOlVKaM5FvNTFZt1c9kVsU3a"
-      "rt4Z1f7sHcdBS21e7DifE5rMt9kDHF/"
-      "wW+0Lcg7liiJ34YDz+stcTozfPFsnjoHto4UaAbaCjEo0S5V70kZrcrmuePpgv+"
-      "4AjWPafytqGEvKqTE/aqXXlUruJb1d1bFnfPRP6EiVMCBk/HXxv6/9gnuKQ6/+QEAAA==",
-      &response));
+  std::string response = GetMultiSellerResponse();
 
   network_responder_->RegisterReportResponse("/buyerReporting",
                                              /*response=*/"");
@@ -13574,6 +13327,152 @@ function reportResult(auctionConfig, browserSignals) {
   hist.ExpectTotalCount("Ads.InterestGroup.BaDataConstructionTime", 1);
 }
 
+TEST_F(AdAuctionServiceImplBAndATest, RunServerMultiSellerBAndAAuction) {
+  base::HistogramTester hist;
+  ProvideKeys();
+  NavigateAndCommit(kUrlA);
+  manager_->JoinInterestGroup(
+      blink::TestInterestGroupBuilder(kOriginA, "cars")
+          .SetAds({{{GURL("https://c.test/ad.html"), /*metadata=*/std::nullopt,
+                     /*size_group=*/std::nullopt,
+                     /*buyer_reporting_id=*/std::nullopt,
+                     /*buyer_and_seller_reporting_id=*/std::nullopt, "1234"}}})
+          .SetBiddingUrl(kBiddingLogicUrlA)
+          .Build(),
+      GURL("https://a.test/example.html"));
+  task_environment()->FastForwardBy(base::Seconds(1));
+
+  std::optional<AdAuctionDataAndId> auction_data =
+      GetAdAuctionDataAndFlushForFrame(kOriginA);
+  EXPECT_TRUE(auction_data.has_value());
+
+  AdAuctionPageData* page_data = PageUserData<AdAuctionPageData>::GetForPage(
+      static_cast<RenderFrameHostImpl*>(main_rfh())->GetPage());
+  ASSERT_TRUE(page_data);
+  ASSERT_TRUE(auction_data->request_id);
+  AdAuctionRequestContext* request_context =
+      page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
+
+  std::string response;
+  // CBOR response computed using https://cbor.me/
+  /* Response:
+  {
+    "adRenderURL":"https://c.test/ad.html",
+    "interestGroupName":"cars",
+    "interestGroupOwner":"https://a.test/",
+    "biddingGroups": {
+      "https://a.test/": [0]
+      },
+    "bid": 100,
+    "bidCurrency":"XAU",
+    "winReportingURLs": {
+      "buyerReportingURLs": {
+        "reportingURL": "https://d.test/buyerReporting",
+        "interactionReportingURLs": {
+          "click": "https://e.test/buyerInteractionReporting"
+        }
+      },
+      "topLevelSellerReportingURLs": {
+        "reportingURL": "https://d.test/topLevelSellerReporting",
+        "interactionReportingURLs": {
+          "click": "https://e.test/topLevelSellerInteractionReporting"
+          }
+        },
+      "componentSellerReportingURLs": {
+        "reportingURL": "https://d.test/sellerReporting",
+        "interactionReportingURLs": {
+          "click": "https://e.test/sellerInteractionReporting"
+        }
+      }
+    },
+    "topLevelSeller": "https://a.test/",
+    "adMetadata": "\"foo\""
+  }
+  */
+  // Converted to base64 with `cat | xxd -r -p | gzip |
+  //   xxd -ps -c0 | sed 's/^/02000000dc/' | xxd -r -p | base64 -w0`
+  ASSERT_TRUE(base::Base64Decode(
+      "AgAAAPIfiwgAAAAAAAADlZJNawIxEED7M4S2HkUvLl69iYdSEAtbhF7jZNCw2SROZnU99qeo"
+      "B/"
+      "+mQVkwwQ88zjDv8SA5wlzJliyEzNFIpFk+WS+"
+      "ZnR9mGfQZPWdC9pdc6iIcjisiNLCFv9GsDLNUZvFFtnJ+ZxtKXKj/"
+      "N7dRJkdnicNV8PoDzastUrTba7oa68/"
+      "GIi+"
+      "WGKhbyjCSAFY2Vu8QtIKi7jY8XvHfN6D6na2b4Br1L2r9OKqTRN0hn9cNkrpYdDPzA2zprEH"
+      "DzzvbSad/ta+X9Pm7XauzKtycX38qSpQgyFO0/tkYpPRfnACrD9GQcQIAAA==",
+      &response));
+
+  network_responder_->RegisterReportResponse("/buyerReporting",
+                                             /*response=*/"");
+  network_responder_->RegisterReportResponse("/sellerReporting",
+                                             /*response=*/"");
+  network_responder_->RegisterReportResponse("/topLevelSellerReporting",
+                                             /*response=*/"");
+
+  std::string encrypted_response =
+      quiche::ObliviousHttpResponse::CreateServerObliviousResponse(
+          response, request_context->context,
+          kBiddingAndAuctionEncryptionResponseMediaType)
+          ->EncapsulateAndSerialize();
+
+  page_data->AddAuctionResultWitnessForOrigin(
+      kOriginA, crypto::SHA256HashString(encrypted_response));
+
+  blink::AuctionConfig auction_config;
+  auction_config.seller = kOriginA;
+  auction_config.non_shared_params.interest_group_buyers = {kOriginA};
+  auction_config.server_response.emplace();
+  auction_config.server_response->request_id = *auction_data->request_id;
+
+  std::optional<GURL> result = RunAdAuctionWithPromiseAndFlushForFrame(
+      auction_config,
+      base::BindLambdaForTesting(
+          [&](mojo::Remote<blink::mojom::AbortableAdAuction>& runner) {
+            runner->ResolvedAuctionAdResponsePromise(
+                blink::mojom::AuctionAdConfigAuctionId::NewMainAuction(0),
+                mojo_base::BigBuffer(
+                    base::as_bytes(base::make_span(encrypted_response))));
+          }),
+      main_rfh());
+  ASSERT_TRUE(result);
+  InvokeCallbackForURN(*result);
+
+  // Fast forward enough for all reports to be sent.
+  task_environment()->FastForwardBy(base::Hours(1));
+
+  EXPECT_EQ(network_responder_->ReportCount(), 3u);
+  EXPECT_TRUE(network_responder_->ReportSent("/buyerReporting"));
+  EXPECT_TRUE(network_responder_->ReportSent("/sellerReporting"));
+  EXPECT_TRUE(network_responder_->ReportSent("/topLevelSellerReporting"));
+
+  std::optional<FencedFrameProperties> properties =
+      GetFencedFramePropertiesForURN(*result);
+  ASSERT_TRUE(properties);
+  EXPECT_THAT(
+      properties->fenced_frame_reporter()->GetAdBeaconMapForTesting(),
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              blink::FencedFrame::ReportingDestination::kBuyer,
+              testing::ElementsAre(testing::Pair(
+                  "click", GURL("https://e.test/buyerInteractionReporting")))),
+          testing::Pair(
+              blink::FencedFrame::ReportingDestination::kComponentSeller,
+              testing::ElementsAre(testing::Pair(
+                  "click", GURL("https://e.test/sellerInteractionReporting")))),
+          testing::Pair(
+              blink::FencedFrame::ReportingDestination::kSeller,
+              testing::ElementsAre(testing::Pair(
+                  "click",
+                  GURL(
+                      "https://e.test/topLevelSellerInteractionReporting"))))));
+
+  // Request should be padded to 256 bytes with 7 byte encryption header.
+  const size_t kExpectedBaDataSize = 256 + 7;
+  hist.ExpectUniqueSample("Ads.InterestGroup.BaDataSize", kExpectedBaDataSize,
+                          1);
+  hist.ExpectTotalCount("Ads.InterestGroup.BaDataConstructionTime", 1);
+}
+
 class AdAuctionServiceImplBAndAKAnonTest
     : public AdAuctionServiceImplBAndATest {
  public:
@@ -13582,48 +13481,6 @@ class AdAuctionServiceImplBAndAKAnonTest
         /*enabled_features=*/{blink::features::kFledgeConsiderKAnonymity,
                               blink::features::kFledgeEnforceKAnonymity},
         /*disabled_features=*/{});
-  }
-
-  std::string GetSingleSellerResponse() {
-    std::string response;
-    // CBOR response computed using https://cbor.me/
-    /* Response:
-    {
-      "adRenderURL":"https://c.test/ad.html",
-      "interestGroupName":"cars",
-      "interestGroupOwner":"https://a.test/",
-      "bid": 1.0,
-      "biddingGroups": {
-        "https://a.test/": [0]
-        },
-      "winReportingURLs": {
-        "buyerReportingURLs": {
-          "reportingURL": "https://d.test/buyerReporting",
-          "interactionReportingURLs": {
-            "click": "https://e.test/buyerInteractionReporting"
-            }
-          },
-        "topLevelSellerReportingURLs": {
-          "reportingURL": "https://d.test/sellerReporting",
-          "interactionReportingURLs": {
-            "click": "https://e.test/sellerInteractionReporting"
-            }
-          }
-        }
-      }
-    */
-    // Converted to base64 with `cat | sed 's/#.*//' | xxd -r -p | gzip |
-    // base64`
-    EXPECT_TRUE(base::Base64Decode(
-        "AgAAAM4fiwgAAAAAAAADhZBBCsIwEEU9hiC61k27F/"
-        "ciiELFA6TJoME0iZNpG5cepS68oztLS6EpRZfz+e/"
-        "xmTdPpfhsJjcmEtAC8JzsiyuRdes45hGBo5iJ6EqZyuqmkPqyRZNbV5muxdrWc2JLqROwB"
-        "ql"
-        "u1R73wjR/AIaZwt7p551FtJYQ8FOpCZBxkiZUV8CV5De/7Hjo8bsRyM/"
-        "I2D0UoE6g1O9Ri8EoFxL/V60Gq1rB2Kx7o6o7zVcPLAPBGToM4mOpAYf//"
-        "gI0JYFGugEAAA==",
-        &response));
-    return response;
   }
 
  protected:

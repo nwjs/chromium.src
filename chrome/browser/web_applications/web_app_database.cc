@@ -986,7 +986,7 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
   web_app->SetName(local_data.name());
 
   if (!sync_data.has_user_display_mode_cros() &&
-      !sync_data.has_user_display_mode_non_cros()) {
+      !sync_data.has_user_display_mode_default()) {
     DLOG(ERROR) << "WebApp proto parse error: no user_display_mode field";
     return nullptr;
   }
@@ -998,18 +998,18 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
           CreateUserDisplayModeFromWebAppSpecificsUserDisplayMode(
               sync_data.user_display_mode_cros()));
     }
-    if (sync_data.has_user_display_mode_non_cros()) {
-      web_app->SetUserDisplayModeNonCrOS(
+    if (sync_data.has_user_display_mode_default()) {
+      web_app->SetUserDisplayModeDefault(
           CreateUserDisplayModeFromWebAppSpecificsUserDisplayMode(
-              sync_data.user_display_mode_non_cros()));
+              sync_data.user_display_mode_default()));
     }
     // Note: migration runs after database opened to ensure the current platform
     // always has a UserDisplayMode set (see
     // `EnsureAppsHaveUserDisplayModeForCurrentPlatform`).
   } else {
-    web_app->SetUserDisplayModeNonCrOS(
+    web_app->SetUserDisplayModeDefault(
         CreateUserDisplayModeFromWebAppSpecificsUserDisplayMode(
-            sync_data.user_display_mode_non_cros()));
+            sync_data.user_display_mode_default()));
   }
 
   // Ordinals used for chrome://apps page.
@@ -1853,6 +1853,8 @@ DisplayMode ToMojomDisplayMode(WebAppProto::DisplayMode display_mode) {
       return DisplayMode::kTabbed;
     case WebAppProto::BORDERLESS:
       return DisplayMode::kBorderless;
+    case WebAppProto::PICTURE_IN_PICTURE:
+      return DisplayMode::kPictureInPicture;
   }
 }
 
@@ -1891,6 +1893,8 @@ WebAppProto::DisplayMode ToWebAppProtoDisplayMode(DisplayMode display_mode) {
       return WebAppProto::TABBED;
     case DisplayMode::kBorderless:
       return WebAppProto::BORDERLESS;
+    case DisplayMode::kPictureInPicture:
+      return WebAppProto::PICTURE_IN_PICTURE;
   }
 }
 

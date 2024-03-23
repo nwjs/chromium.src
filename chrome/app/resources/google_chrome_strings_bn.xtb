@@ -57,6 +57,7 @@
 <translation id="1877026089748256423">Chrome পুরানো হয়ে গেছে</translation>
 <translation id="1919130412786645364">Chrome-এ সাইন-ইন করতে দিন</translation>
 <translation id="1953553007165777902">ডাউনলোড হচ্ছে... <ph name="MINUTE" /> মিনিট বাকি আছে</translation>
+<translation id="2001586581944147178">আপনি যে ইন্টারনেট ট্রাফিক ব্যবহার করছেন, সেটির অ্যাক্সেস থাকা লোকজনেরা যাতে আপনি কোন কোন সাইট দেখেন তা দেখতে না পারেন তার ব্যবস্থা করুন। Chrome সুরক্ষিত কানেকশন ব্যবহার করে ডিএনএস (ডোমেন নেম সিস্টেম)-এ কোনও সাইটের IP অ্যাড্রেস দেখে।</translation>
 <translation id="2018528049276128029">প্রতিটি প্রোফাইলে বুকমার্ক, ইতিহাস, পাসওয়ার্ড ও আরও অনেক কিছুর মতো তার নিজস্ব Chrome তথ্য আছে</translation>
 <translation id="2018879682492276940">ইনস্টল করা যায়নি। আবার চেষ্টা করুন।</translation>
 <translation id="2071318482926839249">অন্য অ্যাকাউন্ট দিয়ে আগেই সাইন-ইন হয়ে আছে। আপনার ব্রাউজিং আলাদা করতে, Chrome আপনার জন্য প্রোফাইল তৈরি করে দিতে পারে।</translation>
@@ -75,6 +76,7 @@
 <translation id="2151406531797534936">এখনই Chrome রিস্টার্ট করুন</translation>
 <translation id="2174917724755363426">ইনস্টলেশন শেষ হয়নি। আপনি কি সত্যিই বাতিল করতে চান?</translation>
 <translation id="2190166659037789668">আপডেট চেক করার সময় সমস্যা হয়েছে: <ph name="UPDATE_CHECK_ERROR" />।</translation>
+<translation id="2199691482078155239">আপনি কোন ধরনের বিজ্ঞাপন দেখবেন, Chrome তা আরও ভালোভাবে আপনাকে নিয়ন্ত্রণ করতে দেয় এবং পছন্দমতো বিজ্ঞাপন দেখানোর সময় সাইট আপনার সম্পর্কে কোন কোন তথ্য জানতে পারবে, তাও সীমিত করে</translation>
 <translation id="223889379102603431">Chrome কীভাবে মূল সার্টিফিকেট ম্যানেজ করে সেই বিষয়ে তথ্য</translation>
 <translation id="2258103955319320201">সব ডিভাইস জুড়ে Chrome ব্রাউজারে থাকা ডেটা অ্যাক্সেস করতে, প্রথমে সাইন-ইন করে সিঙ্ক চালু করুন।</translation>
 <translation id="2290014774651636340">Google এপিআই কীগুলি অনুপস্থিত৷ Google Chrome-এর কিছু বৈশিষ্ট্য নিষ্ক্রিয় হয়ে যাবে৷</translation>
@@ -137,7 +139,6 @@
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - নেটওয়ার্ক সাইন-ইন - Chrome</translation>
 <translation id="3018957014024118866">এছাড়া, Chrome থেকেও ডেটা মুছে দিন (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">&amp;ChromeOS Flex আপডেট করার জন্য আবার চালু করুন</translation>
-<translation id="303514781271618814">Chrome নতুন ফিচার এক্সপ্লোর করছে যা সাইটগুলিকে আপনার কম ডেটা ব্যবহার করে একই ব্রাউজিং অভিজ্ঞতা প্রদান করতে দেয়</translation>
 <translation id="3037838751736561277">Google Chrome পটভূমি মোডে রয়েছে।</translation>
 <translation id="3038232873781883849">ইনস্টল করার জন্য অপেক্ষা করা হচ্ছে...</translation>
 <translation id="3059710691562604940">'Safe Browsing'-এর সুবিধা বন্ধ করা আছে। তবে Chrome আপনাকে এটি চালু রাখার জন্য সাজেস্ট করছে।</translation>
@@ -160,7 +161,6 @@
 <translation id="3360895254066713204">Chrome সহায়তাকারী</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome এখন আবার লঞ্চ হবে}=1{Chrome ১ সেকেন্ডের মধ্যে আবার লঞ্চ হবে}one{Chrome # সেকেন্ডের মধ্যে আবার লঞ্চ হবে}other{Chrome # সেকেন্ডের মধ্যে আবার লঞ্চ হবে}}</translation>
 <translation id="3396977131400919238">ইনস্টলেশনের সময় অপারেটিং সিস্টেমে একটি ত্রুটি ঘটেছিল৷ অনুগ্রহ করে আবার Google Chrome ডাউনলোড করুন৷</translation>
-<translation id="3426646014273736870">'মেমরি সেভার' ফিচার Chrome-কে আরও দ্রুত করে তুলেছে</translation>
 <translation id="3428747202529429621">সাইন-ইন করা অবস্থায় আপনাকে Chrome-এ নিরাপদ রাখতে এবং হয়ত অন্যান্য Google অ্যাপে নিরাপত্তা আরও ভাল করতে এই মোডটি ব্যবহার করা হয়</translation>
 <translation id="3434246496373299699">আপনি যখন নিজের Google অ্যাকাউন্টের মাধ্যমে সাইন-ইন করবেন, Chrome তখন আপনার পাসওয়ার্ড চেক করে দেখতে পারবে</translation>
 <translation id="3450887623636316740">এই ফাইল বিপজ্জনক হতে পারে<ph name="LINE_BREAK" />আপনি নিজের পাসওয়ার্ড দিলে Chrome আপনার জন্য এই ডাউনলোড চেক করতে পারবে। ফাইল সম্পর্কিত তথ্য Google Safe Browsing-কে পাঠানো হয়, তবে ফাইলের কন্টেন্ট ও পাসওয়ার্ড আপনার ডিভাইসেই থাকে।</translation>
@@ -177,6 +177,7 @@
 <translation id="3635073343384702370">আপনি পাসওয়ার্ড সেভ করলে Chrome তা চেক করতে পারবে</translation>
 <translation id="3667616615096815454">ইনস্টল করা যায়নি, অ্যাপ্লিকেশনটি সার্ভারের ক্ষেত্রে অজানা।</translation>
 <translation id="3673813398384385993">Chrome "<ph name="EXTENSION_NAME" />"-এ ম্যালওয়্যার আছে বলে খুঁজে পেয়েছে</translation>
+<translation id="3697952514309507634">অন্যান্য Chrome প্রোফাইল</translation>
 <translation id="3703994572283698466"><ph name="BEGIN_LINK_LINUX_OSS" />Linux ডেভেলপমেন্ট এনভায়রনমেন্ট<ph name="END_LINK_LINUX_OSS" />-এর ক্ষেত্রে যেমন করা হয়েছে, তেমনভাবে অতিরিক্ত <ph name="BEGIN_LINK_CROS_OSS" />ওপেন সোর্স সফ্টওয়্যার<ph name="END_LINK_CROS_OSS" />-এর মাধ্যমে ChromeOS তৈরি করা সম্ভব হয়েছে।</translation>
 <translation id="3716540481907974026">ChromeOS Flex ভার্সন</translation>
 <translation id="3718181793972440140">এটি এই ডিভাইস থেকে ১টি আইটেম মুছে দেবে। আপনার ডেটা পরে পুনরুদ্ধার করার জন্য, Chrome-এ <ph name="USER_EMAIL" /> হিসেবে সাইন-ইন করুন।</translation>
@@ -314,7 +315,6 @@
 <translation id="608006075545470555">এই ব্রাউজারে অফিস প্রোফাইল যোগ করুন</translation>
 <translation id="6113794647360055231">Chrome আরও ভাল হয়ে উঠেছে</translation>
 <translation id="6145313976051292476">Chrome-এ পিডিএফ ফাইল খুলুন</translation>
-<translation id="6155960517327665396">মেমরি সেভার Chrome-এর স্পিড বাড়িয়ে দেয়</translation>
 <translation id="6157638032135951407"><ph name="TIMEOUT_DURATION" /> ধরে ব্যবহার করা না হলে, আপনার সংস্থা Chrome ডেটা মুছে দেয়। এর মধ্যে ইতিহাস, অটোফিল এবং ডাউনলোড সংক্রান্ত ডেটা থাকতে পারে।</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome বিটা</translation>
@@ -430,6 +430,7 @@
 <translation id="8019103195866286235">ডেভেলপার এই এক্সটেনশনটি প্রকাশনা থেকে সরিয়ে নিয়েছেন এবং এটি নিরাপদ নাও হতে পারে। Chrome থেকে এটি সরান যাতে আপনার ভিজিট করা সাইটের ডেটা এটি আর দেখতে না পায় এবং তা পরিবর্তন না করতে পারে, এর মধ্যে আপনার ব্যক্তিগত তথ্যও রয়েছে।</translation>
 <translation id="80471789339884597">ইনস্টল করার জন্য ধন্যবাদ। <ph name="BUNDLE_NAME" /> ব্যবহার করার আগে আপনাকে অবশ্যই সমস্ত ব্রাউজার রিস্টার্ট করতে হবে।</translation>
 <translation id="8064015586118426197">ChromeOS Flex</translation>
+<translation id="8077579734294125741">অন্যান্য Chrome প্রোফাইল</translation>
 <translation id="8086881907087796310">ইনস্টলেশন করা যায়নি কারণ আপনার কম্পিউটার হার্ডওয়্যারের নূন্যতম প্রয়োজনীয় শর্ত পূরণ করে না।</translation>
 <translation id="8129812357326543296">&amp;Google Chrome সম্বন্ধে</translation>
 <translation id="813913629614996137">আরম্ভ হচ্ছে…</translation>

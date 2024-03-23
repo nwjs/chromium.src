@@ -251,6 +251,28 @@ gfx::Rect CalculateSnappedWindowBoundsInScreen(
     int divider_width,
     bool is_resizing_with_divider);
 
+// Returns the opposite snap type of a snapped `window`. This will be
+// `kPrimarySnapped` if `window` is `kSecondarySnapped`, or `kSecondarySnapped`
+// if `window` is `kPrimarySnapped`.
+chromeos::WindowStateType GetOppositeSnapType(aura::Window* window);
+
+// Returns true if `snap_action_source` can be start faster split screen set up.
+ASH_EXPORT bool CanSnapActionSourceStartFasterSplitView(
+    WindowSnapActionSource snap_action_source);
+
+// Returns true if the given `window` can be considered as the candidate for
+// faster split screen set up. Returns false otherwise. `snap_action_source` is
+// used to filter out some unwanted snap sources.
+bool ShouldConsiderWindowForFasterSplitView(
+    aura::Window* window,
+    WindowSnapActionSource snap_action_source);
+
+// Returns true if `SplitViewOverviewSession` is allowed to start when the given
+// `window` is snapped with given `snap_action_source`. Returns false otherwise.
+bool CanStartSplitViewOverviewSessionInClamshell(
+    aura::Window* window,
+    WindowSnapActionSource snap_action_source);
+
 // Returns true if the snap group is enabled in clamshell mode. The
 // `split_view_divider_` will show to indicate that the two windows are in a
 // snap-group state.
@@ -276,6 +298,13 @@ ASH_EXPORT std::string BuildWindowLayoutCompleteOnSessionExitHistogram();
 // |------------prefix----------|-snap_action_source-|-root_word-|--ui_mode--|
 // "Ash.SplitViewOverviewSession.DragWindowEdgeToSnap.ExitPoint.ClamshellMode".
 ASH_EXPORT std::string BuildSplitViewOverviewExitPointHistogramName(
+    WindowSnapActionSource snap_action_source);
+
+// Builds the full histogram that records the pref value when a window is
+// snapped.
+// |----------prefix---------|-snap_action_source-|
+// "Ash.SnapWindowSuggestions.DragWindowEdgeToSnap".
+ASH_EXPORT std::string BuildSnapWindowSuggestionsHistogramName(
     WindowSnapActionSource snap_action_source);
 
 }  // namespace ash

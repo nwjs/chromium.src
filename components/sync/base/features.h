@@ -35,25 +35,6 @@ inline constexpr base::FeatureParam<int> kMinGuResponsesToIgnoreKey{
 BASE_DECLARE_FEATURE(kPassExplicitSyncPassphraseToGmsCore);
 #endif
 
-// Enables adding, displaying and modifying extra notes to stored credentials.
-// When enabled, "PasswordViewPageInSettings" feature in the password manager
-// codebase is ignored and the new password view subpage is force enabled. When
-// enabled, Sync machinery will read and writes password notes to the
-// `encrypted_notes_backup` field inside the PasswordSpecifics proto. Together
-// with the logic on the server. this protects against notes being overwritten
-// by legacy clients not supporting password notes.
-// This feature is added here instead of the password manager codebase to avoid
-// cycle dependencies.
-// This feature is used in Credential Provider Extension on iOS. Keep the
-// default value in sync with the default value in
-// ios/chrome/credential_provider_extension/ui/feature_flags.mm.
-BASE_DECLARE_FEATURE(kPasswordNotesWithBackup);
-// Decides how long the user does not require reuathentication after
-// successfully authenticated.
-inline constexpr base::FeatureParam<base::TimeDelta> kPasswordNotesAuthValidity{
-    &kPasswordNotesWithBackup, "authentication_validity_duration",
-    base::Minutes(5)};
-
 // Controls whether to enable bootstrapping Public-private keys in Nigori
 // key-bag.
 BASE_DECLARE_FEATURE(kSharingOfferKeyPairBootstrap);
@@ -107,6 +88,23 @@ inline constexpr base::FeatureParam<bool>
         &kSyncEnableContactInfoDataTypeForDasherUsers,
         "enable_for_google_accounts", false};
 
+// For users who support separate "profile" and "account" password stores -
+// see password_manager::features_util::CanCreateAccountStore() - and have
+// sync-the-feature on, enabling this flag means:
+// - New passwords are saved to the account store if the passwords data type is
+//   "selected", and to the profile store otherwise. When the flag is disabled,
+//   saves always happen to the profile store.
+// - The account store is synced. When the flag is disabled, the profile one is.
+BASE_DECLARE_FEATURE(kEnablePasswordsAccountStorageForSyncingUsers);
+// For users who support separate "profile" and "account" password stores -
+// see password_manager::features_util::CanCreateAccountStore() - and have
+// sync-the-transport on, enabling this flag means:
+// - New passwords are saved to the account store if the passwords data type is
+//   "selected", and to the profile store otherwise. When the flag is disabled,
+//   saves always happen to the profile store.
+// - The account store is synced. When the flag is disabled, no store is.
+BASE_DECLARE_FEATURE(kEnablePasswordsAccountStorageForNonSyncingUsers);
+
 // Enables a separate account-scoped storage for preferences, for syncing users.
 // (Note that opposed to other "account storage" features, this one does not
 // have any effect for signed-in non-syncing users!)
@@ -119,6 +117,7 @@ BASE_DECLARE_FEATURE(kSyncPollImmediatelyOnEveryStartup);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 // Enables syncing the WEBAUTHN_CREDENTIAL data type.
+// Enabled by default on M123. Remove on or after M126.
 BASE_DECLARE_FEATURE(kSyncWebauthnCredentials);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -157,6 +156,9 @@ constexpr bool IsReadingListAccountStorageEnabled() {
   return true;
 }
 #endif  // !BUILDFLAG(IS_IOS)
+
+// Flag to allow SHARED_TAB_GROUP_DATA to run in transport mode.
+BASE_DECLARE_FEATURE(kSyncSharedTabGroupDataInTransportMode);
 
 // Flags to allow AUTOFILL_WALLET_METADATA and AUTOFILL_WALLET_OFFER,
 // respectively, to run in transport mode.
@@ -225,6 +227,15 @@ BASE_DECLARE_FEATURE(kSyncSchedulerUseWallClockTimer);
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, shows identity errors for signed-in non-syncing users.
 BASE_DECLARE_FEATURE(kSyncShowIdentityErrorsForSignedInUsers);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+// If enabled, custom passphrase will be remembered after sign-out. Otherwise,
+// it is cleared on sign-out.
+BASE_DECLARE_FEATURE(kSyncRememberCustomPassphraseAfterSignout);
+
+#if BUILDFLAG(IS_ANDROID)
+// If enabled, WebAPK data will be synced for Backup&Restore purposes.
+BASE_DECLARE_FEATURE(kWebApkBackupAndRestoreBackend);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace syncer

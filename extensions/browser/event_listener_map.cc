@@ -14,6 +14,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/common/constants.h"
+#include "extensions/common/extension_id.h"
 #include "ipc/ipc_message.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -25,7 +26,7 @@ using MatcherID = EventFilter::MatcherID;
 // static
 std::unique_ptr<EventListener> EventListener::ForExtension(
     const std::string& event_name,
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     content::RenderProcessHost* process,
     std::optional<base::Value::Dict> filter) {
   DCHECK(process);
@@ -55,7 +56,7 @@ std::unique_ptr<EventListener> EventListener::ForURL(
 
 std::unique_ptr<EventListener> EventListener::ForExtensionServiceWorker(
     const std::string& event_name,
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     content::RenderProcessHost* process,
     content::BrowserContext* browser_context,
     const GURL& service_worker_scope,
@@ -69,7 +70,7 @@ std::unique_ptr<EventListener> EventListener::ForExtensionServiceWorker(
 
 std::unique_ptr<EventListener> EventListener::CreateLazyListener(
     const std::string& event_name,
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     content::BrowserContext* browser_context,
     bool is_for_service_worker,
     const GURL& service_worker_scope,
@@ -125,7 +126,7 @@ void EventListener::MakeLazy() {
 }
 
 EventListener::EventListener(const std::string& event_name,
-                             const std::string& extension_id,
+                             const ExtensionId& extension_id,
                              const GURL& listener_url,
                              content::RenderProcessHost* process,
                              content::BrowserContext* browser_context,
@@ -210,7 +211,7 @@ bool EventListenerMap::HasListenerForEvent(
 }
 
 bool EventListenerMap::HasListenerForExtension(
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     const std::string& event_name, const std::string& instance_id, std::string* out_extension_id) const {
   auto it = listeners_.find(event_name);
   if (it == listeners_.end())
@@ -264,7 +265,7 @@ bool EventListenerMap::HasListener(const EventListener* listener) const {
 bool EventListenerMap::HasProcessListener(
     content::RenderProcessHost* process,
     int worker_thread_id,
-    const std::string& extension_id) const {
+    const ExtensionId& extension_id) const {
   for (const auto& it : listeners_) {
     for (const auto& listener : it.second) {
       if (listener->process() == process &&
@@ -280,7 +281,7 @@ bool EventListenerMap::HasProcessListener(
 bool EventListenerMap::HasProcessListenerForEvent(
     content::RenderProcessHost* process,
     int worker_thread_id,
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     const std::string& event_name) const {
   for (const auto& it : listeners_) {
     for (const auto& listener : it.second) {
@@ -296,7 +297,7 @@ bool EventListenerMap::HasProcessListenerForEvent(
 }
 
 void EventListenerMap::RemoveListenersForExtension(
-    const std::string& extension_id) {
+    const ExtensionId& extension_id) {
   for (auto it = listeners_.begin(); it != listeners_.end();) {
     auto& listener_list = it->second;
     for (auto it2 = listener_list.begin(); it2 != listener_list.end();) {
@@ -320,7 +321,7 @@ void EventListenerMap::RemoveListenersForExtension(
 
 void EventListenerMap::LoadUnfilteredLazyListeners(
     content::BrowserContext* browser_context,
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     bool is_for_service_worker,
     const std::set<std::string>& event_names) {
   for (const auto& name : event_names) {
@@ -335,7 +336,7 @@ void EventListenerMap::LoadUnfilteredLazyListeners(
 
 void EventListenerMap::LoadFilteredLazyListeners(
     content::BrowserContext* browser_context,
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     bool is_for_service_worker,
     const base::Value::Dict& filtered) {
   for (const auto item : filtered) {

@@ -362,7 +362,8 @@ bool IsGaiaPageDefaultsToSAML() {
 bool IsContextNeededForScreen(OobeScreenId screen_id) {
   return screen_id == SamlConfirmPasswordView::kScreenId ||
          screen_id == CryptohomeRecoveryScreenView::kScreenId ||
-         screen_id == GaiaPasswordChangedView::kScreenId;
+         screen_id == GaiaPasswordChangedView::kScreenId ||
+         screen_id == LocalDataLossWarningScreenView::kScreenId;
 }
 
 }  // namespace
@@ -930,12 +931,10 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnApplyOnlinePasswordScreenExit,
                           weak_factory_.GetWeakPtr())));
 
-  if (features::AreLocalPasswordsEnabledForConsumers()) {
-    append(std::make_unique<LocalPasswordSetupScreen>(
-        oobe_ui->GetView<LocalPasswordSetupHandler>()->AsWeakPtr(),
-        base::BindRepeating(&WizardController::OnLocalPasswordSetupScreenExit,
-                            weak_factory_.GetWeakPtr())));
-  }
+  append(std::make_unique<LocalPasswordSetupScreen>(
+      oobe_ui->GetView<LocalPasswordSetupHandler>()->AsWeakPtr(),
+      base::BindRepeating(&WizardController::OnLocalPasswordSetupScreenExit,
+                          weak_factory_.GetWeakPtr())));
 
   append(std::make_unique<LocalDataLossWarningScreen>(
       oobe_ui->GetView<LocalDataLossWarningScreenHandler>()->AsWeakPtr(),
@@ -1367,8 +1366,10 @@ void WizardController::OnGaiaScreenExit(GaiaScreen::Result result) {
     case GaiaScreen::Result::CANCEL: {
       if (features::IsOobeSoftwareUpdateEnabled()) {
         // When `OobeSoftwareUpdate` is enabled, clicking the back button should
-        // return the user to the user creation screen if it was enabled.
-        if (wizard_context_->is_user_creation_enabled &&
+        // return the user to the user creation screen if it is enabled or the
+        // user is still in the oobe flow.
+        if ((wizard_context_->is_user_creation_enabled ||
+             !wizard_context_->is_add_person_flow) &&
             result == GaiaScreen::Result::BACK) {
           AdvanceToScreen(UserCreationView::kScreenId);
           break;
@@ -1670,7 +1671,7 @@ void WizardController::OnGuestTosScreenExit(GuestTosScreen::Result result) {
   switch (result) {
     case GuestTosScreen::Result::ACCEPT:
       ash::LoginDisplayHost::default_host()->GetExistingUserController()->Login(
-          UserContext(user_manager::USER_TYPE_GUEST,
+          UserContext(user_manager::UserType::kGuest,
                       user_manager::GuestAccountId()),
           SigninSpecifics());
       break;
@@ -2111,6 +2112,9 @@ void WizardController::OnEnrollmentScreenExit(EnrollmentScreen::Result result) {
       PerformOOBECompletedActions(
           OobeMetricsHelper::CompletedPreLoginOobeFlowType::kAutoEnrollment);
       DCHECK(!prescribed_enrollment_config_.is_forced());
+      // set  the userCreationScreen with the default step creation and
+      // pre-select 'For personal use'.
+      GetScreen<UserCreationScreen>()->SetDefaultStep();
       ShowLoginScreen();
       break;
     case EnrollmentScreen::Result::TPM_ERROR:
@@ -2597,11 +2601,6 @@ void WizardController::OnMarketingOptInScreenExit(
 void WizardController::OnResetScreenExit() {
   OnScreenExit(ResetView::kScreenId, kResetScreenExitReason);
   OnDeviceModificationCanceled();
-}
-
-void WizardController::OnChangedMetricsReportingState(bool enabled) {
-  StatsReportingController::Get()->SetEnabled(
-      ProfileManager::GetActiveUserProfile(), enabled);
 }
 
 void WizardController::OnDeviceModificationCanceled() {

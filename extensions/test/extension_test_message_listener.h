@@ -10,6 +10,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "extensions/browser/api/test/test_api_observer.h"
 #include "extensions/browser/api/test/test_api_observer_registry.h"
@@ -164,7 +165,7 @@ class ExtensionTestMessageListener : public extensions::TestApiObserver {
     on_repeatedly_satisfied_ = on_repeatedly_satisfied;
   }
 
-  void set_extension_id(const std::string& extension_id) {
+  void set_extension_id(const extensions::ExtensionId& extension_id) {
     extension_id_ = extension_id;
   }
 
@@ -180,6 +181,7 @@ class ExtensionTestMessageListener : public extensions::TestApiObserver {
 
   bool had_user_gesture() const { return had_user_gesture_; }
 
+  base::RunLoop* GetRunLoop() { return run_loop_.get(); }
  private:
   // extensions::TestApiObserver:
   bool OnTestMessage(extensions::TestSendMessageFunction* function,
@@ -195,7 +197,8 @@ class ExtensionTestMessageListener : public extensions::TestApiObserver {
   // Whether we've seen expected_message_ yet.
   bool satisfied_ = false;
 
-  // Holds the quit Closure for the RunLoop during WaitUntilSatisfied().
+  // Holds the quit Closure for the RunLoop during
+  // WaitUntilSatisfied().
   base::OnceClosure quit_wait_closure_;
 
   // Notifies when the expected message is received.
@@ -224,6 +227,7 @@ class ExtensionTestMessageListener : public extensions::TestApiObserver {
   // gesture.
   bool had_user_gesture_ = false;
 
+  std::unique_ptr<base::RunLoop> run_loop_;
   // The function we need to reply to.
   scoped_refptr<extensions::TestSendMessageFunction> function_;
 

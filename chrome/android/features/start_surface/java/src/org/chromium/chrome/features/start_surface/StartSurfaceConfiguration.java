@@ -76,6 +76,8 @@ public class StartSurfaceConfiguration {
                     START_SURFACE_RETURN_TIME_SECONDS_PARAM,
                     28800); // 8 hours
 
+    // Equivalent to the START_SURFACE_RETURN_TIME_SECONDS, but allows a different default value
+    // other than 8 hours. This parameter isn't just used on tablets anymore.
     public static final String START_SURFACE_RETURN_TIME_ON_TABLET_SECONDS_PARAM =
             "start_surface_return_time_on_tablet_seconds";
     public static final IntCachedFieldTrialParameter START_SURFACE_RETURN_TIME_ON_TABLET_SECONDS =
@@ -93,22 +95,22 @@ public class StartSurfaceConfiguration {
 
     public static final BooleanCachedFieldTrialParameter SURFACE_POLISH_OMNIBOX_COLOR =
             ChromeFeatureList.newBooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.SURFACE_POLISH, "polish_omnibox_color", false);
+                    ChromeFeatureList.SURFACE_POLISH, "polish_omnibox_color", true);
 
     private static final String SURFACE_POLISH_MOVE_DOWN_LOGO_PARAM = "move_down_logo";
     public static final BooleanCachedFieldTrialParameter SURFACE_POLISH_MOVE_DOWN_LOGO =
             ChromeFeatureList.newBooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.SURFACE_POLISH, SURFACE_POLISH_MOVE_DOWN_LOGO_PARAM, false);
+                    ChromeFeatureList.SURFACE_POLISH, SURFACE_POLISH_MOVE_DOWN_LOGO_PARAM, true);
 
     private static final String SURFACE_POLISH_LESS_BRAND_SPACE_PARAM = "less_brand_space";
     public static final BooleanCachedFieldTrialParameter SURFACE_POLISH_LESS_BRAND_SPACE =
             ChromeFeatureList.newBooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.SURFACE_POLISH, SURFACE_POLISH_LESS_BRAND_SPACE_PARAM, false);
+                    ChromeFeatureList.SURFACE_POLISH, SURFACE_POLISH_LESS_BRAND_SPACE_PARAM, true);
 
     private static final String SURFACE_POLISH_SCROLLABLE_MVT_PARAM = "scrollable_mvt";
     public static final BooleanCachedFieldTrialParameter SURFACE_POLISH_SCROLLABLE_MVT =
             ChromeFeatureList.newBooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.SURFACE_POLISH, SURFACE_POLISH_SCROLLABLE_MVT_PARAM, false);
+                    ChromeFeatureList.SURFACE_POLISH, SURFACE_POLISH_SCROLLABLE_MVT_PARAM, true);
 
     private static final String STARTUP_UMA_PREFIX = "Startup.Android.";
     private static final String INSTANT_START_SUBFIX = ".Instant";

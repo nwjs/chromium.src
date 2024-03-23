@@ -59,6 +59,7 @@
 <translation id="1877026089748256423">Chrome је застарео</translation>
 <translation id="1919130412786645364">Дозволи пријављивање у Chrome</translation>
 <translation id="1953553007165777902">Преузима се... Још <ph name="MINUTE" /> мин</translation>
+<translation id="2001586581944147178">Отежајте онима који имају приступ вашем интернет саобраћају да виде које сајтове посећујете. Chrome користи безбедну везу да би тражио IP адресу сајта у DNS-у (систему имена домена).</translation>
 <translation id="2018528049276128029">Сваки профил задржава сопствене Chrome податке, попут обележивача, историје, лозинки и другог садржаја</translation>
 <translation id="2018879682492276940">Инсталација није успела. Пробајте поново.</translation>
 <translation id="2071318482926839249">Други налог је већ пријављен. Да би вам прегледање било раздвојено, Chrome може да направи засебан профил за вас.</translation>
@@ -77,6 +78,7 @@
 <translation id="2151406531797534936">Поново покрените Chrome</translation>
 <translation id="2174917724755363426">Инсталација није довршена. Желите стварно да је откажете?</translation>
 <translation id="2190166659037789668">Грешка са провером ажурирања: <ph name="UPDATE_CHECK_ERROR" />.</translation>
+<translation id="2199691482078155239">Chrome вам пружа већу контролу над огласима које видите и ограничава информације које сајтови могу да сазнају о вама када приказују персонализоване огласе</translation>
 <translation id="223889379102603431">Информације о томе како Chrome управља сертификатима основног нивоа</translation>
 <translation id="2258103955319320201">Да бисте приступали Chrome прегледачу на свим уређајима, пријавите се, па укључите синхронизацију</translation>
 <translation id="2290014774651636340">Недостају шифре за Google API. Неке функције Google Chrome-а ће бити онемогућене.</translation>
@@ -139,7 +141,6 @@
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> – пријављивање на мрежу – Chrome</translation>
 <translation id="3018957014024118866">Избриши и податке из Chrome-а (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">Поново покрени ради ажурирања Chrome OS Flex-а</translation>
-<translation id="303514781271618814">Chrome истражује нове функције које омогућавају сајтовима да пружају исти доживљај прегледања, а да користе мање података</translation>
 <translation id="3037838751736561277">Google Chrome је у позадинском режиму.</translation>
 <translation id="3038232873781883849">Чека се инсталирање...</translation>
 <translation id="3059710691562604940">Безбедно прегледање је искључено. Chrome препоручује да га укључите.</translation>
@@ -162,7 +163,6 @@
 <translation id="3360895254066713204">Chrome помоћник</translation>
 <translation id="3379938682270551431">{0,plural, =0{Поново ћемо покренути Chrome}=1{Поново ћемо покренути Chrome за 1 секунду}one{Поново ћемо покренути Chrome за # секунду}few{Поново ћемо покренути Chrome за # секунде}other{Поново ћемо покренути Chrome за # секунди}}</translation>
 <translation id="3396977131400919238">Током инсталације је дошло до грешке у оперативном систему. Преузмите Google Chrome поново.</translation>
-<translation id="3426646014273736870">Уштеда меморије је убрзала Chrome</translation>
 <translation id="3428747202529429621">Штити вас у Chrome-у и може да се користи за побољшање безбедности у другим Google апликацијама када сте пријављени</translation>
 <translation id="3434246496373299699">Chrome може да вам проверава лозинке када се пријавите помоћу Google налога</translation>
 <translation id="3450887623636316740">Овај фајл може да буде опасан<ph name="LINE_BREAK" />Chrome може да провери ово преузимање уместо вас ако наведете лозинку. Информације о фајлу се шаљу у Google безбедно прегледање, али садржај фајла и лозинка остају на уређају.</translation>
@@ -179,6 +179,7 @@
 <translation id="3635073343384702370">Chrome може да проверава лозинке када их сачувате</translation>
 <translation id="3667616615096815454">Инсталирање није успело, апликације је непозната серверу.</translation>
 <translation id="3673813398384385993">Chrome је открио да <ph name="EXTENSION_NAME" /> садржи малвер</translation>
+<translation id="3697952514309507634">Други Chrome профили</translation>
 <translation id="3703994572283698466">Chrome ОС је омогућен захваљујући додатном <ph name="BEGIN_LINK_CROS_OSS" />софтверу са отвореним кодом<ph name="END_LINK_CROS_OSS" />, као што је <ph name="BEGIN_LINK_LINUX_OSS" />Linux окружење за програмирање<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">Верзија Chrome OS Flex-а</translation>
 <translation id="3718181793972440140">Овим ћете избрисати 1 ставку са овог уређаја. Да бисте касније вратили податке, пријавите се у Chrome као <ph name="USER_EMAIL" />.</translation>
@@ -318,7 +319,6 @@ Google Chrome не може да врати подешавања.</translation>
 <translation id="608006075545470555">Додајте пословни профил у овај прегледач</translation>
 <translation id="6113794647360055231">Управо смо побољшали Chrome</translation>
 <translation id="6145313976051292476">Отварајте PDF-ове у Chrome-у</translation>
-<translation id="6155960517327665396">Уштеда меморије је убрзала Chrome</translation>
 <translation id="6157638032135951407">Организација брише Chrome податке када се не користе <ph name="TIMEOUT_DURATION" />. То може да обухвата историју, аутоматско попуњавање и преузимања.</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> – Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Google Chrome бета</translation>
@@ -434,6 +434,7 @@ Google Chrome не може да врати подешавања.</translation>
 <translation id="8019103195866286235">Програмер је објавио овај додатак и он можда није безбедан. Уклоните га из Chrome-а да више не би могао да види и мења податке на сајтовима које посећујете, укључујући личне податке.</translation>
 <translation id="80471789339884597">Хвала вам на инсталацији. Морате да рестартујете све прегледаче пре него што почнете да користите <ph name="BUNDLE_NAME" />.</translation>
 <translation id="8064015586118426197">Chrome OS Flex</translation>
+<translation id="8077579734294125741">Други Chrome профили</translation>
 <translation id="8086881907087796310">Инсталирање није успело зато што рачунар не испуњава минималне захтеве за хардвер.</translation>
 <translation id="8129812357326543296">О &amp;Google Chrome-у</translation>
 <translation id="813913629614996137">Покреће се…</translation>

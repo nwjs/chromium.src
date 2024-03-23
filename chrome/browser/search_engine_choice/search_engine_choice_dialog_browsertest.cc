@@ -66,6 +66,8 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/window_open_disposition.h"
@@ -395,8 +397,15 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
   EXPECT_EQ(BrowserList::GetInstance()->size(), 2u);
 }
 
+// TODO(crbug/1523581): Flaky on Linux Tests (dbg) and Mac ASan 64 Tests.
+#if (BUILDFLAG(IS_LINUX) && !defined(NDEBUG)) || \
+    (BUILDFLAG(IS_MAC) && defined(ADDRESS_SANITIZER))
+#define MAYBE_RestoreSettingsAndChangeUrl DISABLED_RestoreSettingsAndChangeUrl
+#else
+#define MAYBE_RestoreSettingsAndChangeUrl RestoreSettingsAndChangeUrl
+#endif
 IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
-                       RestoreSettingsAndChangeUrl) {
+                       MAYBE_RestoreSettingsAndChangeUrl) {
   // Navigate the current tab to the settings page.
   ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(chrome::kChromeUISettingsURL),
@@ -687,9 +696,8 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
   EXPECT_TRUE(service->IsShowingDialog(browser()));
 }
 
-// TODO(crbug.com/1505043): Enable and fix test flakyness.
 IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
-                       DISABLED_DialogNotShownOverSpecificBrowserTypes) {
+                       DialogNotShownOverSpecificBrowserTypes) {
   Profile* profile = browser()->profile();
   auto* search_engine_choice_dialog_service =
       static_cast<MockSearchEngineChoiceDialogService*>(
@@ -700,11 +708,18 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
   chrome::AddTabAt(app_browser, GURL(), -1, true);
   EXPECT_TRUE(app_browser->is_type_app());
 
-  NavigateParams params(app_browser, GURL("http://www.google.com/"),
-                        ui::PAGE_TRANSITION_LINK);
+  GURL url = GURL("http://www.google.com/");
+  content::TestNavigationObserver observer(url);
+  observer.StartWatchingNewWebContents();
+
+  NavigateParams params(app_browser, url, ui::PAGE_TRANSITION_LINK);
   params.window_action = NavigateParams::SHOW_WINDOW;
   params.disposition = WindowOpenDisposition::NEW_POPUP;
   Navigate(&params);
+
+  // Wait for the URL to finish loading.
+  observer.Wait();
+
   // Navigate() should have opened a new `TYPE_APP_POPUP` window.
   Browser* app_popup_browser = params.browser;
   EXPECT_TRUE(app_popup_browser->is_type_app_popup());

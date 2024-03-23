@@ -16,28 +16,32 @@
 namespace ash {
 
 class PickerAssetFetcher;
-class PickerItemView;
 class PickerSearchResult;
 class PickerSectionView;
 
 class ASH_EXPORT PickerSearchResultsView : public views::View {
- public:
-  METADATA_HEADER(PickerSearchResultsView);
+  METADATA_HEADER(PickerSearchResultsView, views::View)
 
+ public:
   // Indicates the user has selected a result.
   using SelectSearchResultCallback =
       base::OnceCallback<void(const PickerSearchResult& result)>;
 
   // `asset_fetcher` must remain valid for the lifetime of this class.
   explicit PickerSearchResultsView(
+      int picker_view_width,
       SelectSearchResultCallback select_search_result_callback,
       PickerAssetFetcher* asset_fetcher);
   PickerSearchResultsView(const PickerSearchResultsView&) = delete;
   PickerSearchResultsView& operator=(const PickerSearchResultsView&) = delete;
   ~PickerSearchResultsView() override;
 
-  // Replaces the current search results with `results`.
-  void SetSearchResults(const PickerSearchResults& results);
+  // Clears the search results.
+  void ClearSearchResults();
+
+  // Append `results` to the current set of search results.
+  // TODO: b/325840864 - Merge with existing sections if needed.
+  void AppendSearchResults(const PickerSearchResults& results);
 
   base::span<const raw_ptr<PickerSectionView>> section_views_for_testing()
       const {
@@ -50,12 +54,14 @@ class ASH_EXPORT PickerSearchResultsView : public views::View {
   // nothing).
   void SelectSearchResult(const PickerSearchResult& result);
 
-  // Creates a result item view based on what type `result` is.
-  std::unique_ptr<PickerItemView> CreateItemView(
-      const PickerSearchResult& result);
+  // Adds a result item view to `section_view` based on what type `result` is.
+  void AddResultToSection(const PickerSearchResult& result,
+                          PickerSectionView* section_view);
+
+  // Width of the containing PickerView.
+  int picker_view_width_ = 0;
 
   SelectSearchResultCallback select_search_result_callback_;
-  PickerSearchResults search_results_;
 
   // `asset_fetcher` outlives `this`.
   raw_ptr<PickerAssetFetcher> asset_fetcher_ = nullptr;

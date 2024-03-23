@@ -85,6 +85,12 @@ enum class COMPONENT_EXPORT(KCER) Error {
   kPkcs11SessionFailure = 34,
   kBadKeyParams = 35,
   kUnexpectedFindResult = 36,
+  kFailedToDecodeKeyAttributes = 37,
+  kFailedToRetrieveMechanismList = 38,
+  kFailedToParseKey = 39,
+  kFailedToGetIssuerName = 40,
+  kFailedToGetSubjectName = 41,
+  kFailedToGetSerialNumber = 42,
 };
 
 // Handles for tokens on ChromeOS.

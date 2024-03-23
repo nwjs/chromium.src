@@ -46,12 +46,10 @@ import org.chromium.chrome.browser.logo.LogoView;
 import org.chromium.chrome.browser.ntp.NewTabPage.OnSearchBoxScrollListener;
 import org.chromium.chrome.browser.ntp.search.SearchBoxCoordinator;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.suggestions.tile.MostVisitedTilesCoordinator;
 import org.chromium.chrome.browser.suggestions.tile.TileGroup;
 import org.chromium.chrome.browser.suggestions.tile.TileGroup.Delegate;
-import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleCoordinator;
-import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils;
-import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallback;
 import org.chromium.chrome.browser.ui.native_page.TouchEnabledDelegate;
 import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
@@ -96,8 +94,6 @@ public class NewTabPageLayout extends LinearLayout {
     private SearchBoxCoordinator mSearchBoxCoordinator;
     private ViewGroup mMvTilesContainerLayout;
     private MostVisitedTilesCoordinator mMostVisitedTilesCoordinator;
-
-    private TabResumptionModuleCoordinator mTabResumptionModuleCoordinator;
 
     private OnSearchBoxScrollListener mSearchBoxScrollListener;
 
@@ -240,8 +236,7 @@ public class NewTabPageLayout extends LinearLayout {
             boolean isSurfacePolishEnabled,
             boolean isSurfacePolishOmniboxColorEnabled,
             boolean isTablet,
-            ObservableSupplier<Integer> tabStripHeightSupplier,
-            SuggestionClickCallback suggestionClickCallback) {
+            ObservableSupplier<Integer> tabStripHeightSupplier) {
         TraceEvent.begin(TAG + ".initialize()");
         mScrollDelegate = scrollDelegate;
         mManager = manager;
@@ -253,7 +248,7 @@ public class NewTabPageLayout extends LinearLayout {
         mIsNtpAsHomeSurfaceOnTablet = isNtpAsHomeSurfaceOnTablet;
         mIsSurfacePolishEnabled = isSurfacePolishEnabled;
         mIsSurfacePolishOmniboxColorEnabled = isSurfacePolishOmniboxColorEnabled;
-        Profile profile = Profile.getLastUsedRegularProfile();
+        Profile profile = ProfileManager.getLastUsedRegularProfile();
         mIsTablet = isTablet;
         mTabStripHeightSupplier = tabStripHeightSupplier;
 
@@ -317,7 +312,6 @@ public class NewTabPageLayout extends LinearLayout {
         initializeSearchBoxTextView();
         initializeVoiceSearchButton();
         initializeLensButton();
-        initializeTabResumptionModuleCoordinator(profile, suggestionClickCallback);
         initializeLayoutChangeListener();
 
         manager.addDestructionObserver(NewTabPageLayout.this::onDestroy);
@@ -332,9 +326,7 @@ public class NewTabPageLayout extends LinearLayout {
     }
 
     public void reload() {
-        if (mTabResumptionModuleCoordinator != null) {
-            mTabResumptionModuleCoordinator.reload();
-        }
+        // TODO(1515325): Add handler in Magic Stack and dispatcher.
     }
 
     /**
@@ -428,18 +420,6 @@ public class NewTabPageLayout extends LinearLayout {
                 });
         updateActionButtonVisibility();
         TraceEvent.end(TAG + ".initializeLensButton()");
-    }
-
-    private void initializeTabResumptionModuleCoordinator(
-            Profile profile, SuggestionClickCallback suggestionClickCallback) {
-        TraceEvent.begin(TAG + ".initializeTabResumptionModuleCoordinator()");
-        mTabResumptionModuleCoordinator =
-                TabResumptionModuleUtils.mayCreateTabResumptionModuleCoordinator(
-                        this,
-                        suggestionClickCallback,
-                        profile,
-                        R.id.tab_resumption_module_container_stub);
-        TraceEvent.end(TAG + ".initializeTabResumptionModuleCoordinator()");
     }
 
     private void initializeLayoutChangeListener() {
@@ -1048,10 +1028,6 @@ public class NewTabPageLayout extends LinearLayout {
         if (mLogoCoordinator != null) {
             mLogoCoordinator.destroy();
             mLogoCoordinator = null;
-        }
-
-        if (mTabResumptionModuleCoordinator != null) {
-            mTabResumptionModuleCoordinator.destroy();
         }
 
         mSearchBoxCoordinator.destroy();

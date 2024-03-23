@@ -98,15 +98,20 @@ static bool ConsumeRelativeOriginColor(CSSParserTokenRange& args,
         return false;
       }
       // TODO(crbug.com/1447327): Handle color scheme.
-      result = StyleColor::ColorFromKeyword(value_id,
-                                            mojom::blink::ColorScheme::kLight);
+      const ui::ColorProvider* color_provider =
+          context.GetDocument()
+              ? context.GetDocument()->GetColorProviderForPainting(
+                    mojom::blink::ColorScheme::kLight)
+              : nullptr;
+      result = StyleColor::ColorFromKeyword(
+          value_id, mojom::blink::ColorScheme::kLight, color_provider);
       return true;
     }
   }
   return false;
 }
 
-static absl::optional<double> ConsumeRelativeColorChannel(
+static std::optional<double> ConsumeRelativeColorChannel(
     CSSParserTokenRange& input_range,
     const CSSParserContext& context,
     const HashMap<CSSValueID, double>& color_channel_keyword_values) {
@@ -115,17 +120,20 @@ static absl::optional<double> ConsumeRelativeColorChannel(
   // replacements. e.g. In "color(from magenta srgb calc(r / 2) 0 0)", the
   // "calc" should substitute "1" for "r" (magenta has a full red channel).
   if (token.GetType() == kFunctionToken) {
+    using enum CSSMathExpressionNode::Flag;
+    using Flags = CSSMathExpressionNode::Flags;
+
     // Don't consume the range if the parsing fails.
     CSSParserTokenRange calc_range = input_range;
     CSSMathFunctionValue* calc_value = CSSMathFunctionValue::Create(
         CSSMathExpressionNode::ParseMathFunction(
             token.FunctionId(), css_parsing_utils::ConsumeFunction(calc_range),
-            context, true /* is_percentage_allowed */, kCSSAnchorQueryTypesNone,
+            context, Flags({AllowPercent}), kCSSAnchorQueryTypesNone,
             color_channel_keyword_values),
         CSSPrimitiveValue::ValueRange::kAll);
     if (calc_value) {
       if (calc_value->Category() != kCalcNumber) {
-        return absl::nullopt;
+        return std::nullopt;
       }
       // Consume the range, since it has succeeded.
       input_range = calc_range;
@@ -140,7 +148,7 @@ static absl::optional<double> ConsumeRelativeColorChannel(
     return color_channel_keyword_values.at(token.Id());
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 // Relative color syntax requires "channel keyword" substitutions for color
@@ -258,16 +266,16 @@ bool ColorFunctionParser::ConsumeColorSpaceAndOriginColor(
 
 // ConsumeHue takes an angle as input (as angle in radians or in degrees, or as
 // plain number in degrees) and returns a plain number in degrees.
-static absl::optional<double> ConsumeHue(CSSParserTokenRange& range,
-                                         const CSSParserContext& context) {
+static std::optional<double> ConsumeHue(CSSParserTokenRange& range,
+                                        const CSSParserContext& context) {
   CSSPrimitiveValue* value =
-      css_parsing_utils::ConsumeAngle(range, context, absl::nullopt);
+      css_parsing_utils::ConsumeAngle(range, context, std::nullopt);
   double angle_value;
   if (!value) {
     value = css_parsing_utils::ConsumeNumber(
         range, context, CSSPrimitiveValue::ValueRange::kAll);
     if (!value) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     angle_value = value->GetDoubleValueWithoutClamping();
   } else {

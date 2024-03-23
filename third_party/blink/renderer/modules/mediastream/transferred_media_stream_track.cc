@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/mediastream/transferred_media_stream_track.h"
 
+#include <cstdint>
 #include <memory>
 
 #include "base/functional/callback_helpers.h"
@@ -320,19 +321,14 @@ void TransferredMediaStreamTrack::SendWheel(
     double relative_y,
     int wheel_delta_x,
     int wheel_delta_y,
-    base::OnceCallback<void(bool, const String&)> callback) {
-  NOTREACHED_NORETURN();
-}
-
-void TransferredMediaStreamTrack::GetZoomLevel(
-    base::OnceCallback<void(absl::optional<int>, const String&)> callback) {
+    base::OnceCallback<void(DOMException*)> callback) {
   NOTREACHED_NORETURN();
 }
 
 void TransferredMediaStreamTrack::SetZoomLevel(
     int zoom_level,
-    base::OnceCallback<void(bool, const String&)> callback) {
-  std::move(callback).Run(false, "Unsupported.");
+    base::OnceCallback<void(DOMException*)> callback) {
+  NOTREACHED_NORETURN();
 }
 #endif
 
@@ -364,9 +360,12 @@ bool TransferredMediaStreamTrack::HasPendingActivity() const {
 }
 
 std::unique_ptr<AudioSourceProvider>
-TransferredMediaStreamTrack::CreateWebAudioSource(int context_sample_rate) {
+TransferredMediaStreamTrack::CreateWebAudioSource(
+    int context_sample_rate,
+    uint32_t context_buffer_size) {
   if (track_) {
-    return track_->CreateWebAudioSource(context_sample_rate);
+    return track_->CreateWebAudioSource(context_sample_rate,
+                                        context_buffer_size);
   }
   // TODO(https://crbug.com/1288839): Create one based on transferred data?
   return nullptr;
@@ -380,13 +379,13 @@ ImageCapture* TransferredMediaStreamTrack::GetImageCapture() {
   return nullptr;
 }
 
-absl::optional<const MediaStreamDevice> TransferredMediaStreamTrack::device()
+std::optional<const MediaStreamDevice> TransferredMediaStreamTrack::device()
     const {
   if (track_) {
     return track_->device();
   }
   // TODO(https://crbug.com/1288839): Return transferred data
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void TransferredMediaStreamTrack::BeingTransferred(

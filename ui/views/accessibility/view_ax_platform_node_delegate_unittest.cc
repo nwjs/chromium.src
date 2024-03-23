@@ -17,6 +17,7 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_selection.h"
+#include "ui/accessibility/platform/ax_platform_for_test.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
 #include "ui/accessibility/platform/ax_platform_node_base.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -224,7 +225,7 @@ class ViewAXPlatformNodeDelegateTest : public ViewsTestBase {
   raw_ptr<Button> button_ = nullptr;
   raw_ptr<Label> label_ = nullptr;
   raw_ptr<Textfield> textfield_ = nullptr;
-  ScopedAXModeSetter ax_mode_setter_;
+  ::ui::ScopedAXModeSetter ax_mode_setter_;
 };
 
 class ViewAXPlatformNodeDelegateTableTest
@@ -486,21 +487,21 @@ TEST_F(ViewAXPlatformNodeDelegateTest, OverrideNameAndDescription) {
             ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
 
   // Setting the description to the empty string without explicitly setting
-  // the source to reflect that should trigger a DCHECK in OverrideDescription.
+  // the source to reflect that should trigger a DCHECK in SetDescription.
   EXPECT_DCHECK_DEATH_WITH(
-      button_accessibility()->OverrideDescription(""),
+      button_accessibility()->SetDescription(""),
       "Check failed: description.empty\\(\\) == description_from == "
       "ax::mojom::DescriptionFrom::kAttributeExplicitlyEmpty");
 
   // Setting the description to a non-empty string with a DescriptionFrom of
-  // kAttributeExplicitlyEmpty should trigger a DCHECK in OverrideDescription.
+  // kAttributeExplicitlyEmpty should trigger a DCHECK in SetDescription.
   EXPECT_DCHECK_DEATH_WITH(
-      button_accessibility()->OverrideDescription(
+      button_accessibility()->SetDescription(
           "foo", ax::mojom::DescriptionFrom::kAttributeExplicitlyEmpty),
       "Check failed: description.empty\\(\\) == description_from == "
       "ax::mojom::DescriptionFrom::kAttributeExplicitlyEmpty");
 
-  button_accessibility()->OverrideDescription(
+  button_accessibility()->SetDescription(
       "", ax::mojom::DescriptionFrom::kAttributeExplicitlyEmpty);
   EXPECT_EQ(button_accessibility()->GetDescription(), "");
   EXPECT_EQ(button_accessibility()->GetDescriptionFrom(),
@@ -513,7 +514,7 @@ TEST_F(ViewAXPlatformNodeDelegateTest, OverrideNameAndDescription) {
   EXPECT_EQ(button_accessibility()->GetNameFrom(),
             ax::mojom::NameFrom::kAttribute);
 
-  button_accessibility()->OverrideDescription("Button's description");
+  button_accessibility()->SetDescription("Button's description");
   EXPECT_EQ(button_accessibility()->GetDescription(), "Button's description");
   EXPECT_EQ(button_accessibility()->GetDescriptionFrom(),
             ax::mojom::DescriptionFrom::kAriaDescription);
@@ -531,8 +532,8 @@ TEST_F(ViewAXPlatformNodeDelegateTest, OverrideNameAndDescription) {
   EXPECT_EQ(label_accessibility()->GetNameFrom(),
             ax::mojom::NameFrom::kContents);
 
-  label_accessibility()->OverrideDescription(
-      "Label's description", ax::mojom::DescriptionFrom::kTitle);
+  label_accessibility()->SetDescription("Label's description",
+                                        ax::mojom::DescriptionFrom::kTitle);
   EXPECT_EQ(label_accessibility()->GetDescription(), "Label's description");
   EXPECT_EQ(label_accessibility()->GetDescriptionFrom(),
             ax::mojom::DescriptionFrom::kTitle);
@@ -1065,9 +1066,9 @@ TEST_F(ViewAXPlatformNodeDelegateTableTest, TableHasHeader) {
 }
 
 TEST_F(ViewAXPlatformNodeDelegateTableTest, TableHasCell) {
-  EXPECT_NE(absl::nullopt, table_accessibility()->GetCellId(0, 0));
-  EXPECT_NE(absl::nullopt, table_accessibility()->GetCellId(0, 3));
-  EXPECT_NE(absl::nullopt, table_accessibility()->GetCellId(9, 3));
+  EXPECT_NE(std::nullopt, table_accessibility()->GetCellId(0, 0));
+  EXPECT_NE(std::nullopt, table_accessibility()->GetCellId(0, 3));
+  EXPECT_NE(std::nullopt, table_accessibility()->GetCellId(9, 3));
   EXPECT_DCHECK_DEATH(table_accessibility()->GetCellId(-1, 0));
   EXPECT_DCHECK_DEATH(table_accessibility()->GetCellId(0, -1));
   EXPECT_DCHECK_DEATH(table_accessibility()->GetCellId(10, 0));

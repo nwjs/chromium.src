@@ -57,6 +57,10 @@ const char kForceSigninProfileLockedKey[] = "force_signin_profile_locked";
 const char kHostedDomain[] = "hosted_domain";
 const char kProfileManagementEnrollmentToken[] =
     "profile_management_enrollment_token";
+const char kDasherlessManagement[] = "dasherless_management";
+const char kProfileManagementOidcAuthToken[] =
+    "profile_management_oidc_auth_token";
+const char kProfileManagementOidcIdToken[] = "profile_management_oidc_id_token";
 const char kProfileManagementId[] = "profile_management_id";
 const char kUserAcceptedAccountManagement[] =
     "user_accepted_account_management";
@@ -477,6 +481,10 @@ bool ProfileAttributesEntry::IsSignedInWithCredentialProvider() const {
   return GetBool(prefs::kSignedInWithCredentialProvider);
 }
 
+bool ProfileAttributesEntry::IsDasherlessManagement() const {
+  return GetBool(kDasherlessManagement);
+}
+
 size_t ProfileAttributesEntry::GetAvatarIconIndex() const {
   std::string icon_url = GetString(kAvatarIconKey);
   size_t icon_index = 0;
@@ -542,6 +550,13 @@ std::string ProfileAttributesEntry::GetHostedDomain() const {
 std::string ProfileAttributesEntry::GetProfileManagementEnrollmentToken()
     const {
   return GetString(kProfileManagementEnrollmentToken);
+}
+
+ProfileManagementOicdTokens
+ProfileAttributesEntry::GetProfileManagementOidcTokens() const {
+  return ProfileManagementOicdTokens{
+      .auth_token = GetString(kProfileManagementOidcAuthToken),
+      .id_token = GetString(kProfileManagementOidcIdToken)};
 }
 
 std::string ProfileAttributesEntry::GetProfileManagementId() const {
@@ -664,6 +679,10 @@ void ProfileAttributesEntry::SetSignedInWithCredentialProvider(bool value) {
   SetBool(prefs::kSignedInWithCredentialProvider, value);
 }
 
+void ProfileAttributesEntry::SetDasherlessManagement(bool value) {
+  SetBool(kDasherlessManagement, value);
+}
+
 void ProfileAttributesEntry::LockForceSigninProfile(bool is_lock) {
   DCHECK(signin_util::IsForceSigninEnabled());
   if (SetBool(kForceSigninProfileLockedKey, is_lock)) {
@@ -747,6 +766,12 @@ void ProfileAttributesEntry::SetProfileManagementEnrollmentToken(
     profile_attributes_storage_->NotifyProfileManagementEnrollmentTokenChanged(
         GetPath());
   }
+}
+
+void ProfileAttributesEntry::SetProfileManagementOidcTokens(
+    const ProfileManagementOicdTokens& oidc_tokens) {
+  CHECK(SetString(kProfileManagementOidcAuthToken, oidc_tokens.auth_token));
+  CHECK(SetString(kProfileManagementOidcIdToken, oidc_tokens.id_token));
 }
 
 void ProfileAttributesEntry::SetProfileManagementId(const std::string& id) {

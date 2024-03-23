@@ -24,5 +24,3 @@ NSString* const kSearchEngineTableViewIdentifier =
     @"SearchEngineTableViewIdentifier";
 NSString* const kSearchEngineMoreButtonIdentifier =
     @"SearchEngineMoreButtonIdentifier";
-
-NSString* const kSearchEngineForceEnabled = @"SearchEngineForceEnabled";

@@ -4,7 +4,7 @@
 
 import 'chrome://os-settings/lazy_load.js';
 
-import {CrLinkRowElement, CrToggleElement, DevicePageBrowserProxyImpl, displaySettingsProviderMojom, Router, routes, setDisplayApiForTesting, setDisplaySettingsProviderForTesting, SettingsDisplayElement, SettingsDropdownMenuElement, SettingsSliderElement, SettingsToggleButtonElement} from 'chrome://os-settings/os_settings.js';
+import {CrLinkRowElement, CrToggleElement, DevicePageBrowserProxyImpl, DisplayLayoutElement, displaySettingsProviderMojom, Router, routes, setDisplayApiForTesting, setDisplaySettingsProviderForTesting, SettingsDisplayElement, SettingsDropdownMenuElement, SettingsSliderElement, SettingsToggleButtonElement} from 'chrome://os-settings/os_settings.js';
 import {strictQuery} from 'chrome://resources/ash/common/typescript_utils/strict_query.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -336,6 +336,15 @@ suite('<settings-display>', () => {
           1,
           externalDisplayHistogram.get(
               displaySettingsProviderMojom.DisplaySettingsType.kOrientation));
+
+      const externalDisplayOrientationHistogram =
+          displaySettingsProvider.getDisplayOrientationHistogram(
+              /*is_internal=*/ false);
+      assertEquals(
+          1,
+          externalDisplayOrientationHistogram.get(
+              displaySettingsProviderMojom.DisplaySettingsOrientationOption
+                  .k90Degree));
     });
 
     test('overscan', () => {
@@ -371,6 +380,14 @@ suite('<settings-display>', () => {
           externalDisplayHistogram.get(
               displaySettingsProviderMojom.DisplaySettingsType.kNightLight));
 
+      const externalDisplayNightLightStatusHistogram =
+          displaySettingsProvider.getDisplayNightLightStatusHistogram(
+              /*is_internal=*/ false);
+      assertEquals(
+          1,
+          externalDisplayNightLightStatusHistogram.get(
+              /*night_light_status=*/ true));
+
       // Mock user updating night light schedule.
       const schedule = displayNightLight.shadowRoot!
                            .querySelector<SettingsDropdownMenuElement>(
@@ -388,6 +405,15 @@ suite('<settings-display>', () => {
           externalDisplayHistogram.get(
               displaySettingsProviderMojom.DisplaySettingsType
                   .kNightLightSchedule));
+
+      const externalDisplayNightLightScheduleHistogram =
+          displaySettingsProvider.getDisplayNightLightScheduleHistogram(
+              /*is_internal=*/ false);
+      assertEquals(
+          1,
+          externalDisplayNightLightScheduleHistogram.get(
+              displaySettingsProviderMojom
+                  .DisplaySettingsNightLightScheduleOption.kSunsetToSunrise));
     });
 
     test('mirror mode', () => {
@@ -404,6 +430,10 @@ suite('<settings-display>', () => {
           1,
           displayHistogram.get(
               displaySettingsProviderMojom.DisplaySettingsType.kMirrorMode));
+      assertEquals(
+          1,
+          displaySettingsProvider.getDisplayMirrorModeStatusHistogram().get(
+              /*mirror_mode_status=*/ true));
     });
 
     test('unified mode', () => {
@@ -419,6 +449,10 @@ suite('<settings-display>', () => {
           1,
           displayHistogram.get(
               displaySettingsProviderMojom.DisplaySettingsType.kUnifiedMode));
+      assertEquals(
+          1,
+          displaySettingsProvider.getDisplayUnifiedModeStatusHistogram().get(
+              /*mirror_mode_status=*/ true));
     });
 
     test('primary display', () => {
@@ -739,12 +773,14 @@ suite('<settings-display>', () => {
         })
         .then(() => {
           const displayLayout =
-              displayPage.shadowRoot!.querySelector('#displayLayout') as any;
+              displayPage.shadowRoot!.querySelector<DisplayLayoutElement>(
+                  '#displayLayout');
           assert(!!displayLayout);
           const display = strictQuery(
               `#_${kDisplayIdPrefix}2`, displayLayout.shadowRoot, HTMLElement);
-          const layout =
-              displayLayout.displayLayoutMap_.get(`${kDisplayIdPrefix}2`);
+          const layout = displayLayout.getDisplayLayoutMapForTesting().get(
+              `${kDisplayIdPrefix}2`);
+          assert(layout);
 
           assertEquals(layout.parentId, `${kDisplayIdPrefix}1`);
           assertEquals(layout.position, 'right');

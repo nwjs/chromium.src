@@ -59,6 +59,7 @@
 <translation id="1877026089748256423">Chrome е застарен</translation>
 <translation id="1919130412786645364">Дозволете најавување на Chrome</translation>
 <translation id="1953553007165777902">Се презема… Уште <ph name="MINUTE" /> мин.</translation>
+<translation id="2001586581944147178">Отежнете им на луѓето со пристап до вашиот сообраќај на интернет да гледаат кои сајтови ги отворате. Chrome користи безбедна врска за да ја бара IP-адресата на даден сајт во DNS (Систем за имиња на домени).</translation>
 <translation id="2018528049276128029">Секој профил содржи сопствени податоци на Chrome, како обележувачи, историја, лозинки и друго</translation>
 <translation id="2018879682492276940">Инсталирањето не успеа. Обидете се повторно.</translation>
 <translation id="2071318482926839249">Друга сметка веќе е најавена. За да прелистувате одделно, Chrome може да создаде одделен профил за вас.</translation>
@@ -77,6 +78,7 @@
 <translation id="2151406531797534936">Рестартирајте го Chrome сега</translation>
 <translation id="2174917724755363426">Инсталирањето не е завршено. Дали сигурно сакате да го откажете?</translation>
 <translation id="2190166659037789668">Грешка при проверка за ажурирање: <ph name="UPDATE_CHECK_ERROR" />.</translation>
+<translation id="2199691482078155239">Chrome ви дава поголема контрола над рекламите што ги гледате и ограничува што може да учат сајтовите за вас кога ви прикажуваат персонализирани реклами</translation>
 <translation id="223889379102603431">Информации за тоа како Chrome управува со своите сертификати за администраторски права</translation>
 <translation id="2258103955319320201">За да пристапувате до вашите работи на прелистувачот Chrome на сите уреди, најавете се и вклучете ја синхронизацијата</translation>
 <translation id="2290014774651636340">Клучевите Google API недостасуваат. Некои функции на Google Chrome ќе бидат оневозможени.</translation>
@@ -139,7 +141,6 @@
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - Мрежно најавување - Chrome</translation>
 <translation id="3018957014024118866">Избриши ги и податоците од Chrome (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">Рестартирај за да се ажурира &amp;ChromeOS Flex</translation>
-<translation id="303514781271618814">Chrome истражува нови функции што им овозможуваат на сајтовите да го испорачуваат истото доживување при прелистувањето со користење помалку податоци</translation>
 <translation id="3037838751736561277">Google Chrome е во заднински режим.</translation>
 <translation id="3038232873781883849">Се чека инсталирање…</translation>
 <translation id="3059710691562604940">„Безбедното прелистување“ е исклучено. Chrome препорачува да го вклучите.</translation>
@@ -162,7 +163,6 @@
 <translation id="3360895254066713204">Помошник на Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome ќе се рестартира сега}=1{Chrome ќе се рестартира по 1 секунда}one{Chrome ќе се рестартира по # секунда}other{Chrome ќе се рестартира по # секунди}}</translation>
 <translation id="3396977131400919238">Се појави грешка во оперативниот систем додека се инсталираше. Преземете го Google Chrome повторно.</translation>
-<translation id="3426646014273736870">„Штедачот на меморија“ го направи Chrome побрз</translation>
 <translation id="3428747202529429621">Ја чува вашата безбедност на Chrome и може да се користи за да ја подобри безбедноста на други апликации на Google кога сте најавени</translation>
 <translation id="3434246496373299699">Chrome може да ги проверува вашите лозинки кога ќе се најавите со вашата сметка на Google</translation>
 <translation id="3450887623636316740">Датотекава можеби е опасна<ph name="LINE_BREAK" />Chrome може да го провери преземањево за вас ако ја внесете лозинката. Детали за датотеката се испраќаат до „Безбедно прелистување со Google“, но содржините и лозинката на датотеката остануваат на уредот.</translation>
@@ -179,6 +179,7 @@
 <translation id="3635073343384702370">Chrome може да ги проверува вашите лозинки кога ги зачувувате</translation>
 <translation id="3667616615096815454">Не можеше да се инсталира. Апликацијата е непозната за серверот.</translation>
 <translation id="3673813398384385993">Chrome откри дека „<ph name="EXTENSION_NAME" />“ содржи злонамерен софтвер</translation>
+<translation id="3697952514309507634">Други профили на Chrome</translation>
 <translation id="3703994572283698466">Chrome OS е овозможен од дополнителен <ph name="BEGIN_LINK_CROS_OSS" />софтвер со отворен код<ph name="END_LINK_CROS_OSS" />, како што е <ph name="BEGIN_LINK_LINUX_OSS" />средината за развој на Linux<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">Верзија на ChromeOS Flex</translation>
 <translation id="3718181793972440140">Ова ќе избрише една ставка од уредов. За да ги вратите вашите податоци подоцна, најавете се на Chrome како <ph name="USER_EMAIL" />.</translation>
@@ -318,7 +319,6 @@ Google Chrome не може да ги обнови вашите поставки
 <translation id="608006075545470555">Додајте работен профил во овој прелистувач</translation>
 <translation id="6113794647360055231">Chrome тукушто се подобри</translation>
 <translation id="6145313976051292476">Отворај PDF-формат во Chrome</translation>
-<translation id="6155960517327665396">„Штедачот на меморија“ го направи Chrome побрз</translation>
 <translation id="6157638032135951407">Вашата организација ги брише податоците на Chrome кога не се користи <ph name="TIMEOUT_DURATION" />. Тоа може да ги опфати историјата, автоматското пополнување и преземањата.</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> – Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Beta</translation>
@@ -434,6 +434,7 @@ Google Chrome не може да ги обнови вашите поставки
 <translation id="8019103195866286235">Програмерот го поништи објавувањето на екстензијава, па можеби не е безбедна. Отстранете ја од Chrome за да не може веќе да ги гледа и променува вашите податоци на сајтовите што ги отворате, што ги опфаќа и вашите лични податоци.</translation>
 <translation id="80471789339884597">Фала за инсталирањето. Мора да ги рестартирате сите ваши прелистувачи пред да користите <ph name="BUNDLE_NAME" />.</translation>
 <translation id="8064015586118426197">ChromeOS Flex</translation>
+<translation id="8077579734294125741">Други профили на Chrome</translation>
 <translation id="8086881907087796310">Инсталацијата не успеа бидејќи вашиот компјутер не ги исполнува минималните барања за хардвер.</translation>
 <translation id="8129812357326543296">За &amp;Google Chrome</translation>
 <translation id="813913629614996137">Се иницијализира…</translation>

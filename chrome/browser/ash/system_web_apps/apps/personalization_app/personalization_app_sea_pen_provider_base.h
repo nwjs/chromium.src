@@ -56,6 +56,8 @@ class PersonalizationAppSeaPenProviderBase
   void BindInterface(
       mojo::PendingReceiver<mojom::SeaPenProvider> receiver) override;
 
+  bool IsEligibleForSeaPen() override;
+
   // ::ash::personalization_app::mojom::SeaPenProvider:
   void SearchWallpaper(mojom::SeaPenQueryPtr query,
                        SearchWallpaperCallback callback) override;
@@ -94,13 +96,13 @@ class PersonalizationAppSeaPenProviderBase
 
   virtual void OnFetchWallpaperDoneInternal(
       const SeaPenImage& sea_pen_image,
-      const std::string& query_info,
+      const mojom::SeaPenQueryPtr& query,
       base::OnceCallback<void(bool success)> callback) = 0;
 
   manta::proto::FeatureName feature_name_;
 
   // Pointer to profile of user that opened personalization SWA. Not owned.
-  const raw_ptr<Profile> profile_;
+  const raw_ptr<Profile, DanglingUntriaged> profile_;
 
   // When recent sea pen images are fetched, store the valid file paths in the
   // set. This is checked when the SWA requests thumbnail data or sets an image

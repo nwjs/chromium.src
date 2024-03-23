@@ -52,7 +52,7 @@ constexpr ui::LayerAnimationElement::AnimatableProperties
 // RenderWidgetHostViewAura. https://crbug.com/827268
 constexpr int kMaxRecomputeOcclusion = 3;
 
-bool WindowOrParentHasShape(Window* window) {
+bool WindowOrParentHasShape(const Window* window) {
   if (window->layer()->alpha_shape())
     return true;
   if (window->parent())
@@ -60,7 +60,7 @@ bool WindowOrParentHasShape(Window* window) {
   return false;
 }
 
-bool WindowHasOpaqueRegionsForOcclusion(Window* window) {
+bool WindowHasOpaqueRegionsForOcclusion(const Window* window) {
   return !window->opaque_regions_for_occlusion().empty();
 }
 
@@ -325,11 +325,14 @@ void WindowOcclusionTracker::MaybeComputeOcclusion() {
               Window::OcclusionState::OCCLUDED) {
             SetWindowAndDescendantsAreOccluded(
                 root_window, /* is_occluded */ true, root_window->IsVisible());
+// TODO(crbug.com/1429517): Enable for other platforms in a separate CL.
+#if BUILDFLAG(IS_CHROMEOS)
           } else if (root_window_pair.second.occlusion_state ==
                      Window::OcclusionState::HIDDEN) {
             SetWindowAndDescendantsAreOccluded(root_window,
                                                /* is_occluded */ false,
                                                /* is_parent_visible */ false);
+#endif
           } else {
             SkRegion occluded_region = root_window_pair.second.occluded_region;
             SkIRect root_window_clip =
@@ -464,7 +467,7 @@ bool WindowOcclusionTracker::RecomputeOcclusionImpl(
 }
 
 bool WindowOcclusionTracker::VisibleWindowCanOccludeOtherWindows(
-    Window* window) const {
+    const Window* window) const {
   DCHECK(window->layer());
   float combined_opacity = ShouldUseTargetValues()
                                ? GetLayerCombinedTargetOpacity(window->layer())
@@ -483,7 +486,7 @@ bool WindowOcclusionTracker::VisibleWindowCanOccludeOtherWindows(
          WindowHasOpaqueRegionsForOcclusion(window);
 }
 
-bool WindowOcclusionTracker::WindowHasContent(Window* window) const {
+bool WindowOcclusionTracker::WindowHasContent(const Window* window) const {
   if (window->layer()->type() != ui::LAYER_NOT_DRAWN)
     return true;
 

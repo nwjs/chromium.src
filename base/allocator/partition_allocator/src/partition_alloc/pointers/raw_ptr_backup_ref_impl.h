@@ -219,7 +219,7 @@ struct RawPtrBackupRefImpl {
     uintptr_t address = partition_alloc::UntagPtr(wrapped_ptr);
     if (IsSupportedAndNotNull(address)) {
       PA_BASE_CHECK(wrapped_ptr != nullptr);
-      PA_BASE_CHECK(IsPointeeAlive(address));
+      PA_BASE_CHECK(IsPointeeAlive(address));  // Detects use-after-free.
     }
 #endif  // BUILDFLAG(PA_DCHECK_IS_ON) ||
         // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SLOW_CHECKS)
@@ -436,7 +436,7 @@ struct RawPtrBackupRefImpl {
       return;
     }
 
-    InstanceTracer::Trace(owner_id, address);
+    InstanceTracer::Trace(owner_id, AllowDangling, address);
   }
 
   static constexpr void Untrace(uint64_t owner_id) {

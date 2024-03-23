@@ -176,7 +176,7 @@ void FullscreenControlHost::OnMouseEvent(const ui::MouseEvent& event) {
   // button may still appear even though the mouse cursor is invisible and its
   // position is technically undefined. This mitigation will become unnecessary
   // when pointer lock is re-implemented using relative motion events.
-  if (IsMouseLocked()) {
+  if (IsPointerLocked()) {
     return;
   }
 
@@ -312,7 +312,7 @@ bool FullscreenControlHost::IsExitUiNeeded() {
 #endif
 }
 
-bool FullscreenControlHost::IsMouseLocked() {
+bool FullscreenControlHost::IsPointerLocked() {
   if (!browser_view_) {
     return false;
   }
@@ -327,7 +327,7 @@ bool FullscreenControlHost::IsMouseLocked() {
     return false;
   }
 
-  return rwhv->IsMouseLocked();
+  return rwhv->IsPointerLocked();
 }
 
 float FullscreenControlHost::CalculateCursorBufferHeight() const {

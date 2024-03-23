@@ -5,11 +5,19 @@
 #include "android_webview/common/aw_features.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "services/network/public/cpp/features.h"
 
 namespace android_webview {
 namespace features {
 
 // Alphabetical:
+
+// Enable back/forward cache support in WebView. Note that this will only take
+// effect iff both this feature flag and the content/public kBackForwardCache
+// flag is enabled.
+BASE_FEATURE(kWebViewBackForwardCache,
+             "WebViewBackForwardCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable brotli compression support in WebView.
 BASE_FEATURE(kWebViewBrotliSupport,
@@ -24,12 +32,6 @@ BASE_FEATURE(kWebViewBrotliSupport,
 BASE_FEATURE(kWebViewClearFunctorInBackground,
              "WebViewClearFunctorInBackground",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Use the SafeBrowsingApiHandlerBridge which uses the connectionless GMS APIs.
-// This Feature is checked and used in downstream internal code.
-BASE_FEATURE(kWebViewConnectionlessSafeBrowsing,
-             "WebViewConnectionlessSafeBrowsing",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for adding CHECKs to loading pak files.
 BASE_FEATURE(kWebViewCheckPakFileDescriptors,
@@ -55,6 +57,16 @@ BASE_FEATURE(kWebViewForceDarkModeMatchTheme,
 BASE_FEATURE(kWebViewHitTestInBlinkOnTouchStart,
              "WebViewHitTestInBlinkOnTouchStart",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature parameter for `network::features::kMaskedDomainList` that sets the
+// exclusion criteria for defining which domains are excluded from the
+// Masked Domain List for WebView.
+//
+// Exclusion criteria can assume values from `WebviewExclusionPolicy`.
+const base::FeatureParam<int> kWebViewIpProtectionExclusionCriteria{
+    &network::features::kMaskedDomainList,
+    "WebViewIpProtectionExclusionCriteria",
+    /*WebviewExclusionPolicy::kNone*/ 0};
 
 // Enable display cutout support for Android P and above.
 BASE_FEATURE(kWebViewDisplayCutout,

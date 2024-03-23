@@ -54,6 +54,7 @@
 #include "chrome/browser/metrics/network_quality_estimator_provider_impl.h"
 #include "chrome/browser/metrics/usertype_by_devicetype_metrics_provider.h"
 #include "chrome/browser/performance_manager/metrics/metrics_provider_common.h"
+#include "chrome/browser/privacy_budget/identifiability_study_state.h"
 #include "chrome/browser/privacy_budget/privacy_budget_metrics_provider.h"
 #include "chrome/browser/privacy_budget/privacy_budget_prefs.h"
 #include "chrome/browser/privacy_budget/privacy_budget_ukm_entry_filter.h"
@@ -116,6 +117,7 @@
 #include "components/sync_device_info/device_count_metrics_provider.h"
 #include "components/ukm/field_trials_provider_helper.h"
 #include "components/ukm/ukm_service.h"
+#include "components/variations/synthetic_trial_registry.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -536,8 +538,10 @@ void UpdateMetricsServicesForPerUser(bool enabled) {
 }  // namespace
 
 ChromeMetricsServiceClient::ChromeMetricsServiceClient(
-    metrics::MetricsStateManager* state_manager)
-    : metrics_state_manager_(state_manager) {
+    metrics::MetricsStateManager* state_manager,
+    variations::SyntheticTrialRegistry* synthetic_trial_registry)
+    : metrics_state_manager_(state_manager),
+      synthetic_trial_registry_(synthetic_trial_registry) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   incognito_observer_ = IncognitoObserver::Create(
       base::BindRepeating(&ChromeMetricsServiceClient::UpdateRunningServices,
@@ -550,11 +554,12 @@ ChromeMetricsServiceClient::~ChromeMetricsServiceClient() {
 
 // static
 std::unique_ptr<ChromeMetricsServiceClient> ChromeMetricsServiceClient::Create(
-    metrics::MetricsStateManager* state_manager) {
+    metrics::MetricsStateManager* state_manager,
+    variations::SyntheticTrialRegistry* synthetic_trial_registry) {
   // Perform two-phase initialization so that `client->metrics_service_` only
   // receives pointers to fully constructed objects.
   std::unique_ptr<ChromeMetricsServiceClient> client(
-      new ChromeMetricsServiceClient(state_manager));
+      new ChromeMetricsServiceClient(state_manager, synthetic_trial_registry));
   client->Initialize();
 
   return client;
@@ -610,6 +615,11 @@ metrics::MetricsService* ChromeMetricsServiceClient::GetMetricsService() {
 
 ukm::UkmService* ChromeMetricsServiceClient::GetUkmService() {
   return ukm_service_.get();
+}
+
+IdentifiabilityStudyState*
+ChromeMetricsServiceClient::GetIdentifiabilityStudyState() {
+  return identifiability_study_state_.get();
 }
 
 metrics::structured::StructuredMetricsService*
@@ -728,10 +738,6 @@ ChromeMetricsServiceClient::GetMetricsReportingDefaultState() {
 
 void ChromeMetricsServiceClient::Initialize() {
   PrefService* local_state = g_browser_process->local_state();
-
-  synthetic_trial_registry_ =
-      std::make_unique<variations::SyntheticTrialRegistry>(
-          IsExternalExperimentAllowlistEnabled());
 
   metrics_service_ = std::make_unique<metrics::MetricsService>(
       metrics_state_manager_, this, local_state);
@@ -1366,8 +1372,8 @@ bool ChromeMetricsServiceClient::IsWebstoreExtension(base::StringPiece id) {
     if (!registry) {
       continue;
     }
-    const extensions::Extension* extension = registry->GetExtensionById(
-        std::string(id), extensions::ExtensionRegistry::ENABLED);
+    const extensions::Extension* extension =
+        registry->enabled_extensions().GetByID(std::string(id));
     if (!extension) {
       continue;
     }

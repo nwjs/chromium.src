@@ -57,8 +57,9 @@ chromium-metrics-reviews@google.com.
   </summary>
   <int value="0" label="Unknown Reason"/>
   <int value="1" label="Missing All Hashes"/>
-  <int value="2" label="Missing File Hash"/>
-  <int value="3" label="Hash Mismatch"/>
+  <int value="2" label="Corrupted Hashes"/>
+  <int value="3" label="No Hashes For File"/>
+  <int value="4" label="Hash Mismatch"/>
 </enum>
 
 <enum name="DeclarativeAPIFunctionType">
@@ -2717,6 +2718,7 @@ Called by update_extension_histograms.py.-->
   <int value="1867" label="ACCESSIBILITY_PRIVATE_INSTALLFACEGAZEASSETS"/>
   <int value="1868" label="OS_MANAGEMENT_SETAUDIOVOLUME"/>
   <int value="1869" label="AUTOTESTPRIVATE_SETDEVICELANGUAGE"/>
+  <int value="1870" label="AUTOFILLPRIVATE_SETAUTOFILLSYNCTOGGLEENABLED"/>
 </enum>
 
 <enum name="ExtensionInstallationCrxInstallError">

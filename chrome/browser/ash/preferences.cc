@@ -64,6 +64,7 @@
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/ash/components/timezone/timezone_resolver.h"
 #include "chromeos/components/disks/disks_prefs.h"
+#include "chromeos/constants/pref_names.h"
 #include "components/feedback/content/content_tracing_manager.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/policy/proto/chrome_device_policy.pb.h"
@@ -171,6 +172,7 @@ void Preferences::RegisterPrefs(PrefRegistrySimple* registry) {
                                 false);
   registry->RegisterBooleanPref(prefs::kDeviceSwitchFunctionKeysBehaviorEnabled,
                                 false);
+  registry->RegisterBooleanPref(::prefs::kLocalUserFilesAllowed, true);
 
   RegisterLocalStatePrefs(registry);
   ash::hid_detection_revamp_field_trial::RegisterLocalStatePrefs(registry);
@@ -346,9 +348,6 @@ void Preferences::RegisterProfilePrefs(
   // depending on whether an external keyboard is attached to a particular
   // device.
   registry->RegisterBooleanPref(prefs::kSendFunctionKeys, false);
-  registry->RegisterIntegerPref(
-      prefs::kExtendedFkeysModifier,
-      static_cast<int>(ui::mojom::ExtendedFkeysModifier::kDisabled));
 
   registry->RegisterIntegerPref(prefs::kAltEventRemappedToRightClick, 0);
   registry->RegisterIntegerPref(prefs::kSearchEventRemappedToRightClick, 0);
@@ -377,6 +376,8 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterStringPref(::prefs::kTermsOfServiceURL, "");
 
   registry->RegisterBooleanPref(::prefs::kTouchVirtualKeyboardEnabled, false);
+  registry->RegisterBooleanPref(::prefs::kVirtualKeyboardSmartVisibilityEnabled,
+                                true);
 
   std::string current_timezone_id;
   if (CrosSettings::IsInitialized()) {
@@ -413,7 +414,7 @@ void Preferences::RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
 
   registry->RegisterBooleanPref(
-      ::prefs::kCaptivePortalAuthenticationIgnoresProxy, true);
+      chromeos::prefs::kCaptivePortalAuthenticationIgnoresProxy, true);
 
   registry->RegisterBooleanPref(::prefs::kLanguageImeMenuActivated, false);
 

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -24,12 +25,14 @@
 #include "net/base/http_user_agent_settings.h"
 #include "net/base/net_errors.h"
 #include "net/base/proxy_chain.h"
+#include "net/base/session_usage.h"
 #include "net/dns/public/secure_dns_policy.h"
 #include "net/log/net_log_source_type.h"
 #include "net/log/net_log_with_source.h"
 #include "net/nqe/network_quality_estimator.h"
 #include "net/quic/quic_http_utils.h"
 #include "net/quic/quic_proxy_client_socket.h"
+#include "net/quic/quic_session_key.h"
 #include "net/quic/quic_session_pool.h"
 #include "net/socket/client_socket_handle.h"
 #include "net/socket/next_proto.h"
@@ -42,7 +45,6 @@
 #include "net/spdy/spdy_session_pool.h"
 #include "net/spdy/spdy_stream.h"
 #include "net/ssl/ssl_cert_request_info.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/gurl.h"
 #include "url/scheme_host_port.h"
@@ -306,7 +308,7 @@ base::TimeDelta HttpProxyConnectJob::AlternateNestedConnectionTimeout(
     return default_alternate_timeout;
   }
 
-  absl::optional<base::TimeDelta> http_rtt_estimate =
+  std::optional<base::TimeDelta> http_rtt_estimate =
       network_quality_estimator->GetHttpRTT();
   if (!http_rtt_estimate) {
     return default_alternate_timeout;
@@ -598,7 +600,7 @@ int HttpProxyConnectJob::DoHttpProxyConnectComplete(int result) {
   }
 
   if (result == OK) {
-    SetSocket(std::move(transport_socket_), /*dns_aliases=*/absl::nullopt);
+    SetSocket(std::move(transport_socket_), /*dns_aliases=*/std::nullopt);
   }
 
   return result;
@@ -689,15 +691,21 @@ int HttpProxyConnectJob::DoQuicProxyCreateSession() {
   // Use default QUIC version, which is the version listed supported version.
   quic::ParsedQuicVersion quic_version =
       common_connect_job_params()->quic_supported_versions->front();
+  // TODO(https://crbug.com/1491092): Update to handle multi-proxy chains. We
+  // will need to create a proxy chain corresponding to all proxy servers up to
+  // but not including the one we are connecting to (or ProxyChain::Direct for
+  // the first proxy server) and use that instead of ProxyChain::Direct() below.
+  CHECK(!params_->proxy_chain().is_multi_proxy());
   return quic_session_request_->Request(
       // TODO(crbug.com/1206799) Pass the destination directly once it's
       // converted to contain scheme.
       url::SchemeHostPort(url::kHttpsScheme, proxy_server.host(),
                           proxy_server.port()),
-      quic_version, ssl_params->privacy_mode(), kH2QuicTunnelPriority,
+      quic_version, ProxyChain::Direct(), params_->traffic_annotation(),
+      SessionUsage::kProxy, ssl_params->privacy_mode(), kH2QuicTunnelPriority,
       socket_tag(), params_->network_anonymization_key(),
       params_->secure_dns_policy(),
-      /*use_dns_aliases=*/false, /*require_dns_https_alpn=*/false,
+      /*require_dns_https_alpn=*/false,
       ssl_params->ssl_config().GetCertVerifyFlags(),
       GURL("https://" + proxy_server.ToString()), net_log(),
       &quic_net_error_details_,
@@ -856,11 +864,15 @@ SpdySessionKey HttpProxyConnectJob::CreateSpdySessionKey() const {
   if (params_->proxy_chain_index() == 0) {
     DCHECK(session_key_proxy_chain.is_direct());
   }
-  return SpdySessionKey(params_->proxy_server().host_port_pair(),
-                        session_key_proxy_chain, PRIVACY_MODE_DISABLED,
-                        SpdySessionKey::IsProxySession::kTrue, socket_tag(),
-                        params_->network_anonymization_key(),
-                        params_->secure_dns_policy());
+
+  // Note that `disable_cert_network_fetches` must be true for proxies to avoid
+  // deadlock. See comment on
+  // `SSLConfig::disable_cert_verification_network_fetches`.
+  return SpdySessionKey(
+      params_->proxy_server().host_port_pair(), PRIVACY_MODE_DISABLED,
+      session_key_proxy_chain, SessionUsage::kProxy, socket_tag(),
+      params_->network_anonymization_key(), params_->secure_dns_policy(),
+      /*disable_cert_verification_network_fetches=*/true);
 }
 
 }  // namespace net

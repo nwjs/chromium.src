@@ -42,7 +42,6 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
-import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -52,6 +51,7 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.RecentTabsPageTestUtils;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
+import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.signin.base.CoreAccountInfo;
@@ -324,8 +324,7 @@ public class RecentTabsPageTest {
         // Sign in and enable sync.
         CoreAccountInfo coreAccountInfo = addAccountWithNonDisplayableEmail(NAME);
         SigninTestUtil.signinAndEnableSync(
-                coreAccountInfo,
-                TestThreadUtils.runOnUiThreadBlockingNoException(SyncServiceFactory::get));
+                coreAccountInfo, SyncTestUtil.getSyncServiceForLastUsedProfile());
 
         // Open an empty recent tabs page and confirm empty view shows.
         mPage = loadRecentTabsPage();

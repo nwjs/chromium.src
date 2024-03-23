@@ -71,6 +71,7 @@ import org.chromium.chrome.browser.gesturenav.TabOnBackGestureHandler;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.homepage.HomepagePolicyManager;
+import org.chromium.chrome.browser.hub.HubFieldTrial;
 import org.chromium.chrome.browser.identity_disc.IdentityDiscController;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -103,6 +104,7 @@ import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
 import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabSelectionType;
@@ -140,6 +142,7 @@ import org.chromium.chrome.browser.toolbar.top.ToolbarLayout;
 import org.chromium.chrome.browser.toolbar.top.ToolbarPhone;
 import org.chromium.chrome.browser.toolbar.top.ToolbarTablet;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
+import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.ToolbarAlphaInOverviewObserver;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarInteractabilityManager;
 import org.chromium.chrome.browser.toolbar.top.ViewShiftingActionBarDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
@@ -188,6 +191,7 @@ import org.chromium.ui.util.TokenHolder;
 import org.chromium.url.GURL;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 /**
  * Contains logic for managing the toolbar visual component.  This class manages the interactions
@@ -207,6 +211,7 @@ public class ToolbarManager
     private SettableThemeColorProvider mCustomTabThemeColorProvider;
     private final TopToolbarCoordinator mToolbar;
     private final ToolbarControlContainer mControlContainer;
+    private final View mToolbarHairline;
     private final BrowserControlsStateProvider.Observer mBrowserControlsObserver;
     private final FullscreenManager.Observer mFullscreenObserver;
     private final ObservableSupplierImpl<Boolean> mHomepageEnabledSupplier =
@@ -506,6 +511,11 @@ public class ToolbarManager
      * @param initializeWithIncognitoColors Whether the toolbar should be initialized with incognito
      * @param backPressManager The {@link BackPressManager} handling back press gesture.
      * @param openHistoryClustersDelegate
+     * @param overviewIncognitoSupplier Incognito supplier specifically for the overview. During
+     *     animations especially this might diverge from the tab model version.
+     * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
+     *     suggestion list) will position themselves relative to. If null, the content view will be
+     *     used.
      */
     public ToolbarManager(
             AppCompatActivity activity,
@@ -553,7 +563,9 @@ public class ToolbarManager
             Supplier<EphemeralTabCoordinator> ephemeralTabCoordinatorSupplier,
             boolean initializeWithIncognitoColors,
             @Nullable BackPressManager backPressManager,
-            @NonNull OpenHistoryClustersDelegate openHistoryClustersDelegate) {
+            @NonNull OpenHistoryClustersDelegate openHistoryClustersDelegate,
+            @Nullable BooleanSupplier overviewIncognitoSupplier,
+            @Nullable View baseChromeLayout) {
         TraceEvent.begin("ToolbarManager.ToolbarManager");
         mActivity = activity;
         mWindowAndroid = windowAndroid;
@@ -606,6 +618,7 @@ public class ToolbarManager
                             }
                         });
         mControlContainer = controlContainer;
+        mToolbarHairline = mControlContainer.findViewById(R.id.toolbar_hairline);
         assert mControlContainer != null;
 
         mBookmarkModelSupplier = bookmarkModelSupplier;
@@ -845,7 +858,8 @@ public class ToolbarManager
                             scrollListener,
                             openHistoryClustersDelegate,
                             tabModelSelectorSupplier,
-                            /* forcePhoneStyleOmnibox= */ false);
+                            /* forcePhoneStyleOmnibox= */ false,
+                            baseChromeLayout);
             toolbarLayout.setLocationBarCoordinator(locationBarCoordinator);
             toolbarLayout.setBrowserControlsVisibilityDelegate(mControlsVisibilityDelegate);
             mLocationBar = locationBarCoordinator;
@@ -882,6 +896,7 @@ public class ToolbarManager
             omnibox.addUrlFocusChangeListener(mStatusBarColorController);
             omnibox.addUrlFocusChangeListener(mLocationBarFocusHandler);
         }
+        mLocationBar.addOmniboxSuggestionsDropdownScrollListener(mStatusBarColorController);
 
         mProgressBarCoordinator =
                 new LoadProgressCoordinator(
@@ -999,12 +1014,14 @@ public class ToolbarManager
                     }
 
                     @Override
-                    public void onLoadUrl(Tab tab, LoadUrlParams params, int loadType) {
+                    public void onLoadUrl(
+                            Tab tab, LoadUrlParams params, LoadUrlResult loadUrlResult) {
                         onBackPressStateChanged();
                         NewTabPage ntp = getNewTabPageForCurrentTab();
                         if (ntp == null) return;
                         if (!UrlUtilities.isNtpUrl(params.getUrl())
-                                && loadType != Tab.TabLoadStatus.PAGE_LOAD_FAILED) {
+                                && loadUrlResult.tabLoadStatus
+                                        != Tab.TabLoadStatus.PAGE_LOAD_FAILED) {
                             ntp.setUrlFocusAnimationsDisabled(true);
                             onTabOrModelChanged();
                         }
@@ -1231,7 +1248,7 @@ public class ToolbarManager
                     }
                 };
 
-        mToolbar.setIncognitoStateProvider(mIncognitoStateProvider);
+        mToolbar.setIncognitoStateProvider(mIncognitoStateProvider, overviewIncognitoSupplier);
 
         ChromeAccessibilityUtil.get().addObserver(this);
         mLocationBarModel.setShouldShowOmniboxInOverviewMode(mIsStartSurfaceEnabled);
@@ -1326,11 +1343,10 @@ public class ToolbarManager
      */
     private void updateForLayout(@LayoutType int layoutType) {
         if (mIsStartSurfaceRefactorEnabled) {
-            mToolbar.updateStartSurfaceToolbarState(
-                    null,
-                    layoutType == LayoutType.TAB_SWITCHER
-                            || (layoutType == LayoutType.START_SURFACE && !isUrlBarFocused()),
-                    layoutType);
+            boolean shouldShow =
+                    !HubFieldTrial.isHubEnabled() && layoutType == LayoutType.TAB_SWITCHER
+                            || (layoutType == LayoutType.START_SURFACE && !isUrlBarFocused());
+            mToolbar.updateStartSurfaceToolbarState(null, shouldShow, layoutType);
         }
         if (layoutType == LayoutType.TAB_SWITCHER || layoutType == LayoutType.START_SURFACE) {
             mLocationBarModel.updateForNonStaticLayout(
@@ -1861,6 +1877,7 @@ public class ToolbarManager
             omnibox.removeUrlFocusChangeListener(mStatusBarColorController);
             omnibox.removeUrlFocusChangeListener(mLocationBarFocusHandler);
         }
+        mLocationBar.removeOmniboxSuggestionsDropdownScrollListener(mStatusBarColorController);
 
         if (mInitializedWithNative) {
             mFindToolbarManager.removeObserver(mFindToolbarObserver);
@@ -2113,6 +2130,13 @@ public class ToolbarManager
     }
 
     /**
+     * @return The {@link StatusBarColorController} instance maintained by this class.
+     */
+    public StatusBarColorController getStatusBarColorController() {
+        return mStatusBarColorController;
+    }
+
+    /**
      * Updates the primary color used by the model to the given color.
      * @param color The primary color for the current tab.
      * @param shouldAnimate Whether the change of color should be animated.
@@ -2160,8 +2184,7 @@ public class ToolbarManager
 
     /** Sets the visibility of the Toolbar shadow. */
     public void setToolbarShadowVisibility(int visibility) {
-        View toolbarShadow = mControlContainer.findViewById(R.id.toolbar_hairline);
-        if (toolbarShadow != null) toolbarShadow.setVisibility(visibility);
+        if (mToolbarHairline != null) mToolbarHairline.setVisibility(visibility);
     }
 
     /**
@@ -2171,8 +2194,7 @@ public class ToolbarManager
      * @return The extra Y offset for the toolbar in pixels.
      */
     private int getToolbarExtraYOffset() {
-        int toolbarHairlineHeight =
-                mControlContainer.findViewById(R.id.toolbar_hairline).getHeight();
+        int toolbarHairlineHeight = mToolbarHairline.getHeight();
         int extraYOffset =
                 mBrowserControlsSizer.getTopControlsHeight()
                         - (mControlContainer.getHeight() - toolbarHairlineHeight);
@@ -2592,6 +2614,14 @@ public class ToolbarManager
 
     public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
         return mBackPressStateSupplier;
+    }
+
+    /**
+     * Overviews that are not transitively owned by this class need to update this observer when
+     * they update their alpha during animations.
+     */
+    public ToolbarAlphaInOverviewObserver getToolbarAlphaInOverviewObserver() {
+        return mToolbar.getToolbarAlphaInOverviewObserver();
     }
 
     /** Returns {@link LocationBar} for access in tests. */

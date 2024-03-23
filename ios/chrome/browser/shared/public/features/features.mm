@@ -26,10 +26,6 @@ BASE_FEATURE(kIOSKeyboardAccessoryUpgrade,
              "kIOSKeyboardAccessoryUpgrade",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kIOSPaymentsBottomSheet,
-             "IOSPaymentsBottomSheet",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kTestFeature, "TestFeature", base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSafetyCheckMagicStack,
@@ -63,6 +59,10 @@ BASE_FEATURE(kIOSBrowserEditMenuMetrics,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kIOSDockingPromoExperimentType[] = "IOSDockingPromoExperimentType";
+const char kIOSDockingPromoNewUserInactiveThresholdHours[] =
+    "IOSDockingPromoNewUserInactiveThresholdHours";
+const char kIOSDockingPromoOldUserInactiveThresholdHours[] =
+    "IOSDockingPromoOldUserInactiveThresholdHours";
 
 BASE_FEATURE(kIOSDockingPromo,
              "IOSDockingPromo",
@@ -79,7 +79,7 @@ constexpr base::FeatureParam<int>
 
 BASE_FEATURE(kDefaultBrowserVideoPromo,
              "DefaultBrowserVideoPromo",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kIOSEditMenuPartialTranslateNoIncognitoParam[] =
     "IOSEditMenuPartialTranslateNoIncognitoParam";
@@ -148,10 +148,6 @@ BASE_FEATURE(kEnableStartupImprovements,
              "EnableStartupImprovements",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableExpKitAppleCalendar,
-             "EnableExpKitAppleCalendar",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kTCRexKillSwitch,
              "kTCRexKillSwitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -217,10 +213,6 @@ BASE_FEATURE(kNewNTPOmniboxLayout,
              "kNewNTPOmniboxLayout",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBottomOmniboxSteadyState,
-             "BottomOmniboxSteadyState",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 const char kBottomOmniboxDefaultSettingParam[] =
     "BottomOmniboxDefaultSettingParam";
 const char kBottomOmniboxDefaultSettingParamTop[] = "Top";
@@ -231,21 +223,11 @@ BASE_FEATURE(kBottomOmniboxDefaultSetting,
              "BottomOmniboxDefaultSetting",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBottomOmniboxDeviceSwitcherResults,
-             "BottomOmniboxDeviceSwitcherResults",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 bool IsBottomOmniboxSteadyStateEnabled() {
   // Bottom omnibox is only available on phones.
-  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
-    return false;
-  }
-  return base::FeatureList::IsEnabled(kBottomOmniboxSteadyState);
-}
-
-bool IsBottomOmniboxDeviceSwitcherResultsEnabled() {
-  return IsBottomOmniboxSteadyStateEnabled() &&
-         base::FeatureList::IsEnabled(kBottomOmniboxDeviceSwitcherResults);
+  // TODO(crbug.com/1508532): Cleanup usage of this function as the feature flag
+  // is now enabled by default.
+  return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE;
 }
 
 BASE_FEATURE(kBottomOmniboxPromoFRE,
@@ -451,6 +433,18 @@ DockingPromoDisplayTriggerArm DockingPromoExperimentTypeEnabled() {
           /*default_value=*/(int)DockingPromoDisplayTriggerArm::kAfterFRE));
 }
 
+int HoursInactiveForNewUsersUntilShowingDockingPromo() {
+  return base::GetFieldTrialParamByFeatureAsInt(
+      kIOSDockingPromo, kIOSDockingPromoNewUserInactiveThresholdHours,
+      /*default_value=*/24);
+}
+
+int HoursInactiveForOldUsersUntilShowingDockingPromo() {
+  return base::GetFieldTrialParamByFeatureAsInt(
+      kIOSDockingPromo, kIOSDockingPromoOldUserInactiveThresholdHours,
+      /*default_value=*/72);
+}
+
 bool IsWebChannelsEnabled() {
   std::string launched_countries[6] = {"AU", "CA", "GB", "NZ", "US", "ZA"};
   if (base::Contains(launched_countries,
@@ -615,7 +609,16 @@ bool IsContentPushNotificationsSetUpListEnabled() {
 
 bool IsContentPushNotificationsProvisionalEnabled() {
   return (ContentNotificationsExperimentTypeEnabled() ==
-          NotificationsExperimentTypeProvisional);
+              NotificationsExperimentTypeProvisional ||
+          ContentNotificationsExperimentTypeEnabled() ==
+              NotificationsExperimentTypeProvisionalBypass);
+}
+
+// TODO(b/322348322): Remove provisional notifications bypass conditions testing
+// flag param.
+bool IsContentPushNotificationsProvisionalBypass() {
+  return (ContentNotificationsExperimentTypeEnabled() ==
+          NotificationsExperimentTypeProvisionalBypass);
 }
 
 bool IsIOSLargeFakeboxEnabled() {
@@ -717,7 +720,7 @@ bool ShouldHideIrrelevantModules() {
 
 int TimeUntilShowingCompactedSetUpList() {
   return base::GetFieldTrialParamByFeatureAsInt(
-      kMagicStack, kSetUpListCompactedTimeThresholdDays, 3);
+      kMagicStack, kSetUpListCompactedTimeThresholdDays, 0);
 }
 
 bool IsExternalActionSchemeHandlingEnabled() {
@@ -732,6 +735,17 @@ BASE_FEATURE(kIOSTipsNotifications,
              "IOSTipsNotifications",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const char kIOSTipsNotificationsTriggerTimeParam[] = "trigger_time";
+const char kIOSTipsNotificationsEnabledParam[] = "enabled";
+
 bool IsIOSTipsNotificationsEnabled() {
   return base::FeatureList::IsEnabled(kIOSTipsNotifications);
+}
+
+BASE_FEATURE(kIOSMagicStackCollectionView,
+             "IOSMagicStackCollectionView",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsIOSMagicStackCollectionViewEnabled() {
+  return base::FeatureList::IsEnabled(kIOSMagicStackCollectionView);
 }

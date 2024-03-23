@@ -654,7 +654,7 @@ struct MLConfig {
   // Enables approach (2) above.
   bool stable_search_blending{false};
 
-  // Enables approach (3) above. No affect if `stable_search_blending` is true.
+  // Enables approach (3) above. No effect if `stable_search_blending` is true.
   // Map ML scores [0, 1] to [`min`, `max`]. Groups URLs above searches if their
   // mapped relevance is greater than `grouping_threshold`
   bool mapped_search_blending{false};
@@ -788,6 +788,16 @@ extern const base::FeatureParam<bool>
 extern const base::FeatureParam<int>
     kTouchDownTriggerForPrefetchMaxPrefetchesPerOmniboxSession;
 // <- Touch Down Trigger For Prefetch
+// ---------------------------------------------------------
+// Site Search Starter Pack ->
+// When non-empty, the value of this param overrides the `search_url` for the
+// @gemini scope. This happens when the URL gets served, it does not affect the
+// DB or TemplateURLService's copy of the URL.
+extern const base::FeatureParam<std::string> kGeminiUrlOverride;
+
+// Whether the expansion pack for the site search starter pack is enabled.
+bool IsStarterPackExpansionEnabled();
+// <- Site Search Starter Pack
 // ---------------------------------------------------------
 
 // New params should be inserted above this comment. They should be ordered

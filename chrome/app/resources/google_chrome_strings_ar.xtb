@@ -57,6 +57,7 @@
 <translation id="1877026089748256423">‏إصدار Chrome قديم</translation>
 <translation id="1919130412786645364">‏السماح بتسجيل الدخول إلى Chrome</translation>
 <translation id="1953553007165777902">جارٍ التنزيل… عدد الدقائق المتبقّية: <ph name="MINUTE" /></translation>
+<translation id="2001586581944147178">‏يمكنك جعل الاطّلاع على المواقع الإلكترونية التي تزورها أكثر صعوبة على الجهات التي يمكنها الوصول إلى حركة مرور بياناتك على الإنترنت. يستخدم Chrome اتصالاً آمنًا للبحث عن عنوان IP الخاص بأي موقع إلكتروني في نظام أسماء النطاقات (DNS).</translation>
 <translation id="2018528049276128029">‏يحتفظ كل ملف شخصي بالمعلومات الخاصة به على Chrome، مثل الإشارات المرجعية والسجلّ وكلمات المرور وغير ذلك.</translation>
 <translation id="2018879682492276940">تعذّر التثبيت. يُرجى إعادة المحاولة.</translation>
 <translation id="2071318482926839249">‏سبق وتم تسجيل الدخول باستخدام حساب آخر. للحصول على تجربة تصفُّح منفصلة، يمكن لمتصفِّح Chrome إنشاء ملف شخصي خاص بك.</translation>
@@ -75,6 +76,7 @@
 <translation id="2151406531797534936">‏يُرجى إعادة تشغيل Chrome الآن</translation>
 <translation id="2174917724755363426">لم يكتمل التثبيت. هل تريد فعلاً الإلغاء؟</translation>
 <translation id="2190166659037789668">خطأ في عملية التحقق من التحديث: <ph name="UPDATE_CHECK_ERROR" />.</translation>
+<translation id="2199691482078155239">‏يتيح لك Chrome التحكّم بشكل أكبر في الإعلانات التي تظهر لك والحدّ من مقدار معلوماتك التي يمكن للمواقع الإلكترونية معرفتها عندما تعرض لك إعلانات مخصّصة</translation>
 <translation id="223889379102603431">‏معلومات حول الآلية التي يُدير بها متصفّح Chrome شهادات الجذر الخاصة به</translation>
 <translation id="2258103955319320201">‏للوصول إلى بياناتك في متصفّح Chrome من جميع أجهزتك، سجِّل الدخول وفعِّل المزامنة.</translation>
 <translation id="2290014774651636340">‏مفاتيح واجهة برمجة تطبيقات Google مفقودة. وسيترتب على ذلك توقف بعض وظائف Google Chrome عن العمل.</translation>
@@ -137,7 +139,6 @@
 <translation id="2969728957078202736">‏<ph name="PAGE_TITLE" /> - Chrome - تسجيل الدخول إلى الشبكة</translation>
 <translation id="3018957014024118866">‏حذف البيانات من Chrome أيضًا (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">‏إعادة التشغيل لتحديث &amp;ChromeOS Flex</translation>
-<translation id="303514781271618814">‏يعمل Chrome على استكشاف ميزات جديدة تتيح للمواقع الإلكترونية توفير تجربة التصفّح نفسها باستخدام قدر أقل من البيانات.</translation>
 <translation id="3037838751736561277">‏Google Chrome في وضع الخلفية.</translation>
 <translation id="3038232873781883849">في انتظار التثبيت...</translation>
 <translation id="3059710691562604940">‏تم إيقاف "التصفّح الآمن" ويقترح متصفّح Chrome تفعيله.</translation>
@@ -153,14 +154,13 @@
 <translation id="3169523567916669830">‏أثناء التجارب، يمكنك الاطِّلاع على المواضيع محل الاهتمام التي استخدمتها المواقع الإلكترونية لعرض الإعلانات لك ويمكنك إزالة هذه المواضيع. ويقدِّر Chrome المواضيع محل الاهتمام بناءً على سجل التصفّح الأخير.</translation>
 <translation id="3196187562065225381">‏حَظَر Chrome عملية التنزيل هذه لأنّ الملف خطير.</translation>
 <translation id="3226612997184048185">‏إذا حفظت أيضًا إشاراتك المرجعية في حسابك على Google، يمكنك تتبُّع أسعار المنتجات من خلال Chrome وتلقّي إشعارات عند انخفاض السعر.</translation>
-<translation id="3245429137663807393">‏في حال مشاركة تقارير استخدام Chrome أيضًا، ستتضمّن هذه التقارير عناوين URL التي تزورها</translation>
+<translation id="3245429137663807393">‏في حال شاركت أيضًا تقارير استخدام Chrome، ستتضمّن عناوين URL التي تنتقل إليها.</translation>
 <translation id="3282568296779691940">‏تسجيل الدخول إلى Chrome</translation>
 <translation id="3286538390144397061">إعادة التشغيل الآن</translation>
 <translation id="3293912612584488930">‏إنجاز المزيد باستخدام Chrome</translation>
 <translation id="3360895254066713204">‏مساعد Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{‏ستتم إعادة تشغيل Chrome الآن}=1{‏ستتم إعادة تشغيل Chrome في غضون ثانية واحدة}two{‏ستتم إعادة تشغيل Chrome في غضون ثانيتين}few{‏ستتم إعادة تشغيل Chrome في غضون # ثوان}many{‏ستتم إعادة تشغيل Chrome في غضون # ثانيةً}other{‏ستتم إعادة تشغيل Chrome في غضون # ثانية}}</translation>
 <translation id="3396977131400919238">‏حدث خطأ في نظام التشغيل أثناء عملية التثبيت. يُرجى تنزيل Google Chrome مرة أخرى.</translation>
-<translation id="3426646014273736870">‏زيادة سرعة أداء Chrome من خلال ميزة "توفير الذاكرة"</translation>
 <translation id="3428747202529429621">‏يوفّر لك هذا الوضع حماية في Chrome، ويمكن استخدامه لتحسين مستوى أمانك في تطبيقات Google الأخرى عندما تكون مسجلًا دخولك.</translation>
 <translation id="3434246496373299699">‏لا يستطيع Chrome التحقّق من كلمات المرور إلا عند تسجيل الدخول باستخدام حسابك على Google.</translation>
 <translation id="3450887623636316740">‏قد يكون هذا الملف خطيرًا.<ph name="LINE_BREAK" />بإمكان Chrome التحقُّق من عملية التنزيل هذه عند إدخال كلمة المرور. وتُرسل معلومات حول الملف إلى ميزة "التصفّح الآمن من Google"، ولكن يظل محتوى الملف وكلمة المرور على جهازك.</translation>
@@ -177,6 +177,7 @@
 <translation id="3635073343384702370">‏لا يستطيع Chrome التحقّق من كلمات المرور إلا عند حفظها.</translation>
 <translation id="3667616615096815454">يتعذّر تثبيت التطبيق لأنّه غير معروف لدى الخادم.</translation>
 <translation id="3673813398384385993">‏رصد Chrome أنّ الإضافة "<ph name="EXTENSION_NAME" />" تحتوي على برامج ضارة.</translation>
+<translation id="3697952514309507634">‏الملفات الشخصية الأخرى على Chrome</translation>
 <translation id="3703994572283698466">‏أصبح نظام التشغيل Chrome متاحًا من خلال <ph name="BEGIN_LINK_CROS_OSS" />برنامج إضافي مفتوح المصدر<ph name="END_LINK_CROS_OSS" />، كما هو الحال في <ph name="BEGIN_LINK_LINUX_OSS" />بيئة تطوير Linux<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">‏إصدار نظام التشغيل ChromeOS Flex</translation>
 <translation id="3718181793972440140">‏سيعمل هذا على حذف عنصر واحد من هذا الجهاز. لاسترداد بياناتك لاحقًا، سجّل الدخول إلى Chrome كـ <ph name="USER_EMAIL" />.</translation>
@@ -216,7 +217,7 @@
 <translation id="430327780270213103">‏السماح للإضافة بعرض طلبات الوصول في شريط أدوات Chrome</translation>
 <translation id="4328355335528187361">‏إصدار مطوّري البرامج من Google Chrome ‏(mDNS-In)</translation>
 <translation id="4334294535648607276">اكتمل التنزيل.</translation>
-<translation id="4335235004908507846">‏يستطيع Chrome مساعدتك في الحفاظ على أمان معلوماتك من عمليات اختراق البيانات والإضافات الضارة وغيرها من المشاكل.</translation>
+<translation id="4335235004908507846">‏يستطيع Chrome مساعدتك في حماية معلوماتك من عمليات الاختراق والإضافات الضارة وغيرها من المشاكل.</translation>
 <translation id="4343195214584226067">‏تمت إضافة <ph name="EXTENSION_NAME" /> إلى Chrome</translation>
 <translation id="4384570495110188418">‏يتعذّر على Chrome التحقّق من كلمات المرور لأنك لم تسجّل الدخول.</translation>
 <translation id="4389991535395284064">‏سيحذرك Chrome قبل تحميل موقع إلكتروني يستخدم اتصالاً غير آمن عند التصفّح في "وضع التصفّح المتخفي".</translation>
@@ -314,7 +315,6 @@
 <translation id="608006075545470555">إضافة ملف شخصي للعمل على هذا المتصفِّح</translation>
 <translation id="6113794647360055231">‏Chrome أصبح أفضل</translation>
 <translation id="6145313976051292476">‏فتح ملفات PDF في متصفِّح Chrome</translation>
-<translation id="6155960517327665396">‏زيادة سرعة أداء Chrome بفضل ميزة "توفير الذاكرة"</translation>
 <translation id="6157638032135951407">‏تحذف مؤسستك بيانات Chrome في حال عدم استخدامها لمدّة <ph name="TIMEOUT_DURATION" />. ويمكن أن يشمل ذلك بيانات السجلّ والملء التلقائي وعمليات التنزيل.</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878">‏<ph name="PAGE_TITLE" /> - الإصدار التجريبي من Google Chrome</translation>
@@ -428,6 +428,7 @@
 <translation id="8019103195866286235">‏ألغى المطوِّر نشر هذه الإضافة، علمًا بأنّها قد تكون غير آمنة. يُرجى إزالة هذه الإضافة من Chrome كي لا تتمكّن من الاطّلاع على بياناتك وتغييرها، بما في ذلك معلوماتك الشخصية، على المواقع الإلكترونية التي تزورها.</translation>
 <translation id="80471789339884597">شكرًا على التثبيت. عليك إعادة تشغيل جميع المتصفِّحات قبل استخدام <ph name="BUNDLE_NAME" />.</translation>
 <translation id="8064015586118426197">‏نظام التشغيل ChromeOS Flex</translation>
+<translation id="8077579734294125741">‏الملفات الشخصية الأخرى على Chrome</translation>
 <translation id="8086881907087796310">تعذّر تثبيت التطبيق لعدم استيفاء جهاز الكمبيوتر للحد الأدنى من متطلبات الأجهزة.</translation>
 <translation id="8129812357326543296">‏&amp;حول Google Chrome</translation>
 <translation id="813913629614996137">تجري التهيئة...</translation>

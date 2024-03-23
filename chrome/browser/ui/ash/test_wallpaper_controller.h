@@ -16,6 +16,7 @@
 #include "ash/public/cpp/wallpaper/wallpaper_drivefs_delegate.h"
 #include "ash/public/cpp/wallpaper/wallpaper_types.h"
 #include "base/files/file_path.h"
+#include "base/json/json_reader.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
 #include "components/account_id/account_id.h"
@@ -80,7 +81,12 @@ class TestWallpaperController : public ash::WallpaperController {
   const std::optional<ash::WallpaperInfo>& wallpaper_info() const {
     return wallpaper_info_;
   }
-  const std::string& sea_pen_metadata() const { return sea_pen_metadata_; }
+  const ash::personalization_app::mojom::SeaPenQueryPtr& sea_pen_query() const {
+    return sea_pen_query_;
+  }
+  void set_sea_pen_metadata(const std::string& metadata) {
+    sea_pen_metadata_ = base::JSONReader::ReadDict(base::StringPiece(metadata));
+  }
   int update_current_wallpaper_layout_count() const {
     return update_current_wallpaper_layout_count_;
   }
@@ -154,10 +160,11 @@ class TestWallpaperController : public ash::WallpaperController {
                               const std::string& file_name,
                               ash::WallpaperLayout layout,
                               const gfx::ImageSkia& image) override;
-  void SetSeaPenWallpaper(const AccountId& account_id,
-                          const ash::SeaPenImage& sea_pen_image,
-                          const std::string& query_info,
-                          SetWallpaperCallback callback) override;
+  void SetSeaPenWallpaper(
+      const AccountId& account_id,
+      const ash::SeaPenImage& sea_pen_image,
+      const ash::personalization_app::mojom::SeaPenQueryPtr& query,
+      SetWallpaperCallback callback) override;
   void SetSeaPenWallpaperFromFile(const AccountId& account_id,
                                   const base::FilePath& sea_pen_file_path,
                                   SetWallpaperCallback callback) override;
@@ -221,7 +228,8 @@ class TestWallpaperController : public ash::WallpaperController {
   int one_shot_wallpaper_count_ = 0;
   int sea_pen_wallpaper_count_ = 0;
   std::optional<ash::WallpaperInfo> wallpaper_info_;
-  std::string sea_pen_metadata_;
+  ash::personalization_app::mojom::SeaPenQueryPtr sea_pen_query_;
+  std::optional<base::Value::Dict> sea_pen_metadata_;
   int update_current_wallpaper_layout_count_ = 0;
   std::optional<ash::WallpaperLayout> update_current_wallpaper_layout_layout_;
   DailyGooglePhotosIdCache id_cache_;

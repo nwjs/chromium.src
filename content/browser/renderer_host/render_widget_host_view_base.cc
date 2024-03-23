@@ -18,6 +18,7 @@
 #include "components/viz/common/surfaces/subtree_capture_id.h"
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "content/browser/compositor/surface_utils.h"
+#include "content/browser/device_posture/device_posture_provider_impl.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/renderer_host/delegated_frame_host.h"
 #include "content/browser/renderer_host/input/mouse_wheel_phase_handler.h"
@@ -56,7 +57,7 @@ RenderWidgetHostViewBase::RenderWidgetHostViewBase(RenderWidgetHost* host)
 
 RenderWidgetHostViewBase::~RenderWidgetHostViewBase() {
   DCHECK(!keyboard_locked_);
-  DCHECK(!IsMouseLocked());
+  DCHECK(!IsPointerLocked());
   // We call this here to guarantee that observers are notified before we go
   // away. However, some subclasses may wish to call this earlier in their
   // shutdown process, e.g. to force removal from
@@ -353,15 +354,16 @@ void RenderWidgetHostViewBase::CopyBackgroundColorIfPresentFrom(
   }
 }
 
-bool RenderWidgetHostViewBase::IsMouseLocked() {
+bool RenderWidgetHostViewBase::IsPointerLocked() {
   return false;
 }
 
-bool RenderWidgetHostViewBase::GetIsMouseLockedUnadjustedMovementForTesting() {
+bool RenderWidgetHostViewBase::
+    GetIsPointerLockedUnadjustedMovementForTesting() {
   return false;
 }
 
-bool RenderWidgetHostViewBase::CanBeMouseLocked() {
+bool RenderWidgetHostViewBase::CanBePointerLocked() {
   return HasFocus();
 }
 
@@ -657,6 +659,21 @@ void RenderWidgetHostViewBase::OnAutoscrollStart() {
 
   // End the current scrolling seqeunce when autoscrolling starts.
   GetMouseWheelPhaseHandler()->DispatchPendingWheelEndEvent();
+}
+
+DevicePosturePlatformProvider*
+RenderWidgetHostViewBase::GetDevicePosturePlatformProvider() {
+  if (!host() || !host()->delegate()) {
+    return nullptr;
+  }
+
+  DevicePostureProviderImpl* posture_provider =
+      host()->delegate()->GetDevicePostureProvider();
+  if (!posture_provider) {
+    return nullptr;
+  }
+
+  return posture_provider->platform_provider();
 }
 
 gfx::Size RenderWidgetHostViewBase::GetVisibleViewportSize() {

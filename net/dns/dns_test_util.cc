@@ -176,13 +176,13 @@ std::pair<uint16_t, std::string> BuildTestHttpsServiceAlpnParam(
     param_value.append(alpn);
   }
 
-  return std::make_pair(dns_protocol::kHttpsServiceParamKeyAlpn,
-                        std::move(param_value));
+  return std::pair(dns_protocol::kHttpsServiceParamKeyAlpn,
+                   std::move(param_value));
 }
 
 std::pair<uint16_t, std::string> BuildTestHttpsServiceEchConfigParam(
     base::span<const uint8_t> ech_config_list) {
-  return std::make_pair(
+  return std::pair(
       dns_protocol::kHttpsServiceParamKeyEchConfig,
       std::string(reinterpret_cast<const char*>(ech_config_list.data()),
                   ech_config_list.size()));
@@ -199,16 +199,16 @@ std::pair<uint16_t, std::string> BuildTestHttpsServiceMandatoryParam(
     value.append(num_buffer, 2);
   }
 
-  return std::make_pair(dns_protocol::kHttpsServiceParamKeyMandatory,
-                        std::move(value));
+  return std::pair(dns_protocol::kHttpsServiceParamKeyMandatory,
+                   std::move(value));
 }
 
 std::pair<uint16_t, std::string> BuildTestHttpsServicePortParam(uint16_t port) {
   char buffer[2];
   base::WriteBigEndian(buffer, port);
 
-  return std::make_pair(dns_protocol::kHttpsServiceParamKeyPort,
-                        std::string(buffer, 2));
+  return std::pair(dns_protocol::kHttpsServiceParamKeyPort,
+                   std::string(buffer, 2));
 }
 
 DnsResourceRecord BuildTestHttpsServiceRecord(
@@ -803,6 +803,11 @@ DnsConfigOverrides MockDnsClient::GetConfigOverridesForTesting() const {
 void MockDnsClient::SetTransactionFactoryForTesting(
     std::unique_ptr<DnsTransactionFactory> factory) {
   NOTREACHED();
+}
+
+void MockDnsClient::SetAddressSorterForTesting(
+    std::unique_ptr<AddressSorter> address_sorter) {
+  address_sorter_ = std::move(address_sorter);
 }
 
 std::optional<std::vector<IPEndPoint>> MockDnsClient::GetPresetAddrs(

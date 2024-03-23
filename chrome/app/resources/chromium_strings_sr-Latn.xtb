@@ -17,7 +17,6 @@ Neke funkcije su možda nedostupne i promene podešavanja neće biti sačuvane.
 <translation id="1153368717515616349">Kliknite na Chromium meni</translation>
 <translation id="1185134272377778587">O Chromium-u</translation>
 <translation id="1203500561924088507">Hvala vam na instalaciji. Potrebno je da restartujete pregledač pre nego što počnete da koristite <ph name="BUNDLE_NAME" />.</translation>
-<translation id="1261119230216066228">Ušteda memorije je ubrzala Chromium</translation>
 <translation id="1262876892872089030">Dok je ova kartica bila neaktivna, memorija je oslobođena da bi Chromium bio brz. Možete da odaberete da uvek izuzmete ovaj sajt iz neaktivnosti.</translation>
 <translation id="1265577313130862557">Chromium je blokirao ovo preuzimanje jer je ovaj fajl opasan</translation>
 <translation id="1315551408014407711">Podesite nov Chromium profil</translation>
@@ -114,6 +113,7 @@ Dozvole koje ste već dali veb-sajtovima i aplikacijama mogu da važe za ovaj n
 <translation id="3032706164202344641">Chromium ne može da vam proverava lozinke. Probajte ponovo kasnije.</translation>
 <translation id="3032787606318309379">Dodavanje u Chromium...</translation>
 <translation id="3038232873781883849">Čeka se instaliranje...</translation>
+<translation id="3068187312562070417">Drugi Chromium profili</translation>
 <translation id="3068515742935458733">Pomozite nam da poboljšamo Chromium tako što ćete Google-u slati izveštaje o otkazivanju i <ph name="UMA_LINK" /></translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{Jedan ili više dodataka za Chromium su pristupali 1 USB uređaju}=1{Jedan ili više dodataka za Chromium pristupaju 1 USB uređaju}one{Jedan ili više dodataka za Chromium pristupaju # USB uređaju}few{Jedan ili više dodataka za Chromium pristupaju USB uređajima (#)}other{Jedan ili više dodataka za Chromium pristupaju USB uređajima (#)}}</translation>
 <translation id="3101560983689755071">Istorija pregledanja utiče na oglase koji vam se prikazuju i interesovanja procenjena u nastavku. Radi zaštite privatnosti Chromium automatski briše interesovanja svakog meseca čim postanu dostupna. Interesovanja mogu da se osvežavaju ako ih ne uklonite.</translation>
@@ -231,6 +231,7 @@ Dozvole koje ste već dali veb-sajtovima i aplikacijama mogu da važe za ovaj n
 <translation id="5294316920224716406">Kada pregledate u režimu bez arhiviranja, Chromium će vas upozoriti pre učitavanja sajta pomoću nebezbedne veze</translation>
 <translation id="5296845517486664001">Dok probni periodi traju i ako vas je Chromium nasumično postavio u aktivni probni period, istorija pregledanja utiče na oglase koje vidite i interesovanja procenjena u nastavku. Radi zaštite privatnosti Chromium briše interesovanja svakog meseca čim postanu dostupna.</translation>
 <translation id="5352264705793813212">Chromium je pronašao bezbednosne preporuke koje možete da pregledate</translation>
+<translation id="5352361688875342522">Drugi Chromium profili</translation>
 <translation id="5358375970380395591">Prijavljujete se pomoću naloga kojim se upravlja i dajete njegovom administratoru kontrolu nad Chromium profilom. Chromium podaci, kao što su aplikacije, obeleživači, istorija, lozinke i druga podešavanja, biće trajno povezani sa nalogom <ph name="USER_NAME" />. Moći ćete da izbrišete te podatke preko Kontrolne table Google naloga, ali nećete moći da ih povežete sa nekim drugim nalogom. <ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">Dodatni kôd: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5383439451358640070">Saznajte zašto Chromium blokira neke fajlove</translation>
@@ -326,12 +327,12 @@ Dozvole koje ste već dali veb-sajtovima i aplikacijama mogu da važe za ovaj n
 <translation id="6669284030132180248">Ako sačuvate obeleživače i na Google nalogu, možete da pratite cene proizvoda u Chromium-u i da dobijate obaveštenja kada padne cena</translation>
 <translation id="6676384891291319759">Pristupite Internetu</translation>
 <translation id="668175097507315160">Chromium OS ne može da sinhronizuje podatke zbog greške pri prijavljivanju.</translation>
+<translation id="6692797197837897398">Chromium vam pruža veću kontrolu nad oglasima koje vidite i ograničava informacije koje sajtovi mogu da saznaju o vama kada prikazuju personalizovane oglase</translation>
 <translation id="6709350901466051922">Chromium-u treba dozvola za mikrofon za ovaj sajt</translation>
 <translation id="6712881677154121168">Greška pri preuzimanju: <ph name="DOWNLOAD_ERROR" />.</translation>
 <translation id="6717134281241384636">Profil ne može da se koristi jer je iz novije verzije Chromium-a.
 
 Neke funkcije će možda biti nedostupne. Navedite drugi direktorijum profila ili koristite noviju verziju Chromium-a.</translation>
-<translation id="6730677189742196061">Ušteda memorije je ubrzala Chromium</translation>
 <translation id="6734291798041940871">Chromium je već instaliran za sve korisnike na računaru.</translation>
 <translation id="673636774878526923">Da biste pristupali Chromium sadržaju na svim uređajima, prijavite se, pa uključite sinhronizaciju.</translation>
 <translation id="67706546131546258">Chromium preporučuje skeniranje ovog fajla jer može da bude opasan.</translation>
@@ -386,7 +387,6 @@ Chromium ne može da vrati podešavanja.</translation>
 <translation id="7617377681829253106">Upravo smo poboljšali Chromium</translation>
 <translation id="7649070708921625228">Pomoć</translation>
 <translation id="7682213815243802460">Više o ovim funkcijama možete da saznate u podešavanjima Chromium-a.</translation>
-<translation id="7682601070171973634">Chromium istražuje nove funkcije koje omogućavaju sajtovima da pružaju isti doživljaj pregledanja, a da koriste manje podataka</translation>
 <translation id="7686590090926151193">Chromium nije podrazumevani pregledač</translation>
 <translation id="7689606757190482937">Sinhronizujte i personalizujte Chromium na svim uređajima</translation>
 <translation id="7699779824407626136">Ažuriranje za Chromium</translation>
@@ -394,6 +394,7 @@ Chromium ne može da vrati podešavanja.</translation>
 <translation id="7747138024166251722">Program za instalaciju nije mogao da napravi privremeni direktorijum. Proverite da li imate slobodnog prostora na disku, kao i dozvolu da instalirate softver.</translation>
 <translation id="7786760609782648049">Ubrzajte Chromium</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> – Chromium Canary</translation>
+<translation id="7803986347287457849">Otežajte onima koji imaju pristup vašem internet saobraćaju da vide koje sajtove posećujete. Chromium koristi bezbednu vezu da bi tražio IP adresu sajta u DNS-u (sistemu imena domena).</translation>
 <translation id="7828947555739565424">Chromium profil sa ovim nalogom već postoji na ovom uređaju</translation>
 <translation id="7845233973568007926">Hvala vam na instalaciji. Morate da restartujete računar pre nego što počnete da koristite <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7859018312476869945">Kada kucate u traci za adresu ili u okviru za pretragu, Chromium šalje tekst koji unosite podrazumevanom pretraživaču da biste dobijali bolje predloge. Ovo je isključeno u režimu bez arhiviranja.</translation>

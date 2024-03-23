@@ -50,9 +50,6 @@
       <structure name="IDR_READER_OUT_OF_DATE_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
     </structures>
     <includes>
-      <if expr="is_win or is_macosx or is_linux">
-        <include name="IDR_COMMANDER_HTML" file="resources\commander\commander.html" type="BINDATA" />
-      </if>
       <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" />
       <if expr="is_win">

@@ -126,20 +126,17 @@ struct IsolatedWebAppInstallerViewController::InstallabilityCheckedVisitor {
   }
 
   void operator()(const InstallabilityChecker::BundleUpdatable& updatable) {
-    // TODO(crbug.com/1479140): Handle updates
-    controller_->Close();
+    model_->SetDialog(
+        IsolatedWebAppInstallerModel::BundleAlreadyInstalledDialog{
+            updatable.metadata.app_name(), updatable.installed_version});
   }
 
   void operator()(const InstallabilityChecker::BundleOutdated& outdated) {
-    if (outdated.metadata.version() == outdated.installed_version) {
-      model_->SetDialog(
-          IsolatedWebAppInstallerModel::BundleAlreadyInstalledDialog{
-              outdated.metadata.app_name(), outdated.installed_version});
-    } else {
-      model_->SetDialog(IsolatedWebAppInstallerModel::BundleOutdatedDialog{
-          outdated.metadata.app_name(), outdated.metadata.version(),
-          outdated.installed_version});
-    }
+    // TODO(crbug.com/1479140): Once we have an update flow we should add
+    // more specific error messages for newer vs same version already installed.
+    model_->SetDialog(
+        IsolatedWebAppInstallerModel::BundleAlreadyInstalledDialog{
+            outdated.metadata.app_name(), outdated.installed_version});
   }
 
   void operator()(const InstallabilityChecker::ProfileShutdown&) {
@@ -258,6 +255,15 @@ void IsolatedWebAppInstallerViewController::SetViewForTesting(
   view_ = view;
 }
 
+views::Widget* IsolatedWebAppInstallerViewController::GetWidgetForTesting() {
+  return widget_;
+}
+
+views::Widget*
+IsolatedWebAppInstallerViewController::GetChildWidgetForTesting() {
+  return child_widget_;
+}
+
 void IsolatedWebAppInstallerViewController::Show() {
   CHECK(is_initialized_) << "Show() is being called before initialized.";
   CHECK(!view_) << "Show() should not be called twice";
@@ -272,16 +278,16 @@ void IsolatedWebAppInstallerViewController::Show() {
   OnStepChanged();
   OnChildDialogChanged();
 
-  views::Widget* widget =
+  widget_ =
       views::DialogDelegate::CreateDialogWidget(std::move(dialog_delegate),
                                                 /*context=*/nullptr,
                                                 /*parent=*/nullptr);
 
   CHECK(!window_);
-  window_ = widget->GetNativeWindow();
+  window_ = widget_->GetNativeWindow();
   AddOrUpdateWindowToShelf();
 
-  widget->Show();
+  widget_->Show();
 }
 
 void IsolatedWebAppInstallerViewController::FocusWindow() {
@@ -349,6 +355,7 @@ void IsolatedWebAppInstallerViewController::OnComplete() {
 
   view_ = nullptr;
   dialog_delegate_ = nullptr;
+  widget_ = nullptr;
   std::move(completion_callback_).Run();
 }
 
@@ -482,12 +489,19 @@ void IsolatedWebAppInstallerViewController::OnChildDialogAccepted() {
   }
 }
 
+void IsolatedWebAppInstallerViewController::OnChildDialogDestroying() {
+  child_widget_ = nullptr;
+}
+
 void IsolatedWebAppInstallerViewController::OnStepChanged() {
   if (!view_) {
     return;
   }
 
   switch (model_->step()) {
+    case IsolatedWebAppInstallerModel::Step::kNone:
+      NOTREACHED();
+      break;
     case IsolatedWebAppInstallerModel::Step::kDisabled:
       IsolatedWebAppInstallerView::SetDialogButtons(
           dialog_delegate_, IDS_APP_CLOSE,
@@ -526,7 +540,7 @@ void IsolatedWebAppInstallerViewController::OnStepChanged() {
 
 void IsolatedWebAppInstallerViewController::OnChildDialogChanged() {
   if (model_->has_dialog()) {
-    view_->ShowDialog(model_->dialog());
+    child_widget_ = view_->ShowDialog(model_->dialog());
   }
 }
 

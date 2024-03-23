@@ -37,7 +37,6 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/layout_types.h"
-#include "ui/views/layout/table_layout.h"
 #include "ui/views/style/typography.h"
 
 namespace arc::input_overlay {
@@ -71,7 +70,6 @@ class ButtonOptionsActionEdit : public ActionEditView {
     name_tag_->SetTitle(l10n_util::GetStringUTF16(
         action_->is_new() ? IDS_INPUT_OVERLAY_BUTTON_OPTIONS_ASSIGN_NEW_KEY
                           : IDS_INPUT_OVERLAY_BUTTON_OPTIONS_ASSIGNED_KEY));
-    labels_view_->set_should_update_title(false);
   }
   ButtonOptionsActionEdit(const ButtonOptionsActionEdit&) = delete;
   ButtonOptionsActionEdit& operator=(const ButtonOptionsActionEdit&) = delete;
@@ -198,34 +196,24 @@ void ButtonOptionsMenu::AddHeader() {
   // ||"Button options"|          |icon||
   // ------------------------------------
   auto* container = AddChildView(std::make_unique<views::View>());
-  container->SetLayoutManager(std::make_unique<views::TableLayout>())
-      ->AddColumn(views::LayoutAlignment::kStart,
-                  views::LayoutAlignment::kCenter,
-                  /*horizontal_resize=*/1.0f,
-                  views::TableLayout::ColumnSize::kUsePreferred,
-                  /*fixed_width=*/0, /*min_width=*/0)
-      .AddColumn(views::LayoutAlignment::kEnd, views::LayoutAlignment::kCenter,
-                 /*horizontal_resize=*/1.0f,
-                 views::TableLayout::ColumnSize::kUsePreferred,
-                 /*fixed_width=*/0, /*min_width=*/0)
-      .AddRows(1, views::TableLayout::kFixedSize, 0);
+  auto* layout = container->SetLayoutManager(std::make_unique<views::BoxLayout>(
+      views::BoxLayout::Orientation::kHorizontal));
   container->SetProperty(views::kMarginsKey,
                          gfx::Insets::TLBR(0, kHeaderLeftMarginSpacing, 12, 0));
 
   action_name_label_ = container->AddChildView(ash::bubble_utils::CreateLabel(
       // TODO(b/274690042): Replace placeholder text with localized strings.
       ash::TypographyToken::kCrosTitle1, u"", cros_tokens::kCrosSysOnSurface));
+  action_name_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  action_name_label_->SetMultiLine(true);
+  // Flex `action_name_label_` to fill empty space.
+  layout->SetFlexForView(action_name_label_, /*flex=*/1);
 
   trash_button_ = container->AddChildView(std::make_unique<ash::IconButton>(
       base::BindRepeating(&ButtonOptionsMenu::OnTrashButtonPressed,
                           base::Unretained(this)),
       ash::IconButton::Type::kMedium, &kGameControlsDeleteIcon,
       IDS_INPUT_OVERLAY_BUTTON_OPTIONS_DELETE_TOOLTIP_TEXT));
-
-  action_name_label_->SetMultiLine(true);
-  action_name_label_->SetMaximumWidth(
-      kButtonOptionsMenuWidth - 2 * kArrowContainerHorizontalBorderInset -
-      kHeaderLeftMarginSpacing - trash_button_->GetPreferredSize().width());
 }
 
 void ButtonOptionsMenu::AddEditTitle() {
@@ -253,7 +241,7 @@ void ButtonOptionsMenu::AddActionSelection() {
   auto* container = AddChildView(std::make_unique<views::View>());
   container->SetBackground(views::CreateThemedRoundedRectBackground(
       cros_tokens::kCrosSysSystemOnBase, /*top_radius=*/16.0f,
-      /*bottom_radius=*/0.0f, /*for_border_thickness=*/0.0f));
+      /*bottom_radius=*/0.0f));
   container->SetUseDefaultFillLayout(true);
   container->SetProperty(views::kMarginsKey, gfx::Insets::TLBR(0, 0, 2, 0));
   container->SetLayoutManager(std::make_unique<views::BoxLayout>(
@@ -281,7 +269,7 @@ void ButtonOptionsMenu::AddActionEdit() {
   // ------------------------------
   action_edit_ = AddChildView(
       std::make_unique<ButtonOptionsActionEdit>(controller_, action_));
-  action_name_label_->SetText(action_edit_->GetActionName());
+  action_name_label_->SetText(action_edit_->CalculateActionName());
 }
 
 void ButtonOptionsMenu::AddDoneButton() {
@@ -319,19 +307,15 @@ void ButtonOptionsMenu::OnActionTypeChanged(Action* action,
   RemoveChildViewT(action_edit_);
   action_edit_ = AddChildViewAt(
       std::make_unique<ButtonOptionsActionEdit>(controller_, action_), *index);
-  action_name_label_->SetText(action_edit_->GetActionName());
+  action_name_label_->SetText(action_edit_->CalculateActionName());
   UpdateWidget();
 }
 
 void ButtonOptionsMenu::OnActionInputBindingUpdated(const Action& action) {
   if (action_ == &action) {
     action_edit_->OnActionInputBindingUpdated();
-    action_name_label_->SetText(action_edit_->GetActionName());
+    action_name_label_->SetText(action_edit_->CalculateActionName());
   }
-}
-
-void ButtonOptionsMenu::OnActionNameUpdated(const Action& action) {
-  NOTIMPLEMENTED();
 }
 
 void ButtonOptionsMenu::OnActionNewStateRemoved(const Action& action) {
@@ -340,7 +324,7 @@ void ButtonOptionsMenu::OnActionNewStateRemoved(const Action& action) {
   }
 }
 
-BEGIN_METADATA(ButtonOptionsMenu, views::View)
+BEGIN_METADATA(ButtonOptionsMenu)
 END_METADATA
 
 }  // namespace arc::input_overlay

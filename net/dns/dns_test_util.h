@@ -385,7 +385,8 @@ class MockDnsTransactionFactory : public DnsTransactionFactory {
   DelayedTransactionList delayed_transactions_;
 
   bool force_doh_server_available_ = true;
-  std::set<MockDohProbeRunner*> running_doh_probe_runners_;
+  std::set<raw_ptr<MockDohProbeRunner, SetExperimental>>
+      running_doh_probe_runners_;
 
   base::WeakPtrFactory<MockDnsTransactionFactory> weak_ptr_factory_{this};
 };
@@ -419,6 +420,8 @@ class MockDnsClient : public DnsClient {
   DnsConfigOverrides GetConfigOverridesForTesting() const override;
   void SetTransactionFactoryForTesting(
       std::unique_ptr<DnsTransactionFactory> factory) override;
+  void SetAddressSorterForTesting(
+      std::unique_ptr<AddressSorter> address_sorter) override;
   std::optional<std::vector<IPEndPoint>> GetPresetAddrs(
       const url::SchemeHostPort& endpoint) const override;
 

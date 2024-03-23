@@ -15,6 +15,7 @@
 #include "components/sync/protocol/autofill_wallet_credential_specifics.pb.h"
 #include "components/sync/protocol/autofill_wallet_usage_specifics.pb.h"
 #include "components/sync/protocol/bookmark_specifics.pb.h"
+#include "components/sync/protocol/collaboration_group_specifics.pb.h"
 #include "components/sync/protocol/contact_info_specifics.pb.h"
 #include "components/sync/protocol/data_type_progress_marker.pb.h"
 #include "components/sync/protocol/dictionary_specifics.pb.h"
@@ -40,12 +41,14 @@
 #include "components/sync/protocol/printers_authorization_server_specifics.pb.h"
 #include "components/sync/protocol/priority_preference_specifics.pb.h"
 #include "components/sync/protocol/proto_enum_conversions.h"
+#include "components/sync/protocol/proto_value_conversions.h"
 #include "components/sync/protocol/reading_list_specifics.pb.h"
 #include "components/sync/protocol/saved_tab_group_specifics.pb.h"
 #include "components/sync/protocol/search_engine_specifics.pb.h"
 #include "components/sync/protocol/segmentation_specifics.pb.h"
 #include "components/sync/protocol/send_tab_to_self_specifics.pb.h"
 #include "components/sync/protocol/session_specifics.pb.h"
+#include "components/sync/protocol/shared_tab_group_data_specifics.pb.h"
 #include "components/sync/protocol/sharing_message_specifics.pb.h"
 #include "components/sync/protocol/sync.pb.h"
 #include "components/sync/protocol/sync_entity.pb.h"
@@ -246,6 +249,7 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT(address_home_apt);
   VISIT(address_home_apt_num);
   VISIT(address_home_apt_type);
+  VISIT(address_home_street_location_and_locality);
 
   VISIT_ENUM(address_home_city_status);
   VISIT_ENUM(address_home_state_status);
@@ -268,14 +272,11 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT_ENUM(address_home_apt_status);
   VISIT_ENUM(address_home_apt_num_status);
   VISIT_ENUM(address_home_apt_type_status);
+  VISIT_ENUM(address_home_street_location_and_locality_status);
 
   VISIT(address_home_language_code);
   VISIT_REP(phone_home_whole_number);
   VISIT(validity_state_bitfield);
-
-  VISIT(birthdate_day);
-  VISIT(birthdate_month);
-  VISIT(birthdate_year);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AutofillSpecifics& proto) {
@@ -333,6 +334,11 @@ VISIT_PROTO_FIELDS(const sync_pb::ChromiumExtensionsActivity& proto) {
   VISIT(bookmark_writes_since_last_commit);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::CollaborationGroupSpecifics& proto) {
+  VISIT(collaboration_id);
+  VISIT(last_updated_timestamp_millis_since_unix_epoch);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(guid);
   VISIT(use_count);
@@ -375,9 +381,7 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(address_between_streets_2);
   VISIT(address_between_streets_or_landmark);
   VISIT(address_overflow_and_landmark);
-  VISIT(birthdate_day);
-  VISIT(birthdate_month);
-  VISIT(birthdate_year);
+  VISIT(address_street_location_and_locality);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics::Observation& proto) {
@@ -392,11 +396,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics::TokenMetadata& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics::StringToken& proto) {
-  VISIT(value);
-  VISIT(metadata);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics::IntegerToken& proto) {
   VISIT(value);
   VISIT(metadata);
 }
@@ -592,7 +591,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntityMetadata& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(47 == GetNumModelTypes(),
+  static_assert(49 == GetNumModelTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -607,6 +606,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(autofill_wallet_credential);
   VISIT(autofill_wallet_usage);
   VISIT(bookmark);
+  VISIT(collaboration_group);
   VISIT(contact_info);
   VISIT(device_info);
   VISIT(dictionary);
@@ -633,12 +633,14 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(segmentation);
   VISIT(send_tab_to_self);
   VISIT(session);
+  VISIT(shared_tab_group_data);
   VISIT(sharing_message);
   VISIT(theme);
   VISIT(typed_url);
   VISIT(user_consent);
   VISIT(user_event);
   VISIT(wallet_metadata);
+  VISIT(web_apk);
   VISIT(web_app);
   VISIT(webauthn_credential);
   VISIT(wifi_configuration);
@@ -1235,6 +1237,27 @@ VISIT_PROTO_FIELDS(const sync_pb::SessionWindow& proto) {
   VISIT_ENUM(browser_type);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::SharedTabGroup& proto) {
+  VISIT(title);
+  VISIT_ENUM(color);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharedTab& proto) {
+  VISIT(url);
+  VISIT(title);
+  VISIT(favicon_url);
+  VISIT(shared_tab_group_guid);
+  VISIT(unique_position);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharedTabGroupDataSpecifics& proto) {
+  VISIT(guid);
+  VISIT(collaboration_id);
+  VISIT(last_modification_author);
+  VISIT(tab_group);
+  VISIT(tab);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::SharingMessageSpecifics& proto) {
   VISIT(message_id);
   VISIT(channel_configuration);
@@ -1627,7 +1650,7 @@ VISIT_PROTO_FIELDS(const sync_pb::WebAppIconInfo& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::WebAppSpecifics& proto) {
   VISIT(start_url);
   VISIT(name);
-  VISIT_ENUM(user_display_mode_non_cros);
+  VISIT_ENUM(user_display_mode_default);
   VISIT(theme_color);
   VISIT(scope);
   VISIT_REP(icon_infos);

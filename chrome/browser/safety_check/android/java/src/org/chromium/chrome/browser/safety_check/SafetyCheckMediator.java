@@ -89,6 +89,9 @@ class SafetyCheckMediator {
     /** Client to interact with Omaha for the updates check. */
     private SafetyCheckUpdatesDelegate mUpdatesClient;
 
+    /** Provides access to C++ APIs. */
+    private SafetyCheckBridge mBridge;
+
     /** An instance of SettingsLauncher to start other activities. */
     private SettingsLauncher mSettingsLauncher;
 
@@ -189,6 +192,7 @@ class SafetyCheckMediator {
             PropertyModel passwordsCheckAccountModel,
             PropertyModel passwordsCheckLocalModel,
             SafetyCheckUpdatesDelegate client,
+            SafetyCheckBridge bridge,
             SettingsLauncher settingsLauncher,
             SyncConsentActivityLauncher signinLauncher,
             SyncService syncService,
@@ -199,6 +203,7 @@ class SafetyCheckMediator {
                 passwordsCheckAccountModel,
                 passwordsCheckLocalModel,
                 client,
+                bridge,
                 settingsLauncher,
                 signinLauncher,
                 syncService,
@@ -215,6 +220,7 @@ class SafetyCheckMediator {
             PropertyModel passwordsCheckAccountModel,
             PropertyModel passwordsCheckLocalModel,
             SafetyCheckUpdatesDelegate client,
+            SafetyCheckBridge bridge,
             SettingsLauncher settingsLauncher,
             SyncConsentActivityLauncher signinLauncher,
             SyncService syncService,
@@ -228,6 +234,7 @@ class SafetyCheckMediator {
                 passwordsCheckAccountModel,
                 passwordsCheckLocalModel,
                 client,
+                bridge,
                 settingsLauncher,
                 signinLauncher,
                 syncService,
@@ -243,6 +250,7 @@ class SafetyCheckMediator {
             PropertyModel passwordsCheckAccountModel,
             PropertyModel passwordsCheckLocalModel,
             SafetyCheckUpdatesDelegate client,
+            SafetyCheckBridge bridge,
             SettingsLauncher settingsLauncher,
             SyncConsentActivityLauncher signinLauncher,
             @Nullable SyncService syncService,
@@ -254,6 +262,7 @@ class SafetyCheckMediator {
         mPasswordsCheckAccountStorageModel = passwordsCheckAccountModel;
         mPasswordsCheckLocalStorageModel = passwordsCheckLocalModel;
         mUpdatesClient = client;
+        mBridge = bridge;
         mSettingsLauncher = settingsLauncher;
         mSigninLauncher = signinLauncher;
         mSyncService = syncService;
@@ -356,22 +365,6 @@ class SafetyCheckMediator {
         setPasswordsState(mPasswordsCheckAccountStorageModel, PasswordsState.CHECKING);
         setPasswordsState(mPasswordsCheckLocalStorageModel, PasswordsState.CHECKING);
 
-        // If the user is not signed in, immediately set the state and do not block on disk loads.
-        // TODO(b/321686503): When using UPM, the check may be available if the user is signed out
-        // of Chrome profile, but signed into Google account. This should be handled differently
-        // when using GMS core local storage.
-        if (!SafetyCheckBridge.userSignedIn()) {
-            setPasswordsState(mPasswordsCheckAccountStorageModel, PasswordsState.SIGNED_OUT);
-            setPasswordsState(mPasswordsCheckLocalStorageModel, PasswordsState.SIGNED_OUT);
-            // Record the value in UMA.
-            RecordHistogram.recordEnumeratedHistogram(
-                    "Settings.SafetyCheck.PasswordsResult2",
-                    PasswordsStatus.SIGNED_OUT,
-                    PasswordsStatus.MAX_VALUE + 1);
-            updatePasswordElementClickDestination(PasswordStorageType.ACCOUNT_STORAGE);
-            updatePasswordElementClickDestination(PasswordStorageType.LOCAL_STORAGE);
-            return;
-        }
         fetchPasswordsAndBreachedCredentials(PasswordStorageType.ACCOUNT_STORAGE);
         fetchPasswordsAndBreachedCredentials(PasswordStorageType.LOCAL_STORAGE);
     }
@@ -461,7 +454,7 @@ class SafetyCheckMediator {
         setRunnableSafeBrowsing(
                 () -> {
                     if (mSafetyCheckModel != null) {
-                        @SafeBrowsingStatus int status = SafetyCheckBridge.checkSafeBrowsing();
+                        @SafeBrowsingStatus int status = mBridge.checkSafeBrowsing();
                         RecordHistogram.recordEnumeratedHistogram(
                                 "Settings.SafetyCheck.SafeBrowsingResult",
                                 status,
@@ -526,10 +519,19 @@ class SafetyCheckMediator {
                 && passwordCheckResult.getBreachedCount().getAsInt() > 0) {
             return PasswordsState.COMPROMISED_EXIST;
         }
+        @PasswordsState
+        int passwordsState = passwordsStateFromPasswordCheckResult(passwordCheckResult);
+        if (passwordsState == PasswordsState.SIGNED_OUT) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    "Settings.SafetyCheck.PasswordsResult2",
+                    PasswordsStatus.SIGNED_OUT,
+                    PasswordsStatus.MAX_VALUE + 1);
+            return passwordsState;
+        }
         if (!mShowSafePasswordState) {
             return PasswordsState.UNCHECKED;
         }
-        return passwordsStateFromPasswordCheckResult(passwordCheckResult);
+        return passwordsState;
     }
 
     /**

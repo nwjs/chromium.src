@@ -57,7 +57,8 @@ enum class SearchEngineChoiceScreenConditions {
   kBrowserWindowTooSmall = 11,
   // The user has a distribution custom search engine set as default.
   kHasDistributionCustomSearchEngine = 12,
-  // The user has an unknown prepopulated search engine set as default.
+  // The user has an unknown (which we assume is because it has been removed)
+  // prepopulated search engine set as default.
   kHasRemovedPrepopulatedSearchEngine = 13,
 
   kMaxValue = kHasRemovedPrepopulatedSearchEngine,
@@ -108,8 +109,9 @@ enum class WipeSearchEngineChoiceReason {
   kMissingChoiceVersion = 1,
   kInvalidChoiceVersion = 2,
   kReprompt = 3,
+  kCommandLineFlag = 4,
 
-  kMaxValue = kReprompt,
+  kMaxValue = kCommandLineFlag,
 };
 
 // Exposed for testing.

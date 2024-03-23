@@ -1322,6 +1322,11 @@ class CONTENT_EXPORT NavigationRequest
   // this navigation.
   bool HasLoader() const;
 
+  // Notifies that an IPC will be sent to the old Document's renderer to
+  // dispatch the `pageconceal` event. Returns the parameters which should be
+  // used for the event if this is a same-origin navigation.
+  blink::mojom::PageConcealEventParamsPtr WillDispatchPageConceal();
+
  private:
   friend class NavigationRequestTest;
 
@@ -1428,7 +1433,7 @@ class CONTENT_EXPORT NavigationRequest
       GlobalRequestID request_id,
       bool is_download,
       net::NetworkAnonymizationKey network_anonymization_key,
-      std::optional<SubresourceLoaderParams> subresource_loader_params,
+      SubresourceLoaderParams subresource_loader_params,
       EarlyHints early_hints) override;
   void OnRequestFailed(
       const network::URLLoaderCompletionStatus& status) override;
@@ -1446,7 +1451,7 @@ class CONTENT_EXPORT NavigationRequest
   void SelectFrameHostForOnResponseStarted(
       network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
       bool is_download,
-      std::optional<SubresourceLoaderParams> subresource_loader_params);
+      SubresourceLoaderParams subresource_loader_params);
   void SelectFrameHostForOnRequestFailedInternal(
       bool exists_in_cache,
       bool skip_throttles,
@@ -2197,7 +2202,7 @@ class CONTENT_EXPORT NavigationRequest
   // Used in the network service world to pass the subressource loader params
   // to the renderer. Used by ServiceWorker and
   // SignedExchangeSubresourcePrefetch.
-  std::optional<SubresourceLoaderParams> subresource_loader_params_;
+  SubresourceLoaderParams subresource_loader_params_;
 
   // DocumentToken to use for the newly-committed document in a cross-document
   // navigation. Currently set immediately before sending CommitNavigation to
@@ -2842,6 +2847,13 @@ class CONTENT_EXPORT NavigationRequest
   // before ready to commit time, which is when the regular origin to commit
   // value is available.
   std::optional<url::Origin> tentative_data_origin_to_commit_;
+
+  // `pageconceal` can be fired at different stages of the navigation lifecycle:
+  // - ready to commit if this navigation is associated with a ViewTransition.
+  // - unload old document if there is no ViewTransition opt-in.
+  // This tracks whether the pageconceal event has been fired for this
+  // navigation.
+  bool did_fire_page_conceal_ = false;
 
   base::WeakPtrFactory<NavigationRequest> weak_factory_{this};
 };

@@ -10,6 +10,7 @@
 #include "ash/constants/ash_switches.h"
 #include "base/check.h"
 #include "base/feature_list.h"
+#include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "build/branding_buildflags.h"
@@ -17,6 +18,7 @@
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/ash/privacy_hub/privacy_hub_util.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chrome/browser/ash/system/timezone_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/ash/auth/legacy_fingerprint_engine.h"
 #include "chrome/browser/ui/webui/ash/settings/os_settings_features_util.h"
@@ -474,12 +476,28 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_PRIVACY_HUB_CAMERA_TOGGLE_SUBTEXT},
       {"cameraToggleFallbackSubtext",
        IDS_OS_SETTINGS_PRIVACY_HUB_FALLBACK_CAMERA_TOGGLE_SUBTEXT},
+      {"privacyHubPageCameraRowSubtext",
+       IDS_OS_SETTINGS_PRIVACY_HUB_PAGE_CAMERA_ROW_SUBTEXT},
+      {"privacyHubPageCameraRowFallbackSubtext",
+       IDS_OS_SETTINGS_PRIVACY_HUB_PAGE_CAMERA_ROW_FALLBACK_SUBTEXT},
+      {"privacyHubCameraSubpageCameraToggleSubtext",
+       IDS_OS_SETTINGS_PRIVACY_HUB_CAMERA_SUBPAGE_CAMERA_TOGGLE_SUBTEXT},
+      {"privacyHubCameraSubpageCameraToggleFallbackSubtext",
+       IDS_OS_SETTINGS_PRIVACY_HUB_CAMERA_SUBPAGE_CAMERA_TOGGLE_FALLBACK_SUBTEXT},
+      {"privacyHubCameraAccessBlockedText",
+       IDS_OS_SETTINGS_PRIVACY_HUB_CAMERA_ACCESS_BLOCKED_TEXT},
       {"noCameraConnectedText",
        IDS_OS_SETTINGS_PRIVACY_HUB_NO_CAMERA_CONNECTED_TEXT},
       {"microphoneToggleTitle",
        IDS_OS_SETTINGS_PRIVACY_HUB_MICROPHONE_TOGGLE_TITLE},
       {"microphoneToggleSubtext",
        IDS_OS_SETTINGS_PRIVACY_HUB_MICROPHONE_TOGGLE_SUBTEXT},
+      {"privacyHubPageMicrophoneRowSubtext",
+       IDS_OS_SETTINGS_PRIVACY_HUB_PAGE_MICROPHONE_ROW_SUBTEXT},
+      {"privacyHubMicrophoneSubpageMicrophoneToggleSubtext",
+       IDS_OS_SETTINGS_PRIVACY_HUB_MICROPHONE_SUBPAGE_MICROPHONE_TOGGLE_SUBTEXT},
+      {"privacyHubMicrophoneAccessBlockedText",
+       IDS_OS_SETTINGS_PRIVACY_HUB_MICROPHONE_ACCESS_BLOCKED_TEXT},
       {"noMicrophoneConnectedText",
        IDS_OS_SETTINGS_PRIVACY_HUB_NO_MICROPHONE_CONNECTED_TEXT},
       {"speakOnMuteDetectionToggleTitle",
@@ -534,10 +552,6 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_PRIVACY_HUB_NO_APP_CAN_USE_CAMERA_TEXT},
       {"noAppCanUseGeolocationText",
        IDS_OS_SETTINGS_PRIVACY_HUB_NO_APP_CAN_USE_LOCATION_TEXT},
-      {"privacyHubCameraAccessBlockedText",
-       IDS_OS_SETTINGS_PRIVACY_HUB_CAMERA_ACCESS_BLOCKED_TEXT},
-      {"privacyHubMicrophoneAccessBlockedText",
-       IDS_OS_SETTINGS_PRIVACY_HUB_MICROPHONE_ACCESS_BLOCKED_TEXT},
       {"privacyHubSystemServicesSectionTitle",
        IDS_OS_SETTINGS_PRIVACY_HUB_SYSTEM_SERVICES_SECTION_TITLE},
       {"privacyHubSystemServicesAllowedText",
@@ -556,6 +570,10 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_PRIVACY_HUB_APP_PERMISSION_ROW_ARIA_DESCRIPTION},
       {"privacyHubAppPermissionRowAndroidSettingsLinkAriaDescription",
        IDS_OS_SETTINGS_PRIVACY_HUB_APP_PERMISSION_ROW_ANDROID_SETTINGS_LINK_ARIA_DESCRIPTION},
+      {"privacyHubSystemServicesAutomaticTimeZoneBlockedText",
+       IDS_OS_SETTINGS_PRIVACY_HUB_SYSTEM_SERVICES_AUTOMATIC_TIME_ZONE_BLOCKED_TEXT},
+      {"privacyHubSystemServicesSunsetScheduleBlockedText",
+       IDS_OS_SETTINGS_PRIVACY_HUB_SYSTEM_SERVICES_SUNSET_SCHEDULE_BLOCKED_TEXT},
       {"privacyHubSystemServicesAutomaticTimeZoneName",
        IDS_OS_SETTINGS_PRIVACY_HUB_SYSTEM_SERVICES_AUTOMATIC_TIME_ZONE_NAME},
       {"privacyHubSystemServicesSunsetScheduleName",
@@ -564,12 +582,6 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_PRIVACY_HUB_SYSTEM_SERVICES_LOCAL_WEATHER_NAME},
       {"privacyHubSystemServicesDarkThemeName",
        IDS_OS_SETTINGS_PRIVACY_HUB_SYSTEM_SERVICES_DARK_THEME_NAME},
-      {"privacyHubPageCameraRowSubtext",
-       IDS_OS_SETTINGS_PRIVACY_HUB_PAGE_CAMERA_ROW_SUBTEXT},
-      {"privacyHubPageCameraRowFallbackSubtext",
-       IDS_OS_SETTINGS_PRIVACY_HUB_PAGE_CAMERA_ROW_FALLBACK_SUBTEXT},
-      {"privacyHubPageMicrophoneRowSubtext",
-       IDS_OS_SETTINGS_PRIVACY_HUB_PAGE_MICROPHONE_ROW_SUBTEXT},
       {"privacyHubNoCameraConnectedTooltipText",
        IDS_OS_SETTINGS_PRIVACY_HUB_CAMERA_TOGGLE_NO_CAMERA_CONNECTED_TOOLTIP_TEXT},
       {"privacyHubNoMicrophoneConnectedTooltipText",
@@ -577,6 +589,13 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   };
 
   html_source->AddLocalizedStrings(kLocalizedStrings);
+
+  auto [sunrise_time, sunset_time] =
+      ash::privacy_hub_util::SunriseSunsetSchedule();
+  html_source->AddString("privacyHubSystemServicesInitSunRiseTime",
+                         base::TimeFormatTimeOfDay(sunrise_time));
+  html_source->AddString("privacyHubSystemServicesInitSunSetTime",
+                         base::TimeFormatTimeOfDay(sunset_time));
 
   html_source->AddBoolean("isSnoopingProtectionEnabled",
                           ash::features::IsSnoopingProtectionEnabled());
@@ -625,6 +644,9 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
 
   html_source->AddBoolean("showSecureDnsSetting", IsSecureDnsAvailable());
   html_source->AddBoolean("showSecureDnsOsSettingLink", false);
+  html_source->AddBoolean(
+      "isDeprecateDnsDialogEnabled",
+      ash::features::IsOsSettingsDeprecateDnsDialogEnabled());
 
   ::settings::AddSecureDnsStrings(html_source);
 

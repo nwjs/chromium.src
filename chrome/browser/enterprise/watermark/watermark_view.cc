@@ -10,17 +10,28 @@
 #include "third_party/skia/include/core/SkFontMgr.h"
 #include "third_party/skia/include/core/SkTypeface.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 
 namespace enterprise_watermark {
 
 WatermarkView::WatermarkView() : WatermarkView(std::string("")) {}
 
-WatermarkView::WatermarkView(std::string text) : text_(std::move(text)) {}
+WatermarkView::WatermarkView(std::string text) : text_(std::move(text)) {
+  SetCanProcessEventsWithinSubtree(false);
+  SetPaintToLayer();
+  layer()->SetFillsBoundsOpaquely(false);
+}
 
 WatermarkView::~WatermarkView() = default;
 
 void WatermarkView::OnPaint(gfx::Canvas* canvas) {
+  // Trying to render an empty string in Skia will fail. A string is required
+  // to create the command buffer for the renderer.
+  if (text_.empty()) {
+    return;
+  }
+
   // Get ptr to Skia canvas
   cc::PaintCanvas* sk_canvas = canvas->sk_canvas();
 
@@ -57,7 +68,7 @@ void WatermarkView::OnPaint(gfx::Canvas* canvas) {
   sk_canvas->drawTextBlob(blob, x, y, flags);
 }
 
-BEGIN_METADATA(WatermarkView, views::View)
+BEGIN_METADATA(WatermarkView)
 END_METADATA
 
 }  // namespace enterprise_watermark

@@ -73,6 +73,7 @@ enum MediaStreamRequestResult {
   KILL_SWITCH_ON,
   SYSTEM_PERMISSION_DENIED,
   DEVICE_IN_USE,
+  REQUEST_CANCELLED,
   NUM_MEDIA_REQUEST_RESULTS
 };
 
@@ -123,7 +124,7 @@ struct MediaStreamDevice {
 // See common/mediastream/media_stream_controls.h.
 struct TrackControls {
   MediaStreamType stream_type;
-  string device_id;
+  array<string> device_ids;
 };
 
 // See common/mediastream/media_stream_controls.h.
@@ -175,8 +176,10 @@ enum CapturedSurfaceControlResult {
   kSuccess,
   kUnknownError,
   kNoPermissionError,
+  kCapturerNotFoundError,
   kCapturedSurfaceNotFoundError,
   kDisallowedForSelfCaptureError,
+  kCapturerNotFocusedError,
 };
 
 // Per-frame renderer-side interface that receives device stopped/change
@@ -194,6 +197,9 @@ interface MediaStreamDeviceObserver {
   // Informs the renderer-side that the device's capture handle has changed.
   OnDeviceCaptureHandleChange(string label,
                               MediaStreamDevice device);
+  // Informs the renderer-side that captured surface's the zoom-level has
+  // changed.
+  OnZoomLevelChange(string label, MediaStreamDevice device, int32 zoom_level);
 };
 
 // Contains devices that are assigned to a specific stream. At least one of
@@ -309,15 +315,6 @@ interface MediaStreamDispatcherHost {
   SendWheel(mojo_base.mojom.UnguessableToken device_id,
             CapturedWheelAction action) =>
     (CapturedSurfaceControlResult result);
-
-  // Retrieves the zoom level from the captured tab.
-  //
-  // |device_id| identifies the captured tab.
-  // |zoom_level| will contain the zoom level if the request is successful.
-  // |result| reports if the call was successful or what type of error occurred.
-  [EnableIfNot=is_android_or_ios]
-  GetZoomLevel(mojo_base.mojom.UnguessableToken device_id)
-           => (int32? zoom_level, CapturedSurfaceControlResult result);
 
   // Sets the zoom level of the captured tab.
   //

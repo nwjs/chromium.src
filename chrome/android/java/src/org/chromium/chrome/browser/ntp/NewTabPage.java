@@ -35,6 +35,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.feed.FeedActionDelegateImpl;
@@ -42,7 +43,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.InvalidationAwareThumbnailProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
-import org.chromium.chrome.browser.download.DownloadManagerService;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.feature_guide.notifications.FeatureNotificationUtils;
 import org.chromium.chrome.browser.feature_guide.notifications.FeatureType;
@@ -61,9 +61,10 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.LifecycleObserver;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.logo.LogoUtils;
+import org.chromium.chrome.browser.magic_stack.HomeModulesConfigManager;
 import org.chromium.chrome.browser.magic_stack.HomeModulesCoordinator;
-import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegateHost;
+import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
@@ -71,10 +72,10 @@ import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteControllerPro
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.profiles.ProfileKey;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.search_resumption.SearchResumptionModuleCoordinator;
 import org.chromium.chrome.browser.search_resumption.SearchResumptionModuleUtils;
+import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.suggestions.SuggestionsMetrics;
 import org.chromium.chrome.browser.suggestions.SuggestionsNavigationDelegate;
@@ -100,7 +101,6 @@ import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.browser.util.BrowserUiUtils.HostSurface;
 import org.chromium.chrome.browser.xsurface.feed.FeedLaunchReliabilityLogger.SurfaceType;
-import org.chromium.chrome.features.magic_stack.ChromeHomeModulesConfigManager;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.chrome.features.tasks.SingleTabSwitcherCoordinator;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -193,6 +193,7 @@ public class NewTabPage
     private final boolean mIsSurfacePolishEnabled;
     private final boolean mIsSurfacePolishOmniboxColorEnabled;
     private final boolean mIsInNightMode;
+    @Nullable private final OneshotSupplier<ModuleRegistry> mModuleRegistrySupplier;
 
     @Nullable private SearchResumptionModuleCoordinator mSearchResumptionModuleCoordinator;
 
@@ -372,6 +373,7 @@ public class NewTabPage
      * @param homeSurfaceTracker Used to decide whether we are the home surface.
      * @param tabContentManagerSupplier Used to create tab thumbnails.
      * @param tabStripHeightSupplier Supplier for the tab strip height.
+     * @param moduleRegistrySupplier Supplier for the {@link ModuleRegistry}.
      */
     public NewTabPage(
             Activity activity,
@@ -393,7 +395,8 @@ public class NewTabPage
             Supplier<Toolbar> toolbarSupplier,
             HomeSurfaceTracker homeSurfaceTracker,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
-            ObservableSupplier<Integer> tabStripHeightSupplier) {
+            ObservableSupplier<Integer> tabStripHeightSupplier,
+            OneshotSupplier<ModuleRegistry> moduleRegistrySupplier) {
         mConstructedTimeNs = System.nanoTime();
         TraceEvent.begin(TAG);
 
@@ -411,6 +414,7 @@ public class NewTabPage
         mTabContentManagerSupplier = tabContentManagerSupplier;
         mIsInNightMode = isInNightMode;
         mTabStripHeightSupplier = tabStripHeightSupplier;
+        mModuleRegistrySupplier = moduleRegistrySupplier;
 
         Profile profile = mTab.getProfile();
 
@@ -474,10 +478,6 @@ public class NewTabPage
                             mJankTracker.finishTrackingScenario(JankScenario.NEW_TAB_PAGE);
                         }
                     }
-
-                    @Override
-                    public void onLoadUrl(Tab tab, LoadUrlParams params, int loadType) {
-                    }
                 };
         mTab.addObserver(mTabObserver);
 
@@ -538,9 +538,6 @@ public class NewTabPage
                         });
         mBrowserControlsStateProvider.addObserver(this);
 
-        DownloadManagerService.getDownloadManagerService()
-                .checkForExternallyRemovedDownloads(ProfileKey.getLastUsedRegularProfileKey());
-
         mToolbarHeight =
                 activity.getResources().getDimensionPixelSize(R.dimen.toolbar_height_no_shadow);
 
@@ -573,10 +570,7 @@ public class NewTabPage
                 mIsSurfacePolishEnabled,
                 mIsSurfacePolishOmniboxColorEnabled,
                 mIsTablet,
-                mTabStripHeightSupplier,
-                (GURL gurl) -> {
-                    mTab.loadUrl(new LoadUrlParams(gurl));
-                });
+                mTabStripHeightSupplier);
 
         initializeHomeModules();
 
@@ -613,7 +607,8 @@ public class NewTabPage
                         BookmarkModel.getForProfile(profile),
                         BrowserUiUtils.HostSurface.NEW_TAB_PAGE,
                         mTabModelSelector,
-                        profile) {
+                        profile,
+                        mBottomSheetController) {
                     @Override
                     public void openHelpPage() {
                         NewTabPageUma.recordAction(NewTabPageUma.ACTION_CLICKED_LEARN_MORE);
@@ -1289,12 +1284,16 @@ public class NewTabPage
                                                 R.id.home_modules_recycler_view_stub))
                                 .inflate();
         updateSingleTabCardContainerMargins(mHomeModulesContainer);
+        ObservableSupplier<Profile> profileSupplier =
+                new ObservableSupplierImpl<>(mTab.getProfile());
         mHomeModulesCoordinator =
                 new HomeModulesCoordinator(
                         mActivity,
                         this,
                         mNewTabPageLayout,
-                        ChromeHomeModulesConfigManager.getInstance());
+                        HomeModulesConfigManager.getInstance(),
+                        profileSupplier,
+                        mModuleRegistrySupplier.get());
     }
 
     private void onMagicStackShown(boolean isVisible) {
@@ -1302,22 +1301,20 @@ public class NewTabPage
     }
 
     private void onSingleTabCardClicked(int tabId) {
-        onTabClicked(tabId, /* isSingleTabCard= */ true);
+        onTabClicked(tabId);
     }
 
     /**
      * Opens the selected Tab and closes the current NTP. If the single Tab card which tracks the
      * last active Tab is selected, updates the mHomeSurfaceTracker too.
-     *
-     * @param isSingleTabCard Whether the newly selected Tab is the single Tab card that this NTP is
-     *     tracking.
      */
-    private void onTabClicked(int tabId, boolean isSingleTabCard) {
+    private void onTabClicked(int tabId) {
         TabModelUtils.selectTabById(
                 mTabModelSelector, tabId, TabSelectionType.FROM_USER, /* skipLoadingTab= */ false);
 
         mTabModelSelector.getModel(false).closeTab(mTab);
-        if (isSingleTabCard && mHomeSurfaceTracker != null) {
+        if (mHomeSurfaceTracker != null) {
+            // Updates the mHomeSurfaceTracker since the Tab of the NTP is closed.
             mHomeSurfaceTracker.updateHomeSurfaceAndTrackingTabs(null, null);
         }
     }
@@ -1400,8 +1397,8 @@ public class NewTabPage
     }
 
     @Override
-    public void onTabSelected(int tabId, @ModuleType int moduleType) {
-        onTabClicked(tabId, moduleType == ModuleType.SINGLE_TAB);
+    public void onTabSelected(int tabId) {
+        onTabClicked(tabId);
     }
 
     @Override
@@ -1411,7 +1408,7 @@ public class NewTabPage
 
     @Override
     public void customizeSettings() {
-        ChromeHomeModulesConfigManager.getInstance().onMenuClick(mContext);
+        HomeModulesConfigManager.getInstance().onMenuClick(mContext, new SettingsLauncherImpl());
     }
 
     @Override
@@ -1440,5 +1437,12 @@ public class NewTabPage
         }
 
         return mMostRecentTabSupplier.get();
+    }
+
+    @Override
+    public boolean isHomeSurface() {
+        // Can only show a local tab to resume if we we have a tracked tab. The presence of the
+        // local tab to resume module is effectively what being a home surface is.
+        return mMostRecentTabSupplier.hasValue();
     }
 }

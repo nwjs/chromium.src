@@ -194,10 +194,28 @@ class CONTENT_EXPORT ServiceWorkerRaceNetworkRequestURLLoaderClient
   // process, and there could be the case if the response is not returned due to
   // the long fetch handler execution. and test case the mechanism to wait for
   // the fetch handler
-  void ReadAndWrite(MojoResult mojo_result);
-  void WatchDataUpdate();
+  void ReadAndTwoPhaseWrite(MojoResult result);
+  // Reads data from |body_|, and writes it into the data pipe producer handles
+  // for both the race network request and the fetch handler respectively.
+  //
+  // Unlike |ReadAndTwoPhaseWrite()|, this doesn't use two-phase operations to
+  // write data into data pipes. However, the result should be the same as
+  // |ReadAndTwoPhaseWrite()| because mojo's |WriteData()| is expected to write
+  // the same amount of data from the given data pipe consumer handle to read.
+  // also |ReadAndWrite()| has CHECK to guarantee that the actual written sizes
+  // to data pips are exactly same.
+  void ReadAndWrite(MojoResult result);
+  // Begins a two-phase read from |body_|, the data pipe consumer. If succeed,
+  // the read buffer is returned. If there are no data to read from the data
+  // pipe, this internally calls |OnDataTransferComplete()| and return nothing.
+  //
+  // Since this starts a two-phase read process, `EndReadData()` in |body_|
+  // has to be called after calling this function.
+  std::optional<base::span<const char>> StartReadData(
+      MojoResult initial_mojo_result);
   std::pair<MojoResult, base::span<const char>> BeginReadData();
   void CompleteReadData(uint32_t num_bytes_to_consume);
+  void WatchDataUpdate();
 
   void Abort();
 
@@ -205,9 +223,9 @@ class CONTENT_EXPORT ServiceWorkerRaceNetworkRequestURLLoaderClient
   // Record the time between the response received time and the fetch handler
   // end time iff both events are already reached.
   void MaybeRecordResponseReceivedToFetchHandlerEndTiming();
-
-  void RecordWriteDataResult(MojoResult result,
-                             const std::string& histogram_prefix);
+  void RecordMojoResultForDataTransfer(MojoResult result,
+                                       const std::string& suffix);
+  void RecordMojoResultForWrite(MojoResult result);
 
   void SetFetchHandlerEndTiming(base::TimeTicks fetch_handler_end_time,
                                 bool is_fallback);
@@ -233,6 +251,7 @@ class CONTENT_EXPORT ServiceWorkerRaceNetworkRequestURLLoaderClient
   std::optional<base::TimeTicks> response_received_time_;
   std::optional<base::TimeTicks> fetch_handler_end_time_;
   std::optional<bool> is_fetch_handler_fallback_;
+  bool is_main_resource_;
 
   base::TimeTicks request_start_;
   base::Time request_start_time_;

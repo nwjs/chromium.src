@@ -5,11 +5,13 @@
 #ifndef COMPONENTS_PLUS_ADDRESSES_PLUS_ADDRESS_TYPES_H_
 #define COMPONENTS_PLUS_ADDRESSES_PLUS_ADDRESS_TYPES_H_
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 
 #include "base/functional/callback_forward.h"
 #include "base/types/expected.h"
+#include "components/autofill/core/browser/autofill_plus_address_delegate.h"
 
 // A common place for PlusAddress types to be defined.
 namespace plus_addresses {
@@ -39,7 +41,7 @@ class PlusAddressRequestError {
     http_response_code_.emplace(code);
   }
 
-  int http_response_code() const { return http_response_code_.value(); }
+  std::optional<int> http_response_code() const { return http_response_code_; }
 
  private:
   PlusAddressRequestErrorType error_type_;
@@ -48,9 +50,9 @@ class PlusAddressRequestError {
 };
 
 // Only used by Autofill.
-typedef base::OnceCallback<void(const std::string&)> PlusAddressCallback;
-typedef std::unordered_map<std::string, std::string> PlusAddressMap;
-typedef base::OnceCallback<void(const PlusAddressMap&)> PlusAddressMapCallback;
+using autofill::PlusAddressCallback;
+using PlusAddressMap = std::unordered_map<std::string, std::string>;
+using PlusAddressMapCallback = base::OnceCallback<void(const PlusAddressMap&)>;
 // Holds either a PlusProfile or an error that prevented us from getting it.
 using PlusProfileOrError = base::expected<PlusProfile, PlusAddressRequestError>;
 using PlusAddressRequestCallback =

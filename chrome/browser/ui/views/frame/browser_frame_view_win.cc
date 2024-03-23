@@ -476,7 +476,7 @@ void BrowserFrameViewWin::OnPaint(gfx::Canvas* canvas) {
   }
 }
 
-void BrowserFrameViewWin::Layout() {
+void BrowserFrameViewWin::Layout(PassKey) {
   TRACE_EVENT0("views.frame", "BrowserFrameViewWin::Layout");
 
   LayoutCaptionButtons();
@@ -484,7 +484,7 @@ void BrowserFrameViewWin::Layout() {
     LayoutTitleBar();
   }
   LayoutClientView();
-  BrowserNonClientFrameView::Layout();
+  LayoutSuperclass<BrowserNonClientFrameView>(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

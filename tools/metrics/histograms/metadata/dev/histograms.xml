@@ -30,6 +30,15 @@ chromium-metrics-reviews@google.com.
   <summary>Specified DevTools action has been taken.</summary>
 </histogram>
 
+<histogram base="true" name="DevTools.AidaResponseTime" units="ms"
+    expires_after="2024-07-21">
+  <owner>yangguo@chromium.org</owner>
+  <owner>dsv@chromium.org</owner>
+  <summary>
+    Measures the time until a full response from AIDA backend is received.
+  </summary>
+</histogram>
+
 <histogram name="DevTools.AnimationPlaybackRateChanged"
     enum="DevToolsAnimationPlaybackRateChanged" expires_after="2024-08-08">
   <owner>yangguo@chromium.org</owner>
@@ -263,7 +272,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IsSameOriginDebuggerAttachedInAnotherRenderer"
-    enum="Boolean" expires_after="2024-05-26">
+    enum="Boolean" expires_after="2024-07-28">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -274,7 +283,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IsSameOriginDebuggerPausedInAnotherRenderer"
-    enum="Boolean" expires_after="2024-05-26">
+    enum="Boolean" expires_after="2024-07-28">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -355,7 +364,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram base="true" name="DevTools.Launch" units="ms"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
 <!-- Name completed by histogram_suffixes name="DevToolsLaunchPanels" -->
 
   <owner>yangguo@chromium.org</owner>
@@ -406,24 +415,6 @@ chromium-metrics-reviews@google.com.
   <owner>paulirish@chromium.org</owner>
   <owner>cjamcl@chromium.org</owner>
   <summary>Records which Lighthouse mode was used to audit the page.</summary>
-</histogram>
-
-<histogram name="DevTools.LinearMemoryInspector.RevealedFrom"
-    enum="DevToolsLinearMemoryInspectorRevealedFrom" expires_after="2024-03-01">
-  <owner>bmeurer@chromium.org</owner>
-  <owner>kimanh@chromium.org</owner>
-  <summary>
-    Records the ways in which the Memory Inspector panel was opened.
-  </summary>
-</histogram>
-
-<histogram name="DevTools.LinearMemoryInspector.Target"
-    enum="DevToolsLinearMemoryInspectorTarget" expires_after="2024-03-01">
-  <owner>bmeurer@chromium.org</owner>
-  <owner>kimanh@chromium.org</owner>
-  <summary>
-    Records the inspection target via which the Memory Inspector was opened.
-  </summary>
 </histogram>
 
 <histogram name="DevTools.ManifestSectionSelected"

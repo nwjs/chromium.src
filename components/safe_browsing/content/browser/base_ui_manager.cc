@@ -57,27 +57,48 @@ class AllowlistUrlSet : public content::WebContentsUserData<AllowlistUrlSet> {
       *threat_type = found->second;
     return true;
   }
-  void RemovePending(const GURL& url) {
+  void RemovePending(const GURL& url,
+                     const std::optional<int64_t> navigation_id) {
+    if (navigation_id.has_value()) {
+      pending_navigation_ids_.erase(navigation_id.value());
+    }
     DCHECK(pending_.end() != pending_.find(url));
-    if (--pending_[url].second < 1)
+    if (--pending_[url].second < 1) {
       pending_.erase(url);
+    }
   }
   void Remove(const GURL& url) { map_.erase(url); }
-  void Insert(const GURL& url, SBThreatType threat_type) {
+  void Insert(const GURL& url,
+              const std::optional<int64_t> navigation_id,
+              SBThreatType threat_type) {
     if (Contains(url, nullptr))
       return;
     map_[url] = threat_type;
-    RemoveAllPending(url);
+    RemoveAllPending(url, navigation_id);
   }
   bool ContainsPending(const GURL& url, SBThreatType* threat_type) {
     auto found = pending_.find(url);
-    if (found == pending_.end())
+    if (found == pending_.end()) {
       return false;
-    if (threat_type)
+    }
+    if (threat_type) {
       *threat_type = found->second.first;
+    }
     return true;
   }
-  void InsertPending(const GURL url, SBThreatType threat_type) {
+  void InsertPending(const GURL url,
+                     const std::optional<int64_t> navigation_id,
+                     SBThreatType threat_type) {
+    if (navigation_id.has_value()) {
+      if (base::Contains(pending_navigation_ids_, navigation_id.value())) {
+        // Do not add URL for the same navigation id in |pending_| more than
+        // once. Otherwise, the security indicator may not be cleared properly
+        // when navigating away.
+        return;
+      } else {
+        pending_navigation_ids_.insert(navigation_id.value());
+      }
+    }
     if (pending_.find(url) != pending_.end()) {
       pending_[url].first = threat_type;
       pending_[url].second++;
@@ -95,13 +116,22 @@ class AllowlistUrlSet : public content::WebContentsUserData<AllowlistUrlSet> {
 
   // Method to remove all the instances of a website in the pending list
   // disregarding the count. Used when adding a site to the permanent list.
-  void RemoveAllPending(const GURL& url) { pending_.erase(url); }
+  void RemoveAllPending(const GURL& url,
+                        const std::optional<int64_t> navigation_id) {
+    if (navigation_id.has_value()) {
+      pending_navigation_ids_.erase(navigation_id.value());
+    }
+    pending_.erase(url);
+  }
 
   std::map<GURL, SBThreatType> map_;
   // Keep a count of how many times a site has been added to the pending list
   // in order to solve a problem where upon reloading an interstitial, a site
   // would be re-added to and removed from the allowlist in the wrong order.
   std::map<GURL, std::pair<SBThreatType, int>> pending_;
+  // Ensure that URL for the same navigation id is added to |pending_| at most
+  // once.
+  std::set<int64_t> pending_navigation_ids_;
 };
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(AllowlistUrlSet);
@@ -217,12 +247,12 @@ void BaseUIManager::OnBlockingPageDone(
         main_frame_url, false /* is subresource */,
         nullptr /* no navigation entry needed for main resource */);
     if (proceed) {
-      AddToAllowlistUrlSet(allowlist_url, web_contents,
+      AddToAllowlistUrlSet(allowlist_url, resource.navigation_id, web_contents,
                            false /* Pending -> permanent */,
                            resource.threat_type);
     } else if (web_contents) {
       // |web_contents| doesn't exist if the tab has been closed.
-      RemoveAllowlistUrlSet(allowlist_url, web_contents,
+      RemoveAllowlistUrlSet(allowlist_url, resource.navigation_id, web_contents,
                             true /* from_pending_only */);
     }
   }
@@ -278,7 +308,8 @@ void BaseUIManager::DisplayBlockingPage(const UnsafeResource& resource) {
   if (resource.threat_type != SB_THREAT_TYPE_SAFE &&
       resource.threat_type != SB_THREAT_TYPE_BILLING &&
       resource.threat_type != SB_THREAT_TYPE_MANAGED_POLICY_BLOCK &&
-      resource.threat_type != SB_THREAT_TYPE_MANAGED_POLICY_WARN) {
+      resource.threat_type != SB_THREAT_TYPE_MANAGED_POLICY_WARN &&
+      resource.should_send_reports) {
     // TODO(vakh): crbug/883462: The reports for SB_THREAT_TYPE_BILLING should
     // be disabled for M70 but enabled for a later release (M71?).
     CreateAndSendHitReport(resource);
@@ -288,9 +319,9 @@ void BaseUIManager::DisplayBlockingPage(const UnsafeResource& resource) {
     }
   }
 
-  AddToAllowlistUrlSet(GetMainFrameAllowlistUrlForResource(resource),
-                       web_contents, true /* A decision is now pending */,
-                       resource.threat_type);
+  AddToAllowlistUrlSet(
+      GetMainFrameAllowlistUrlForResource(resource), resource.navigation_id,
+      web_contents, true /* A decision is now pending */, resource.threat_type);
 
   // |entry| can be null if we are on a brand new tab, and a resource is added
   // via javascript without a navigation.
@@ -356,9 +387,10 @@ void BaseUIManager::DisplayBlockingPage(const UnsafeResource& resource) {
     // In some cases the interstitial must be loaded here since there will be
     // no navigation to intercept in the throttle.
     std::unique_ptr<security_interstitials::SecurityInterstitialPage>
-        blocking_page = base::WrapUnique(
-            CreateBlockingPage(web_contents, unsafe_url, resource,
-                               /*forward_extension_event=*/true));
+        blocking_page = base::WrapUnique(CreateBlockingPage(
+            web_contents, unsafe_url, resource,
+            /*forward_extension_event=*/true,
+            AsyncCheckTracker::GetBlockedPageCommittedTimestamp(resource)));
     base::WeakPtr<content::NavigationHandle> error_page_navigation_handle =
         web_contents->GetController().LoadPostCommitErrorPage(
             web_contents->GetPrimaryMainFrame(), unsafe_url,
@@ -382,10 +414,12 @@ void BaseUIManager::CreateAndSendClientSafeBrowsingWarningShownReport(
     const UnsafeResource& resource) {}
 
 security_interstitials::SecurityInterstitialPage*
-BaseUIManager::CreateBlockingPage(content::WebContents* contents,
-                                  const GURL& blocked_url,
-                                  const UnsafeResource& unsafe_resource,
-                                  bool forward_extension_event) {
+BaseUIManager::CreateBlockingPage(
+    content::WebContents* contents,
+    const GURL& blocked_url,
+    const UnsafeResource& unsafe_resource,
+    bool forward_extension_event,
+    std::optional<base::TimeTicks> blocked_page_shown_timestamp) {
   // TODO(carlosil): This can be removed once all implementations of SB use
   // committed interstitials. In the meantime, there is no create method for the
   // non-committed implementations, and this code won't be called if committed
@@ -434,10 +468,12 @@ void BaseUIManager::AttachThreatDetailsAndLaunchSurvey(
 // Record this domain in the given WebContents as either allowlisted or
 // pending allowlisted (if an interstitial is currently displayed). If an
 // existing AllowlistUrlSet does not yet exist, create a new AllowlistUrlSet.
-void BaseUIManager::AddToAllowlistUrlSet(const GURL& allowlist_url,
-                                         WebContents* web_contents,
-                                         bool pending,
-                                         SBThreatType threat_type) {
+void BaseUIManager::AddToAllowlistUrlSet(
+    const GURL& allowlist_url,
+    const std::optional<int64_t> navigation_id,
+    WebContents* web_contents,
+    bool pending,
+    SBThreatType threat_type) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // A WebContents might not exist if the tab has been closed.
@@ -451,9 +487,9 @@ void BaseUIManager::AddToAllowlistUrlSet(const GURL& allowlist_url,
     return;
 
   if (pending) {
-    site_list->InsertPending(allowlist_url, threat_type);
+    site_list->InsertPending(allowlist_url, navigation_id, threat_type);
   } else {
-    site_list->Insert(allowlist_url, threat_type);
+    site_list->Insert(allowlist_url, navigation_id, threat_type);
   }
 
   // Notify security UI that security state has changed.
@@ -540,9 +576,11 @@ ThreatSeverity BaseUIManager::GetSeverestThreatForRedirectChain(
   return min_severity;
 }
 
-void BaseUIManager::RemoveAllowlistUrlSet(const GURL& allowlist_url,
-                                          WebContents* web_contents,
-                                          bool from_pending_only) {
+void BaseUIManager::RemoveAllowlistUrlSet(
+    const GURL& allowlist_url,
+    const std::optional<int64_t> navigation_id,
+    WebContents* web_contents,
+    bool from_pending_only) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // A WebContents might not exist if the tab has been closed.
@@ -570,7 +608,7 @@ void BaseUIManager::RemoveAllowlistUrlSet(const GURL& allowlist_url,
   // main-frame URL will have already been removed when the subsequent
   // blocking pages are dismissed.
   if (site_list && site_list->ContainsPending(allowlist_url, nullptr)) {
-    site_list->RemovePending(allowlist_url);
+    site_list->RemovePending(allowlist_url, navigation_id);
   }
 
   if (!from_pending_only && site_list &&

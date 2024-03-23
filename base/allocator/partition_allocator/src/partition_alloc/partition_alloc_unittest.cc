@@ -346,7 +346,6 @@ class PartitionAllocTest
     opts.scheduler_loop_quarantine = PartitionOptions::kEnabled;
     opts.scheduler_loop_quarantine_capacity_in_bytes =
         std::numeric_limits<size_t>::max();
-    opts.scheduler_loop_quarantine_capacity_count = 1024;
     return opts;
   }
 
@@ -448,9 +447,12 @@ class PartitionAllocTest
       ref_count_size = kPartitionRefCountSizeAdjustment;
       ref_count_size = AlignUpRefCountSizeForMac(ref_count_size);
 #if PA_CONFIG(MAYBE_INCREASE_REF_COUNT_SIZE_FOR_MTE)
-      // Note the brp_enabled() check above.
-      // TODO(bartekn): Don't increase ref-count size in the "same slot" mode.
-      if (allocator.root()->IsMemoryTaggingEnabled()) {
+      // When MTE is enabled together with BRP (crbug.com/1445816) in the
+      // "previous slot" mode (note the brp_enabled() check above), there is a
+      // race that can be avoided by making ref-count a multiple of the MTE
+      // granule and not tagging it.
+      if (allocator.root()->IsMemoryTaggingEnabled() &&
+          !PartitionRoot::GetBrpRefCountInSameSlot()) {
         ref_count_size = partition_alloc::internal::base::bits::AlignUp(
             ref_count_size, kMemTagGranuleSize);
       }
@@ -3639,6 +3641,31 @@ TEST_P(PartitionAllocTest, SchedulerLoopQuarantine) {
 
   branch.Purge();
   branch.GetRoot().SetCapacityInBytes(original_capacity_in_bytes);
+}
+
+// Ensures `Free<kSchedulerLoopQuarantine>` works as `Free<kNone>` if disabled.
+// See: https://crbug.com/324994233.
+TEST_P(PartitionAllocTest, SchedulerLoopQuarantineDisabled) {
+  PartitionOptions opts = GetCommonPartitionOptions();
+  opts.scheduler_loop_quarantine = PartitionOptions::kDisabled;
+  opts.thread_cache = PartitionOptions::kDisabled;
+  opts.star_scan_quarantine = PartitionOptions::kDisallowed;
+  std::unique_ptr<PartitionRoot> root = CreateCustomTestRoot(opts, {});
+
+  // This allocation is required to prevent slot span from being empty and
+  // decomitted.
+  void* ptr_to_keep_slot_span = root->Alloc(kTestAllocSize, type_name);
+  void* ptr = root->Alloc(kTestAllocSize, type_name);
+
+  auto* slot_span =
+      SlotSpanMetadata::FromSlotStart(root->ObjectToSlotStart(ptr));
+  root->Free<FreeFlags::kSchedulerLoopQuarantine>(ptr);
+
+  // The object should be freed immediately.
+  EXPECT_EQ(root->ObjectToSlotStart(ptr),
+            UntagPtr(slot_span->get_freelist_head()));
+
+  root->Free(ptr_to_keep_slot_span);
 }
 
 TEST_P(PartitionAllocTest, ZapOnFree) {

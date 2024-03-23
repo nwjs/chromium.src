@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/allocator/partition_alloc_features.h"
 #include "base/base_switches.h"
 #include "base/callback_list.h"
 #include "base/command_line.h"
@@ -1151,6 +1152,9 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
 #if 1 //defined(OS_ANDROID)
   g_browser_main_loop_shutting_down = true;
 #endif
+
+  base::features::MakeFreeNoOp(
+      base::features::WhenFreeBecomesNoOp::kInShutDownThreads);
 
   if (parts_) {
     TRACE_EVENT0("shutdown",

@@ -38,6 +38,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
@@ -47,7 +48,6 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/layout/box_layout.h"
-#include "ui/views/layout/table_layout_view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
@@ -123,17 +123,22 @@ class EditingList::AddContainerButton : public views::Button {
     title_->SetProperty(views::kMarginsKey, gfx::Insets::TLBR(0, 0, 0, 12));
     // `+` button should be right aligned, so flex label to fill empty space.
     layout->SetFlexForView(title_, /*flex=*/1);
+    title_changed_callback_ =
+        title_->AddTextChangedCallback(base::BindRepeating(
+            &AddContainerButton::OnTitleChanged, base::Unretained(this)));
 
     // Add `add_button_` and apply design style.
     add_button_ = AddChildView(std::make_unique<views::LabelButton>(callback));
-    // TODO(b/274690042): Replace it with localized strings.
-    add_button_->SetAccessibleName(u"add");
+    // Ignore `add_button_` for the screen reader.
+    add_button_->GetViewAccessibility().OverrideIsIgnored(true);
     add_button_->SetBackground(views::CreateThemedRoundedRectBackground(
         cros_tokens::kCrosSysPrimary, kAddButtonCornerRadius));
+    add_button_->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(6, 6)));
     add_button_->SetImageModel(
         views::Button::STATE_NORMAL,
         ui::ImageModel::FromVectorIcon(kGameControlsAddIcon,
-                                       cros_tokens::kCrosSysOnPrimary));
+                                       cros_tokens::kCrosSysOnPrimary,
+                                       /*icon_size=*/20));
     add_button_->SetImageCentered(true);
 
     // Set up focus rings.
@@ -178,6 +183,12 @@ class EditingList::AddContainerButton : public views::Button {
   views::LabelButton* add_button() { return add_button_; }
 
  private:
+  void OnTitleChanged() {
+    CHECK(add_button_);
+    add_button_->SetTooltipText(title_->GetText());
+  }
+
+  // views::View:
   void OnThemeChanged() override {
     views::View::OnThemeChanged();
 
@@ -188,9 +199,11 @@ class EditingList::AddContainerButton : public views::Button {
   // Owned by views hierarchy.
   raw_ptr<views::Label> title_;
   raw_ptr<views::LabelButton> add_button_;
+
+  base::CallbackListSubscription title_changed_callback_;
 };
 
-BEGIN_METADATA(EditingList, AddContainerButton, views::Button)
+BEGIN_METADATA(EditingList, AddContainerButton)
 END_METADATA
 
 // -----------------------------------------------------------------------------
@@ -262,29 +275,11 @@ void EditingList::AddHeader() {
   // +-----------------------------------+
   // ||"Controls"|    |? button| |"Done"||
   // +-----------------------------------+
-  auto* header_container =
-      AddChildView(std::make_unique<views::TableLayoutView>());
-  header_container
-      ->AddColumn(/*h_align=*/views::LayoutAlignment::kStart,
-                  /*v_align=*/views::LayoutAlignment::kCenter,
-                  /*horizontal_resize=*/views::TableLayout::kFixedSize,
-                  /*size_type=*/views::TableLayout::ColumnSize::kUsePreferred,
-                  /*fixed_width=*/0, /*min_width=*/0)
-      .AddPaddingColumn(/*horizontal_resize=*/views::TableLayout::kFixedSize,
-                        /*width=*/32)
-      .AddColumn(/*h_align=*/views::LayoutAlignment::kEnd,
-                 /*v_align=*/views::LayoutAlignment::kCenter,
-                 /*horizontal_resize=*/1.0f,
-                 /*size_type=*/views::TableLayout::ColumnSize::kUsePreferred,
-                 /*fixed_width=*/0, /*min_width=*/0)
-      .AddPaddingColumn(/*horizontal_resize=*/views::TableLayout::kFixedSize,
-                        /*width=*/8)
-      .AddColumn(/*h_align=*/views::LayoutAlignment::kEnd,
-                 /*v_align=*/views::LayoutAlignment::kCenter,
-                 /*horizontal_resize=*/views::TableLayout::kFixedSize,
-                 /*size_type=*/views::TableLayout::ColumnSize::kUsePreferred,
-                 /*fixed_width=*/0, /*min_width=*/0)
-      .AddRows(1, views::TableLayout::kFixedSize);
+  auto* header_container = AddChildView(std::make_unique<views::View>());
+  auto* layout =
+      header_container->SetLayoutManager(std::make_unique<views::BoxLayout>());
+  layout->set_cross_axis_alignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
   header_container->SetProperty(
       views::kMarginsKey,
       gfx::Insets::TLBR(0, kEditingListInsideBorderInsets, kHeaderBottomMargin,
@@ -297,21 +292,31 @@ void EditingList::AddHeader() {
           l10n_util::GetStringUTF16(IDS_INPUT_OVERLAY_EDITING_LIST_TITLE),
           cros_tokens::kCrosSysOnSurface));
 
+  editing_header_label_->SetProperty(views::kMarginsKey,
+                                     gfx::Insets::TLBR(0, 0, 0, 32));
+  editing_header_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  // Buttons should be right aligned, so flex label to fill empty space.
+  layout->SetFlexForView(editing_header_label_, /*flex=*/1);
+
   // Add helper button.
-  header_container->AddChildView(std::make_unique<ash::IconButton>(
-      base::BindRepeating(&EditingList::OnHelpButtonPressed,
-                          base::Unretained(this)),
-      // TODO(b/296126993): Add the UX provided back arrow icon.
-      ash::IconButton::Type::kMedium, &ash::kGdHelpIcon,
-      // TODO(b/279117180): Update a11y string.
-      IDS_APP_LIST_FOLDER_NAME_PLACEHOLDER));
+  auto* help_button =
+      header_container->AddChildView(std::make_unique<ash::IconButton>(
+          base::BindRepeating(&EditingList::OnHelpButtonPressed,
+                              base::Unretained(this)),
+          ash::IconButton::Type::kMedium, &ash::kGdHelpIcon,
+          IDS_INPUT_OVERLAY_EDITING_LIST_HELP_BUTTON_NAME));
+  help_button->SetProperty(views::kMarginsKey, gfx::Insets::TLBR(0, 0, 0, 8));
 
   // Add done button.
-  header_container->AddChildView(std::make_unique<ash::PillButton>(
-      base::BindRepeating(&EditingList::OnDoneButtonPressed,
-                          base::Unretained(this)),
-      l10n_util::GetStringUTF16(IDS_INPUT_OVERLAY_EDITING_DONE_BUTTON_LABEL),
-      ash::PillButton::Type::kSecondaryWithoutIcon));
+  auto* done_button =
+      header_container->AddChildView(std::make_unique<ash::PillButton>(
+          base::BindRepeating(&EditingList::OnDoneButtonPressed,
+                              base::Unretained(this)),
+          l10n_util::GetStringUTF16(
+              IDS_INPUT_OVERLAY_EDITING_DONE_BUTTON_LABEL),
+          ash::PillButton::Type::kSecondaryWithoutIcon));
+  done_button->SetAccessibleName(l10n_util::GetStringUTF16(
+      IDS_INPUT_OVERLAY_EDITING_LIST_DONE_BUTTON_A11Y_LABEL));
 }
 
 void EditingList::AddControlListContent() {
@@ -341,7 +346,8 @@ void EditingList::AddControlListContent() {
 
 void EditingList::MaybeApplyEduDecoration() {
   // Show education decoration only once.
-  if (show_edu_) {
+  if (const auto& list_children = scroll_content_->children();
+      show_edu_ && list_children.size() == 1u) {
     ShowKeyEditNudge();
     PerformPulseAnimation();
     show_edu_ = false;
@@ -630,18 +636,6 @@ void EditingList::OnActionInputBindingUpdated(const Action& action) {
   }
 }
 
-void EditingList::OnActionNameUpdated(const Action& action) {
-  DCHECK(scroll_content_);
-  for (views::View* child : scroll_content_->children()) {
-    auto* list_item = static_cast<ActionViewListItem*>(child);
-    DCHECK(list_item);
-    if (list_item->action() == &action) {
-      list_item->OnActionNameUpdated();
-      break;
-    }
-  }
-}
-
 void EditingList::OnActionNewStateRemoved(const Action& action) {
   DCHECK(scroll_content_);
   for (views::View* child : scroll_content_->children()) {
@@ -670,7 +664,7 @@ views::LabelButton* EditingList::GetAddButtonForTesting() const {
   return add_container_->add_button();
 }
 
-BEGIN_METADATA(EditingList, views::View)
+BEGIN_METADATA(EditingList)
 END_METADATA
 
 }  // namespace arc::input_overlay

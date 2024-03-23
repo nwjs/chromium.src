@@ -65,8 +65,7 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 // Converts url::Origin into the key that can be used for filenames/dictionary
 // keys.
 std::string GetOriginEncoded(const url::Origin& origin) {
-  std::string serialized = origin.Serialize();
-  return base::HexEncode(serialized.data(), serialized.size());
+  return base::HexEncode(origin.Serialize());
 }
 
 }  // namespace
@@ -356,7 +355,7 @@ void ManagedConfigurationAPI::PromoteObservers() {
   for (auto it = unmanaged_observers_.begin();
        it != unmanaged_observers_.end();) {
     if (CanHaveManagedStore((*it)->GetOrigin())) {
-      auto* observer = *it;
+      auto* observer = (*it).get();
       it = unmanaged_observers_.erase(it);
       AddObserver(observer);
     } else {

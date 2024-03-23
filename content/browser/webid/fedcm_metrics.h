@@ -241,9 +241,10 @@ class CONTENT_EXPORT FedCmMetrics {
   // Records whether the user selected account is for sign-in or not.
   void RecordIsSignInUser(bool is_sign_in);
 
-  // Records whether a user has left the page where the API is called when the
-  // browser is ready to show the accounts dialog.
-  void RecordWebContentsVisibilityUponReadyToShowDialog(bool is_visible);
+  // Records whether the frame is visible or active upon ready to show accounts
+  // UI.
+  void RecordWebContentsStatusUponReadyToShowDialog(bool is_visible,
+                                                    bool is_active);
 
   // This enum is used in histograms. Do not remove or modify existing entries.
   // You may add entries at the end, and update |kMaxValue|.
@@ -369,6 +370,14 @@ void RecordSetLoginStatusIgnoredReason(FedCmSetLoginStatusIgnoredReason reason);
 // Records the lifecycle state if we fail a FedCM request due to a page not
 // being primary.
 void RecordLifecycleStateFailureReason(FedCmLifecycleStateFailureReason reason);
+
+// Records the number of accounts received before applying login/domain hints
+// filter.
+void RecordRawAccountsSize(int size);
+
+// Records the number of accounts received after applying login/domain hints
+// filter. If no account left, nothing will be recorded.
+void RecordReadyToShowAccountsSize(int size);
 
 }  // namespace content
 

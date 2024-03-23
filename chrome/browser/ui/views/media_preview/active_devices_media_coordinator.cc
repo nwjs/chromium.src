@@ -4,16 +4,21 @@
 
 #include "chrome/browser/ui/views/media_preview/active_devices_media_coordinator.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "base/check_op.h"
+#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/media_preview/media_view.h"
+#include "chrome/browser/ui/views/media_preview/scroll_media_preview.h"
 #include "components/user_prefs/user_prefs.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/media_device_id.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "ui/views/view.h"
+#include "ui/views/view_class_properties.h"
 
 namespace {
 
@@ -35,6 +40,17 @@ bool IsWithinWebContents(content::GlobalRenderFrameHostId render_frame_host_id,
   return is_request_in_frame;
 }
 
+std::unique_ptr<views::Separator> CreateSeparator() {
+  auto separator = std::make_unique<views::Separator>();
+
+  const int horizontal_inset = ChromeLayoutProvider::Get()->GetDistanceMetric(
+      DISTANCE_HORIZONTAL_SEPARATOR_PADDING_PAGE_INFO_VIEW);
+
+  separator->SetProperty(views::kMarginsKey,
+                         gfx::Insets::VH(0, horizontal_inset));
+  return separator;
+}
+
 }  // namespace
 
 ActiveDevicesMediaCoordinator::ActiveDevicesMediaCoordinator(
@@ -42,16 +58,23 @@ ActiveDevicesMediaCoordinator::ActiveDevicesMediaCoordinator(
     MediaCoordinator::ViewType view_type,
     views::View* parent_view)
     : view_type_(view_type),
-      parent_view_(parent_view),
       stream_type_(view_type_ == MediaCoordinator::ViewType::kCameraOnly
                        ? blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE
                        : blink::mojom::MediaStreamType::DEVICE_AUDIO_CAPTURE) {
   CHECK(web_contents);
   web_contents_ = web_contents->GetWeakPtr();
 
-  CHECK(parent_view_);
-  container_ = parent_view_->AddChildView(std::make_unique<MediaView>());
-  CHECK(container_);
+  CHECK(parent_view);
+  auto* scroll_contents =
+      scroll_media_preview::CreateScrollViewAndGetContents(*parent_view);
+  CHECK(scroll_contents);
+
+  container_ = scroll_contents->AddChildView(std::make_unique<MediaView>());
+  container_->SetProperty(
+      views::kMarginsKey,
+      gfx::Insets::VH(ChromeLayoutProvider::Get()->GetDistanceMetric(
+                          views::DISTANCE_RELATED_CONTROL_VERTICAL),
+                      0));
 
   MediaCaptureDevicesDispatcher::GetInstance()->AddObserver(this);
   UpdateMediaCoordinatorList();
@@ -91,22 +114,36 @@ void ActiveDevicesMediaCoordinator::GotDeviceIdsOpenedForWebContents(
     std::vector<std::string> active_device_ids) {
   if (active_device_ids.empty()) {
     media_coordinators_.clear();
+    separators_.clear();
+    // RemoveAllChildViews() is called to delete all separators.
+    container_->RemoveAllChildViews();
     AddMediaCoordinatorForDevice(/*active_device_id=*/
                                  std::nullopt);
+    CHECK(!container_->children().empty());
+    container_->children().back()->SetVisible(false);
     return;
   }
 
   base::flat_set<std::string> active_device_id_set{active_device_ids};
   for (const auto& key : GetMediaCoordinatorKeys()) {
+    const auto& separator = separators_.find(key);
+    CHECK(separator != separators_.end());
+
     if (!active_device_id_set.erase(key)) {
       // remove the coordinator because it isn't active anymore.
       media_coordinators_.erase(key);
+      container_->RemoveChildViewT(std::exchange(separator->second, nullptr));
+      separators_.erase(separator);
+    } else {
+      separator->second->SetVisible(true);
     }
   }
 
   for (const auto& active_device_id : active_device_id_set) {
     AddMediaCoordinatorForDevice(active_device_id);
   }
+  CHECK(!container_->children().empty());
+  container_->children().back()->SetVisible(false);
 }
 
 void ActiveDevicesMediaCoordinator::AddMediaCoordinatorForDevice(
@@ -131,8 +168,9 @@ void ActiveDevicesMediaCoordinator::AddMediaCoordinatorForDevice(
   media_coordinators_.emplace(
       coordinator_key, std::make_unique<MediaCoordinator>(
                            view_type_, *container_,
-                           /*index=*/std::nullopt,
                            /*is_subsection=*/true, eligible_devices, *prefs));
+  separators_.emplace(coordinator_key,
+                      container_->AddChildView(CreateSeparator()));
 }
 
 void ActiveDevicesMediaCoordinator::OnRequestUpdate(

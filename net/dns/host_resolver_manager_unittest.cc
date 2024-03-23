@@ -57,11 +57,15 @@
 #include "net/base/network_change_notifier.h"
 #include "net/base/network_interfaces.h"
 #include "net/base/schemeful_site.h"
+#include "net/dns/address_sorter.h"
 #include "net/dns/dns_client.h"
 #include "net/dns/dns_config.h"
 #include "net/dns/dns_test_util.h"
 #include "net/dns/dns_util.h"
 #include "net/dns/host_resolver.h"
+#include "net/dns/host_resolver_cache.h"
+#include "net/dns/host_resolver_internal_result.h"
+#include "net/dns/host_resolver_internal_result_test_util.h"
 #include "net/dns/host_resolver_results_test_util.h"
 #include "net/dns/host_resolver_system_task.h"
 #include "net/dns/mock_host_resolver.h"
@@ -109,6 +113,7 @@ using ::testing::AnyOf;
 using ::testing::Between;
 using ::testing::ByMove;
 using ::testing::Contains;
+using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::IsEmpty;
 using ::testing::Not;
@@ -3803,7 +3808,7 @@ class TestMdnsListenerDelegate : public HostResolver::MdnsListener::Delegate {
       MdnsListenerUpdateType update_type,
       DnsQueryType query_type,
       T result) {
-    return std::make_pair(std::make_pair(update_type, query_type), result);
+    return std::pair(std::pair(update_type, query_type), result);
   }
 
  private:
@@ -4044,8 +4049,8 @@ TEST_F(HostResolverManagerTest, MdnsListener_RootDomain) {
                                       sizeof(kMdnsResponsePtrRoot));
 
   EXPECT_THAT(delegate.unhandled_results(),
-              testing::ElementsAre(std::make_pair(
-                  MdnsListenerUpdateType::kAdded, DnsQueryType::PTR)));
+              testing::ElementsAre(std::pair(MdnsListenerUpdateType::kAdded,
+                                             DnsQueryType::PTR)));
 
   EXPECT_THAT(delegate.address_results(), testing::IsEmpty());
   EXPECT_THAT(delegate.text_results(), testing::IsEmpty());
@@ -13442,6 +13447,515 @@ TEST_F(HostResolverManagerDnsTest, AvoidMulticastIgnoredWithDnsTask) {
       HostPortPair("ok", 80), NetworkAnonymizationKey(), NetLogWithSource(),
       parameters, resolve_context_.get()));
   EXPECT_THAT(response.result_error(), IsOk());
+}
+
+class MockAddressSorter : public AddressSorter {
+ public:
+  MOCK_METHOD(void,
+              Sort,
+              (const std::vector<IPEndPoint>& endpoints, CallbackType callback),
+              (const, override));
+
+  void ExpectCall(const std::vector<IPEndPoint>& expected,
+                  std::vector<IPEndPoint> sorted) {
+    EXPECT_CALL(*this, Sort(expected, _))
+        .WillOnce([sorted](const std::vector<IPEndPoint>& endpoints,
+                           AddressSorter::CallbackType callback) {
+          std::move(callback).Run(true, std::move(sorted));
+        });
+  }
+
+  void ExpectCallAndFailSort(const std::vector<IPEndPoint>& expected) {
+    EXPECT_CALL(*this, Sort(expected, _))
+        .WillOnce([](const std::vector<IPEndPoint>& endpoints,
+                     AddressSorter::CallbackType callback) {
+          std::move(callback).Run(false, {});
+        });
+  }
+};
+
+TEST_F(HostResolverManagerDnsTest, ResultsAreSorted) {
+  base::test::ScopedFeatureList feature_list(features::kUseHostResolverCache);
+
+  // Expect sorter to be separately called with A and AAAA results. For the
+  // AAAA, sort to reversed order.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+  sorter->ExpectCall(
+      {CreateExpected("::1", 0), CreateExpected("2001:4860:4860::8888", 0)},
+      {CreateExpected("2001:4860:4860::8888", 0), CreateExpected("::1", 0)});
+  sorter->ExpectCall({CreateExpected("127.0.0.1", 0)},
+                     {CreateExpected("127.0.0.1", 0)});
+
+  DnsResponse a_response =
+      BuildTestDnsAddressResponse("host.test", IPAddress::IPv4Localhost());
+  DnsResponse aaaa_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeAAAA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv6Localhost()),
+       BuildTestAddressRecord(
+           "host.test",
+           IPAddress::FromIPLiteral("2001:4860:4860::8888").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             std::move(aaaa_response), /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsOk());
+
+  // Expect results in the order given by the sorter (with AAAA results before A
+  // results).
+  EXPECT_THAT(
+      response.request()->GetEndpointResults(),
+      testing::Pointee(
+          testing::ElementsAre(ExpectEndpointResult(testing::ElementsAre(
+              CreateExpected("2001:4860:4860::8888", 80),
+              CreateExpected("::1", 80), CreateExpected("127.0.0.1", 80))))));
+}
+
+TEST_F(HostResolverManagerDnsTest, ResultsAreSortedWithHostCache) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kUseHostResolverCache);
+
+  // When using HostCache, expect sorter to be called once for all address
+  // results together (AAAA before A).
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+  sorter->ExpectCall(
+      {CreateExpected("::1", 0), CreateExpected("2001:4860:4860::8888", 0),
+       CreateExpected("127.0.0.1", 0)},
+      {CreateExpected("2001:4860:4860::8888", 0),
+       CreateExpected("127.0.0.1", 0), CreateExpected("::1", 0)});
+
+  DnsResponse a_response =
+      BuildTestDnsAddressResponse("host.test", IPAddress::IPv4Localhost());
+  DnsResponse aaaa_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeAAAA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv6Localhost()),
+       BuildTestAddressRecord(
+           "host.test",
+           IPAddress::FromIPLiteral("2001:4860:4860::8888").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             std::move(aaaa_response), /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsOk());
+
+  // Expect results in the order given by the sorter.
+  EXPECT_THAT(
+      response.request()->GetEndpointResults(),
+      testing::Pointee(
+          testing::ElementsAre(ExpectEndpointResult(testing::ElementsAre(
+              CreateExpected("2001:4860:4860::8888", 80),
+              CreateExpected("127.0.0.1", 80), CreateExpected("::1", 80))))));
+}
+
+TEST_F(HostResolverManagerDnsTest, Ipv4OnlyResultsAreSorted) {
+  base::test::ScopedFeatureList feature_list(features::kUseHostResolverCache);
+
+  // Sort to reversed order.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+  sorter->ExpectCall(
+      {CreateExpected("127.0.0.1", 0), CreateExpected("127.0.0.2", 0)},
+      {CreateExpected("127.0.0.2", 0), CreateExpected("127.0.0.1", 0)});
+
+  DnsResponse a_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv4Localhost()),
+       BuildTestAddressRecord("host.test",
+                              IPAddress::FromIPLiteral("127.0.0.2").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             MockDnsClientRule::ResultType::kEmpty, /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsOk());
+
+  // Expect results in the order given by the sorter.
+  EXPECT_THAT(response.request()->GetEndpointResults(),
+              testing::Pointee(testing::ElementsAre(ExpectEndpointResult(
+                  testing::ElementsAre(CreateExpected("127.0.0.2", 80),
+                                       CreateExpected("127.0.0.1", 80))))));
+}
+
+TEST_F(HostResolverManagerDnsTest, Ipv4OnlyResultsNotSortedWithHostCache) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kUseHostResolverCache);
+
+  // When using HostCache, expect no sort calls for IPv4-only results.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+
+  DnsResponse a_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv4Localhost()),
+       BuildTestAddressRecord("host.test",
+                              IPAddress::FromIPLiteral("127.0.0.2").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             MockDnsClientRule::ResultType::kEmpty, /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsOk());
+
+  // Expect results in original unsorted order.
+  EXPECT_THAT(response.request()->GetEndpointResults(),
+              testing::Pointee(testing::ElementsAre(ExpectEndpointResult(
+                  testing::ElementsAre(CreateExpected("127.0.0.1", 80),
+                                       CreateExpected("127.0.0.2", 80))))));
+}
+
+TEST_F(HostResolverManagerDnsTest, EmptyResultsNotSorted) {
+  base::test::ScopedFeatureList feature_list(features::kUseHostResolverCache);
+
+  // Expect no calls to sorter for empty results.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA,
+             MockDnsClientRule::ResultType::kEmpty,
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             MockDnsClientRule::ResultType::kEmpty, /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+  set_allow_fallback_to_systemtask(false);
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsError(ERR_NAME_NOT_RESOLVED));
+}
+
+TEST_F(HostResolverManagerDnsTest, EmptyResultsNotSortedWithHostCache) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kUseHostResolverCache);
+
+  // Expect no calls to sorter for empty results.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA,
+             MockDnsClientRule::ResultType::kEmpty,
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             MockDnsClientRule::ResultType::kEmpty, /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+  set_allow_fallback_to_systemtask(false);
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsError(ERR_NAME_NOT_RESOLVED));
+}
+
+// Test for when AddressSorter removes all results.
+TEST_F(HostResolverManagerDnsTest, ResultsSortedAsUnreachable) {
+  base::test::ScopedFeatureList feature_list(features::kUseHostResolverCache);
+
+  // Set up sorter to return result with no addresses.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+  sorter->ExpectCall(
+      {CreateExpected("::1", 0), CreateExpected("2001:4860:4860::8888", 0)},
+      {});
+  sorter->ExpectCall({CreateExpected("127.0.0.1", 0)}, {});
+
+  DnsResponse a_response =
+      BuildTestDnsAddressResponse("host.test", IPAddress::IPv4Localhost());
+  DnsResponse aaaa_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeAAAA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv6Localhost()),
+       BuildTestAddressRecord(
+           "host.test",
+           IPAddress::FromIPLiteral("2001:4860:4860::8888").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             std::move(aaaa_response), /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+  set_allow_fallback_to_systemtask(false);
+
+  ASSERT_FALSE(!!GetCacheHit(HostCache::Key(
+      "host.test", DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
+      HostResolverSource::ANY, NetworkAnonymizationKey())));
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsError(ERR_NAME_NOT_RESOLVED));
+
+  // Expect error is cached (because pre-sort results had a TTL).
+  EXPECT_TRUE(!!GetCacheHit(HostCache::Key(
+      "host.test", DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
+      HostResolverSource::ANY, NetworkAnonymizationKey())));
+}
+
+// Test for when AddressSorter removes all results.
+TEST_F(HostResolverManagerDnsTest, ResultsSortedAsUnreachableWithHostCache) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kUseHostResolverCache);
+
+  // Set up sorter to return result with no addresses.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+  sorter->ExpectCall(
+      {CreateExpected("::1", 0), CreateExpected("2001:4860:4860::8888", 0),
+       CreateExpected("127.0.0.1", 0)},
+      {});
+
+  DnsResponse a_response =
+      BuildTestDnsAddressResponse("host.test", IPAddress::IPv4Localhost());
+  DnsResponse aaaa_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeAAAA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv6Localhost()),
+       BuildTestAddressRecord(
+           "host.test",
+           IPAddress::FromIPLiteral("2001:4860:4860::8888").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             std::move(aaaa_response), /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+  set_allow_fallback_to_systemtask(false);
+
+  ASSERT_FALSE(!!GetCacheHit(HostCache::Key(
+      "host.test", DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
+      HostResolverSource::ANY, NetworkAnonymizationKey())));
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsError(ERR_NAME_NOT_RESOLVED));
+
+  // Expect error is cached (because pre-sort results had a TTL).
+  EXPECT_TRUE(!!GetCacheHit(HostCache::Key(
+      "host.test", DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
+      HostResolverSource::ANY, NetworkAnonymizationKey())));
+}
+
+TEST_F(HostResolverManagerDnsTest, SortFailure) {
+  base::test::ScopedFeatureList feature_list(features::kUseHostResolverCache);
+
+  // Fail the AAAA sort. Don't expect resolver to even attempt to sort A.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+  sorter->ExpectCallAndFailSort(
+      {CreateExpected("::1", 0), CreateExpected("2001:4860:4860::8888", 0)});
+
+  DnsResponse a_response =
+      BuildTestDnsAddressResponse("host.test", IPAddress::IPv4Localhost());
+  DnsResponse aaaa_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeAAAA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv6Localhost()),
+       BuildTestAddressRecord(
+           "host.test",
+           IPAddress::FromIPLiteral("2001:4860:4860::8888").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             std::move(aaaa_response), /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+  set_allow_fallback_to_systemtask(false);
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsError(ERR_DNS_SORT_ERROR));
+
+  // Expect error is cached (because pre-sort results had a TTL).
+  EXPECT_TRUE(!!GetCacheHit(HostCache::Key(
+      "host.test", DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
+      HostResolverSource::ANY, NetworkAnonymizationKey())));
+}
+
+TEST_F(HostResolverManagerDnsTest, SortFailureWithHostCache) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kUseHostResolverCache);
+
+  // Fail the sort.
+  auto sorter = std::make_unique<testing::StrictMock<MockAddressSorter>>();
+  sorter->ExpectCallAndFailSort({CreateExpected("::1", 0),
+                                 CreateExpected("2001:4860:4860::8888", 0),
+                                 CreateExpected("127.0.0.1", 0)});
+
+  DnsResponse a_response =
+      BuildTestDnsAddressResponse("host.test", IPAddress::IPv4Localhost());
+  DnsResponse aaaa_response = BuildTestDnsResponse(
+      "host.test", dns_protocol::kTypeAAAA,
+      {BuildTestAddressRecord("host.test", IPAddress::IPv6Localhost()),
+       BuildTestAddressRecord(
+           "host.test",
+           IPAddress::FromIPLiteral("2001:4860:4860::8888").value())});
+  MockDnsClientRuleList rules;
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeA, std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, "host.test", dns_protocol::kTypeAAAA,
+             std::move(aaaa_response), /*delay=*/false);
+
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+  dns_client_->SetAddressSorterForTesting(std::move(sorter));
+  set_allow_fallback_to_systemtask(false);
+
+  ASSERT_FALSE(!!GetCacheHit(HostCache::Key(
+      "host.test", DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
+      HostResolverSource::ANY, NetworkAnonymizationKey())));
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("host.test", 80), NetworkAnonymizationKey(),
+      NetLogWithSource(), std::nullopt, resolve_context_.get()));
+
+  EXPECT_THAT(response.result_error(), IsError(ERR_DNS_SORT_ERROR));
+
+  // Expect error is cached (because pre-sort results had a TTL).
+  EXPECT_TRUE(!!GetCacheHit(HostCache::Key(
+      "host.test", DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
+      HostResolverSource::ANY, NetworkAnonymizationKey())));
+}
+
+TEST_F(HostResolverManagerDnsTest, HostResolverCacheContainsTransactions) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kUseHostResolverCache,
+                            features::kSplitHostCacheByNetworkIsolationKey},
+      /*disabled_features=*/{});
+
+  ChangeDnsConfig(CreateValidDnsConfig());
+
+  const SchemefulSite kSite(GURL("https://site.test/"));
+  const auto kNetworkAnonymizationKey =
+      NetworkAnonymizationKey::CreateSameSite(kSite);
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair("ok", 80), kNetworkAnonymizationKey, NetLogWithSource(),
+      std::nullopt, resolve_context_.get()));
+  ASSERT_THAT(response.result_error(), IsOk());
+
+  // Expect separate transactions to be separately cached.
+  EXPECT_THAT(
+      resolve_context_->host_resolver_cache()->Lookup(
+          "ok", kNetworkAnonymizationKey, DnsQueryType::A,
+          HostResolverSource::DNS, /*secure=*/false),
+      Pointee(ExpectHostResolverInternalDataResult(
+          "ok", DnsQueryType::A, HostResolverInternalResult::Source::kDns, _, _,
+          ElementsAre(IPEndPoint(IPAddress::IPv4Localhost(), 0)))));
+  EXPECT_THAT(
+      resolve_context_->host_resolver_cache()->Lookup(
+          "ok", kNetworkAnonymizationKey, DnsQueryType::AAAA,
+          HostResolverSource::DNS, /*secure=*/false),
+      Pointee(ExpectHostResolverInternalDataResult(
+          "ok", DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns, _,
+          _, ElementsAre(IPEndPoint(IPAddress::IPv6Localhost(), 0)))));
+}
+
+TEST_F(HostResolverManagerDnsTest, HostResolverCacheContainsAliasChains) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kUseHostResolverCache,
+                            features::kSplitHostCacheByNetworkIsolationKey},
+      /*disabled_features=*/{});
+
+  constexpr base::StringPiece kHost = "host.test";
+
+  MockDnsClientRuleList rules;
+  DnsResponse a_response = BuildTestDnsResponse(
+      std::string(kHost), dns_protocol::kTypeA,
+      {BuildTestCnameRecord(std::string(kHost), "alias1.test"),
+       BuildTestCnameRecord("alias1.test", "alias2.test"),
+       BuildTestAddressRecord("alias2.test", IPAddress::IPv4Localhost())});
+  AddDnsRule(&rules, std::string(kHost), dns_protocol::kTypeA,
+             std::move(a_response),
+             /*delay=*/false);
+  AddDnsRule(&rules, std::string(kHost), dns_protocol::kTypeAAAA,
+             MockDnsClientRule::ResultType::kEmpty, /*delay=*/false);
+  CreateResolver();
+  UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
+
+  const SchemefulSite kSite(GURL("https://site.test/"));
+  const auto kNetworkAnonymizationKey =
+      NetworkAnonymizationKey::CreateSameSite(kSite);
+
+  ResolveHostResponseHelper response(resolver_->CreateRequest(
+      HostPortPair(kHost, 80), kNetworkAnonymizationKey, NetLogWithSource(),
+      std::nullopt, resolve_context_.get()));
+  ASSERT_THAT(response.result_error(), IsOk());
+
+  // Expect each alias link and the result to be separately cached with the
+  // aliases cached under the original query type.
+  EXPECT_THAT(
+      resolve_context_->host_resolver_cache()->Lookup(
+          kHost, kNetworkAnonymizationKey, DnsQueryType::A,
+          HostResolverSource::DNS, /*secure=*/false),
+      Pointee(ExpectHostResolverInternalAliasResult(
+          std::string(kHost), DnsQueryType::A,
+          HostResolverInternalResult::Source::kDns, _, _, "alias1.test")));
+  EXPECT_THAT(
+      resolve_context_->host_resolver_cache()->Lookup(
+          "alias1.test", kNetworkAnonymizationKey, DnsQueryType::A,
+          HostResolverSource::DNS, /*secure=*/false),
+      Pointee(ExpectHostResolverInternalAliasResult(
+          "alias1.test", DnsQueryType::A,
+          HostResolverInternalResult::Source::kDns, _, _, "alias2.test")));
+  EXPECT_THAT(resolve_context_->host_resolver_cache()->Lookup(
+                  "alias2.test", kNetworkAnonymizationKey, DnsQueryType::A,
+                  HostResolverSource::DNS, /*secure=*/false),
+              Pointee(ExpectHostResolverInternalDataResult(
+                  "alias2.test", DnsQueryType::A,
+                  HostResolverInternalResult::Source::kDns, _, _,
+                  ElementsAre(IPEndPoint(IPAddress::IPv4Localhost(), 0)))));
 }
 
 class HostResolverManagerBootstrapTest : public HostResolverManagerDnsTest {

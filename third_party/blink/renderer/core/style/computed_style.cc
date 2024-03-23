@@ -48,6 +48,7 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/html/html_progress_element.h"
@@ -96,6 +97,7 @@
 #include "third_party/blink/renderer/platform/wtf/text/case_map.h"
 #include "third_party/blink/renderer/platform/wtf/text/math_transform.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_offset_map.h"
+#include "third_party/blink/renderer/platform/wtf/thread_specific.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/geometry/point_f.h"
 
@@ -160,8 +162,44 @@ PseudoElementStyleCache& ComputedStyle::EnsurePseudoElementStyleCache() const {
   return *cached_data_->pseudo_element_styles_;
 }
 
-const ComputedStyle* ComputedStyle::CreateInitialStyleSingleton() {
-  return MakeGarbageCollected<ComputedStyle>(PassKey());
+const ComputedStyle* ComputedStyle::GetInitialStyleSingleton() {
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(
+      ThreadSpecific<Persistent<const ComputedStyle>>,
+      thread_specific_initial_style, ());
+  Persistent<const ComputedStyle>& persistent = *thread_specific_initial_style;
+  if (UNLIKELY(!persistent)) {
+    persistent = MakeGarbageCollected<ComputedStyle>(PassKey());
+    LEAK_SANITIZER_IGNORE_OBJECT(&persistent);
+  }
+  return persistent.Get();
+}
+
+namespace {
+
+const ComputedStyle* BuildInitialStyleForImg(
+    const ComputedStyle& initial_style) {
+  // This matches the img {} declarations in html.css to avoid copy-on-write
+  // when only UA styles apply for these properties. See crbug.com/1369454
+  // for details.
+  ComputedStyleBuilder builder(initial_style);
+  builder.SetOverflowX(EOverflow::kClip);
+  builder.SetOverflowY(EOverflow::kClip);
+  builder.SetOverflowClipMargin(StyleOverflowClipMargin::CreateContent());
+  return builder.TakeStyle();
+}
+
+}  // namespace
+
+const ComputedStyle* ComputedStyle::GetInitialStyleForImgSingleton() {
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(
+      ThreadSpecific<Persistent<const ComputedStyle>>,
+      thread_specific_initial_style, ());
+  Persistent<const ComputedStyle>& persistent = *thread_specific_initial_style;
+  if (UNLIKELY(!persistent)) {
+    persistent = BuildInitialStyleForImg(*GetInitialStyleSingleton());
+    LEAK_SANITIZER_IGNORE_OBJECT(&persistent);
+  }
+  return persistent.Get();
 }
 
 Vector<AtomicString>* ComputedStyle::GetVariableNamesCache() const {
@@ -1020,7 +1058,7 @@ void ComputedStyle::AdjustDiffForNeedsPaintInvalidation(
   }
 
   if (PaintImagesInternal()) {
-    for (const auto& image : *PaintImagesInternal()) {
+    for (const auto& image : PaintImagesInternal()->Images()) {
       DCHECK(image);
       if (DiffNeedsPaintInvalidationForPaintImage(*image, other, document)) {
         diff.SetNeedsNormalPaintInvalidation();
@@ -1241,7 +1279,7 @@ bool ComputedStyle::HasCSSPaintImagesUsingCustomProperty(
     const AtomicString& custom_property_name,
     const Document& document) const {
   if (PaintImagesInternal()) {
-    for (const auto& image : *PaintImagesInternal()) {
+    for (const auto& image : PaintImagesInternal()->Images()) {
       DCHECK(image);
       // IsPaintImage is true for CSS Paint images only, please refer to the
       // constructor of StyleGeneratedImage.
@@ -1674,8 +1712,6 @@ void ComputedStyle::ApplyMotionPathTransform(float origin_x,
       case BasicShape::kBasicShapeCircleType:
       case BasicShape::kBasicShapeEllipseType:
       case BasicShape::kBasicShapeInsetType:
-      case BasicShape::kBasicShapeXYWHType:
-      case BasicShape::kBasicShapeRectType:
       case BasicShape::kBasicShapePolygonType: {
         const gfx::RectF reference_box = GetReferenceBox(box, coord_box);
         const gfx::PointF offset_from_reference_box =
@@ -2179,7 +2215,7 @@ template <typename T>
 CSSVariableData* GetVariableData(
     const T& style_or_builder,
     const AtomicString& name,
-    absl::optional<bool> inherited_hint = absl::nullopt) {
+    std::optional<bool> inherited_hint = std::nullopt) {
   if (inherited_hint.value_or(true) && style_or_builder.InheritedVariables()) {
     if (auto data = style_or_builder.InheritedVariables()->GetData(name)) {
       return *data;
@@ -2201,7 +2237,7 @@ template <typename T>
 const CSSValue* GetVariableValue(
     const T& style_or_builder,
     const AtomicString& name,
-    absl::optional<bool> inherited_hint = absl::nullopt) {
+    std::optional<bool> inherited_hint = std::nullopt) {
   if (inherited_hint.value_or(true) && style_or_builder.InheritedVariables()) {
     if (auto data = style_or_builder.InheritedVariables()->GetValue(name)) {
       return *data;
@@ -2241,6 +2277,24 @@ const CSSValue* ComputedStyle::GetVariableValue(
     const AtomicString& name,
     bool is_inherited_property) const {
   return blink::GetVariableValue(*this, name, is_inherited_property);
+}
+
+bool ComputedStyle::HasCustomScrollbarStyle(const Document& document) const {
+
+  // Ignore ::-webkit-scrollbar when the web setting to prefer default scrollbar
+  // styling is true. This web setting ignores both ::-webkit-scrollbar styling
+  // and standard properties.
+  if (RuntimeEnabledFeatures::PreferDefaultScrollbarStylesEnabled()) {
+    const Settings* settings = document.GetSettings();
+    if (settings && settings->GetPrefersDefaultScrollbarStyles()) {
+      return false;
+    }
+  }
+
+  // Ignore non-standard ::-webkit-scrollbar when standard properties are in
+  // use.
+  return HasPseudoElementStyle(kPseudoIdScrollbar) &&
+         !UsesStandardScrollbarStyle();
 }
 
 Length ComputedStyle::LineHeight() const {
@@ -2528,8 +2582,7 @@ blink::Color ComputedStyle::GetInternalForcedCurrentColor(
     return GetCurrentColor(is_current_color);
   }
   return InternalForcedColor().Resolve(blink::Color(), UsedColorScheme(),
-                                       is_current_color,
-                                       /* is_forced_color */ true);
+                                       is_current_color);
 }
 
 blink::Color ComputedStyle::GetInternalForcedVisitedCurrentColor(
@@ -2539,8 +2592,7 @@ blink::Color ComputedStyle::GetInternalForcedVisitedCurrentColor(
     return GetInternalVisitedCurrentColor(is_current_color);
   }
   return InternalForcedVisitedColor().Resolve(blink::Color(), UsedColorScheme(),
-                                              is_current_color,
-                                              /* is_forced_color */ true);
+                                              is_current_color);
 }
 
 bool ComputedStyle::ShadowListHasCurrentColor(const ShadowList* shadow_list) {
@@ -2568,32 +2620,30 @@ bool ComputedStyle::MarkerShouldBeInside(const Element& parent) const {
          (IsA<HTMLLIElement>(parent) && !IsInsideListElement());
 }
 
-absl::optional<blink::Color> ComputedStyle::AccentColorResolved() const {
+std::optional<blink::Color> ComputedStyle::AccentColorResolved() const {
   const StyleAutoColor& auto_color = AccentColor();
   if (auto_color.IsAutoColor()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   return auto_color.Resolve(GetCurrentColor(), UsedColorScheme());
 }
 
-absl::optional<blink::Color> ComputedStyle::ScrollbarThumbColorResolved()
-    const {
-  const absl::optional<StyleScrollbarColor>& scrollbar_color = ScrollbarColor();
+std::optional<blink::Color> ComputedStyle::ScrollbarThumbColorResolved() const {
+  const std::optional<StyleScrollbarColor>& scrollbar_color = ScrollbarColor();
   if (scrollbar_color.has_value()) {
     return scrollbar_color.value().GetThumbColor().Resolve(GetCurrentColor(),
                                                            UsedColorScheme());
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
-absl::optional<blink::Color> ComputedStyle::ScrollbarTrackColorResolved()
-    const {
-  const absl::optional<StyleScrollbarColor>& scrollbar_color = ScrollbarColor();
+std::optional<blink::Color> ComputedStyle::ScrollbarTrackColorResolved() const {
+  const std::optional<StyleScrollbarColor>& scrollbar_color = ScrollbarColor();
   if (scrollbar_color.has_value()) {
     return scrollbar_color.value().GetTrackColor().Resolve(GetCurrentColor(),
                                                            UsedColorScheme());
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 bool ComputedStyle::ShouldApplyAnyContainment(const Element& element,

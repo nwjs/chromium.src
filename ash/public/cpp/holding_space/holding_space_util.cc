@@ -185,6 +185,7 @@ bool IsInProgressCommand(HoldingSpaceCommandId command_id) {
     case HoldingSpaceCommandId::kOpenItem:
     case HoldingSpaceCommandId::kPauseItem:
     case HoldingSpaceCommandId::kResumeItem:
+    case HoldingSpaceCommandId::kViewItemDetailsInBrowser:
       return true;
     default:
       return false;
@@ -199,11 +200,12 @@ bool SupportsInProgressCommand(const HoldingSpaceItem* item,
 }
 
 bool ExecuteInProgressCommand(const HoldingSpaceItem* item,
-                              HoldingSpaceCommandId command_id) {
+                              HoldingSpaceCommandId command_id,
+                              holding_space_metrics::EventSource event_source) {
   DCHECK(IsInProgressCommand(command_id));
   for (const auto& in_progress_command : item->in_progress_commands()) {
     if (in_progress_command.command_id == command_id) {
-      in_progress_command.handler.Run(item, command_id);
+      in_progress_command.handler.Run(item, command_id, event_source);
       return true;
     }
   }

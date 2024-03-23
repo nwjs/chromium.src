@@ -338,6 +338,18 @@ typedef std::map<blink::WebFrame*, RenderFrameImpl*> FrameMap;
 base::LazyInstance<FrameMap>::DestructorAtExit g_frame_map =
     LAZY_INSTANCE_INITIALIZER;
 
+// Please keep in sync with "RendererBlockedURLReason" in
+// tools/metrics/histograms/metadata/navigation/enums.xml. These values are
+// persisted to logs. Entries should not be renumbered and numeric values should
+// never be reused.
+enum class RendererBlockedURLReason {
+  kInvalidURL = 0,
+  kTooLongURL = 1,
+  kBadAboutURL = 2,
+
+  kMaxValue = kBadAboutURL
+};
+
 int64_t ExtractPostId(const WebHistoryItem& item) {
   if (item.IsNull() || item.HttpBody().IsNull())
     return -1;
@@ -403,11 +415,52 @@ ui::PageTransition GetTransitionType(blink::WebDocumentLoader* document_loader,
                            document_loader->GetNavigationType());
 }
 
+// Ensure that the renderer does not send commit URLs to the browser process
+// that are known to be unsupported. Ideally these would be caught earlier in
+// Blink and not get this far. Histograms are reported (similar to those in
+// RenderProcessHostImpl::FilterURL) to track the cases that should be handled
+// earlier. See https://crbug.com/40066983.
+bool IsValidCommitUrl(const GURL& url) {
+  // Invalid URLs are not accepted by the browser process.
+  if (!url.is_valid()) {
+    base::UmaHistogramEnumeration("Navigation.Renderer.BlockedForFilterURL",
+                                  RendererBlockedURLReason::kInvalidURL);
+    return false;
+  }
+
+  // Do not send a URL longer than Mojo will serialize.
+  if (url.possibly_invalid_spec().length() > url::kMaxURLChars) {
+    base::UmaHistogramEnumeration("Navigation.Renderer.BlockedForFilterURL",
+                                  RendererBlockedURLReason::kTooLongURL);
+    return false;
+  }
+
+  // Any about: URLs must be either about:blank or about:srcdoc (optionally with
+  // fragments).
+  if (url.SchemeIs(url::kAboutScheme) &&
+      (!url.IsAboutBlank() && !url.IsAboutSrcdoc())) {
+    base::UmaHistogramEnumeration("Navigation.Renderer.BlockedForFilterURL",
+                                  RendererBlockedURLReason::kBadAboutURL);
+    return false;
+  }
+
+  return true;
+}
+
 // Gets URL that should override the default getter for this data source
 // (if any), storing it in |output|. Returns true if there is an override URL.
 bool MaybeGetOverriddenURL(WebDocumentLoader* document_loader, GURL* output) {
   DocumentState* document_state =
       DocumentState::FromDocumentLoader(document_loader);
+  // `document_state` may be null if it was taken from the loader, e.g. when
+  // committing the result of evaluating a javascript: URL,
+  // `FrameLoader::CommitNavigation()` takes the `DocumentState`. Early
+  // returning here means the answer may be inaccurate, but this can only
+  // happen when the replaced `Document` is being detached and about to go
+  // away.
+  if (!document_state) {
+    return false;
+  }
 
   // If this document is loaded by a loadDataWithBaseURL request, then the URLs
   // saved in the DocumentLoader will be the user-supplied base URL (used as the
@@ -2318,7 +2371,7 @@ void RenderFrameImpl::DidCommitAndDrawCompositorFrame() {
   // ViewFlushedPaint regarding instances closing themselves, so we take
   // similar precautions.
   PepperPluginSet plugins = active_pepper_instances_;
-  for (auto* plugin : plugins) {
+  for (PepperPluginInstanceImpl* plugin : plugins) {
     if (base::Contains(active_pepper_instances_, plugin)) {
       plugin->ViewInitiatedPaint();
     }
@@ -2539,17 +2592,29 @@ void RenderFrameImpl::SetSkipBlockingParser(bool value) {
 
 void RenderFrameImpl::AllowBindings(int32_t enabled_bindings_flags) {
   enabled_bindings_ |= enabled_bindings_flags;
+
+  if (enabled_bindings_flags & BINDINGS_POLICY_MOJO_WEB_UI) {
+    // If mojo web UI is being enabled, update the protected memory bool to
+    // allow MojoJS binding in this process.
+    blink::WebV8Features::AllowMojoJSForProcess();
+  }
 }
 
 void RenderFrameImpl::EnableMojoJsBindings(
     content::mojom::ExtraMojoJsFeaturesPtr features) {
   enable_mojo_js_bindings_ = true;
   mojo_js_features_ = std::move(features);
+
+  // Update the protected memory bool to allow MojoJS binding in this process.
+  blink::WebV8Features::AllowMojoJSForProcess();
 }
 
 void RenderFrameImpl::EnableMojoJsBindingsWithBroker(
     mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> broker) {
   mojo_js_interface_broker_ = std::move(broker);
+
+  // Update the protected memory bool to allow MojoJS binding in this process.
+  blink::WebV8Features::AllowMojoJSForProcess();
 }
 
 void RenderFrameImpl::BindWebUI(
@@ -2830,6 +2895,8 @@ void RenderFrameImpl::CommitNavigationWithParams(
     mojom::StorageInfoPtr storage_info,
     std::unique_ptr<DocumentState> document_state,
     std::unique_ptr<WebNavigationParams> navigation_params) {
+  TRACE_EVENT0("navigation", "RenderFrameImpl::CommitNavigationWithParams");
+  base::ElapsedTimer timer;
   if (common_params->url.IsAboutSrcdoc()) {
     WebNavigationParams::FillStaticResponse(navigation_params.get(),
                                             "text/html", "UTF-8",
@@ -2861,18 +2928,14 @@ void RenderFrameImpl::CommitNavigationWithParams(
     CHECK(!commit_params->not_restored_reasons);
   }
 
-  // Skip LCPP hints if the document isn't being loaded in the main frame,
-  // if the LCPP performance experiment is enabled.
-  if (!blink::features::
-           kLCPCriticalPathPredictorEnableElementLocatorPerformanceImprovements
-               .Get() ||
-      frame_->IsOutermostMainFrame()) {
-    frame_->SetLCPPHint(std::move(commit_params->lcpp_hint));
-  } else {
-    // When there's a pre-existing LCPP hint on frame, we want to remove the
-    // existing hint. Hence calling SetLCPPHint(nullptr) is required.
-    frame_->SetLCPPHint(nullptr);
-  }
+  // |lcpp_hint| is set only when the frame is eligible (e.g. it's an outer
+  // most main frame), which is checked in the browser process. Otherwise
+  // nullptr.
+  //
+  // When there's a pre-existing LCPP hint on frame, we want to remove the
+  // existing hint. Hence calling SetLCPPHint() is always required.
+  CHECK(!commit_params->lcpp_hint || frame_->IsOutermostMainFrame());
+  frame_->SetLCPPHint(std::move(commit_params->lcpp_hint));
 
   // Note: this intentionally does not call |Detach()| before |reset()|. If
   // there is an active |MHTMLBodyLoaderClient|, the browser-side navigation
@@ -2945,6 +3008,14 @@ void RenderFrameImpl::CommitNavigationWithParams(
   // The commit can result in this frame being removed.
   if (!weak_self)
     return;
+
+  if (load_type == WebFrameLoadType::kStandard &&
+      common_params->url.SchemeIsHTTPOrHTTPS()) {
+    base::UmaHistogramMicrosecondsTimes(
+        "Navigation.CommitNavigationWithParams.Time.IsStandardLoadType."
+        "IsHTTPOrHTTPS",
+        timer.Elapsed());
+  }
 
   ResetMembersUsedForDurationOfCommit();
 }
@@ -4216,7 +4287,11 @@ void RenderFrameImpl::WillFreezePage() {
 }
 
 void RenderFrameImpl::DidOpenDocumentInputStream(const blink::WebURL& url) {
-  GetFrameHost()->DidOpenDocumentInputStream(url);
+  GURL filtered_url(url);
+  if (!IsValidCommitUrl(filtered_url)) {
+    filtered_url = GURL(kBlockedURL);
+  }
+  GetFrameHost()->DidOpenDocumentInputStream(filtered_url);
 }
 
 void RenderFrameImpl::DidSetPageLifecycleState() {
@@ -4522,10 +4597,12 @@ void RenderFrameImpl::DidChangePerformanceTiming() {
 void RenderFrameImpl::DidObserveUserInteraction(
     base::TimeTicks max_event_start,
     base::TimeTicks max_event_end,
+    base::TimeTicks max_event_queued_main_thread,
     blink::UserInteractionType interaction_type,
     uint64_t interaction_offset) {
   for (auto& observer : observers_)
     observer.DidObserveUserInteraction(max_event_start, max_event_end,
+                                       max_event_queued_main_thread,
                                        interaction_type, interaction_offset);
 }
 
@@ -4699,11 +4776,12 @@ void RenderFrameImpl::PostAccessibilityEvent(const ui::AXEvent& event) {
       event);
 }
 
-void RenderFrameImpl::AXReadyCallback() {
-  if (!IsAccessibilityEnabled())
-    return;
+bool RenderFrameImpl::AXReadyCallback() {
+  if (!IsAccessibilityEnabled()) {
+    return false;
+  }
 
-  render_accessibility_manager_->GetRenderAccessibilityImpl()
+  return render_accessibility_manager_->GetRenderAccessibilityImpl()
       ->AXReadyCallback();
 }
 
@@ -4727,8 +4805,9 @@ void RenderFrameImpl::WasHidden() {
     observer.WasHidden();
 
 #if BUILDFLAG(ENABLE_PPAPI)
-  for (auto* plugin : active_pepper_instances_)
+  for (PepperPluginInstanceImpl* plugin : active_pepper_instances_) {
     plugin->PageVisibilityChanged(false);
+  }
 #endif  // BUILDFLAG(ENABLE_PPAPI)
 }
 
@@ -4738,8 +4817,9 @@ void RenderFrameImpl::WasShown() {
     observer.WasShown();
 
 #if BUILDFLAG(ENABLE_PPAPI)
-  for (auto* plugin : active_pepper_instances_)
+  for (PepperPluginInstanceImpl* plugin : active_pepper_instances_) {
     plugin->PageVisibilityChanged(true);
+  }
 #endif  // BUILDFLAG(ENABLE_PPAPI)
 }
 
@@ -4845,7 +4925,20 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
   // get the base url from it too.
   if (blink::features::IsNewBaseUrlInheritanceBehaviorEnabled() &&
       (params->url.IsAboutBlank() || params->url.IsAboutSrcdoc())) {
-    params->initiator_base_url = frame_document.BaseURL();
+    GURL base_url = frame_document.BaseURL();
+    // Only pass the base URL if it is valid and can be serialized by Mojo.
+    if (base_url.is_valid() &&
+        base_url.possibly_invalid_spec().length() <= url::kMaxURLChars) {
+      params->initiator_base_url = base_url;
+    }
+  }
+
+  // Don't send commit URLs to the browser that are known to be unsupported
+  // (e.g., would not pass RenderProcessHostImpl::FilterURL). This is applied
+  // after the initiator_base_url check above to avoid passing a base URL when
+  // the URL was not about:blank but was rewritten to about:blank#blocked.
+  if (!IsValidCommitUrl(params->url)) {
+    params->url = GURL(kBlockedURL);
   }
 
   // TODO(https://crbug.com/1158101): Reconsider how we calculate
@@ -5394,8 +5487,12 @@ void RenderFrameImpl::BeginNavigation(
 
   if (frame_->IsOutermostMainFrame() && url.is_valid() &&
       url.SchemeIsHTTPOrHTTPS() &&
-      base::FeatureList::IsEnabled(
-          features::kSpeculativeServiceWorkerStartup)) {
+      (base::FeatureList::IsEnabled(
+           blink::features::kHttpDiskCachePrewarming) ||
+       base::FeatureList::IsEnabled(
+           blink::features::kSpeculativeServiceWorkerWarmUp) ||
+       base::FeatureList::IsEnabled(
+           features::kSpeculativeServiceWorkerStartup))) {
     frame_->MaybeStartOutermostMainFrameNavigation(WebVector<WebURL>({url}));
   }
 
@@ -5481,29 +5578,16 @@ void RenderFrameImpl::BeginNavigation(
       !is_history_navigation_in_new_child_frame &&
       // Fullscreen navigation requests must go to the browser (for permission
       // checks and other security measures).
-      !info->is_fullscreen_requested;
-
-  if (should_do_synchronous_about_blank_navigation) {
-    if (!IsMainFrame()) {
+      !info->is_fullscreen_requested &&
       // Synchronous about:blank commits on iframes should only be triggered
       // when first creating the iframe with an unset/about:blank URL, which
       // means the origin should inherit from the parent.
-      WebLocalFrame* parent = static_cast<WebLocalFrame*>(frame_->Parent());
-      SCOPED_CRASH_KEY_STRING256(
-          "sync_about_blank", "parent_origin",
-          url::Origin(parent->GetDocument().GetSecurityOrigin())
-              .GetDebugString());
-      SCOPED_CRASH_KEY_STRING256(
-          "sync_about_blank", "request_origin",
-          url::Origin(info->url_request.RequestorOrigin()).GetDebugString());
-      SCOPED_CRASH_KEY_STRING256(
-          "sync_about_blank", "current_origin",
-          url::Origin(frame_->GetSecurityOrigin()).GetDebugString());
-      CHECK(parent);
-      CHECK(parent->GetDocument().GetSecurityOrigin().IsSameOriginWith(
-          info->url_request.RequestorOrigin()));
-    }
+      (IsMainFrame() || info->url_request.RequestorOrigin().IsSameOriginWith(
+                            static_cast<WebLocalFrame*>(frame_->Parent())
+                                ->GetDocument()
+                                .GetSecurityOrigin()));
 
+  if (should_do_synchronous_about_blank_navigation) {
     for (auto& observer : observers_)
       observer.DidStartNavigation(url, info->navigation_type);
     SynchronouslyCommitAboutBlankForBug778318(std::move(info));

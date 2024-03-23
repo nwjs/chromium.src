@@ -1508,6 +1508,21 @@ be describing additional metrics about the same event.
       are no bidders eligible to participate in this auction.
     </summary>
   </metric>
+  <metric name="NumOwnersWithoutInterestGroups">
+    <summary>
+      The number of owner origins listed in an auction configuration that were
+      excluded from taking part in a FLEDGE auction because they have no
+      eligible interest groups. Equivalent to the UMA histogram named
+      Ads.InterestGroup.Auction.NumOwnersWithoutInterestGroups. This does not
+      count owners that were filtered due to user settings. For multi-seller
+      auctions, this is the sum of all such excluded owners across all component
+      auctions. This double-counts owners that participate in multiple component
+      auctions. Recorded after all interest groups participating in an auction
+      have been retrieved from storage at the start of an auction. This is
+      related to the sibling histogram named
+      &quot;NumOwnersWithInterestGroups&quot;.
+    </summary>
+  </metric>
   <metric name="NumScoreAdCodeReadyOnCriticalPath">
     <summary>
       Aggregated across all components for multi-seller auctions, this records
@@ -7901,18 +7916,39 @@ be describing additional metrics about the same event.
       The number of times the Compose result was inserted into the page. Uses
       exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="MenuItemClicked">
     <summary>
       The number of times the Compose context menu item was clicked for an
       element on the page. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="MenuItemShown">
     <summary>
       The number of times the Compose context menu item was shown for an element
       on the page. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="MissingFormData">
     <summary>
@@ -7945,60 +7981,130 @@ be describing additional metrics about the same event.
       If the user canceled this session with the &quot;X&quot; button. This does
       not include dismissing the dialog by losing focus.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="CasualCount">
     <summary>
       How many times the user pressed the &quot;shorten&quot; button in this
       session. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="ComposeCount">
     <summary>
       How many times the user pressed the &quot;generate&quot; button in this
       session. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="DialogShownCount">
     <summary>
       How many times the compose dialog was shown to the user. Uses exponential
       buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="FormalCount">
     <summary>
       How many times the user pressed the &quot;formal&quot; button in this
       session. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="InsertedResults" enum="Boolean">
     <summary>
       If the user inserted results back to the web page in this session, either
       by pressing the &quot;insert&quot; or &quot;replace&quot; button.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="LengthenCount">
     <summary>
       How many times the user pressed the &quot;elaborate&quot; button in this
       session. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="RegenerateCount">
     <summary>
       How many times the user pressed the &quot;regenerate&quot; button in this
       session. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="ShortenCount">
     <summary>
       How many times the user pressed the &quot;shorten&quot; button in this
       session. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="UndoCount">
     <summary>
       How many times the user pressed the &quot;undo&quot; button in this
       session. Uses exponential buckets for privacy.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -8010,16 +8116,30 @@ be describing additional metrics about the same event.
     input. Excludes potentially sensitive fields including input type=password
     or when autofill determines the field is sensitive.
   </summary>
-  <metric name="AutofillFormControlType">
+  <metric name="AutofillFormControlType" enum="AutofillFormControlType2">
     <summary>
       The control type, such as text or textarea. See
       |autofill::FormControlType|.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
-  <metric name="IsAutofillFieldType">
+  <metric name="IsAutofillFieldType" enum="Boolean">
     <summary>
       Whether the field is detected and supported by Autofill.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="TypedCharacterCount">
     <summary>
@@ -8029,6 +8149,13 @@ be describing additional metrics about the same event.
       count only typed changes, but is not always accurate. Additionally, there
       is a limit to the total possible length observed.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="TypedWordCount">
     <summary>
@@ -8039,6 +8166,13 @@ be describing additional metrics about the same event.
       accurate. Additionally, there is a limit to the total possible length
       observed.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -8570,12 +8704,12 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="Cookies.FirstPartyPartitionedInCrossSiteContext">
+<event name="Cookies.FirstPartyPartitionedInCrossSiteContextV2">
   <owner>selya@chromium.org</owner>
   <owner>dylancutler@google.com</owner>
   <summary>
-    Recorded when a page loads that has a first-party partitioned cookie present
-    and is in a cross site context.
+    Recorded when a page loads that has a first-party partitioned cookie
+    present.
   </summary>
   <metric name="CookiePresent" enum="Boolean">
     <summary>
@@ -9662,6 +9796,45 @@ be describing additional metrics about the same event.
   <metric name="State" enum="ExtensionInProgressRequestState">
     <summary>
       The final state of the request.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="FacilitatedPayments.PixCodeDetectionResult">
+  <owner>vishwasuppoor@google.com</owner>
+  <owner>siashah@google.com</owner>
+  <owner>rouslan@chromium.org</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    An event that is logged after a PIX code detection is triggered on the page.
+  </summary>
+  <metric name="LatencyInMillis">
+    <summary>
+      The duration (in milliseconds) for how long it took to scan the document
+      for PIX code. It is the time between the browser sending a message to the
+      renderer to trigger PIX code detection and the renderer returning the
+      result of the scan.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Result" enum="PixCodeDetectionResult">
+    <summary>
+      Represents the outcome of running PIX code detection on the page. It is
+      used to log whether or not PIX detection was run, and if a valid PIX code
+      was found on the page.
     </summary>
     <aggregation>
       <history>
@@ -13900,32 +14073,32 @@ be describing additional metrics about the same event.
     foreground and background. Records may be aggregated based on PlayerID and
     correlated with the Media.WebMediaPlayerState event.
   </summary>
-  <metric name="AudioCodec">
+  <metric name="AudioCodec" enum="AudioCodec">
     <summary>
       media::AudioCodec enum value. Can be kUnknownAudioCodec even when HasAudio
       is true because we don't always know the codec.
     </summary>
   </metric>
-  <metric name="AudioCodecProfile">
+  <metric name="AudioCodecProfile" enum="AudioCodecProfile">
     <summary>
       media::AudioCodecProfile enum value. Can be AudioCodecProfile::kUnknown
       even when HasAudio is true because we don't always know the codec profile.
     </summary>
   </metric>
-  <metric name="AudioDecoderName">
+  <metric name="AudioDecoderName" enum="AudioDecoderType">
     <summary>
       Enumeration of audio decoder implementations, zero if none or unknown
       (Cast, HLS, etc). See AudioDecoderType (media/base/decoder.h) for expected
       values.
     </summary>
   </metric>
-  <metric name="AudioEncryptionScheme">
+  <metric name="AudioEncryptionScheme" enum="EncryptionScheme">
     <summary>
-      media::EncryptionMode enum value. Can be kUnencrypted if IsEME is false or
-      if the audio track is unencrypted.
+      media::EncryptionScheme enum value (media/base/encryption_scheme.h). Can
+      be kUnencrypted if IsEME is false or if the audio track is unencrypted.
     </summary>
   </metric>
-  <metric name="AutoplayInitiated">
+  <metric name="AutoplayInitiated" enum="Boolean">
     <summary>
       Boolean value indicating whether the initial playback was initiated via
       autoplay. Multilpe chunk records of the same player should have the same
@@ -13951,38 +14124,38 @@ be describing additional metrics about the same event.
       media being played. May be missing if the duration is unknown or infinite.
     </summary>
   </metric>
-  <metric name="HasAudio">
+  <metric name="HasAudio" enum="Boolean">
     <summary>
       Boolean value indicating the presence of audio.
     </summary>
   </metric>
-  <metric name="HasVideo">
+  <metric name="HasVideo" enum="Boolean">
     <summary>
       Boolean value indicating the presence of video.
     </summary>
   </metric>
-  <metric name="IsBackground">
+  <metric name="IsBackground" enum="Boolean">
     <summary>
       Boolean value indicating if this event is for a background playback.
     </summary>
   </metric>
-  <metric name="IsEME">
+  <metric name="IsEME" enum="Boolean">
     <summary>
       Boolean value indicating if this event is for an EME playback.
     </summary>
   </metric>
-  <metric name="IsMSE">
+  <metric name="IsMSE" enum="Boolean">
     <summary>
       Boolean value indicating if this event is for an MSE playback. If false it
       means this was a SRC playback.
     </summary>
   </metric>
-  <metric name="IsMuted">
+  <metric name="IsMuted" enum="Boolean">
     <summary>
       Boolean value indicating if this event is for a muted playback.
     </summary>
   </metric>
-  <metric name="IsTopFrame">
+  <metric name="IsTopFrame" enum="Boolean">
     <summary>
       Flag indicating whether the report comes from the top frame or some inner
       frame. For privacy, metrics from inner frames are recorded with the top
@@ -13990,10 +14163,11 @@ be describing additional metrics about the same event.
       playbacks.
     </summary>
   </metric>
-  <metric name="LastPipelineStatus">
+  <metric name="LastPipelineStatus" enum="PipelineStatus">
     <summary>
-      media::PipelineStatus enum value. Always 0 if the playback succeeded; all
-      other values indicate the playback ended in an error.
+      media::PipelineStatusCodes enum value (media/base/pipeline_status.h).
+      Always 0 if the playback succeeded; all other values indicate the playback
+      ended in an error.
     </summary>
   </metric>
   <metric name="MeanTimeBetweenRebuffers">
@@ -14020,29 +14194,29 @@ be describing additional metrics about the same event.
       Integer count of the number of times playback experienced rebuffering.
     </summary>
   </metric>
-  <metric name="VideoCodec">
+  <metric name="VideoCodec" enum="VideoCodec">
     <summary>
       media::VideoCodec enum value. Can be kUnknownVideoCodec even when HasVideo
       is true because we don't always know the codec.
     </summary>
   </metric>
-  <metric name="VideoCodecProfile">
+  <metric name="VideoCodecProfile" enum="VideoCodecProfile">
     <summary>
       media::VideoCodecProfile enum value. Can be VIDEO_CODEC_PROFILE_UNKNOWN
       even when HasVideo is true because we don't always know the codec profile.
     </summary>
   </metric>
-  <metric name="VideoDecoderName">
+  <metric name="VideoDecoderName" enum="VideoDecoderType">
     <summary>
       Enumeration of video decoder implementations, zero if none or unknown
       (Cast, HLS, etc). See VideoDecoderType (media/base/decoder.h) for expected
       values.
     </summary>
   </metric>
-  <metric name="VideoEncryptionScheme">
+  <metric name="VideoEncryptionScheme" enum="EncryptionScheme">
     <summary>
-      media::EncryptionMode enum value. Can be kUnencrypted if IsEME is false or
-      if the video track is unencrypted.
+      media::EncryptionScheme enum value (media/base/encryption_scheme.h). Can
+      be kUnencrypted if IsEME is false or if the video track is unencrypted.
     </summary>
   </metric>
   <metric name="VideoFramesDecoded">
@@ -17039,6 +17213,12 @@ be describing additional metrics about the same event.
       buckets up to 60 days.
     </summary>
   </metric>
+  <metric name="IsAdTagged" enum="IsAdTagged">
+    <summary>
+      Whether the cookie access attempt was tagged as an ad cookie, and thus
+      exempt from mitigations including heuristics.
+    </summary>
+  </metric>
 </event>
 
 <event name="OpenerHeuristic.TopLevel">
@@ -18978,7 +19158,9 @@ be describing additional metrics about the same event.
   <metric name="PaintTiming.LargestContentfulPaintImageDiscoveryTime">
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
-      start to the time when the image LCP element is requested. This metric is
+      start to the time when the image LCP element is requested. If the image
+      LCP element is from a subframe, the difference in the navigation start of
+      the main frame and that of the subframe is accounted for. This metric is
       not recorded when the LCP element is text or video.
     </summary>
   </metric>
@@ -18988,7 +19170,9 @@ be describing additional metrics about the same event.
       start to the time when the LCP element(image) finishes loading. For
       animated images, this is when the image resource finishes loading
       completely, not the first frame time. See web.dev/optimize-lcp for more
-      details. This metric is not recorded when the LCP element is text or
+      details. If the image LCP element is from a subframe, the difference in
+      the navaigation start of the main frame and that of the subframe is
+      accounted for. This metric is not recorded when the LCP element is text or
       video.
     </summary>
   </metric>
@@ -18996,7 +19180,9 @@ be describing additional metrics about the same event.
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
       start to the time when the LCP element(image) starts loading. See
-      web.dev/optimize-lcp for more details. This metric is not recorded when
+      web.dev/optimize-lcp for more details. If the image LCP element is from a
+      subframe, the difference in the navaigation start of the main frame and
+      that of the subframe is accounted for. This metric is not recorded when
       the LCP element is text or video.
     </summary>
   </metric>
@@ -21764,9 +21950,8 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Preloading.Attempt">
-  <owner>sreejakshetty@chromium.org</owner>
-  <owner>spelchat@chromium.org</owner>
-  <owner>chrome-brapp-loading@google.com</owner>
+  <owner>domenic@chromium.org</owner>
+  <owner>chrome-instant-ecosystem@google.com</owner>
   <summary>
     This event is logged for each preloading attempt i.e., for preloading
     features like Preresolve, Preconnect, Prerender, Prefetch, and others when
@@ -21888,9 +22073,8 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Preloading.Attempt.PreviousPrimaryPage">
-  <owner>sreejakshetty@chromium.org</owner>
-  <owner>spelchat@chromium.org</owner>
-  <owner>chrome-brapp-loading@google.com</owner>
+  <owner>domenic@chromium.org</owner>
+  <owner>chrome-instant-ecosystem@google.com</owner>
   <summary>
     This is same as Preloading.Attempt but UKM is associated with the primary
     triggering page (if exists) and logged when the user navigates away or when
@@ -22009,9 +22193,8 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Preloading.Prediction">
-  <owner>sreejakshetty@chromium.org</owner>
-  <owner>spelchat@chromium.org</owner>
-  <owner>chrome-brapp-loading@google.com</owner>
+  <owner>domenic@chromium.org</owner>
+  <owner>chrome-instant-ecosystem@google.com</owner>
   <summary>
     This event is logged for each preloading prediction and metrics related to
     the preloading predictors like OmniboxDirectURLInput, Speculation Rules and
@@ -22049,9 +22232,8 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Preloading.Prediction.PreviousPrimaryPage">
-  <owner>sreejakshetty@chromium.org</owner>
-  <owner>spelchat@chromium.org</owner>
-  <owner>chrome-brapp-loading@google.com</owner>
+  <owner>domenic@chromium.org</owner>
+  <owner>chrome-instant-ecosystem@google.com</owner>
   <summary>
     This is the same as Preloading.Prediction but UKM is associated with the
     WebContents primary triggering page (if exists) and logged when the user
@@ -22089,8 +22271,8 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="PrerenderPageLoad" singular="True">
-  <owner>ksakamoto@chromium.org</owner>
   <owner>nhiroki@chromium.org</owner>
+  <owner>chrome-prerendering@google.com</owner>
   <summary>
     Metrics related to Prerender2
     (https://docs.google.com/document/d/1P2VKCLpmnNm_cRAjUeE-bqLL0bslL_zKqiNeCzNom_w/edit?usp=sharing).
@@ -22829,6 +23011,12 @@ be describing additional metrics about the same event.
       with the tracking site. Clamped to 60 days at most, and rounded down to
       the nearest exponential bucket (out of 50 buckets). Set to -1 if there has
       never been a user interaction from the tracking site.
+    </summary>
+  </metric>
+  <metric name="IsAdTagged" enum="IsAdTagged">
+    <summary>
+      Whether the cookie access attempt was tagged as an ad cookie, and thus
+      exempt from mitigations including heuristics.
     </summary>
   </metric>
   <metric name="IsCurrentInteraction" enum="Boolean">
@@ -26036,7 +26224,14 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="ThirdPartyCookies.BreakageIndicator">
+  <obsolete>
+    Deprecated 02/2024. Replaced with:
+    ThirdPartyCookies.BreakageIndicator.HTTPError,
+    ThirdPartyCookies.BreakageIndicator.UncaughtJSError,
+    ThirdPartyCookies.BreakageIndicator.UserReload.
+  </obsolete>
   <owner>3pcd-core@google.com</owner>
+  <owner>kurtosis-team@google.com</owner>
   <owner>johannhof@chromium.org</owner>
   <summary>
     Recorded when there is an event that could be associated with breakage from
@@ -26055,6 +26250,99 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
+  <metric name="TPCBlocked" enum="Boolean">
+    <summary>
+      Whether the site actually had any blocked 3P cookies.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="TPCBlockedInSettings" enum="Boolean">
+    <summary>
+      Whether the user had third party cookies blocked when the event occurred.
+      This metric considers the global third party cookie setting as well as
+      per-top-level-site content settings for opting out of third party cookie
+      blocking, but not e.g. the Storage Access state of individual iframes.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="ThirdPartyCookies.BreakageIndicator.HTTPError">
+  <owner>3pcd-core@google.com</owner>
+  <owner>johannhof@chromium.org</owner>
+  <owner>ryankalla@google.com</owner>
+  <summary>
+    Recorded when there is an HTTP error that could be associated with breakage
+    from 3PC blocking.
+  </summary>
+  <metric name="TPCBlocked" enum="Boolean">
+    <summary>
+      Whether the site actually had any blocked 3P cookies.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="TPCBlockedInSettings" enum="Boolean">
+    <summary>
+      Whether the user had third party cookies blocked when the event occurred.
+      This metric considers the global third party cookie setting as well as
+      per-top-level-site content settings for opting out of third party cookie
+      blocking, but not e.g. the Storage Access state of individual iframes.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="ThirdPartyCookies.BreakageIndicator.UncaughtJSError">
+  <owner>3pcd-core@google.com</owner>
+  <owner>johannhof@chromium.org</owner>
+  <owner>ryankalla@google.com</owner>
+  <summary>
+    Recorded when there is a JS error that could be associated with breakage
+    from 3PC blocking.
+  </summary>
+  <metric name="HasOccurred" enum="Boolean">
+    <summary>
+      A boolean signaling that the event has occurred; only records true values.
+    </summary>
+  </metric>
+</event>
+
+<event name="ThirdPartyCookies.BreakageIndicator.UserReload">
+  <owner>3pcd-core@google.com</owner>
+  <owner>johannhof@chromium.org</owner>
+  <owner>ryankalla@google.com</owner>
+  <summary>
+    Recorded when there is a user reload event that could be associated with
+    breakage from 3PC blocking.
+  </summary>
   <metric name="TPCBlocked" enum="Boolean">
     <summary>
       Whether the site actually had any blocked 3P cookies.
@@ -26486,7 +26774,8 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Unload" singular="True">
-  <owner>kdillon@chromium.org</owner>
+  <owner>shaseley@chromium.org</owner>
+  <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
     Metrics associated with a unloading in preparation for a navigation.
   </summary>

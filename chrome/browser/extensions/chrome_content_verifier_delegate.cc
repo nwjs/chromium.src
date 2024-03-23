@@ -13,7 +13,7 @@
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/metrics/field_trial.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
@@ -34,6 +34,7 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
 #include "extensions/browser/pref_types.h"
+#include "extensions/common/extension_id.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/extensions_client.h"
 #include "extensions/common/manifest.h"
@@ -166,7 +167,7 @@ ContentVerifierKey ChromeContentVerifierDelegate::GetPublicKey() {
 }
 
 GURL ChromeContentVerifierDelegate::GetSignatureFetchUrl(
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     const base::Version& version) {
   // TODO(asargent) Factor out common code from the extension updater's
   // ManifestFetchData class that can be shared for use here.
@@ -190,7 +191,7 @@ std::set<base::FilePath> ChromeContentVerifierDelegate::GetBrowserImagePaths(
 }
 
 void ChromeContentVerifierDelegate::VerifyFailed(
-    const std::string& extension_id,
+    const ExtensionId& extension_id,
     const base::FilePath& relative_path,
     ContentVerifyJob::FailureReason reason,
     scoped_refptr<ContentVerifyJob> verify_job) {
@@ -274,8 +275,8 @@ void ChromeContentVerifierDelegate::VerifyFailed(
   DCHECK(should_disable);
   service->DisableExtension(extension_id, disable_reason::DISABLE_CORRUPTED);
   ExtensionPrefs::Get(context_)->IncrementPref(kCorruptedDisableCount);
-  UMA_HISTOGRAM_ENUMERATION("Extensions.CorruptExtensionDisabledReason", reason,
-                            ContentVerifyJob::FAILURE_REASON_MAX);
+  base::UmaHistogramEnumeration("Extensions.CorruptExtensionDisabledReason",
+                                reason, ContentVerifyJob::FAILURE_REASON_MAX);
 }
 
 void ChromeContentVerifierDelegate::Shutdown() {}

@@ -411,8 +411,14 @@ class WebHidExtensionFeatureDisabledBrowserTest
   }
 };
 
+// TODO(crbug.com/1521554): Re-enable on linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_FeatureDisabled DISABLED_FeatureDisabled
+#else
+#define MAYBE_FeatureDisabled FeatureDisabled
+#endif
 IN_PROC_BROWSER_TEST_F(WebHidExtensionFeatureDisabledBrowserTest,
-                       FeatureDisabled) {
+                       MAYBE_FeatureDisabled) {
   extensions::TestExtensionDir test_dir;
 
   constexpr char kBackgroundJs[] = R"(
@@ -430,7 +436,13 @@ IN_PROC_BROWSER_TEST_F(WebHidExtensionFeatureDisabledBrowserTest,
   LoadExtensionAndRunTest(kBackgroundJs);
 }
 
-IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest, GetDevices) {
+// TODO(crbug.com/1521554): Re-enable on ash-chrome.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#define MAYBE_GetDevices DISABLED_GetDevices
+#else
+#define MAYBE_GetDevices GetDevices
+#endif
+IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest, MAYBE_GetDevices) {
   extensions::TestExtensionDir test_dir;
 
   auto device = CreateTestDeviceWithInputAndOutputReports();
@@ -451,7 +463,13 @@ IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest, GetDevices) {
   LoadExtensionAndRunTest(kBackgroundJs);
 }
 
-IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest, RequestDevice) {
+// TODO(crbug.com/1521554): Re-enable on ash-chrome.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#define MAYBE_RequestDevice DISABLED_RequestDevice
+#else
+#define MAYBE_RequestDevice RequestDevice
+#endif
+IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest, MAYBE_RequestDevice) {
   extensions::TestExtensionDir test_dir;
 
   constexpr char kBackgroundJs[] = R"(
@@ -471,7 +489,8 @@ IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest, RequestDevice) {
 // Test the scenario of waking up the service worker upon device events and
 // the service worker being kept alive with active device session.
 // TODO(crbug.com/1520400): enable the flaky test.
-#if BUILDFLAG(IS_LINUX) && defined(LEAK_SANITIZER)
+#if (BUILDFLAG(IS_LINUX) && defined(LEAK_SANITIZER)) || \
+    (BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_CHROMEOS_DEVICE))
 #define MAYBE_DeviceConnectAndOpenDeviceWhenServiceWorkerStopped \
   DISABLED_DeviceConnectAndOpenDeviceWhenServiceWorkerStopped
 #else
@@ -583,8 +602,16 @@ IN_PROC_BROWSER_TEST_F(
   SimulateClickOnSystemTrayIconButton(browser(), extension);
 }
 
+// TODO(crbug.com/1521554): Re-enable on linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_EventListenerAddedAfterServiceWorkerIsActivated \
+  DISABLED_EventListenerAddedAfterServiceWorkerIsActivated
+#else
+#define MAYBE_EventListenerAddedAfterServiceWorkerIsActivated \
+  EventListenerAddedAfterServiceWorkerIsActivated
+#endif
 IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest,
-                       EventListenerAddedAfterServiceWorkerIsActivated) {
+                       MAYBE_EventListenerAddedAfterServiceWorkerIsActivated) {
   const char kWarningMessage[] =
       "Event handler of '%s' event must be added on the initial evaluation "
       "of worker script. More info: "

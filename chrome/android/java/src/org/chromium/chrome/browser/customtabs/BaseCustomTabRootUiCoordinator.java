@@ -42,6 +42,7 @@ import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigatio
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabController;
 import org.chromium.chrome.browser.customtabs.features.branding.BrandingController;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
+import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.MinimizedFeatureUtils;
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.CustomTabHeightStrategy;
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.PartialCustomTabBottomSheetStrategy;
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.PartialCustomTabDisplayManager;
@@ -149,6 +150,9 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
      * @param minimizeDelegateSupplier Supplies the {@link CustomTabMinimizeDelegate} used to
      *     minimize the tab.
      * @param featureOverridesManagerSupplier Supplies the {@link CustomTabFeatureOverridesManager}.
+     * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
+     *     suggestion list) will position themselves relative to. If null, the content view will be
+     *     used.
      */
     public BaseCustomTabRootUiCoordinator(
             @NonNull AppCompatActivity activity,
@@ -188,7 +192,8 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
             @NonNull BackPressManager backPressManager,
             @NonNull Supplier<CustomTabActivityTabController> tabController,
             @NonNull Supplier<CustomTabMinimizeDelegate> minimizeDelegateSupplier,
-            @NonNull Supplier<CustomTabFeatureOverridesManager> featureOverridesManagerSupplier) {
+            @NonNull Supplier<CustomTabFeatureOverridesManager> featureOverridesManagerSupplier,
+            @Nullable View baseChromeLayout) {
         super(
                 activity,
                 null,
@@ -231,7 +236,9 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                 ephemeralTabCoordinatorSupplier,
                 false,
                 backPressManager,
-                null);
+                null,
+                /* overviewIncognitoSupplier= */ null,
+                baseChromeLayout);
         mToolbarCoordinator = customTabToolbarCoordinator;
         mNavigationController = customTabNavigationController;
         mIntentDataProvider = intentDataProvider;
@@ -277,6 +284,9 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
         toolbar.setCloseButtonPosition(mIntentDataProvider.get().getCloseButtonPosition());
         if (mMinimizeDelegateSupplier.hasValue()) {
             toolbar.setMinimizeDelegate(mMinimizeDelegateSupplier.get());
+        }
+        if (MinimizedFeatureUtils.isWebApp(mIntentDataProvider.get())) {
+            toolbar.setMinimizeButtonEnabled(false);
         }
         if (mIntentDataProvider.get().isPartialCustomTab()) {
             Callback<Runnable> softInputCallback;
@@ -575,16 +585,20 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                             boolean didShowPrompt = false;
                             boolean shouldShowPrivacySandboxDialog =
                                     PrivacySandboxDialogController.shouldShowPrivacySandboxDialog(
-                                                    mTabModelSelectorSupplier
-                                                            .get()
-                                                            .isIncognitoSelected())
+                                            mTabModelSelectorSupplier.get().isIncognitoSelected());
+                            boolean isCustomTab =
+                                    mIntentDataProvider.get().getActivityType()
+                                                    == ActivityType.CUSTOM_TAB
                                             && !(mIntentDataProvider.get().isPartialCustomTab());
-                            RecordHistogram.recordBooleanHistogram(
-                                    "Startup.Android.PrivacySandbox.ShouldShowAdsNoticeCCT",
-                                    shouldShowPrivacySandboxDialog);
+                            if (isCustomTab) {
+                                RecordHistogram.recordBooleanHistogram(
+                                        "Startup.Android.PrivacySandbox.ShouldShowAdsNoticeCCT",
+                                        shouldShowPrivacySandboxDialog);
+                            }
                             if (ChromeFeatureList.isEnabled(
                                             ChromeFeatureList.PRIVACY_SANDBOX_ADS_NOTICE_CCT)
-                                    && shouldShowPrivacySandboxDialog) {
+                                    && shouldShowPrivacySandboxDialog
+                                    && isCustomTab) {
                                 boolean shouldShowPrivacySandboxDialogAppIdCheck = true;
                                 String appId = mIntentDataProvider.get().getClientPackageName();
                                 String paramAdsNoticeAppId =

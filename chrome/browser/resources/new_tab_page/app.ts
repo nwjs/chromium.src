@@ -65,6 +65,7 @@ export enum NtpElement {
   CUSTOMIZE = 8,  // Obsolete
   CUSTOMIZE_BUTTON = 9,
   CUSTOMIZE_DIALOG = 10,
+  WALLPAPER_SEARCH_BUTTON = 11,
 }
 
 /**
@@ -76,6 +77,7 @@ export enum NtpCustomizeChromeEntryPoint {
   CUSTOMIZE_BUTTON = 0,
   MODULE = 1,
   URL = 2,
+  WALLPAPER_SEARCH_BUTTON = 3,
 }
 
 const CUSTOMIZE_URL_PARAM: string = 'customize';
@@ -150,6 +152,19 @@ export class AppElement extends AppElementBase {
         type: Boolean,
         value: () =>
             WindowProxy.getInstance().url.searchParams.has(CUSTOMIZE_URL_PARAM),
+      },
+
+      showCustomizeChromeText_: {
+        type: Boolean,
+        computed:
+            `computeShowCustomizeChromeText_(wallpaperSearchButtonEnabled_,
+            showBackgroundImage_)`,
+      },
+
+      showWallpaperSearch_: {
+        type: Boolean,
+        value: false,
+        reflectToAttribute: true,
       },
 
       showCustomizeDialog_: {
@@ -317,6 +332,19 @@ export class AppElement extends AppElementBase {
         type: Boolean,
         value: document.documentElement.scrollTop <= 0,
       },
+
+      wallpaperSearchButtonAnimationEnabled_: {
+        type: Boolean,
+        value: () =>
+            loadTimeData.getBoolean('wallpaperSearchButtonAnimationEnabled'),
+        reflectToAttribute: true,
+      },
+
+      wallpaperSearchButtonEnabled_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('wallpaperSearchButtonEnabled'),
+        reflectToAttribute: true,
+      },
     };
   }
 
@@ -330,6 +358,8 @@ export class AppElement extends AppElementBase {
   private oneGoogleBarLoaded_: boolean;
   private theme_: Theme;
   private showCustomize_: boolean;
+  private showCustomizeChromeText_: boolean;
+  private showWallpaperSearch_: boolean;
   private showCustomizeDialog_: boolean;
   private selectedCustomizeDialogPage_: string|null;
   private showVoiceSearchOverlay_: boolean;
@@ -357,12 +387,15 @@ export class AppElement extends AppElementBase {
   private promoAndModulesLoaded_: boolean;
   private lazyRender_: boolean;
   private scrolledToTop_: boolean;
+  private wallpaperSearchButtonAnimationEnabled_: boolean;
+  private wallpaperSearchButtonEnabled_: boolean;
 
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
   private backgroundManager_: BackgroundManager;
   private setThemeListenerId_: number|null = null;
   private setCustomizeChromeSidePanelVisibilityListener_: number|null = null;
+  private setWallpaperSearchButtonVisibilityListener_: number|null = null;
   private eventTracker_: EventTracker = new EventTracker();
   private shouldPrintPerformance_: boolean;
   private backgroundImageLoadStartEpoch_: number;
@@ -420,6 +453,9 @@ export class AppElement extends AppElementBase {
         this.callbackRouter_.setCustomizeChromeSidePanelVisibility.addListener(
             (visible: boolean) => {
               this.showCustomize_ = visible;
+              if (!visible) {
+                this.showWallpaperSearch_ = false;
+              }
             });
     this.showWebstoreToastListenerId_ =
         this.callbackRouter_.showWebstoreToast.addListener(() => {
@@ -431,6 +467,16 @@ export class AppElement extends AppElementBase {
             }
           }
         });
+    this.setWallpaperSearchButtonVisibilityListener_ =
+        this.callbackRouter_.setWallpaperSearchButtonVisibility.addListener(
+            (visible: boolean) => {
+              // We only show the button if wallpaper search is enabled when the
+              // NTP loads. This prevents the button from showing if Customize
+              // Chrome doesn't have the wallpaper search element yet.
+              if (!visible) {
+                this.wallpaperSearchButtonEnabled_ = visible;
+              }
+            });
 
     // Open Customize Chrome if there are Customize Chrome URL params.
     if (this.showCustomize_) {
@@ -482,6 +528,8 @@ export class AppElement extends AppElementBase {
     this.callbackRouter_.removeListener(
         this.setCustomizeChromeSidePanelVisibilityListener_!);
     this.callbackRouter_.removeListener(this.showWebstoreToastListenerId_!);
+    this.callbackRouter_.removeListener(
+        this.setWallpaperSearchButtonVisibilityListener_!);
     this.eventTracker_.removeAll();
   }
 
@@ -512,6 +560,13 @@ export class AppElement extends AppElementBase {
 
   private computeShowCustomizeDialog_(): boolean {
     return !this.customizeChromeEnabled_ && this.showCustomize_;
+  }
+
+  private computeShowCustomizeChromeText_(): boolean {
+    if (this.wallpaperSearchButtonEnabled_) {
+      return false;
+    }
+    return !this.showBackgroundImage_;
   }
 
   private computeBackgroundImageAttribution1_(): string {
@@ -575,6 +630,26 @@ export class AppElement extends AppElementBase {
     } else {
       this.showCustomize_ = true;
       recordCustomizeChromeOpen(NtpCustomizeChromeEntryPoint.CUSTOMIZE_BUTTON);
+    }
+  }
+
+  private onWallpaperSearchClick_() {
+    // Close the side panel if Wallpaper Search is open.
+    if (this.showCustomize_ && this.showWallpaperSearch_) {
+      this.selectedCustomizeDialogPage_ = null;
+      this.setCustomizeChromeSidePanelVisible_(!this.showCustomize_);
+      return;
+    }
+
+    // Open Wallpaper Search if the side panel is closed. Otherwise, navigate
+    // the side panel to Wallpaper Search.
+    this.selectedCustomizeDialogPage_ = CustomizeDialogPage.WALLPAPER_SEARCH;
+    this.showWallpaperSearch_ = true;
+    this.setCustomizeChromeSidePanelVisible_(this.showWallpaperSearch_);
+    if (!this.showCustomize_) {
+      this.pageHandler_.incrementCustomizeChromeButtonOpenCount();
+      recordCustomizeChromeOpen(
+          NtpCustomizeChromeEntryPoint.WALLPAPER_SEARCH_BUTTON);
     }
   }
 
@@ -806,6 +881,9 @@ export class AppElement extends AppElementBase {
       case CustomizeDialogPage.MODULES:
         section = CustomizeChromeSection.kModules;
         break;
+      case CustomizeDialogPage.WALLPAPER_SEARCH:
+        section = CustomizeChromeSection.kWallpaperSearch;
+        break;
     }
     this.pageHandler_.setCustomizeChromeSidePanelVisible(visible, section);
   }
@@ -881,6 +959,9 @@ export class AppElement extends AppElementBase {
           return;
         case $$(this, 'ntp-customize-dialog'):
           recordClick(NtpElement.CUSTOMIZE_DIALOG);
+          return;
+        case $$(this, '#wallpaperSearchButton'):
+          recordClick(NtpElement.WALLPAPER_SEARCH_BUTTON);
           return;
       }
     }

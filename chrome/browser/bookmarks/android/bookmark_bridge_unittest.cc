@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/android/jni_android.h"
+#include "base/android/scoped_java_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/test/simple_test_clock.h"
 #include "chrome/browser/android/bookmarks/partner_bookmarks_reader.h"
@@ -34,6 +35,7 @@
 #include "components/sync/test/test_sync_user_settings.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/android/gurl_android.h"
 #include "url/gurl.h"
 
 using base::android::AttachCurrentThread;
@@ -175,10 +177,10 @@ class BookmarkBridgeTest : public testing::Test {
   raw_ptr<PartnerBookmarksShim> partner_bookmarks_shim_;
 
   std::unique_ptr<ReadingListModel> account_reading_list_model_;
-  raw_ptr<ReadingListManager> account_reading_list_manager_;
+  raw_ptr<ReadingListManagerImpl> account_reading_list_manager_;
 
   std::unique_ptr<ReadingListModel> local_or_syncable_reading_list_model_;
-  raw_ptr<ReadingListManager> local_or_syncable_reading_list_manager_;
+  raw_ptr<ReadingListManagerImpl> local_or_syncable_reading_list_manager_;
 
   std::unique_ptr<BookmarkBridge> bookmark_bridge_;
 
@@ -207,9 +209,71 @@ TEST_F(BookmarkBridgeTest, TestGetMostRecentlyAddedUserBookmarkIdForUrl) {
       bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
 
   // Add to the reading list and verify that it's the most recently added.
-  //   recently_added = local_or_syncable_reading_list_manager()->Add(url,
-  //   "fourth"); ASSERT_EQ(recently_added,
-  //   bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+  recently_added = local_or_syncable_reading_list_manager()->Add(url, "fourth");
+  ASSERT_EQ(
+      recently_added,
+      bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+}
+
+TEST_F(BookmarkBridgeTest,
+       TestGetMostRecentlyAddedUserBookmarkIdForUrlBeforeReadingListLoads) {
+  GURL url = GURL("http://foo.com");
+  ASSERT_EQ(
+      nullptr,
+      bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+
+  // Add to the reading list and verify that it's the most recently added.
+  auto* recently_added =
+      local_or_syncable_reading_list_manager()->Add(url, "test");
+  ASSERT_EQ(
+      recently_added,
+      bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+
+  local_or_syncable_reading_list_manager_->SetIsLoadedForTests(false);
+  ASSERT_EQ(
+      nullptr,
+      bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+}
+
+TEST_F(
+    BookmarkBridgeTest,
+    TestGetMostRecentlyAddedUserBookmarkIdForUrlBeforeReadingListLoadsWithAccountBookmarks) {
+  CreateBookmarkBridge(/*enable_account_bookmarks=*/true);
+  GURL url = GURL("http://foo.com");
+  ASSERT_EQ(
+      nullptr,
+      bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+
+  // Add to the reading list and verify that it's the most recently added.
+  auto* recently_added = account_reading_list_manager_->Add(url, "test");
+  ASSERT_EQ(
+      recently_added,
+      bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+
+  account_reading_list_manager_->SetIsLoadedForTests(false);
+  ASSERT_EQ(
+      nullptr,
+      bookmark_bridge()->GetMostRecentlyAddedUserBookmarkIdForUrlImpl(url));
+}
+
+TEST_F(BookmarkBridgeTest, TestIsBookmarked) {
+  JNIEnv* const env = AttachCurrentThread();
+  GURL url = GURL("http://foo.com");
+  auto java_url = url::GURLAndroid::FromNativeGURL(env, url);
+  ASSERT_FALSE(bookmark_bridge()->IsBookmarked(
+      env, JavaParamRef<jobject>(env, java_url.obj())));
+
+  AddURL(bookmark_model()->other_node(), 0, u"foo", url);
+  ASSERT_TRUE(bookmark_bridge()->IsBookmarked(
+      env, JavaParamRef<jobject>(env, java_url.obj())));
+
+  bookmark_model()->RemoveAllUserBookmarks();
+  ASSERT_FALSE(bookmark_bridge()->IsBookmarked(
+      env, JavaParamRef<jobject>(env, java_url.obj())));
+
+  local_or_syncable_reading_list_manager()->Add(url, "bar");
+  ASSERT_TRUE(bookmark_bridge()->IsBookmarked(
+      env, JavaParamRef<jobject>(env, java_url.obj())));
 }
 
 TEST_F(BookmarkBridgeTest, TestGetTopLevelFolderIds) {
@@ -244,6 +308,14 @@ TEST_F(BookmarkBridgeTest, TestGetTopLevelFolderIds) {
   EXPECT_EQ(u"Mobile bookmarks", folders[0]->GetTitle());
   EXPECT_EQ(u"Bookmarks bar", folders[1]->GetTitle());
   EXPECT_EQ(u"Reading list", folders[2]->GetTitle());
+}
+
+TEST_F(BookmarkBridgeTest, AccountFoldersNullWhileNotEnabled) {
+  JNIEnv* const env = AttachCurrentThread();
+  EXPECT_TRUE(bookmark_bridge()->GetAccountMobileFolderId(env).is_null());
+  EXPECT_TRUE(bookmark_bridge()->GetAccountOtherFolderId(env).is_null());
+  EXPECT_TRUE(bookmark_bridge()->GetAccountDesktopFolderId(env).is_null());
+  EXPECT_TRUE(bookmark_bridge()->GetAccountReadingListFolder(env).is_null());
 }
 
 // TODO(crbug.com/1509189): Also enable bookmark account folders here.
@@ -281,6 +353,15 @@ TEST_F(BookmarkBridgeTest, TestGetTopLevelFolderIdsAccountActive) {
   EXPECT_TRUE(bookmark_bridge()->IsAccountBookmarkImpl(folders[3]));
   EXPECT_EQ(u"Reading list", folders[4]->GetTitle());
   EXPECT_FALSE(bookmark_bridge()->IsAccountBookmarkImpl(folders[4]));
+}
+
+TEST_F(BookmarkBridgeTest, AccountFoldersNonNullWhileEnabled) {
+  CreateBookmarkBridge(/*enable_account_bookmarks=*/true);
+  JNIEnv* const env = AttachCurrentThread();
+  EXPECT_FALSE(bookmark_bridge()->GetAccountMobileFolderId(env).is_null());
+  EXPECT_FALSE(bookmark_bridge()->GetAccountOtherFolderId(env).is_null());
+  EXPECT_FALSE(bookmark_bridge()->GetAccountDesktopFolderId(env).is_null());
+  EXPECT_FALSE(bookmark_bridge()->GetAccountReadingListFolder(env).is_null());
 }
 
 TEST_F(BookmarkBridgeTest, GetChildIdsMobileShowsPartner) {
@@ -367,4 +448,103 @@ TEST_F(BookmarkBridgeTest, TestSearchBookmarks) {
   std::vector<const BookmarkNode*> results2 =
       bookmark_bridge()->SearchBookmarksImpl(query2, 999);
   EXPECT_EQ(1u, results2.size());
+}
+
+TEST_F(BookmarkBridgeTest, TestMoveBookmark) {
+  GURL url = GURL("http://foo.com");
+
+  const BookmarkNode* node =
+      AddURL(bookmark_model()->other_node(), 0, u"test", url);
+  bookmark_bridge()->MoveBookmarkImpl(node, bookmarks::BOOKMARK_TYPE_NORMAL,
+                                      bookmark_model()->bookmark_bar_node(),
+                                      bookmarks::BOOKMARK_TYPE_NORMAL, 0);
+  // Get children of new parent and verify it has the node in it.
+  std::vector<const BookmarkNode*> children =
+      bookmark_bridge()->GetChildIdsImpl(bookmark_model()->bookmark_bar_node());
+  ASSERT_EQ(1u, children.size());
+  ASSERT_EQ(children[0], node);
+
+  // Get children of old parent and verify it has no nodes.
+  children = bookmark_bridge()->GetChildIdsImpl(bookmark_model()->other_node());
+  ASSERT_EQ(0u, children.size());
+}
+
+TEST_F(BookmarkBridgeTest, TestMoveBookmarkToOwnParentReturnsEarly) {
+  GURL url = GURL("http://foo.com");
+
+  const BookmarkNode* node =
+      AddURL(bookmark_model()->other_node(), 0, u"test", url);
+  bookmark_bridge()->MoveBookmarkImpl(node, bookmarks::BOOKMARK_TYPE_NORMAL,
+                                      bookmark_model()->other_node(),
+                                      bookmarks::BOOKMARK_TYPE_NORMAL, 0);
+  // Early return means we don't hit a DCHECK.
+}
+
+TEST_F(BookmarkBridgeTest, TestMoveBookmarkToReadingList) {
+  GURL url = GURL("http://foo.com");
+  const std::u16string title = u"test";
+
+  const BookmarkNode* node =
+      AddURL(bookmark_model()->other_node(), 0, title, url);
+  bookmark_bridge()->MoveBookmarkImpl(
+      node, bookmarks::BOOKMARK_TYPE_NORMAL,
+      local_or_syncable_reading_list_manager_->GetRoot(),
+      bookmarks::BOOKMARK_TYPE_READING_LIST, 0);
+  // Get children of new parent and verify it has the node in it.
+  std::vector<const BookmarkNode*> children =
+      bookmark_bridge()->GetChildIdsImpl(
+          local_or_syncable_reading_list_manager_->GetRoot());
+  ASSERT_EQ(1u, children.size());
+  ASSERT_EQ(children[0]->GetTitle(), title);
+  ASSERT_EQ(children[0]->url(), url);
+
+  // Get children of old parent and verify it has no nodes.
+  children = bookmark_bridge()->GetChildIdsImpl(bookmark_model()->other_node());
+  ASSERT_EQ(0u, children.size());
+}
+
+TEST_F(BookmarkBridgeTest, TestMoveBookmarkToReadingListAddFails) {
+  GURL url = GURL("chrome://newtab");
+  const std::u16string title = u"native page";
+
+  const BookmarkNode* node =
+      AddURL(bookmark_model()->other_node(), 0, title, url);
+  bookmark_bridge()->MoveBookmarkImpl(
+      node, bookmarks::BOOKMARK_TYPE_NORMAL,
+      local_or_syncable_reading_list_manager_->GetRoot(),
+      bookmarks::BOOKMARK_TYPE_READING_LIST, 0);
+  // Get children of new parent and verify it hasn't been moved
+  std::vector<const BookmarkNode*> children =
+      bookmark_bridge()->GetChildIdsImpl(
+          local_or_syncable_reading_list_manager_->GetRoot());
+  ASSERT_EQ(0u, children.size());
+
+  // Get children of old parent and verify the original bookmark is still there.
+  children = bookmark_bridge()->GetChildIdsImpl(bookmark_model()->other_node());
+  ASSERT_EQ(1u, children.size());
+  ASSERT_EQ(children[0]->GetTitle(), title);
+  ASSERT_EQ(children[0]->url(), url);
+}
+
+TEST_F(BookmarkBridgeTest, TestMoveReadingListToBookmark) {
+  GURL url = GURL("http://foo.com");
+  const std::u16string title = u"test";
+
+  const BookmarkNode* node =
+      local_or_syncable_reading_list_manager()->Add(url, "test");
+  bookmark_bridge()->MoveBookmarkImpl(node,
+                                      bookmarks::BOOKMARK_TYPE_READING_LIST,
+                                      bookmark_model()->bookmark_bar_node(),
+                                      bookmarks::BOOKMARK_TYPE_NORMAL, 0);
+  // Get children of new parent and verify it has the node in it.
+  std::vector<const BookmarkNode*> children =
+      bookmark_bridge()->GetChildIdsImpl(bookmark_model()->bookmark_bar_node());
+  ASSERT_EQ(1u, children.size());
+  ASSERT_EQ(children[0]->GetTitle(), title);
+  ASSERT_EQ(children[0]->url(), url);
+
+  // Get children of old parent and verify it has no nodes.
+  children = bookmark_bridge()->GetChildIdsImpl(
+      local_or_syncable_reading_list_manager_->GetRoot());
+  ASSERT_EQ(0u, children.size());
 }

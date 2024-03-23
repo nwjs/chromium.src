@@ -17,7 +17,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="1153368717515616349">Spustelėkite „Chromium“ meniu</translation>
 <translation id="1185134272377778587">Apie „Chromium“</translation>
 <translation id="1203500561924088507">Dėkojame už diegimą. Turite iš naujo paleisti naršyklę, prieš naudodami „<ph name="BUNDLE_NAME" />“.</translation>
-<translation id="1261119230216066228">Atminties taupymo priemonė paspartino „Chromium“</translation>
 <translation id="1262876892872089030">Kol šis skirtukas buvo neaktyvus, atmintis buvo atlaisvinta, kad „Chromium“ veiktų sparčiai. Galite pasirinkti visada išskirti šią svetainę, kad būtų aktyvi.</translation>
 <translation id="1265577313130862557">„Chromium“ užblokavo šį atsisiuntimą, nes failas pavojingas</translation>
 <translation id="1315551408014407711">Nustatykite naują „Chromium“ profilį</translation>
@@ -114,6 +113,7 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="3032706164202344641">„Chromium“ negali patikrinti jūsų slaptažodžių. Vėliau bandykite dar kartą.</translation>
 <translation id="3032787606318309379">Pridedama prie „Chromium“...</translation>
 <translation id="3038232873781883849">Laukiama, kol bus įdiegta...</translation>
+<translation id="3068187312562070417">Kiti „Chromium“ profiliai</translation>
 <translation id="3068515742935458733">Padėkite tobulinti „Chromium“ siųsdami „Google“ strigčių ataskaitas ir <ph name="UMA_LINK" /></translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{Vienas USB įrenginys buvo pasiekiamas naudojant vieną ar daugiau „Chromium“ plėtinių}=1{Vienas USB įrenginys pasiekiamas naudojant vieną ar daugiau „Chromium“ plėtinių}one{# USB įrenginys pasiekiamas naudojant vieną ar daugiau „Chromium“ plėtinių}few{# USB įrenginiai pasiekiami naudojant vieną ar daugiau „Chromium“ plėtinių}many{# USB įrenginio pasiekiama naudojant vieną ar daugiau „Chromium“ plėtinių}other{# USB įrenginių pasiekiama naudojant vieną ar daugiau „Chromium“ plėtinių}}</translation>
 <translation id="3101560983689755071">Naršymo istorija lemia, kokius skelbimus matysite ir kokie jūsų pomėgiai bus numatomi toliau. Siekiant apsaugoti privatumą, „Chromium“ reguliariai kiekvieną mėnesį automatiškai ištrina jūsų pomėgius. Pomėgiai gali būti atnaujinami, kol jų nepašalinate.</translation>
@@ -231,6 +231,7 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="5294316920224716406">Kai naršysite inkognito režimu, „Chromium“ perspės jus prieš įkeliant svetainę, kurioje naudojamas nesaugus ryšys</translation>
 <translation id="5296845517486664001">Naudojant šias bandomąsias versijas ir jei „Chromium“ atsitiktinai parenka jus naudoti bandomąją versiją, jūsų naršymo istorija lemia, kokius skelbimus matysite ir kokie jūsų pomėgiai bus numatomi toliau. Siekiant apsaugoti privatumą, „Chromium“ reguliariai kiekvieną mėnesį ištrina jūsų pomėgius.</translation>
 <translation id="5352264705793813212">„Chromium“ rado kelias saugos rekomendacijas, kurias reikia peržiūrėti</translation>
+<translation id="5352361688875342522">Kiti „Chromium“ profiliai</translation>
 <translation id="5358375970380395591">Prisijungiate su valdoma paskyra ir leidžiate jos administratoriui valdyti jūsų „Chromium“ profilį. „Chromium“ duomenys, pvz., programos, žymės, istorija, slaptažodžiai ir kiti nustatymai, bus visam laikui susieti su <ph name="USER_NAME" />. Galėsite ištrinti šiuos duomenis naudodami „Google“ paskyrų informacijos suvestinę, bet negalėsite susieti šių duomenų su kita paskyra. <ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">Papildomas kodas: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5383439451358640070">Sužinokite, kodėl „Chromium“ blokuoja kai kuriuos failus</translation>
@@ -326,12 +327,12 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="6669284030132180248">Jei taip pat išsaugosite žymes „Google“ paskyroje, galėsite stebėti produktų kainas naršyklėje „Chromium“ ir gauti pranešimą, kai kaina sumažės</translation>
 <translation id="6676384891291319759">Interneto prieiga</translation>
 <translation id="668175097507315160">„Chromium“ OS nepavyko sinchronizuoti duomenų, nes prisijungiant įvyko klaida.</translation>
+<translation id="6692797197837897398">„Chromium“ suteikia daugiau galimybių valdyti matomus skelbimus ir apriboja, ką svetainės gali sužinoti apie jus, kai rodo suasmenintus skelbimus</translation>
 <translation id="6709350901466051922">„Chromium“ reikalingas mikrofono leidimas šioje svetainėje</translation>
 <translation id="6712881677154121168">Atsisiuntimo klaida: <ph name="DOWNLOAD_ERROR" />.</translation>
 <translation id="6717134281241384636">Jūsų profilis nenaudojamas, nes jis iš naujesnės versijos „Chromium“.
 
 Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalogą arba naudokite naujesnės versijos „Chromium“.</translation>
-<translation id="6730677189742196061">Atminties taupymas pagreitino „Chromium“</translation>
 <translation id="6734291798041940871">„Chromium“ jau įdiegta visiems kompiuterio naudotojams.</translation>
 <translation id="673636774878526923">Jei norite pasiekti „Chromium“ duomenis visuose savo įrenginiuose, prisijunkite ir įjunkite sinchronizavimą.</translation>
 <translation id="67706546131546258">„Chromium“ rekomenduoja nuskaityti šį failą, nes jis gali būti pavojingas.</translation>
@@ -386,7 +387,6 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="7617377681829253106">„Chromium“ dabar dar tobulesnė</translation>
 <translation id="7649070708921625228">Pagalba</translation>
 <translation id="7682213815243802460">Daugiau apie šias funkcijas sužinosite „Chromium“ nustatymuose.</translation>
-<translation id="7682601070171973634">„Chromium“ tyrinėja naujas funkcijas, leidžiančias svetainėms teikti tas pačias naršymo funkcijas, naudojant mažiau jūsų duomenų</translation>
 <translation id="7686590090926151193">„Chromium“ nėra numatytoji naršyklė</translation>
 <translation id="7689606757190482937">Sinchronizuokite ir suasmeninkite „Chromium“ skirtinguose įrenginiuose</translation>
 <translation id="7699779824407626136">„Chromium“ naujinys</translation>
@@ -394,6 +394,7 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="7747138024166251722">Diegimo programai nepavyko sukurti laikino katalogo. Patikrinkite, ar yra laisvos vietos diske ir, ar leidžiama įdiegti programinę įrangą.</translation>
 <translation id="7786760609782648049">Paspartinkite „Chromium“</translation>
 <translation id="7790626492778995050">„<ph name="PAGE_TITLE" />“ – „Chromium Canary“</translation>
+<translation id="7803986347287457849">Neleiskite srautą internete galintiems pasiekti žmonėms matyti svetainių, kuriose lankotės. „Chromium“ naudoja saugų ryšį ieškodama svetainės IP adreso DNS (domenų pavadinimų sistemoje).</translation>
 <translation id="7828947555739565424">Šios paskyros „Chromium“ profilis jau yra šiame įrenginyje</translation>
 <translation id="7845233973568007926">Dėkojame už diegimą. Turite iš naujo paleisti kompiuterį, prieš naudodami „<ph name="BUNDLE_NAME" />“.</translation>
 <translation id="7859018312476869945">Kai įvedate tekstą adreso juostoje ar paieškos laukelyje, „Chromium“ siunčia tai, ką įvedate, į numatytąjį paieškos variklį, kad gautų geresnių pasiūlymų. Ši funkcija inkognito režimu išjungta.</translation>

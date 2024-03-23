@@ -30,6 +30,7 @@
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/form_data_importer.h"
 #include "components/autofill/core/browser/metrics/payments/mandatory_reauth_metrics.h"
+#include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
@@ -1029,6 +1030,34 @@ AutofillPrivateBulkDeleteAllCvcsFunction::Run() {
   // devices.
   personal_data->ClearLocalCvcs();
   personal_data->ClearServerCvcs();
+
+  return RespondNow(NoArguments());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateSetAutofillSyncToggleEnabledFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateSetAutofillSyncToggleEnabledFunction::Run() {
+  autofill::ContentAutofillClient* client =
+      autofill::ContentAutofillClient::FromWebContents(GetSenderWebContents());
+  if (!client) {
+    return RespondNow(Error(kErrorDataUnavailable));
+  }
+
+  autofill::PersonalDataManager* personal_data =
+      client->GetPersonalDataManager();
+  if (!personal_data || !personal_data->IsDataLoaded()) {
+    return RespondNow(Error(kErrorDataUnavailable));
+  }
+
+  absl::optional<api::autofill_private::SetAutofillSyncToggleEnabled::Params>
+      parameters =
+          api::autofill_private::SetAutofillSyncToggleEnabled::Params::Create(
+              args());
+  EXTENSION_FUNCTION_VALIDATE(parameters);
+
+  personal_data->SetAutofillSelectableTypeEnabled(parameters->enabled);
 
   return RespondNow(NoArguments());
 }

@@ -467,7 +467,11 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
           GetUIThreadTaskRunner({BrowserTaskType::kUserInput}),
 #endif
           frame_token_message_queue_.get()),
-      frame_sink_id_(frame_sink_id) {
+      frame_sink_id_(frame_sink_id),
+      compositor_metric_recorder_(
+          (frame_tree && frame_tree->is_primary())
+              ? std::make_unique<CompositorMetricRecorder>(this)
+              : nullptr) {
   DCHECK(frame_token_message_queue_);
   frame_token_message_queue_->Init(this);
 
@@ -818,7 +822,7 @@ bool RenderWidgetHostImpl::ShouldShowStaleContentOnEviction() {
 
 void RenderWidgetHostImpl::ShutdownAndDestroyWidget(bool also_delete) {
   CancelKeyboardLock();
-  RejectMouseLockOrUnlockIfNecessary(
+  RejectPointerLockOrUnlockIfNecessary(
       blink::mojom::PointerLockResult::kElementDestroyed);
   Destroy(also_delete);
 }
@@ -834,7 +838,7 @@ void RenderWidgetHostImpl::WasHidden() {
     return;
   }
 
-  RejectMouseLockOrUnlockIfNecessary(
+  RejectPointerLockOrUnlockIfNecessary(
       blink::mojom::PointerLockResult::kWrongDocument);
 
   TRACE_EVENT0("renderer_host", "RenderWidgetHostImpl::WasHidden");
@@ -1393,8 +1397,8 @@ void RenderWidgetHostImpl::SetPageFocus(bool focused) {
     // If there is a pending mouse lock request, we don't want to reject it at
     // this point. The user can switch focus back to this view and approve the
     // request later.
-    if (IsMouseLocked()) {
-      view_->UnlockMouse();
+    if (IsPointerLocked()) {
+      view_->UnlockPointer();
     }
 
     if (IsKeyboardLocked()) {
@@ -1449,19 +1453,19 @@ void RenderWidgetHostImpl::SetActive(bool active) {
   }
 }
 
-void RenderWidgetHostImpl::LostMouseLock() {
+void RenderWidgetHostImpl::LostPointerLock() {
   if (delegate_) {
-    delegate_->LostMouseLock(this);
+    delegate_->LostPointerLock(this);
   }
 }
 
-void RenderWidgetHostImpl::SendMouseLockLost() {
-  mouse_lock_context_.reset();
+void RenderWidgetHostImpl::SendPointerLockLost() {
+  pointer_lock_context_.reset();
 }
 
 void RenderWidgetHostImpl::ViewDestroyed() {
   CancelKeyboardLock();
-  RejectMouseLockOrUnlockIfNecessary(
+  RejectPointerLockOrUnlockIfNecessary(
       blink::mojom::PointerLockResult::kElementDestroyed);
 
   // TODO(evanm): tracking this may no longer be necessary;
@@ -1537,6 +1541,13 @@ void RenderWidgetHostImpl::StartNewContentRenderingTimeout() {
     return;
   }
   new_content_rendering_timeout_->Start(new_content_rendering_delay_);
+}
+
+void RenderWidgetHostImpl::SetNewContentRenderingTimeoutForTesting(
+    base::TimeDelta timeout) {
+  CHECK(new_content_rendering_timeout_);
+  CHECK(!new_content_rendering_timeout_->IsRunning());
+  new_content_rendering_delay_ = timeout;
 }
 
 void RenderWidgetHostImpl::ForwardMouseEvent(const WebMouseEvent& mouse_event) {
@@ -2249,7 +2260,7 @@ void RenderWidgetHostImpl::GetSnapshotFromBrowser(
   }
 
 #if BUILDFLAG(IS_MAC)
-  // The Mac version of underlying GrabViewSnapshotAsync() blocks while the
+  // The Mac version of underlying GrabViewSnapshot() blocks while the
   // display/GPU are in a power-saving mode, so make sure the display does not
   // go to sleep for the duration of reading a snapshot.
   if (pending_browser_snapshots_.empty()) {
@@ -2420,19 +2431,19 @@ void RenderWidgetHostImpl::ImeCancelComposition() {
       gfx::Range::InvalidRange(), 0, 0, base::OnceClosure());
 }
 
-void RenderWidgetHostImpl::RejectMouseLockOrUnlockIfNecessary(
+void RenderWidgetHostImpl::RejectPointerLockOrUnlockIfNecessary(
     blink::mojom::PointerLockResult reason) {
-  DCHECK(!pending_mouse_lock_request_ || !IsMouseLocked());
+  DCHECK(!pending_pointer_lock_request_ || !IsPointerLocked());
   DCHECK(reason != blink::mojom::PointerLockResult::kSuccess);
-  if (pending_mouse_lock_request_) {
-    DCHECK(request_mouse_callback_);
-    pending_mouse_lock_request_ = false;
-    mouse_lock_raw_movement_ = false;
-    std::move(request_mouse_callback_)
+  if (pending_pointer_lock_request_) {
+    DCHECK(request_pointer_lock_callback_);
+    pending_pointer_lock_request_ = false;
+    pointer_lock_raw_movement_ = false;
+    std::move(request_pointer_lock_callback_)
         .Run(reason, /*context=*/mojo::NullRemote());
 
-  } else if (IsMouseLocked()) {
-    view_->UnlockMouse();
+  } else if (IsPointerLocked()) {
+    view_->UnlockPointer();
   }
 }
 
@@ -2465,8 +2476,8 @@ void RenderWidgetHostImpl::OnMouseEventAck(
   }
 }
 
-bool RenderWidgetHostImpl::IsMouseLocked() const {
-  return view_ ? view_->IsMouseLocked() : false;
+bool RenderWidgetHostImpl::IsPointerLocked() const {
+  return view_ ? view_->IsPointerLocked() : false;
 }
 
 void RenderWidgetHostImpl::SetVisualPropertiesFromParentFrame(
@@ -3090,40 +3101,40 @@ void RenderWidgetHostImpl::RequestMouseLock(
     bool from_user_gesture,
     bool unadjusted_movement,
     InputRouterImpl::RequestMouseLockCallback response) {
-  if (pending_mouse_lock_request_ || IsMouseLocked()) {
+  if (pending_pointer_lock_request_ || IsPointerLocked()) {
     std::move(response).Run(blink::mojom::PointerLockResult::kAlreadyLocked,
                             /*context=*/mojo::NullRemote());
     return;
   }
 
-  if (!view_ || !view_->CanBeMouseLocked()) {
+  if (!view_ || !view_->CanBePointerLocked()) {
     std::move(response).Run(blink::mojom::PointerLockResult::kWrongDocument,
                             /*context=*/mojo::NullRemote());
     return;
   }
 
-  request_mouse_callback_ = std::move(response);
+  request_pointer_lock_callback_ = std::move(response);
 
-  pending_mouse_lock_request_ = true;
-  mouse_lock_raw_movement_ = unadjusted_movement;
+  pending_pointer_lock_request_ = true;
+  pointer_lock_raw_movement_ = unadjusted_movement;
   if (!delegate_) {
     // No delegate, reject message.
-    GotResponseToLockMouseRequest(
+    GotResponseToPointerLockRequest(
         blink::mojom::PointerLockResult::kPermissionDenied);
     return;
   }
 
-  delegate_->RequestToLockMouse(this, from_user_gesture,
-                                is_last_unlocked_by_target_, false);
+  delegate_->RequestToLockPointer(this, from_user_gesture,
+                                  is_last_unlocked_by_target_, false);
   // We need to reset |is_last_unlocked_by_target_| here as we don't know
-  // request source in |LostMouseLock()|.
+  // request source in |LostPointerLock()|.
   is_last_unlocked_by_target_ = false;
 }
 
 void RenderWidgetHostImpl::RequestMouseLockChange(
     bool unadjusted_movement,
     PointerLockContext::RequestMouseLockChangeCallback response) {
-  if (pending_mouse_lock_request_) {
+  if (pending_pointer_lock_request_) {
     std::move(response).Run(blink::mojom::PointerLockResult::kAlreadyLocked);
     return;
   }
@@ -3133,14 +3144,15 @@ void RenderWidgetHostImpl::RequestMouseLockChange(
     return;
   }
 
-  std::move(response).Run(view_->ChangeMouseLock(unadjusted_movement));
+  std::move(response).Run(view_->ChangePointerLock(unadjusted_movement));
 }
 
-void RenderWidgetHostImpl::UnlockMouse() {
+void RenderWidgetHostImpl::UnlockPointer() {
   // Got unlock request from renderer. Will update |is_last_unlocked_by_target_|
   // for silent re-lock.
-  const bool was_mouse_locked = !pending_mouse_lock_request_ && IsMouseLocked();
-  RejectMouseLockOrUnlockIfNecessary(
+  const bool was_mouse_locked =
+      !pending_pointer_lock_request_ && IsPointerLocked();
+  RejectPointerLockOrUnlockIfNecessary(
       blink::mojom::PointerLockResult::kUserRejected);
   if (was_mouse_locked) {
     is_last_unlocked_by_target_ = true;
@@ -3492,43 +3504,43 @@ bool RenderWidgetHostImpl::IsIgnoringInputEvents() const {
          delegate_->ShouldIgnoreInputEvents();
 }
 
-bool RenderWidgetHostImpl::GotResponseToLockMouseRequest(
+bool RenderWidgetHostImpl::GotResponseToPointerLockRequest(
     blink::mojom::PointerLockResult response) {
   if (response != blink::mojom::PointerLockResult::kSuccess) {
-    RejectMouseLockOrUnlockIfNecessary(response);
+    RejectPointerLockOrUnlockIfNecessary(response);
   }
-  if (!pending_mouse_lock_request_) {
+  if (!pending_pointer_lock_request_) {
     // This is possible, e.g., the plugin sends us an unlock request before
     // the user allows to lock to mouse.
     return false;
   }
 
-  DCHECK(request_mouse_callback_);
-  pending_mouse_lock_request_ = false;
+  DCHECK(request_pointer_lock_callback_);
+  pending_pointer_lock_request_ = false;
   if (!view_ || !view_->HasFocus()) {
-    std::move(request_mouse_callback_)
+    std::move(request_pointer_lock_callback_)
         .Run(blink::mojom::PointerLockResult::kWrongDocument,
              /*context=*/mojo::NullRemote());
     return false;
   }
 
   blink::mojom::PointerLockResult result =
-      view_->LockMouse(mouse_lock_raw_movement_);
+      view_->LockPointer(pointer_lock_raw_movement_);
 
   if (result != blink::mojom::PointerLockResult::kSuccess) {
-    std::move(request_mouse_callback_)
+    std::move(request_pointer_lock_callback_)
         .Run(result, /*context=*/mojo::NullRemote());
     return false;
   }
 
   mojo::PendingRemote<blink::mojom::PointerLockContext> context =
-      mouse_lock_context_.BindNewPipeAndPassRemote(
+      pointer_lock_context_.BindNewPipeAndPassRemote(
           GetUIThreadTaskRunner({BrowserTaskType::kUserInput}));
 
-  std::move(request_mouse_callback_)
+  std::move(request_pointer_lock_callback_)
       .Run(blink::mojom::PointerLockResult::kSuccess, std::move(context));
-  mouse_lock_context_.set_disconnect_handler(base::BindOnce(
-      &RenderWidgetHostImpl::UnlockMouse, weak_factory_.GetWeakPtr()));
+  pointer_lock_context_.set_disconnect_handler(base::BindOnce(
+      &RenderWidgetHostImpl::UnlockPointer, weak_factory_.GetWeakPtr()));
   return true;
 }
 
@@ -3589,7 +3601,7 @@ void RenderWidgetHostImpl::WindowSnapshotReachedScreen(int snapshot_id) {
     gfx::Rect snapshot_bounds(GetView()->GetViewBounds().size());
 #endif
 
-    ui::GrabViewSnapshotAsync(
+    ui::GrabViewSnapshot(
         GetView()->GetNativeView(), snapshot_bounds,
         base::BindOnce(&RenderWidgetHostImpl::OnSnapshotReceived,
                        weak_factory_.GetWeakPtr(), snapshot_id));
@@ -3706,7 +3718,9 @@ void RenderWidgetHostImpl::MaybeDispatchBufferedFrameSinkRequest() {
     return;
   }
 
-  create_frame_sink_timestamp_ = base::TimeTicks::Now();
+  if (compositor_metric_recorder_) {
+    compositor_metric_recorder_->DidRequestFrameSink();
+  }
 
   std::move(create_frame_sink_callback_).Run(view_->GetFrameSinkId());
 }
@@ -3807,6 +3821,7 @@ void RenderWidgetHostImpl::ForceFirstFrameAfterNavigationTimeout() {
   }
   new_content_rendering_timeout_->Stop();
   ClearDisplayedGraphics();
+  DisableCompositorMetricRecording();
 }
 
 void RenderWidgetHostImpl::StopFling() {
@@ -4033,5 +4048,92 @@ RenderWidgetHostImpl::PendingShowParams::PendingShowParams(
       visible_time_request(std::move(visible_time_request)) {}
 
 RenderWidgetHostImpl::PendingShowParams::~PendingShowParams() = default;
+
+void RenderWidgetHostImpl::DisableCompositorMetricRecording() {
+  compositor_metric_recorder_.reset();
+}
+
+RenderWidgetHostImpl::CompositorMetricRecorder::CompositorMetricRecorder(
+    RenderWidgetHostImpl* owner)
+    : owner_(owner) {}
+
+void RenderWidgetHostImpl::CompositorMetricRecorder::
+    DidStartNavigationCommit() {
+  if (commit_nav_timestamp_ != base::TimeTicks()) {
+    // A second navigation is committing this RenderWidgetHost. We only want to
+    // record metrics for the first navigation, so disable any recording after
+    // this.
+    owner_->DisableCompositorMetricRecording();
+    // DO NOT ADD CODE after this line. The call above has deleted `this`, so
+    // immediately return.
+    return;
+  }
+  commit_nav_timestamp_ = base::TimeTicks::Now();
+  TryToRecordMetrics();
+}
+
+void RenderWidgetHostImpl::CompositorMetricRecorder::DidSwap() {
+  if (swap_rfh_timestamp_ != base::TimeTicks()) {
+    // A second navigation is swapping in a RenderFrameHost that's associated
+    // with this RenderWidgetHost. We only want to record metrics for the first
+    // navigation, so disable any recording after this.
+    owner_->DisableCompositorMetricRecording();
+    // DO NOT ADD CODE after this line. The call above has deleted `this`, so
+    // immediately return.
+    return;
+  }
+  swap_rfh_timestamp_ = base::TimeTicks::Now();
+  TryToRecordMetrics();
+}
+
+void RenderWidgetHostImpl::CompositorMetricRecorder::DidRequestFrameSink() {
+  if (create_frame_sink_timestamp_ != base::TimeTicks()) {
+    return;
+  }
+  create_frame_sink_timestamp_ = base::TimeTicks::Now();
+  TryToRecordMetrics();
+}
+
+void RenderWidgetHostImpl::CompositorMetricRecorder::TryToRecordMetrics() {
+  if (commit_nav_timestamp_ == base::TimeTicks() ||
+      swap_rfh_timestamp_ == base::TimeTicks() ||
+      create_frame_sink_timestamp_ == base::TimeTicks()) {
+    // We need all three events (commit, swap RFH, frame sink creation) to have
+    // happened to record the metrics.
+    return;
+  }
+
+  if (create_frame_sink_timestamp_ < commit_nav_timestamp_) {
+    base::UmaHistogramBoolean("Navigation.CompositorRequestedBeforeCommit2",
+                              true);
+    UMA_HISTOGRAM_CUSTOM_TIMES(
+        "Navigation.CompositorCreationToCommit2",
+        commit_nav_timestamp_ - create_frame_sink_timestamp_,
+        base::Milliseconds(1), base::Minutes(10), 50);
+  } else {
+    base::UmaHistogramBoolean("Navigation.CompositorRequestedBeforeCommit2",
+                              false);
+    base::UmaHistogramCustomTimes(
+        "Navigation.CommitToCompositorCreation",
+        create_frame_sink_timestamp_ - commit_nav_timestamp_,
+        base::Milliseconds(1), base::Minutes(10), 50);
+  }
+
+  if (create_frame_sink_timestamp_ < swap_rfh_timestamp_) {
+    base::UmaHistogramBoolean("Navigation.CompositorRequestedBeforeSwapRFH2",
+                              true);
+    base::UmaHistogramCustomTimes(
+        "Navigation.CompositorCreationToSwapRFH2",
+        swap_rfh_timestamp_ - create_frame_sink_timestamp_,
+        base::Milliseconds(1), base::Minutes(10), 50);
+  } else {
+    base::UmaHistogramBoolean("Navigation.CompositorRequestedBeforeSwapRFH2",
+                              false);
+    base::UmaHistogramCustomTimes(
+        "Navigation.SwapRFHToCompositorCreation",
+        create_frame_sink_timestamp_ - swap_rfh_timestamp_,
+        base::Milliseconds(1), base::Minutes(10), 50);
+  }
+}
 
 }  // namespace content

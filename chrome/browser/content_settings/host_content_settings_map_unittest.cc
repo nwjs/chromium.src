@@ -28,6 +28,7 @@
 #include "components/content_settings/core/browser/content_settings_mock_observer.h"
 #include "components/content_settings/core/browser/content_settings_pref_provider.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
+#include "components/content_settings/core/browser/content_settings_rule.h"
 #include "components/content_settings/core/browser/content_settings_uma_util.h"
 #include "components/content_settings/core/browser/content_settings_utils.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
@@ -41,6 +42,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/features.h"
+#include "components/content_settings/core/common/host_indexed_content_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/content_settings/core/test/content_settings_test_utils.h"
 #include "components/permissions/features.h"
@@ -1041,6 +1043,45 @@ TEST_P(IndexedHostContentSettingsMapTest, IncognitoPartialInheritDefault) {
       otr_map->GetContentSetting(host, host, ContentSettingsType::GEOLOCATION));
 }
 
+TEST_P(IndexedHostContentSettingsMapTest, IncognitoInheritCookies) {
+  TestingProfile profile;
+  Profile* otr_profile =
+      profile.GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  HostContentSettingsMap* map =
+      HostContentSettingsMapFactory::GetForProfile(&profile);
+  HostContentSettingsMap* otr_map =
+      HostContentSettingsMapFactory::GetForProfile(otr_profile);
+
+  GURL url("http://example.com/");
+
+  map->SetContentSettingCustomScope(
+      ContentSettingsPattern::FromURLNoWildcard(url),
+      ContentSettingsPattern::FromURLNoWildcard(url),
+      ContentSettingsType::COOKIES, CONTENT_SETTING_SESSION_ONLY);
+
+  otr_map->SetContentSettingCustomScope(ContentSettingsPattern::FromURL(url),
+                                        ContentSettingsPattern::FromURL(url),
+                                        ContentSettingsType::COOKIES,
+                                        CONTENT_SETTING_BLOCK);
+
+  EXPECT_EQ(CONTENT_SETTING_SESSION_ONLY,
+            map->GetContentSetting(url, url, ContentSettingsType::COOKIES));
+  EXPECT_EQ(CONTENT_SETTING_BLOCK,
+            otr_map->GetContentSetting(url, url, ContentSettingsType::COOKIES));
+
+  auto indices = content_settings::HostIndexedContentSettings::Create(
+      otr_map->GetSettingsForOneType(ContentSettingsType::COOKIES));
+  ContentSetting result = CONTENT_SETTING_ALLOW;
+  for (const auto& index : indices) {
+    auto* found = index.Find(url, url);
+    if (found) {
+      result = content_settings::ValueToContentSetting(found->second.value);
+      break;
+    }
+  }
+  EXPECT_EQ(CONTENT_SETTING_BLOCK, result);
+}
+
 TEST_P(IndexedHostContentSettingsMapTest, IncognitoDontInheritSetting) {
   // Website settings marked DONT_INHERIT_IN_INCOGNITO in
   // WebsiteSettingsRegistry (e.g. usb chooser data) don't inherit any values
@@ -1904,7 +1945,7 @@ TEST_P(IndexedHostContentSettingsMapTest, GetPatternsFromScopingType) {
   }
 }
 
-TEST_F(HostContentSettingsMapTest, GetPatternsForContentSettingsType) {
+TEST_P(IndexedHostContentSettingsMapTest, GetPatternsForContentSettingsType) {
   const GURL primary_url("http://a.b.example1.com:8080");
   const GURL secondary_url("http://a.b.example2.com:8080");
 
@@ -2464,7 +2505,7 @@ TEST_P(IndexedHostContentSettingsMapTest, IncognitoInheritSaaAndRenew) {
   EXPECT_EQ(CONTENT_SETTING_ASK, otr_map->GetContentSetting(host, host, type));
 }
 
-TEST_F(HostContentSettingsMapTest, ShutdownDuringExpirationAsanTest) {
+TEST_P(IndexedHostContentSettingsMapTest, ShutdownDuringExpirationAsanTest) {
   TestingProfile profile;
 
   auto host_content_settings_map = base::MakeRefCounted<HostContentSettingsMap>(

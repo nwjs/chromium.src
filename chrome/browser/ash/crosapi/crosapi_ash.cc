@@ -116,7 +116,7 @@
 #include "chrome/browser/ash/crosapi/web_page_info_ash.h"
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_factory.h"
-#include "chrome/browser/ash/mahi/mahi_manager_ash.h"
+#include "chrome/browser/ash/mahi/mahi_browser_delegate_ash.h"
 #include "chrome/browser/ash/passkeys/passkey_authenticator_service_ash.h"
 #include "chrome/browser/ash/passkeys/passkey_authenticator_service_factory_ash.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -159,6 +159,7 @@
 #include "chromeos/crosapi/mojom/keystore_service.mojom.h"
 #include "chromeos/crosapi/mojom/lacros_shelf_item_tracker.mojom.h"
 #include "chromeos/crosapi/mojom/local_printer.mojom.h"
+#include "chromeos/crosapi/mojom/mahi.mojom.h"
 #include "chromeos/crosapi/mojom/message_center.mojom.h"
 #include "chromeos/crosapi/mojom/multi_capture_service.mojom.h"
 #include "chromeos/crosapi/mojom/passkeys.mojom.h"
@@ -277,9 +278,8 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       login_ash_(std::make_unique<LoginAsh>()),
       login_screen_storage_ash_(std::make_unique<LoginScreenStorageAsh>()),
       login_state_ash_(std::make_unique<LoginStateAsh>()),
-      mahi_manager_ash_(chromeos::features::IsMahiEnabled()
-                            ? std::make_unique<ash::MahiManagerAsh>()
-                            : nullptr),
+      mahi_browser_delegate_ash_(
+          std::make_unique<ash::MahiBrowserDelegateAsh>()),
       media_ui_ash_(std::make_unique<MediaUIAsh>()),
       message_center_ash_(std::make_unique<MessageCenterAsh>()),
       metrics_ash_(std::make_unique<MetricsAsh>()),
@@ -765,6 +765,11 @@ void CrosapiAsh::BindMachineLearningService(
         chromeos::machine_learning::mojom::MachineLearningService> receiver) {
   chromeos::machine_learning::ServiceConnection::GetInstance()
       ->BindMachineLearningService(std::move(receiver));
+}
+
+void CrosapiAsh::BindMahiBrowserDelegate(
+    mojo::PendingReceiver<mojom::MahiBrowserDelegate> receiver) {
+  mahi_browser_delegate_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindMediaUI(mojo::PendingReceiver<mojom::MediaUI> receiver) {

@@ -26,6 +26,7 @@ class IsolatedWebAppInstallerModel {
   };
 
   enum class Step {
+    kNone,
     kDisabled,
     kGetMetadata,
     kShowMetadata,
@@ -36,18 +37,6 @@ class IsolatedWebAppInstallerModel {
   struct BundleInvalidDialog {};
   struct BundleAlreadyInstalledDialog {
     std::u16string bundle_name;
-    base::Version installed_version;
-  };
-  struct BundleOutdatedDialog {
-    BundleOutdatedDialog(const std::u16string& bundle_name,
-                         const base::Version& bundle_version,
-                         const base::Version& installed_version);
-    BundleOutdatedDialog(const BundleOutdatedDialog&);
-    BundleOutdatedDialog& operator=(const BundleOutdatedDialog&);
-    ~BundleOutdatedDialog();
-
-    std::u16string bundle_name;
-    base::Version bundle_version;
     base::Version installed_version;
   };
   struct ConfirmInstallationDialog {
@@ -63,7 +52,6 @@ class IsolatedWebAppInstallerModel {
 
   using Dialog = absl::variant<BundleInvalidDialog,
                                BundleAlreadyInstalledDialog,
-                               BundleOutdatedDialog,
                                ConfirmInstallationDialog,
                                InstallationFailedDialog>;
 

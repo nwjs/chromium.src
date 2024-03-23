@@ -83,7 +83,8 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
     network::mojom::TrustTokenOperationPolicyVerdict
         trust_token_redemption_policy,
     net::CookieSettingOverrides cookie_setting_overrides,
-    base::StringPiece debug_tag) {
+    base::StringPiece debug_tag,
+    bool require_cross_site_request_for_cookies) {
   DCHECK(process);
 
   network::mojom::URLLoaderFactoryParamsPtr params =
@@ -104,24 +105,24 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
   params->coep_reporter = std::move(coep_reporter);
 
   if (params->disable_web_security) {
-    // --disable-web-security also disables Cross-Origin Read Blocking (CORB).
-    params->is_corb_enabled = false;
+    // --disable-web-security also disables Opaque Response Blocking (ORB).
+    params->is_orb_enabled = false;
   } else if (allow_universal_access_from_file_urls &&
              origin.scheme() == url::kFileScheme) {
-    // allow_universal_access_from_file_urls disables CORB (via
-    // |is_corb_enabled|) and CORS (via |disable_web_security|) for requests
+    // allow_universal_access_from_file_urls disables ORB (via
+    // `is_orb_enabled`) and CORS (via `disable_web_security`) for requests
     // made from a file: |origin|.
-    params->is_corb_enabled = false;
+    params->is_orb_enabled = false;
     params->disable_web_security = true;
   } else {
-    params->is_corb_enabled = true;
+    params->is_orb_enabled = true;
   }
 
   params->trust_token_issuance_policy = trust_token_issuance_policy;
   params->trust_token_redemption_policy = trust_token_redemption_policy;
 
   if (GetContentClient()->browser()->IsNWOrigin(origin, process->GetBrowserContext())) {
-    params->is_corb_enabled = false;
+    params->is_orb_enabled = false;
     params->disable_web_security = true;
   }
 
@@ -144,6 +145,9 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
   params->cookie_setting_overrides = cookie_setting_overrides;
 
   params->debug_tag = std::string(debug_tag);
+
+  params->require_cross_site_request_for_cookies =
+      require_cross_site_request_for_cookies;
 
   return params;
 }
@@ -181,7 +185,8 @@ URLLoaderFactoryParamsHelper::CreateForFrame(
       frame->CreateURLLoaderNetworkObserver(),
       NetworkServiceDevToolsObserver::MakeSelfOwned(frame->frame_tree_node()),
       trust_token_issuance_policy, trust_token_redemption_policy,
-      cookie_setting_overrides, debug_tag);
+      cookie_setting_overrides, debug_tag,
+      /*require_cross_site_request_for_cookies=*/false);
 }
 
 // static
@@ -213,7 +218,8 @@ URLLoaderFactoryParamsHelper::CreateForIsolatedWorld(
       frame->CreateURLLoaderNetworkObserver(),
       NetworkServiceDevToolsObserver::MakeSelfOwned(frame->frame_tree_node()),
       trust_token_issuance_policy, trust_token_redemption_policy,
-      cookie_setting_overrides, "ParamHelper::CreateForIsolatedWorld");
+      cookie_setting_overrides, "ParamHelper::CreateForIsolatedWorld",
+      /*require_cross_site_request_for_cookies=*/false);
 }
 
 network::mojom::URLLoaderFactoryParamsPtr
@@ -243,7 +249,8 @@ URLLoaderFactoryParamsHelper::CreateForPrefetch(
       NetworkServiceDevToolsObserver::MakeSelfOwned(frame->frame_tree_node()),
       network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
       network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
-      cookie_setting_overrides, "ParamHelper::CreateForPrefetch");
+      cookie_setting_overrides, "ParamHelper::CreateForPrefetch",
+      /*require_cross_site_request_for_cookies=*/false);
 }
 
 // static
@@ -262,7 +269,8 @@ URLLoaderFactoryParamsHelper::CreateForWorker(
         url_loader_network_observer,
     mojo::PendingRemote<network::mojom::DevToolsObserver> devtools_observer,
     network::mojom::ClientSecurityStatePtr client_security_state,
-    base::StringPiece debug_tag) {
+    base::StringPiece debug_tag,
+    bool require_cross_site_request_for_cookies) {
   return CreateParams(
       process,
       request_initiator,  // origin
@@ -286,7 +294,8 @@ URLLoaderFactoryParamsHelper::CreateForWorker(
       // https://github.com/w3c/webappsec-permissions-policy/issues/207.
       network::mojom::TrustTokenOperationPolicyVerdict::kPotentiallyPermit,
       network::mojom::TrustTokenOperationPolicyVerdict::kPotentiallyPermit,
-      net::CookieSettingOverrides(), debug_tag);
+      net::CookieSettingOverrides(), debug_tag,
+      require_cross_site_request_for_cookies);
 }
 
 // static
@@ -340,7 +349,8 @@ URLLoaderFactoryParamsHelper::CreateForEarlyHintsPreload(
       /*devtools_observer=*/mojo::NullRemote(),
       network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
       network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
-      net::CookieSettingOverrides(), "ParamHelper::CreateForEarlyHintsPreload");
+      net::CookieSettingOverrides(), "ParamHelper::CreateForEarlyHintsPreload",
+      /*require_cross_site_request_for_cookies=*/false);
 }
 
 }  // namespace content

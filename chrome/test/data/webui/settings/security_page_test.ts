@@ -5,8 +5,10 @@
 // clang-format off
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {HttpsFirstModeSetting, SafeBrowsingSetting, SettingsSecurityPageElement} from 'chrome://settings/lazy_load.js';
-import {HatsBrowserProxyImpl, CrSettingsPrefs, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions, PrivacyPageBrowserProxyImpl, Router, routes, SafeBrowsingInteractions, SecureDnsMode, SecurityPageInteraction, SettingsPrefsElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
+import type {SettingsSecurityPageElement} from 'chrome://settings/lazy_load.js';
+import {HttpsFirstModeSetting, SafeBrowsingSetting} from 'chrome://settings/lazy_load.js';
+import type {SettingsPrefsElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
+import {HatsBrowserProxyImpl, CrSettingsPrefs, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions, PrivacyPageBrowserProxyImpl, Router, routes, SafeBrowsingInteractions, SecureDnsMode, SecurityPageInteraction} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {isChildVisible} from 'chrome://webui-test/test_util.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
@@ -25,6 +27,7 @@ function pagePrefs() {
     profile: {password_manager_leak_detection: {value: false}},
     safebrowsing: {
       scout_reporting_enabled: {value: true},
+      esb_opt_in_with_friendlier_settings: {value: false},
     },
     generated: {
       safe_browsing: {
@@ -515,7 +518,7 @@ suite('SafeBrowsing', function() {
 
   test(
       'SafeBrowsingRadio_ManuallyExpandedRemainExpandedOnRepeatSelection',
-      function() {
+      async function() {
         page.$.safeBrowsingStandard.click();
         flush();
         assertEquals(
@@ -527,7 +530,7 @@ suite('SafeBrowsing', function() {
         // Expanding another radio button should not collapse already expanded
         // option.
         page.$.safeBrowsingEnhanced.$.expandButton.click();
-        flush();
+        await page.$.safeBrowsingEnhanced.$.expandButton.updateComplete;
         assertTrue(page.$.safeBrowsingStandard.expanded);
         assertTrue(page.$.safeBrowsingEnhanced.expanded);
 
@@ -549,7 +552,7 @@ suite('SafeBrowsing', function() {
             page.prefs.generated.safe_browsing.value);
 
         page.$.safeBrowsingEnhanced.$.expandButton.click();
-        flush();
+        await page.$.safeBrowsingEnhanced.$.expandButton.updateComplete;
         assertTrue(page.$.safeBrowsingStandard.expanded);
         assertTrue(page.$.safeBrowsingEnhanced.expanded);
 
@@ -994,4 +997,30 @@ suite('SafeBrowsing', function() {
     assertEquals(subLabel, standardProtection.subLabel);
   });
   // </if>
+
+  test('FriendlierSettingsPopulatedOnEsbOptIn', async function() {
+    loadTimeData.overrideValues({
+      enableFriendlierSafeBrowsingSettings: false,
+    });
+    resetPage();
+    page.$.safeBrowsingEnhanced.click();
+    assertFalse(
+        page.getPref('safebrowsing.esb_opt_in_with_friendlier_settings').value);
+
+    loadTimeData.overrideValues({
+      enableFriendlierSafeBrowsingSettings: true,
+    });
+    resetPage();
+    page.$.safeBrowsingEnhanced.click();
+    assertTrue(
+        page.getPref('safebrowsing.esb_opt_in_with_friendlier_settings').value);
+  });
+
+  test('FriendlierSettingsClearedOnEsbOptOut', async function() {
+    page.$.safeBrowsingEnhanced.click();
+    page.setPrefValue('safebrowsing.esb_opt_in_with_friendlier_settings', true);
+    page.$.safeBrowsingStandard.click();
+    assertFalse(
+        page.getPref('safebrowsing.esb_opt_in_with_friendlier_settings').value);
+  });
 });

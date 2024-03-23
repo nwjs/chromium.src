@@ -46,6 +46,8 @@
       # They monitor binary size growth, which may be affected by the tables.
       'linux-chrome': 'official_reclient',
       'linux-chromeos-chrome': 'official_reclient_chromeos_include_unwind_tables',
+      'linux-chromeos-chrome-with-lacros': 'official_reclient_chromeos_include_unwind_tables_with_lacros',
+      'linux-lacros-chrome': 'official_reclient_lacros_include_unwind_tables',
       'mac-chrome': 'official_reclient_mac',
       'win-branded-rel': 'chrome_branded_reclient_minimal_symbols',
       'win-chrome': 'official_reclient_x86',
@@ -204,8 +206,6 @@
       'linux-finch-smoke-chrome': 'official_reclient',
       'lorenz-graph-dbg': 'android_debug_bot_reclient_external_fastbuild',
       'mac-arm64-finch-smoke-chrome': 'official_reclient_mac_arm',
-      'win-arm64-dbg': 'gpu_tests_arm64_debug_reclient',
-      'win-arm64-rel': 'gpu_tests_arm64_release_minimal_symbol_reclient',
       'win-celab-rel': 'official_celab_release_bot',
       'win-finch-smoke-chrome': 'official_reclient',
     },
@@ -273,8 +273,10 @@
       'lacros-arm64-generic-chrome-skylab': 'chromeos_arm64-generic_lacros_official_skylab',
       'linux-chrome': 'official_reclient',
       'linux-chromeos-chrome': 'official_reclient_chromeos_include_unwind_tables',
+      'linux-chromeos-chrome-with-lacros': 'official_reclient_chromeos_include_unwind_tables_with_lacros',
       'linux-chromeos-compile-chrome': 'official_reclient_chromeos_include_unwind_tables',
       'linux-finch-smoke-chrome': 'official_reclient',
+      'linux-lacros-chrome': 'official_reclient_lacros_include_unwind_tables',
       'mac-arm64-finch-smoke-chrome': 'official_reclient_mac_arm',
       'mac-chrome': 'official_reclient_mac',
       'win-branded-compile-rel': 'chrome_branded_reclient_minimal_symbols',
@@ -667,14 +669,6 @@
       'gpu_tests', 'android', 'release_trybot_minimal_symbols_reclient', 'arm64', 'static_angle',
     ],
 
-    'gpu_tests_arm64_debug_reclient': [
-      'gpu_tests', 'arm64', 'debug_bot_reclient'
-    ],
-
-    'gpu_tests_arm64_release_minimal_symbol_reclient': [
-      'gpu_tests', 'arm64', 'release_bot_reclient', 'minimal_symbols'
-    ],
-
     'gpu_tests_chromeos_jacuzzi_release_trybot_dcheck_off_no_symbols_reclient_skylab': [
       'gpu_tests', 'chromeos_jacuzzi_reclient', 'release_trybot_dcheck_off_reclient', 'no_symbols', 'is_skylab',
     ],
@@ -823,8 +817,17 @@
       'official', 'reclient', 'chromeos', 'minimal_symbols', 'include_unwind_tables',
     ],
 
+    'official_reclient_chromeos_include_unwind_tables_with_lacros': [
+      'official', 'reclient', 'chromeos', 'minimal_symbols', 'include_unwind_tables', 'also_build_lacros_chrome',
+    ],
+
     'official_reclient_fuchsia_arm64_perf': [
       'cast_receiver_size_optimized_internal', 'official', 'reclient', 'minimal_symbols', 'fuchsia', 'fuchsia_include_sd_images', 'arm64', 'ffmpeg_branding_chrome', 'proprietary_codecs', 'test_isolate_no_emulator',
+    ],
+
+    'official_reclient_lacros_include_unwind_tables': [
+      'official', 'reclient', 'lacros', 'minimal_symbols', 'include_unwind_tables',
+      'also_build_ash_chrome',
     ],
 
     'official_reclient_linux_perf_pgo': [
@@ -909,7 +912,7 @@
     ],
 
     'optimization_guide_android_arm64_rel': [
-      'minimal_symbols', 'optimization_guide', 'reclient', 'release', 'android', 'arm64',
+      'minimal_symbols', 'reclient', 'release', 'android', 'arm64',
     ],
 
     'optimization_guide_cros_rel': [
@@ -964,6 +967,14 @@
   # This is a dict mapping a given 'mixin' name to a dict of settings that
   # mb should use. See //tools/mb/docs/user_guide.md for more information.
   'mixins': {
+    'also_build_ash_chrome': {
+      'gn_args': 'also_build_ash_chrome=true'
+    },
+
+    'also_build_lacros_chrome': {
+      'gn_args': 'also_build_lacros_chrome=true'
+    },
+
     'also_build_lacros_chrome_for_architecture_amd64': {
       'gn_args': 'also_build_lacros_chrome_for_architecture="amd64"',
     },

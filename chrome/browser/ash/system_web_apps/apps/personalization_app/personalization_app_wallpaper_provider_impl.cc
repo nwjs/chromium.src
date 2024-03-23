@@ -25,6 +25,7 @@
 #include "ash/public/cpp/wallpaper/wallpaper_types.h"
 #include "ash/public/cpp/window_backdrop.h"
 #include "ash/wallpaper/wallpaper_constants.h"
+#include "ash/wallpaper/wallpaper_utils/sea_pen_metadata_utils.h"
 #include "ash/wallpaper/wallpaper_utils/wallpaper_online_variant_utils.h"
 #include "ash/wallpaper/wallpaper_utils/wallpaper_resizer.h"
 #include "ash/webui/personalization_app/mojom/personalization_app.mojom.h"
@@ -1104,11 +1105,17 @@ void PersonalizationAppWallpaperProviderImpl::FindSeaPenWallpaperAttribution(
 void PersonalizationAppWallpaperProviderImpl::SendSeaPenWallpaperAttribution(
     const base::FilePath& user_file_path,
     std::optional<base::Value::Dict> sea_pen_metadata) {
-  DVLOG(3) << __func__ << "file_path: " << user_file_path << " metadata: "
-           << (sea_pen_metadata.has_value() ? sea_pen_metadata->DebugString()
-                                            : "null");
   if (!sea_pen_metadata.has_value()) {
-    LOG(ERROR) << __func__ << " unknown attribution data";
+    DVLOG(1) << __func__ << " the extracted metadata is not in JSON format";
+    NotifyAttributionChanged(
+        ash::personalization_app::mojom::CurrentAttribution::New(
+            std::vector<std::string>(), user_file_path.value()));
+    return;
+  }
+
+  auto sea_pen_image_info =
+      ash::SeaPenQueryDictToRecentImageInfo(std::move(*sea_pen_metadata));
+  if (!sea_pen_image_info) {
     NotifyAttributionChanged(
         ash::personalization_app::mojom::CurrentAttribution::New(
             std::vector<std::string>(), user_file_path.value()));
@@ -1116,29 +1123,11 @@ void PersonalizationAppWallpaperProviderImpl::SendSeaPenWallpaperAttribution(
   }
 
   std::vector<std::string> attribution;
-
-  auto* freeform_query = sea_pen_metadata->FindString(
-      wallpaper_constants::kSeaPenFreeformQueryKey);
-  if (freeform_query) {
-    // The Sea Pen wallpaper was generated from a freeform query.
-    attribution.push_back(*freeform_query);
-    NotifyAttributionChanged(
-        ash::personalization_app::mojom::CurrentAttribution::New(
-            attribution, user_file_path.value()));
-    return;
-  }
-
-  // Otherwise, it should be generated from a template query, get the user
-  // visible query and add into `attributions`.
-  auto* user_visible_query_text = sea_pen_metadata->FindString(
-      wallpaper_constants::kSeaPenUserVisibleQueryTextKey);
-  if (user_visible_query_text) {
-    attribution.push_back(*user_visible_query_text);
-  }
-  auto* user_visible_query_template = sea_pen_metadata->FindString(
-      wallpaper_constants::kSeaPenUserVisibleQueryTemplateKey);
-  if (user_visible_query_template) {
-    attribution.push_back(*user_visible_query_template);
+  attribution.push_back(sea_pen_image_info->user_visible_query->text);
+  std::string template_title =
+      sea_pen_image_info->user_visible_query->template_title;
+  if (!template_title.empty()) {
+    attribution.push_back(template_title);
   }
   NotifyAttributionChanged(
       ash::personalization_app::mojom::CurrentAttribution::New(

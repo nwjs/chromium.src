@@ -156,10 +156,11 @@ class BASE_EXPORT SequenceManagerImpl
       CurrentThread::DestructionObserver* destruction_observer);
   [[nodiscard]] CallbackListSubscription RegisterOnNextIdleCallback(
       OnceClosure on_next_idle_callback);
-  // TODO(alexclarke): Remove this as part of https://crbug.com/825327.
+
+  // Sets / returns the default TaskRunner. Thread-safe.
   void SetTaskRunner(scoped_refptr<SingleThreadTaskRunner> task_runner);
-  // TODO(alexclarke): Remove this as part of https://crbug.com/825327.
   scoped_refptr<SingleThreadTaskRunner> GetTaskRunner();
+
   bool IsBoundToCurrentThread() const;
   MessagePump* GetMessagePump() const;
   bool IsType(MessagePumpType type) const;
@@ -327,7 +328,7 @@ class BASE_EXPORT SequenceManagerImpl
     //   internal scheduling code does not expect queues to be pulled
     //   from underneath.
 
-    std::set<internal::TaskQueueImpl*> active_queues;
+    std::set<raw_ptr<internal::TaskQueueImpl, SetExperimental>> active_queues;
 
     std::map<internal::TaskQueueImpl*, std::unique_ptr<internal::TaskQueueImpl>>
         queues_to_delete;

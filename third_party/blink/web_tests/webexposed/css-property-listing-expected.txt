@@ -312,6 +312,8 @@ All changes to this list should go through Blink's feature review process: http:
     position
     position-fallback
     position-fallback-bounds
+    position-try-options
+    position-try-order
     quotes
     r
     resize
@@ -418,6 +420,7 @@ All changes to this list should go through Blink's feature review process: http:
     view-timeline-axis
     view-timeline-inset
     view-timeline-name
+    view-transition-class
     view-transition-name
     visibility
     white-space-collapse
@@ -753,6 +756,9 @@ All changes to this list should go through Blink's feature review process: http:
     place-self
         align-self
         justify-self
+    position-try
+        position-try-options
+        position-try-order
     scroll-margin
         scroll-margin-bottom
         scroll-margin-left

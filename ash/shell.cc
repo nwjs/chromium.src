@@ -19,6 +19,7 @@
 #include "ash/accelerators/magnifier_key_scroller.h"
 #include "ash/accelerators/modifier_key_combo_recorder.h"
 #include "ash/accelerators/pre_target_accelerator_handler.h"
+#include "ash/accelerators/rapid_key_sequence_recorder.h"
 #include "ash/accelerators/shortcut_input_handler.h"
 #include "ash/accelerators/spoken_feedback_toggler.h"
 #include "ash/accelerometer/accelerometer_reader.h"
@@ -229,6 +230,7 @@
 #include "ash/wm/window_animations.h"
 #include "ash/wm/window_cycle/window_cycle_controller.h"
 #include "ash/wm/window_properties.h"
+#include "ash/wm/window_restore/pine_controller.h"
 #include "ash/wm/window_restore/window_restore_controller.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_shadow_controller_delegate.h"
@@ -790,6 +792,7 @@ Shell::~Shell() {
   // `shortcut_input_handler_` must be cleaned up before
   // `event_rewriter_controller_`.
   modifier_key_combo_recorder_.reset();
+  rapid_key_sequence_recorder_.reset();
   shortcut_input_handler_.reset();
   // `AccessibilityEventRewriter` references objects owned by
   // EventRewriterController directly, so it must be reset first to avoid
@@ -974,6 +977,7 @@ Shell::~Shell() {
   backlights_forced_off_setter_.reset();
 
   float_controller_.reset();
+  pine_controller_.reset();
   pip_controller_.reset();
   screen_pinning_controller_.reset();
 
@@ -1374,6 +1378,7 @@ void Shell::Init(
       std::make_unique<KeyboardModifierMetricsRecorder>();
   event_rewriter_controller_ = std::make_unique<EventRewriterControllerImpl>();
   modifier_key_combo_recorder_ = std::make_unique<ModifierKeyComboRecorder>();
+  rapid_key_sequence_recorder_ = std::make_unique<RapidKeySequenceRecorder>();
 
   env_filter_ = std::make_unique<::wm::CompoundEventFilter>();
   AddPreTargetHandler(env_filter_.get());
@@ -1576,8 +1581,7 @@ void Shell::Init(
   // used in its constructor.
   app_list_controller_ = std::make_unique<AppListControllerImpl>();
 
-  if (features::IsBirchFeatureEnabled() &&
-      switches::IsBirchSecretKeyMatched()) {
+  if (features::IsForestFeatureEnabled()) {
     birch_model_ = std::make_unique<BirchModel>();
   }
 
@@ -1649,10 +1653,8 @@ void Shell::Init(
   // `SystemNotificationController` is created, because
   // `SystemNotificationController` ctor will creat an instance of
   // `PowerSoundsController`, which will access and play the initialized sounds.
-  if (features::AreSystemSoundsEnabled()) {
     system_sounds_delegate_ = shell_delegate_->CreateSystemSoundsDelegate();
     system_sounds_delegate_->Init();
-  }
 
   privacy_hub_controller_ = PrivacyHubController::CreatePrivacyHubController();
 
@@ -1749,6 +1751,9 @@ void Shell::Init(
   projector_controller_ = std::make_unique<ProjectorControllerImpl>();
 
   float_controller_ = std::make_unique<FloatController>();
+  if (features::IsForestFeatureEnabled()) {
+    pine_controller_ = std::make_unique<PineController>();
+  }
   pip_controller_ = std::make_unique<PipController>();
 
   multitask_menu_nudge_delegate_ =

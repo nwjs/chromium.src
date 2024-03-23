@@ -119,7 +119,7 @@ bool PermissionDashboardController::Update(
   indicator_model->Update(force_hide ? nullptr
                                      : location_bar_view_->GetWebContents());
 
-  OmniboxChipButton* indicator_chip =
+  PermissionChipView* indicator_chip =
       permission_dashboard_view_->GetIndicatorChip();
 
   if (!indicator_model->is_visible()) {
@@ -139,7 +139,9 @@ bool PermissionDashboardController::Update(
   permission_dashboard_view_->SetVisible(true);
 
   indicator_chip->SetChipIcon(indicator_model->icon());
-  indicator_chip->SetTheme(OmniboxChipTheme::kNormalVisibility);
+  indicator_chip->SetTheme(indicator_model->is_blocked()
+                               ? PermissionChipTheme::kBlockedActivityIndicator
+                               : PermissionChipTheme::kInUseActivityIndicator);
   indicator_chip->GetViewAccessibility().OverrideIsIgnored(false);
   indicator_chip->SetTooltipText(indicator_model->get_tooltip());
 
@@ -221,7 +223,13 @@ void PermissionDashboardController::HideIndicators() {
       ->GetViewAccessibility()
       .OverrideIsIgnored(true);
   permission_dashboard_view_->GetIndicatorChip()->SetVisible(false);
-  if (!permission_dashboard_view_->GetRequestChip()->GetVisible()) {
+  permission_dashboard_view_->GetDividerView()->SetVisible(false);
+  if (permission_dashboard_view_->GetRequestChip()->GetVisible()) {
+    // After the indicator view is gone, remove the divider padding if the
+    // request chip is visible.
+    permission_dashboard_view_->GetRequestChip()->UpdateForDividerVisibility(
+        false);
+  } else {
     permission_dashboard_view_->SetVisible(false);
   }
 

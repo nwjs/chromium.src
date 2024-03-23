@@ -157,7 +157,7 @@ ChromeLabsItemView::ChromeLabsItemView(
   // See crbug.com/1145666 Accessibility review.
   experiment_name_->GetViewAccessibility().OverrideIsIgnored(true);
   experiment_description->GetViewAccessibility().OverrideIsIgnored(true);
-  GetViewAccessibility().OverrideRole(ax::mojom::Role::kGroup);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
   if (!lab.visible_name.empty())
     GetViewAccessibility().OverrideName(lab.visible_name);
 
@@ -174,7 +174,7 @@ ChromeLabsItemView::ChromeLabsItemView(
 
 #if !BUILDFLAG(IS_MAC)
   if (!lab.visible_description.empty())
-    GetViewAccessibility().OverrideDescription(lab.visible_description);
+    GetViewAccessibility().SetDescription(lab.visible_description);
 #endif
 
   AddChildView(
@@ -245,6 +245,6 @@ const flags_ui::FeatureEntry* ChromeLabsItemView::GetFeatureEntry() {
   return feature_entry_;
 }
 
-BEGIN_METADATA(ChromeLabsItemView, views::View)
+BEGIN_METADATA(ChromeLabsItemView)
 ADD_READONLY_PROPERTY_METADATA(std::optional<size_t>, SelectedIndex)
 END_METADATA

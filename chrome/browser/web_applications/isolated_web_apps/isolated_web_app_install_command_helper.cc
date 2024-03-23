@@ -31,6 +31,7 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_validator.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_version.h"
 #include "chrome/browser/web_applications/isolated_web_apps/pending_install_info.h"
+#include "chrome/browser/web_applications/web_app_icon_operations.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
@@ -524,8 +525,8 @@ void IsolatedWebAppInstallCommandHelper::OnRetrieveIcons(
     base::OnceCallback<void(base::expected<WebAppInstallInfo, std::string>)>
         callback,
     IconsDownloadedResult result,
-    std::map<GURL, std::vector<SkBitmap>> icons_map,
-    std::map<GURL, int /*http_status_code*/> unused_icons_http_results) {
+    IconsMap icons_map,
+    DownloadedIconsHttpResults unused_icons_http_results) {
   if (result != IconsDownloadedResult::kCompleted) {
     std::move(callback).Run(base::unexpected(
         base::StrCat({"Error during icon downloading: ",

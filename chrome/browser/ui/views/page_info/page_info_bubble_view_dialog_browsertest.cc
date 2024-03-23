@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/feature_list.h"
+#include "base/time/time_override.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 
 #include "build/build_config.h"
@@ -467,8 +468,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
 // set. All permissions will show regardless of its factory default value.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
                        InvokeUi_AllowAllPermissions) {
-  // Last updated in crrev.com/c/4804826.
-  set_baseline("4804826");
+  // Last updated in crrev.com/c/5237718.
+  set_baseline("5237718");
   ShowAndVerifyUi();
 }
 
@@ -476,8 +477,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
 // set. All permissions will show regardless of its factory default value.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
                        InvokeUi_BlockAllPermissions) {
-  // Last updated in crrev.com/c/4804826.
-  set_baseline("4804826");
+  // Last updated in crrev.com/c/5237718.
+  set_baseline("5237718");
   ShowAndVerifyUi();
 }
 
@@ -751,8 +752,6 @@ class PageInfoBubbleViewCookiesSubpageBrowserTest
 
     PageInfoUI::CookiesNewInfo cookie_info;
     cookie_info.allowed_sites_count = 9;
-    cookie_info.allowed_third_party_sites_count = 5;
-    cookie_info.blocked_third_party_sites_count = 8;
     cookie_info.enforcement = enforcement_;
     cookie_info.protections_on = protections_on_;
     cookie_info.controls_visible = controls_visible_;

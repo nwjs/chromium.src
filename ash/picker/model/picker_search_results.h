@@ -6,50 +6,13 @@
 #define ASH_PICKER_MODEL_PICKER_SEARCH_RESULTS_H_
 
 #include <string>
-#include <string_view>
-#include <variant>
 #include <vector>
 
 #include "ash/ash_export.h"
+#include "ash/public/cpp/picker/picker_search_result.h"
 #include "base/containers/span.h"
-#include "url/gurl.h"
 
 namespace ash {
-
-// Represents a search result, which might be text or other types of media.
-// TODO(b/310088338): Support result types beyond just literal text and gifs.
-class ASH_EXPORT PickerSearchResult {
- public:
-  struct TextData {
-    std::u16string text;
-
-    bool operator==(const TextData&) const;
-  };
-
-  struct GifData {
-    GURL url;
-
-    bool operator==(const GifData&) const;
-  };
-
-  using Data = std::variant<TextData, GifData>;
-
-  PickerSearchResult(const PickerSearchResult&);
-  PickerSearchResult& operator=(const PickerSearchResult&);
-  ~PickerSearchResult();
-
-  static PickerSearchResult Text(std::u16string_view text);
-  static PickerSearchResult Gif(const GURL& url);
-
-  const Data& data() const;
-
-  bool operator==(const PickerSearchResult&) const;
-
- private:
-  explicit PickerSearchResult(Data data);
-
-  Data data_;
-};
 
 // The search results for a particular Picker query.
 class ASH_EXPORT PickerSearchResults {

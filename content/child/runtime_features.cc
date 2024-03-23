@@ -188,13 +188,9 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            raw_ref(features::kEnableAccessibilityAriaVirtualContent)},
           {wf::EnableAccessibilityExposeHTMLElement,
            raw_ref(features::kEnableAccessibilityExposeHTMLElement)},
-          {wf::EnableAccessibilityExposeIgnoredNodes,
-           raw_ref(features::kEnableAccessibilityExposeIgnoredNodes)},
 #if BUILDFLAG(IS_ANDROID)
           {wf::EnableAccessibilityPageZoom,
            raw_ref(features::kAccessibilityPageZoom)},
-          {wf::EnableAutoDisableAccessibilityV2,
-           raw_ref(features::kAutoDisableAccessibilityV2)},
 #endif
           {wf::EnableAccessibilityUseAXPositionForDocumentMarkers,
            raw_ref(features::kUseAXPositionForDocumentMarkers)},
@@ -246,6 +242,8 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableSharedStorageAPIM118,
            raw_ref(blink::features::kSharedStorageAPIM118),
            kSetOnlyIfOverridden},
+          {wf::EnableSharedStorageAPIM123,
+           raw_ref(blink::features::kSharedStorageAPIM123), kDefault},
           {wf::EnableFedCmMultipleIdentityProviders,
            raw_ref(features::kFedCmMultipleIdentityProviders), kDefault},
           {wf::EnableFedCmDisconnect, raw_ref(features::kFedCmDisconnect),
@@ -258,10 +256,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableFencedFrames,
            raw_ref(features::kPrivacySandboxAdsAPIsM1Override),
            kSetOnlyIfOverridden},
-          // FledgeFeatureDetection should be on if any of the features it aims
-          // to help detect is on.
-          {wf::EnableFledgeFeatureDetection,
-           raw_ref(blink::features::kFledgeCustomMaxAuctionAdComponents)},
           {wf::EnableForcedColors, raw_ref(features::kForcedColors)},
           {wf::EnableFractionalScrollOffsets,
            raw_ref(features::kFractionalScrollOffsets)},
@@ -327,7 +321,8 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableWebNFC, raw_ref(features::kWebNfc), kSetOnlyIfOverridden},
 #endif
           {wf::EnableWebIdentityDigitalCredentials,
-           raw_ref(features::kWebIdentityDigitalCredentials), kDefault},
+           raw_ref(features::kWebIdentityDigitalCredentials),
+           kSetOnlyIfOverridden},
           {wf::EnableMachineLearningNeuralNetwork,
            raw_ref(webnn::mojom::features::kWebMachineLearningNeuralNetwork),
            kDefault},
@@ -507,6 +502,8 @@ void SetRuntimeFeaturesFromCommandLine(const base::CommandLine& command_line) {
        true},
       {wrf::EnableWebGPUDeveloperFeatures,
        switches::kEnableWebGPUDeveloperFeatures, true},
+      {wrf::EnableWebGPUExperimentalFeatures, switches::kEnableUnsafeWebGPU,
+       true},
       {wrf::EnableDirectSockets, switches::kEnableIsolatedWebAppsInRenderer,
        true},
   };
@@ -699,6 +696,17 @@ void ResolveInvalidConfigurations() {
         << blink::features::kSharedStorageAPI.name << ","
         << blink::features::kSharedStorageAPIM118.name << " in addition.";
     WebRuntimeFeatures::EnableSharedStorageAPIM118(false);
+  }
+
+  if (!base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM123) ||
+      !base::FeatureList::IsEnabled(blink::features::kSharedStorageAPI)) {
+    LOG_IF(WARNING, WebRuntimeFeatures::IsSharedStorageAPIM123Enabled())
+        << "SharedStorage for M123+ cannot be enabled in this "
+           "configuration. Use --"
+        << switches::kEnableFeatures << "="
+        << blink::features::kSharedStorageAPI.name << ","
+        << blink::features::kSharedStorageAPIM123.name << " in addition.";
+    WebRuntimeFeatures::EnableSharedStorageAPIM123(false);
   }
 
   if (!base::FeatureList::IsEnabled(

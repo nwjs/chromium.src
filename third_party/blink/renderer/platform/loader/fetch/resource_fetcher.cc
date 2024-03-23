@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -44,8 +45,8 @@
 #include "base/unguessable_token.h"
 #include "services/network/public/cpp/request_mode.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-blink.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/loader/lcp_critical_path_predictor_util.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
@@ -418,8 +419,8 @@ ResourceLoadPriority ResourceFetcher::ComputeLoadPriority(
     RenderBlockingBehavior render_blocking_behavior,
     mojom::blink::ScriptType script_type,
     bool is_link_preload,
-    const absl::optional<float> resource_width,
-    const absl::optional<float> resource_height,
+    const std::optional<float> resource_width,
+    const std::optional<float> resource_height,
     bool is_potentially_lcp_element,
     bool is_potentially_lcp_influencer) {
   DCHECK(!resource_request.PriorityHasBeenSet() ||
@@ -517,26 +518,49 @@ ResourceLoadPriority ResourceFetcher::ComputeLoadPriority(
   }
 
   // LCP Critical Path Predictor identified resources get a priority boost.
-  if ((is_potentially_lcp_element || is_potentially_lcp_influencer) &&
-      !features::kLCPCriticalPathPredictorDryRun.Get()) {
+  if (LcppEnabled()) {
+    bool should_modify_request_priority = false;
     features::LcppResourceLoadPriority preferred_priority =
-        is_potentially_lcp_element
-            ? features::kLCPCriticalPathPredictorImageLoadPriority.Get()
-            : features::kLCPCriticalPathPredictorInfluencerScriptLoadPriority
-                  .Get();
+        features::LcppResourceLoadPriority::kMedium;
 
-    ++potentially_lcp_resource_priority_boosts_;
+    if (is_potentially_lcp_element) {
+      // Adjust priority of LCP image request.
+      if (base::FeatureList::IsEnabled(features::kLCPCriticalPathPredictor) &&
+          features::kLCPCriticalPathAdjustImageLoadPriority.Get()) {
+        should_modify_request_priority = true;
+        preferred_priority =
+            features::kLCPCriticalPathPredictorImageLoadPriority.Get();
+      }
 
-    switch (preferred_priority) {
-      case features::LcppResourceLoadPriority::kMedium:
-        priority = std::max(priority, ResourceLoadPriority::kMedium);
-        break;
-      case features::LcppResourceLoadPriority::kHigh:
-        priority = std::max(priority, ResourceLoadPriority::kHigh);
-        break;
-      case features::LcppResourceLoadPriority::kVeryHigh:
-        priority = std::max(priority, ResourceLoadPriority::kVeryHigh);
-        break;
+      if (base::FeatureList::IsEnabled(features::kLCPScriptObserver) &&
+          features::kLCPScriptObserverAdjustImageLoadPriority.Get()) {
+        should_modify_request_priority = true;
+        preferred_priority =
+            features::kLCPScriptObserverImageLoadPriority.Get();
+      }
+    }
+
+    if (is_potentially_lcp_influencer &&
+        base::FeatureList::IsEnabled(features::kLCPScriptObserver)) {
+      // Adjust priority of LCP influencing script request.
+      should_modify_request_priority = true;
+      preferred_priority = features::kLCPScriptObserverScriptLoadPriority.Get();
+    }
+
+    if (should_modify_request_priority) {
+      ++potentially_lcp_resource_priority_boosts_;
+
+      switch (preferred_priority) {
+        case features::LcppResourceLoadPriority::kMedium:
+          priority = std::max(priority, ResourceLoadPriority::kMedium);
+          break;
+        case features::LcppResourceLoadPriority::kHigh:
+          priority = std::max(priority, ResourceLoadPriority::kHigh);
+          break;
+        case features::LcppResourceLoadPriority::kVeryHigh:
+          priority = std::max(priority, ResourceLoadPriority::kVeryHigh);
+          break;
+      }
     }
   }
 
@@ -562,8 +586,8 @@ ResourceLoadPriority ResourceFetcher::AdjustImagePriority(
     const ResourceRequestHead& resource_request,
     FetchParameters::SpeculativePreloadType speculative_preload_type,
     bool is_link_preload,
-    const absl::optional<float> resource_width,
-    const absl::optional<float> resource_height) {
+    const std::optional<float> resource_width,
+    const std::optional<float> resource_height) {
   ResourceLoadPriority new_priority = priority_so_far;
 
   if (speculative_preload_type ==
@@ -962,7 +986,7 @@ void ResourceFetcher::RemovePreload(Resource* resource) {
     preloads_.erase(it);
 }
 
-absl::optional<ResourceRequestBlockedReason> ResourceFetcher::PrepareRequest(
+std::optional<ResourceRequestBlockedReason> ResourceFetcher::PrepareRequest(
     FetchParameters& params,
     const ResourceFactory& factory,
     WebScopedVirtualTimePauser& virtual_time_pauser) {
@@ -1103,7 +1127,7 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
 
   WebScopedVirtualTimePauser pauser;
 
-  absl::optional<ResourceRequestBlockedReason> blocked_reason =
+  std::optional<ResourceRequestBlockedReason> blocked_reason =
       PrepareRequest(params, factory, pauser);
   if (blocked_reason) {
     auto* resource = ResourceForBlockedRequest(params, factory,
@@ -1384,7 +1408,7 @@ std::unique_ptr<URLLoader> ResourceFetcher::CreateURLLoader(
     const ResourceLoaderOptions& options,
     const mojom::blink::RequestContextType request_context,
     const RenderBlockingBehavior render_blocking_behavior,
-    const absl::optional<base::UnguessableToken>&
+    const std::optional<base::UnguessableToken>&
         service_worker_race_network_request_token,
     bool is_from_origin_dirty_style_sheet) {
   DCHECK(!GetProperties().IsDetached());
@@ -2411,7 +2435,7 @@ void ResourceFetcher::UpdateAllImageResourcePriorities() {
         resource_priority.visibility, FetchParameters::DeferOption::kNoDefer,
         FetchParameters::SpeculativePreloadType::kNotSpeculative,
         RenderBlockingBehavior::kNonBlocking,
-        mojom::blink::ScriptType::kClassic, false, absl::nullopt, absl::nullopt,
+        mojom::blink::ScriptType::kClassic, false, std::nullopt, std::nullopt,
         resource_priority.is_lcp_resource);
 
     ResourcePriority resource_priority_excluding_image_loader =
@@ -2423,8 +2447,8 @@ void ResourceFetcher::UpdateAllImageResourcePriorities() {
             FetchParameters::DeferOption::kNoDefer,
             FetchParameters::SpeculativePreloadType::kNotSpeculative,
             RenderBlockingBehavior::kNonBlocking,
-            mojom::blink::ScriptType::kClassic, false, absl::nullopt,
-            absl::nullopt,
+            mojom::blink::ScriptType::kClassic, false, std::nullopt,
+            std::nullopt,
             resource_priority_excluding_image_loader.is_lcp_resource);
 
     // When enabled, `priority` is used, which considers the resource priority
@@ -2499,19 +2523,19 @@ String ResourceFetcher::GetCacheIdentifier(const KURL& url) const {
   return MemoryCache::DefaultCacheIdentifier();
 }
 
-absl::optional<base::UnguessableToken>
+std::optional<base::UnguessableToken>
 ResourceFetcher::GetSubresourceBundleToken(const KURL& url) const {
   SubresourceWebBundle* bundle = GetMatchingBundle(url);
   if (!bundle)
-    return absl::nullopt;
+    return std::nullopt;
   return bundle->WebBundleToken();
 }
 
-absl::optional<KURL> ResourceFetcher::GetSubresourceBundleSourceUrl(
+std::optional<KURL> ResourceFetcher::GetSubresourceBundleSourceUrl(
     const KURL& url) const {
   SubresourceWebBundle* bundle = GetMatchingBundle(url);
   if (!bundle)
-    return absl::nullopt;
+    return std::nullopt;
   return bundle->GetBundleUrl();
 }
 

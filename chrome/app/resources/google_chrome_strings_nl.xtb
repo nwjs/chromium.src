@@ -58,6 +58,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1877026089748256423">Chrome is verouderd</translation>
 <translation id="1919130412786645364">Inloggen bij Chrome toestaan</translation>
 <translation id="1953553007165777902">Downloaden... Nog <ph name="MINUTE" /> minuten</translation>
+<translation id="2001586581944147178">Maak het moeilijker voor mensen met toegang tot je internetverkeer om te zien welke sites je bezoekt. Chrome gebruikt een beveiligde verbinding om het IP-adres van een site op te zoeken in het DNS (Domain Name System).</translation>
 <translation id="2018528049276128029">Elk profiel heeft eigen Chrome-informatie, zoals bookmarks, geschiedenis en wachtwoorden</translation>
 <translation id="2018879682492276940">Installatie mislukt. Probeer het opnieuw.</translation>
 <translation id="2071318482926839249">Er is al een ander account ingelogd. Als je je browsegegevens gescheiden wilt houden, kan Chrome een eigen profiel voor je maken.</translation>
@@ -76,6 +77,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="2151406531797534936">Chrome nu opnieuw opstarten</translation>
 <translation id="2174917724755363426">Installatie niet afgerond. Weet je zeker dat je wilt annuleren?</translation>
 <translation id="2190166659037789668">Fout bij updaten: <ph name="UPDATE_CHECK_ERROR" />.</translation>
+<translation id="2199691482078155239">Chrome geeft je meer controle over de advertenties die je te zien krijgt en beperkt wat sites over jou te weten kunnen komen als ze je gepersonaliseerde advertenties tonen</translation>
 <translation id="223889379102603431">Informatie over hoe Chrome rootcertificaten beheert</translation>
 <translation id="2258103955319320201">Log in en zet synchronisatie aan voor toegang tot je Chrome-browsergegevens op al je apparaten</translation>
 <translation id="2290014774651636340">Google API-sleutels ontbreken. Sommige functies van Google Chrome worden uitgezet.</translation>
@@ -138,7 +140,6 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - Inloggen bij netwerk - Chrome</translation>
 <translation id="3018957014024118866">Ook gegevens verwijderen uit Chrome (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">Herstarten om &amp;Chrome OS Flex te updaten</translation>
-<translation id="303514781271618814">Chrome bevat nieuwe experimentele functies waarmee sites dezelfde browsefunctionaliteit kunnen leveren terwijl er minder van je gegevens worden gebruikt</translation>
 <translation id="3037838751736561277">Google Chrome bevindt zich in de achtergrondmodus.</translation>
 <translation id="3038232873781883849">Wachten op installatie...</translation>
 <translation id="3059710691562604940">Safe Browsing staat uit. Chrome raadt je aan deze functie aan te zetten.</translation>
@@ -161,7 +162,6 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="3360895254066713204">Chrome Helper</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome wordt nu opnieuw gestart}=1{Chrome wordt over één seconde opnieuw gestart}other{Chrome wordt over # seconden opnieuw gestart}}</translation>
 <translation id="3396977131400919238">Er is tijdens de installatie een probleem opgetreden met het besturingssysteem. Download Google Chrome opnieuw.</translation>
-<translation id="3426646014273736870">Geheugenbesparing maakt Chrome sneller</translation>
 <translation id="3428747202529429621">Beschermt je op Chrome en kan worden gebruikt om de beveiliging in andere Google-apps te verbeteren als je bent ingelogd</translation>
 <translation id="3434246496373299699">Chrome kan je wachtwoorden checken als je inlogt met je Google-account</translation>
 <translation id="3450887623636316740">Dit bestand kan gevaarlijk zijn<ph name="LINE_BREAK" />Chrome kan deze download voor je checken als je het wachtwoord verstrekt. Informatie over het bestand wordt naar Google Safe Browsing gestuurd, maar de content en het wachtwoord van het bestand blijven op je apparaat staan.</translation>
@@ -178,6 +178,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="3635073343384702370">Chrome kan je wachtwoorden controleren als je deze hebt opgeslagen</translation>
 <translation id="3667616615096815454">Kan niet installeren. De app is niet bekend bij de server.</translation>
 <translation id="3673813398384385993">Chrome heeft vastgesteld dat <ph name="EXTENSION_NAME" /> malware bevat</translation>
+<translation id="3697952514309507634">Andere Chrome-profielen</translation>
 <translation id="3703994572283698466">Chrome OS wordt mogelijk gemaakt door aanvullende <ph name="BEGIN_LINK_CROS_OSS" />opensource-software<ph name="END_LINK_CROS_OSS" />, net als de <ph name="BEGIN_LINK_LINUX_OSS" />Linux-ontwikkelomgeving<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">Chrome OS Flex-versie</translation>
 <translation id="3718181793972440140">Hiermee wordt 1 item verwijderd van dit apparaat. Als je je gegevens later wilt terughalen, log je in bij Chrome als <ph name="USER_EMAIL" />.</translation>
@@ -298,7 +299,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> - Google Chrome Canary</translation>
 <translation id="5804318322022881572">Kan Chrome niet starten. Probeer het opnieuw.</translation>
 <translation id="5809516625706423866">Kan geen verbinding maken met internet. HTTP 401 Niet geautoriseerd. Check je proxyconfiguratie.</translation>
-<translation id="586971344380992563"><ph name="BEGIN_LINK" />Chrome waarschuwt je<ph name="END_LINK" /> voor onveilige sites en downloads.</translation>
+<translation id="586971344380992563"><ph name="BEGIN_LINK" />Chrome waarschuwt je<ph name="END_LINK" /> voor onveilige sites en downloads</translation>
 <translation id="5895138241574237353">Opnieuw starten</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Inloggen bij netwerk</translation>
 <translation id="5924017743176219022">Verbinding maken met internet...</translation>
@@ -315,7 +316,6 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="608006075545470555">Werkprofiel toevoegen aan deze browser</translation>
 <translation id="6113794647360055231">Chrome is nu nog beter</translation>
 <translation id="6145313976051292476">Pdf's openen in Chrome</translation>
-<translation id="6155960517327665396">Geheugenbesparing maakte Chrome sneller</translation>
 <translation id="6157638032135951407">Je organisatie verwijdert Chrome-gegevens als deze <ph name="TIMEOUT_DURATION" /> niet worden gebruikt. Dit kunnen onder andere de geschiedenis, gegevens voor automatisch invullen en downloads zijn.</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Bèta</translation>
@@ -431,6 +431,7 @@ Rechten die je al hebt gegeven aan websites en apps, kunnen van toepassing zijn 
 <translation id="8019103195866286235">De publicatie van deze extensie is ongedaan gemaakt door de ontwikkelaar en deze is mogelijk onveilig. Verwijder de extensie van Chrome zodat deze je gegevens (waaronder je persoonlijke informatie) niet meer kan bekijken en wijzigen op sites die je bezoekt.</translation>
 <translation id="80471789339884597">Bedankt voor het installeren. Je moet alle browsers opnieuw opstarten voordat je <ph name="BUNDLE_NAME" /> kunt gebruiken.</translation>
 <translation id="8064015586118426197">Chrome OS Flex</translation>
+<translation id="8077579734294125741">Andere Chrome-profielen</translation>
 <translation id="8086881907087796310">De installatie is mislukt omdat je computer niet voldoet aan de minimale hardwarevereisten.</translation>
 <translation id="8129812357326543296">Over &amp;Google Chrome</translation>
 <translation id="813913629614996137">Starten...</translation>

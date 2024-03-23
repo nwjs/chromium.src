@@ -15,6 +15,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "ui/accessibility/accessibility_features.h"
 
 class ReadAnythingAppTest : public InProcessBrowserTest {
@@ -112,6 +113,10 @@ IN_PROC_BROWSER_TEST_F(
     OnSelectionChange_NothingSelectedOnLoadingScreenSelection) {
   ASSERT_TRUE(RunTest(
       "on_selection_change_nothing_selected_on_loading_screen_selection.js"));
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingAppTest, UpdateContent_AllHeadings) {
+  ASSERT_TRUE(RunTest("update_content_all_headings.js"));
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingAppTest, UpdateContent_HidesLoadingScreen) {

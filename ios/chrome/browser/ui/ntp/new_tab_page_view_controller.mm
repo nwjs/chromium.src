@@ -377,19 +377,16 @@ const CGFloat kModuleMinMargin = 16;
                       }];
 }
 
-- (void)willTransitionToTraitCollection:(UITraitCollection*)newCollection
-              withTransitionCoordinator:
-                  (id<UIViewControllerTransitionCoordinator>)coordinator {
-  [super willTransitionToTraitCollection:newCollection
-               withTransitionCoordinator:coordinator];
-  if (IsMagicStackEnabled()) {
-    [self updateModularHomeBackgroundColorForUserInterfaceStyle:
-              newCollection.userInterfaceStyle];
-  }
-}
-
 - (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
   [super traitCollectionDidChange:previousTraitCollection];
+
+  if (previousTraitCollection.userInterfaceStyle !=
+      self.traitCollection.userInterfaceStyle) {
+    if (IsMagicStackEnabled()) {
+      [self updateModularHomeBackgroundColorForUserInterfaceStyle:
+                self.traitCollection.userInterfaceStyle];
+    }
+  }
 
   if (previousTraitCollection.horizontalSizeClass !=
       self.traitCollection.horizontalSizeClass) {
@@ -517,7 +514,15 @@ const CGFloat kModuleMinMargin = 16;
   self.collectionView.clipsToBounds = NO;
 
   [self.overscrollActionsController invalidate];
-  [self configureOverscrollActionsController];
+
+  if (!base::FeatureList::IsEnabled(kEnableStartupImprovements)) {
+    [self configureOverscrollActionsController];
+  } else {
+    // Only re-configure `overscrollActionsController`.
+    if (self.overscrollActionsController) {
+      [self configureOverscrollActionsController];
+    }
+  }
 
   // Update NTP collection view constraints to ensure the layout adapts to
   // changes in feed visibility.
@@ -813,6 +818,13 @@ const CGFloat kModuleMinMargin = 16;
   if (scrollView != self.collectionView) {
     return;
   }
+
+  if (base::FeatureList::IsEnabled(kEnableStartupImprovements)) {
+    if (!self.overscrollActionsController) {
+      [self configureOverscrollActionsController];
+    }
+  }
+
   // User has interacted with the surface, so it is safe to assume that a saved
   // scroll position can now be overriden.
   self.hasSavedOffsetFromPreviousScrollState = NO;

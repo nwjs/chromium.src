@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.safety_check;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -64,6 +63,7 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.pwd_check_wrapper.FakePasswordCheckControllerFactory;
 import org.chromium.chrome.browser.pwd_check_wrapper.PasswordCheckController.PasswordCheckResult;
 import org.chromium.chrome.browser.pwd_check_wrapper.PasswordCheckController.PasswordStorageType;
@@ -230,7 +230,7 @@ public class SafetyCheckMediatorTest {
                 .thenReturn(mUseGmsApi);
 
         mJniMocker.mock(SafetyCheckBridgeJni.TEST_HOOKS, mSafetyCheckBridge);
-        Profile.setLastUsedProfileForTesting(mProfile);
+        ProfileManager.setLastUsedProfileForTesting(mProfile);
 
         mJniMocker.mock(UserPrefsJni.TEST_HOOKS, mUserPrefsJniMock);
         when(mUserPrefsJniMock.get(mProfile)).thenReturn(mPrefService);
@@ -238,7 +238,8 @@ public class SafetyCheckMediatorTest {
                 .thenReturn(false);
 
         mSafetyCheckModel = SafetyCheckProperties.createSafetyCheckModel();
-        mPasswordCheckModel = PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel();
+        mPasswordCheckModel =
+                PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel("Passwords");
         mPasswordCheckControllerFactory = new FakePasswordCheckControllerFactory();
         if (mUseGmsApi) {
             // TODO(crbug.com/1346235): Use existing fake instead of mocking
@@ -252,6 +253,7 @@ public class SafetyCheckMediatorTest {
                             mPasswordCheckModel,
                             /* passwordCheckLocalModel */ null,
                             mUpdatesDelegate,
+                            new SafetyCheckBridge(mProfile),
                             mSettingsLauncher,
                             mSigninLauncher,
                             mSyncService,
@@ -268,6 +270,7 @@ public class SafetyCheckMediatorTest {
                             mPasswordCheckModel,
                             /* passwordCheckLocalModel */ null,
                             mUpdatesDelegate,
+                            new SafetyCheckBridge(mProfile),
                             mSettingsLauncher,
                             mSigninLauncher,
                             mSyncService,
@@ -711,16 +714,13 @@ public class SafetyCheckMediatorTest {
     @Test
     public void testPasswordsInitialLoadUserSignedOut() {
         // Order: initial state is user signed out -> should display signed out error.
-        doReturn(false).when(mSafetyCheckBridge).userSignedIn(any(BrowserContextHandle.class));
         mMediator.setInitialState();
+        setUpPasswordCheckToReturnError(
+                PasswordStorageType.ACCOUNT_STORAGE,
+                new PasswordCheckNativeException(
+                        "Test signed out error", PasswordCheckUIStatus.ERROR_SIGNED_OUT));
 
         assertEquals(PasswordsState.SIGNED_OUT, mPasswordCheckModel.get(PASSWORDS_STATE));
-        // Check that there was no password check results fetch operation started.
-        assertNull(
-                mPasswordCheckControllerFactory
-                        .getLastCreatedController()
-                        .getFuturePasswordCheckResultForStorageType(
-                                PasswordStorageType.ACCOUNT_STORAGE));
         // The results of the previous check should be ignored.
         assertEquals(
                 1,
@@ -774,13 +774,14 @@ public class SafetyCheckMediatorTest {
         // These behaviours are set here again because the tests are currently not parametrised in
         // a way to support UPM for non password syncing users.
         PropertyModel passwordCheckLocalModel =
-                PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel();
+                PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel("Passwords");
         mMediator =
                 new SafetyCheckMediator(
                         mSafetyCheckModel,
                         /* passwordCheckAccountModel= */ null,
                         passwordCheckLocalModel,
                         mUpdatesDelegate,
+                        new SafetyCheckBridge(mProfile),
                         mSettingsLauncher,
                         mSigninLauncher,
                         mSyncService,
@@ -821,15 +822,17 @@ public class SafetyCheckMediatorTest {
     public void testPasswordCheckCompletesForTwoStorages() {
         // Set up both local and account models
         PropertyModel passwordCheckAccountModel =
-                PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel();
+                PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel(
+                        "Passwords saved on " + TEST_EMAIL_ADDRESS);
         PropertyModel passwordCheckLocalModel =
-                PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel();
+                PasswordsCheckPreferenceProperties.createPasswordSafetyCheckModel("Passwords");
         mMediator =
                 new SafetyCheckMediator(
                         mSafetyCheckModel,
                         passwordCheckAccountModel,
                         passwordCheckLocalModel,
                         mUpdatesDelegate,
+                        new SafetyCheckBridge(mProfile),
                         mSettingsLauncher,
                         mSigninLauncher,
                         mSyncService,

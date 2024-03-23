@@ -37,6 +37,7 @@
 #include "extensions/browser/service_worker_task_queue_factory.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_features.h"
+#include "extensions/common/extension_id.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
@@ -423,6 +424,13 @@ void ServiceWorkerTaskQueue::AddPendingTask(
   WorkerState* worker_state = GetWorkerState(context_id);
   DCHECK(worker_state);
   auto& tasks = worker_state->pending_tasks_;
+  // worker_state->pending_tasks_ having tasks means the
+  // worker has been requested to start and hasn't started yet. So
+  // `tasks.empty()` `false` means the worker is starting. `tasks.empty()`
+  // `true` means that we don't know if the worker is started so we'll try to
+  // start it to ensure it'll be ready for the task. This efficiency relies on
+  // the assumption that only this boolean controls whether we request the
+  // worker to start below.
   bool needs_start_worker = tasks.empty();
   tasks.push_back(std::move(task));
 
@@ -752,7 +760,7 @@ ServiceWorkerTaskQueue::GetCurrentActivationToken(
 
 void ServiceWorkerTaskQueue::OnRegistrationStored(int64_t registration_id,
                                                   const GURL& scope) {
-  const std::string extension_id = scope.host();
+  const ExtensionId extension_id = scope.host();
   auto iter = pending_registrations_.find(extension_id);
   if (iter == pending_registrations_.end()) {
     return;

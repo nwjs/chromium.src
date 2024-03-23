@@ -551,7 +551,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/android_31_google_atd_x64.textpb"
+          "--avd-config=../../tools/android/avd/proto/android_31_google_atd_x64.textpb",
+          "--git-revision=${got_revision}"
         ],
         "merge": {
           "args": [
@@ -563,6 +564,11 @@
           "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
         },
         "name": "blink_platform_unittests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}"
+        ],
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -3792,7 +3798,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -3859,7 +3865,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -3925,7 +3931,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -4621,7 +4627,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/android_32_google_atd_x64_foldable.textpb"
+          "--avd-config=../../tools/android/avd/proto/android_32_google_atd_x64_foldable.textpb",
+          "--git-revision=${got_revision}"
         ],
         "merge": {
           "args": [
@@ -4633,6 +4640,11 @@
           "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
         },
         "name": "blink_platform_unittests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}"
+        ],
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -8334,7 +8346,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/android_33_google_atd_x64.textpb"
+          "--avd-config=../../tools/android/avd/proto/android_33_google_atd_x64.textpb",
+          "--git-revision=${got_revision}"
         ],
         "merge": {
           "args": [
@@ -8346,6 +8359,11 @@
           "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
         },
         "name": "blink_platform_unittests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}"
+        ],
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11471,7 +11489,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -11538,7 +11556,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -11603,7 +11621,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -11914,7 +11932,8 @@
         "args": [
           "--no-wpt-internal",
           "--avd-config=../../tools/android/avd/proto/android_28_google_apis_x86.textpb",
-          "--use-upstream-wpt"
+          "--use-upstream-wpt",
+          "--timeout-multiplier=4"
         ],
         "merge": {
           "args": [
@@ -12550,7 +12569,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -12615,7 +12634,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -12913,7 +12932,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -12980,7 +12999,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -13048,7 +13067,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -13113,7 +13132,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive",
-              "revision": "dMHDxWyIpkzGNem_Z7ywDRj3Y2lUQKM7h4JT87_ejr8C"
+              "revision": "Tonx5t-WDQ4lYRaMNn3IEzzOeyaIgtQ0d1ZAv0lRlwEC"
             }
           ],
           "dimensions": {
@@ -13159,7 +13178,8 @@
         "args": [
           "--no-wpt-internal",
           "--avd-config=../../tools/android/avd/proto/android_28_google_apis_x86.textpb",
-          "--use-upstream-wpt"
+          "--use-upstream-wpt",
+          "--timeout-multiplier=4"
         ],
         "merge": {
           "args": [

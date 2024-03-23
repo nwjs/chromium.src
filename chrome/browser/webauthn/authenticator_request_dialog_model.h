@@ -160,8 +160,14 @@ class AuthenticatorRequestDialogModel
     kCreatePasskey,
     kRecoverSecurityDomain,
     kTrustThisComputer,
-    kGPMCreate,
+    kGPMCreatePasskey,
+    kGPMCreatePin,
+    kGPMOnboarding,
     kWaitingForEnclave,
+
+    // User verification prompt for GPM for demo purposes.
+    // TODO(nsatragno): integrate with create / get passkey instead.
+    kGPMTouchID,
   };
 
   // Implemented by the dialog to observe this model and show the UI panels
@@ -191,6 +197,9 @@ class AuthenticatorRequestDialogModel
 
     // Called when the user clicks “Manage Devices” to manage their phones.
     virtual void OnManageDevicesClicked() {}
+
+    // Called when the UI should update the state of the buttons.
+    virtual void OnButtonsStateChanged() {}
   };
 
   // A Mechanism is a user-visible method of authenticating. It might be a
@@ -224,12 +233,14 @@ class AuthenticatorRequestDialogModel
         base::StrongAlias<class iCloudKeychainTag, absl::monostate>;
     using Phone = base::StrongAlias<class PhoneTag, std::string>;
     using AddPhone = base::StrongAlias<class AddPhoneTag, absl::monostate>;
+    using Enclave = base::StrongAlias<class EnclaveTag, absl::monostate>;
     using Type = absl::variant<Credential,
                                Transport,
                                WindowsAPI,
                                Phone,
                                AddPhone,
-                               ICloudKeychain>;
+                               ICloudKeychain,
+                               Enclave>;
 
     Mechanism(Type type,
               std::u16string name,
@@ -255,6 +266,23 @@ class AuthenticatorRequestDialogModel
     CABLE_V1,
     CABLE_V2_SERVER_LINK,
     CABLE_V2_2ND_FACTOR,
+  };
+
+  enum class AccountState {
+    // There isn't a primary account, or enclave support is disabled.
+    kNone,
+    // The enclave state is still being loaded from disk.
+    kLoading,
+    // The state of the account is unknown pending network requests.
+    kChecking,
+    // The account can be recovered via user action.
+    kRecoverable,
+    // The account cannot be recovered, but could be reset.
+    kIrrecoverable,
+    // The security domain is empty.
+    kEmpty,
+    // The enclave is ready to use.
+    kReady,
   };
 
   explicit AuthenticatorRequestDialogModel(
@@ -427,6 +455,10 @@ class AuthenticatorRequestDialogModel
   // changes, which will trigger notifying observers of OnSheetModelChanged.
   void OnSheetModelDidChange();
 
+  // Called by the AuthenticatorRequestSheetModel subclasses when the state of
+  // their buttons changes.
+  void OnButtonsStateChange();
+
   // The |observer| must either outlive the object, or unregister itself on its
   // destruction.
   void AddObserver(Observer* observer);
@@ -490,6 +522,10 @@ class AuthenticatorRequestDialogModel
   // was handled.
   bool OnHybridTransportError();
 
+  // To be called when an enclave transaction fails. Returns true if the event
+  // was handled.
+  bool OnEnclaveError();
+
   // To be called when there are no passkeys from an internal authenticator.
   // This is a rare case but can happen when the user grants passkeys permission
   // on macOS as part of a request flow and then Chromium realises that the
@@ -523,9 +559,13 @@ class AuthenticatorRequestDialogModel
   // disallows an attestation permission request.
   void OnAttestationPermissionResponse(bool attestation_permission_granted);
 
+  // Called when the user accepts a bubble confirming that they want to start
+  // using passkeys.
+  void OnGPMOnboardingAccepted();
+
   // These functions are currently placeholders.
   void OnGPMCreate() {}
-  void OnTrustThisComputer() {}
+  void OnTrustThisComputer();
 
   // Adds or removes an authenticator to the list of known authenticators. The
   // first authenticator added with transport `kInternal` (or without a
@@ -640,9 +680,8 @@ class AuthenticatorRequestDialogModel
     is_non_webauthn_request_ = is_non_webauthn_request;
   }
 
-  void set_is_enclave_authenticator_available(bool available) {
-    is_enclave_authenticator_available_ = available;
-  }
+  AccountState account_state() const;
+  void set_account_state(AccountState);
 
   void SetHints(
       const content::AuthenticatorRequestClientDelegate::Hints& hints) {
@@ -765,6 +804,7 @@ class AuthenticatorRequestDialogModel
   void StartWinNativeApi();
 
   void StartICloudKeychain();
+  void StartEnclave();
 
   // Contacts a paired phone. The phone is specified by name.
   void ContactPhone(const std::string& name);
@@ -819,9 +859,6 @@ class AuthenticatorRequestDialogModel
 
   // started_ records whether |StartFlow| has been called.
   bool started_ = false;
-
-  // True when the cloud enclave authenticator is available for use.
-  bool is_enclave_authenticator_available_ = false;
 
   // pending_step_ holds requested steps until the UI is shown. The UI is only
   // shown once the TransportAvailabilityInfo is available, but authenticators
@@ -933,6 +970,9 @@ class AuthenticatorRequestDialogModel
   // The RP's hints. See
   // https://w3c.github.io/webauthn/#enumdef-publickeycredentialhints
   content::AuthenticatorRequestClientDelegate::Hints hints_;
+
+  // Records the state of the primary account for the profile, if any.
+  AccountState account_state_ = AccountState::kNone;
 
 #if BUILDFLAG(IS_MAC)
   // did_record_macos_start_histogram_ is set to true if a histogram record of

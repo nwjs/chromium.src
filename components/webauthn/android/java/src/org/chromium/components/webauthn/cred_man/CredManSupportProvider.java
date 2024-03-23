@@ -10,9 +10,10 @@ import android.os.Build;
 import org.jni_zero.CalledByNative;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.PackageUtils;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.version_info.VersionInfo;
 import org.chromium.components.webauthn.CredManSupport;
+import org.chromium.components.webauthn.GmsCoreUtils;
 import org.chromium.device.DeviceFeatureList;
 import org.chromium.device.DeviceFeatureMap;
 
@@ -45,11 +46,14 @@ public class CredManSupportProvider {
             }
         }
 
-        if (ContextUtils.getApplicationContext().getSystemService(Context.CREDENTIAL_SERVICE)
-                == null) {
+        if (!sOverrideVersionCheckForTesting
+                && ContextUtils.getApplicationContext().getSystemService(Context.CREDENTIAL_SERVICE)
+                        == null) {
             sCredManSupport = CredManSupport.DISABLED;
+            recordCredManAvailability(/*available*/ false);
             return sCredManSupport;
         }
+        recordCredManAvailability(/*available*/ true);
 
         if (DeviceFeatureMap.isEnabled(DeviceFeatureList.WEBAUTHN_ANDROID_CRED_MAN)) {
             sCredManSupport =
@@ -67,9 +71,14 @@ public class CredManSupportProvider {
         return sCredManSupport;
     }
 
+    private static void recordCredManAvailability(boolean available) {
+        RecordHistogram.recordBooleanHistogram(
+                "WebAuthentication.Android.CredManAvailability", available);
+    }
+
     private static boolean hasOldGmsVersion() {
         assert !sOverrideVersionCheckForTesting : "Don't use in testing!";
-        int gmsVersion = PackageUtils.getPackageVersion("com.google.android.gms");
+        int gmsVersion = GmsCoreUtils.getGmsCoreVersion();
         if (gmsVersion == -1) {
             return true; // Couldn't get a GMS version. Assume insufficient GMS availability.
         }

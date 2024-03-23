@@ -61,6 +61,7 @@
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/price_notifications_commands.h"
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
+#import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
@@ -934,7 +935,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 - (OverflowMenuDestination*)newWhatsNewDestination {
   __weak __typeof(self) weakSelf = self;
   return
-      [self createOverflowMenuDestination:IDS_IOS_CONTENT_SUGGESTIONS_WHATS_NEW
+      [self createOverflowMenuDestination:IDS_IOS_TOOLS_MENU_WHATS_NEW
                               destination:overflow_menu::Destination::WhatsNew
                                symbolName:kCheckmarkSealSymbol
                              systemSymbol:YES
@@ -953,8 +954,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 
 - (OverflowMenuDestination*)newPriceNotificationsDestination {
   __weak __typeof(self) weakSelf = self;
-  return [self createOverflowMenuDestination:
-                   IDS_IOS_PRICE_NOTIFICATIONS_PRICE_TRACK_TITLE
+  return [self createOverflowMenuDestination:IDS_IOS_TOOLS_MENU_PRICE_TRACKING
                                  destination:overflow_menu::Destination::
                                                  PriceNotifications
                                   symbolName:kDownTrendSymbol

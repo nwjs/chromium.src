@@ -30,8 +30,11 @@
 #include "extensions/browser/app_window/native_app_window.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "base/strings/string_util.h"
 #include "chrome/browser/download/android/download_controller.h"
 #include "chrome/browser/download/android/download_controller_base.h"
+#include "components/pdf/common/constants.h"
+#include "content/public/common/content_features.h"
 #else
 #include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/download/bubble/download_bubble_ui_controller.h"
@@ -318,10 +321,22 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
                                              download::DownloadItem* item) {
   DownloadItemModel item_model(item);
 
+  bool needs_to_render = false;
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kAndroidOpenPdfInline) &&
+      !item->IsMustDownload() &&
+      base::EqualsCaseInsensitiveASCII(item->GetMimeType(),
+                                       pdf::kPDFMimeType)) {
+    needs_to_render = true;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // Ignore if we've already notified the UI about |item| or if it isn't a new
   // download.
-  if (item_model.WasUINotified() || !item_model.ShouldNotifyUI())
+  if (item_model.WasUINotified() ||
+      (!item_model.ShouldNotifyUI() && !needs_to_render)) {
     return;
+  }
 
   // Downloads blocked by local policies should be notified, otherwise users
   // won't get any feedback that the download has failed.
@@ -341,8 +356,10 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
       content::DownloadItemUtils::GetWebContents(item);
   if (web_contents) {
 #if BUILDFLAG(IS_ANDROID)
-    DownloadController::CloseTabIfEmpty(web_contents, item);
-#else
+    if (!needs_to_render) {
+      DownloadController::CloseTabIfEmpty(web_contents, item);
+    }
+#else   // BUILDFLAG(IS_ANDROID)
     Profile* profile = Profile::FromBrowserContext(web_contents->GetBrowserContext());
     extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
     if (!registry)

@@ -96,6 +96,24 @@ MojoResult RaceNetworkRequestWriteBufferManager::EndWriteData(
 void RaceNetworkRequestWriteBufferManager::ArmOrNotify() {
   watcher_.ArmOrNotify();
 }
+
+std::tuple<MojoResult, size_t> RaceNetworkRequestWriteBufferManager::WriteData(
+    base::span<const char> read_buffer) {
+  // In order to use |MOJO_WRITE_DATA_FLAG_ALL_OR_NONE| flag to write data, the
+  // read buffer data size should be smaller than the write buffer size.
+  // Otherwise we can't finish the write operation nad `WriteData()` always
+  // return |MOJO_RESULT_OUT_OF_RANGE|.
+  auto buffer = read_buffer.size() > data_pipe_buffer_size_
+                    ? read_buffer.subspan(0, data_pipe_buffer_size_)
+                    : read_buffer;
+  uint32_t num_bytes = buffer.size();
+  MojoResult result = producer_->WriteData(buffer.data(), &num_bytes,
+                                           MOJO_WRITE_DATA_FLAG_ALL_OR_NONE);
+  num_bytes_written_ += num_bytes;
+
+  return {result, num_bytes};
+}
+
 size_t RaceNetworkRequestWriteBufferManager::CopyAndCompleteWriteData(
     base::span<const char> read_buffer) {
   return CopyAndCompleteWriteDataWithSize(read_buffer, read_buffer.size());
@@ -123,6 +141,20 @@ size_t RaceNetworkRequestWriteBufferManager::CopyAndCompleteWriteDataWithSize(
   CHECK_GE(data_pipe_buffer_size_, num_bytes_to_consume);
   CHECK_GE(buffer_size(), num_bytes_to_consume);
   CHECK_GE(read_buffer.size(), num_bytes_to_consume);
+  // Check if all memory spaces are available to access. `volatile` to avoid the
+  // compiler optimization.
+  // TODO(crbug.com/1502946) Remove this code once we confirmed the root cause
+  // of the crash.
+  volatile const char* read_buffer_v =
+      static_cast<volatile const char*>(read_buffer.data());
+  for (size_t i = 0; i < read_buffer.size(); ++i) {
+    read_buffer_v[i];
+  }
+  volatile const char* write_buffer_v =
+      static_cast<volatile char*>(buffer_.data());
+  for (size_t i = 0; i < buffer_size(); ++i) {
+    write_buffer_v[i];
+  }
   memcpy(buffer_.data(), read_buffer.data(), num_bytes_to_consume);
   MojoResult result = EndWriteData(num_bytes_to_consume);
   CHECK_EQ(result, MOJO_RESULT_OK);

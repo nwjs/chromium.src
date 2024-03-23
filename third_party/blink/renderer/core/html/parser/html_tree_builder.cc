@@ -1476,6 +1476,13 @@ void HTMLTreeBuilder::ProcessStartTag(AtomicHTMLToken* token) {
           ProcessEndTag(&end_select);
           break;
         }
+        case HTMLTag::kButton:
+        case HTMLTag::kDatalist:
+          // Don't allow nesting of buttons or datalists in this mode because
+          // when we end these tags we go back to kInSelectMode.
+          // TODO(crbug.com/1511354): Try removing this when kButton and
+          // kDatalist are handled in ResetInsertionModeAppropriately
+          break;
         default:
           ProcessStartTagForInBody(token);
           break;
@@ -1570,7 +1577,11 @@ void HTMLTreeBuilder::ProcessStartTag(AtomicHTMLToken* token) {
           // we are shipping with <button> and <datalist>.
           UseCounter::Count(tree_.CurrentNode()->GetDocument(),
                             WebFeature::kHTMLButtonInSelect);
-          if (RuntimeEnabledFeatures::StylableSelectEnabled()) {
+          // TODO(crbug.com/1511354): Consider adding support for stylable
+          // select in <table>s and remove this kInSelectMode check and the one
+          // in the kDatalist case.
+          if (RuntimeEnabledFeatures::StylableSelectEnabled() &&
+              GetInsertionMode() == kInSelectMode) {
             SetInsertionMode(kInButtonInSelectMode);
             ProcessStartTagForInBody(token);
             return;
@@ -1579,13 +1590,16 @@ void HTMLTreeBuilder::ProcessStartTag(AtomicHTMLToken* token) {
         case HTMLTag::kDatalist:
           UseCounter::Count(tree_.CurrentNode()->GetDocument(),
                             WebFeature::kHTMLDatalistInSelect);
-          if (RuntimeEnabledFeatures::StylableSelectEnabled()) {
+          if (RuntimeEnabledFeatures::StylableSelectEnabled() &&
+              GetInsertionMode() == kInSelectMode) {
             SetInsertionMode(kInDatalistInSelectMode);
             ProcessStartTagForInBody(token);
             return;
           }
           break;
         default:
+          UseCounter::Count(tree_.CurrentNode()->GetDocument(),
+                            WebFeature::kSelectParserDroppedTag);
           break;
       }
       break;
@@ -1831,6 +1845,9 @@ void HTMLTreeBuilder::ResetInsertionModeAppropriately() {
             }
           }
           return SetInsertionMode(kInSelectMode);
+        // TODO(crbug.com/1511354): Consider adding cases for kButton and
+        // kDatalist here to reset the insertion mode to kInButtonInSelectMode
+        // and kInDatalistInSelectMode
         case HTMLTag::kTd:
         case HTMLTag::kTh:
           return SetInsertionMode(kInCellMode);
@@ -2414,11 +2431,7 @@ void HTMLTreeBuilder::ProcessEndTag(AtomicHTMLToken* token) {
     case kInButtonInSelectMode:
       CHECK(RuntimeEnabledFeatures::StylableSelectEnabled());
       switch (tag) {
-        case HTMLTag::kButton:
-          SetInsertionMode(kInSelectMode);
-          break;
         case HTMLTag::kSelect:
-          SetInsertionMode(kInSelectMode);
           tree_.OpenElements()->PopUntilPopped(HTMLTag::kSelect);
           ResetInsertionModeAppropriately();
           return;
@@ -2428,12 +2441,12 @@ void HTMLTreeBuilder::ProcessEndTag(AtomicHTMLToken* token) {
       // TODO(crbug.com/1511354): We need to review which end tags cause which
       // elements to close once there's a reviewed HTML PR for styleable select.
       ProcessEndTagForInBody(token);
+      if (tag == HTMLTag::kButton) {
+        ResetInsertionModeAppropriately();
+      }
       return;
     case kInDatalistInSelectMode:
       switch (tag) {
-        case HTMLTag::kDatalist:
-          SetInsertionMode(kInSelectMode);
-          break;
         case HTMLTag::kSelect:
           SetInsertionMode(kInSelectMode);
           tree_.OpenElements()->PopUntilPopped(HTMLTag::kSelect);
@@ -2443,6 +2456,9 @@ void HTMLTreeBuilder::ProcessEndTag(AtomicHTMLToken* token) {
           break;
       }
       ProcessEndTagForInBody(token);
+      if (tag == HTMLTag::kDatalist) {
+        ResetInsertionModeAppropriately();
+      }
       return;
     case kInSelectInTableMode:
       switch (tag) {

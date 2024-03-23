@@ -28,7 +28,7 @@
 #import "ios/chrome/browser/tabs/model/features.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
 #import "ios/chrome/browser/ui/bubble/bubble_constants.h"
-#import "ios/chrome/browser/ui/bubble/side_swipe_bubble/side_swipe_bubble_view.h"
+#import "ios/chrome/browser/ui/bubble/gesture_iph/gesture_in_product_help_view.h"
 #import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/ui/menu/action_factory.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller.h"
@@ -112,8 +112,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 // `-contentWillDisappearAnimated methods. Note that the `Did` methods are not
 // reliably called (e.g., edge case in multitasking).
 @property(nonatomic, assign) BOOL viewVisible;
-// Child view controllers.
-@property(nonatomic, strong) PinnedTabsViewController* pinnedTabsViewController;
 
 // The view controller to display when the recent tabs are disabled.
 @property(nonatomic, strong)
@@ -154,7 +152,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
 // The in-product help view to instruct the user to swipe to incognito, and its
 // bottom constraint.
-@property(nonatomic, strong) SideSwipeBubbleView* swipeToIncognitoIPH;
+@property(nonatomic, strong) GestureInProductHelpView* swipeToIncognitoIPH;
 @property(nonatomic, strong)
     NSLayoutConstraint* swipeToIncognitoIPHBottomConstraint;
 
@@ -191,10 +189,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     } else {
       _remoteTabsViewController = [[RecentTabsTableViewController alloc] init];
     }
-
-    if (IsPinnedTabsEnabled()) {
-      _pinnedTabsViewController = [[PinnedTabsViewController alloc] init];
-    }
   }
   return self;
 }
@@ -217,6 +211,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   [self setupBottomToolbar];
 
   if (IsPinnedTabsEnabled()) {
+    CHECK(self.pinnedTabsViewController);
     [self setupPinnedTabsViewController];
   }
 
@@ -291,11 +286,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
     TabGridPage page = GetPageFromScrollView(scrollView);
     if (page != self.currentPage) {
-      self.currentPage = page;
-      [self broadcastIncognitoContentVisibility];
       // Records when the user drags the scrollView to switch pages.
       [self.mutator pageChanged:page
                     interaction:TabSwitcherPageChangeInteraction::kScrollDrag];
+      self.currentPage = page;
+      [self broadcastIncognitoContentVisibility];
     }
   }
 }
@@ -319,11 +314,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   // as dragging in scrollViewDidScroll:
   TabGridPage page = GetPageFromScrollView(scrollView);
   if (page != self.currentPage) {
-    self.currentPage = page;
-    [self broadcastIncognitoContentVisibility];
     [self.mutator
         pageChanged:page
         interaction:TabSwitcherPageChangeInteraction::kAccessibilitySwipe];
+    self.currentPage = page;
+    [self broadcastIncognitoContentVisibility];
     [self.topToolbar.pageControl setSelectedPage:page animated:YES];
   }
 }
@@ -468,8 +463,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     // reset instead of starting from the cell that triggered the navigation.
     self.tabGridMode = TabGridModeNormal;
   }
-  [self.regularTabsDelegate discardSavedClosedItems];
-  [self.inactiveTabsDelegate discardSavedClosedItems];
+  [self.regularGridHandler discardSavedClosedItems];
+  [self.inactiveGridHandler discardSavedClosedItems];
 
   [self.swipeToIncognitoIPH
       dismissWithReason:IPHDismissalReasonType::kTappedOutsideIPHAndAnchorView];
@@ -491,7 +486,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 }
 
 - (void)dismissModals {
-  [self.pinnedTabsConsumer dismissModals];
   [self.remoteTabsViewController dismissModals];
 }
 
@@ -528,7 +522,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     // search terms exist, `resetToAllItems` is used instead.
     DCHECK(searchTerms.length);
     self.regularTabsViewController.searchText = searchTerms;
-    [self.regularTabsDelegate searchItemsWithText:searchTerms];
+    [self.regularGridHandler searchItemsWithText:searchTerms];
   } else {
     self.remoteTabsViewController.searchTerms = searchTerms;
   }
@@ -581,23 +575,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   _priceCardDataSource = priceCardDataSource;
 }
 
-- (id<TabCollectionConsumer>)pinnedTabsConsumer {
-  return self.pinnedTabsViewController;
-}
-
 - (id<RecentTabsConsumer>)remoteTabsConsumer {
   return self.remoteTabsViewController;
-}
-
-- (void)setRegularTabsContextMenuProvider:(id<TabContextMenuProvider>)provider {
-  if (_regularTabsContextMenuProvider == provider)
-    return;
-  _regularTabsContextMenuProvider = provider;
-
-  self.regularTabsViewController.menuProvider = provider;
-  if (IsPinnedTabsEnabled()) {
-    self.pinnedTabsViewController.menuProvider = provider;
-  }
 }
 
 #pragma mark - TabGridPaging
@@ -614,6 +593,12 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   if (_tabGridMode == mode) {
     return;
   }
+  if (self.swipeToIncognitoIPH) {
+    [self.swipeToIncognitoIPH
+        dismissWithReason:IPHDismissalReasonType::
+                              kTappedOutsideIPHAndAnchorView];
+  }
+
   TabGridMode previousMode = _tabGridMode;
   _tabGridMode = mode;
 
@@ -629,8 +614,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     self.remoteTabsViewController.searchTerms = nil;
     self.regularTabsViewController.searchText = nil;
     self.incognitoTabsViewController.searchText = nil;
-    [self.regularTabsDelegate resetToAllItems];
-    [self.incognitoTabsDelegate resetToAllItems];
+    [self.regularGridHandler resetToAllItems];
+    [self.incognitoGridHandler resetToAllItems];
     [self hideScrim];
   }
 
@@ -910,6 +895,12 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
                                     nil);
   }
+  // Dismiss IPH if not on regular page.
+  if (currentPage != TabGridPage::TabGridPageRegularTabs) {
+    [self.swipeToIncognitoIPH
+        dismissWithReason:IPHDismissalReasonType::
+                              kTappedOutsideIPHAndAnchorView];
+  }
   if (IsPinnedTabsEnabled()) {
     const BOOL pinnedTabsAvailable =
         currentPage == TabGridPage::TabGridPageRegularTabs &&
@@ -1136,7 +1127,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   PinnedTabsViewController* pinnedTabsViewController =
       self.pinnedTabsViewController;
   pinnedTabsViewController.delegate = self;
-  pinnedTabsViewController.dragDropHandler = self.pinnedTabsDragDropHandler;
 
   [self addChildViewController:pinnedTabsViewController];
   [self.view addSubview:pinnedTabsViewController.view];
@@ -1274,11 +1264,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   switch (page) {
     case TabGridPageIncognitoTabs:
       [self.incognitoTabsViewController prepareForDismissal];
-      [self.incognitoTabsDelegate addNewItem];
+      [self.incognitoGridHandler addNewItem];
       break;
     case TabGridPageRegularTabs:
       [self.regularTabsViewController prepareForDismissal];
-      [self.regularTabsDelegate addNewItem];
+      [self.regularGridHandler addNewItem];
       break;
     case TabGridPageRemoteTabs:
       NOTREACHED() << "It is invalid to open a new tab in remote tabs.";
@@ -1489,17 +1479,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 // to view the incognito tab grid. If the delegate determines that the user
 // supposed to see this tip, and the IPH fits on the current screen both
 // contextually and visually, then it initializes `swipeToIncognitoIPH` and
-// presents a SideSwipeBubbleView. Otherwise, it keeps `swipeToIncognitoIPH` to
-// `nil` and no gestural tip is shown.
+// presents a GestureInProductHelpView. Otherwise, it keeps
+// `swipeToIncognitoIPH` to `nil` and no gestural tip is shown.
 - (void)maybeShowSwipeToIncognitoIPH {
   // Return if the regular tabs are visible.
   if (!self.viewVisible || self.currentPage != TabGridPageRegularTabs) {
-    return;
-  }
-
-  if (UIAccessibilityIsVoiceOverRunning()) {
-    // TODO(crbug.com/1467873): Add a voiceover announcement to the IPH view
-    // instead of returning.
     return;
   }
   // Check whether the user should see the IPH.
@@ -1515,22 +1499,30 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   UIView* regularGridView = self.regularTabsViewController.view;
   CGSize expectedSize = CGSize();
   expectedSize.height =
-      regularGridView.bounds.size.height - self.topToolbar.bounds.size.height;
+      regularGridView.frame.size.height - self.topToolbar.bounds.size.height;
   if ([self shouldUseCompactLayout]) {
     expectedSize.height -= self.bottomToolbar.bounds.size.height;
   }
-  expectedSize.width = regularGridView.bounds.size.width;
-  SideSwipeBubbleView* sideSwipeBubbleView = [[SideSwipeBubbleView alloc]
-            initWithText:l10n_util::GetNSString(
-                             UseRTLLayout()
-                                 ? IDS_IOS_SWIPE_LEFT_TO_INCOGNITO_IPH
-                                 : IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH)
-      bubbleBoundingSize:expectedSize
-          arrowDirection:BubbleArrowDirectionLeading];
-  [sideSwipeBubbleView setTranslatesAutoresizingMaskIntoConstraints:NO];
+  CGFloat safeAreaInsetForArrowDirection =
+      UseRTLLayout() ? regularGridView.safeAreaInsets.right
+                     : regularGridView.safeAreaInsets.left;
+  expectedSize.width =
+      regularGridView.frame.size.width - safeAreaInsetForArrowDirection;
+  GestureInProductHelpView* gestureIPHView = [[GestureInProductHelpView alloc]
+               initWithText:l10n_util::GetNSString(
+                                UseRTLLayout()
+                                    ? IDS_IOS_SWIPE_LEFT_TO_INCOGNITO_IPH
+                                    : IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH)
+         bubbleBoundingSize:expectedSize
+             arrowDirection:BubbleArrowDirectionLeading
+      voiceOverAnnouncement:
+          l10n_util::GetNSString(
+              UseRTLLayout() ? IDS_IOS_SWIPE_LEFT_TO_INCOGNITO_IPH_VOICEOVER
+                             : IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH_VOICEOVER)];
+  [gestureIPHView setTranslatesAutoresizingMaskIntoConstraints:NO];
 
   // Return if the view does NOT fit in the regular tab grid.
-  CGSize smallestPossibleSizeOfIPH = [sideSwipeBubbleView
+  CGSize smallestPossibleSizeOfIPH = [gestureIPHView
       systemLayoutSizeFittingSize:UILayoutFittingCompressedSize];
   if (smallestPossibleSizeOfIPH.width > expectedSize.width ||
       smallestPossibleSizeOfIPH.height > expectedSize.height) {
@@ -1539,7 +1531,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
   // Coast is clear. Show the message!
   id<TabGridViewControllerDelegate> delegate = self.delegate;
-  sideSwipeBubbleView.dismissCallback =
+  gestureIPHView.dismissCallback =
       ^(IPHDismissalReasonType IPHDismissalReasonType,
         feature_engagement::Tracker::SnoozeAction snoozeAction) {
         [delegate tabGridDidDismissSwipeToIncognitoIPH];
@@ -1547,18 +1539,18 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   if (![delegate tabGridShouldPresentSwipeToIncognitoIPH]) {
     return;
   }
-  self.swipeToIncognitoIPH = sideSwipeBubbleView;
+  self.swipeToIncognitoIPH = gestureIPHView;
   [self.view addSubview:self.swipeToIncognitoIPH];
-  self.swipeToIncognitoIPHBottomConstraint = [sideSwipeBubbleView.bottomAnchor
+  self.swipeToIncognitoIPHBottomConstraint = [gestureIPHView.bottomAnchor
       constraintEqualToAnchor:[self shouldUseCompactLayout]
                                   ? self.bottomToolbar.topAnchor
                                   : regularGridView.bottomAnchor];
   [NSLayoutConstraint activateConstraints:@[
-    [sideSwipeBubbleView.leadingAnchor
+    [gestureIPHView.leadingAnchor
         constraintEqualToAnchor:regularGridView.leadingAnchor],
-    [sideSwipeBubbleView.trailingAnchor
+    [gestureIPHView.trailingAnchor
         constraintEqualToAnchor:regularGridView.trailingAnchor],
-    [sideSwipeBubbleView.topAnchor
+    [gestureIPHView.topAnchor
         constraintEqualToAnchor:self.topToolbar.bottomAnchor],
     self.swipeToIncognitoIPHBottomConstraint
   ]];
@@ -1600,13 +1592,12 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   switch (self.currentPage) {
     case TabGridPageIncognitoTabs:
       self.incognitoTabsViewController.searchText = searchText;
-      [self updateSearchGrid:self.incognitoTabsDelegate
+      [self updateSearchGrid:self.incognitoGridHandler
               withSearchText:searchText];
       break;
     case TabGridPageRegularTabs:
       self.regularTabsViewController.searchText = searchText;
-      [self updateSearchGrid:self.regularTabsDelegate
-              withSearchText:searchText];
+      [self updateSearchGrid:self.regularGridHandler withSearchText:searchText];
       break;
     case TabGridPageRemoteTabs:
       self.remoteTabsViewController.searchTerms = searchText;
@@ -1690,8 +1681,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     completion(0);
     return;
   }
-  [self.regularTabsDelegate fetchSearchHistoryResultsCountForText:searchText
-                                                       completion:completion];
+  [self.regularGridHandler fetchSearchHistoryResultsCountForText:searchText
+                                                      completion:completion];
 }
 
 - (void)searchHistoryForText:(NSString*)searchText {
@@ -1719,7 +1710,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   // Record how long it took to select an item.
   [self reportTabSelectionTime];
 
-  [self.regularTabsDelegate selectItemWithID:itemID pinned:YES];
+  [self.regularGridHandler selectItemWithID:itemID pinned:YES];
 
   self.activePage = self.currentPage;
   [self setCurrentIdlePageStatus:NO];
@@ -1803,14 +1794,14 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
   id<GridCommands> tabsDelegate;
   if (gridViewController == self.regularTabsViewController) {
-    tabsDelegate = self.regularTabsDelegate;
+    tabsDelegate = self.regularGridHandler;
     base::RecordAction(base::UserMetricsAction("MobileTabGridOpenRegularTab"));
     if (self.tabGridMode == TabGridModeSearch) {
       base::RecordAction(
           base::UserMetricsAction("MobileTabGridOpenRegularTabSearchResult"));
     }
   } else if (gridViewController == self.incognitoTabsViewController) {
-    tabsDelegate = self.incognitoTabsDelegate;
+    tabsDelegate = self.incognitoGridHandler;
     base::RecordAction(
         base::UserMetricsAction("MobileTabGridOpenIncognitoTab"));
     if (self.tabGridMode == TabGridModeSearch) {
@@ -1861,11 +1852,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   [self setCurrentIdlePageStatus:NO];
 
   if (gridViewController == self.regularTabsViewController) {
-    [self.regularTabsDelegate closeItemWithID:itemID];
+    [self.regularGridHandler closeItemWithID:itemID];
     // Record when a regular tab is closed.
     base::RecordAction(base::UserMetricsAction("MobileTabGridCloseRegularTab"));
   } else if (gridViewController == self.incognitoTabsViewController) {
-    [self.incognitoTabsDelegate closeItemWithID:itemID];
+    [self.incognitoGridHandler closeItemWithID:itemID];
     // Record when an incognito tab is closed.
     base::RecordAction(
         base::UserMetricsAction("MobileTabGridCloseIncognitoTab"));
@@ -1878,9 +1869,9 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   [self setCurrentIdlePageStatus:NO];
 
   if (gridViewController == self.regularTabsViewController) {
-    [self.regularTabsDelegate moveItemWithID:itemID toIndex:destinationIndex];
+    [self.regularGridHandler moveItemWithID:itemID toIndex:destinationIndex];
   } else if (gridViewController == self.incognitoTabsViewController) {
-    [self.incognitoTabsDelegate moveItemWithID:itemID toIndex:destinationIndex];
+    [self.incognitoGridHandler moveItemWithID:itemID toIndex:destinationIndex];
   }
 }
 
@@ -1976,6 +1967,9 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     [self setCurrentIdlePageStatus:YES];
     newActivePage = self.activePage;
   }
+
+  [self.mutator pageChanged:newActivePage
+                interaction:TabSwitcherPageChangeInteraction::kNone];
   self.activePage = newActivePage;
   // Holding the done button down when it is enabled could result in done tap
   // being triggered on release after tabs have been closed and the button

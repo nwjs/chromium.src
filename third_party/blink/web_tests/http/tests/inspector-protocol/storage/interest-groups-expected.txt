@@ -3,7 +3,7 @@ Start Tracking
 Logged IG events:
 interestGroupAuctionEventOccurred {
     auctionConfig : {
-        decisionLogicUrl : https://a.test:8443/inspector-protocol/resources/fledge_decision_logic.js.php
+        decisionLogicURL : https://a.test:8443/inspector-protocol/resources/fledge_decision_logic.js.php
         interestGroupBuyers : [
             [0] : https://a.test:8443
         ]
@@ -12,6 +12,30 @@ interestGroupAuctionEventOccurred {
     eventTime : <number>
     type : started
     uniqueAuctionId : 1
+}
+interestGroupAuctionNetworkRequestCreated {
+    auctions : [
+        [0] : 1
+    ]
+    requestId : <string>
+    type : bidderJs
+    url : https://a.test:8443/inspector-protocol/resources/fledge_bidding_logic.js.php
+}
+interestGroupAuctionNetworkRequestCreated {
+    auctions : [
+        [0] : 1
+    ]
+    requestId : <string>
+    type : bidderJs
+    url : https://a.test:8443/inspector-protocol/resources/fledge_bidding_logic.js.php
+}
+interestGroupAuctionNetworkRequestCreated {
+    auctions : [
+        [0] : 1
+    ]
+    requestId : <string>
+    type : sellerJs
+    url : https://a.test:8443/inspector-protocol/resources/fledge_decision_logic.js.php
 }
 interestGroupAccessed {
     accessTime : <number>
@@ -187,7 +211,7 @@ Stop Tracking IG Events
 Logged IG events:
 interestGroupAuctionEventOccurred {
     auctionConfig : {
-        decisionLogicUrl : https://a.test:8443/inspector-protocol/resources/fledge_decision_logic.js.php
+        decisionLogicURL : https://a.test:8443/inspector-protocol/resources/fledge_decision_logic.js.php
         interestGroupBuyers : [
             [0] : https://a.test:8443
         ]
@@ -196,6 +220,30 @@ interestGroupAuctionEventOccurred {
     eventTime : <number>
     type : started
     uniqueAuctionId : 2
+}
+interestGroupAuctionNetworkRequestCreated {
+    auctions : [
+        [0] : 2
+    ]
+    requestId : <string>
+    type : bidderJs
+    url : https://a.test:8443/inspector-protocol/resources/fledge_bidding_logic.js.php
+}
+interestGroupAuctionNetworkRequestCreated {
+    auctions : [
+        [0] : 2
+    ]
+    requestId : <string>
+    type : bidderJs
+    url : https://a.test:8443/inspector-protocol/resources/fledge_bidding_logic.js.php
+}
+interestGroupAuctionNetworkRequestCreated {
+    auctions : [
+        [0] : 2
+    ]
+    requestId : <string>
+    type : sellerJs
+    url : https://a.test:8443/inspector-protocol/resources/fledge_decision_logic.js.php
 }
 Stop Tracking Auction Events
 Logged IG events:

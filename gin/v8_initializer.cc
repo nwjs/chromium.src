@@ -368,6 +368,10 @@ void SetFlags(IsolateHolder::ScriptMode mode,
                          "--ignition-elide-redundant-tdz-checks",
                          "--no-ignition-elide-redundant-tdz-checks");
 
+  SetV8FlagsIfOverridden(features::kV8IntelJCCErratumMitigation,
+                         "--intel-jcc-erratum-mitigation",
+                         "--no-intel-jcc-erratum-mitigation");
+
   // JavaScript language features.
   SetV8FlagsIfOverridden(features::kJavaScriptSymbolAsWeakMapKey,
                          "--harmony-symbol-as-weakmap-key",
@@ -402,6 +406,9 @@ void SetFlags(IsolateHolder::ScriptMode mode,
                          "--no-harmony-import-attributes");
   SetV8FlagsIfOverridden(features::kJavaScriptSetMethods,
                          "--harmony-set-methods", "--no-harmony-set-methods");
+  SetV8FlagsIfOverridden(features::kJavaScriptRegExpDuplicateNamedGroups,
+                         "--js-regexp-duplicate-named-groups",
+                         "--no-js-duplicate-named-groups");
 
   if (IsolateHolder::kStrictMode == mode) {
     SetV8Flags("--use_strict");

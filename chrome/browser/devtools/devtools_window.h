@@ -277,6 +277,9 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
 
   content::WebContents* GetInspectedWebContents();
 
+  // content::DevToolsUIBindings::Delegate overrides
+  void ActivateWindow() override;
+
   void Close();
 
  public:
@@ -420,7 +423,6 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   void Close(DevToolsClosedByAction closed_by);
 
   // content::DevToolsUIBindings::Delegate overrides
-  void ActivateWindow() override;
   void CloseWindow() override;
   void Inspect(scoped_refptr<content::DevToolsAgentHost> host) override;
   void SetInspectedPageBounds(const gfx::Rect& rect) override;

@@ -152,7 +152,7 @@ void ThirdPartyCookieDeprecationMetricsObserver::RecordCookieUseCounters(
 
   if (allow_mechanism != ThirdPartyCookieAllowMechanism::kNone) {
     UMA_HISTOGRAM_ENUMERATION(
-        "PageLoad.Clients.TPCD.CookieAccess.ThirdPartyCookieAllowMechanism",
+        "PageLoad.Clients.TPCD.CookieAccess.ThirdPartyCookieAllowMechanism2",
         allow_mechanism);
   }
 
@@ -178,7 +178,15 @@ void ThirdPartyCookieDeprecationMetricsObserver::RecordCookieUseCounters(
           blink::mojom::WebFeature::
               kThirdPartyCookieDeprecation_AllowByGlobalSetting);
       break;
-    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadata:
+    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSource1pDt:
+    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSource3pDt:
+    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSourceUnspecified:
+    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSourceTest:
+    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSourceDogFood:
+    case ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSourceCriticalSector:
+    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSourceCuj:
+    case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSourceGovEduTld:
       third_party_cookie_features.push_back(
           blink::mojom::WebFeature::
               kThirdPartyCookieDeprecation_AllowBy3PCDMetadata);
@@ -202,8 +210,16 @@ void ThirdPartyCookieDeprecationMetricsObserver::RecordCookieUseCounters(
           blink::mojom::WebFeature::
               kThirdPartyCookieDeprecation_AllowByTopLevelStorageAccess);
       break;
-    default:
-      // No feature usage recorded for unknow mechanism values.
+    case ThirdPartyCookieAllowMechanism::
+        kAllowByEnterprisePolicyCookieAllowedForUrls:
+      third_party_cookie_features.push_back(
+          blink::mojom::WebFeature::
+              kThirdPartyCookieDeprecation_AllowByEnterprisePolicyCookieAllowedForUrls);
+      break;
+    // No feature usage recorded for the following mechanism values.
+    case ThirdPartyCookieAllowMechanism::kNone:
+    case ThirdPartyCookieAllowMechanism::kAllowByTopLevel3PCD:
+    case ThirdPartyCookieAllowMechanism::kAllowByCORSException:
       break;
   }
 
@@ -243,8 +259,8 @@ void ThirdPartyCookieDeprecationMetricsObserver::RecordCookieReadUseCounters(
       // If the cookie access was allowed, record the mitigation that allowed it
       // if any.
       if (!blocked_by_policy) {
-        if (allow_mechanism ==
-            ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadata) {
+        if (content_settings::CookieSettingsBase::
+                IsAnyTpcdMetadataAllowMechanism(allow_mechanism)) {
           status = is_ad_tagged ? CookieReadStatus::kAllowedMetadataGrantAd
                                 : CookieReadStatus::kAllowedMetadataGrant;
         } else if (allow_mechanism ==
@@ -288,8 +304,9 @@ void ThirdPartyCookieDeprecationMetricsObserver::RecordCookieReadUseCounters(
           if (allow_mechanism_without_heuristics ==
               ThirdPartyCookieAllowMechanism::kNone) {
             status = CookieReadStatus::kBlockedAd;
-          } else if (allow_mechanism_without_heuristics ==
-                     ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadata) {
+          } else if (content_settings::CookieSettingsBase::
+                         IsAnyTpcdMetadataAllowMechanism(
+                             allow_mechanism_without_heuristics)) {
             status = CookieReadStatus::kBlockedSkippedMetadataGrantAd;
           } else if (allow_mechanism_without_heuristics ==
                      ThirdPartyCookieAllowMechanism::kAllowBy3PCD) {

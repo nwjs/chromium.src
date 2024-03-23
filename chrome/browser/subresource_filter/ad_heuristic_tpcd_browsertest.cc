@@ -25,6 +25,7 @@
 #include "chrome/browser/tpcd/experiment/tpcd_utils.h"
 #include "chrome/browser/tpcd/support/tpcd_support_service.h"
 #include "chrome/browser/tpcd/support/tpcd_support_service_factory.h"
+#include "chrome/browser/tpcd/support/validity_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -167,11 +168,10 @@ class AdHeuristicTPCDBrowserTestBase
     // trigger the calls, it only works for cases when matching the first
     // primary pattern.
     base::ScopedAllowBlockingForTesting allow_blocking;
-    const std::string primary_pattern_spec =
-        ContentSettingsPattern::FromURL(third_party_url).ToString();
-    tpcd::metadata::Metadata metadata =
-        tpcd::metadata::MakeMetadataProtoFromVectorOfPair(
-            {{primary_pattern_spec, "*"}});
+    tpcd::metadata::Metadata metadata;
+    tpcd::metadata::AddEntryToMetadata(
+        metadata, ContentSettingsPattern::FromURL(third_party_url).ToString(),
+        "*");
     EXPECT_EQ(metadata.metadata_entries_size(), 1);
     MockComponentInstallation(metadata);
     EXPECT_EQ(CookieSettingsFactory::GetForProfile(browser()->profile())
@@ -475,6 +475,10 @@ class AdHeuristicTPCDBrowserTestTrialGrant
            {"SkipTpcdMitigationsForAdsMetadata", "true"},
            {"SkipTpcdMitigationsForAdsHeuristics", "true"}}}},
         {});
+
+    // Disable the validity service so it doesn't remove manually created
+    // trial settings.
+    tpcd::trial::ValidityService::DisableForTesting();
   }
 
  private:
@@ -515,6 +519,10 @@ class AdHeuristicTPCDBrowserTestSkipTrialGrant
            {"SkipTpcdMitigationsForAdsMetadata", "false"},
            {"SkipTpcdMitigationsForAdsHeuristics", "false"}}}},
         {});
+
+    // Disable the validity service so it doesn't remove manually created
+    // trial settings.
+    tpcd::trial::ValidityService::DisableForTesting();
   }
 
  private:

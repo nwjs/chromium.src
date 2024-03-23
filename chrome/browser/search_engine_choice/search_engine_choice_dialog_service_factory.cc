@@ -41,12 +41,6 @@ search_engines::SearchEngineChoiceScreenConditions ComputeProfileEligibility(
         kFeatureSuppressed;
   }
 
-  if (!SearchEngineChoiceDialogServiceFactory::IsSelectedChoiceProfile(
-          profile, /*try_claim=*/false)) {
-    return search_engines::SearchEngineChoiceScreenConditions::
-        kProfileOutOfScope;
-  }
-
   bool is_regular_or_guest_profile =
       profile.IsRegularProfile() || profile.IsGuestSession();
 #if BUILDFLAG(IS_CHROMEOS)
@@ -89,7 +83,7 @@ SearchEngineChoiceDialogServiceFactory::SearchEngineChoiceDialogServiceFactory()
     : ProfileKeyedServiceFactory(
           "SearchEngineChoiceDialogServiceFactory",
           ProfileSelections::Builder()
-              .WithRegular(ProfileSelection::kOriginalOnly)
+              .WithRegular(ProfileSelection::kRedirectedToOriginal)
               .WithAshInternals(ProfileSelection::kNone)
               .WithGuest(ProfileSelection::kOffTheRecordOnly)
               .Build()) {
@@ -123,15 +117,6 @@ SearchEngineChoiceDialogServiceFactory::ScopedChromeBuildOverrideForTesting(
 }
 
 // static
-bool SearchEngineChoiceDialogServiceFactory::IsSelectedChoiceProfile(
-    Profile& profile,
-    bool try_claim) {
-  // TODO(b/309936758): Remove this method and deprecate
-  // prefs::kSearchEnginesChoiceProfile
-  return true;
-}
-
-// static
 bool SearchEngineChoiceDialogServiceFactory::
     IsProfileEligibleForChoiceScreenForTesting(Profile& profile) {
   CHECK_IS_TEST();
@@ -154,7 +139,6 @@ SearchEngineChoiceDialogServiceFactory::BuildServiceInstanceForBrowserContext(
       CHECK_DEREF(
           search_engines::SearchEngineChoiceServiceFactory::GetForProfile(
               &profile));
-  search_engine_choice_service.PreprocessPrefsForReprompt();
 
   if (!IsProfileEligibleForChoiceScreen(profile)) {
     DVLOG(1) << "Profile not eligible, removing tag for profile "

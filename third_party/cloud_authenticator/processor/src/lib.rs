@@ -43,16 +43,21 @@
 extern crate lazy_static;
 
 extern crate alloc;
+extern crate base64;
 extern crate cbor;
 extern crate crypto;
 
+mod der;
 #[macro_use]
 mod macros;
 mod passkeys;
+mod recoverable_key_store;
 mod spki;
 
-// When building for fuzzing, the SPKI parser is re-exported so the fuzzer can
-// call it.
+// When building for fuzzing, these functions are re-exported so the fuzzer can
+// call them.
+#[cfg(fuzzing)]
+pub use recoverable_key_store::fuzzing::{x509_parse, xml_parse};
 #[cfg(fuzzing)]
 pub use spki::parse as spki_parse;
 
@@ -337,6 +342,10 @@ impl core::str::FromStr for AuthLevel {
 enum Authentication {
     None,
     // Contains the device ID and authentication level.
+    //
+    // This `dead_code` annotation exists because `AuthLevel` is not currently
+    // used, but it will be.
+    #[allow(dead_code)]
     Device(Vec<u8>, AuthLevel),
     // Requests processed after a registration will observe this special
     // authentication level. Duplicate registrations are silently accepted so
@@ -560,6 +569,7 @@ fn do_request(
         "keys/wrap" => do_keys_wrap(auth, state, request),
         "passkeys/assert" => passkeys::do_assert(auth, state, request),
         "passkeys/create" => passkeys::do_create(auth, state, request),
+        "recoverable_key_store/wrap" => recoverable_key_store::do_wrap(current_time, request),
         _ => debug("unknown command"),
     }
 }

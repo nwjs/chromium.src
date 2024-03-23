@@ -17,7 +17,6 @@
 <translation id="1153368717515616349">Chromium 메뉴를 클릭합니다</translation>
 <translation id="1185134272377778587">Chromium 정보</translation>
 <translation id="1203500561924088507">설치해 주셔서 감사합니다. <ph name="BUNDLE_NAME" />을(를) 사용하려면 브라우저를 다시 시작해야 합니다.</translation>
-<translation id="1261119230216066228">메모리 절약 모드로 더 빨라진 Chromium</translation>
 <translation id="1262876892872089030">이 탭이 비활성 상태인 동안 Chromium의 속도를 빠르게 유지하기 위해 메모리를 확보했습니다. 이 사이트가 비활성 상태가 되지 않도록 항상 제외할 수 있습니다.</translation>
 <translation id="1265577313130862557">위험한 파일이므로 Chromium에서 이 다운로드를 차단했습니다.</translation>
 <translation id="1315551408014407711">새 Chromium 프로필 설정</translation>
@@ -114,6 +113,7 @@
 <translation id="3032706164202344641">Chromium에서 비밀번호를 확인할 수 없습니다. 나중에 다시 시도하세요.</translation>
 <translation id="3032787606318309379">Chromium에 추가하는 중...</translation>
 <translation id="3038232873781883849">설치 대기 중...</translation>
+<translation id="3068187312562070417">기타 Chromium 프로필</translation>
 <translation id="3068515742935458733">비정상 종료 보고서와 <ph name="UMA_LINK" />을(를) Google로 전송하여 Chromium 개선에 참여합니다.</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{하나 이상의 Chromium 확장 프로그램에서 USB 기기 1대에 액세스함}=1{하나 이상의 Chromium 확장 프로그램에서 USB 기기 1대에 액세스 중}other{하나 이상의 Chromium 확장 프로그램에서 USB 기기 #대에 액세스 중}}</translation>
 <translation id="3101560983689755071">방문 기록에 따라 표시되는 광고 및 아래의 예측 관심분야가 달라집니다. 개인 정보를 보호하기 위해 Chromium에서는 매월 최소 한 번씩 수시로 관심분야를 자동 삭제합니다. 관심분야는 직접 삭제하지 않는 한 새로고침될 수 있습니다.</translation>
@@ -231,6 +231,7 @@
 <translation id="5294316920224716406">시크릿 모드로 탐색할 때 Chromium에서 안전하지 않은 연결을 사용해 사이트를 로드하기 전에 경고를 표시합니다.</translation>
 <translation id="5296845517486664001">무료 체험이 사용 설정되어 있는 경우와 Chromium에서 임의로 나에게 현재 진행 중인 무료 체험을 적용한 경우, 표시되는 광고 및 아래의 예측 관심분야에 방문 기록이 영향을 미칩니다. 개인 정보를 보호하기 위해 Chromium에서는 매월 최소 한 번씩 수시로 관심분야를 삭제합니다.</translation>
 <translation id="5352264705793813212">Chromium에서 발견한 보안 권장사항을 검토해 주세요</translation>
+<translation id="5352361688875342522">기타 Chromium 프로필</translation>
 <translation id="5358375970380395591">관리 계정으로 로그인하고 Chromium 프로필에 대한 관리자 제어권을 부여하려고 합니다. 앱, 북마크, 방문 기록, 비밀번호 및 기타 설정 등 Chromium 데이터가 <ph name="USER_NAME" /> 계정에 영구적으로 연결됩니다. 이후 이 데이터를 Google 계정 대시보드에서 삭제할 수는 있지만 다른 계정에 연결할 수는 없습니다. <ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">추가 코드: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5383439451358640070">Chromium에서 일부 파일을 차단하는 이유 알아보기</translation>
@@ -326,12 +327,12 @@
 <translation id="6669284030132180248">Google 계정에도 북마크를 저장하면 Chromium에서 제품 가격을 추적하고 가격이 인하되면 알림을 받을 수 있습니다.</translation>
 <translation id="6676384891291319759">인터넷 연결</translation>
 <translation id="668175097507315160">로그인 중 오류가 발생하여 ChromiumOS에서 데이터를 동기화할 수 없습니다.</translation>
+<translation id="6692797197837897398">Chromium을 나에게 표시되는 광고를 보다 세부적으로 관리할 뿐만 아니라 사이트가 개인 맞춤 광고를 표시할 때 나에 관해 얻을 수 있는 정보를 제한할 수 있습니다.</translation>
 <translation id="6709350901466051922">Chromium에서 사이트에 대한 마이크 권한이 필요합니다.</translation>
 <translation id="6712881677154121168">다운로드 오류(<ph name="DOWNLOAD_ERROR" />)가 발생했습니다.</translation>
 <translation id="6717134281241384636">Chromium의 최신 버전을 사용하기 때문에 프로필을 사용할 수 없습니다.
 
 일부 기능을 사용할 수 없습니다. 다른 프로필 디렉터리를 지정하거나 Chromium의 새로운 버전을 사용하시기 바랍니다.</translation>
-<translation id="6730677189742196061">메모리 절약 모드로 더 빨라진 Chromium</translation>
 <translation id="6734291798041940871">모든 사용자가 사용할 수 있도록 컴퓨터에 Chromium이 이미 설치되어 있습니다.</translation>
 <translation id="673636774878526923">모든 기기에서 Chromium 계정 정보에 액세스하려면 로그인한 후 동기화를 사용 설정하세요.</translation>
 <translation id="67706546131546258">위험할 수 있는 파일이므로 검사하는 것이 좋습니다.</translation>
@@ -386,7 +387,6 @@ Chromium에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7617377681829253106">더욱 업그레이드된 Chromium</translation>
 <translation id="7649070708921625228">도움말</translation>
 <translation id="7682213815243802460">Chromium 설정에서 이러한 기능에 관해 자세히 알아볼 수 있습니다.</translation>
-<translation id="7682601070171973634">Chromium은 사용자의 데이터를 더 적게 사용하면서도 사이트에서 동일한 탐색 환경을 제공할 수 있는 새로운 기능을 알아보고 있습니다.</translation>
 <translation id="7686590090926151193">Chromium이 기본 브라우저로 설정되어 있지 않습니다</translation>
 <translation id="7689606757190482937">모든 기기에서 Chromium을 동기화하고 맞춤설정하세요.</translation>
 <translation id="7699779824407626136">Chromium 업데이트</translation>
@@ -394,6 +394,7 @@ Chromium에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7747138024166251722">설치 프로그램이 임시 디렉터리를 만들지 못했습니다. 디스크 공간 및 설치 권한을 확인해 보세요.</translation>
 <translation id="7786760609782648049">Chromium의 속도를 높여보세요</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
+<translation id="7803986347287457849">내 인터넷 트래픽에 액세스할 수 있는 사용자가 내가 방문하는 사이트를 확인하기가 더 어려워집니다. Chromium은 DNS(도메인 이름 시스템)에서 사이트의 IP 주소를 조회하는 데 보안 연결을 사용합니다.</translation>
 <translation id="7828947555739565424">이 계정을 사용하는 Chromium 프로필이 기기에 이미 존재합니다</translation>
 <translation id="7845233973568007926">설치해 주셔서 감사합니다. <ph name="BUNDLE_NAME" />을(를) 사용하려면 컴퓨터를 다시 시작해야 합니다.</translation>
 <translation id="7859018312476869945">주소 표시줄이나 검색창에 검색어를 입력하면 Chromium은 더 나은 추천 검색어를 제공하기 위해 사용자가 입력한 내용을 기본 검색엔진으로 전송합니다. 시크릿 모드에서는 이 기능이 사용 중지되어 있습니다.</translation>

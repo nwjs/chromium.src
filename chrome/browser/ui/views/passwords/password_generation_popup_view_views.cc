@@ -515,9 +515,7 @@ void PasswordGenerationPopupViewViews::GeneratedPasswordBox::OnGestureEvent(
   }
 }
 
-BEGIN_METADATA(PasswordGenerationPopupViewViews,
-               GeneratedPasswordBox,
-               views::View)
+BEGIN_METADATA(PasswordGenerationPopupViewViews, GeneratedPasswordBox)
 END_METADATA
 
 PasswordGenerationPopupViewViews::PasswordGenerationPopupViewViews(
@@ -555,7 +553,7 @@ void PasswordGenerationPopupViewViews::UpdateGeneratedPasswordValue() {
   if (password_view_) {
     password_view_->UpdateGeneratedPassword(controller_->password());
   }
-  Layout();
+  DeprecatedLayoutImmediately();
 }
 
 bool PasswordGenerationPopupViewViews::UpdateBoundsAndRedrawPopup() {

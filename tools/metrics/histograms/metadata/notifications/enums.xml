@@ -41,11 +41,6 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Notification Action Click"/>
 </enum>
 
-<enum name="NotificationActionSource">
-  <int value="0" label="Browser app"/>
-  <int value="1" label="Helper app"/>
-</enum>
-
 <enum name="NotificationActionType">
   <int value="0" label="Unknown"/>
   <int value="1" label="Notification added"/>
@@ -158,6 +153,8 @@ chromium-metrics-reviews@google.com.
   <int value="41" label="PhoneHub priority=0"/>
   <int value="42" label="PhoneHub priority=1"/>
   <int value="43" label="PhoneHub priority=2"/>
+  <int value="44" label="ChromeApp priority=other"/>
+  <int value="45" label="Crostini"/>
 </enum>
 
 <enum name="NotifierType">

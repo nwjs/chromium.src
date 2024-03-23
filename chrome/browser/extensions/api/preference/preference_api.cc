@@ -549,7 +549,7 @@ void PreferenceAPI::EnsurePreferenceEventRouterCreated() {
   }
 }
 
-void PreferenceAPI::OnContentSettingChanged(const std::string& extension_id,
+void PreferenceAPI::OnContentSettingChanged(const ExtensionId& extension_id,
                                             bool incognito) {
   if (incognito) {
     ExtensionPrefs::Get(profile_)->UpdateExtensionPref(
@@ -632,13 +632,6 @@ ExtensionFunction::ResponseAction GetPreferenceFunction::Run() {
   crosapi::mojom::PrefPath pref_path =
       PrefMapping::GetInstance()->GetPrefPathForPrefName(cached_browser_pref_);
   if (!IsBrowserScopePrefOperation(pref_path, profile)) {
-    // Exclude chrome.privacy.website.protectedContentID (mapped to
-    // kProtectedContentDefault) from secondary profile access
-    // (crbug.com/1450718).
-    if (!profile->IsMainProfile() &&
-        pref_path == crosapi::mojom::PrefPath::kProtectedContentDefault) {
-      return RespondNow(Error(kPrimaryProfileOnlyErrorMessage, pref_key));
-    }
     // This pref should be read from ash.
     auto* lacros_service = chromeos::LacrosService::Get();
     if (!lacros_service ||

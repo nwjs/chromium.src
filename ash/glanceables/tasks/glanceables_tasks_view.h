@@ -52,9 +52,9 @@ class ASH_EXPORT GlanceablesTasksViewBase : public GlanceableTrayChildBubble {
 // Glanceables view responsible for interacting with Google Tasks.
 class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
                                         public views::ViewObserver {
- public:
-  METADATA_HEADER(GlanceablesTasksView);
+  METADATA_HEADER(GlanceablesTasksView, GlanceablesTasksViewBase)
 
+ public:
   explicit GlanceablesTasksView(const ui::ListModel<api::TaskList>* task_lists);
   GlanceablesTasksView(const GlanceablesTasksView&) = delete;
   GlanceablesTasksView& operator=(const GlanceablesTasksView&) = delete;
@@ -84,6 +84,7 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   void UpdateTasksList(const std::string& task_list_id,
                        const std::string& task_list_title,
                        bool initial_update,
+                       bool fetch_success,
                        const ui::ListModel<api::Task>* tasks);
 
   // Announces text describing the task list state through a screen

@@ -17,9 +17,10 @@
 #include "components/performance_manager/public/graph/process_node.h"
 #include "components/performance_manager/public/graph/worker_node.h"
 #include "components/performance_manager/public/resource_attribution/attribution_helpers.h"
+#include "components/performance_manager/resource_attribution/performance_manager_aliases.h"
 #include "components/performance_manager/resource_attribution/worker_client_pages.h"
 
-namespace performance_manager::resource_attribution {
+namespace resource_attribution {
 
 MemoryMeasurementProvider::MemoryMeasurementProvider(Graph* graph)
     : graph_(graph) {
@@ -59,8 +60,8 @@ void MemoryMeasurementProvider::OnMemorySummary(
     // Create a result with metadata if the key isn't in the map yet.
     const auto [it, inserted] = results.try_emplace(
         context, QueryResults{.memory_summary_result = MemorySummaryResult{
-                                  .metadata = {.measurement_time = now,
-                                               .algorithm = algorithm}}});
+                                  .metadata = ResultMetadata(now, algorithm),
+                              }});
     MemorySummaryResult& result = it->second.memory_summary_result.value();
     if (!inserted) {
       CHECK_LE(result.metadata.measurement_time, now);
@@ -105,4 +106,4 @@ void MemoryMeasurementProvider::OnMemorySummary(
   std::move(callback).Run(std::move(results));
 }
 
-}  // namespace performance_manager::resource_attribution
+}  // namespace resource_attribution

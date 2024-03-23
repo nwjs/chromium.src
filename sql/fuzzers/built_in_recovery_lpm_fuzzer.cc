@@ -18,6 +18,7 @@
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/containers/span.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -66,8 +67,17 @@ class Environment {
   }
 
   void AssertTempDirIsEmpty() const {
-    CHECK(base::IsDirectoryEmpty(temp_dir_.GetPath()))
-        << "Expected temp dir to be empty: " << temp_dir_.GetPath();
+    if (base::IsDirectoryEmpty(temp_dir_.GetPath())) {
+      return;
+    }
+
+    base::FileEnumerator files(temp_dir_.GetPath(), /*recursive=*/true,
+                               base::FileEnumerator::FileType::FILES |
+                                   base::FileEnumerator::FileType::DIRECTORIES);
+    LOG(ERROR) << "Unexpected files or directories in temp dir:";
+    files.ForEach(
+        [](const base::FilePath& path) { LOG(ERROR) << "  " << path; });
+    LOG(FATAL) << "Expected temp dir to be empty: " << temp_dir_.GetPath();
   }
 
  private:
@@ -110,7 +120,7 @@ class TestCase {
         wal_mode_(input.wal_mode()),
         sql_statement_(sql_fuzzer::SQLQueriesToString(input.queries())),
         sql_statement_after_open_(
-            sql_fuzzer::SQLQueriesToString(input.queries())) {
+            sql_fuzzer::SQLQueriesToString(input.queries_after_open())) {
     // Parse the input's `mutations` map as `Mutation` structs.
     mutations_.reserve(input.mutations_size());
     for (const auto& [pos, xor_mask] : input.mutations()) {
@@ -140,8 +150,8 @@ class TestCase {
     }
     os << std::dec;
     os << "- sql_statement: " << DebugFormat(sql_statement()) << std::endl;
-    os << "- sql_statement_after_open: " << DebugFormat(sql_statement())
-       << std::endl;
+    os << "- sql_statement_after_open: "
+       << DebugFormat(sql_statement_after_open()) << std::endl;
     return os;
   }
 

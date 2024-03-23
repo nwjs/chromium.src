@@ -15,7 +15,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "base/barrier_callback.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/checked_iterators.h"
@@ -29,6 +28,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/functional/concurrent_callbacks.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
@@ -310,6 +310,7 @@ apps::Readiness ConvertWebappUninstallSourceToReadiness(
     case webapps::WebappUninstallSource::kExternalLockScreen:
     case webapps::WebappUninstallSource::kInstallUrlDeduping:
     case webapps::WebappUninstallSource::kHealthcareUserInstallCleanup:
+    case webapps::WebappUninstallSource::kIwaEnterprisePolicy:
       return apps::Readiness::kUninstalledByNonUser;
   }
 }
@@ -447,23 +448,6 @@ void UninstallImpl(WebAppProvider* provider,
     provider->ui_manager().PresentUserUninstallDialog(
         app_id, webapp_uninstall_source, parent_window, base::DoNothing());
   }
-}
-
-RunOnOsLoginMode ConvertOsLoginModeToWebAppConstants(
-    apps::RunOnOsLoginMode login_mode) {
-  RunOnOsLoginMode web_app_constant_login_mode = RunOnOsLoginMode::kMinValue;
-  switch (login_mode) {
-    case apps::RunOnOsLoginMode::kWindowed:
-      web_app_constant_login_mode = RunOnOsLoginMode::kWindowed;
-      break;
-    case apps::RunOnOsLoginMode::kNotRun:
-      web_app_constant_login_mode = RunOnOsLoginMode::kNotRun;
-      break;
-    case apps::RunOnOsLoginMode::kUnknown:
-      web_app_constant_login_mode = RunOnOsLoginMode::kNotRun;
-      break;
-  }
-  return web_app_constant_login_mode;
 }
 
 WebAppPublisherHelper::Delegate::Delegate() = default;
@@ -820,7 +804,7 @@ void WebAppPublisherHelper::UninstallWebApp(
       provider_->registrar_unsafe().CanUserUninstallWebApp(web_app->app_id()));
   webapps::WebappUninstallSource webapp_uninstall_source =
       ConvertUninstallSourceToWebAppUninstallSource(uninstall_source);
-  provider_->scheduler().UninstallWebApp(
+  provider_->scheduler().RemoveUserUninstallableManagements(
       web_app->app_id(), webapp_uninstall_source, base::DoNothing());
   web_app = nullptr;
 
@@ -1225,14 +1209,6 @@ void WebAppPublisherHelper::SetWindowMode(const std::string& app_id,
       /*on_complete=*/base::DoNothing());
 }
 
-void WebAppPublisherHelper::SetRunOnOsLoginMode(
-    const std::string& app_id,
-    apps::RunOnOsLoginMode run_on_os_login_mode) {
-  provider_->scheduler().SetRunOnOsLoginMode(
-      app_id, ConvertOsLoginModeToWebAppConstants(run_on_os_login_mode),
-      base::DoNothing());
-}
-
 apps::WindowMode WebAppPublisherHelper::ConvertDisplayModeToWindowMode(
     blink::mojom::DisplayMode display_mode) {
   switch (display_mode) {
@@ -1253,6 +1229,7 @@ apps::WindowMode WebAppPublisherHelper::ConvertDisplayModeToWindowMode(
     case blink::mojom::DisplayMode::kFullscreen:
     case blink::mojom::DisplayMode::kWindowControlsOverlay:
     case blink::mojom::DisplayMode::kBorderless:
+    case blink::mojom::DisplayMode::kPictureInPicture:
       return apps::WindowMode::kWindow;
   }
 }
@@ -1945,28 +1922,20 @@ void WebAppPublisherHelper::OnFileHandlerDialogCompleted(
   // system apps.
   const WebApp* web_app = GetWebApp(params.app_id);
   bool can_multilaunch = !(web_app && web_app->IsSystemApp());
+  base::ConcurrentCallbacks<content::WebContents*> concurrent;
 
-  size_t num_launches = 1;
-  WebAppFileHandlerManager::LaunchInfos file_launch_infos;
   if (can_multilaunch) {
-    file_launch_infos =
+    WebAppFileHandlerManager::LaunchInfos file_launch_infos =
         provider_->os_integration_manager()
             .file_handler_manager()
             .GetMatchingFileHandlerUrls(app_id, params.launch_files);
-    num_launches = file_launch_infos.size();
-  }
-
-  auto launch_complete_barrier = base::BarrierCallback<content::WebContents*>(
-      num_launches, std::move(callback));
-
-  if (can_multilaunch) {
     for (const auto& [url, files] : file_launch_infos) {
       apps::AppLaunchParams params_for_file_launch(
           app_id, params.container, params.disposition, params.launch_source,
           params.display_id, files, nullptr);
       params_for_file_launch.override_url = url;
       LaunchAppWithParams(std::move(params_for_file_launch),
-                          launch_complete_barrier);
+                          concurrent.CreateCallback());
     }
   } else {
     apps::AppLaunchParams params_for_file_launch(
@@ -1980,8 +1949,10 @@ void WebAppPublisherHelper::OnFileHandlerDialogCompleted(
       params_for_file_launch.override_url = GURL(*params.intent->activity_name);
     }
     LaunchAppWithParams(std::move(params_for_file_launch),
-                        launch_complete_barrier);
+                        concurrent.CreateCallback());
   }
+
+  std::move(concurrent).Done(std::move(callback));
 }
 
 void WebAppPublisherHelper::OnLaunchCompleted(

@@ -21,9 +21,11 @@
 #include "base/types/variant_util.h"
 #include "components/performance_manager/public/graph/node_data_describer_registry.h"
 #include "components/performance_manager/public/resource_attribution/resource_types.h"
+#include "components/performance_manager/resource_attribution/context_collection.h"
+#include "components/performance_manager/resource_attribution/performance_manager_aliases.h"
 #include "components/performance_manager/resource_attribution/query_params.h"
 
-namespace performance_manager::resource_attribution::internal {
+namespace resource_attribution::internal {
 
 namespace {
 
@@ -312,4 +314,4 @@ void QueryScheduler::OnResultsReceived(
   std::move(callback).Run(merged_results);
 }
 
-}  // namespace performance_manager::resource_attribution::internal
+}  // namespace resource_attribution::internal

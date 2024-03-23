@@ -42,13 +42,14 @@
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
   // Set the country to one that is eligible for the choice screen (in this
   // case, France).
-  config.additional_args.push_back("--search-engine-choice-country=FR");
+  config.additional_args.push_back(
+      "--" + std::string(switches::kSearchEngineChoiceCountry) + "=FR");
   // Force the dialog to trigger also for existing users.
   config.additional_args.push_back(
       "--enable-features=SearchEngineChoiceTrigger:for_tagged_profiles_only/"
       "false");
-  config.additional_args.push_back("-SearchEngineForceEnabled");
-  config.additional_args.push_back("true");
+  config.additional_args.push_back(
+      "--" + std::string(switches::kForceSearchEngineChoiceScreen));
   // Relaunches the app at each test to re-display the choice screen.
   config.relaunch_policy = ForceRelaunchByKilling;
 
@@ -63,9 +64,10 @@
   [SearchEngineChoiceEarlGreyUI verifySearchEngineChoiceScreenIsDisplayed];
 }
 
+// TODO(b/325441139): Test fails on device and simulator.
 // Tests that search engine choice dialog is moved to the other active scene
 // when the current scene is removed.
-- (void)testOpenSecondWindow {
+- (void)DISABLED_testOpenSecondWindow {
   if (![ChromeEarlGrey areMultipleWindowsSupported]) {
     EARL_GREY_TEST_DISABLED(@"Multiple windows can't be opened.");
   }
@@ -78,10 +80,11 @@
   [SearchEngineChoiceEarlGreyUI verifySearchEngineChoiceScreenIsDisplayed];
 }
 
+// TODO(b/325441139): Test fails on device and simulator.
 // Tests that the Search Engine Choice screen is displayed, that the primary
 // button is correctly updated when the user selects a search engine then
 // scrolls down and that it correctly sets the default search engine.
-- (void)testSearchEngineChoiceScreenSelectThenScroll {
+- (void)DISABLED_testSearchEngineChoiceScreenSelectThenScroll {
   // Checks that the choice screen is shown
   [SearchEngineChoiceEarlGreyUI verifySearchEngineChoiceScreenIsDisplayed];
   // Checks that the fake omnibox illustration is displayed and is initially
@@ -114,10 +117,11 @@
       verifyDefaultSearchEngineSetting:searchEngineToSelect];
 }
 
+// TODO(b/325441139): Test fails on device and simulator.
 // Tests that the Search Engine Choice screen is displayed, that the
 // primary button is correctly updated when the user scrolls down then selects a
 // search engine and that it correctly sets the default search engine.
-- (void)testSearchEngineChoiceScreenScrollThenSelect {
+- (void)DISABLED_testSearchEngineChoiceScreenScrollThenSelect {
   // Checks that the choice screen is shown
   [SearchEngineChoiceEarlGreyUI verifySearchEngineChoiceScreenIsDisplayed];
   // Checks that the fake omnibox illustration is displayed and is initially

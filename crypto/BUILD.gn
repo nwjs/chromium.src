@@ -57,6 +57,8 @@ component("crypto") {
     "unexportable_key_metrics.cc",
     "unexportable_key_metrics.h",
     "unexportable_key_software_unsecure.cc",
+    "user_verifying_key.cc",
+    "user_verifying_key.h",
   ]
 
   deps = [ "//base/third_party/dynamic_annotations" ]
@@ -68,7 +70,11 @@ component("crypto") {
   ]
 
   if (is_apple) {
-    sources += [ "apple_keychain.h" ]
+    sources += [
+      "apple_keychain.h",
+      "apple_keychain_v2.h",
+      "apple_keychain_v2.mm",
+    ]
 
     if (is_mac) {
       sources += [ "apple_keychain_mac.cc" ]
@@ -93,6 +99,7 @@ component("crypto") {
       "scoped_capi_types.h",
       "scoped_cng_types.h",
       "unexportable_key_win.cc",
+      "user_verifying_key_win.cc",
     ]
     libs = [ "ncrypt.lib" ]
   }
@@ -212,6 +219,14 @@ static_library("test_support") {
       "scoped_test_system_nss_key_slot.cc",
       "scoped_test_system_nss_key_slot.h",
     ]
+  }
+
+  if (is_mac) {
+    sources += [
+      "fake_apple_keychain_v2.h",
+      "fake_apple_keychain_v2.mm",
+    ]
+    frameworks = [ "Foundation.framework" ]
   }
 
   deps = [

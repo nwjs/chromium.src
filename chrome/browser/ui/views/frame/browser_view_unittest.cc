@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_activity_simulator.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -475,12 +476,9 @@ TEST_P(BrowserViewTest, DISABLED_AccessibleWindowTitle) {
 }
 
 TEST_P(BrowserViewTest, WindowTitleOmitsLowMemoryUsage) {
-  scoped_refptr<performance_manager::user_tuning::UserPerformanceTuningManager::
-                    TabResourceUsage>
-      tab_resource_usage_ = base::MakeRefCounted<
-          performance_manager::user_tuning::UserPerformanceTuningManager::
-              TabResourceUsage>();
-  tab_resource_usage_->set_memory_usage_in_bytes(100);
+  scoped_refptr<TabResourceUsage> tab_resource_usage_ =
+      base::MakeRefCounted<TabResourceUsage>();
+  tab_resource_usage_->SetMemoryUsageInBytes(100);
 
   TabRendererData memory_usage;
   memory_usage.tab_resource_usage = tab_resource_usage_;
@@ -497,7 +495,7 @@ TEST_P(BrowserViewTest, WindowTitleOmitsLowMemoryUsage) {
           performance_manager::features::
               kMemoryUsageInHovercardsHighThresholdBytes.Get()) +
       1;
-  tab_resource_usage_->set_memory_usage_in_bytes(memory_used);
+  tab_resource_usage_->SetMemoryUsageInBytes(memory_used);
 
   // Expect that high memory usage is in the window title.
   EXPECT_TRUE(browser_view()->GetAccessibleWindowTitle().find(

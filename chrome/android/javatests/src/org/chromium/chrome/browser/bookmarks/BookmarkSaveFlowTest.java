@@ -41,6 +41,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksShim;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -56,6 +57,7 @@ import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
 import org.chromium.components.power_bookmarks.ShoppingSpecifics;
 import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.sync.SyncFeatureMap;
 import org.chromium.content_public.browser.test.util.ClickUtils;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.url.GURL;
@@ -68,7 +70,7 @@ import java.util.concurrent.ExecutionException;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DisableFeatures({
     ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS,
-    ChromeFeatureList.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE
+    SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE
 })
 public class BookmarkSaveFlowTest {
     @Rule
@@ -116,7 +118,7 @@ public class BookmarkSaveFlowTest {
                                     mBottomSheetController,
                                     mShoppingService,
                                     mUserEducationHelper,
-                                    Profile.getLastUsedRegularProfile(),
+                                    ProfileManager.getLastUsedRegularProfile(),
                                     mIdentityManager);
                 });
 
@@ -179,7 +181,7 @@ public class BookmarkSaveFlowTest {
     @Feature({"RenderTest"})
     @EnableFeatures({
         ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS,
-        ChromeFeatureList.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE
+        SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE
     })
     public void testBookmarkSaveFlow_improvedBookmarks_accountBookmarksEnabled()
             throws IOException {

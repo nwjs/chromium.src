@@ -6,11 +6,10 @@
  * @fileoverview Polymer element for Enterprise Enrollment screen.
  */
 
-import '//resources/cr_elements/chromeos/cros_color_overrides.css.js';
-import '//resources/cr_elements/cr_input/cr_input.js';
+import '//resources/ash/common/cr_elements/cros_color_overrides.css.js';
+import '//resources/ash/common/cr_elements/cr_input/cr_input.js';
 import '//resources/js/action_link.js';
 import '//resources/polymer/v3_0/iron-icon/iron-icon.js';
-import {GaiaDialog} from '../../components/gaia_dialog.js';
 import '../../components/oobe_icons.html.js';
 import '../../components/common_styles/oobe_common_styles.css.js';
 import '../../components/common_styles/oobe_dialog_host_styles.css.js';
@@ -19,8 +18,6 @@ import '../../components/dialogs/oobe_loading_dialog.js';
 import '../../components/buttons/oobe_back_button.js';
 import '../../components/buttons/oobe_next_button.js';
 import '../../components/buttons/oobe_text_button.js';
-import {OobeModalDialog} from '../../components/dialogs/oobe_modal_dialog.js';
-import {OfflineAdLogin} from '../common/offline_ad_login.js';
 
 import {Authenticator, AuthFlow, AuthMode, AuthParams} from '//oobe/gaia_auth_host/authenticator.js';
 import {assert} from '//resources/js/assert.js';
@@ -32,13 +29,16 @@ import {mixinBehaviors, PolymerElement} from '//resources/polymer/v3_0/polymer/p
 import {LoginScreenBehavior, LoginScreenBehaviorInterface} from '../../components/behaviors/login_screen_behavior.js';
 import {MultiStepBehavior, MultiStepBehaviorInterface} from '../../components/behaviors/multi_step_behavior.js';
 import {OobeI18nBehavior, OobeI18nBehaviorInterface} from '../../components/behaviors/oobe_i18n_behavior.js';
-import {OOBE_UI_STATE} from '../../components/display_manager_types.js';
+import {OobeModalDialog} from '../../components/dialogs/oobe_modal_dialog.js';
+import {OobeUiState} from '../../components/display_manager_types.js';
+import {GaiaDialog} from '../../components/gaia_dialog.js';
 import {InjectedKeyboardUtils} from '../../components/keyboard_utils.js';
 import {globalOobeKeyboard, KEYBOARD_UTILS_FOR_INJECTION} from '../../components/keyboard_utils_oobe.js';
 import {OobeTypes} from '../../components/oobe_types.js';
 import {Oobe} from '../../cr_ui.js';
 import * as OobeDebugger from '../../debug/debug.js';
 import {invokePolymerMethod} from '../../display_manager.js';
+import {OfflineAdLogin} from '../common/offline_ad_login.js';
 import type {ActiveDirectoryErrorState, JoinConfigType} from '../common/offline_ad_login.js';
 import {ADLoginStep} from '../common/offline_ad_login.js';
 
@@ -215,7 +215,7 @@ export class EnterpriseEnrollmentElement extends
         type: Boolean,
         value() {
           return loadTimeData.valueExists('deviceFlowType') &&
-              (loadTimeData.getString('deviceFlowType') == 'meet');
+              (loadTimeData.getString('deviceFlowType') === 'meet');
         },
         readOnly: true,
       },
@@ -294,13 +294,12 @@ export class EnterpriseEnrollmentElement extends
     return skipConfirmationDialog;
   }
 
-  get authenticator(): Authenticator {
+  get authenticator(): Authenticator|undefined {
     return this.getGaiaDialog().getAuthenticator();
   }
 
   get authView(): chrome.webviewTag.WebView {
-    // TODO(b/314762562): remove type cast once gaia_dialog is migrated to TS.
-    return this.getGaiaDialog().getFrame() as chrome.webviewTag.WebView;
+    return this.getGaiaDialog().getFrame();
   }
 
   override ready(): void {
@@ -347,6 +346,7 @@ export class EnterpriseEnrollmentElement extends
               'oauthEnrollAdUnlockConfiguration', [e.detail.unlock_password]);
         });
 
+    assert(this.authenticator);
     this.authenticator.insecureContentBlockedCallback = (url: string) => {
       this.showError(
           loadTimeData.getStringF('insecureURLEnrollmentError', url), false);
@@ -356,9 +356,11 @@ export class EnterpriseEnrollmentElement extends
       this.showError(loadTimeData.getString('fatalEnrollmentError'), false);
     };
 
-    this.authenticator.addEventListener('getDeviceId', (_e: Event) => {
-      sendWithPromise('getDeviceIdForEnrollment')
-          .then(deviceId => this.authenticator.getDeviceIdResponse(deviceId));
+    this.authenticator.addEventListener('getDeviceId', () => {
+      sendWithPromise('getDeviceIdForEnrollment').then(deviceId => {
+        assert(this.authenticator);
+        this.authenticator.getDeviceIdResponse(deviceId);
+      });
     });
   }
 
@@ -418,6 +420,7 @@ export class EnterpriseEnrollmentElement extends
         gaiaParams.email = data.email;
       }
 
+      assert(this.authenticator);
       this.authenticator.setWebviewPartition(
           data.webviewPartitionName ? data.webviewPartitionName : '');
 
@@ -444,8 +447,8 @@ export class EnterpriseEnrollmentElement extends
    * Initial UI State for screen
    */
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  override getOobeUIInitialState(): OOBE_UI_STATE {
-    return OOBE_UI_STATE.ENROLLMENT_CANCEL_DISABLED;
+  override getOobeUIInitialState(): OobeUiState {
+    return OobeUiState.ENROLLMENT_CANCEL_DISABLED;
   }
 
   /**
@@ -518,17 +521,17 @@ export class EnterpriseEnrollmentElement extends
     // otherwise the manual fallback button does nothing.
     if (this.isCancelDisabled ||
         step === OobeTypes.EnrollmentStep.ATTRIBUTE_PROMPT) {
-      Oobe.getInstance().setOobeUIState(
-          OOBE_UI_STATE.ENROLLMENT_CANCEL_DISABLED);
+      Oobe.getInstance().setOobeUiState(OobeUiState.ENROLLMENT_CANCEL_DISABLED);
     } else {
-      Oobe.getInstance().setOobeUIState(
+      Oobe.getInstance().setOobeUiState(
           step === OobeTypes.EnrollmentStep.SUCCESS ?
-              OOBE_UI_STATE.ENROLLMENT_SUCCESS :
-              OOBE_UI_STATE.ENROLLMENT_CANCEL_ENABLED);
+              OobeUiState.ENROLLMENT_SUCCESS :
+              OobeUiState.ENROLLMENT_CANCEL_ENABLED);
     }
   }
 
   doReload(): void {
+    assert(this.authenticator);
     this.authenticator.reload();
   }
 
@@ -630,11 +633,11 @@ export class EnterpriseEnrollmentElement extends
       this.showError(loadTimeData.getString('fatalEnrollmentError'), false);
       return;
     }
-    if (this.licenseType == OobeTypes.LicenseType.ENTERPRISE) {
+    if (this.licenseType === OobeTypes.LicenseType.ENTERPRISE) {
       chrome.send(
           'oauthEnrollCompleteLogin',
           [detail.email, OobeTypes.LicenseType.ENTERPRISE]);
-    } else if (this.licenseType == OobeTypes.LicenseType.EDUCATION) {
+    } else if (this.licenseType === OobeTypes.LicenseType.EDUCATION) {
       chrome.send(
           'oauthEnrollCompleteLogin',
           [detail.email, OobeTypes.LicenseType.EDUCATION]);
@@ -645,10 +648,10 @@ export class EnterpriseEnrollmentElement extends
   }
 
   private onReady(): void {
-    if (this.uiStep == OobeTypes.EnrollmentStep.LOADING) {
+    if (this.uiStep === OobeTypes.EnrollmentStep.LOADING) {
       this.showStep(OobeTypes.EnrollmentStep.SIGNIN);
     }
-    if (this.uiStep != OobeTypes.EnrollmentStep.SIGNIN) {
+    if (this.uiStep !== OobeTypes.EnrollmentStep.SIGNIN) {
       return;
     }
     this.isCancelDisabled = false;
@@ -745,10 +748,10 @@ export class EnterpriseEnrollmentElement extends
    * Return title for enrollment in progress screen.
    */
   private getWorkingTitleKey(licenseType: OobeTypes.LicenseType): string {
-    if (licenseType == OobeTypes.LicenseType.ENTERPRISE) {
+    if (licenseType === OobeTypes.LicenseType.ENTERPRISE) {
       return 'oauthEnrollScreenTitle';
     }
-    if (licenseType == OobeTypes.LicenseType.EDUCATION) {
+    if (licenseType === OobeTypes.LicenseType.EDUCATION) {
       return 'oauthEducationEnrollScreenTitle';
     }
     return 'oauthEnrollKioskEnrollmentWorkingTitle';
@@ -758,10 +761,10 @@ export class EnterpriseEnrollmentElement extends
    * Returns icon for enrollment steps.
    */
   private getIcon(licenseType: OobeTypes.LicenseType): string {
-    if (licenseType == OobeTypes.LicenseType.ENTERPRISE) {
+    if (licenseType === OobeTypes.LicenseType.ENTERPRISE) {
       return 'oobe-32:enterprise';
     }
-    if (licenseType == OobeTypes.LicenseType.EDUCATION) {
+    if (licenseType === OobeTypes.LicenseType.EDUCATION) {
       return 'oobe-32:enterprise';
     }
     return 'oobe-32:kiosk';
@@ -772,10 +775,10 @@ export class EnterpriseEnrollmentElement extends
    */
   private getSuccessTitle(locale: string, licenseType: OobeTypes.LicenseType):
       string {
-    if (licenseType == OobeTypes.LicenseType.ENTERPRISE) {
+    if (licenseType === OobeTypes.LicenseType.ENTERPRISE) {
       return this.i18nDynamic(locale, 'oauthEnrollSuccessTitle');
     }
-    if (licenseType == OobeTypes.LicenseType.EDUCATION) {
+    if (licenseType === OobeTypes.LicenseType.EDUCATION) {
       return this.i18nDynamic(locale, 'oauthEnrollEducationSuccessTitle');
     }
     return this.i18nDynamic(locale, 'oauthEnrollKioskEnrollmentSuccessTitle');
@@ -786,7 +789,7 @@ export class EnterpriseEnrollmentElement extends
    */
   private getErrorTitle(locale: string, licenseType: OobeTypes.LicenseType):
       string {
-    if (licenseType == OobeTypes.LicenseType.EDUCATION) {
+    if (licenseType === OobeTypes.LicenseType.EDUCATION) {
       return this.i18nDynamic(locale, 'oauthEducationEnrollErrorTitle');
     }
     return this.i18nDynamic(locale, 'oauthEnrollErrorTitle');
@@ -843,7 +846,7 @@ export class EnterpriseEnrollmentElement extends
    */
   private getSkipConfirmationTitle(
       locale: string, licenseType: OobeTypes.LicenseType): string {
-    if (licenseType == OobeTypes.LicenseType.EDUCATION) {
+    if (licenseType === OobeTypes.LicenseType.EDUCATION) {
       return this.i18nDynamic(locale, 'skipConfirmationDialogEducationTitle');
     }
     return this.i18nDynamic(locale, 'skipConfirmationDialogTitle');
@@ -854,7 +857,7 @@ export class EnterpriseEnrollmentElement extends
    */
   private getSkipConfirmationText(
       locale: string, licenseType: OobeTypes.LicenseType): string {
-    if (licenseType == OobeTypes.LicenseType.EDUCATION) {
+    if (licenseType === OobeTypes.LicenseType.EDUCATION) {
       return this.i18nDynamic(locale, 'skipConfirmationDialogEducationText');
     }
     return this.i18nDynamic(locale, 'skipConfirmationDialogText');

@@ -4,36 +4,12 @@
 
 #include "ash/picker/model/picker_search_results.h"
 
+#include <string>
+
+#include "ash/public/cpp/picker/picker_search_result.h"
+#include "base/containers/span.h"
+
 namespace ash {
-
-bool PickerSearchResult::TextData::operator==(
-    const PickerSearchResult::TextData&) const = default;
-
-bool PickerSearchResult::GifData::operator==(
-    const PickerSearchResult::GifData&) const = default;
-
-PickerSearchResult::~PickerSearchResult() = default;
-
-PickerSearchResult::PickerSearchResult(const PickerSearchResult&) = default;
-
-PickerSearchResult& PickerSearchResult::operator=(const PickerSearchResult&) =
-    default;
-
-PickerSearchResult PickerSearchResult::Text(std::u16string_view text) {
-  return PickerSearchResult(TextData{.text = std::u16string(text)});
-}
-
-PickerSearchResult PickerSearchResult::Gif(const GURL& url) {
-  return PickerSearchResult(GifData{.url = url});
-}
-
-bool PickerSearchResult::operator==(const PickerSearchResult&) const = default;
-
-const PickerSearchResult::Data& PickerSearchResult::data() const {
-  return data_;
-}
-
-PickerSearchResult::PickerSearchResult(Data data) : data_(std::move(data)) {}
 
 PickerSearchResults::Section::Section(
     const std::u16string& heading,

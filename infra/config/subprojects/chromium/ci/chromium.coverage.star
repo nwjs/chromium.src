@@ -4,10 +4,11 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "cpu", "os", "reclient", "xcode")
+load("//lib/builders.star", "cpu", "os", "reclient")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
+load("//lib/xcode.star", "xcode")
 load("//project.star", "settings")
 load("//lib/builder_health_indicators.star", "health_spec")
 
@@ -431,7 +432,6 @@ coverage_builder(
             "mojo_fuzzer",
             "libfuzzer",
             "dcheck_off",
-            "disable_nacl",
             "reclient",
             "chromeos_codecs",
             "pdf_xfa",

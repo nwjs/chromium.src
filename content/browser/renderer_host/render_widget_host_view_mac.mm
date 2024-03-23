@@ -618,8 +618,8 @@ gfx::Rect RenderWidgetHostViewMac::GetViewBounds() {
          window_frame_in_screen_dip_.OffsetFromOrigin();
 }
 
-bool RenderWidgetHostViewMac::IsMouseLocked() {
-  return mouse_locked_;
+bool RenderWidgetHostViewMac::IsPointerLocked() {
+  return pointer_locked_;
 }
 
 void RenderWidgetHostViewMac::UpdateCursor(const ui::Cursor& cursor) {
@@ -819,8 +819,8 @@ void RenderWidgetHostViewMac::Destroy() {
 
   // Unlock the mouse in the NSView's process before destroying our bridge to
   // it.
-  if (mouse_locked_) {
-    mouse_locked_ = false;
+  if (pointer_locked_) {
+    pointer_locked_ = false;
     ns_view_->SetCursorLocked(false);
   }
 
@@ -1102,6 +1102,10 @@ bool RenderWidgetHostViewMac::IsHTMLFormPopup() const {
   return !!popup_parent_host_view_;
 }
 
+uint64_t RenderWidgetHostViewMac::GetNSViewId() const {
+  return ns_view_id_;
+}
+
 bool RenderWidgetHostViewMac::GetLineBreakIndex(
     const std::vector<gfx::Rect>& bounds,
     const gfx::Range& range,
@@ -1338,17 +1342,18 @@ gfx::Rect RenderWidgetHostViewMac::GetBoundsInRootWindow() {
   return window_frame_in_screen_dip_;
 }
 
-blink::mojom::PointerLockResult RenderWidgetHostViewMac::LockMouse(
+blink::mojom::PointerLockResult RenderWidgetHostViewMac::LockPointer(
     bool request_unadjusted_movement) {
-  if (mouse_locked_)
+  if (pointer_locked_) {
     return blink::mojom::PointerLockResult::kSuccess;
+  }
 
   if (request_unadjusted_movement && !IsUnadjustedMouseMovementSupported()) {
     return blink::mojom::PointerLockResult::kUnsupportedOptions;
   }
 
-  mouse_locked_ = true;
-  mouse_lock_unadjusted_movement_ = request_unadjusted_movement;
+  pointer_locked_ = true;
+  pointer_lock_unadjusted_movement_ = request_unadjusted_movement;
 
   // Lock position of mouse cursor and hide it.
   ns_view_->SetCursorLockedUnacceleratedMovement(request_unadjusted_movement);
@@ -1360,31 +1365,32 @@ blink::mojom::PointerLockResult RenderWidgetHostViewMac::LockMouse(
   return blink::mojom::PointerLockResult::kSuccess;
 }
 
-blink::mojom::PointerLockResult RenderWidgetHostViewMac::ChangeMouseLock(
+blink::mojom::PointerLockResult RenderWidgetHostViewMac::ChangePointerLock(
     bool request_unadjusted_movement) {
   if (request_unadjusted_movement && !IsUnadjustedMouseMovementSupported()) {
     return blink::mojom::PointerLockResult::kUnsupportedOptions;
   }
 
-  mouse_lock_unadjusted_movement_ = request_unadjusted_movement;
+  pointer_lock_unadjusted_movement_ = request_unadjusted_movement;
   ns_view_->SetCursorLockedUnacceleratedMovement(request_unadjusted_movement);
   return blink::mojom::PointerLockResult::kSuccess;
 }
 
-void RenderWidgetHostViewMac::UnlockMouse() {
-  if (!mouse_locked_)
+void RenderWidgetHostViewMac::UnlockPointer() {
+  if (!pointer_locked_) {
     return;
-  mouse_locked_ = false;
-  mouse_lock_unadjusted_movement_ = false;
+  }
+  pointer_locked_ = false;
+  pointer_lock_unadjusted_movement_ = false;
   ns_view_->SetCursorLocked(false);
   ns_view_->SetCursorLockedUnacceleratedMovement(false);
 
   if (host())
-    host()->LostMouseLock();
+    host()->LostPointerLock();
 }
 
-bool RenderWidgetHostViewMac::GetIsMouseLockedUnadjustedMovementForTesting() {
-  return mouse_locked_ && mouse_lock_unadjusted_movement_;
+bool RenderWidgetHostViewMac::GetIsPointerLockedUnadjustedMovementForTesting() {
+  return pointer_locked_ && pointer_lock_unadjusted_movement_;
 }
 
 bool RenderWidgetHostViewMac::IsUnadjustedMouseMovementSupported() {
@@ -1400,7 +1406,7 @@ bool RenderWidgetHostViewMac::IsUnadjustedMouseMovementSupported() {
   return false;
 }
 
-bool RenderWidgetHostViewMac::CanBeMouseLocked() {
+bool RenderWidgetHostViewMac::CanBePointerLocked() {
   return HasFocus() && is_window_key_;
 }
 
@@ -1603,7 +1609,7 @@ void RenderWidgetHostViewMac::SetActive(bool active) {
   if (HasFocus())
     SetTextInputActive(active);
   if (!active)
-    UnlockMouse();
+    UnlockPointer();
 }
 
 void RenderWidgetHostViewMac::ShowDefinitionForSelection() {

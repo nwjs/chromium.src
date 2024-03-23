@@ -24,6 +24,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/ui/page_info/features.h"
+#import "ios/chrome/browser/ui/page_info/page_info_about_this_site_info.h"
 #import "ios/chrome/browser/ui/page_info/page_info_constants.h"
 #import "ios/chrome/browser/ui/permissions/permission_info.h"
 #import "ios/chrome/browser/ui/permissions/permissions_constants.h"
@@ -38,21 +39,19 @@
 
 namespace {
 
-const CGFloat kTableViewSeparatorInset = 16;
-
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierSecurityContent,
   SectionIdentifierPermissions,
+  SectionIdentifierAboutThisSite,
 };
 
 typedef NS_ENUM(NSInteger, ItemIdentifier) {
   ItemIdentifierSecurityHeader,
   ItemIdentifierPermissionsCamera,
   ItemIdentifierPermissionsMicrophone,
+  ItemIdentifierAboutThisSiteHeader
 };
 
-// The vertical padding between the navigation bar and the Security header.
-float kPaddingSecurityHeader = 28.0f;
 // The minimum scale factor of the title label showing the URL.
 float kTitleLabelMinimumScaleFactor = 0.7f;
 
@@ -72,6 +71,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
 
 @implementation PageInfoViewController {
   UITableViewDiffableDataSource<NSNumber*, NSNumber*>* _dataSource;
+  PageInfoAboutThisSiteInfo* _aboutThisSiteInfo;
 }
 
 #pragma mark - UIViewController
@@ -89,9 +89,16 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
 - (void)viewDidLoad {
   [super viewDidLoad];
 
-  self.navigationItem.titleView =
-      [self titleViewLabelForURL:self.pageInfoSecurityDescription.siteURL];
   self.title = l10n_util::GetNSString(IDS_IOS_PAGE_INFO_SITE_INFORMATION);
+  if (IsRevampPageInfoIosEnabled()) {
+    self.navigationItem.largeTitleDisplayMode =
+        UINavigationItemLargeTitleDisplayModeNever;
+    self.navigationItem.prompt = self.pageInfoSecurityDescription.siteURL;
+  } else {
+    self.navigationItem.titleView =
+        [self titleViewLabelForURL:self.pageInfoSecurityDescription.siteURL];
+  }
+
   self.tableView.accessibilityIdentifier = kPageInfoViewAccessibilityIdentifier;
   self.navigationController.navigationBar.accessibilityIdentifier =
       kPageInfoViewNavigationBarAccessibilityIdentifier;
@@ -102,7 +109,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
                            action:@selector(hidePageInfo)];
   self.navigationItem.rightBarButtonItem = dismissButton;
   self.tableView.separatorInset =
-      UIEdgeInsetsMake(0, kTableViewSeparatorInset, 0, 0);
+      UIEdgeInsetsMake(0, kPageInfoTableViewSeparatorInset, 0, 0);
   if (!IsRevampPageInfoIosEnabled()) {
     self.tableView.allowsSelection = NO;
   }
@@ -151,6 +158,11 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
   for (NSNumber* permission in self.permissionsInfo.allKeys) {
     [self updateSnapshot:snapshot forPermission:permission];
   }
+
+  if (IsRevampPageInfoIosEnabled()) {
+    [self updateSnapshotForAboutThisSite:snapshot];
+  }
+
   [_dataSource applySnapshot:snapshot animatingDifferences:NO];
 }
 
@@ -167,15 +179,26 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
         [self.pageInfoPresentationHandler showSecurityPage];
       }
       break;
+    case ItemIdentifierAboutThisSiteHeader:
+      if (IsRevampPageInfoIosEnabled()) {
+        [self.pageInfoPresentationHandler
+            showAboutThisSitePage:_aboutThisSiteInfo.moreAboutURL];
+      }
+      break;
     default:
       break;
   }
+
+  // Deselect the row so the UI seems responsive when the action triggered by
+  // the selection (e.g. opening a new tab, opening a subpage) takes a bit
+  // longer to happen.
+  [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
 - (CGFloat)tableView:(UITableView*)tableView
     heightForHeaderInSection:(NSInteger)section {
   return section == SectionIdentifierSecurityContent
-             ? kPaddingSecurityHeader
+             ? kPageInfoPaddingFirstSectionHeader
              : UITableViewAutomaticDimension;
 }
 
@@ -185,6 +208,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
       [_dataSource sectionIdentifierForIndex:section].integerValue);
   switch (sectionIdentifier) {
     case SectionIdentifierSecurityContent:
+    case SectionIdentifierAboutThisSite:
       return nil;
     case SectionIdentifierPermissions: {
       TableViewTextHeaderFooterView* header =
@@ -228,6 +252,8 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
       footer.attributedString = [self permissionFooterAttributedString];
       return footer;
     }
+    default:
+      return nil;
   }
 }
 
@@ -325,6 +351,34 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
                 forControlEvents:UIControlEventValueChanged];
       return cell;
     }
+    case ItemIdentifierAboutThisSiteHeader: {
+      TableViewDetailIconCell* cell =
+          DequeueTableViewCell<TableViewDetailIconCell>(tableView);
+      cell.textLabel.text =
+          l10n_util::GetNSString(IDS_IOS_PAGE_INFO_ABOUT_THIS_PAGE);
+      cell.detailText = _aboutThisSiteInfo.summary;
+      cell.textLayoutConstraintAxis = UILayoutConstraintAxisVertical;
+
+      UIImage* icon =
+#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+          CustomSymbolTemplateWithPointSize(kPageInsightsSymbol,
+                                            kPageInfoSymbolPointSize);
+#else
+          DefaultSymbolTemplateWithPointSize(kInfoCircleSymbol,
+                                             kPageInfoSymbolPointSize);
+#endif  // BUILDFLAG(IOS_USE_BRANDED_SYMBOLS),
+
+      [cell setIconImage:icon
+                tintColor:UIColor.whiteColor
+          backgroundColor:[UIColor colorNamed:kPurple500Color]
+             cornerRadius:kColorfulBackgroundSymbolCornerRadius];
+
+      cell.accessoryView = [[UIImageView alloc]
+          initWithImage:DefaultAccessorySymbolConfigurationWithRegularWeight(
+                            kExternalLinkSymbol)];
+      cell.accessoryView.tintColor = [UIColor colorNamed:kTextQuaternaryColor];
+      return cell;
+    }
   }
 }
 
@@ -346,7 +400,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
   return descriptionAttributedString;
 }
 
-// Returns the navigationItem titleView for `siteURL`.
+// Returns an UILabel for the navigationItem titleView for `siteURL`.
 - (UILabel*)titleViewLabelForURL:(NSString*)siteURL {
   UILabel* labelURL = [[UILabel alloc] init];
   labelURL.lineBreakMode = NSLineBreakByTruncatingHead;
@@ -355,6 +409,25 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
   labelURL.adjustsFontSizeToFitWidth = YES;
   labelURL.minimumScaleFactor = kTitleLabelMinimumScaleFactor;
   return labelURL;
+}
+
+// Updates `snapshot` to reflect the changes to AboutThisSite info.
+- (void)updateSnapshotForAboutThisSite:
+    (NSDiffableDataSourceSnapshot<NSNumber*, NSNumber*>*)snapshot {
+  if (!_aboutThisSiteInfo || !self.pageInfoSecurityDescription.secure) {
+    return;
+  }
+
+  NSInteger sectionIndex =
+      [snapshot indexOfSectionIdentifier:@(SectionIdentifierPermissions)];
+  SectionIdentifier afterSectionWithIdentifier =
+      (sectionIndex == NSNotFound) ? SectionIdentifierSecurityContent
+                                   : SectionIdentifierPermissions;
+  [snapshot insertSectionsWithIdentifiers:@[ @(SectionIdentifierAboutThisSite) ]
+               afterSectionWithIdentifier:@(afterSectionWithIdentifier)];
+
+  [snapshot appendItemsWithIdentifiers:@[ @(ItemIdentifierAboutThisSiteHeader) ]
+             intoSectionWithIdentifier:@(SectionIdentifierAboutThisSite)];
 }
 
 // Updates `snapshot` to reflect the changes done to `permissions`.
@@ -431,6 +504,12 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
     [snapshot
         deleteSectionsWithIdentifiers:@[ @(SectionIdentifierPermissions) ]];
   }
+}
+
+#pragma mark - PageInfoAboutThisSiteConsumer
+
+- (void)setAboutThisSiteSection:(PageInfoAboutThisSiteInfo*)info {
+  _aboutThisSiteInfo = info;
 }
 
 #pragma mark - PermissionsConsumer

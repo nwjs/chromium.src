@@ -173,7 +173,7 @@ bool Frame::Detach(FrameDetachType type) {
   // the frame tree. https://crbug.com/578349.
   DisconnectOwnerElement();
   page_ = nullptr;
-  embedding_token_ = absl::nullopt;
+  embedding_token_ = std::nullopt;
 
   if (dev_jail_owner_) {
     dev_jail_owner_->setDevtoolsJail(nullptr);
@@ -376,15 +376,15 @@ bool Frame::IsFencedFrameRoot() const {
   return IsInFencedFrameTree() && IsMainFrame();
 }
 
-absl::optional<blink::FencedFrame::DeprecatedFencedFrameMode>
+std::optional<blink::FencedFrame::DeprecatedFencedFrameMode>
 Frame::GetDeprecatedFencedFrameMode() const {
   DCHECK(!IsDetached());
 
   if (!features::IsFencedFramesEnabled())
-    return absl::nullopt;
+    return std::nullopt;
 
   if (!IsInFencedFrameTree())
-    return absl::nullopt;
+    return std::nullopt;
 
   return GetPage()->DeprecatedFencedFrameMode();
 }

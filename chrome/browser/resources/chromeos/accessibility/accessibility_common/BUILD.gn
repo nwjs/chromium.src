@@ -47,43 +47,32 @@ misc_sources = [
 ]
 
 js_modules = [
-  "dictation/parse/input_text_strategy.js",
-  "dictation/parse/parse_strategy.js",
-  "dictation/parse/pumpkin/pumpkin_constants.js",
   "dictation/parse/pumpkin_parse_strategy.js",
   "dictation/parse/sandboxed_pumpkin_tagger.js",
   "dictation/parse/simple_parse_strategy.js",
-  "dictation/parse/speech_parser.js",
 ]
 
 # TS files to build.
 ts_modules = [
   "accessibility_common_loader.ts",
   "autoclick/autoclick.ts",
-  "dictation/context_checker.ts",
   "dictation/dictation.ts",
   "dictation/editing_util.ts",
   "dictation/focus_handler.ts",
-  "dictation/input_controller.ts",
+  "dictation/input_controller_impl.ts",
   "dictation/locale_info.ts",
   "dictation/metrics_utils.ts",
   "dictation/ui_controller.ts",
-  "dictation/macros/delete_prev_sent_macro.ts",
-  "dictation/macros/input_text_view_macro.ts",
   "dictation/macros/list_commands_macro.ts",
-  "dictation/macros/macro.ts",
-  "dictation/macros/macro_names.ts",
-  "dictation/macros/nav_sent_macro.ts",
-  "dictation/macros/repeat_macro.ts",
-  "dictation/macros/repeatable_key_press_macro.ts",
-  "dictation/macros/smart_delete_phrase_macro.ts",
-  "dictation/macros/smart_insert_before_macro.ts",
-  "dictation/macros/smart_replace_phrase_macro.ts",
-  "dictation/macros/smart_select_between_macro.ts",
-  "dictation/macros/stop_listening_macro.ts",
+  "dictation/parse/input_text_strategy.ts",
+  "dictation/parse/parse_strategy.ts",
+  "dictation/parse/pumpkin/pumpkin_constants.ts",
+  "dictation/parse/speech_parser.ts",
   "facegaze/facegaze.ts",
   "facegaze/gesture_detector.ts",
+  "facegaze/gesture_handler.ts",
   "facegaze/mouse_controller.ts",
+  "facegaze/macros/reset_cursor_macro.ts",
   "magnifier/magnifier.ts",
 ]
 
@@ -92,6 +81,7 @@ if (include_mediapipe_task_vision_files_for_facegaze) {
 }
 
 ts_definitions = [
+  "dictation/parse/pumpkin/pumpkin_tagger_externs.d.ts",
   "../definitions/accessibility_features_mv2.d.ts",
   "../definitions/accessibility_private_mv2.d.ts",
   "../definitions/audio.d.ts",
@@ -207,7 +197,10 @@ source_set("browser_tests") {
   ]
 
   if (include_mediapipe_task_vision_files_for_facegaze) {
-    deps += [ ":extract_mediapipe_task_vision_files" ]
+    deps += [
+      ":extract_mediapipe_task_vision_files",
+      ":extract_mediapipe_task_vision_files_for_test",
+    ]
   }
 
   data = [
@@ -302,6 +295,8 @@ action("pumpkin_test_files") {
   outputs = files_to_extract
 }
 
+# This rule extracts all mediapipe files for production.
+# TODO(b/309121742): Remove this rule and check-in the mediapipe JS sources.
 action("extract_mediapipe_task_vision_files") {
   script = "third_party/mediapipe_task_vision/unpack.py"
   sources = [ "third_party/mediapipe_task_vision/mediapipe_task_vision.tar.xz" ]
@@ -326,6 +321,28 @@ action("extract_mediapipe_task_vision_files") {
 
   args = [
     "--dest-dir=$mediapipe_task_vision_dir_rebased",
+    rebase_path(
+        "third_party/mediapipe_task_vision/mediapipe_task_vision.tar.xz",
+        root_build_dir),
+    string_join(",", files_to_extract),
+  ]
+  outputs = files_to_extract
+}
+
+# Extracts the FaceLandmarker model and WASM for testing purposes.
+action("extract_mediapipe_task_vision_files_for_test") {
+  testonly = true
+  script = "third_party/mediapipe_task_vision/unpack.py"
+  sources = [ "third_party/mediapipe_task_vision/mediapipe_task_vision.tar.xz" ]
+  out_dir = "$accessibility_common_dir/third_party/mediapipe_task_vision"
+
+  files_to_extract = [
+    "$out_dir/face_landmarker.task",
+    "$out_dir/vision_wasm_internal.wasm",
+  ]
+
+  args = [
+    "--dest-dir=resources/chromeos/accessibility/accessibility_common/third_party/mediapipe_task_vision",
     rebase_path(
         "third_party/mediapipe_task_vision/mediapipe_task_vision.tar.xz",
         root_build_dir),

@@ -3,7 +3,13 @@
 // found in the LICENSE file.
 
 #include <cstdint>
+#include <memory>
+#include <optional>
 
+#include "base/auto_reset.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
+#include "base/functional/callback_helpers.h"
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
@@ -56,6 +62,15 @@ using crosapi::mojom::SessionType;
 
 namespace {
 constexpr char kNavigationUrl[] = "https://www.google.com/";
+
+// Disables `AttemptUserExit` to avoid stopping Ash when the kiosk session
+// is finished. Otherwise all the following tests would be broken because Ash
+// is not running.
+std::unique_ptr<base::AutoReset<base::OnceClosure>> DisableAttemptUserExit() {
+  return KioskSessionServiceLacros::Get()->SetAttemptUserExitCallbackForTesting(
+      base::DoNothing());
+}
+
 }  // namespace
 
 class BrowserServiceLacrosBrowserTest : public InProcessBrowserTest {
@@ -95,21 +110,10 @@ class BrowserServiceLacrosBrowserTest : public InProcessBrowserTest {
           EXPECT_EQ(result, CreationResult::kSuccess);
         }));
     EXPECT_TRUE(use_callback);
-
-    // Verify `KioskBrowserSession` object is created when `NewFullscreenWindow`
-    // is called in the Web Kiosk session. Then, disable the `AttemptUserExit`
-    // method to do nothing.
-    if (chromeos::BrowserParamsProxy::Get()->SessionType() ==
-        SessionType::kWebKioskSession) {
-      chromeos::KioskBrowserSession* session =
-          KioskSessionServiceLacros::Get()->GetKioskBrowserSessionForTesting();
-      EXPECT_TRUE(session);
-      session->SetAttemptUserExitForTesting(base::DoNothing());
-    }
   }
 
-  Browser* CreateNewWindow() {
-    return Browser::Create(Browser::CreateParams(browser()->profile(), false));
+  void CreateNewWindow() {
+    Browser::Create(Browser::CreateParams(browser()->profile(), false));
   }
 
   void OpenProfileManager() { browser_service()->OpenProfileManager(); }
@@ -142,9 +146,10 @@ class BrowserServiceLacrosBrowserTest : public InProcessBrowserTest {
     EXPECT_EQ(new_window_future.Get(), expected_result);
   }
 
-  void NewTabSync(CreationResult expected_result) {
+  void NewTabSync(std::optional<uint64_t> profile_id,
+                  CreationResult expected_result) {
     base::test::TestFuture<CreationResult> new_tab_future;
-    browser_service()->NewTab(new_tab_future.GetCallback());
+    browser_service()->NewTab(profile_id, new_tab_future.GetCallback());
     ASSERT_TRUE(new_tab_future.Wait())
         << "NewTab did not trigger the callback.";
     EXPECT_EQ(new_tab_future.Get(), expected_result);
@@ -280,6 +285,19 @@ class BrowserServiceLacrosKioskBrowserTest
   BrowserServiceLacrosKioskBrowserTest()
       : BrowserServiceLacrosBrowserTest(
             crosapi::mojom::SessionType::kWebKioskSession) {}
+
+  void SetUpOnMainThread() override {
+    BrowserServiceLacrosBrowserTest::SetUpOnMainThread();
+    attempt_user_exit_reset_ = DisableAttemptUserExit();
+  }
+
+  void TearDownOnMainThread() override {
+    attempt_user_exit_reset_.reset();
+    BrowserServiceLacrosBrowserTest::TearDownOnMainThread();
+  }
+
+ private:
+  std::unique_ptr<base::AutoReset<base::OnceClosure>> attempt_user_exit_reset_;
 };
 
 IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosKioskBrowserTest,
@@ -287,9 +305,10 @@ IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosKioskBrowserTest,
   CreateFullscreenWindow();
 
   // The new window should be blocked in the web Kiosk session.
-  Browser* browser = CreateNewWindow();
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return browser->tab_strip_model()->closing_all(); }));
+  const size_t browser_count = BrowserList::GetInstance()->size();
+  CreateNewWindow();
+  ui_test_utils::WaitForBrowserToClose();
+  EXPECT_EQ(BrowserList::GetInstance()->size(), browser_count);
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosBrowserTest,
@@ -392,7 +411,8 @@ IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosBrowserTest,
 
   // `NewTab()` should create a new window if the system has only one
   // profile.
-  NewTabSync(CreationResult::kSuccess);
+  NewTabSync(/*profile_id=*/std::nullopt,
+             /*expected_result=*/CreationResult::kSuccess);
   EXPECT_EQ(1u, chrome::GetTotalBrowserCount());
   EXPECT_FALSE(ProfilePicker::IsOpen());
   ProfileManager* profile_manager = g_browser_process->profile_manager();
@@ -403,7 +423,8 @@ IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosBrowserTest,
   EXPECT_EQ(1, tab_strip->count());
 
   // Consequent `NewTab()` should add a new tab to an existing browser.
-  NewTabSync(CreationResult::kSuccess);
+  NewTabSync(/*profile_id=*/std::nullopt,
+             /*expected_result=*/CreationResult::kSuccess);
   EXPECT_EQ(2, tab_strip->count());
   EXPECT_FALSE(ProfilePicker::IsOpen());
 }
@@ -429,7 +450,8 @@ IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosBrowserTest,
   EXPECT_EQ(1, tab_strip->count());
 
   // `NewTab()` should add a tab to the main profile window;
-  NewTabSync(CreationResult::kSuccess);
+  NewTabSync(/*profile_id=*/std::nullopt,
+             /*expected_result=*/CreationResult::kSuccess);
   EXPECT_EQ(2, tab_strip->count());
 
   chrome::CloseAllBrowsers();
@@ -439,7 +461,8 @@ IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosBrowserTest,
   EXPECT_EQ(0u, chrome::GetTotalBrowserCount());
 
   // `NewTab()` should open the profile picker.
-  NewTabSync(CreationResult::kBrowserWindowUnavailable);
+  NewTabSync(/*profile_id=*/std::nullopt,
+             /*expected_result=*/CreationResult::kBrowserWindowUnavailable);
   EXPECT_EQ(0u, chrome::GetTotalBrowserCount());
   EXPECT_TRUE(ProfilePicker::IsOpen());
 }
@@ -468,14 +491,8 @@ class BrowserServiceLacrosWindowlessBrowserTest
   }
 };
 
-// TODO(crbug.com/1447850) This test constantly fail for internal builder.
-#if BUILDFLAG(IS_CHROMEOS_LACROS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#define MAYBE_HandlesUncleanExit DISABLED_HandlesUncleanExit
-#else
-#define MAYBE_HandlesUncleanExit HandlesUncleanExit
-#endif
 IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosWindowlessBrowserTest,
-                       MAYBE_HandlesUncleanExit) {
+                       HandlesUncleanExit) {
   // Browser launch should be suppressed with the kNoStartupWindow switch.
   ASSERT_FALSE(browser());
 
@@ -497,9 +514,10 @@ IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosWindowlessBrowserTest,
                 /*profile_id=*/std::nullopt, CreationResult::kUnknown);
 
   EXPECT_FALSE(ProfilePicker::IsOpen());
-  views::BubbleDialogDelegate* crash_bubble_delegate =
-      SessionCrashedBubbleView::GetInstanceForTest();
-  EXPECT_TRUE(crash_bubble_delegate);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return SessionCrashedBubbleView::GetInstanceForTest() != nullptr;
+  }));
+  EXPECT_FALSE(ProfilePicker::IsOpen());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosWindowlessBrowserTest,
@@ -709,8 +727,8 @@ IN_PROC_BROWSER_TEST_F(BrowserServiceLacrosNonSyncingProfilesBrowserTest,
       "Profile.LacrosPrimaryProfileFirstRunEntryPoint", 0);
 
   base::test::TestFuture<CreationResult> new_tab_future;
-  browser_service()->NewTab(
-      /*callback=*/new_tab_future.GetCallback());
+  browser_service()->NewTab(/*profile_id=*/std::nullopt,
+                            /*callback=*/new_tab_future.GetCallback());
   profiles::testing::CompleteLacrosFirstRun(LoginUIService::ABORT_SYNC);
 
   ASSERT_TRUE(new_tab_future.Wait()) << "NewTab did not trigger the callback.";
@@ -757,6 +775,19 @@ class BrowserServiceLacrosNonSyncingProfilesWebKioskBrowserTest
   BrowserServiceLacrosNonSyncingProfilesWebKioskBrowserTest()
       : BrowserServiceLacrosNonSyncingProfilesBrowserTest(
             crosapi::mojom::SessionType::kWebKioskSession) {}
+
+  void SetUpOnMainThread() override {
+    BrowserServiceLacrosNonSyncingProfilesBrowserTest::SetUpOnMainThread();
+    attempt_user_exit_reset_ = DisableAttemptUserExit();
+  }
+
+  void TearDownOnMainThread() override {
+    attempt_user_exit_reset_.reset();
+    BrowserServiceLacrosNonSyncingProfilesBrowserTest::TearDownOnMainThread();
+  }
+
+ private:
+  std::unique_ptr<base::AutoReset<base::OnceClosure>> attempt_user_exit_reset_;
 };
 
 IN_PROC_BROWSER_TEST_F(

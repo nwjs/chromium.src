@@ -28,7 +28,7 @@ BASE_FEATURE(kAndroidDownloadableFontsMatching,
 // without an origin trial token.
 BASE_FEATURE(kAttributionReportingCrossAppWebOverride,
              "AttributionReportingCrossAppWebOverride",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables controlling the time to live for pages in the BackForwardCache.
 // The time to live is defined by the param 'time_to_live_seconds'; if this
@@ -234,6 +234,14 @@ BASE_FEATURE(kForwardMemoryPressureEventsToGpuProcess,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+// Whether to use the Frame Routing Cache to avoid synchronous IPCs from the
+// renderer side for iframe creation.
+BASE_FEATURE(kFrameRoutingCache,
+             "FrameRoutingCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kFrameRoutingCacheResponseSize{
+    &kFrameRoutingCache, "responseSize", 4};
+
 // Adds "/prefetch:8" (which is the "other" category of process - i.e. not
 // browser, gpu, crashpad, etc.) to the info collection GPU process' command
 // line, in order to keep from polluting the GPU prefetch history.
@@ -369,7 +377,7 @@ BASE_FEATURE(kPrivacySandboxAdsAPIsM1Override,
 // one fails, a warning is simply displayed in DevTools.
 BASE_FEATURE(kPrivateNetworkAccessForNavigationsWarningOnly,
              "PrivateNetworkAccessForNavigationsWarningOnly",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables reporting ResourceTiming entries for document, who initiated a
 // cancelled navigation in one of their <iframe>.
@@ -406,6 +414,13 @@ BASE_FEATURE(kRequestFileSetCheckedInCanRequestURL,
 // Make sendBeacon throw for a Blob with a non simple type.
 BASE_FEATURE(kSendBeaconThrowForBlobWithNonSimpleType,
              "SendBeaconThrowForBlobWithNonSimpleType",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, try to reuse an unlocked renderer process when COOP swap is
+// happening on prerender initial navigation. Please see crbug.com/1519131 for
+// more details.
+BASE_FEATURE(kProcessReuseOnPrerenderCOOPSwap,
+             "ProcessReuseOnPrerenderCOOPSwap",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables process sharing for sites that do not require a dedicated process

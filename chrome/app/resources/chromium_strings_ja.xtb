@@ -15,7 +15,6 @@
 <translation id="1153368717515616349">Chromium メニューをクリックする</translation>
 <translation id="1185134272377778587">Chromium について</translation>
 <translation id="1203500561924088507">インストールいただきありがとうございます。<ph name="BUNDLE_NAME" /> を使用するにはブラウザを再起動してください。</translation>
-<translation id="1261119230216066228">メモリセーバーで Chromium の速度を向上</translation>
 <translation id="1262876892872089030">Chromium を高速に保つため、このタブがアクティブでないときにメモリを解放しました。このサイトを常にアクティブにするよう選択できます。</translation>
 <translation id="1265577313130862557">危険なファイルであるため、このダウンロードは Chromium でブロックされました</translation>
 <translation id="1315551408014407711">新しい Chromium プロファイルの設定</translation>
@@ -112,6 +111,7 @@
 <translation id="3032706164202344641">Chromium でパスワードを確認できません。しばらくしてからもう一度お試しください。</translation>
 <translation id="3032787606318309379">Chromium に追加...</translation>
 <translation id="3038232873781883849">インストールの待機中...</translation>
+<translation id="3068187312562070417">その他の Chromium プロフィール</translation>
 <translation id="3068515742935458733">障害レポートと<ph name="UMA_LINK" />を Google に自動送信して Chromium の機能向上に役立てる</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{1 つ以上の Chromium 拡張機能が 1 台の USB デバイスにアクセスしていました}=1{1 つ以上の Chromium 拡張機能が 1 台の USB デバイスにアクセスしています}other{1 つ以上の Chromium 拡張機能が # 台の USB デバイスにアクセスしています}}</translation>
 <translation id="3101560983689755071">閲覧履歴は、表示される広告と以下の推定された興味 / 関心に影響します。プライバシーを保護するために、Chromium ではユーザーの興味 / 関心が毎月順番に自動削除されます。ユーザーが削除しない限り、興味 / 関心は更新される可能性があります。</translation>
@@ -229,6 +229,7 @@
 <translation id="5294316920224716406">シークレット モードでブラウジングする際、Chromium で安全でない接続を使用してサイトを読み込む前に警告を表示します</translation>
 <translation id="5296845517486664001">Chromium の試用版がランダムに割り当てられた場合は、閲覧履歴が、表示される広告と以下の推定された興味 / 関心に影響します。プライバシーを保護するために、Chromium ではユーザーの興味 / 関心が毎月順番に削除されます。</translation>
 <translation id="5352264705793813212">安全に関する推奨事項をご確認ください</translation>
+<translation id="5352361688875342522">その他の Chromium プロフィール</translation>
 <translation id="5358375970380395591">現在、管理対象アカウントでログインしており、あなたの Chromium プロフィールを管理者が制御できる状態になっています。あなたの Chromium データ（アプリ、ブックマーク、履歴、パスワードなどの設定）は永続的に <ph name="USER_NAME" /> に関連付けられます。このデータは Google アカウントのダッシュボードを介して削除できますが、このデータを別のアカウントに関連付けることはできなくなります。<ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">他のコード: <ph name="EXTRA_CODE" />。</translation>
 <translation id="5383439451358640070">Chromium で一部のファイルがブロックされる理由</translation>
@@ -324,12 +325,12 @@
 <translation id="6669284030132180248">ブックマークを Google アカウントにも保存している場合は、Chromium で商品価格をトラッキングして、値下げがあったときに通知を受け取ることができます</translation>
 <translation id="6676384891291319759">インターネットにアクセス</translation>
 <translation id="668175097507315160">ログイン時にエラーが発生したため、Chromium OS はデータを同期できませんでした。</translation>
+<translation id="6692797197837897398">Chromium では、表示される広告を細かく管理でき、サイトがパーソナライズド広告を表示する際にユーザーについて把握できる情報も制限されます</translation>
 <translation id="6709350901466051922">このサイトを利用するには、Chromium でマイクの使用を許可する必要があります</translation>
 <translation id="6712881677154121168">ダウンロード エラー: <ph name="DOWNLOAD_ERROR" />。</translation>
 <translation id="6717134281241384636">バージョンが新しい Chromium のプロフィールは使用できません。
 
 一部の機能が利用できない可能性があります。別の場所のプロフィールを指定するか、新しいバージョンの Chromium をご使用ください。</translation>
-<translation id="6730677189742196061">メモリセーバーで Chromium の速度を向上</translation>
 <translation id="6734291798041940871">Chromium は既にパソコンのすべてのユーザーに対してインストールされています。</translation>
 <translation id="673636774878526923">お使いのすべてのデバイスで Chromium の設定やデータを使用するには、ログインして同期を有効にしてください。</translation>
 <translation id="67706546131546258">このファイルは危害を及ぼす可能性があるため、スキャンすることをおすすめします。</translation>
@@ -383,7 +384,6 @@
 <translation id="7617377681829253106">進化する Chromium</translation>
 <translation id="7649070708921625228">ヘルプ</translation>
 <translation id="7682213815243802460">これらの機能について詳しくは、Chromium の設定をご覧ください。</translation>
-<translation id="7682601070171973634">Chromium では、使用されるユーザーデータの量を抑えつつ、同じようにサイトをブラウジングできる新機能をテストしています</translation>
 <translation id="7686590090926151193">Chromium はデフォルトのブラウザとして設定されていません</translation>
 <translation id="7689606757190482937">同期してカスタマイズした Chromium をどのデバイスでも使用できます</translation>
 <translation id="7699779824407626136">Chromium の更新</translation>
@@ -391,6 +391,7 @@
 <translation id="7747138024166251722">インストーラーの一時ディレクトリを作成できませんでした。ディスクの空き領域とソフトウェアのインストール許可があることを確認してください。</translation>
 <translation id="7786760609782648049">Chromium を高速化する</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
+<translation id="7803986347287457849">あなたのインターネット トラフィックにアクセスできるユーザーに、あなたがアクセスしたサイトを知られないようにします。Chromium では、安全な接続を使用して、DNS（ドメイン ネーム システム）でサイトの IP アドレスを検索します。</translation>
 <translation id="7828947555739565424">このアカウントの Chromium プロファイルは、このデバイスにすでに存在します</translation>
 <translation id="7845233973568007926">インストールいただきありがとうございます。<ph name="BUNDLE_NAME" /> を使用するにはコンピュータを再起動してください。</translation>
 <translation id="7859018312476869945">Chromium でアドレスバーや検索ボックスに入力を始めると、入力内容がデフォルトの検索エンジンに送信され、より関連性の高い検索候補が表示されます。シークレット モードの場合、この設定はオフになっています。</translation>
@@ -412,7 +413,7 @@
 <translation id="8213374284266571500">危険なファイル形式のため Chromium でブロックされました</translation>
 <translation id="8248265253516264921">画像に有効な説明が設定されていない場合に、Chromium で説明を自動的に生成できるよう Google に画像が送信されます。この機能は設定でいつでも無効にできます。</translation>
 <translation id="8266560134891435528">ログインしていないため、Chromium でパスワードを確認できません</translation>
-<translation id="8286943863733751221">安全でないサイトやダウンロードが見つかると <ph name="BEGIN_LINK" />Chromium が警告<ph name="END_LINK" /></translation>
+<translation id="8286943863733751221">安全でないサイトやダウンロードが見つかると <ph name="BEGIN_LINK" />Chromium が警告<ph name="END_LINK" />します</translation>
 <translation id="8290862415967981663">このファイルは危険なファイルの可能性があるため、Chromium でブロックしました。</translation>
 <translation id="8318772038038596122"><ph name="TIMEOUT_DURATION" /> 使用しなかったため、Chromium は組織によって終了されます。</translation>
 <translation id="8325404639443959713">Chromium でもっと便利に</translation>

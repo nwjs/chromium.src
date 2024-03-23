@@ -75,9 +75,6 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocSchedulerLoopQuarantine);
 // Scheduler Loop Quarantine's capacity in bytes.
 extern const BASE_EXPORT base::FeatureParam<int>
     kPartitionAllocSchedulerLoopQuarantineCapacity;
-// Scheduler Loop Quarantine's capacity count.
-extern const BASE_EXPORT base::FeatureParam<int>
-    kPartitionAllocSchedulerLoopQuarantineCapacityCount;
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocZappingByFreeFlags);
 #endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
@@ -128,6 +125,23 @@ enum class BucketDistributionMode : uint8_t {
   kDefault,
   kDenser,
 };
+
+// Parameter for 'kPartitionAllocMakeFreeNoOpOnShutdown' feature which
+// controls when free() becomes a no-op during Shutdown()
+enum class WhenFreeBecomesNoOp {
+  // Allocator is inserted either before, in, or after shutdown threads
+  kBeforeShutDownThreads,
+  kInShutDownThreads,
+  kAfterShutDownThreads,
+};
+
+// Inserts a no-op on 'free()' allocator shim at the front of the
+// dispatch chain if called from the appropriate callsite.
+BASE_EXPORT void MakeFreeNoOp(WhenFreeBecomesNoOp callsite);
+
+BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocMakeFreeNoOpOnShutdown);
+extern const BASE_EXPORT base::FeatureParam<WhenFreeBecomesNoOp>
+    kPartitionAllocMakeFreeNoOpOnShutdownParam;
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocBackupRefPtr);
 extern const BASE_EXPORT base::FeatureParam<BackupRefPtrEnabledProcesses>

@@ -59,6 +59,7 @@
 <translation id="1877026089748256423">Chrome хуучирсан байна.</translation>
 <translation id="1919130412786645364">Chromium-д нэвтрэхийг зөвшөөрөх</translation>
 <translation id="1953553007165777902">Татаж байна... <ph name="MINUTE" /> минут үлдсэн</translation>
+<translation id="2001586581944147178">Таны интернэтийн ачаалалд хандах эрхтэй хүмүүст таны зочилдог сайтуудыг харахыг илүү хүндрэлтэй болгоно. Chrome DNS-с (Домэйн нэрийн систем) сайтын IP хаягийг хайхад аюулгүй холболт ашигладаг.</translation>
 <translation id="2018528049276128029">Профайл тус бүр Chrome-н өөрийн мэдээллийг агуулах бөгөөд үүнд хавчуурга, түүх, нууц үг болон бусад мэдээлэл багтана</translation>
 <translation id="2018879682492276940">Суулгаж чадсангүй. Дахин оролдоно уу.</translation>
 <translation id="2071318482926839249">Өөр бүртгэл аль хэдийн нэвтэрсэн байна. Таны хөтчийн үзэлтийг тусад нь байлгахын тулд Chrome танд өөрийн гэсэн профайл үүсгэж өгөх боломжтой.</translation>
@@ -77,6 +78,7 @@
 <translation id="2151406531797534936">Chrome-г одоо дахин эхлүүлнэ үү</translation>
 <translation id="2174917724755363426">Суулгаж дуусаагүй байна. Та цуцлахдаа итгэлтэй байна уу?</translation>
 <translation id="2190166659037789668">Шалгалтын алдааг шинэчлэх: <ph name="UPDATE_CHECK_ERROR" />.</translation>
+<translation id="2199691482078155239">Chrome танд хардаг заруудаа илүү сайн хянах илүү их хяналтыг өгдөг бөгөөд сайтуудыг танд хувийн болгосон зар харуулах үедээ таны талаар юу мэдэж авч болохыг хязгаарладаг</translation>
 <translation id="223889379102603431">Chrome өөрийн үндсэн гэрчилгээг хэрхэн удирддаг тухай мэдээлэл</translation>
 <translation id="2258103955319320201">Та бүх төхөөрөмж дээрээ Chrome хөтчийн зүйлсдээ хандахын тулд нэвтэрч, дараа нь синк хийхийг асаана уу</translation>
 <translation id="2290014774651636340">Google-ийн API түлхүүр байхгүй байна. Google Chrome-ийн зарим функц идэвхгүй болно.</translation>
@@ -139,7 +141,6 @@
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - Сүлжээнд нэвтрэх - Chrome</translation>
 <translation id="3018957014024118866">Мөн Chrome-с өгөгдөл устгах (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">&amp;ChromeOS Flex-г шинэчлэхийн тулд дахин ачаална уу</translation>
-<translation id="303514781271618814">Chrome нь сайтуудад таны өгөгдлийг бага хэмжээгээр ашиглах боломжийг олгодог шинэ боломжуудыг судалж байна</translation>
 <translation id="3037838751736561277">Google Chrome нь суурь горимд байна.</translation>
 <translation id="3038232873781883849">Суулгахыг хүлээж байна...</translation>
 <translation id="3059710691562604940">Аюулгүй үзэх онцлог унтраалттай байна. Chrome түүнийг асаахыг зөвлөж байна.</translation>
@@ -162,7 +163,6 @@
 <translation id="3360895254066713204">Chrome Helper</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome-г одоо дахин ажиллуулж байна}=1{Chrome-г 1 секундийн дотор дахин ажиллуулна}other{Chrome-г # секундийн дотор дахин ажиллуулна}}</translation>
 <translation id="3396977131400919238">Суулгах явцад үйлдлийн системд алдаа гарлаа. Google Chrome-ыг дахин татаж авна уу.</translation>
-<translation id="3426646014273736870">Санах ой хэмнэгч нь Chrome-г илүү хурдан болгосон</translation>
 <translation id="3428747202529429621">Таныг нэвтэрсэн үед Chrome дээр таны аюулгүй байдлыг хангадаг бөгөөд Google-н бусад апп дахь таны аюулгүй байдлыг сайжруулахын тулд ашиглагдах боломжтой</translation>
 <translation id="3434246496373299699">Chrome нь таныг Google Бүртгэлээрээ нэвтрэх үед таны нууц үгсийг шалгах боломжтой</translation>
 <translation id="3450887623636316740">Энэ файл аюултай байж магадгүй<ph name="LINE_BREAK" />Хэрэв та нууц үгээр хангавал Chrome энэ татаж авсан файлыг танд шалгаж өгөх боломжтой. Файлын талаарх мэдээллийг Google-н аюулгүй хөтөч рүү илгээдэг хэдий ч тухайн файлын контент болон нууц үг таны төхөөрөмжид үлддэг.</translation>
@@ -179,6 +179,7 @@
 <translation id="3635073343384702370">Таныг нууц үгнүүдээ хадгалах үед Chrome тэдгээрийг шалгах боломжтой</translation>
 <translation id="3667616615096815454">Суулгах боломжгүй. Аппликэйшнийг сервер танихгүй байна.</translation>
 <translation id="3673813398384385993">"<ph name="EXTENSION_NAME" />" хортой программ агуулж байгааг Chrome олж мэдлээ</translation>
+<translation id="3697952514309507634">Chrome-н бусад профайл</translation>
 <translation id="3703994572283698466">ChromeOS-г <ph name="BEGIN_LINK_LINUX_OSS" />Linux-н хөгжүүлэлтийн орчин <ph name="END_LINK_LINUX_OSS" /> болох нэмэлт <ph name="BEGIN_LINK_CROS_OSS" />нээлттэй эх кодын программ хангамжаар<ph name="END_LINK_CROS_OSS" /> боломжтой болгосон.</translation>
 <translation id="3716540481907974026">ChromeOS Flex-н хувилбар</translation>
 <translation id="3718181793972440140">Энэ нь төхөөрөмжөөс 1 зүйл устгах болно. Өгөгдлөө дараа сэргээхийн тулд Chrome-д <ph name="USER_EMAIL" />-р нэвтэрнэ үү.</translation>
@@ -318,7 +319,6 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="608006075545470555">Энэ хөтчид ажлын профайл нэмэх</translation>
 <translation id="6113794647360055231">Chrome илүү сайн боллоо</translation>
 <translation id="6145313976051292476">PDF-г Chrome-д нээх</translation>
-<translation id="6155960517327665396">Санах ой хэмнэгч нь Chrome-г илүү хурдан болгосон</translation>
 <translation id="6157638032135951407">Танай байгууллага Chrome-г <ph name="TIMEOUT_DURATION" />-н турш ашиглаагүй үед өгөгдлийг нь устгадаг. Үүнд түүх, автоматаар бөглөх хэсэг болон татаж авсан файлууд багтаж болно.</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Бета</translation>
@@ -434,6 +434,7 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="8019103195866286235">Энэ өргөтгөлийг хөгжүүлэгч нь нийтлэхээ больсон бөгөөд энэ нь аюултай байж магадгүй. Үүнийг Chrome-с хассанаар энэ нь цаашид таны хувийн мэдээллийг оруулаад зочилсон сайтуудын тань өгөгдлийг харах болон өөрчлөх боломжгүй болно.</translation>
 <translation id="80471789339884597">Суулгасанд баярлалаа. Та <ph name="BUNDLE_NAME" />-г ашиглахаасаа өмнө бүх хөтчөө дахин эхлүүлэх ёстой.</translation>
 <translation id="8064015586118426197">ChromeOS Flex</translation>
+<translation id="8077579734294125741">Chrome-н бусад профайл</translation>
 <translation id="8086881907087796310">Таны компьютер техник хангамжийн доод шаардлагад нийцэхгүй байгаа тул суулгалт амжилтгүй болсон.</translation>
 <translation id="8129812357326543296">Google Chrome-ийн тухай</translation>
 <translation id="813913629614996137">Эхлүүлж байна…</translation>

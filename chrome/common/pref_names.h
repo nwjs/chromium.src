@@ -381,6 +381,10 @@ inline constexpr char kContextualSearchWasFullyPrivacyEnabled[] =
 // Boolean pref recording whether cookie and data would be used only for
 // essential purposes.
 inline constexpr char kEssentialSearchEnabled[] = "essential_search_enabled";
+// Boolean pref recording the last applied value for kEssentialSearchEnabled
+// prefs.
+inline constexpr char kLastEssentialSearchValue[] =
+    "last_essential_search_value";
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_MAC)
@@ -624,22 +628,6 @@ inline constexpr char kLastSessionLength[] = "session.last_session_length";
 // honored for public accounts.
 inline constexpr char kTermsOfServiceURL[] = "terms_of_service.url";
 
-// A boolean pref recording whether user has dismissed the multiprofile
-// introduction dialog show.
-inline constexpr char kMultiProfileNeverShowIntro[] =
-    "settings.multi_profile_never_show_intro";
-
-// A boolean pref recording whether user has dismissed the multiprofile
-// teleport warning dialog show.
-inline constexpr char kMultiProfileWarningShowDismissed[] =
-    "settings.multi_profile_warning_show_dismissed";
-
-// A string pref that holds string enum values of how the user should behave
-// in a multiprofile session. See ChromeOsMultiProfileUserBehavior policy
-// for more details of the valid values.
-inline constexpr char kMultiProfileUserBehavior[] =
-    "settings.multiprofile_user_behavior";
-
 // A boolean preference indicating whether user has seen first-run tutorial
 // already.
 inline constexpr char kFirstRunTutorialShown[] =
@@ -654,12 +642,9 @@ inline constexpr char kFileSystemProviderMounted[] =
 inline constexpr char kTouchVirtualKeyboardEnabled[] =
     "ui.touch_virtual_keyboard_enabled";
 
-// This is the policy CaptivePortalAuthenticationIgnoresProxy that allows to
-// open captive portal authentication pages in a separate window under
-// a temporary incognito profile ("signin profile" is used for this purpose),
-// which allows to bypass the user's proxy for captive portal authentication.
-inline constexpr char kCaptivePortalAuthenticationIgnoresProxy[] =
-    "proxy.captive_portal_ignores_proxy";
+// A boolean pref to enable virtual keyboard smart visibility.
+inline constexpr char kVirtualKeyboardSmartVisibilityEnabled[] =
+    "ui.virtual_keyboard_smart_visibility_enabled";
 
 // A dictionary pref mapping public keys that identify platform keys to its
 // properties like whether it's meant for corporate usage.
@@ -1053,10 +1038,6 @@ inline constexpr char kLastChildScreenTimeReset[] =
 inline constexpr char kHelpAppNotificationLastShownMilestone[] =
     "help_app_notification_last_shown_milestone";
 
-// Last milestone on which an `UpdateNotification` was shown.
-inline constexpr char kUpdateNotificationLastShownMilestone[] =
-    "update_notification_last_shown_milestone";
-
 // Amount of times the release notes suggestion chip should be
 // shown before it disappears.
 inline constexpr char kReleaseNotesSuggestionChipTimesLeftToShow[] =
@@ -1441,6 +1422,11 @@ inline constexpr char kIsDefaultPageColorsOnHighContrast[] =
     "settings.a11y.is_default_page_colors_on_high_contrast";
 #endif  // BUILDFLAG(IS_WIN)
 
+// Boolean that indicates whether a user prefers to have default scrollbar
+// styles.
+inline constexpr char kPrefersDefaultScrollbarStyles[] =
+    "settings.a11y.prefers_default_scrollbar_styles";
+
 #if BUILDFLAG(IS_MAC)
 // Boolean that indicates whether the application should show the info bar
 // asking the user to set up automatic updates when Keystone promotion is
@@ -1457,12 +1443,20 @@ inline constexpr char kUseCustomChromeFrame[] = "browser.custom_chrome_frame";
 
 // Double that indicates the default zoom level.
 inline constexpr char kPartitionDefaultZoomLevel[] =
+#if !BUILDFLAG(IS_ANDROID)
     "partition.default_zoom_level";
+#else
+    "partition.default_zoom_level.android";
+#endif
 
 // Dictionary that maps hostnames to zoom levels.  Hosts not in this pref will
 // be displayed at the default zoom level.
 inline constexpr char kPartitionPerHostZoomLevels[] =
+#if !BUILDFLAG(IS_ANDROID)
     "partition.per_host_zoom_levels";
+#else
+    "partition.per_host_zoom_levels.android";
+#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 inline constexpr char kPinnedTabs[] = "pinned_tabs";
@@ -2197,9 +2191,6 @@ inline constexpr char kWasRestarted[] = "was.restarted";
 // Whether Extensions are enabled.
 inline constexpr char kDisableExtensions[] = "extensions.disabled";
 
-// Customized app page names that appear on the New Tab Page.
-inline constexpr char kNtpAppPageNames[] = "ntp.app_page_names";
-
 // Keeps track of which sessions are collapsed in the Other Devices menu.
 inline constexpr char kNtpCollapsedForeignSessions[] =
     "ntp.collapsed_foreign_sessions";
@@ -2260,9 +2251,6 @@ inline constexpr char kNtpWallpaperSearchHistory[] =
 inline constexpr char kSeedColorChangeCount[] =
     "colorpicker.SeedColorChangeCount";
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// Which page should be visible on the new tab page v4
-inline constexpr char kNtpShownPage[] = "ntp.shown_page";
 
 // A private RSA key for ADB handshake.
 inline constexpr char kDevToolsAdbKey[] = "devtools.adb_key";
@@ -2545,6 +2533,14 @@ inline constexpr char kKerberosEnabled[] = "kerberos.enabled";
 // Isolated Web App,
 inline constexpr char kIsolatedWebAppInstallForceList[] =
     "profile.isolated_web_app.install.forcelist";
+
+// Holds URL patterns that specify origins that will be allowed to call
+// `subApps.{add|remove|list}())` without prior user gesture and that will skip
+// the user dialog authorization.
+inline constexpr char
+    kSubAppsAPIsAllowedWithoutGestureAndAuthorizationForOrigins[] =
+        "profile.isolated_web_app.sub_apps_allowed_without_user_gesture_and_"
+        "authorization";
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
@@ -2792,11 +2788,6 @@ inline constexpr char kDeviceEnrollmentCanExit[] = "enrollment.can_exit";
 inline constexpr char kDeviceDMTokenV1[] = "device_dm_token";
 inline constexpr char kDeviceDMTokenV2[] = "device_dm_token_v2";
 
-// Key name of a dictionary in local state to store cached multiprofle user
-// behavior policy value.
-inline constexpr char kCachedMultiProfileUserBehavior[] =
-    "CachedMultiProfileUserBehavior";
-
 // A string pref with initial locale set in VPD or manifest.
 inline constexpr char kInitialLocale[] = "intl.initial_locale";
 
@@ -2908,6 +2899,10 @@ inline constexpr char
 // set for child users only, and kept on the known user storage.
 inline constexpr char kKnownUserParentAccessCodeConfig[] =
     "child_user.parent_access_code.config";
+
+// Pref that contains the value of the LocalUserFilesAllowed policy.
+inline constexpr char kLocalUserFilesAllowed[] =
+    "filebrowser.local_user_files_allowed";
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 // String which specifies where to store the disk cache.
@@ -3028,7 +3023,17 @@ inline constexpr char
     kRemoteAccessHostAllowEnterpriseRemoteSupportConnections[] =
         "enterprise_remote_support_connections_allowed";
 
+// A dictionary containing weekly time intervals to automatically sleep and wake
+// up the device.
+inline constexpr char kDeviceWeeklyScheduledSuspend[] =
+    "device_weekly_scheduled_suspend";
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+// Defines administrator-set availability of Chrome for Testing.
+inline constexpr char kChromeForTestingAllowed[] = "chrome_for_testing.allowed";
+#endif
 
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.
@@ -3964,6 +3969,10 @@ inline constexpr char kHttpsUpgradesEnabled[] =
 inline constexpr char kHoverCardImagesEnabled[] =
     "browser.hovercard.image_previews_enabled";
 
+// Whether hovercard memory usage is enabled
+inline constexpr char kHoverCardMemoryUsageEnabled[] =
+    "browser.hovercard.memory_usage_enabled";
+
 // Boolean that specifies whether Compression Dictionary Transport is enabled.
 inline constexpr char kCompressionDictionaryTransportEnabled[] =
     "net.compression_dictionary_transport_enabled";
@@ -4029,6 +4038,14 @@ inline constexpr char kCAHintCertificates[] =
 inline constexpr char kCAPlatformIntegrationEnabled[] =
     "certificates.ca_platform_integration_enabled";
 #endif  // BUILDFLAG(CHROME_CERTIFICATE_POLICIES_SUPPORTED)
+
+// Integer value controlling whether to show Work/School label next to the
+// avatar. This is used on the local state so that the management label is
+// always shown for managed profiles on unmanaged devices.
+// - 0: Always show the label
+// - 1: Show the label for 30s
+inline constexpr char kToolbarAvatarLabelSettings[] =
+    "toolbar_avatar.label.settings";
 
 }  // namespace prefs
 

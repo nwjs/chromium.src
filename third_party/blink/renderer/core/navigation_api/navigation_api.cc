@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/navigation_api/navigation_api.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/check_op.h"
 #include "base/feature_list.h"
@@ -200,6 +201,14 @@ void NavigationApi::InitializeForNewWindow(
     entries_.emplace_back(MakeEntryFromItem(*entry));
   PopulateKeySet();
   UpdateActivation(previous_entry, load_type);
+}
+
+void NavigationApi::UpdateCurrentEntryForTesting(HistoryItem& item) {
+  current_entry_index_++;
+  entries_.resize(current_entry_index_ + 1);
+  entries_[current_entry_index_] = MakeEntryFromItem(item);
+  keys_to_indices_.insert(entries_[current_entry_index_]->key(),
+                          current_entry_index_);
 }
 
 void NavigationApi::UpdateForNavigation(HistoryItem& item,
@@ -613,20 +622,20 @@ NavigationResult* NavigationApi::traverseTo(ScriptState* script_state,
   LocalFrame* frame = window_->GetFrame();
   scheduler::TaskAttributionInfo* task = nullptr;
   if (frame->IsOutermostMainFrame()) {
-    SoftNavigationHeuristics* heuristics =
-        SoftNavigationHeuristics::From(*window_);
-
-    heuristics->SameDocumentNavigationStarted(script_state);
-    auto* tracker = ThreadScheduler::Current()->GetTaskAttributionTracker();
-    if (tracker && script_state->World().IsMainWorld()) {
-      task = tracker->RunningTask(script_state);
-      tracker->AddSameDocumentNavigationTask(task);
+    if (SoftNavigationHeuristics* heuristics =
+            SoftNavigationHeuristics::From(*window_)) {
+      heuristics->SameDocumentNavigationStarted();
+      auto* tracker = ThreadScheduler::Current()->GetTaskAttributionTracker();
+      if (tracker && script_state->World().IsMainWorld()) {
+        task = tracker->RunningTask(script_state->GetIsolate());
+        tracker->AddSameDocumentNavigationTask(task);
+      }
     }
   }
   frame->GetLocalFrameHostRemote().NavigateToNavigationApiKey(
       key, LocalFrame::HasTransientUserActivation(frame),
-      task ? absl::optional<scheduler::TaskAttributionId>(task->Id())
-           : absl::nullopt);
+      task ? std::optional<scheduler::TaskAttributionId>(task->Id())
+           : std::nullopt);
   return api_method_tracker->GetNavigationResult();
 }
 
@@ -830,20 +839,20 @@ NavigationApi::DispatchResult NavigationApi::DispatchNavigateEvent(
       params->source_element->GetExecutionContext() == window_) {
     init->setSourceElement(params->source_element);
   }
-  // This unique_ptr needs to be in the function's scope, to maintain the
-  // SoftNavigationEventScope until the event handler runs.
-  std::unique_ptr<SoftNavigationEventScope> soft_navigation_scope;
-  if (base::FeatureList::IsEnabled(features::kSoftNavigationDetection)) {
-    auto* soft_navigation_heuristics = SoftNavigationHeuristics::From(*window_);
-    if (soft_navigation_heuristics && init->userInitiated() &&
-        !init->downloadRequest() && init->canIntercept()) {
-      // If these conditions are met, create a SoftNavigationEventScope to
-      // consider this a "user initiated click", and the dispatched event
-      // handlers as potential soft navigation tasks.
-      soft_navigation_scope = std::make_unique<SoftNavigationEventScope>(
-          soft_navigation_heuristics,
-          SoftNavigationHeuristics::EventScopeType::kNavigate,
-          /*is_new_interaction=*/true);
+
+  std::optional<SoftNavigationHeuristics::EventScope> soft_navigation_scope;
+  if (params->frame_load_type != WebFrameLoadType::kReplaceCurrentItem &&
+      base::FeatureList::IsEnabled(features::kSoftNavigationDetection)) {
+    if (auto* heuristics = SoftNavigationHeuristics::From(*window_)) {
+      if (init->userInitiated() && !init->downloadRequest() &&
+          init->canIntercept()) {
+        // If these conditions are met, create a SoftNavigationEventScope to
+        // consider this a "user initiated click", and the dispatched event
+        // handlers as potential soft navigation tasks.
+        soft_navigation_scope = heuristics->CreateEventScope(
+            SoftNavigationHeuristics::EventScope::Type::kNavigate,
+            /*is_new_interaction=*/true);
+      }
     }
   }
   auto* navigate_event = NavigateEvent::Create(

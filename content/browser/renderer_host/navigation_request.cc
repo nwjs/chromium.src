@@ -57,6 +57,7 @@
 #include "content/browser/loader/navigation_early_hints_manager.h"
 #include "content/browser/loader/navigation_url_loader.h"
 #include "content/browser/loader/object_navigation_fallback_body_loader.h"
+#include "content/browser/loader/url_loader_factory_utils.h"
 #include "content/browser/navigation_or_document_handle.h"
 #include "content/browser/network/cross_origin_embedder_policy_reporter.h"
 #include "content/browser/network/cross_origin_opener_policy_reporter.h"
@@ -242,7 +243,7 @@ const char kIsolatedAppCSP[] =
     "default-src 'self';"
     "object-src 'none';"
     "frame-src 'self' https: blob: data:;"
-    "connect-src 'self' https: wss:;"
+    "connect-src 'self' https: wss: blob: data:;"
     "script-src 'self' 'wasm-unsafe-eval';"
     "img-src 'self' https: blob: data:;"
     "media-src 'self' https: blob: data:;"
@@ -432,7 +433,9 @@ void AddAdditionalRequestHeaders(
   if (frame_tree_node->frame_tree().is_prerendering()) {
     headers->SetHeader("Sec-Purpose", "prefetch;prerender");
     headers->SetHeader("Purpose", "prefetch");
-  } else if (frame_tree_node->frame_tree().page_delegate()->IsInPreviewMode()) {
+  } else if (frame_tree_node->frame_tree()
+                 .page_delegate()
+                 ->IsPageInPreviewMode()) {
     // Preview mode sends similar request so that it is compatible with
     // prerendering as we can as possible, but adds `preview` for sites that
     // need to identify the preview case from prerendering.
@@ -1960,7 +1963,7 @@ NavigationRequest::NavigationRequest(
       auto* storage_partition =
           frame_tree_node_->current_frame_host()->GetStoragePartition();
       storage_partition->GetNetworkContext()->PreconnectSockets(
-          1, common_params_->url, true,
+          1, common_params_->url, network::mojom::CredentialsMode::kInclude,
           GetIsolationInfo().network_anonymization_key());
     }
   }
@@ -3423,8 +3426,8 @@ void NavigationRequest::OnRequestRedirected(
   // the spare at this time (note that the actual behavior depends on
   // RenderProcessHostImpl::IsSpareProcessKeptAtAllTimes).
   if (!site_instance->HasProcess()) {
-    RenderProcessHostImpl::NotifySpareManagerAboutRecentlyUsedBrowserContext(
-        site_instance->GetBrowserContext());
+    RenderProcessHostImpl::NotifySpareManagerAboutRecentlyUsedSiteInstance(
+        site_instance.get());
   }
 
   // Check what the process of the SiteInstance is. It will be passed to the
@@ -4103,7 +4106,7 @@ void NavigationRequest::OnResponseStarted(
     GlobalRequestID request_id,
     bool is_download,
     net::NetworkAnonymizationKey network_anonymization_key,
-    std::optional<SubresourceLoaderParams> subresource_loader_params,
+    SubresourceLoaderParams subresource_loader_params,
     EarlyHints early_hints) {
   receive_response_time_ = base::TimeTicks::Now();
   TRACE_EVENT_WITH_FLOW0("navigation", "NavigationRequest::OnResponseStarted",
@@ -4368,7 +4371,7 @@ void NavigationRequest::OnResponseStarted(
 void NavigationRequest::SelectFrameHostForOnResponseStarted(
     network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
     bool is_download,
-    std::optional<SubresourceLoaderParams> subresource_loader_params) {
+    SubresourceLoaderParams subresource_loader_params) {
   TRACE_EVENT_WITH_FLOW0(
       "navigation", "NavigationRequest::SelectFrameHostForOnResponseStarted",
       TRACE_ID_WITH_SCOPE(kNavigationRequestScope,
@@ -4742,15 +4745,18 @@ NavigationRequest::CreateNavigationEarlyHintsManagerParams(
   net::IsolationInfo isolation_info = url_loader_factory_params->isolation_info;
 
   // TODO(crbug.com/1225556): Support DevTools instrumentation and extension's
-  // WebRequest API in a way similar to
-  // RenderFrameHostImpl::WillCreateURLLoaderFactory.
-  mojo::Remote<network::mojom::URLLoaderFactory> loader_factory;
-  process->CreateURLLoaderFactory(loader_factory.BindNewPipeAndPassReceiver(),
-                                  std::move(url_loader_factory_params));
+  // WebRequest API.
+  auto loader_factory = url_loader_factory::CreatePendingRemote(
+      ContentBrowserClient::URLLoaderFactoryType::kEarlyHints,
+      url_loader_factory::TerminalParams::ForNetworkContext(
+          process->GetStoragePartition()->GetNetworkContext(),
+          std::move(url_loader_factory_params)));
 
   did_create_early_hints_manager_params_ = true;
   return NavigationEarlyHintsManagerParams(
-      tentative_origin, std::move(isolation_info), std::move(loader_factory));
+      tentative_origin, std::move(isolation_info),
+      mojo::Remote<network::mojom::URLLoaderFactory>(
+          std::move(loader_factory)));
 }
 
 void NavigationRequest::OnRequestFailedInternal(
@@ -6028,10 +6034,9 @@ void NavigationRequest::CommitNavigation() {
   auto common_params = common_params_->Clone();
   auto commit_params = commit_params_.Clone();
   auto response_head = response_head_.Clone();
-  if (subresource_loader_params_ &&
-      !subresource_loader_params_->prefetched_signed_exchanges.empty()) {
+  if (!subresource_loader_params_.prefetched_signed_exchanges.empty()) {
     commit_params->prefetched_signed_exchanges =
-        std::move(subresource_loader_params_->prefetched_signed_exchanges);
+        std::move(subresource_loader_params_.prefetched_signed_exchanges);
   }
 
   GetRenderFrameHost()->CommitNavigation(
@@ -6046,8 +6051,8 @@ void NavigationRequest::CommitNavigation() {
   // Give SpareRenderProcessHostManager a heads-up about the most recently used
   // BrowserContext.  This is mostly needed to make sure the spare is warmed-up
   // if it wasn't done in RenderProcessHostImpl::GetProcessHostForSiteInstance.
-  RenderProcessHostImpl::NotifySpareManagerAboutRecentlyUsedBrowserContext(
-      GetRenderFrameHost()->GetSiteInstance()->GetBrowserContext());
+  RenderProcessHostImpl::NotifySpareManagerAboutRecentlyUsedSiteInstance(
+      GetRenderFrameHost()->GetSiteInstance());
 
   SendDeferredConsoleMessages();
 }
@@ -10262,6 +10267,60 @@ url::Origin NavigationRequest::GetOriginForURLLoaderFactoryUnchecked() {
 
 bool NavigationRequest::HasLoader() const {
   return loader_.get() != nullptr;
+}
+
+blink::mojom::PageConcealEventParamsPtr
+NavigationRequest::WillDispatchPageConceal() {
+  CHECK(!did_fire_page_conceal_);
+
+  did_fire_page_conceal_ = true;
+
+  // The `pageconceal` event is fired on the old Document to provide information
+  // about the new Document. The information shared must be restricted to
+  // same-origin Documents.
+  const bool is_same_origin =
+      frame_tree_node_->current_origin().IsSameOriginWith(common_params_->url);
+  if (!is_same_origin) {
+    return nullptr;
+  }
+
+  CHECK(!frame_tree_node_->current_origin().opaque());
+
+  auto page_conceal_event_params = blink::mojom::PageConcealEventParams::New();
+  page_conceal_event_params->url = common_params_->url;
+
+  switch (common_params_->navigation_type) {
+    case blink::mojom::NavigationType::RELOAD:
+    case blink::mojom::NavigationType::RELOAD_BYPASSING_CACHE:
+      page_conceal_event_params->navigation_type =
+          blink::mojom::NavigationTypeForNavigationApi::kReload;
+      break;
+
+    case blink::mojom::NavigationType::HISTORY_DIFFERENT_DOCUMENT:
+      page_conceal_event_params->navigation_type =
+          blink::mojom::NavigationTypeForNavigationApi::kTraverse;
+      page_conceal_event_params->page_state = commit_params_->page_state;
+      break;
+
+    case blink::mojom::NavigationType::DIFFERENT_DOCUMENT:
+      page_conceal_event_params->navigation_type =
+          common_params_->should_replace_current_entry
+              ? blink::mojom::NavigationTypeForNavigationApi::kReplace
+              : blink::mojom::NavigationTypeForNavigationApi::kPush;
+      break;
+
+    case blink::mojom::NavigationType::RESTORE:
+    case blink::mojom::NavigationType::RESTORE_WITH_POST:
+      NOTREACHED_NORETURN()
+          << "session restore should not have an old Document";
+
+    case blink::mojom::NavigationType::HISTORY_SAME_DOCUMENT:
+    case blink::mojom::NavigationType::SAME_DOCUMENT:
+      NOTREACHED_NORETURN()
+          << "Same-document navigations shouldn't fire pageconceal";
+  }
+
+  return page_conceal_event_params;
 }
 
 void NavigationRequest::MaybeRecordTraceEventsAndHistograms() {

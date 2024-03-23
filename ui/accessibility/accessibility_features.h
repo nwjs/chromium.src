@@ -76,10 +76,6 @@ AX_BASE_EXPORT bool IsAccessibilityAriaVirtualContentEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityExposeHTMLElement);
 AX_BASE_EXPORT bool IsAccessibilityExposeHTMLElementEnabled();
 
-// Expose all ignored nodes by Blink in the accessibility tree.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityExposeIgnoredNodes);
-AX_BASE_EXPORT bool IsAccessibilityExposeIgnoredNodesEnabled();
-
 // Use language detection to determine the language
 // of text content in page and exposed to the browser process AXTree.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityLanguageDetection);
@@ -180,10 +176,6 @@ AX_BASE_EXPORT bool IsAccessibilityMagnifierFollowsStsEnabled();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_ANDROID)
-// Filter AXModes based on running accessibility services.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPerformanceFiltering);
-AX_BASE_EXPORT bool IsAccessibilityPerformanceFilteringEnabled();
-
 // Disable max node and timeout limits on the
 // AXTreeSnapshotter's Snapshot method, and track related histograms.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySnapshotStressTests);
@@ -259,9 +251,20 @@ AX_BASE_EXPORT bool IsReadAnythingWithScreen2xEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingWithAlgorithm);
 AX_BASE_EXPORT bool IsReadAnythingWithAlgorithmEnabled();
 
+// Enable images to be distilled via algorithm. Should be disabled by
+// default.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingImagesViaAlgorithm);
+AX_BASE_EXPORT bool IsReadAnythingImagesViaAlgorithmEnabled();
+
 // Write some ScreenAI library debug data in /tmp.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kScreenAIDebugMode);
 AX_BASE_EXPORT bool IsScreenAIDebugModeEnabled();
+
+// ScreenAI library's Main Content Extraction service is enabled.
+AX_BASE_EXPORT bool IsScreenAIMainContentExtractionEnabled();
+
+// ScreenAI library's OCR service is enabled.
+AX_BASE_EXPORT bool IsScreenAIOCREnabled();
 
 // Enables to use the Screen AI component available for testing.
 // If enabled, ScreenAI library will be loaded from //third_party/screen-ai.

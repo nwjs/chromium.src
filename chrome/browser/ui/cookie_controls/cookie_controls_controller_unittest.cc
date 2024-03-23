@@ -25,7 +25,9 @@
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/cookie_access_details.h"
+#include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
+#include "net/http/http_response_headers.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -278,9 +280,9 @@ TEST_P(CookieControlsUserBypassTest, SiteCounts) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(0, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kLow));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://example.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -288,9 +290,9 @@ TEST_P(CookieControlsUserBypassTest, SiteCounts) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -314,9 +316,9 @@ TEST_P(CookieControlsUserBypassTest, SiteCounts) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 1));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://anotherthirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/true);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -340,9 +342,9 @@ TEST_P(CookieControlsUserBypassTest, SiteCounts) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 1));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -350,9 +352,9 @@ TEST_P(CookieControlsUserBypassTest, SiteCounts) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(2, 1));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://anothersite.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -778,9 +780,9 @@ TEST_P(CookieControlsUserBypassTest, FrequentPageReloads) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -789,9 +791,9 @@ TEST_P(CookieControlsUserBypassTest, FrequentPageReloads) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -803,9 +805,9 @@ TEST_P(CookieControlsUserBypassTest, FrequentPageReloads) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kHigh));
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   cookie_controls()->OnEntryPointAnimated();
   testing::Mock::VerifyAndClearExpectations(mock());
@@ -824,9 +826,9 @@ TEST_P(CookieControlsUserBypassTest, FrequentPageReloads) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
   NavigateAndCommit(GURL("https://somethingelse.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://anotherthirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 }
@@ -857,9 +859,9 @@ TEST_P(CookieControlsUserBypassTest, FrequentPageReloadsMetrics) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -868,9 +870,9 @@ TEST_P(CookieControlsUserBypassTest, FrequentPageReloadsMetrics) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -882,9 +884,9 @@ TEST_P(CookieControlsUserBypassTest, FrequentPageReloadsMetrics) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kHigh));
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -940,9 +942,9 @@ TEST_P(CookieControlsUserBypassTest, InfrequentPageReloads) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -951,9 +953,9 @@ TEST_P(CookieControlsUserBypassTest, InfrequentPageReloads) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -966,9 +968,9 @@ TEST_P(CookieControlsUserBypassTest, InfrequentPageReloads) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -1033,9 +1035,9 @@ TEST_P(CookieControlsUserBypassTest, HighSiteEngagement) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kHigh));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   cookie_controls()->OnEntryPointAnimated();
   testing::Mock::VerifyAndClearExpectations(mock());
@@ -1067,9 +1069,9 @@ TEST_P(CookieControlsUserBypassTest, HighSiteEngagement) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://anotherthirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -1079,9 +1081,9 @@ TEST_P(CookieControlsUserBypassTest, HighSiteEngagement) {
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
   NavigateAndCommit(GURL("https://highengagement.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 }
@@ -1125,9 +1127,9 @@ TEST_P(CookieControlsUserBypassTest, StorageAccessApiHighSiteEngagement) {
   EXPECT_CALL(*mock(), OnSitesCountChanged(1, 0));
   EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
                            CookieControlsBreakageConfidenceLevel::kMedium));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -1421,9 +1423,9 @@ TEST_P(CookieControlsUserBypassTest, HighConfidenceAfterExpiration) {
   }
 
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/true);
   EXPECT_CALL(
       *mock(),
@@ -1470,9 +1472,9 @@ TEST_P(CookieControlsUserBypassTest, HighConfidenceAfterExpiration) {
 
   // Visiting the site after exception expires leads to high confidence signal.
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/true);
   EXPECT_CALL(
       *mock(),
@@ -1493,9 +1495,9 @@ TEST_P(CookieControlsUserBypassTest, HighConfidenceAfterExpiration) {
   // signal.
   FastForwardBy(base::Seconds(30));
   NavigateAndCommit(GURL("https://example.com"));
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/true);
   EXPECT_CALL(
       *mock(),
@@ -1580,13 +1582,13 @@ TEST_P(CookieControlsUserBypassTest, CachedCookieAccessReports) {
   // count being fired twice (no caching).
   testing::Mock::VerifyAndClearExpectations(mock());
   EXPECT_CALL(*mock(), OnSitesCountChanged(3, 0)).Times(2);
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://another-example.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
-  page_specific_content_settings()->OnStorageAccessed(
-      StorageType::DATABASE,
+  page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://another-example.com")),
+      BrowsingDataModel::StorageType::kQuotaStorage,
       /*blocked_by_policy=*/false);
 
   // Re-navigating to the page should result in the cache being cleared, and
@@ -1601,6 +1603,26 @@ TEST_P(CookieControlsUserBypassTest, CachedCookieAccessReports) {
        origin1,
        {*cookie1},
        false});
+}
+
+TEST_P(CookieControlsUserBypassTest, SandboxedTopLevelFrame) {
+  if (!GetParam()) {
+    return;
+  }
+
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>("");
+  headers->SetHeader("Content-Security-Policy", "sandbox");
+
+  auto navigation = content::NavigationSimulator::CreateBrowserInitiated(
+      GURL("https://example.com"), web_contents());
+  navigation->SetResponseHeaders(headers);
+  navigation->Start();
+  navigation->Commit();
+
+  EXPECT_CALL(*mock(), OnBreakageConfidenceLevelChanged(
+                           CookieControlsBreakageConfidenceLevel::kMedium));
+  cookie_controls()->Update(web_contents());
+  testing::Mock::VerifyAndClearExpectations(mock());
 }
 
 INSTANTIATE_TEST_SUITE_P(All, CookieControlsUserBypassTest, testing::Bool());

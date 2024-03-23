@@ -730,7 +730,7 @@ NSString* const kOmniboxFadeAnimationKey = @"OmniboxFadeAnimation";
 
 - (void)forwardKeyCommandRight {
   [self.omniboxKeyboardDelegate
-      performKeyboardAction:OmniboxKeyboardActionDownArrow];
+      performKeyboardAction:OmniboxKeyboardActionRightArrow];
 }
 
 - (NSArray<UIKeyCommand*>*)keyCommands {
@@ -751,14 +751,10 @@ NSString* const kOmniboxFadeAnimationKey = @"OmniboxFadeAnimation";
                           modifierFlags:0
                                  action:@selector(forwardKeyCommandRight)];
 
-#if defined(__IPHONE_15_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_15_0
-  if (@available(iOS 15, *)) {
-    commandUp.wantsPriorityOverSystemBehavior = YES;
-    commandDown.wantsPriorityOverSystemBehavior = YES;
-    commandLeft.wantsPriorityOverSystemBehavior = YES;
-    commandRight.wantsPriorityOverSystemBehavior = YES;
-  }
-#endif
+  commandUp.wantsPriorityOverSystemBehavior = YES;
+  commandDown.wantsPriorityOverSystemBehavior = YES;
+  commandLeft.wantsPriorityOverSystemBehavior = YES;
+  commandRight.wantsPriorityOverSystemBehavior = YES;
   return @[ commandUp, commandDown, commandLeft, commandRight ];
 }
 

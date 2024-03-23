@@ -200,6 +200,8 @@ buildflag_header("partition_alloc_buildflags") {
 
     "FORCE_ENABLE_RAW_PTR_EXCLUSION=$force_enable_raw_ptr_exclusion",
 
+    "USE_FULL_MTE=use_full_mte",
+
     "RECORD_ALLOC_INFO=$_record_alloc_info",
     "USE_FREESLOT_BITMAP=$use_freeslot_bitmap",
     "GLUE_CORE_POOLS=$_glue_core_pools",
@@ -337,7 +339,7 @@ if (is_clang_or_gcc) {
       # This is already set when we compile libc++, see
       # buildtools/third_party/libc++/BUILD.gn. But it needs to be set here as
       # well, since the shim defines the symbols, to prevent them being exported.
-      cflags = [ "-fvisibility-global-new-delete-hidden" ]
+      cflags = [ "-fvisibility-global-new-delete=force-hidden" ]
     }
   }
 
@@ -799,13 +801,17 @@ if (is_clang_or_gcc) {
     shim_headers = []
     shim_sources = []
 
-    shim_sources += [ "shim/allocator_shim.cc" ]
+    shim_sources += [
+      "shim/allocator_shim.cc",
+      "shim/allocator_shim_dispatch_to_noop_on_free.cc",
+    ]
     shim_headers += [
       "shim/allocator_shim.h",
       "shim/allocator_shim_internals.h",
       "shim/shim_alloc_functions.h",
       "shim/allocator_shim_functions.h",
       "shim/allocator_dispatch.h",
+      "shim/allocator_shim_dispatch_to_noop_on_free.h",
     ]
     if (use_partition_alloc) {
       shim_sources += [

@@ -9,18 +9,21 @@
 #include "base/strings/string_util.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/api/test/test_api.h"
+#include "extensions/common/extension_id.h"
 
 ExtensionTestMessageListener::ExtensionTestMessageListener(
     const std::string& expected_message,
     ReplyBehavior reply_behavior)
-    : expected_message_(expected_message), reply_behavior_(reply_behavior) {
+  : expected_message_(expected_message), reply_behavior_(reply_behavior),
+    run_loop_(new base::RunLoop())
+{
   test_api_observation_.Observe(
       extensions::TestApiObserverRegistry::GetInstance());
 }
 
 ExtensionTestMessageListener::ExtensionTestMessageListener(
     ReplyBehavior reply_behavior)
-    : reply_behavior_(reply_behavior) {
+  : reply_behavior_(reply_behavior), run_loop_(new base::RunLoop()) {
   test_api_observation_.Observe(
       extensions::TestApiObserverRegistry::GetInstance());
 }
@@ -32,9 +35,9 @@ ExtensionTestMessageListener::~ExtensionTestMessageListener() {
 bool ExtensionTestMessageListener::WaitUntilSatisfied() {
   if (satisfied_)
     return !failed_;
-  base::RunLoop run_loop;
-  quit_wait_closure_ = run_loop.QuitWhenIdleClosure();
-  run_loop.Run();
+  quit_wait_closure_ = run_loop_->QuitWhenIdleClosure();
+  run_loop_->Run();
+  run_loop_.reset(new base::RunLoop());
   return !failed_;
 }
 
@@ -72,7 +75,7 @@ bool ExtensionTestMessageListener::OnTestMessage(
     const std::string& message) {
   // Return immediately if we're already satisfied or it's not the right
   // extension.
-  std::string sender_extension_id;
+  extensions::ExtensionId sender_extension_id;
   if (function->extension())
     sender_extension_id = function->extension_id();
 

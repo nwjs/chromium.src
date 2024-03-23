@@ -11,6 +11,7 @@
 
 #include "base/functional/bind.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_id.h"
 #include "extensions/common/mojom/view_type.mojom.h"
 #include "extensions/common/view_type_util.h"
 #include "extensions/renderer/extension_frame_helper.h"
@@ -54,7 +55,7 @@ void RuntimeCustomBindings::GetExtensionViews(
   if (!parsed_view_type)
     CHECK_EQ("ALL", view_type_string);
 
-  const std::string& extension_id = context()->GetExtensionID();
+  const ExtensionId& extension_id = context()->GetExtensionID();
   // id is empty while calling from external page. we want to do
   // this for window controlling. note the case that there are
   // multiple extensions in the process, e.g. the automation extension

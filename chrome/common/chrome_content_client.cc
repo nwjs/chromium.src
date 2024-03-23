@@ -85,7 +85,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PDF)
-#include "components/pdf/common/internal_plugin_helpers.h"
+#include "components/pdf/common/constants.h"
 #endif
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)

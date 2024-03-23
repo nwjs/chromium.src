@@ -10,12 +10,13 @@ import '//resources/cr_elements/cr_textarea/cr_textarea.js';
 import '//resources/cr_elements/cr_expand_button/cr_expand_button.js';
 import '//resources/polymer/v3_0/iron-collapse/iron-collapse.js';
 
-import {CrInputElement} from '//resources/cr_elements/cr_input/cr_input.js';
+import type {CrInputElement} from '//resources/cr_elements/cr_input/cr_input.js';
 import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {getTemplate} from './app.html.js';
 import {BrowserProxy} from './browser_proxy.js';
-import {LoadModelResult, OnDeviceModelRemote, PerformanceClass, ResponseChunk, ResponseSummary, SessionRemote, StreamingResponderCallbackRouter} from './on_device_model.mojom-webui.js';
+import type {ResponseChunk, ResponseSummary} from './on_device_model.mojom-webui.js';
+import {LoadModelResult, OnDeviceModelRemote, PerformanceClass, SessionRemote, StreamingResponderCallbackRouter} from './on_device_model.mojom-webui.js';
 
 interface Response {
   text: string;
@@ -174,7 +175,8 @@ class OnDeviceInternalsAppElement extends PolymerElement {
     const {result} = await this.proxy_.handler.loadModel(
         {path: processedPath}, newModel.$.bindNewPipeAndPassReceiver());
     if (result !== LoadModelResult.kSuccess) {
-      this.error_ = 'Unable to load model';
+      this.error_ =
+          'Unable to load model. Specify a correct and absolute path.';
     } else {
       this.model_ = newModel;
       this.model_.onConnectionError.addListener(() => {

@@ -109,6 +109,7 @@
 #include "chrome/browser/safe_browsing/android/password_reuse_controller_android.h"
 #include "chrome/browser/safe_browsing/android/safe_browsing_referring_app_bridge_android.h"
 #include "components/password_manager/core/browser/password_check_referrer_android.h"
+#include "components/password_manager/core/browser/password_store/split_stores_and_local_upm.h"
 #include "ui/android/window_android.h"
 #else
 #include "chrome/browser/ui/browser_list.h"
@@ -1124,12 +1125,12 @@ void ChromePasswordProtectionService::OpenPasswordCheck(
       if (credentials_store.is_account_store) {
         should_show_checkup_for_local = false;
       } else if (credentials_store.is_profile_store && is_syncing_passwords &&
-                 !password_manager_android_util::UsesSplitStoresAndUPMForLocal(
+                 !password_manager::UsesSplitStoresAndUPMForLocal(
                      profile_->GetPrefs())) {
         should_show_checkup_for_local = false;
       }
       checkup_launcher_->LaunchCheckupOnDevice(
-          env, web_contents->GetTopLevelNativeWindow(),
+          env, profile_, web_contents->GetTopLevelNativeWindow(),
           password_manager::PasswordCheckReferrerAndroid::kPhishedWarningDialog,
           should_show_checkup_for_local ? "" : account);
     }
@@ -1407,8 +1408,9 @@ void ChromePasswordProtectionService::UpdateSecurityState(
 
   const GURL url_with_empty_path = url.GetWithEmptyPath();
   if (threat_type == SB_THREAT_TYPE_SAFE) {
-    ui_manager_->RemoveAllowlistUrlSet(url_with_empty_path, web_contents,
-                                       /*from_pending_only=*/false);
+    ui_manager_->RemoveAllowlistUrlSet(
+        url_with_empty_path, /*navigation_id=*/std::nullopt, web_contents,
+        /*from_pending_only=*/false);
     // Overrides cached verdicts.
     LoginReputationClientResponse verdict;
     GetCachedVerdict(url, LoginReputationClientRequest::PASSWORD_REUSE_EVENT,
@@ -1431,11 +1433,13 @@ void ChromePasswordProtectionService::UpdateSecurityState(
     if (current_threat_type == threat_type)
       return;
     // Resets previous threat type.
-    ui_manager_->RemoveAllowlistUrlSet(url_with_empty_path, web_contents,
-                                       /*from_pending_only=*/false);
+    ui_manager_->RemoveAllowlistUrlSet(
+        url_with_empty_path, /*navigation_id=*/std::nullopt, web_contents,
+        /*from_pending_only=*/false);
   }
-  ui_manager_->AddToAllowlistUrlSet(url_with_empty_path, web_contents,
-                                    /*is_pending=*/true, threat_type);
+  ui_manager_->AddToAllowlistUrlSet(
+      url_with_empty_path, /*navigation_id=*/std::nullopt, web_contents,
+      /*is_pending=*/true, threat_type);
 }
 
 void ChromePasswordProtectionService::FillReferrerChain(

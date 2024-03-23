@@ -1131,8 +1131,8 @@ void QuicChromiumClientSession::OnAcceptChFrameReceivedViaAlps(
       continue;
     }
     has_valid_entry = true;
-    accept_ch_entries_received_via_alps_.insert(
-        std::make_pair(std::move(scheme_host_port), entry.value));
+    accept_ch_entries_received_via_alps_.emplace(std::move(scheme_host_port),
+                                                 entry.value);
 
     net_log_.AddEvent(NetLogEventType::QUIC_ACCEPT_CH_FRAME_RECEIVED,
                       [&] { return NetLogAcceptChFrameReceivedParams(entry); });
@@ -1393,7 +1393,7 @@ int QuicChromiumClientSession::GetNumSentClientHellos() const {
 }
 
 bool QuicChromiumClientSession::CanPool(
-    const std::string& hostname,
+    std::string_view hostname,
     const QuicSessionKey& other_session_key) const {
   DCHECK(connection()->connected());
   if (!session_key_.CanUseForAliasing(other_session_key)) {
@@ -1737,6 +1737,10 @@ void QuicChromiumClientSession::OnConnectionClosed(
   }
   if (const quic::QuicConnection::MultiPortStats* multi_port_stats =
           connection()->multi_port_stats()) {
+    UMA_HISTOGRAM_COUNTS_1000("Net.QuicMultiPort.NumProbeAttempts",
+                              multi_port_stats->num_client_probing_attempts);
+    UMA_HISTOGRAM_COUNTS_1000("Net.QuicMultiPort.NumSuccessfulProbes",
+                              multi_port_stats->num_successful_probes);
     UMA_HISTOGRAM_COUNTS_1000(
         "Net.QuicMultiPort.NumMultiPortFailureWhenPathNotDegrading",
         multi_port_stats

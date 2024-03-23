@@ -9,6 +9,7 @@
 #include "base/containers/cxx20_erase.h"
 #include "base/logging.h"
 #include "base/numerics/safe_conversions.h"
+#include "build/build_config.h"
 #include "build/buildflag.h"
 #include "media/base/decoder_buffer.h"
 #include "media/gpu/buildflags.h"
@@ -94,7 +95,7 @@ bool DecoderBufferValidator::WaitUntilDone() {
 H264Validator::H264Validator(VideoCodecProfile profile,
                              const gfx::Rect& visible_rect,
                              size_t num_temporal_layers,
-                             absl::optional<uint8_t> level)
+                             std::optional<uint8_t> level)
     : DecoderBufferValidator(visible_rect, num_temporal_layers),
       cur_pic_(new H264Picture),
       profile_(VideoCodecProfileToH264ProfileIDC(profile)),
@@ -243,6 +244,9 @@ bool H264Validator::Validate(const DecoderBuffer& decoder_buffer,
         }
         seen_pps_ = true;
 
+        // TODO(b/324357617): MTK devices except elm doesn't turn on CABAC in
+        // main profile. Skip CABAC check until the issue is fixed.
+#if defined(ARCH_CPU_X86_FAMILY)
         const H264PPS* pps = parser_.GetPPS(pps_id);
         if ((profile_ == H264SPS::kProfileIDCMain ||
              profile_ == H264SPS::kProfileIDCHigh) &&
@@ -251,7 +255,7 @@ bool H264Validator::Validate(const DecoderBuffer& decoder_buffer,
           LOG(ERROR) << "The entropy coding is not CABAC";
           return false;
         }
-
+#endif
         // 8x8 transform should be enabled if a profile is High. However, we
         // don't check it because it is not enabled due to a hardware limitation
         // on AMD stoneyridge and picasso.

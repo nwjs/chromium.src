@@ -16,6 +16,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/url_constants.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/display/display.h"
 #include "ui/gfx/geometry/resize_utils.h"
@@ -256,10 +257,11 @@ PictureInPictureWindowManager::GetPictureInPictureWindowBounds() const {
                                 : std::nullopt;
 }
 
-gfx::Rect PictureInPictureWindowManager::CalculatePictureInPictureWindowBounds(
+gfx::Rect PictureInPictureWindowManager::CalculateOuterWindowBounds(
     const blink::mojom::PictureInPictureWindowOptions& pip_options,
     const display::Display& display,
-    const gfx::Size& minimum_outer_window_size) {
+    const gfx::Size& minimum_outer_window_size,
+    const gfx::Size& excluded_margin) {
   // TODO(https://crbug.com/1327797): This copies a bunch of logic from
   // VideoOverlayWindowViews. That class and this one should be refactored so
   // VideoOverlayWindowViews uses PictureInPictureWindowManager to calculate
@@ -267,6 +269,9 @@ gfx::Rect PictureInPictureWindowManager::CalculatePictureInPictureWindowBounds(
   gfx::Rect work_area = display.work_area();
   gfx::Rect window_bounds;
 
+  // If the outer bounds for this request are cached, then ignore everything
+  // else and use those.
+  //
   // Typically, we have a window controller at this point, but often during
   // tests we don't.  Don't worry about the cache if it's missing.
   if (pip_window_controller_) {
@@ -286,9 +291,13 @@ gfx::Rect PictureInPictureWindowManager::CalculatePictureInPictureWindowBounds(
 
   if (pip_options.width > 0 && pip_options.height > 0) {
     // Use width and height if we have them both, but ensure it's within the
-    // required bounds.
-    gfx::Size window_size(base::saturated_cast<int>(pip_options.width),
-                          base::saturated_cast<int>(pip_options.height));
+    // required bounds.  Remember that the pip options are the desired inner
+    // size, so we add any non-client size we need to convert to outer size by
+    // adding back the margin around the inner area.
+    gfx::Size window_size(
+        base::saturated_cast<int>(pip_options.width + excluded_margin.width()),
+        base::saturated_cast<int>(pip_options.height +
+                                  excluded_margin.height()));
     window_size.SetToMin(GetMaximumWindowSize(display));
     window_size.SetToMax(minimum_outer_window_size);
     window_bounds = gfx::Rect(window_size);
@@ -301,11 +310,13 @@ gfx::Rect PictureInPictureWindowManager::CalculatePictureInPictureWindowBounds(
     window_size.SetToMin(GetMaximumWindowSize(display));
     window_size.SetToMax(minimum_outer_window_size);
     window_bounds = gfx::Rect(window_size);
-    gfx::SizeRectToAspectRatio(gfx::ResizeEdge::kTopLeft, initial_aspect_ratio,
-                               GetMinimumInnerWindowSize(),
-                               GetMaximumWindowSize(display), &window_bounds);
+    gfx::SizeRectToAspectRatioWithExcludedMargin(
+        gfx::ResizeEdge::kTopLeft, initial_aspect_ratio,
+        GetMinimumInnerWindowSize(), GetMaximumWindowSize(display),
+        excluded_margin, window_bounds);
   }
 
+  // Position the window.
   int window_diff_width = work_area.right() - window_bounds.width();
   int window_diff_height = work_area.bottom() - window_bounds.height();
 
@@ -324,16 +335,12 @@ gfx::Rect
 PictureInPictureWindowManager::CalculateInitialPictureInPictureWindowBounds(
     const blink::mojom::PictureInPictureWindowOptions& pip_options,
     const display::Display& display) {
-  return CalculatePictureInPictureWindowBounds(pip_options, display,
-                                               GetMinimumInnerWindowSize());
-}
-
-gfx::Rect PictureInPictureWindowManager::AdjustPictureInPictureWindowBounds(
-    const blink::mojom::PictureInPictureWindowOptions& pip_options,
-    const display::Display& display,
-    const gfx::Size& minimum_window_size) {
-  return CalculatePictureInPictureWindowBounds(pip_options, display,
-                                               minimum_window_size);
+  // Use an empty `excluded_margin`, which more or less guarantees that these
+  // bounds are incorrect if `pip_options` includes a requested inner size that
+  // we'd like to honor.  It's okay, because we'll recompute it later once we
+  // know the excluded margin.
+  return CalculateOuterWindowBounds(pip_options, display,
+                                    GetMinimumInnerWindowSize(), gfx::Size());
 }
 
 void PictureInPictureWindowManager::UpdateCachedBounds(
@@ -384,7 +391,7 @@ bool PictureInPictureWindowManager::IsSupportedForDocumentPictureInPicture(
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   return url.SchemeIs(url::kHttpsScheme) || url.SchemeIsFile() ||
-         net::IsLocalhost(url);
+         net::IsLocalhost(url) || url.SchemeIs(content::kChromeUIScheme);
 #else
   return false;
 #endif  // !BUILDFLAG(IS_ANDROID)

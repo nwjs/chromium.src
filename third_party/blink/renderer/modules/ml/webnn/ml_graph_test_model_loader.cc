@@ -70,25 +70,64 @@ blink_mojom::TensorInfoPtr ConvertToMojom(const TfLiteTensor* tensor) {
 class TfLiteOpResolver : public tflite::MutableOpResolver {
  public:
   TfLiteOpResolver() {
-    AddBuiltin(tflite::BuiltinOperator_RELU,
-               tflite::ops::builtin::Register_RELU(), /* min_version = */ 1,
-               /* max_version = */ 2);
+    AddBuiltin(tflite::BuiltinOperator_ABS,
+               tflite::ops::builtin::Register_ABS());
+    AddBuiltin(tflite::BuiltinOperator_AVERAGE_POOL_2D,
+               tflite::ops::builtin::Register_AVERAGE_POOL_2D(),
+               /* min_version */ 1,
+               /* max_version */ 3);
+    AddBuiltin(tflite::BuiltinOperator_CONCATENATION,
+               tflite::ops::builtin::Register_CONCATENATION(),
+               /* min_version = */ 1,
+               /* max_version = */ 3);
+    AddBuiltin(tflite::BuiltinOperator_CAST,
+               tflite::ops::builtin::Register_CAST());
     AddBuiltin(tflite::BuiltinOperator_ADD,
                tflite::ops::builtin::Register_ADD(),
                /* min_version = */ 1,
                /* max_version = */ 2);
-    AddBuiltin(tflite::BuiltinOperator_SUB,
-               tflite::ops::builtin::Register_SUB(),
-               /* min_version = */ 1,
-               /* max_version = */ 3);
-    AddBuiltin(tflite::BuiltinOperator_MUL,
-               tflite::ops::builtin::Register_MUL(),
+    AddBuiltin(tflite::BuiltinOperator_CEIL,
+               tflite::ops::builtin::Register_CEIL());
+    AddBuiltin(tflite::BuiltinOperator_CONV_2D,
+               tflite::ops::builtin::Register_CONV_2D(),
                /* min_version = */ 1,
                /* max_version = */ 4);
+    AddBuiltin(tflite::BuiltinOperator_COS,
+               tflite::ops::builtin::Register_COS());
+    AddBuiltin(tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
+               tflite::ops::builtin::Register_DEPTHWISE_CONV_2D(),
+               /* min_version = */ 1,
+               /* max_version = */ 5);
     AddBuiltin(tflite::BuiltinOperator_DIV,
                tflite::ops::builtin::Register_DIV(),
                /* min_version */ 1,
                /* max_version */ 2);
+    AddBuiltin(tflite::BuiltinOperator_ELU,
+               tflite::ops::builtin::Register_ELU());
+    AddBuiltin(tflite::BuiltinOperator_EXP,
+               tflite::ops::builtin::Register_EXP());
+    AddBuiltin(tflite::BuiltinOperator_FLOOR,
+               tflite::ops::builtin::Register_FLOOR());
+    AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
+               tflite::ops::builtin::Register_FULLY_CONNECTED(),
+               /* min_version = */ 1,
+               /* max_version = */ 9);
+    AddBuiltin(tflite::BuiltinOperator_HARD_SWISH,
+               tflite::ops::builtin::Register_HARD_SWISH());
+    AddBuiltin(tflite::BuiltinOperator_LEAKY_RELU,
+               tflite::ops::builtin::Register_LEAKY_RELU(),
+               /* min_version = */ 1,
+               /* max_version = */ 2);
+    AddBuiltin(tflite::BuiltinOperator_LOG,
+               tflite::ops::builtin::Register_LOG());
+    AddBuiltin(tflite::BuiltinOperator_LOGISTIC,
+               tflite::ops::builtin::Register_LOGISTIC(),
+               /* min_version = */ 1,
+               /* max_version = */ 3);
+    AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
+               tflite::ops::builtin::Register_MAX_POOL_2D(),
+               /* min_version */ 1,
+               /* max_version */ 3);
     AddBuiltin(tflite::BuiltinOperator_MAXIMUM,
                tflite::ops::builtin::Register_MAXIMUM(),
                /* min_version = */ 1,
@@ -97,30 +136,46 @@ class TfLiteOpResolver : public tflite::MutableOpResolver {
                tflite::ops::builtin::Register_MINIMUM(),
                /* min_version = */ 1,
                /* max_version = */ 4);
+    AddBuiltin(tflite::BuiltinOperator_MIRROR_PAD,
+               tflite::ops::builtin::Register_MIRROR_PAD(),
+               /* min_version = */ 1,
+               /* max_version = */ 2);
+    AddBuiltin(tflite::BuiltinOperator_MUL,
+               tflite::ops::builtin::Register_MUL(),
+               /* min_version = */ 1,
+               /* max_version = */ 4);
+    AddBuiltin(tflite::BuiltinOperator_NEG,
+               tflite::ops::builtin::Register_NEG());
+    AddBuiltin(tflite::BuiltinOperator_PAD,
+               tflite::ops::builtin::Register_PAD(),
+               /* min_version = */ 1,
+               /* max_version = */ 2);
+    AddBuiltin(tflite::BuiltinOperator_PADV2,
+               tflite::ops::builtin::Register_PADV2(), /* min_version = */ 1,
+               /* max_version = */ 2);
     AddBuiltin(tflite::BuiltinOperator_POW,
                tflite::ops::builtin::Register_POW());
+    AddBuiltin(tflite::BuiltinOperator_RELU,
+               tflite::ops::builtin::Register_RELU(), /* min_version = */ 1,
+               /* max_version = */ 2);
+    AddBuiltin(tflite::BuiltinOperator_RESHAPE,
+               tflite::ops::builtin::Register_RESHAPE());
+    AddBuiltin(tflite::BuiltinOperator_SIN,
+               tflite::ops::builtin::Register_SIN());
     AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
                tflite::ops::builtin::Register_SOFTMAX(),
                /* min_version = */ 1,
                /* max_version = */ 3);
-    AddBuiltin(tflite::BuiltinOperator_RESHAPE,
-               tflite::ops::builtin::Register_RESHAPE());
-    AddBuiltin(tflite::BuiltinOperator_AVERAGE_POOL_2D,
-               tflite::ops::builtin::Register_AVERAGE_POOL_2D(),
-               /* min_version */ 1,
-               /* max_version */ 3);
-    AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
-               tflite::ops::builtin::Register_MAX_POOL_2D(),
-               /* min_version */ 1,
-               /* max_version */ 3);
-    AddBuiltin(tflite::BuiltinOperator_CONV_2D,
-               tflite::ops::builtin::Register_CONV_2D(),
+    AddBuiltin(tflite::BuiltinOperator_SQRT,
+               tflite::ops::builtin::Register_SQRT());
+    AddBuiltin(tflite::BuiltinOperator_SUB,
+               tflite::ops::builtin::Register_SUB(),
+               /* min_version = */ 1,
+               /* max_version = */ 3);
+    AddBuiltin(tflite::BuiltinOperator_TRANSPOSE,
+               tflite::ops::builtin::Register_TRANSPOSE(),
                /* min_version = */ 1,
                /* max_version = */ 4);
-    AddBuiltin(tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
-               tflite::ops::builtin::Register_DEPTHWISE_CONV_2D(),
-               /* min_version = */ 1,
-               /* max_version = */ 5);
   }
 };
 
@@ -181,64 +236,7 @@ class TfLiteRuntime {
   std::unique_ptr<tflite::Interpreter> interpreter_;
 };
 
-}  // namespace
-
-class FakeWebNNModel : public blink_mojom::Model {
- public:
-  FakeWebNNModel() : runtime_(std::make_unique<TfLiteRuntime>()) {}
-  FakeWebNNModel(const FakeWebNNModel&) = delete;
-  FakeWebNNModel(FakeWebNNModel&&) = delete;
-  ~FakeWebNNModel() override = default;
-
-  FakeMLModelLoader::LoadFn CreateFromThis() {
-    return WTF::BindRepeating(&FakeWebNNModel::OnCreateModel,
-                              WTF::Unretained(this));
-  }
-
- private:
-  void OnCreateModel(mojo_base::BigBuffer buffer,
-                     blink_mojom::ModelLoader::LoadCallback callback) {
-    blink_mojom::ModelInfoPtr info = blink_mojom::ModelInfo::New();
-    EXPECT_EQ(runtime_->Load(buffer, info), kTfLiteOk);
-    // Hold the flatbuffer for computing with tflite runtime.
-    buffer_ = std::move(buffer);
-
-    receiver_.reset();
-    std::move(callback).Run(blink_mojom::LoadModelResult::kOk,
-                            receiver_.BindNewPipeAndPassRemote(),
-                            std::move(info));
-  }
-
-  // Override methods from blink_mojom::Model.
-  void Compute(const WTF::HashMap<WTF::String, WTF::Vector<uint8_t>>& input,
-               blink_mojom::Model::ComputeCallback callback) override {
-    WTF::HashMap<WTF::String, WTF::Vector<uint8_t>> named_output;
-    EXPECT_EQ(runtime_->Compute(input, named_output), kTfLiteOk);
-    std::move(callback).Run(blink_mojom::ComputeResult::kOk, named_output);
-  }
-
-  mojo::Receiver<blink_mojom::Model> receiver_{this};
-  std::unique_ptr<TfLiteRuntime> runtime_;
-  // The buffer of tflite model must be alive for computing.
-  mojo_base::BigBuffer buffer_;
-};
-
 class MLGraphTestTfLite : public MLGraphTestBase {};
-
-ScopedMLService::ScopedMLService()
-    : loader_(std::make_unique<FakeMLModelLoader>()),
-      model_(std::make_unique<FakeWebNNModel>()),
-      ml_service_(std::make_unique<FakeMLService>()) {}
-
-ScopedMLService::~ScopedMLService() = default;
-
-void ScopedMLService::SetUpMLService(V8TestingScope& scope) {
-  ml_service_->SetCreateModelLoader(loader_->CreateFromThis());
-  loader_->SetLoad(model_->CreateFromThis());
-
-  ml_service_binder_ =
-      std::make_unique<ScopedSetMLServiceBinder>(ml_service_.get(), scope);
-}
 
 template <typename T>
 struct ElementWiseAddTester {
@@ -246,7 +244,9 @@ struct ElementWiseAddTester {
   OperandInfo<T> rhs;
   OperandInfo<T> expected;
 
-  ~ElementWiseAddTester() { MLGraphModelLoader::SetFlatbufferForTesting(nullptr); }
+  ~ElementWiseAddTester() {
+    MLGraphModelLoader::SetFlatbufferForTesting(nullptr);
+  }
 
   void Test(MLGraphTestTfLite& helper, V8TestingScope& scope) {
     // Set the flatbuffer of tflite model converted from the WebNN graph.
@@ -371,6 +371,131 @@ struct ElementWiseAddTester {
   }
 };
 
+template <typename T>
+struct EluTester {
+  OperandInfo<T> input;
+  Vector<T> expected;
+  String error_message;
+
+  void Test(MLGraphTestTfLite& helper,
+            V8TestingScope& scope,
+            MLEluOptions* options = MLEluOptions::Create()) {
+    // Build the graph.
+    auto* builder =
+        CreateMLGraphBuilder(scope.GetExecutionContext(),
+                             scope.GetScriptState(), scope.GetExceptionState());
+    auto* input_operand =
+        BuildInput(builder, "input", input.dimensions, input.data_type,
+                   scope.GetExceptionState());
+    auto* output_operand =
+        builder->elu(input_operand, options, scope.GetExceptionState());
+    auto [graph, build_exception] =
+        helper.BuildGraph(scope, builder, {{"output", output_operand}});
+    if (!error_message.empty()) {
+      ASSERT_THAT(graph, testing::IsNull());
+      EXPECT_EQ(build_exception->message(), error_message);
+      return;
+    } else {
+      ASSERT_THAT(graph, testing::NotNull());
+    }
+
+    // Compute the graph.
+    MLNamedArrayBufferViews inputs(
+        {{"input",
+          CreateArrayBufferViewForOperand(input_operand, input.values)}});
+    MLNamedArrayBufferViews outputs(
+        {{"output", CreateArrayBufferViewForOperand(output_operand)}});
+    auto* compute_exception =
+        helper.ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_EQ(compute_exception, nullptr);
+    auto results = GetArrayBufferViewValues<T>(outputs[0].second);
+    ExpectFloatArrayEqual(results, expected);
+  }
+};
+
+template <typename T>
+struct Conv2dExceptionTester {
+  OperandInfo<T> input;
+  OperandInfo<T> filter;
+  String error_message;
+
+  void Test(MLGraphTestTfLite& helper,
+            V8TestingScope& scope,
+            MLGraphBuilder* builder,
+            MLConv2dOptions* options = MLConv2dOptions::Create()) {
+    // Build the graph.
+    auto* input_operand =
+        BuildInput(builder, "input", input.dimensions, input.data_type,
+                   scope.GetExceptionState());
+    auto* filter_operand =
+        BuildConstant(builder, filter.dimensions, filter.data_type,
+                      filter.values, scope.GetExceptionState());
+    auto* output_operand =
+        BuildConv2d(scope, builder, input_operand, filter_operand, options);
+    auto [graph, build_exception] =
+        helper.BuildGraph(scope, builder, {{"output", output_operand}});
+    ASSERT_THAT(graph, testing::IsNull());
+    EXPECT_EQ(build_exception->message(), error_message);
+  }
+};
+
+}  // namespace
+
+class FakeWebNNModel : public blink_mojom::Model {
+ public:
+  FakeWebNNModel() : runtime_(std::make_unique<TfLiteRuntime>()) {}
+  FakeWebNNModel(const FakeWebNNModel&) = delete;
+  FakeWebNNModel(FakeWebNNModel&&) = delete;
+  ~FakeWebNNModel() override = default;
+
+  FakeMLModelLoader::LoadFn CreateFromThis() {
+    return WTF::BindRepeating(&FakeWebNNModel::OnCreateModel,
+                              WTF::Unretained(this));
+  }
+
+ private:
+  void OnCreateModel(mojo_base::BigBuffer buffer,
+                     blink_mojom::ModelLoader::LoadCallback callback) {
+    blink_mojom::ModelInfoPtr info = blink_mojom::ModelInfo::New();
+    EXPECT_EQ(runtime_->Load(buffer, info), kTfLiteOk);
+    // Hold the flatbuffer for computing with tflite runtime.
+    buffer_ = std::move(buffer);
+
+    receiver_.reset();
+    std::move(callback).Run(blink_mojom::LoadModelResult::kOk,
+                            receiver_.BindNewPipeAndPassRemote(),
+                            std::move(info));
+  }
+
+  // Override methods from blink_mojom::Model.
+  void Compute(const WTF::HashMap<WTF::String, WTF::Vector<uint8_t>>& input,
+               blink_mojom::Model::ComputeCallback callback) override {
+    WTF::HashMap<WTF::String, WTF::Vector<uint8_t>> named_output;
+    EXPECT_EQ(runtime_->Compute(input, named_output), kTfLiteOk);
+    std::move(callback).Run(blink_mojom::ComputeResult::kOk, named_output);
+  }
+
+  mojo::Receiver<blink_mojom::Model> receiver_{this};
+  std::unique_ptr<TfLiteRuntime> runtime_;
+  // The buffer of tflite model must be alive for computing.
+  mojo_base::BigBuffer buffer_;
+};
+
+ScopedMLService::ScopedMLService()
+    : loader_(std::make_unique<FakeMLModelLoader>()),
+      model_(std::make_unique<FakeWebNNModel>()),
+      ml_service_(std::make_unique<FakeMLService>()) {}
+
+ScopedMLService::~ScopedMLService() = default;
+
+void ScopedMLService::SetUpMLService(V8TestingScope& scope) {
+  ml_service_->SetCreateModelLoader(loader_->CreateFromThis());
+  loader_->SetLoad(model_->CreateFromThis());
+
+  ml_service_binder_ =
+      std::make_unique<ScopedSetMLServiceBinder>(ml_service_.get(), scope);
+}
+
 TEST_P(MLGraphTestTfLite, BuildGraphWithTfliteModel) {
   MLGraphV8TestingScope scope;
 
@@ -405,8 +530,73 @@ TEST_P(MLGraphTestTfLite, BuildGraphWithTfliteModel) {
   }
 }
 
+TEST_P(MLGraphTestTfLite, EluTest) {
+  MLGraphV8TestingScope scope;
+  {
+    // Test Elu operator with default options.
+    auto* options = MLEluOptions::Create();
+    EluTester<float>{
+        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
+                  .dimensions = {2, 2, 3},
+                  .values = {0.4301911, 0.54719144, -1.1637765, 0.18390046,
+                             0.58390397, 0.1735679, 0.539724, -0.953514,
+                             -0.59202826, -0.17344485, 0.14395015,
+                             -0.37920907}},
+        .expected = {0.4301911, 0.54719144, -0.6876954670284463, 0.18390046,
+                     0.58390397, 0.1735679, 0.539724, -0.6146155995193658,
+                     -0.44679589568801814, -0.15923648200867868, 0.14395015,
+                     -0.3155974903251695}}
+        .Test(*this, scope, options);
+  }
+  {
+    // Test Elu operator for scalar input.
+    auto* options = MLEluOptions::Create();
+    EluTester<float>{.input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
+                               .dimensions = {},
+                               .values = {-100}},
+                     .expected = {-1}}
+        .Test(*this, scope, options);
+  }
+  {
+    // Test throwing exception because the scalar multiplier is not supported.
+    auto* options = MLEluOptions::Create();
+    options->setAlpha(0.2);
+    EluTester<float>{
+        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
+                  .dimensions = {1, 2, 2, 1},
+                  .values = {10, 5, -100, 0}},
+        .error_message =
+            "Setting a custom alpha is not supported in tflite schema."}
+        .Test(*this, scope, options);
+  }
+}
+
+TEST_P(MLGraphTestTfLite, Conv2dTest) {
+  MLGraphV8TestingScope scope;
+  auto* builder =
+      CreateMLGraphBuilder(scope.GetExecutionContext(), scope.GetScriptState(),
+                           scope.GetExceptionState());
+  {
+    // Test conv2d operator for overflow padding.
+    auto* options = MLConv2dOptions::Create();
+    options->setInputLayout(V8MLInputOperandLayout::Enum::kNhwc);
+    options->setFilterLayout(V8MLConv2dFilterOperandLayout::Enum::kOhwi);
+    options->setPadding({1294967295, 1294967295, 1, 1});
+    options->setStrides({2, 2});
+    Conv2dExceptionTester<float>{
+        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
+                  .dimensions = {1, 7, 5, 1},
+                  .values = Vector<float>(35, 1.0)},
+        .filter = {.data_type = V8MLOperandDataType::Enum::kFloat32,
+                   .dimensions = {1, 3, 3, 1},
+                   .values = Vector<float>(9, 1.0)},
+        .error_message = "The input dimension or padding is too large."}
+        .Test(*this, scope, builder, options);
+  }
+}
+
 const TestVariety kGraphTestModelLoaderVariety[] = {
-    {BackendType::kModelLoader, ExecutionMode::kAsync},
+    {BackendType::kModelLoader},
 };
 
 INSTANTIATE_TEST_SUITE_P(All,

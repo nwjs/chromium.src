@@ -2,8 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ash/file_manager/file_tasks.h"
+
 #include <cstring>
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 
 #include "ash/webui/file_manager/url_constants.h"
@@ -35,7 +38,6 @@
 #include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/file_manager/file_manager_browsertest_base.h"
 #include "chrome/browser/ash/file_manager/file_manager_test_util.h"
-#include "chrome/browser/ash/file_manager/file_tasks.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/file_manager/filesystem_api_util.h"
 #include "chrome/browser/ash/file_manager/office_file_tasks.h"
@@ -115,10 +117,6 @@ using web_app::kMediaAppId;
 
 const char* blockedUrl = "https://blocked.com";
 
-static const char kODFSSampleUrl[] = "https://1drv.ms/123";
-static const char kSampleUserEmail1[] = "user1@gmail.com";
-static const char kSampleUserEmail2[] = "user2@gmail.com";
-
 // A list of file extensions (`/` delimited) representing a selection of files
 // and the app expected to be the default to open these files.
 // A null app_id indicates there is no preferred default.
@@ -183,9 +181,9 @@ void ConvertExpectation(const Expectation& test,
                         std::vector<GURL>& file_urls,
                         std::vector<std::string>& dlp_source_urls) {
   const base::FilePath prefix = base::FilePath().AppendASCII("file");
-  std::vector<base::StringPiece> all_extensions = base::SplitStringPiece(
+  std::vector<std::string_view> all_extensions = base::SplitStringPiece(
       test.file_extensions, "/", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-  for (base::StringPiece extension : all_extensions) {
+  for (std::string_view extension : all_extensions) {
     base::FilePath path = prefix.AddExtension(extension);
     std::string mime_type;
     base::ScopedAllowBlockingForTesting allow_blocking;
@@ -1032,8 +1030,8 @@ IN_PROC_BROWSER_TEST_F(NonManagedAccountWithEnterpriseFlag,
 class WithEnterpriseFlagAndPrefs
     : public WithEnterpriseFlag,
       public testing::WithParamInterface<
-          std::tuple<base::StringPiece /* google_workspace_cloud_upload */,
-                     base::StringPiece /* microsoft_office_cloud_upload */,
+          std::tuple<std::string_view /* google_workspace_cloud_upload */,
+                     std::string_view /* microsoft_office_cloud_upload */,
                      bool /* odfs_extension_installed */,
                      bool /* is_managed */>> {
  public:
@@ -1700,8 +1698,7 @@ class OneDriveTest : public TestAccountBrowserTest,
 
   base::FilePath AndroidOneDriveMountPathForEmail(std::string user_email) {
     return arc::GetDocumentsProviderMountPath(
-        "com.microsoft.skydrive.content.StorageAccessProvider",
-        "pivots%2F" + user_email);
+        "com.microsoft.skydrive.content.StorageAccessProvider", user_email);
   }
 
   void SetNetworkConnected(const bool connected) {
@@ -1796,7 +1793,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest, OfficeFallbackTryAgain) {
   auto launches = web_app_publisher_->GetLaunches();
   ASSERT_EQ(1u, launches.size());
   CHECK_EQ(launches[0].app_id, web_app::kMicrosoft365AppId);
-  CHECK_EQ(launches[0].intent_url, kODFSSampleUrl);
+  CHECK_EQ(launches[0].intent_url, test::kODFSSampleUrl);
 
   histogram_.ExpectUniqueSample(
       ash::cloud_upload::kOpenInitialCloudProviderMetric,
@@ -1924,6 +1921,97 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest, CannotGetOfficeFallbackChoice) {
 }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
+// Test to check that a second setup dialog will not launch when one
+// is already being shown.
+IN_PROC_BROWSER_TEST_F(OneDriveTest, CannotShowSetupDialog) {
+  // Doing this before SetUpTest creates a FakeWebAppPublisher which would
+  // intercept Files app launching.
+  LaunchFilesAppAndWait();
+
+  // Creates a fake ODFS with a test file.
+  SetUpTest();
+
+  // Set online status to avoid the office fallback dialog showing.
+  SetNetworkConnected(true);
+
+  const TaskDescriptor open_in_office_task = CreateOpenInOfficeTask();
+  std::vector<storage::FileSystemURL> file_urls{odfs_test_file_url_};
+
+  // Watch for dialog URL chrome://cloud-upload.
+  GURL expected_dialog_URL(chrome::kChromeUICloudUploadURL);
+  content::TestNavigationObserver navigation_observer_dialog(
+      expected_dialog_URL);
+  navigation_observer_dialog.StartWatchingNewWebContents();
+
+  web_app_publisher_->ClearPastLaunches();
+
+  // Launches the first setup dialog (file handler dialog). Let it
+  // hang waiting for a choice from the user.
+  base::test::TestFuture<TaskResult, std::string> executed_future;
+  ExecuteFileTask(profile(), open_in_office_task, file_urls,
+                  executed_future.GetCallback());
+  ASSERT_EQ(executed_future.Get<0>(), TaskResult::kOpened);
+
+  // Wait for the first setup dialog to open.
+  navigation_observer_dialog.Wait();
+  ASSERT_TRUE(navigation_observer_dialog.last_navigation_succeeded());
+
+  // Fails to launch a second setup dialog.
+  base::test::TestFuture<TaskResult, std::string> failed_future;
+  ExecuteFileTask(profile(), open_in_office_task, file_urls,
+                  failed_future.GetCallback());
+  ASSERT_EQ(failed_future.Get<0>(), TaskResult::kFailed);
+
+  // Both open file requests will log the CloudProvider metric.
+  histogram_.ExpectUniqueSample(
+      ash::cloud_upload::kOpenInitialCloudProviderMetric,
+      ash::cloud_upload::CloudProvider::kOneDrive, 2);
+  // Only the second open file request will complete and with a
+  // kCannotShowSetupDialog TaskResult.
+  histogram_.ExpectUniqueSample(
+      ash::cloud_upload::kOneDriveTaskResultMetricName,
+      ash::cloud_upload::OfficeTaskResult::kCannotShowSetupDialog, 1);
+}
+
+// Test to check that a second move confirmation dialog will not launch when one
+// is already being shown.
+IN_PROC_BROWSER_TEST_F(OneDriveTest, CannotShowMoveConfirmation) {
+  FileSystemURL file_outside_one_drive = CreateOfficeFileSourceURL(profile());
+  std::vector<storage::FileSystemURL> file_urls{file_outside_one_drive};
+
+  // Watch for dialog URL chrome://cloud-upload.
+  GURL expected_dialog_URL(chrome::kChromeUICloudUploadURL);
+  content::TestNavigationObserver navigation_observer_dialog(
+      expected_dialog_URL);
+  navigation_observer_dialog.StartWatchingNewWebContents();
+
+  LaunchFilesAppAndWait();
+
+  // Launches the first move confirmation dialog. Let it
+  // hang waiting for a choice from the user.
+  auto task = base::WrapRefCounted(new ash::cloud_upload::CloudOpenTask(
+      profile(), file_urls, ash::cloud_upload::CloudProvider::kOneDrive,
+      std::move(cloud_open_metrics_)));
+  task->OpenOrMoveFiles();
+
+  // Wait for the first move confirmation dialog to open.
+  navigation_observer_dialog.Wait();
+  ASSERT_TRUE(navigation_observer_dialog.last_navigation_succeeded());
+
+  // Fails to launch a second move confirmation dialog.
+  task->OpenOrMoveFiles();
+
+  // Both open file requests will log the TransferRequired metric.
+  histogram_.ExpectUniqueSample(
+      ash::cloud_upload::kOneDriveTransferRequiredMetric,
+      ash::cloud_upload::OfficeFilesTransferRequired::kMove, 2);
+  // Only the second open file request will complete and with a
+  // kCannotShowMoveConfirmation TaskResult.
+  histogram_.ExpectUniqueSample(
+      ash::cloud_upload::kOneDriveTaskResultMetricName,
+      ash::cloud_upload::OfficeTaskResult::kCannotShowMoveConfirmation, 1);
+}
+
 // Test that OpenOrMoveFiles() will open an ODFS office file when the cloud
 // provider specified is OneDrive.
 IN_PROC_BROWSER_TEST_F(OneDriveTest, OpenFileFromODFS) {
@@ -1943,7 +2031,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest, OpenFileFromODFS) {
   auto launches = web_app_publisher_->GetLaunches();
   ASSERT_EQ(1u, launches.size());
   CHECK_EQ(launches[0].app_id, web_app::kMicrosoft365AppId);
-  CHECK_EQ(launches[0].intent_url, kODFSSampleUrl);
+  CHECK_EQ(launches[0].intent_url, test::kODFSSampleUrl);
 
   histogram_.ExpectUniqueSample(
       ash::cloud_upload::kOneDriveOpenSourceVolumeMetric,
@@ -2093,7 +2181,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest, OpenFileFromAndroidOneDriveViaODFS) {
   // Create equivalent file path in Android OneDrive with same email (email
   // matches `FakeProvidedFileSystemOneDrive`).
   base::FilePath android_onedrive_path_same_email =
-      AndroidOneDrivePathToSharedDirectoryForEmail(kSampleUserEmail1)
+      AndroidOneDrivePathToSharedDirectoryForEmail(test::kSampleUserEmail1)
           .Append(relative_test_path_);
 
   // Create a FileSystemURL from the Android OneDrive file path.
@@ -2114,7 +2202,59 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest, OpenFileFromAndroidOneDriveViaODFS) {
   ASSERT_EQ(1u, launches.size());
   CHECK_EQ(launches[0].app_id, web_app::kMicrosoft365AppId);
   // Check that the ODFS URL was opened.
-  CHECK_EQ(launches[0].intent_url, kODFSSampleUrl);
+  CHECK_EQ(launches[0].intent_url, test::kODFSSampleUrl);
+
+  // Expect the source volume not to be ODFS. Logged as kUnknown because would
+  // need to actually mount Android OneDrive Documents Provider for
+  // VOLUME_TYPE_DOCUMENTS_PROVIDER to be logged in the test.
+  histogram_.ExpectBucketCount(
+      ash::cloud_upload::kOneDriveOpenSourceVolumeMetric,
+      ash::cloud_upload::OfficeFilesSourceVolume::kMicrosoftOneDrive, 0);
+  histogram_.ExpectUniqueSample(
+      ash::cloud_upload::kOneDriveTransferRequiredMetric,
+      ash::cloud_upload::OfficeFilesTransferRequired::kNotRequired, 1);
+  histogram_.ExpectUniqueSample(
+      ash::cloud_upload::kOneDriveTaskResultMetricName,
+      ash::cloud_upload::OfficeTaskResult::kOpened, 1);
+  histogram_.ExpectUniqueSample(
+      ash::cloud_upload::kOneDriveErrorMetricName,
+      ash::cloud_upload::OfficeOneDriveOpenErrors::kSuccess, 1);
+}
+
+// Same as OpenFileFromAndroidOneDriveViaODFS test the email account associated
+// with Android OneDrive is the upper case version of the one associated with
+// ODFS.
+IN_PROC_BROWSER_TEST_F(OneDriveTest,
+                       OpenFileFromAndroidOneDriveViaODFSDiffCaseEmail) {
+  // Create a fake ODFS with a test file.
+  SetUpTest();
+
+  // Create equivalent file path in Android OneDrive with an upper case version
+  // of the same email (email matches `FakeProvidedFileSystemOneDrive`).
+  base::FilePath android_onedrive_path_same_email =
+      AndroidOneDrivePathToSharedDirectoryForEmail(
+          test::kSampleUserUpperCaseEmail1)
+          .Append(relative_test_path_);
+
+  // Create a FileSystemURL from the Android OneDrive file path.
+  FileSystemURL android_onedrive_url = FileSystemURL::CreateForTest(
+      kTestStorageKey, storage::kFileSystemTypeArcDocumentsProvider,
+      android_onedrive_path_same_email);
+
+  web_app_publisher_->ClearPastLaunches();
+
+  // Open the file indirectly from Android OneDrive (via ODFS).
+  auto task = base::WrapRefCounted(new ash::cloud_upload::CloudOpenTask(
+      profile(), {android_onedrive_url},
+      ash::cloud_upload::CloudProvider::kOneDrive,
+      std::move(cloud_open_metrics_)));
+  task->OpenOrMoveFiles();
+
+  auto launches = web_app_publisher_->GetLaunches();
+  ASSERT_EQ(1u, launches.size());
+  CHECK_EQ(launches[0].app_id, web_app::kMicrosoft365AppId);
+  // Check that the ODFS URL was opened.
+  CHECK_EQ(launches[0].intent_url, test::kODFSSampleUrl);
 
   // Expect the source volume not to be ODFS. Logged as kUnknown because would
   // need to actually mount Android OneDrive Documents Provider for
@@ -2146,7 +2286,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest,
   // Create equivalent file path in Android OneDrive with different email
   // (email doesn't match `FakeProvidedFileSystemOneDrive`).
   base::FilePath android_onedrive_path_diff_email =
-      AndroidOneDrivePathToSharedDirectoryForEmail(kSampleUserEmail2)
+      AndroidOneDrivePathToSharedDirectoryForEmail(test::kSampleUserEmail2)
           .Append(relative_test_path_);
 
   // Create a FileSystemURL from the Android OneDrive file path.
@@ -2189,7 +2329,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest,
   // Create file path in Android OneDrive that is in the "Files" directory but
   // doesn't exist on ODFS.
   base::FilePath android_onedrive_path_no_equivalent =
-      AndroidOneDrivePathToSharedDirectoryForEmail(kSampleUserEmail1)
+      AndroidOneDrivePathToSharedDirectoryForEmail(test::kSampleUserEmail1)
           .Append("another_file.docx");
 
   // Create a FileSystemURL from the Android OneDrive file path.
@@ -2236,7 +2376,7 @@ IN_PROC_BROWSER_TEST_F(
   // ODFS. For example, the "Files" folder is accessible to both file systems,
   // but the "Shared" folder is only accessible to Android OneDrive.
   base::FilePath android_onedrive_path_no_equivalent =
-      AndroidOneDriveMountPathForEmail(kSampleUserEmail1)
+      AndroidOneDriveMountPathForEmail(test::kSampleUserEmail1)
           .Append("Shared")
           .Append(relative_test_path_);
 

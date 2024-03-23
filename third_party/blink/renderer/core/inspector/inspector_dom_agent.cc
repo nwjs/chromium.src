@@ -54,6 +54,7 @@
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/node.h"
+#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/static_node_list.h"
@@ -590,7 +591,7 @@ protocol::Response InspectorDOMAgent::getNodesForSubtreeByStyle(
 
   HashMap<CSSPropertyID, HashSet<String>> properties;
   for (const auto& style : *computed_styles) {
-    absl::optional<CSSPropertyName> property_name = CSSPropertyName::From(
+    std::optional<CSSPropertyName> property_name = CSSPropertyName::From(
         document_->GetExecutionContext(), style->getName());
     if (!property_name)
       return protocol::Response::InvalidParams("Invalid CSS property name");

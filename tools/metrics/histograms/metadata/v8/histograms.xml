@@ -164,7 +164,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.CompileScript.CacheBehaviour" enum="V8CacheBehaviour"
-    expires_after="2024-05-26">
+    expires_after="2024-07-28">
   <owner>leszeks@chromium.org</owner>
   <owner>v8-runtime@google.com</owner>
   <summary>
@@ -374,7 +374,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.CompileSerializeMicroSeconds" units="microseconds"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
   <owner>jgruber@chromium.org</owner>
   <owner>leszeks@chromium.org</owner>
   <summary>
@@ -412,7 +412,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.ExecuteMicroSeconds" units="microseconds"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
   <owner>cbruni@chromium.org</owner>
   <owner>v8-runtime@google.com</owner>
   <summary>
@@ -1136,14 +1136,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.GCIncrementalMarkingStart" units="ms"
-    expires_after="2024-06-02">
+    expires_after="2024-08-04">
   <owner>hpayer@chromium.org</owner>
   <owner>v8-memory-sheriffs@google.com</owner>
   <summary>Time spent in starting incremental marking.</summary>
 </histogram>
 
 <histogram name="V8.GCIncrementalMarkingSum" units="ms"
-    expires_after="2024-06-02">
+    expires_after="2024-08-04">
   <owner>mlippautz@chromium.org</owner>
   <owner>v8-memory-sheriffs@google.com</owner>
   <summary>
@@ -1193,7 +1193,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.LocalWindowProxy.InitializeTime" units="ms"
-    expires_after="2024-04-10">
+    expires_after="2024-08-11">
   <owner>nidhijaju@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1395,7 +1395,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.SnapshotDeserializeContextMicroSeconds"
-    units="microseconds" expires_after="2024-05-19">
+    units="microseconds" expires_after="2024-07-21">
   <owner>jgruber@chromium.org</owner>
   <owner>leszeks@chromium.org</owner>
   <summary>
@@ -1410,7 +1410,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.SnapshotDeserializeIsolateMicroSeconds"
-    units="microseconds" expires_after="2024-05-19">
+    units="microseconds" expires_after="2024-07-21">
   <owner>jgruber@chromium.org</owner>
   <owner>leszeks@chromium.org</owner>
   <summary>
@@ -1466,7 +1466,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.TurboFanOptimizeExecute" units="microseconds"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
   <owner>tebbi@chromium.org</owner>
   <owner>mslekova@chromium.org</owner>
   <summary>
@@ -1478,7 +1478,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.TurboFanOptimizeFinalize" units="microseconds"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
   <owner>tebbi@chromium.org</owner>
   <owner>mslekova@chromium.org</owner>
   <summary>
@@ -1490,7 +1490,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.TurboFanOptimizeForOnStackReplacementExecute"
-    units="microseconds" expires_after="2024-05-19">
+    units="microseconds" expires_after="2024-07-21">
   <owner>tebbi@chromium.org</owner>
   <owner>mslekova@chromium.org</owner>
   <summary>
@@ -1503,7 +1503,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.TurboFanOptimizeForOnStackReplacementFinalize"
-    units="microseconds" expires_after="2024-05-19">
+    units="microseconds" expires_after="2024-07-21">
   <owner>tebbi@chromium.org</owner>
   <owner>mslekova@chromium.org</owner>
   <summary>
@@ -1516,7 +1516,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.TurboFanOptimizeForOnStackReplacementPrepare"
-    units="microseconds" expires_after="2024-05-19">
+    units="microseconds" expires_after="2024-07-21">
   <owner>tebbi@chromium.org</owner>
   <owner>mslekova@chromium.org</owner>
   <summary>
@@ -1529,7 +1529,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.TurboFanOptimizeForOnStackReplacementTotalTime"
-    units="microseconds" expires_after="2024-05-19">
+    units="microseconds" expires_after="2024-07-21">
   <owner>tebbi@chromium.org</owner>
   <owner>mslekova@chromium.org</owner>
   <summary>
@@ -1554,7 +1554,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.TurboFanOptimizePrepare" units="microseconds"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
   <owner>tebbi@chromium.org</owner>
   <owner>mslekova@chromium.org</owner>
   <summary>
@@ -1602,7 +1602,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.UnhandledExceptionCountInMainThread" enum="BooleanOccurred"
-    expires_after="2024-05-26">
+    expires_after="2024-07-28">
   <owner>chikamune@chromium.org</owner>
   <owner>sisidovski@chromium.org</owner>
   <owner>hiroshige@chromium.org</owner>
@@ -1715,7 +1715,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmCompileHugeFunctionMilliSeconds" units="ms"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
   <owner>clemensb@chromium.org</owner>
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-v8@google.com</owner>
@@ -1727,7 +1727,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmCompileHugeFunctionPeakMemoryBytes" units="bytes"
-    expires_after="2024-05-19">
+    expires_after="2024-07-21">
   <owner>clemensb@chromium.org</owner>
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-v8@google.com</owner>

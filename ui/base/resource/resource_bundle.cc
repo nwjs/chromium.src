@@ -611,7 +611,7 @@ gfx::Image& ResourceBundle::GetImageNamed(int resource_id) {
   return inserted.first->second;
 }
 
-absl::optional<ResourceBundle::LottieData> ResourceBundle::GetLottieData(
+std::optional<ResourceBundle::LottieData> ResourceBundle::GetLottieData(
     int resource_id) const {
   // The prefix that GRIT prepends to Lottie assets, after compression if any.
   // See: tools/grit/grit/node/structure.py
@@ -620,7 +620,7 @@ absl::optional<ResourceBundle::LottieData> ResourceBundle::GetLottieData(
   const base::StringPiece potential_lottie = GetRawDataResource(resource_id);
   if (potential_lottie.substr(0u, std::size(kLottiePrefix)) !=
       base::StringPiece(kLottiePrefix, std::size(kLottiePrefix))) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   LottieData result;
@@ -639,7 +639,7 @@ const ui::ImageModel& ResourceBundle::GetThemedLottieImageNamed(
   if (found != image_models_.end())
     return found->second;
 
-  absl::optional<LottieData> data = GetLottieData(resource_id);
+  std::optional<LottieData> data = GetLottieData(resource_id);
   if (!data) {
     LOG(WARNING) << "Unable to load themed Lottie image with id "
                  << resource_id;
@@ -752,7 +752,7 @@ base::StringPiece ResourceBundle::GetRawDataResourceForScale(
 
 std::string ResourceBundle::LoadDataResourceString(int resource_id) const {
   if (delegate_) {
-    absl::optional<std::string> data =
+    std::optional<std::string> data =
         delegate_->LoadDataResourceString(resource_id);
     if (data)
       return data.value();
@@ -1070,7 +1070,7 @@ void ResourceBundle::InitDefaultFontList() {
 gfx::ImageSkia ResourceBundle::CreateImageSkia(int resource_id) {
   DCHECK(!resource_handles_.empty()) << "Missing call to SetResourcesDataDLL?";
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  absl::optional<LottieData> data = GetLottieData(resource_id);
+  std::optional<LottieData> data = GetLottieData(resource_id);
   if (data) {
     return (*g_parse_lottie_as_still_image_)(std::move(*data));
   }
@@ -1198,7 +1198,7 @@ std::u16string ResourceBundle::GetLocalizedStringImpl(int resource_id) const {
     return std::u16string();
   }
 
-  absl::optional<base::StringPiece> data;
+  std::optional<base::StringPiece> data;
   ResourceHandle::TextEncodingType encoding =
       locale_resources_data_->GetTextEncodingType();
   if (!(data = locale_resources_data_->GetStringPiece(

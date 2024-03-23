@@ -453,7 +453,7 @@ void OpaqueBrowserFrameView::UpdateWindowTitle() {
   if (frameless_)
     return;
   if (!frame()->IsFullscreen() && ShouldShowWindowTitle()) {
-    Layout();
+    DeprecatedLayoutImmediately();
     if (window_title_) {
       window_title_->SchedulePaint();
     }

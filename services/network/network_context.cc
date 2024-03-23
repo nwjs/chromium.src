@@ -5,6 +5,7 @@
 #include "services/network/network_context.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -148,7 +149,6 @@
 #include "services/network/url_loader.h"
 #include "services/network/url_request_context_builder_mojo.h"
 #include "services/network/web_transport.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CT_SUPPORTED)
@@ -493,13 +493,13 @@ void SCTAuditingDelegate::MaybeEnqueueReport(
 // path into `full_path` otherwise returns false.
 bool GetFullDataFilePath(
     const mojom::NetworkContextFilePathsPtr& file_paths,
-    absl::optional<base::FilePath> network::mojom::NetworkContextFilePaths::*
+    std::optional<base::FilePath> network::mojom::NetworkContextFilePaths::*
         field_name,
     base::FilePath& full_path) {
   if (!file_paths)
     return false;
 
-  absl::optional<base::FilePath> relative_file_path =
+  std::optional<base::FilePath> relative_file_path =
       file_paths.get()->*field_name;
   if (!relative_file_path.has_value())
     return false;
@@ -862,7 +862,7 @@ void NetworkContext::CreateURLLoaderFactoryForCertNetFetcher(
   url_loader_factory_params->is_trusted = true;
   url_loader_factory_params->process_id = mojom::kBrowserProcessId;
   url_loader_factory_params->automatically_assign_isolation_info = true;
-  url_loader_factory_params->is_corb_enabled = false;
+  url_loader_factory_params->is_orb_enabled = false;
   CreateURLLoaderFactory(std::move(factory_receiver),
                          std::move(url_loader_factory_params));
 }
@@ -972,7 +972,7 @@ void NetworkContext::GetTrustTokenQueryAnswerer(
   DCHECK(trust_token_store_);
   DCHECK(network_service_);
 
-  absl::optional<SuitableTrustTokenOrigin> suitable_top_frame_origin =
+  std::optional<SuitableTrustTokenOrigin> suitable_top_frame_origin =
       SuitableTrustTokenOrigin::Create(top_frame_origin);
 
   const SynchronousTrustTokenKeyCommitmentGetter* const key_commitment_getter =
@@ -1020,7 +1020,7 @@ void NetworkContext::DeleteStoredTrustTokens(
     return;
   }
 
-  absl::optional<SuitableTrustTokenOrigin> suitable_issuer_origin =
+  std::optional<SuitableTrustTokenOrigin> suitable_issuer_origin =
       SuitableTrustTokenOrigin::Create(issuer);
   if (!suitable_issuer_origin) {
     std::move(callback).Run(
@@ -1325,9 +1325,9 @@ void NetworkContext::QueueReport(
     const std::string& type,
     const std::string& group,
     const GURL& url,
-    const absl::optional<base::UnguessableToken>& reporting_source,
+    const std::optional<base::UnguessableToken>& reporting_source,
     const net::NetworkAnonymizationKey& network_anonymization_key,
-    const absl::optional<std::string>& user_agent,
+    const std::optional<std::string>& user_agent,
     base::Value::Dict body) {
 #if BUILDFLAG(ENABLE_REPORTING)
   // If |reporting_source| is provided, it must not be empty.
@@ -1645,7 +1645,7 @@ void NetworkContext::CreateTCPServerSocket(
 }
 
 void NetworkContext::CreateTCPConnectedSocket(
-    const absl::optional<net::IPEndPoint>& local_addr,
+    const std::optional<net::IPEndPoint>& local_addr,
     const net::AddressList& remote_addr_list,
     mojom::TCPConnectedSocketOptionsPtr tcp_connected_socket_options,
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
@@ -1728,7 +1728,7 @@ void NetworkContext::CreateWebSocket(
         url_loader_network_observer,
     mojo::PendingRemote<mojom::WebSocketAuthenticationHandler> auth_handler,
     mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
-    const absl::optional<base::UnguessableToken>& throttling_profile_id) {
+    const std::optional<base::UnguessableToken>& throttling_profile_id) {
 #if BUILDFLAG(ENABLE_WEBSOCKETS)
   if (!websocket_factory_)
     websocket_factory_ = std::make_unique<WebSocketFactory>(this);
@@ -1778,7 +1778,7 @@ void NetworkContext::ResolveHost(
 }
 
 void NetworkContext::CreateHostResolver(
-    const absl::optional<net::DnsConfigOverrides>& config_overrides,
+    const std::optional<net::DnsConfigOverrides>& config_overrides,
     mojo::PendingReceiver<mojom::HostResolver> receiver) {
   net::HostResolver* internal_resolver = url_request_context_->host_resolver();
   std::unique_ptr<net::HostResolver> private_internal_resolver;
@@ -2020,7 +2020,7 @@ void NetworkContext::VerifyCertificateForTesting(
 void NetworkContext::PreconnectSockets(
     uint32_t num_streams,
     const GURL& original_url,
-    bool allow_credentials,
+    mojom::CredentialsMode credentials_mode,
     const net::NetworkAnonymizationKey& network_anonymization_key) {
   DCHECK(!require_network_anonymization_key_ ||
          !network_anonymization_key.IsEmpty());
@@ -2043,13 +2043,29 @@ void NetworkContext::PreconnectSockets(
   request_info.extra_headers.SetHeader(net::HttpRequestHeaders::kUserAgent,
                                        user_agent);
 
-  if (allow_credentials) {
-    request_info.load_flags = net::LOAD_NORMAL;
-    request_info.privacy_mode = net::PRIVACY_MODE_DISABLED;
-  } else {
-    request_info.load_flags = net::LOAD_DO_NOT_SAVE_COOKIES;
-    request_info.privacy_mode = net::PRIVACY_MODE_ENABLED;
+  switch (credentials_mode) {
+    case mojom::CredentialsMode::kOmit:
+      request_info.load_flags = net::LOAD_DO_NOT_SAVE_COOKIES;
+      request_info.privacy_mode = net::PRIVACY_MODE_ENABLED;
+      break;
+
+    case mojom::CredentialsMode::kSameOrigin:
+      // Not yet implemented. If you need this credentials mode please update
+      // this branch to set the correct request_info fields.
+      NOTREACHED_NORETURN() << "kSameOrigin not yet implemented";
+
+    case mojom::CredentialsMode::kInclude:
+      request_info.load_flags = net::LOAD_NORMAL;
+      request_info.privacy_mode = net::PRIVACY_MODE_DISABLED;
+      break;
+
+    case mojom::CredentialsMode::kOmitBug_775438_Workaround:
+      request_info.load_flags = net::LOAD_DO_NOT_SAVE_COOKIES;
+      request_info.privacy_mode =
+          net::PRIVACY_MODE_ENABLED_WITHOUT_CLIENT_CERTS;
+      break;
   }
+
   request_info.network_anonymization_key = network_anonymization_key;
 
   net::HttpTransactionFactory* factory =
@@ -2185,7 +2201,7 @@ void NetworkContext::LookupServerBasicAuthCredentials(
   if (entry && entry->scheme() == net::HttpAuth::AUTH_SCHEME_BASIC)
     std::move(callback).Run(entry->credentials());
   else
-    std::move(callback).Run(absl::nullopt);
+    std::move(callback).Run(std::nullopt);
 }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -2197,7 +2213,7 @@ void NetworkContext::LookupProxyAuthCredentials(
   net::HttpAuth::Scheme net_scheme =
       net::HttpAuth::StringToScheme(base::ToLowerASCII(auth_scheme));
   if (net_scheme == net::HttpAuth::Scheme::AUTH_SCHEME_MAX) {
-    std::move(callback).Run(absl::nullopt);
+    std::move(callback).Run(std::nullopt);
     return;
   }
   net::HttpAuthCache* http_auth_cache =
@@ -2211,7 +2227,7 @@ void NetworkContext::LookupProxyAuthCredentials(
   url::SchemeHostPort scheme_host_port(
       GURL(scheme + proxy_server.host_port_pair().ToString()));
   if (!scheme_host_port.IsValid()) {
-    std::move(callback).Run(absl::nullopt);
+    std::move(callback).Run(std::nullopt);
     return;
   }
 
@@ -2223,7 +2239,7 @@ void NetworkContext::LookupProxyAuthCredentials(
   if (entry)
     std::move(callback).Run(entry->credentials());
   else
-    std::move(callback).Run(absl::nullopt);
+    std::move(callback).Run(std::nullopt);
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -2273,7 +2289,7 @@ void NetworkContext::OnHttpAuthDynamicParamsChanged(
         http_auth_dynamic_network_service_params->allowed_schemes->begin(),
         http_auth_dynamic_network_service_params->allowed_schemes->end()));
   } else {
-    http_auth_merged_preferences_.set_allowed_schemes(absl::nullopt);
+    http_auth_merged_preferences_.set_allowed_schemes(std::nullopt);
   }
 
   url_matcher_ = std::make_unique<url_matcher::URLMatcher>();
@@ -2359,7 +2375,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
     std::unique_ptr<IpProtectionProxyDelegate> proxy_delegate =
 
         std::make_unique<IpProtectionProxyDelegate>(
-            nspal, std::move(ipp_config_cache));
+            nspal, std::move(ipp_config_cache), params_->enable_ip_protection);
     proxy_delegate->SetReceiver(
         std::move(params_->ip_protection_proxy_delegate));
     proxy_delegate_ = proxy_delegate.get();
@@ -3012,7 +3028,7 @@ void NetworkContext::FlushCachedClientCertIfNeeded(
 }
 
 void NetworkContext::SetCookieDeprecationLabel(
-    const absl::optional<std::string>& label) {
+    const std::optional<std::string>& label) {
   CHECK(url_request_context_);
   url_request_context_->set_cookie_deprecation_label(label);
 }

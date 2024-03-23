@@ -54,6 +54,31 @@ class FieldDataManager;
 
 namespace form_util {
 
+// This file contains utility function related to form and form field
+// extraction, label inference, DOM traversal, and form field preview and
+// autofilling.
+//
+// To understand form extraction, a bit of terminology is relevant:
+// - We consider a form control element `t` (e.g., an <input>) to be associated
+//   with a form element `f` iff
+//   * `t` is explicitly associated with `f` via a "form" attribute, e.g.
+//     <form id=f></form>
+//     <input type=text id=t form=f>
+//   * or `f` is `t`'s (not shadow-tree including) ancestor node.
+//     Note that there should be at most one not-shadow-including ancestor node
+//     that is a `<form>` since multiple nested `<form>`s are not permitted
+//     inside the same document fragment.
+//   Autofill does not currently support form-associated custom
+//   elements. See https://web.dev/articles/more-capable-form-controls for more
+//   information on those.
+// - We consider a form control element `t` to be owned by a form element `f` if
+//   * `t` is explicitly associated with `f` or a shadow-including descendant of
+//     `f`,
+//   *  or `t` is a shadow-including descendant of `f` without explicit
+//      association.
+// - We consider a form control element to be unowned if is it not owned by any
+//   form.
+
 // Mapping from a form element's render id to results of button titles
 // heuristics for a given form element.
 using ButtonTitlesCache = base::flat_map<FormRendererId, ButtonTitleList>;
@@ -258,12 +283,19 @@ void WebFormControlElementToFormField(
     FormFieldData* field,
     ShadowFieldData* shadow_data = nullptr);
 
-// Returns the form that owns the `form_control`, or a null pointer if no form
-// owns the `form_control`. exists.
+// Returns the form that owns the `form_control`, or a null `WebFormElement` if
+// no form owns the `form_control`.
 //
-// The form that owns `form_control` is
-// - the form with which `form_control` is associated, if such a form exists,
-// - the closest shadow-including ancestor WebFormElement.
+// When `kAutofillIncludeFormElementsInShadowDom` is enabled, the form that owns
+// `form_control` is
+// - if `form_control` is associated to a form, the furthest shadow-including
+//   form ancestor of that form,
+// - otherwise, the furthest shadow-including form ancestor of `form_control`.
+//
+// When `kAutofillIncludeFormElementsInShadowDom` is disabled, `form_control`'s
+// owner is
+// - if `form_control` is associated to a form, that form,
+// - otherwise, the nearest shadow-including form ancestor of `form_control`.
 blink::WebFormElement GetOwningForm(
     const blink::WebFormControlElement& form_control);
 
@@ -290,8 +322,6 @@ FindFormAndFieldForFormControlElement(
 // the unowned form (i.e., the collection of form control elements that aren't
 // owned by any form).
 //
-// `kAutofillUseDomNodeIdForRendererId` must be enabled.
-//
 // Returns `std::nullopt` if `contenteditable`:
 // - is a WebFormElement; otherwise, there could be two FormData objects with
 //   identical renderer ID referring to different conceptual forms: the one for
@@ -313,7 +343,7 @@ std::optional<FormData> FindFormForContentEditable(
 // Returns a list of pairs of the filled elements and their autofill state
 // prior to the filling.
 std::vector<std::pair<FieldRef, blink::WebAutofillState>> ApplyFormAction(
-    base::span<const FormFieldData> fields,
+    base::span<const FormFieldData::FillData> fields,
     const blink::WebFormControlElement& initiating_element,
     mojom::ActionType action_type,
     mojom::ActionPersistence action_persistence,
@@ -362,7 +392,7 @@ bool IsWebElementEmpty(const blink::WebElement& element);
 // |input_element| by calling value(), because of http://crbug.com/507714.
 void PreviewSuggestion(const std::u16string& suggestion,
                        const std::u16string& user_input,
-                       blink::WebFormControlElement* input_element);
+                       blink::WebFormControlElement& input_element);
 
 // Returns the aggregated values of the descendants of |element| that are
 // non-empty text nodes.  This is a faster alternative to |innerText()| for
@@ -390,44 +420,17 @@ std::u16string InferLabelForElement(const blink::WebFormControlElement& element,
 
 // Returns the form element by unique renderer id. Returns the null element if
 // there is no form with the |form_renderer_id|.
-blink::WebFormElement FindFormByRendererId(const blink::WebDocument& doc,
-                                           FormRendererId form_renderer_id);
+blink::WebFormElement GetFormByRendererId(FormRendererId form_renderer_id);
 
 // Returns the form control element by unique renderer id.
 // |form_to_be_searched| could be used as an optimization to only search for
 // elements in it, but doesn't guarantee that the returned element will belong
 // to it. Returns the null element if there is no element with the
 // |queried_form_control| renderer id.
-blink::WebFormControlElement FindFormControlByRendererId(
-    const blink::WebDocument& doc,
-    FieldRendererId queried_form_control,
-    std::optional<FormRendererId> form_to_be_searched = std::nullopt);
+blink::WebFormControlElement GetFormControlByRendererId(
+    FieldRendererId queried_form_control);
 
-// Note: The vector-based API of the following two functions is a tax for
-// limiting the frequency and duration of retrieving a lot of DOM elements.
-// Alternative solutions have been discussed on https://crrev.com/c/1108201.
-
-// Returns form control elements identified by the given unique renderer IDs.
-// The result has the same number of elements as |queried_form_controls| and
-// the i-th element of the result corresponds to the i-th element of
-// |queried_form_controls|. The call of this function might be time
-// expensive, because it retrieves all DOM elements.
-std::vector<blink::WebFormControlElement> FindFormControlsByRendererId(
-    const blink::WebDocument& doc,
-    base::span<const FieldRendererId> queried_form_controls);
-
-// Returns form control elements by unique renderer id. The result has the same
-// number elements as |queried_form_controls| and the i-th element of the result
-// corresponds to the i-th element of |queried_form_controls|.
-// |form_to_be_searched| could be used as an optimization to only search for
-// elements in it, but doesn't guarantee that the returned element will belong
-// to it.
-std::vector<blink::WebFormControlElement> FindFormControlsByRendererId(
-    const blink::WebDocument& doc,
-    FormRendererId form_renderer_id,
-    base::span<const FieldRendererId> queried_form_controls);
-
-blink::WebElement FindContentEditableByRendererId(
+blink::WebElement GetContentEditableByRendererId(
     FieldRendererId field_renderer_id);
 
 std::string GetAutocompleteAttribute(const blink::WebElement& element);

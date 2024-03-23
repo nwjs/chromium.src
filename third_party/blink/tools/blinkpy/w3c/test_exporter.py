@@ -187,7 +187,10 @@ class TestExporter(object):
                 return
 
             if self.create_draft_pr:
-                self.graphql.mark_ready_for_review(pull_request.node_id)
+                pr_response = self.graphql.mark_ready_for_review(
+                    pull_request.node_id)
+                _log.info(f'Marked PR with node ID {pull_request.node_id!r} '
+                          'as ready for review.')
 
             if self.github.provisional_pr_label in pull_request.labels:
                 # If the PR was created from a Gerrit in-flight CL, update the

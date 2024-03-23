@@ -29,6 +29,11 @@ BASE_FEATURE(kBluetoothPhoneFilter,
              "BluetoothPhoneFilter",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables show captive portal signin in a specially flagged popup window.
+BASE_FEATURE(kCaptivePortalPopupWindow,
+             "CaptivePortalPopupWindow",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables updated UI for the clipboard history menu and new system behavior
 // related to clipboard history.
 BASE_FEATURE(kClipboardHistoryRefresh,
@@ -130,10 +135,17 @@ BASE_FEATURE(kDisableQuickAnswersV2Translation,
              "DisableQuickAnswersV2Translation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables import of PKCS12 files to software backed Chaps storage together with
+// import to NSS DB via the "Import" button in the certificates manager.
+// When the feature is disabled, PKCS12 files are imported to NSS DB only.
+BASE_FEATURE(kEnablePkcs12ToChapsDualWrite,
+             "EnablePkcs12ToChapsDualWrite",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables Essential Search in Omnibox for both launcher and browser.
 BASE_FEATURE(kEssentialSearch,
              "EssentialSearch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable experimental goldfish web app isolation.
 BASE_FEATURE(kExperimentalWebAppStoragePartitionIsolation,
@@ -210,7 +222,12 @@ BASE_FEATURE(kRoundedWindows,
              "RoundedWindows",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables a content cache for FileSystemProvider extensions.
+// Enables CloudFileSystem for FileSystemProvider extensions.
+BASE_FEATURE(kFileSystemProviderCloudFileSystem,
+             "FileSystemProviderCloudFileSystem",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables a content cache in CloudFileSystem for FileSystemProvider extensions.
 BASE_FEATURE(kFileSystemProviderContentCache,
              "FileSystemProviderContentCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -226,6 +243,10 @@ bool IsAppInstallServiceUriEnabled() {
 #else
   return base::FeatureList::IsEnabled(kAppInstallServiceUri);
 #endif
+}
+
+bool IsCaptivePortalPopupWindowEnabled() {
+  return base::FeatureList::IsEnabled(kCaptivePortalPopupWindow);
 }
 
 bool IsClipboardHistoryRefreshEnabled() {
@@ -298,8 +319,15 @@ bool IsEssentialSearchEnabled() {
   return base::FeatureList::IsEnabled(kEssentialSearch);
 }
 
+bool IsFileSystemProviderCloudFileSystemEnabled() {
+  return base::FeatureList::IsEnabled(kFileSystemProviderCloudFileSystem);
+}
+
 bool IsFileSystemProviderContentCacheEnabled() {
-  return base::FeatureList::IsEnabled(kFileSystemProviderContentCache);
+  // The `ContentCache` will be owned by the `CloudFileSystem`. Thus, the
+  // `FileSystemProviderCloudFileSystem` flag has to be enabled too.
+  return IsFileSystemProviderCloudFileSystemEnabled() &&
+         base::FeatureList::IsEnabled(kFileSystemProviderContentCache);
 }
 
 bool IsIWAForTelemetryExtensionAPIEnabled() {
@@ -376,6 +404,10 @@ bool IsRoundedWindowsEnabled() {
   // Rounded windows are under the Jelly feature.
   return base::FeatureList::IsEnabled(kRoundedWindows) &&
          base::FeatureList::IsEnabled(kJelly);
+}
+
+bool IsPkcs12ToChapsDualWriteEnabled() {
+  return base::FeatureList::IsEnabled(kEnablePkcs12ToChapsDualWrite);
 }
 
 int RoundedWindowsRadius() {

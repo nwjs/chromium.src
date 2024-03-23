@@ -69,8 +69,8 @@
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent_observer_bridge.h"
-#import "ios/chrome/browser/promos_manager/features.h"
-#import "ios/chrome/browser/promos_manager/promos_manager_factory.h"
+#import "ios/chrome/browser/promos_manager/model/features.h"
+#import "ios/chrome/browser/promos_manager/model/promos_manager_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/screenshot/model/screenshot_delegate.h"
 #import "ios/chrome/browser/sessions/session_restoration_service.h"
@@ -146,6 +146,7 @@
 #import "ios/chrome/browser/ui/policy/user_policy_scene_agent.h"
 #import "ios/chrome/browser/ui/policy/user_policy_util.h"
 #import "ios/chrome/browser/ui/promos_manager/promos_manager_scene_agent.h"
+#import "ios/chrome/browser/ui/promos_manager/utils.h"
 #import "ios/chrome/browser/ui/scoped_ui_blocker/scoped_ui_blocker.h"
 #import "ios/chrome/browser/ui/settings/password/password_checkup/password_checkup_coordinator.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_coordinator.h"
@@ -180,7 +181,7 @@
 #import "ios/web/public/thread/web_task_traits.h"
 #import "ios/web/public/thread/web_thread.h"
 #import "ios/web/public/web_state.h"
-#import "net/base/mac/url_conversions.h"
+#import "net/base/apple/url_conversions.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -257,11 +258,9 @@ void InjectUnrealizedWebStates(Browser* browser, int count) {
     // will not be saved with the legacy session storage.
     int index = browser->GetWebStateList()->count();
     web_state_list->InsertWebState(
-        index, std::move(web_state),
-        (index == 0 && !web_state_list->GetActiveWebState())
-            ? WebStateList::INSERT_ACTIVATE
-            : WebStateList::INSERT_NO_FLAGS,
-        WebStateOpener());
+        std::move(web_state),
+        WebStateList::InsertionParams::Automatic().Activate(
+            index == 0 && !web_state_list->GetActiveWebState()));
   }
 }
 #endif  // !BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -297,10 +296,9 @@ void InjectNTP(Browser* browser) {
   web_state->GetNavigationManager()->Restore(0, std::move(items));
   NewTabPageTabHelper::CreateForWebState(web_state.get());
   NewTabPageTabHelper::FromWebState(web_state.get())->SetShowStartSurface(true);
-  int index = browser->GetWebStateList()->count();
-  browser->GetWebStateList()->InsertWebState(index, std::move(web_state),
-                                             WebStateList::INSERT_ACTIVATE,
-                                             WebStateOpener());
+  browser->GetWebStateList()->InsertWebState(
+      std::move(web_state),
+      WebStateList::InsertionParams::Automatic().Activate());
 }
 
 }  // namespace
@@ -894,7 +892,7 @@ void InjectNTP(Browser* browser) {
   // sync promos and displays the sign-in promo if possible.
   __weak SceneController* weakSelf = self;
   base::Time fetch_start = base::Time::Now();
-  system_identity_manager->CanOfferExtendedSyncPromos(
+  system_identity_manager->CanShowHistorySyncOptInsWithoutMinorModeRestrictions(
       defaultIdentity, base::BindOnce(^(CapabilityResult result) {
         base::TimeDelta fetch_duration = (base::Time::Now() - fetch_start);
         base::UmaHistogramTimes(
@@ -1016,6 +1014,7 @@ void InjectNTP(Browser* browser) {
       initWithBrowserProviderInterface:self.browserViewWrangler];
   [sceneState.scene.screenshotService setDelegate:self.screenshotDelegate];
 
+  [self activateBVCAndMakeCurrentBVCPrimary];
   [self.browserViewWrangler loadSession];
   [self createInitialUI:[self initialUIMode]];
 
@@ -1023,8 +1022,10 @@ void InjectNTP(Browser* browser) {
   // events.
   [GeolocationLogger sharedInstance];
 
-  [sceneState addAgent:[[PromosManagerSceneAgent alloc]
-                           initWithCommandDispatcher:mainCommandDispatcher]];
+  if (ShouldDisplayPromos()) {
+    [sceneState addAgent:[[PromosManagerSceneAgent alloc]
+                             initWithCommandDispatcher:mainCommandDispatcher]];
+  }
 
   if (IsAppStoreRatingEnabled()) {
     [sceneState addAgent:[[AppStoreRatingSceneAgent alloc]
@@ -1198,8 +1199,6 @@ void InjectNTP(Browser* browser) {
         feature_engagement::TrackerFactory::GetForBrowserState(browserState);
 
     tracker->NotifyEvent(feature_engagement::events::kBlueDotPromoCriterionMet);
-    tracker->NotifyEvent(
-        feature_engagement::events::kDefaultBrowserVideoPromoConditionsMet);
   }
 }
 
@@ -1874,8 +1873,8 @@ void InjectNTP(Browser* browser) {
   DCHECK(infoBarManager);
   CommandDispatcher* dispatcher =
       self.mainInterface.browser->GetCommandDispatcher();
-  id<ApplicationSettingsCommands> settingsHandler =
-      HandlerForProtocol(dispatcher, ApplicationSettingsCommands);
+  id<SettingsCommands> settingsHandler =
+      HandlerForProtocol(dispatcher, SettingsCommands);
   SigninNotificationInfoBarDelegate::Create(
       infoBarManager, self.mainInterface.browser->GetBrowserState(),
       settingsHandler, baseViewController);
@@ -1966,7 +1965,7 @@ void InjectNTP(Browser* browser) {
   return YES;
 }
 
-#pragma mark - ApplicationSettingsCommands
+#pragma mark - SettingsCommands
 
 // TODO(crbug.com/779791) : Remove show settings from MainController.
 - (void)showAccountsSettingsFromViewController:
@@ -2603,12 +2602,10 @@ void InjectNTP(Browser* browser) {
   if (!self.currentInterface.browser) {
     return;
   }
-  id<ApplicationSettingsCommands> applicationSettingsCommandsHandler =
-      HandlerForProtocol(self.currentInterface.browser->GetCommandDispatcher(),
-                         ApplicationSettingsCommands);
-  [applicationSettingsCommandsHandler
-      showDefaultBrowserSettingsFromViewController:nil
-                                      sourceForUMA:sourceForUMA];
+  id<SettingsCommands> settingsHandler = HandlerForProtocol(
+      self.currentInterface.browser->GetCommandDispatcher(), SettingsCommands);
+  [settingsHandler showDefaultBrowserSettingsFromViewController:nil
+                                                   sourceForUMA:sourceForUMA];
 }
 
 - (void)startPasswordSearch {
@@ -2624,10 +2621,9 @@ void InjectNTP(Browser* browser) {
         feature_engagement::events::kPasswordManagerWidgetPromoUsed);
   }
 
-  id<ApplicationSettingsCommands> applicationSettingsCommandsHandler =
-      HandlerForProtocol(browser->GetCommandDispatcher(),
-                         ApplicationSettingsCommands);
-  [applicationSettingsCommandsHandler showPasswordSearchPage];
+  id<SettingsCommands> settingsHandler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), SettingsCommands);
+  [settingsHandler showPasswordSearchPage];
 }
 
 - (void)openReadingList {
@@ -2665,9 +2661,8 @@ void InjectNTP(Browser* browser) {
     return;
   }
 
-  id<ApplicationSettingsCommands> settingsHandler =
-      HandlerForProtocol(self.currentInterface.browser->GetCommandDispatcher(),
-                         ApplicationSettingsCommands);
+  id<SettingsCommands> settingsHandler = HandlerForProtocol(
+      self.currentInterface.browser->GetCommandDispatcher(), SettingsCommands);
   [settingsHandler showCreditCardSettings];
 }
 
@@ -2676,9 +2671,8 @@ void InjectNTP(Browser* browser) {
     return;
   }
 
-  id<ApplicationSettingsCommands> settingsHandler =
-      HandlerForProtocol(self.currentInterface.browser->GetCommandDispatcher(),
-                         ApplicationSettingsCommands);
+  id<SettingsCommands> settingsHandler = HandlerForProtocol(
+      self.currentInterface.browser->GetCommandDispatcher(), SettingsCommands);
   [settingsHandler showClearBrowsingDataSettings];
 }
 

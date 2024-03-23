@@ -66,14 +66,6 @@ BASE_FEATURE(kAutofillEnableCvcStorageAndFilling,
              "AutofillEnableCvcStorageAndFilling",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, if the user encounters the yellow path (challenge path) in the
-// VCN retrieval flow and the server denotes that the card is eligible for email
-// OTP authentication, email OTP authentication will be offered as one of the
-// challenge options.
-BASE_FEATURE(kAutofillEnableEmailOtpForVcnYellowPath,
-             "AutofillEnableEmailOtpForVcnYellowPath",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, user's will see network card art images and network icons which
 // are larger, having a white border, and don't have the standard grey overlay
 // applied to them.
@@ -123,13 +115,13 @@ BASE_FEATURE(kAutofillEnableUserAvatarInSaveCardFooter,
 // autofill dialogs and bubbles on desktop.
 BASE_FEATURE(kAutofillEnableMovingGPayLogoToTheRightOnDesktop,
              "AutofillEnableMovingGPayLogoToTheRightOnDesktop",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the GPay logo will be moved to the right side in payments
 // autofill dialogs and bubbles on clank.
 BASE_FEATURE(kAutofillEnableMovingGPayLogoToTheRightOnClank,
              "AutofillEnableMovingGPayLogoToTheRightOnClank",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the user will see a new banner logo and text in the bubble
 // offering to Upstream their cards onto Google Pay.
@@ -154,7 +146,7 @@ BASE_FEATURE(kAutofillEnablePaymentsAndroidBottomSheet,
 // from the payments server. Only on Android.
 BASE_FEATURE(kAutofillEnablePaymentsAndroidBottomSheetAccountEmail,
              "AutofillEnablePaymentsAndroidBottomSheetAccountEmail",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // When enabled, in use-cases where we would not have triggered any user-visible
@@ -197,6 +189,14 @@ BASE_FEATURE(kAutofillEnableServerIban,
 BASE_FEATURE(kAutofillEnableStickyManualFallbackForCards,
              "AutofillEnableStickyManualFallbackForCards",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, Pix bank accounts are synced from Chrome Sync backend and
+// stored in the local db.
+BASE_FEATURE(kAutofillEnableSyncingOfPixBankAccounts,
+             "AutofillEnableSyncingOfPixBankAccounts",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, the user will have the ability to update the virtual card
 // enrollment of a credit card through their chrome browser after certain

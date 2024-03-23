@@ -58,6 +58,7 @@
 <translation id="1877026089748256423">Chrome ጊዜው አልፎበታል</translation>
 <translation id="1919130412786645364">የChrome በመለያ መግባትን ይፍቀዱ</translation>
 <translation id="1953553007165777902">በማውረድ ላይ... <ph name="MINUTE" /> ደቂቃ(ዎች) ይቀራል(ሉ)</translation>
+<translation id="2001586581944147178">የበይነመረብ ትራፊክዎ መዳረሻ ላላቸው ሰዎች እርስዎ የትኞቹን ጣቢያዎች እንደሚጎበኙ ማየት ያክብዱባቸው። Chrome የጣቢያውን አይ ፒ አድራሻ በዲኤንኤስ (የጎራ ስም ሥርዓት) ውስጥ ለመፈለግ የተመሰጠረ ግንኙነትን ይጠቀማል።</translation>
 <translation id="2018528049276128029">እያንዳንዱ መገለጫ እንደ ዕልባቶች፣ ታሪክ፣ የይለፍ ቃላት እና ሌሎችም ያሉ የራሱ የChrome መረጃዎችን ይይዛል</translation>
 <translation id="2018879682492276940">መጫን አልተሳካም። እባክዎ እንደገና ይሞክሩ።</translation>
 <translation id="2071318482926839249">ሌላ መለያ አስቀድሞ ገብቷል። አሰሳዎን ለይቶ ለማቆየት Chrome የራስዎን መገለጫ ለእርስዎ መፍጠር ይችላል።</translation>
@@ -76,6 +77,7 @@
 <translation id="2151406531797534936">እባክዎ Chrome ን አሁን ዳግም ያስጀምሩ</translation>
 <translation id="2174917724755363426">መጫኑ አልተጠናቀቀም። እርግጠኛ ነዎት መሰረዝ ይፈልጋሉ?</translation>
 <translation id="2190166659037789668">የዝማኔ ፍተሻ ስህተት፦ <ph name="UPDATE_CHECK_ERROR" />።</translation>
+<translation id="2199691482078155239">Chrome በሚያዩዋቸው ማስታወቂያዎች ላይ የበለጠ ቁጥጥር ይሰጥዎታል እንዲሁም ግላዊነት የተላበሱ ማስታወቂያዎችን ሲያሳዩዎ ጣቢያዎች ስለእርስዎ ምን ማወቅ እንደሚችሉ ይገድባል።</translation>
 <translation id="223889379102603431">Chrome እንዴት የስር እውቅና ማረጋገጫዎቹን እንደሚያስተዳድር ላይ መረጃ</translation>
 <translation id="2258103955319320201">በሁሉም መሣሪያዎችዎ ላይ የእርስዎን የChrome አሳሽ ነገሮች ለመድረስ ይግቡ፣ ከዚያ ስምረትን ያብሩ</translation>
 <translation id="2290014774651636340">የGoogle ኤ ፒ አይ ቁልፎች ይጎድላሉ። አንዳንድ የGoogle Chrome ተግባራት ይሰናከላሉ።</translation>
@@ -138,7 +140,6 @@
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - በአውታረ መረብ ወደ መለያ መግባት - Chrome</translation>
 <translation id="3018957014024118866">እንዲሁም ከChrome (<ph name="URL" />) ውሂብ ይሰርዙ</translation>
 <translation id="3019382870990049182">&amp;ChromeOS Flexን ለማዘመን እንደገና ያስጀምሩ</translation>
-<translation id="303514781271618814">Chrome ጣቢያዎች ያነሰ ውሂብዎን ተጠቅመው ተመሳሳይ የአሰሳ ተሞክሮ እንዲያቀርቡ የሚያስችሏቸውን አዳዲስ ባህሪያትን እያሰሰ ነው።</translation>
 <translation id="3037838751736561277">Google Chrome በጀርባ ሁኔታ ላይ ነው።</translation>
 <translation id="3038232873781883849">ለመጫን በመጠበቅ ላይ...</translation>
 <translation id="3059710691562604940">የጥንቃቄ አሰሳ ጠፍቷል። Chrome እንዲያበሩት ይመክራል።</translation>
@@ -161,7 +162,6 @@
 <translation id="3360895254066713204">Chrome አጋዥ</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome አሁን ዳግም ይጀምራል}=1{Chrome በ1 ሰከንድ ውስጥ ዳግም ይጀምራል}one{Chrome በ# ሰከንዶች ውስጥ ዳግም ይጀምራል}other{Chrome በ# ሰከንዶች ውስጥ ዳግም ይጀምራል}}</translation>
 <translation id="3396977131400919238">በመጫን ጊዜ የሥርዓተ ክወና ስህተት ተፈጥሯል። እባክዎ Google Chromeን እንደገና ያውርዱ።</translation>
-<translation id="3426646014273736870">የማህደረ ትውስታ ቆጣቢ Chromeን የበለጠ ፈጣን አድርጎታል</translation>
 <translation id="3428747202529429621">በChrome ላይ ደህንነትዎን ይጠብቃል፣ እና በመለያ በገቡባቸው ሌሎች የGoogle መተግበሪያዎች ላይ ደህንነትዎን ለማሻሻል ሥራ ላይ ሊውል ይችላል።</translation>
 <translation id="3434246496373299699">Chrome በእርስዎ የGoogle መለያ በሚገቡበት ጊዜ የእርስዎን የይለፍ ቃላትን ሊፈትሽ ይችላል</translation>
 <translation id="3450887623636316740">ይህ ፋይል አደገኛ ሊሆን ይችላል<ph name="LINE_BREAK" />የይለፍ ቃሉን ካቀረቡ Chrome ይህንን ውርድ ሊፈትሽልዎ ይችላል። የፋይሉ መረጃ ወደ የGoogle ጥንቃቄ አሰሳ ይላካል፣ ነገር ግን የፋይሉ ይዘት እና የይለፍ ቃል በመሣሪያዎ ላይ ይቆያሉ።</translation>
@@ -178,6 +178,7 @@
 <translation id="3635073343384702370">Chrome እርስዎ የይለፍ ቃላትዎን ሲያስቀምጧቸው መፈተሽ ይችላል</translation>
 <translation id="3667616615096815454">መጫን አልተቻለም፣ አገልጋዩ መተግበሪያውን አያውቀውም።</translation>
 <translation id="3673813398384385993">Chrome «<ph name="EXTENSION_NAME" />» ተንኮል-አዘል ዌር እንደያዘ አግኝቷል</translation>
+<translation id="3697952514309507634">ሌሎች የChrome መገለጫዎች</translation>
 <translation id="3703994572283698466">ChromeOS እና <ph name="BEGIN_LINK_LINUX_OSS" />Linux ግንባታ ምህዳር<ph name="END_LINK_LINUX_OSS" /> ሊሠሩ የቻሉት በተጨማሪ <ph name="BEGIN_LINK_CROS_OSS" />የክፍት ምንጭ ሶፍትዌር<ph name="END_LINK_CROS_OSS" /> ነው።</translation>
 <translation id="3716540481907974026">የChromeOS Flex ስሪት</translation>
 <translation id="3718181793972440140">ይሄ 1 ንጥል ከዚህ መሣሪያዎ ይሰርዘዋል። ውሂብዎን በኋላ ላይ ሰርስረው ለማውጣት እንደ <ph name="USER_EMAIL" /> ሆነው ወደ Chrome ይግቡ።</translation>
@@ -317,7 +318,6 @@ Google Chrome ቅንጅቶችዎን ማስመለስ አልቻለም።</translat
 <translation id="608006075545470555">የስራ መገለጫ ወደዚህ አሳሽ ያክሉ</translation>
 <translation id="6113794647360055231">Chrome አሁን ይበልጥ ተሻሽሏል</translation>
 <translation id="6145313976051292476">PDFዎችን በChrome ውስጥ ክፈት</translation>
-<translation id="6155960517327665396">የማህደረ ትውስታ ቆጣቢ Chromeን ፈጣን አድርጎታል</translation>
 <translation id="6157638032135951407">ድርጅትዎ የChrome ውሂብን ለ<ph name="TIMEOUT_DURATION" /> ያህል ሥራ ላይ ሳይውል ይሰርዘዋል። ይህ ታሪክን፣ ራስ-ሙላን እና ውርዶችን ሊያካትት ይችላል።</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome ቅድመ-ይሁንታ</translation>
@@ -433,6 +433,7 @@ Google Chrome ቅንጅቶችዎን ማስመለስ አልቻለም።</translat
 <translation id="8019103195866286235">ይህ ቅጥያ በገንቢው ከህትመት ወጥቷል እና ደህንነቱ የተጠበቀ ላይሆን ይችላል። የግል መረጃዎን ጨምሮ ከእንግዲህ እርስዎ በሚጎበኟቸው ጣቢያዎች ላይ ያለውን ውሂብዎን ማየት እና መለወጥ እንዳይችል ከChrome ያስወግዱት።</translation>
 <translation id="80471789339884597">ሰለተጫኑ እናመሰግናለን። <ph name="BUNDLE_NAME" />ን ከመጠቀምዎ በፊት ሁሉንም አሳሾችዎን እንደገና ማስጀመር አለብዎት።</translation>
 <translation id="8064015586118426197">ChromeOS Flex</translation>
+<translation id="8077579734294125741">ሌሎች የChrome መገለጫዎች</translation>
 <translation id="8086881907087796310">ኮምፒውተርዎ አነስተኛውን የሃርድዌር መስፈርቶች ስላላሟላ መጫኑ አልተሳካም።</translation>
 <translation id="8129812357326543296">ስለ &amp;Google Chrome</translation>
 <translation id="813913629614996137">በማስጀመር ላይ…</translation>

@@ -72,18 +72,13 @@ BASE_FEATURE(kAppShimLaunchChromeSilently,
 BASE_FEATURE(kAppShimNotificationAttribution,
              "AppShimNotificationAttribution",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_MAC)
 
-// Enables the built-in DNS resolver.
-BASE_FEATURE(kAsyncDns,
-             "AsyncDns",
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+// When enabled, app shims used by PWAs will be signed with an ad-hoc signature
+// https://crbug.com/40276068
+BASE_FEATURE(kUseAdHocSigningForWebAppShims,
+             "UseAdHocSigningForWebAppShims",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
@@ -289,6 +284,17 @@ BASE_FEATURE(kChromeStructuredMetrics,
              "ChromeStructuredMetrics",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Kill switch for Controlled Frame. This is enabled by default but is only
+// tested to ensure it's enabled before proceeding with the rest of the feature
+// checks like testing for IWA support or Kiosk mode. If this feature flag is
+// disabled, such as via Finch, then Controlled Frame will no longer be
+// available in IWA or Kiosk mode.
+// See https://github.com/WICG/controlled-frame/blob/main/README.md for more
+// info.
+BASE_FEATURE(kControlledFrame,
+             "ControlledFrame",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When installing default installed PWAs, we wait for service workers
 // to cache resources.
 BASE_FEATURE(kDesktopPWAsCacheDuringDefaultInstall,
@@ -361,6 +367,9 @@ BASE_FEATURE(kDesktopPWAsTabStripSettings,
 BASE_FEATURE(kChromeAppsDeprecation,
              "ChromeAppsDeprecation",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kShortcutsNotApps,
+             "ShortcutsNotApps",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_FUCHSIA)
 
@@ -443,11 +452,6 @@ BASE_FEATURE(kEnableNetworkServiceResourceBlockListIfThirdPartyCookiesBlocked,
              "EnableNetworkServiceResourceBlockListIfThirdPartyCookiesBlocked",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enable extended descriptions for key settings in Chrome settings.
-BASE_FEATURE(kExtendedSettingsDescriptions,
-             "ExtendedSettingsDescriptions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #if !BUILDFLAG(IS_ANDROID)
 // Lazy initialize IndividualSettings for extensions from enterprise policy
 // that are not installed.
@@ -499,6 +503,12 @@ BASE_FEATURE(kPrivacyGuide3,
 // feature to be enabled as well.
 BASE_FEATURE(kPrivacyGuidePreload,
              "PrivacyGuidePreload",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Defines if the linked services setting is eligible to be shown in Chrome
+// settings.
+BASE_FEATURE(kLinkedServicesSetting,
+             "LinkedServicesSetting",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -840,6 +850,13 @@ BASE_FEATURE(kImmersiveFullscreenTabs,
 BASE_FEATURE(kImmersiveFullscreenPWAs,
              "ImmersiveFullscreenPWAs",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Changes how Chrome responds to accessibility activation signals on macOS
+// Sonoma, to avoid unnecessary changes to the screen reader state.
+BASE_FEATURE(kSonomaAccessibilityActivationRefinements,
+             "SonomaAccessibilityActivationRefinements",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1164,7 +1181,6 @@ BASE_FEATURE(kSafetyCheckExtensions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
 // Enables notification permission module in Safety Check.
 BASE_FEATURE(kSafetyCheckNotificationPermissions,
              "SafetyCheckNotificationPermissions",
@@ -1185,7 +1201,6 @@ BASE_FEATURE(kSafetyHub, "SafetyHub", base::FEATURE_DISABLED_BY_DEFAULT);
 // Time between automated runs of the password check.
 const base::FeatureParam<base::TimeDelta> kBackgroundPasswordCheckInterval{
     &kSafetyHub, "background-password-check-interval", base::Days(10)};
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // Enable support for multiple scheduler configurations.
@@ -1246,6 +1261,13 @@ BASE_FEATURE(kSitePerProcess,
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Enables the SkyVault (cloud-first) changes, some of which are also controlled
+// by policies: removing local storage, saving downloads and screen captures to
+// the cloud, and related UX changes, primarily in the Files App.
+BASE_FEATURE(kSkyVault, "SkyVault", base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // Enables or disables SmartDim on Chrome OS.
@@ -1622,6 +1644,10 @@ BASE_FEATURE(kWebAppSyncGeneratedIconRetroactiveFix,
 BASE_FEATURE(kWebAppSyncGeneratedIconUpdateFix,
              "WebAppSyncGeneratedIconUpdateFix",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebAppUniversalInstall,
+             "WebAppUniversalInstall",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate,
@@ -1667,6 +1693,7 @@ BASE_FEATURE(kWebShare, "WebShare", base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kUmaStorageDimensions,
              "UmaStorageDimensions",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// TODO(b/319045572): Remove this feature flag.
 // Allow a Wilco DTC (diagnostics and telemetry controller) on Chrome OS.
 // More info about the project may be found here:
 // https://docs.google.com/document/d/18Ijj8YlC8Q3EWRzLspIi2dGxg4vIBVe5sJgMPt9SWYo

@@ -55,11 +55,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Managed"/>
 </enum>
 
-<enum name="BooleanOriginHeaderSameAsRequestOrigin">
-  <int value="0" label="Headers differ"/>
-  <int value="1" label="Headers match"/>
-</enum>
-
 <enum name="CaptivePortalNetworkState">
   <int value="0" label="UNKNOWN"/>
   <int value="1" label="ONLINE"/>
@@ -506,6 +501,12 @@ chromium-metrics-reviews@google.com.
   <int value="8"
       label="kUpstreamNoInternet: Hotspot disabled due to upstream network
              has no Internet connectivity."/>
+  <int value="9"
+      label="kDownstreamLinkDisconnect: Hotspot disabled due to downsteam
+             link disconnected."/>
+  <int value="10"
+      label="kDownstreamNetworkDisconnect: Hotspot disabled due to downstream
+             network disconnected."/>
 </enum>
 
 <enum name="HotspotSetConfigResult">
@@ -577,6 +578,19 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="kWifiWithCellularNotConnected"/>
 </enum>
 
+<enum name="IpProtectionEligibility">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Ineligible"/>
+  <int value="2" label="Eligible"/>
+</enum>
+
+<enum name="IpProtectionProxyChainId">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Chain 1"/>
+  <int value="2" label="Chain 2"/>
+  <int value="3" label="Chain 3"/>
+</enum>
+
 <enum name="IpProtectionProxyLayer">
   <int value="0" label="Proxy A"/>
   <int value="1" label="Proxy B"/>
@@ -593,6 +607,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Failed - BSA Error Other"/>
   <int value="8" label="Transient OAuth Token Failure"/>
   <int value="9" label="Persistent OAuth Token Failure"/>
+  <int value="10" label="Disabled by User"/>
 </enum>
 
 <enum name="ManagedApnMigrationType">
@@ -1037,14 +1052,14 @@ chromium-metrics-reviews@google.com.
     Corresponds to NetworkPortalSigninController::SigninMode used to determine
     how to display captive portal signin UI.
   </summary>
-  <int value="1" label="Dialog using the signin Profile"/>
+  <int value="1" label="Dialog using the signin (login) Profile"/>
   <int value="2"
       label="DEPRECATED: Singleton tab using the active user Profile"/>
-  <int value="3" label="Browser tab using the active user Profile"/>
-  <int value="4" label="Browser tab using an OTR Profile"/>
-  <int value="5" label="Dialog using an incognito Profile (deprecated)"/>
-  <int value="6" label="Normal browser tab (OTR policy disabled)"/>
-  <int value="7" label="Normal browser tab (Parental controls)"/>
+  <int value="3" label="Normal tab (extensions and proxies enabled)"/>
+  <int value="4" label="Default (proxies disabled)"/>
+  <int value="5" label="DEPRECATED: Dialog using an incognito Profile"/>
+  <int value="6" label="Incognito mode disabled by policy"/>
+  <int value="7" label="Incognito mode disabled by parental controls"/>
 </enum>
 
 <enum name="NetworkPortalSigninSource">
@@ -1204,6 +1219,16 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Unknown"/>
 </enum>
 
+<enum name="NetworkTechnologyMeterSubtype">
+  <int value="0" label="Ethernet"/>
+  <int value="1" label="WiFi"/>
+  <int value="2" label="WiFi Metered"/>
+  <int value="3" label="Cellular"/>
+  <int value="4" label="Cellular Metered"/>
+  <int value="5" label="Tether"/>
+  <int value="6" label="Tether Metered"/>
+</enum>
+
 <enum name="NotificationSuppressionState">
   <int value="0" label="NotSuppressed"/>
   <int value="1" label="UserSuppressed"/>
@@ -1270,6 +1295,11 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="TTLS+PAP"/>
   <int value="4" label="TTLS+MSCHAP"/>
   <int value="5" label="TTLS+MSCHAPv2"/>
+</enum>
+
+<enum name="PasspointTermsAndConditions">
+  <int value="0" label="Association to a Passpoint network"/>
+  <int value="1" label="Passpoint network provided a Terms and Conditions URL"/>
 </enum>
 
 <enum name="PlatformCellularConnectResult">
@@ -2145,6 +2175,14 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="MemoryPressure"/>
 </enum>
 
+<enum name="TermsAndConditionsAggregateResult">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="No portal detected, no terms and conditions URL"/>
+  <int value="2" label="No portal detected, terms and conditions URL provided"/>
+  <int value="3" label="Portal detected, no terms and conditions URL"/>
+  <int value="4" label="Portal detected, terms and conditions URL provided"/>
+</enum>
+
 <enum name="UnmanagedApnMigrationType">
   <int value="0"
       label="No last connected attach or default APN, but matches last good
@@ -2384,6 +2422,11 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Does not support 802.11r"/>
   <int value="1" label="Supports Over-the-Air FT Roaming"/>
   <int value="2" label="Supports Over-the-DS FT Roaming"/>
+</enum>
+
+<enum name="WiFiAp80211uANQPSupport">
+  <int value="0" label="Does not support 802.11u ANQP"/>
+  <int value="1" label="Supports ANQP"/>
 </enum>
 
 <enum name="WiFiAp80211vBSSMaxIdlePeriodSupport">

@@ -104,10 +104,10 @@ class CORE_EXPORT WorkerGlobalScope
   const base::UnguessableToken& GetDevToolsToken() const override;
   bool IsInitialized() const final { return !url_.IsNull(); }
   CodeCacheHost* GetCodeCacheHost() override;
-  absl::optional<mojo::PendingRemote<network::mojom::blink::URLLoaderFactory>>
+  std::optional<mojo::PendingRemote<network::mojom::blink::URLLoaderFactory>>
   FindRaceNetworkRequestURLLoaderFactory(
       const base::UnguessableToken& token) override {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   void ExceptionUnhandled(int exception_id);
@@ -191,7 +191,7 @@ class CORE_EXPORT WorkerGlobalScope
   // Spec: https://html.spec.whatwg.org/C/#run-a-worker Step 12 is completed,
   // and it's ready to proceed to Step 23.
   void WorkerScriptFetchFinished(Script&,
-                                 absl::optional<v8_inspector::V8StackTraceId>);
+                                 std::optional<v8_inspector::V8StackTraceId>);
 
   // Fetches and evaluates the top-level classic script.
   virtual void FetchAndRunClassicScript(
@@ -261,7 +261,7 @@ class CORE_EXPORT WorkerGlobalScope
     main_resource_identifier_ = identifier;
   }
 
-  absl::optional<uint64_t> MainResourceIdentifier() const {
+  std::optional<uint64_t> MainResourceIdentifier() const {
     return main_resource_identifier_;
   }
 
@@ -363,7 +363,7 @@ class CORE_EXPORT WorkerGlobalScope
   ScriptEvalState script_eval_state_;
 
   Member<Script> worker_script_;
-  absl::optional<v8_inspector::V8StackTraceId> stack_id_;
+  std::optional<v8_inspector::V8StackTraceId> stack_id_;
 
   HttpsState https_state_;
 
@@ -378,7 +378,7 @@ class CORE_EXPORT WorkerGlobalScope
   // |main_resource_identifier_| is used to track main script that was started
   // in the browser process. This field not having a value does not imply
   // anything.
-  absl::optional<uint64_t> main_resource_identifier_;
+  std::optional<uint64_t> main_resource_identifier_;
 
   // This is the interface that handles generated code cache
   // requests both to fetch code cache when loading resources.

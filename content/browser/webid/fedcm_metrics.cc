@@ -285,11 +285,13 @@ void FedCmMetrics::RecordIsSignInUser(bool is_sign_in) {
   base::UmaHistogramBoolean("Blink.FedCm.IsSignInUser", is_sign_in);
 }
 
-void FedCmMetrics::RecordWebContentsVisibilityUponReadyToShowDialog(
-    bool is_visible) {
+void FedCmMetrics::RecordWebContentsStatusUponReadyToShowDialog(
+    bool is_visible,
+    bool is_active) {
   if (is_disabled_)
     return;
   base::UmaHistogramBoolean("Blink.FedCm.WebContentsVisible", is_visible);
+  base::UmaHistogramBoolean("Blink.FedCm.WebContentsActive", is_active);
 }
 
 void FedCmMetrics::RecordAutoReauthnMetrics(
@@ -598,6 +600,20 @@ void RecordLifecycleStateFailureReason(
     FedCmLifecycleStateFailureReason reason) {
   base::UmaHistogramEnumeration("Blink.FedCm.LifecycleStateFailureReason",
                                 reason);
+}
+
+void RecordRawAccountsSize(int size) {
+  CHECK_GT(size, 0);
+  base::UmaHistogramCustomCounts("Blink.FedCm.AccountsSize.Raw", size,
+                                 /*min=*/1,
+                                 /*max=*/10, /*buckets=*/10);
+}
+
+void RecordReadyToShowAccountsSize(int size) {
+  CHECK_GT(size, 0);
+  base::UmaHistogramCustomCounts("Blink.FedCm.AccountsSize.ReadyToShow", size,
+                                 /*min=*/1,
+                                 /*max=*/10, /*buckets=*/10);
 }
 
 }  // namespace content

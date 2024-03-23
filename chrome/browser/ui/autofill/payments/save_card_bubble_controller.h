@@ -12,6 +12,7 @@
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/ui/payments/payments_bubble_closed_reasons.h"
+#include "components/autofill/core/browser/ui/payments/save_card_and_virtual_card_enroll_confirmation_ui_params.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/models/image_model.h"
@@ -62,6 +63,17 @@ class SaveCardBubbleController {
 
   // Returns the card that will be uploaded if the user accepts.
   virtual const CreditCard& GetCard() const = 0;
+
+  // Returns a once callback for the save card bubble controller's
+  // OnBubbleClosed() method.
+  virtual base::OnceCallback<void(PaymentsBubbleClosedReason)>
+  GetOnBubbleClosedCallback() = 0;
+
+  // Returns the UI parameters needed to display the save card confirmation
+  // view. This can only be called while the confirmation bubble view is being
+  // shown.
+  virtual const SaveCardAndVirtualCardEnrollConfirmationUiParams&
+  GetConfirmationUiParams() const = 0;
 
   // Returns whether the dialog should include a textfield requesting the user
   // to confirm/provide cardholder name.

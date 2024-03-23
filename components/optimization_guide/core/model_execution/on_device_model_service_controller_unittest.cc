@@ -10,6 +10,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -22,6 +23,7 @@
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
+#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/core/test_model_info_builder.h"
@@ -66,17 +68,16 @@ std::vector<std::string> ConcatResponses(
 constexpr proto::ModelExecutionFeature kFeature =
     proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_COMPOSE;
 
-class FakeOnDeviceSession : public base::SupportsWeakPtr<FakeOnDeviceSession>,
-                            public on_device_model::mojom::Session {
+class FakeOnDeviceSession final : public on_device_model::mojom::Session {
  public:
   // on_device_model::mojom::Session:
   void AddContext(on_device_model::mojom::InputOptionsPtr input,
                   mojo::PendingRemote<on_device_model::mojom::ContextClient>
                       client) override {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&FakeOnDeviceSession::AddContextInternal, AsWeakPtr(),
-                       std::move(input), std::move(client)));
+        FROM_HERE, base::BindOnce(&FakeOnDeviceSession::AddContextInternal,
+                                  weak_factory_.GetWeakPtr(), std::move(input),
+                                  std::move(client)));
   }
 
   void Execute(on_device_model::mojom::InputOptionsPtr input,
@@ -88,8 +89,9 @@ class FakeOnDeviceSession : public base::SupportsWeakPtr<FakeOnDeviceSession>,
     }
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE,
-        base::BindOnce(&FakeOnDeviceSession::ExecuteImpl, AsWeakPtr(),
-                       std::move(input), std::move(response)),
+        base::BindOnce(&FakeOnDeviceSession::ExecuteImpl,
+                       weak_factory_.GetWeakPtr(), std::move(input),
+                       std::move(response)),
         g_execute_delay);
   }
 
@@ -161,6 +163,7 @@ class FakeOnDeviceSession : public base::SupportsWeakPtr<FakeOnDeviceSession>,
   }
 
   std::vector<std::string> context_;
+  base::WeakPtrFactory<FakeOnDeviceSession> weak_factory_{this};
 };
 
 class FakeOnDeviceModel : public on_device_model::mojom::OnDeviceModel {
@@ -172,6 +175,13 @@ class FakeOnDeviceModel : public on_device_model::mojom::OnDeviceModel {
     // Session.
     receivers_.Clear();
     receivers_.Add(std::make_unique<FakeOnDeviceSession>(), std::move(session));
+  }
+
+  void LoadAdaptation(
+      on_device_model::mojom::LoadAdaptationParamsPtr params,
+      mojo::PendingReceiver<on_device_model::mojom::OnDeviceModel> model,
+      LoadAdaptationCallback callback) override {
+    std::move(callback).Run(on_device_model::mojom::LoadModelResult::kSuccess);
   }
 
  private:
@@ -465,9 +475,8 @@ class OnDeviceModelServiceControllerTest : public testing::Test {
   base::FilePath temp_dir() const { return temp_dir_.GetPath(); }
 
  protected:
-  void OnResponse(OptimizationGuideModelStreamingExecutionResult result,
-                  std::unique_ptr<ModelQualityLogEntry> log_entry) {
-    log_entry_received_ = std::move(log_entry);
+  void OnResponse(OptimizationGuideModelStreamingExecutionResult result) {
+    log_entry_received_ = std::move(result.log_entry);
     if (log_entry_received_) {
       // Make sure that an execution ID is always generated if we return a log
       // entry.
@@ -480,14 +489,14 @@ class OnDeviceModelServiceControllerTest : public testing::Test {
                                        .execution_id(),
                                    "on-device"));
     }
-    if (!result.has_value()) {
-      response_error_ = result.error().error();
+    if (!result.response.has_value()) {
+      response_error_ = result.response.error().error();
       return;
     }
-    provided_by_on_device_ = result.value().provided_by_on_device;
+    provided_by_on_device_ = result.provided_by_on_device;
     auto response =
-        ParsedAnyMetadata<proto::ComposeResponse>(result.value().response);
-    if (result.value().is_complete) {
+        ParsedAnyMetadata<proto::ComposeResponse>(result.response->response);
+    if (result.response->is_complete) {
       response_received_ = response->output();
     } else {
       streamed_responses_.push_back(response->output());
@@ -550,6 +559,25 @@ TEST_F(OnDeviceModelServiceControllerTest, ModelExecutionSuccess) {
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason.Compose",
       OnDeviceModelEligibilityReason::kSuccess, 1);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest,
+       ModelExecutionFeatureExecutionNotEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      {}, {features::kOptimizationGuideComposeOnDeviceEval});
+
+  Initialize();
+
+  base::HistogramTester histogram_tester;
+  auto session = test_controller_->CreateSession(
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_COMPOSE,
+      base::DoNothing(), &logger_);
+  EXPECT_FALSE(session);
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason.Compose",
+      OnDeviceModelEligibilityReason::kFeatureExecutionNotEnabled, 1);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, ModelExecutionWithContext) {
@@ -1952,6 +1980,23 @@ TEST_F(OnDeviceModelServiceControllerTest, IgnoresNonRepeatingText) {
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceResponseHasRepeats.Compose",
       false, 1);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest,
+       InitWithNoOnDeviceComponentStateManager) {
+  access_controller_ = nullptr;
+  test_controller_ = nullptr;
+
+  auto access_controller =
+      std::make_unique<OnDeviceModelAccessController>(pref_service_);
+  access_controller_ = access_controller.get();
+  test_controller_ = base::MakeRefCounted<FakeOnDeviceModelServiceController>(
+      std::move(access_controller),
+      on_device_component_state_manager_.get()->GetWeakPtr());
+
+  on_device_component_state_manager_.Reset();
+  // Init should not crash.
+  test_controller_->Init();
 }
 
 class OnDeviceModelServiceControllerTsIntervalTest

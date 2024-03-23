@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -29,7 +30,6 @@
 #include "net/proxy_resolution/proxy_resolution_service.h"
 #include "net/proxy_resolution/proxy_resolver.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
 namespace base {
@@ -163,12 +163,12 @@ class NET_EXPORT ConfiguredProxyResolutionService
   void ResetConfigService(
                           std::unique_ptr<ProxyConfigService> new_proxy_config_service);
   // Returns the last configuration fetched from ProxyConfigService.
-  const absl::optional<ProxyConfigWithAnnotation>& fetched_config() const {
+  const std::optional<ProxyConfigWithAnnotation>& fetched_config() const {
     return fetched_config_;
   }
 
   // Returns the current configuration being used by ProxyConfigService.
-  const absl::optional<ProxyConfigWithAnnotation>& config() const {
+  const std::optional<ProxyConfigWithAnnotation>& config() const {
     return config_;
   }
 
@@ -268,7 +268,8 @@ class NET_EXPORT ConfiguredProxyResolutionService
   class InitProxyResolver;
   class PacFileDeciderPoller;
 
-  typedef std::set<ConfiguredProxyResolutionRequest*> PendingRequests;
+  typedef std::set<raw_ptr<ConfiguredProxyResolutionRequest, SetExperimental>>
+      PendingRequests;
 
   enum State {
     STATE_NONE,
@@ -371,8 +372,8 @@ class NET_EXPORT ConfiguredProxyResolutionService
   // and custom PAC url).
   //
   // These are "optional" as their value remains unset while being calculated.
-  absl::optional<ProxyConfigWithAnnotation> fetched_config_;
-  absl::optional<ProxyConfigWithAnnotation> config_;
+  std::optional<ProxyConfigWithAnnotation> fetched_config_;
+  std::optional<ProxyConfigWithAnnotation> config_;
 
   // Map of the known bad proxies and the information about the retry time.
   ProxyRetryInfoMap proxy_retry_info_;

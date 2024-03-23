@@ -12,15 +12,10 @@
 #include "chrome/browser/ui/views/media_preview/camera_preview/video_stream_view.h"
 #include "content/public/browser/context_factory.h"
 #include "media/capture/video_capture_types.h"
-#include "ui/compositor/compositor.h"
 
 VideoStreamCoordinator::VideoStreamCoordinator(views::View& parent_view) {
   auto* video_stream_view =
       parent_view.AddChildView(std::make_unique<VideoStreamView>());
-
-  video_stream_view->SetRasterContextProvider(
-      content::GetContextFactory()->SharedMainThreadRasterContextProvider());
-
   video_stream_view_tracker_.SetView(video_stream_view);
 }
 
@@ -33,11 +28,15 @@ void VideoStreamCoordinator::ConnectToDevice(
     const std::vector<media::VideoCaptureFormat>& supported_formats) {
   Stop();
   if (auto* view = GetVideoStreamView(); view) {
+    // Using double the view width when choosing preferred format. This provides
+    // more information to the interpolation algorithm, so scaled images appear
+    // sharper.
+    int requested_format_width = 2 * view->width();
     video_frame_handler_ =
         std::make_unique<capture_mode::CameraVideoFrameHandler>(
             content::GetContextFactory(), std::move(video_source),
-            video_format_comparison::GetClosestVideoFormat(supported_formats,
-                                                           view->width()));
+            video_format_comparison::GetClosestVideoFormat(
+                supported_formats, requested_format_width));
 
     video_frame_handler_->StartHandlingFrames(/*delegate=*/this);
   }

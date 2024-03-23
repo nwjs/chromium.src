@@ -989,13 +989,10 @@ void PartitionRoot::Init(PartitionOptions opts) {
     if (settings.scheduler_loop_quarantine) {
       scheduler_loop_quarantine_capacity_in_bytes =
           opts.scheduler_loop_quarantine_capacity_in_bytes;
-      scheduler_loop_quarantine_capacity_count =
-          opts.scheduler_loop_quarantine_capacity_count;
       scheduler_loop_quarantine_root.SetCapacityInBytes(
           opts.scheduler_loop_quarantine_capacity_in_bytes);
       scheduler_loop_quarantine.emplace(
-          scheduler_loop_quarantine_root.CreateBranch(
-              opts.scheduler_loop_quarantine_capacity_count));
+          scheduler_loop_quarantine_root.CreateBranch());
     } else {
       // Deleting a running quarantine is not supported.
       PA_CHECK(!scheduler_loop_quarantine.has_value());
@@ -1040,9 +1037,11 @@ void PartitionRoot::Init(PartitionOptions opts) {
       size_t ref_count_size = internal::kPartitionRefCountSizeAdjustment;
       ref_count_size = internal::AlignUpRefCountSizeForMac(ref_count_size);
 #if PA_CONFIG(MAYBE_INCREASE_REF_COUNT_SIZE_FOR_MTE)
-      // Note the brp_enabled() check above.
-      // TODO(bartekn): Don't increase ref-count size in the "same slot" mode.
-      if (IsMemoryTaggingEnabled()) {
+      // When MTE is enabled together with BRP (crbug.com/1445816) in the
+      // "previous slot" mode (note the brp_enabled() check above), there is a
+      // race that can be avoided by making ref-count a multiple of the MTE
+      // granule and not tagging it.
+      if (IsMemoryTaggingEnabled() && !ref_count_in_same_slot_) {
         ref_count_size = internal::base::bits::AlignUp(
             ref_count_size, internal::kMemTagGranuleSize);
       }
@@ -1670,8 +1669,7 @@ ThreadCache* PartitionRoot::MaybeInitThreadCache() {
 
 internal::LightweightQuarantineBranch
 PartitionRoot::CreateSchedulerLoopQuarantineBranch(bool lock_required) {
-  return scheduler_loop_quarantine_root.CreateBranch(
-      scheduler_loop_quarantine_capacity_count, lock_required);
+  return scheduler_loop_quarantine_root.CreateBranch(lock_required);
 }
 
 // static

@@ -13,6 +13,7 @@
 #import "components/omnibox/common/omnibox_features.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
+#import "ios/chrome/browser/shared/ui/elements/self_sizing_table_view.h"
 #import "ios/chrome/browser/shared/ui/util/keyboard_observer_helper.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
@@ -29,7 +30,6 @@
 #import "ios/chrome/browser/ui/omnibox/popup/content_providing.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_accessibility_identifier_constants.h"
 #import "ios/chrome/browser/ui/omnibox/popup/popup_match_preview_delegate.h"
-#import "ios/chrome/browser/ui/omnibox/popup/popup_table_view.h"
 #import "ios/chrome/browser/ui/omnibox/popup/row/omnibox_popup_row_cell.h"
 #import "ios/chrome/browser/ui/omnibox/popup/row/omnibox_popup_row_cell_experimental.h"
 #import "ios/chrome/browser/ui/omnibox/popup/row/omnibox_popup_row_content_configuration.h"
@@ -190,8 +190,8 @@ BOOL ShouldDismissKeyboardOnScroll() {
     _carouselAttributeProvider.cache = self.largeIconCache;
   }
   self.tableView =
-      [[PopupTableView alloc] initWithFrame:CGRectZero
-                                      style:UITableViewStyleGrouped];
+      [[SelfSizingTableView alloc] initWithFrame:CGRectZero
+                                           style:UITableViewStyleGrouped];
   self.tableView.delegate = self;
   self.tableView.dataSource = self;
   self.view = self.tableView;
@@ -284,9 +284,19 @@ BOOL ShouldDismissKeyboardOnScroll() {
         UIScrollViewContentInsetAdjustmentNever;
   }
 
-  [self.tableView setDirectionalLayoutMargins:NSDirectionalEdgeInsetsMake(
-                                                  0, 0, kBottomPadding, 0)];
-  self.tableView.contentInset = UIEdgeInsetsMake(kTopPadding, 0, 0, 0);
+  if (IsIpadPopoutOmniboxEnabled()) {
+    self.tableView.tableFooterView =
+        [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, FLT_MIN)];
+    [self.tableView
+        setDirectionalLayoutMargins:NSDirectionalEdgeInsetsMake(
+                                        kTopPadding, 0, kBottomPadding, 0)];
+    self.tableView.contentInset =
+        UIEdgeInsetsMake(kTopPadding, 0, kBottomPadding, 0);
+  } else {
+    [self.tableView setDirectionalLayoutMargins:NSDirectionalEdgeInsetsMake(
+                                                    0, 0, kBottomPadding, 0)];
+    self.tableView.contentInset = UIEdgeInsetsMake(kTopPadding, 0, 0, 0);
+  }
 
   self.tableView.sectionHeaderHeight = 0.1;
   self.tableView.estimatedRowHeight = 0;
@@ -361,7 +371,9 @@ BOOL ShouldDismissKeyboardOnScroll() {
 
   CGRect omniboxFrame = self.omniboxGuide.layoutFrame;
   CGFloat leftMargin =
-      IsRegularXRegularSizeClass(self) ? omniboxFrame.origin.x : 0;
+      (IsRegularXRegularSizeClass(self) && !IsIpadPopoutOmniboxEnabled())
+          ? omniboxFrame.origin.x
+          : 0;
   CGFloat rightMargin =
       (IsRegularXRegularSizeClass(self) && !IsIpadPopoutOmniboxEnabled())
           ? self.view.bounds.size.width - omniboxFrame.origin.x -
@@ -766,7 +778,9 @@ BOOL ShouldDismissKeyboardOnScroll() {
                                2 / tableView.window.screen.scale)];
 
   hairline.backgroundColor =
-      [UIColor colorNamed:kOmniboxSuggestionRowSeparatorColor];
+      [UIColor colorNamed:IsIpadPopoutOmniboxEnabled()
+                              ? kOmniboxPopoutSuggestionRowSeparatorColor
+                              : kOmniboxSuggestionRowSeparatorColor];
   [footer addSubview:hairline];
   hairline.autoresizingMask = UIViewAutoresizingFlexibleWidth;
 
@@ -1027,6 +1041,11 @@ BOOL ShouldDismissKeyboardOnScroll() {
 /// Updates the color of the background based on the incognito-ness and the size
 /// class.
 - (void)updateBackgroundColor {
+  if (IsIpadPopoutOmniboxEnabled()) {
+    self.view.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
+    return;
+  }
+
   ToolbarConfiguration* configuration = [[ToolbarConfiguration alloc]
       initWithStyle:self.incognito ? ToolbarStyle::kIncognito
                                    : ToolbarStyle::kNormal];

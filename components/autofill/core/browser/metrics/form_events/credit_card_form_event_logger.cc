@@ -116,6 +116,30 @@ void CreditCardFormEventLogger::OnDidShowSuggestions(
   has_logged_suggestion_with_metadata_shown_ = true;
 }
 
+void CreditCardFormEventLogger::LogDeprecatedCreditCardSelectedMetric(
+    const CreditCard& credit_card,
+    const FormStructure& form,
+    AutofillMetrics::PaymentsSigninState signin_state_for_metrics) {
+  signin_state_for_metrics_ = signin_state_for_metrics;
+
+  switch (credit_card.record_type()) {
+    case CreditCard::RecordType::kLocalCard:
+    case CreditCard::RecordType::kFullServerCard:
+    case CreditCard::RecordType::kVirtualCard:
+      // No need to log selections for these types; crbug/1513307 only focused
+      // on masked server cards.
+      break;
+    case CreditCard::RecordType::kMaskedServerCard:
+      Log(DEPRECATED_FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_SELECTED, form);
+      if (!has_logged_legacy_masked_server_card_suggestion_selected_) {
+        has_logged_legacy_masked_server_card_suggestion_selected_ = true;
+        Log(DEPRECATED_FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_SELECTED_ONCE,
+            form);
+      }
+      break;
+  }
+}
+
 void CreditCardFormEventLogger::OnDidSelectCardSuggestion(
     const CreditCard& credit_card,
     const FormStructure& form,
@@ -199,9 +223,9 @@ void CreditCardFormEventLogger::OnDidSelectCardSuggestion(
 
     if (suggestions_.size() > 1) {
       CHECK(personal_data_manager_);
-      // Keeps track of which issuers with metadata were not selected. Can be
-      // zero issuers if there was only one card suggestion and that card was
-      // selected.
+      // Keeps track of which issuers and networks with metadata were not
+      // selected. Can be none if there was only one card suggestion displayed
+      // and that card was selected.
       for (const Suggestion& suggestion : suggestions_) {
         // TODO(crbug.com/1121806): Use instrument ID for server credit cards.
         CreditCard* suggested_credit_card =
@@ -215,8 +239,16 @@ void CreditCardFormEventLogger::OnDidSelectCardSuggestion(
         if (credit_card.issuer_id() != suggested_credit_card->issuer_id() &&
             (suggested_credit_card->HasRichCardArtImageFromMetadata() ||
              !suggested_credit_card->product_description().empty())) {
-          metadata_logging_context_.not_selected_issuer_ids.insert(
+          metadata_logging_context_.not_selected_issuer_ids_and_networks.insert(
               suggested_credit_card->issuer_id());
+        }
+        // Skip American Express and Discover as they are an issuer and
+        // network. They are already covered in the `issuer_id` check above.
+        if (credit_card.network() != kAmericanExpressCard &&
+            credit_card.network() != kDiscoverCard &&
+            credit_card.network() != suggested_credit_card->network()) {
+          metadata_logging_context_.not_selected_issuer_ids_and_networks.insert(
+              suggested_credit_card->network());
         }
       }
     }
@@ -228,7 +260,7 @@ void CreditCardFormEventLogger::OnDidSelectCardSuggestion(
   has_logged_suggestion_with_metadata_selected_ = true;
 }
 
-void CreditCardFormEventLogger::OnDidFillSuggestion(
+void CreditCardFormEventLogger::OnDidFillFormFillingSuggestion(
     const CreditCard& credit_card,
     const FormStructure& form,
     const AutofillField& field,
@@ -301,10 +333,11 @@ void CreditCardFormEventLogger::OnDidFillSuggestion(
   // was filled.
   LogCardWithMetadataFormEventMetric(
       autofill_metrics::CardMetadataLoggingEvent::kFilled,
-      metadata_logging_context_, HasBeenLogged(has_logged_suggestion_filled_));
+      metadata_logging_context_,
+      HasBeenLogged(has_logged_form_filling_suggestion_filled_));
 
-  if (!has_logged_suggestion_filled_) {
-    has_logged_suggestion_filled_ = true;
+  if (!has_logged_form_filling_suggestion_filled_) {
+    has_logged_form_filling_suggestion_filled_ = true;
     logged_suggestion_filled_was_server_data_ =
         record_type == CreditCard::RecordType::kMaskedServerCard ||
         record_type == CreditCard::RecordType::kFullServerCard ||
@@ -416,7 +449,7 @@ void CreditCardFormEventLogger::RecordShowSuggestions() {
 }
 
 void CreditCardFormEventLogger::LogWillSubmitForm(const FormStructure& form) {
-  if (!has_logged_suggestion_filled_) {
+  if (!has_logged_form_filling_suggestion_filled_) {
     Log(FORM_EVENT_NO_SUGGESTION_WILL_SUBMIT_ONCE, form);
   } else if (logged_suggestion_filled_was_masked_server_card_) {
     Log(FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_WILL_SUBMIT_ONCE, form);
@@ -443,7 +476,7 @@ void CreditCardFormEventLogger::LogWillSubmitForm(const FormStructure& form) {
     Log(FORM_EVENT_SUGGESTION_FOR_CARD_WITH_CVC_WILL_SUBMIT_ONCE, form);
   }
 
-  if (has_logged_suggestion_filled_) {
+  if (has_logged_form_filling_suggestion_filled_) {
     // Log issuer-specific metrics on whether a card suggestion with metadata
     // was filled before submission.
     LogCardWithMetadataFormEventMetric(
@@ -459,7 +492,7 @@ void CreditCardFormEventLogger::LogWillSubmitForm(const FormStructure& form) {
 }
 
 void CreditCardFormEventLogger::LogFormSubmitted(const FormStructure& form) {
-  if (!has_logged_suggestion_filled_) {
+  if (!has_logged_form_filling_suggestion_filled_) {
     Log(FORM_EVENT_NO_SUGGESTION_SUBMITTED_ONCE, form);
   } else if (logged_suggestion_filled_was_masked_server_card_) {
     Log(FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_SUBMITTED_ONCE, form);
@@ -485,7 +518,7 @@ void CreditCardFormEventLogger::LogFormSubmitted(const FormStructure& form) {
     Log(FORM_EVENT_LOCAL_SUGGESTION_SUBMITTED_ONCE, form);
   }
 
-  if (has_logged_suggestion_filled_ && has_eligible_offer_) {
+  if (has_logged_form_filling_suggestion_filled_ && has_eligible_offer_) {
     base::UmaHistogramBoolean("Autofill.Offer.SubmittedCardHasOffer",
                               card_selected_has_offer_);
   }
@@ -505,7 +538,7 @@ void CreditCardFormEventLogger::LogFormSubmitted(const FormStructure& form) {
     Log(FORM_EVENT_SUGGESTION_FOR_CARD_WITH_CVC_SUBMITTED_ONCE, form);
   }
 
-  if (has_logged_suggestion_filled_) {
+  if (has_logged_form_filling_suggestion_filled_) {
     // Log issuer-specific metrics on whether a card suggestion with metadata
     // was filled before submission.
     LogCardWithMetadataFormEventMetric(
@@ -538,7 +571,7 @@ void CreditCardFormEventLogger::OnSuggestionsShownOnce(
 
 void CreditCardFormEventLogger::OnSuggestionsShownSubmittedOnce(
     const FormStructure& form) {
-  if (!has_logged_suggestion_filled_) {
+  if (!has_logged_form_filling_suggestion_filled_) {
     const CreditCard& credit_card =
         client_->GetFormDataImporter()->ExtractCreditCardFromForm(form).card;
     Log(GetCardNumberStatusFormEvent(credit_card), form);
@@ -604,6 +637,10 @@ void CreditCardFormEventLogger::RecordCardUnmaskFlowEvent(
     case UnmaskAuthFlowType::kOtpFallbackFromFido:
       flow_type_suffix = ".OtpFallbackFromFido";
       break;
+    case UnmaskAuthFlowType::kThreeDomainSecure:
+    case UnmaskAuthFlowType::kThreeDomainSecureConsentAlreadyGiven:
+      // TODO(crbug.com/1521960): Add logging for kThreeDomainSecure and
+      // kThreeDomainSecureConsentAlreadyGiven.
     case UnmaskAuthFlowType::kNone:
       // TODO(crbug.com/1300959): Fix Autofill.BetterAuth logging.
       return;

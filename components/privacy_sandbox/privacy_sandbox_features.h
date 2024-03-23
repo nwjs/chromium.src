@@ -12,11 +12,6 @@
 
 namespace privacy_sandbox {
 
-// When true, do not show any privacySandbox dialog when the browser isn't a
-// normal browser.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxSuppressDialogOnNonNormalBrowsers);
-
 // Enables the fourth release of the Privacy Sandbox settings.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxSettings4);
@@ -185,9 +180,17 @@ BASE_DECLARE_FEATURE(kPrivateAggregationDebugReportingCookieDeprecationTesting);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxInternalsDevUI);
 
-// Enables showing the IP Protection setting on the cookies settings page.
+// Enables IP Protection setting behavior.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kIpProtectionV1);
+
+// Enables showing IP Protection toggle on the settings page.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kIpProtectionUx);
+
+// Enables updated cookie settings page UI.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kCookieSettingsUiAlignment);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables the trackingProtectionNoticeController to notify the

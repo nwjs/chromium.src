@@ -23,7 +23,7 @@
 #import "ios/chrome/app/spotlight/spotlight_util.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_ios_unit_test_support.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
-#import "net/base/mac/url_conversions.h"
+#import "net/base/apple/url_conversions.h"
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -270,6 +270,61 @@ TEST_F(BookmarkSpotlightManagerTest, testIndexAllBookmarksWithNoBookmarkModel) {
   // model are undefined.
   EXPECT_EQ(fakeSpotlightInterface.indexSearchableItemsCallsCount,
             initialIndexedItemCount);
+
+  [manager shutdown];
+}
+
+/// Tests that when the bookmark model updates while the app is in background,
+/// the update doesn't immediately happen in the index; and at foregrounding,
+/// the manager reindexes everything.
+TEST_F(BookmarkSpotlightManagerTest, testUpdatesInBackgroundCauseFullReindex) {
+  FakeSpotlightInterface* fakeSpotlightInterface =
+      [[FakeSpotlightInterface alloc] init];
+
+  BookmarksSpotlightManager* manager = [[BookmarksSpotlightManager alloc]
+          initWithLargeIconService:large_icon_service_.get()
+      localOrSyncableBookmarkModel:local_or_syncable_bookmark_model_
+              accountBookmarkModel:account_bookmark_model_
+                spotlightInterface:fakeSpotlightInterface
+             searchableItemFactory:searchableItemFactory_];
+
+  const bookmarks::BookmarkNode* addedNode1 =
+      AddBookmark(local_or_syncable_bookmark_model_->mobile_node(), u"foo1",
+                  GURL("http://foo1.com"));
+  AddBookmark(account_bookmark_model_->mobile_node(), u"foo2",
+              GURL("http://foo2.com"));
+
+  EXPECT_EQ(fakeSpotlightInterface.indexSearchableItemsCallsCount, 2u);
+
+  [[NSNotificationCenter defaultCenter]
+      postNotificationName:UIApplicationDidEnterBackgroundNotification
+                    object:nil
+                  userInfo:nil];
+
+  local_or_syncable_bookmark_model_->SetTitle(
+      addedNode1, u"new title 1",
+      bookmarks::metrics::BookmarkEditSource::kOther);
+
+  // Update shouldn't happen until we reach foreground.
+  EXPECT_EQ(fakeSpotlightInterface.indexSearchableItemsCallsCount, 2u);
+
+  [[NSNotificationCenter defaultCenter]
+      postNotificationName:UIApplicationWillEnterForegroundNotification
+                    object:nil
+                  userInfo:nil];
+
+  // We expect not to delete the modified item using its identifier.
+  EXPECT_EQ(
+      fakeSpotlightInterface.deleteSearchableItemsWithIdentifiersCallsCount,
+      0u);
+
+  // We expect all 2 items to be removed by domain identifier instead.
+  EXPECT_EQ(fakeSpotlightInterface
+                .deleteSearchableItemsWithDomainIdentifiersCallsCount,
+            1u);
+
+  // We expect reindexing both items.
+  EXPECT_EQ(fakeSpotlightInterface.indexSearchableItemsCallsCount, 4u);
 
   [manager shutdown];
 }

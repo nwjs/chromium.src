@@ -75,6 +75,7 @@
 #import "components/variations/service/variations_service.h"
 #import "components/web_resource/web_resource_pref_names.h"
 #import "ios/chrome/app/variations_app_state_agent.h"
+#import "ios/chrome/browser/drive/model/drive_policy.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/memory/model/memory_debugger_manager.h"
 #import "ios/chrome/browser/metrics/model/constants.h"
@@ -91,6 +92,7 @@
 #import "ios/chrome/browser/shared/model/browser_state/browser_state_info_cache.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/tips_notifications/model/tips_notification_client.h"
 #import "ios/chrome/browser/ui/authentication/history_sync/history_sync_utils.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin_promo_view_mediator.h"
@@ -103,6 +105,7 @@
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/upgrade/model/upgrade_constants.h"
 #import "ios/chrome/browser/voice/model/voice_search_prefs_registration.h"
+#import "ios/chrome/browser/web/model/annotations/annotations_util.h"
 #import "ios/chrome/browser/web/model/font_size/font_size_tab_helper.h"
 #import "ios/components/cookie_util/cookie_constants.h"
 #import "ios/web/common/features.h"
@@ -331,6 +334,8 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   segmentation_platform::SegmentationPlatformService::RegisterLocalStatePrefs(
       registry);
   optimization_guide::prefs::RegisterLocalStatePrefs(registry);
+  PushNotificationService::RegisterLocalStatePrefs(registry);
+  TipsNotificationClient::RegisterLocalStatePrefs(registry);
 
   // Preferences related to the browser state manager.
   registry->RegisterStringPref(prefs::kBrowserStateLastUsed, std::string());
@@ -554,7 +559,7 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
                                 true);
   registry->RegisterBooleanPref(kDataSaverEnabled, false);
   registry->RegisterBooleanPref(
-      prefs::kEnableDoNotTrack, false,
+      prefs::kEnableDoNotTrackIos, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(
       translate::prefs::kOfferTranslateEnabled, true,
@@ -686,6 +691,13 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
       prefs::kIosSaveToPhotosContextMenuPolicySettings,
       static_cast<int>(SaveToPhotosPolicySettings::kEnabled));
 
+  // Preferences related to Save to Drive settings.
+  registry->RegisterStringPref(prefs::kIosSaveToDriveDefaultGaiaId,
+                               std::string());
+  registry->RegisterIntegerPref(
+      prefs::kIosSaveToDriveDownloadManagerPolicySettings,
+      static_cast<int>(SaveToDrivePolicySettings::kEnabled));
+
   // Preferences related to parcel tracking.
   registry->RegisterBooleanPref(
       prefs::kIosParcelTrackingOptInPromptDisplayLimitMet, false);
@@ -738,6 +750,8 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kInsecureFormWarningsEnabled, true);
 
   registry->RegisterTimePref(kLastCookieDeletionDate, base::Time());
+
+  registry->RegisterDictionaryPref(prefs::kWebAnnotationsPolicy);
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -944,4 +958,7 @@ void MigrateObsoleteUserDefault() {
   // Added 10/2023
   [defaults removeObjectForKey:@"PathToBrowserStateToKeep"];
   [defaults removeObjectForKey:@"HasBrowserStateBeenRemoved"];
+
+  // TODO(b/322004644): Remove in M124+. Added 02/2024.
+  [defaults removeObjectForKey:@"TimestampAppLaunchedOnColdStart"];
 }

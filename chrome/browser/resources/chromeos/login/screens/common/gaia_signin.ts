@@ -6,7 +6,7 @@
  * @fileoverview Oobe signin screen implementation.
  */
 
-import '//resources/cr_elements/icons.html.js';
+import '//resources/ash/common/cr_elements/icons.html.js';
 import '//resources/polymer/v3_0/iron-icon/iron-icon.js';
 import '../../components/security_token_pin.js';
 import '../../components/oobe_icons.html.js';
@@ -27,7 +27,7 @@ import {LoginScreenBehavior, LoginScreenBehaviorInterface} from '../../component
 import {MultiStepBehavior, MultiStepBehaviorInterface} from '../../components/behaviors/multi_step_behavior.js';
 import {OobeI18nBehavior, OobeI18nBehaviorInterface} from '../../components/behaviors/oobe_i18n_behavior.js';
 import type {OobeModalDialog} from '../../components/dialogs/oobe_modal_dialog.js';
-import {OOBE_UI_STATE} from '../../components/display_manager_types.js';
+import {OobeUiState} from '../../components/display_manager_types.js';
 import type {GaiaDialog} from '../../components/gaia_dialog.js';
 import {OobeTypes} from '../../components/oobe_types.js';
 import type {SecurityTokenPin} from '../../components/security_token_pin.js';
@@ -477,7 +477,7 @@ export class GaiaSigninElement extends GaiaSigninElementBase {
    * Handler for Gaia loading timeout.
    */
   private onLoadingTimeOut(): void {
-    if (Oobe.getInstance().currentScreen.id != 'gaia-signin') {
+    if (Oobe.getInstance().currentScreen.id !== 'gaia-signin') {
       return;
     }
     this.clearLoadingTimer();
@@ -532,8 +532,8 @@ export class GaiaSigninElement extends GaiaSigninElementBase {
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  override getOobeUIInitialState(): OOBE_UI_STATE {
-    return OOBE_UI_STATE.GAIA_SIGNIN;
+  override getOobeUIInitialState(): OobeUiState {
+    return OobeUiState.GAIA_SIGNIN;
   }
 
   /**
@@ -610,8 +610,8 @@ export class GaiaSigninElement extends GaiaSigninElementBase {
     });
 
     this.isDefaultSsoProviderConfigured =
-        data.screenMode == ScreenAuthMode.SAML_REDIRECT;
-    params.doSamlRedirect = data.screenMode == ScreenAuthMode.SAML_REDIRECT;
+        data.screenMode === ScreenAuthMode.SAML_REDIRECT;
+    params.doSamlRedirect = data.screenMode === ScreenAuthMode.SAML_REDIRECT;
     params.menuEnterpriseEnrollment =
         !(data.enterpriseManagedDevice || data.hasDeviceOwner);
     params.isFirstUser = !(data.enterpriseManagedDevice || data.hasDeviceOwner);
@@ -627,7 +627,7 @@ export class GaiaSigninElement extends GaiaSigninElementBase {
    * Whether the current auth flow is SAML.
    */
   isSamlAuthFlowForTesting(): boolean {
-    return this.isSaml && this.authFlow == AuthFlow.SAML;
+    return this.isSaml && this.authFlow === AuthFlow.SAML;
   }
 
   /**
@@ -666,7 +666,7 @@ export class GaiaSigninElement extends GaiaSigninElementBase {
    * Invoked when the authFlow property is changed on the authenticator.
    */
   private onAuthFlowChange(): void {
-    this.isSaml = this.authFlow == AuthFlow.SAML;
+    this.isSaml = this.authFlow === AuthFlow.SAML;
   }
 
   /**
@@ -1087,7 +1087,7 @@ export class GaiaSigninElement extends GaiaSigninElementBase {
     const gaiaDialog =
         this.shadowRoot?.querySelector<GaiaDialog>('#signin-frame-dialog');
     assert(!!gaiaDialog);
-    gaiaDialog.isQuickStartEnabled_ = true;
+    gaiaDialog.isQuickStartEnabled = true;
   }
 
   private recordUmaHistogramForEnrollmentNudgeUserAction(

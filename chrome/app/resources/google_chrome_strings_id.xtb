@@ -55,6 +55,7 @@
 <translation id="1877026089748256423">Chrome terlalu lawas</translation>
 <translation id="1919130412786645364">Izinkan login Chrome</translation>
 <translation id="1953553007165777902">Mendownload... <ph name="MINUTE" /> menit lagi</translation>
+<translation id="2001586581944147178">Persulit orang yang memiliki akses ke traffic internet Anda untuk melihat situs yang Anda kunjungi. Chrome menggunakan koneksi aman untuk mencari alamat IP situs di Domain Name System (DNS).</translation>
 <translation id="2018528049276128029">Setiap profil memiliki info Chrome tersendiri, seperti bookmark, histori, sandi, dan lainnya</translation>
 <translation id="2018879682492276940">Gagal menginstal. Coba lagi.</translation>
 <translation id="2071318482926839249">Akun lain sudah login. Agar penjelajahan Anda tetap terpisah, Chrome dapat membuat profil tersendiri untuk Anda.</translation>
@@ -73,6 +74,7 @@
 <translation id="2151406531797534936">Mulai ulang Chrome sekarang</translation>
 <translation id="2174917724755363426">Penginstalan tidak selesai. Yakin ingin membatalkan?</translation>
 <translation id="2190166659037789668">Error pemeriksaan update: <ph name="UPDATE_CHECK_ERROR" />.</translation>
+<translation id="2199691482078155239">Chrome memberi Anda lebih banyak kontrol atas iklan yang Anda lihat dan membatasi hal yang dapat dipelajari situs tentang Anda saat menampilkan iklan yang dipersonalisasi kepada Anda</translation>
 <translation id="223889379102603431">Informasi tentang cara Chrome mengelola root certificate-nya</translation>
 <translation id="2258103955319320201">Untuk mengakses aktivitas browser Chrome di semua perangkat, login lalu aktifkan sinkronisasi</translation>
 <translation id="2290014774651636340">Kunci API Google tidak ada. Beberapa fungsi Google Chrome tidak akan berfungsi.</translation>
@@ -135,7 +137,6 @@
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - Login Jaringan - Chrome</translation>
 <translation id="3018957014024118866">Hapus juga data dari Chrome (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">Luncurkan kembali untuk mengupdate &amp;ChromeOS Flex</translation>
-<translation id="303514781271618814">Chrome sedang menjelajahi fitur baru yang memungkinkan situs memberikan pengalaman penjelajahan yang sama, tetapi menggunakan lebih sedikit data Anda</translation>
 <translation id="3037838751736561277">Google Chrome berjalan di mode latar belakang.</translation>
 <translation id="3038232873781883849">Menunggu untuk menginstal...</translation>
 <translation id="3059710691562604940">Safe Browsing nonaktif. Chrome merekomendasikan untuk mengaktifkannya.</translation>
@@ -158,7 +159,6 @@
 <translation id="3360895254066713204">Pembantu Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome akan diluncurkan ulang sekarang}=1{Chrome akan diluncurkan ulang dalam 1 detik}other{Chrome akan diluncurkan ulang dalam # detik}}</translation>
 <translation id="3396977131400919238">Terjadi error pada sistem operasi saat penginstalan berlangsung. Download kembali Google Chrome.</translation>
-<translation id="3426646014273736870">Penghemat Memori Membuat Chrome Lebih Cepat</translation>
 <translation id="3428747202529429621">Memastikan Anda tetap aman di Chrome dan dapat digunakan untuk menyempurnakan keamanan Anda di aplikasi Google lainnya saat login</translation>
 <translation id="3434246496373299699">Chrome dapat memeriksa sandi saat Anda login dengan Akun Google</translation>
 <translation id="3450887623636316740">File ini mungkin berbahaya<ph name="LINE_BREAK" />Chrome dapat memeriksa hasil download ini untuk Anda jika Anda memberikan sandi. Info tentang file ini akan dikirim ke Google Safe Browsing, tetapi konten dan sandi file tidak dikirim ke luar perangkat Anda.</translation>
@@ -175,6 +175,7 @@
 <translation id="3635073343384702370">Chrome dapat memeriksa sandi jika Anda menyimpannya</translation>
 <translation id="3667616615096815454">Tidak dapat menginstal, aplikasi tidak dikenali oleh server.</translation>
 <translation id="3673813398384385993">Chrome menemukan bahwa "<ph name="EXTENSION_NAME" />" berisi malware</translation>
+<translation id="3697952514309507634">Profil Chrome lainnya</translation>
 <translation id="3703994572283698466">ChromeOS terwujud karena adanya <ph name="BEGIN_LINK_CROS_OSS" />software open source<ph name="END_LINK_CROS_OSS" /> tambahan, seperti <ph name="BEGIN_LINK_LINUX_OSS" />lingkungan pengembangan Linux<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">Versi ChromeOS Flex</translation>
 <translation id="3718181793972440140">Tindakan ini akan menghapus 1 item dari perangkat ini. Untuk mengambil data nanti, login ke Chrome sebagai <ph name="USER_EMAIL" />.</translation>
@@ -310,7 +311,6 @@
 <translation id="608006075545470555">Tambahkan Profil Kerja ke browser ini</translation>
 <translation id="6113794647360055231">Chrome menjadi lebih baik</translation>
 <translation id="6145313976051292476">Buka PDF di Chrome</translation>
-<translation id="6155960517327665396">Penghemat Memori membuat Chrome lebih cepat</translation>
 <translation id="6157638032135951407">Organisasi Anda akan menghapus data Chrome jika tidak digunakan selama <ph name="TIMEOUT_DURATION" />. Data ini dapat mencakup histori, isi otomatis, dan download.</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Beta</translation>
@@ -426,6 +426,7 @@ Izin yang telah Anda berikan ke situs dan aplikasi dapat berlaku untuk akun ini.
 <translation id="8019103195866286235">Ekstensi ini dibatalkan publikasinya oleh developer, dan mungkin tidak aman. Hapus dari Chrome agar ekstensi ini tidak dapat lagi melihat dan mengubah data Anda di situs yang Anda kunjungi, termasuk info pribadi Anda.</translation>
 <translation id="80471789339884597">Terima kasih telah menginstal. Anda harus memulai ulang semua browser sebelum menggunakan <ph name="BUNDLE_NAME" />.</translation>
 <translation id="8064015586118426197">ChromeOS Flex</translation>
+<translation id="8077579734294125741">Profil Chrome lainnya</translation>
 <translation id="8086881907087796310">Penginstalan gagal karena komputer Anda tidak memenuhi persyaratan hardware minimum.</translation>
 <translation id="8129812357326543296">Tentang &amp;Google Chrome</translation>
 <translation id="813913629614996137">Memulai...</translation>

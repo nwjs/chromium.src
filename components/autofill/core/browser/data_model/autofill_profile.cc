@@ -379,7 +379,6 @@ AutofillProfile& AutofillProfile::operator=(const AutofillProfile& profile) {
   company_ = profile.company_;
   phone_number_ = profile.phone_number_;
   phone_number_.set_profile(this);
-  birthdate_ = profile.birthdate_;
 
   address_ = profile.address_;
   set_language_code(profile.language_code());
@@ -500,13 +499,6 @@ std::u16string AutofillProfile::GetRawInfo(FieldType type) const {
   return form_group->GetRawInfo(type);
 }
 
-int AutofillProfile::GetRawInfoAsInt(FieldType type) const {
-  const FormGroup* form_group = FormGroupForType(AutofillType(type));
-  if (!form_group)
-    return 0;
-  return form_group->GetRawInfoAsInt(type);
-}
-
 void AutofillProfile::SetRawInfoWithVerificationStatus(
     FieldType type,
     const std::u16string& value,
@@ -514,16 +506,6 @@ void AutofillProfile::SetRawInfoWithVerificationStatus(
   FormGroup* form_group = MutableFormGroupForType(AutofillType(type));
   if (form_group) {
     form_group->SetRawInfoWithVerificationStatus(type, value, status);
-  }
-}
-
-void AutofillProfile::SetRawInfoAsIntWithVerificationStatus(
-    FieldType type,
-    int value,
-    VerificationStatus status) {
-  FormGroup* form_group = MutableFormGroupForType(AutofillType(type));
-  if (form_group) {
-    form_group->SetRawInfoAsIntWithVerificationStatus(type, value, status);
   }
 }
 
@@ -568,8 +550,7 @@ bool AutofillProfile::IsPresentButInvalid(FieldType type) const {
       return country == "US" && !IsValidZip(data);
 
     case PHONE_HOME_WHOLE_NUMBER:
-      return !i18n::PhoneObject(data, country, /*infer_country_code=*/false)
-                  .IsValidNumber();
+      return !i18n::PhoneObject(data, country).IsValidNumber();
 
     case EMAIL_ADDRESS:
       return !IsValidEmailAddress(data);
@@ -599,6 +580,7 @@ int AutofillProfile::Compare(const AutofillProfile& profile) const {
       ADDRESS_HOME_COUNTRY,
       ADDRESS_HOME_LANDMARK,
       ADDRESS_HOME_OVERFLOW,
+      ADDRESS_HOME_STREET_LOCATION_AND_LOCALITY,
       ADDRESS_HOME_BETWEEN_STREETS_OR_LANDMARK,
       ADDRESS_HOME_OVERFLOW_AND_LANDMARK,
       ADDRESS_HOME_BETWEEN_STREETS,
@@ -816,7 +798,6 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
   CompanyInfo company;
   PhoneNumber phone_number(this);
   Address address(profile.GetAddressCountryCode());
-  Birthdate birthdate;
 
   DVLOG(1) << "Merging profiles:\nSource = " << profile << "\nDest = " << *this;
 
@@ -830,8 +811,7 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
       !comparator.MergeEmailAddresses(profile, *this, email) ||
       !comparator.MergeCompanyNames(profile, *this, company) ||
       !comparator.MergePhoneNumbers(profile, *this, phone_number) ||
-      !comparator.MergeAddresses(profile, *this, address) ||
-      !comparator.MergeBirthdates(profile, *this, birthdate)) {
+      !comparator.MergeAddresses(profile, *this, address)) {
     NOTREACHED();
     return false;
   }
@@ -884,12 +864,6 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
     modified = true;
   }
 
-  if (birthdate_ != birthdate) {
-    MergeFormGroupTokenQuality(birthdate, profile);
-    birthdate_ = birthdate;
-    modified = true;
-  }
-
   return modified;
 }
 
@@ -926,24 +900,6 @@ void AutofillProfile::MergeFormGroupTokenQuality(
       token_quality_.ResetObservationsForStoredType(type);
     }
   }
-}
-
-bool AutofillProfile::SaveAdditionalInfo(const AutofillProfile& profile,
-                                         const std::string& app_locale) {
-  AutofillProfileComparator comparator(app_locale);
-
-  // SaveAdditionalInfo should not have been called if the profiles were not
-  // already deemed to be mergeable.
-  DCHECK(comparator.AreMergeable(*this, profile));
-
-  if (MergeDataFrom(profile, app_locale)) {
-    AutofillMetrics::LogProfileActionOnFormSubmitted(
-        AutofillMetrics::EXISTING_PROFILE_UPDATED);
-  } else {
-    AutofillMetrics::LogProfileActionOnFormSubmitted(
-        AutofillMetrics::EXISTING_PROFILE_USED);
-  }
-  return true;
 }
 
 // static
@@ -1248,9 +1204,6 @@ FormGroup* AutofillProfile::MutableFormGroupForType(const AutofillType& type) {
     case FieldTypeGroup::kAddress:
       return &address_;
 
-    case FieldTypeGroup::kBirthdateField:
-      return &birthdate_;
-
     case FieldTypeGroup::kNoGroup:
     case FieldTypeGroup::kCreditCard:
     case FieldTypeGroup::kIban:
@@ -1298,8 +1251,8 @@ bool AutofillProfile::FinalizeAfterImport() {
   return success;
 }
 
-bool AutofillProfile::HasStructuredData() {
-  return base::ranges::any_of(kStructuredDataTypes, [this](auto type) {
+bool AutofillProfile::HasStructuredData() const {
+  return base::ranges::any_of(kStructuredDataTypes, [this](FieldType type) {
     return !this->GetRawInfo(type).empty();
   });
 }
@@ -1321,7 +1274,6 @@ FieldTypeSet AutofillProfile::FindInaccessibleProfileValues() const {
   FieldTypeSet inaccessible_fields;
   const std::string stored_country =
       base::UTF16ToUTF8(GetRawInfo(ADDRESS_HOME_COUNTRY));
-  AutofillCountry country(stored_country.empty() ? "US" : stored_country);
   // Consider only AddressFields which are invisible in the settings for some
   // countries.
   for (const AddressField& adress_field :
@@ -1329,8 +1281,9 @@ FieldTypeSet AutofillProfile::FindInaccessibleProfileValues() const {
         AddressField::DEPENDENT_LOCALITY, AddressField::POSTAL_CODE,
         AddressField::SORTING_CODE}) {
     FieldType field_type = i18n::TypeForField(adress_field);
+    CHECK_EQ(GroupTypeOfFieldType(field_type), FieldTypeGroup::kAddress);
     if (HasRawInfo(field_type) &&
-        !country.IsAddressFieldSettingAccessible(field_type)) {
+        !GetAddress().IsAddressFieldSettingAccessible(field_type)) {
       inaccessible_fields.insert(field_type);
     }
   }
@@ -1359,7 +1312,6 @@ AutofillType AutofillProfile::GetFillingType(AutofillType field_type) const {
     case FieldTypeGroup::kEmail:
     case FieldTypeGroup::kCompany:
     case FieldTypeGroup::kPhone:
-    case FieldTypeGroup::kBirthdateField:
       return field_type;
     // For field-by-field filling in manual fallback autofill, the field's type
     // will not be used but the type that generated the suggested value will.

@@ -15,6 +15,7 @@
 #include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
+#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/core/test_model_info_builder.h"
 #include "components/optimization_guide/core/test_optimization_guide_model_provider.h"
@@ -72,7 +73,7 @@ class FakeModelProvider : public TestOptimizationGuideModelProvider {
  public:
   void AddObserverForOptimizationTargetModel(
       proto::OptimizationTarget optimization_target,
-      const absl::optional<optimization_guide::proto::Any>& model_metadata,
+      const std::optional<optimization_guide::proto::Any>& model_metadata,
       OptimizationTargetModelObserver* observer) override {
     switch (optimization_target) {
       case proto::OPTIMIZATION_TARGET_TEXT_SAFETY:
@@ -246,13 +247,12 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithServerError) {
   session->ExecuteModel(
       request, base::BindRepeating(
                    [](base::RunLoop* run_loop,
-                      OptimizationGuideModelStreamingExecutionResult result,
-                      std::unique_ptr<ModelQualityLogEntry> log_entry) {
-                     EXPECT_FALSE(result.has_value());
+                      OptimizationGuideModelStreamingExecutionResult result) {
+                     EXPECT_FALSE(result.response.has_value());
                      EXPECT_EQ(OptimizationGuideModelExecutionError::
                                    ModelExecutionError::kDisabled,
-                               result.error().error());
-                     EXPECT_EQ(log_entry, nullptr);
+                               result.response.error().error());
+                     EXPECT_EQ(result.log_entry, nullptr);
                      run_loop->Quit();
                    },
                    &run_loop));
@@ -288,17 +288,16 @@ TEST_F(ModelExecutionManagerTest,
   session->ExecuteModel(
       request, base::BindRepeating(
                    [](base::RunLoop* run_loop,
-                      OptimizationGuideModelStreamingExecutionResult result,
-                      std::unique_ptr<ModelQualityLogEntry> log_entry) {
-                     EXPECT_FALSE(result.has_value());
+                      OptimizationGuideModelStreamingExecutionResult result) {
+                     EXPECT_FALSE(result.response.has_value());
                      EXPECT_EQ(OptimizationGuideModelExecutionError::
                                    ModelExecutionError::kUnsupportedLanguage,
-                               result.error().error());
-                     EXPECT_NE(log_entry, nullptr);
+                               result.response.error().error());
+                     EXPECT_NE(result.log_entry, nullptr);
                      // Check that correct error state is recordered.
                      EXPECT_EQ(
                          proto::ErrorState::ERROR_STATE_UNSUPPORTED_LANGUAGE,
-                         log_entry->log_ai_data_request()
+                         result.log_entry->log_ai_data_request()
                              ->mutable_model_execution_info()
                              ->mutable_error_response()
                              ->error_state());
@@ -338,19 +337,18 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithPassthroughSession) {
   session->ExecuteModel(
       request, base::BindRepeating(
                    [](base::RunLoop* run_loop,
-                      OptimizationGuideModelStreamingExecutionResult result,
-                      std::unique_ptr<ModelQualityLogEntry> log_entry) {
-                     EXPECT_TRUE(result.has_value());
+                      OptimizationGuideModelStreamingExecutionResult result) {
+                     EXPECT_TRUE(result.response.has_value());
                      EXPECT_EQ("foo response",
                                ParsedAnyMetadata<proto::ComposeResponse>(
-                                   result->response)
+                                   result.response->response)
                                    ->output());
-                     EXPECT_TRUE(result->is_complete);
-                     EXPECT_NE(log_entry, nullptr);
-                     EXPECT_TRUE(log_entry->log_ai_data_request()
+                     EXPECT_TRUE(result.response->is_complete);
+                     EXPECT_NE(result.log_entry, nullptr);
+                     EXPECT_TRUE(result.log_entry->log_ai_data_request()
                                      ->mutable_compose()
                                      ->has_request_data());
-                     EXPECT_TRUE(log_entry->log_ai_data_request()
+                     EXPECT_TRUE(result.log_entry->log_ai_data_request()
                                      ->mutable_compose()
                                      ->has_response_data());
                      run_loop->Quit();
@@ -384,8 +382,7 @@ TEST_F(ModelExecutionManagerTest, LogsContextToExecutionTimeHistogram) {
     session->ExecuteModel(
         request, base::BindRepeating(
                      [](base::RunLoop* run_loop,
-                        OptimizationGuideModelStreamingExecutionResult result,
-                        std::unique_ptr<ModelQualityLogEntry> log_entry) {
+                        OptimizationGuideModelStreamingExecutionResult result) {
                        run_loop->Quit();
                      },
                      &run_loop));
@@ -440,8 +437,7 @@ TEST_F(ModelExecutionManagerTest,
       proto::ComposeRequest(),
       base::BindRepeating(
           [](base::RunLoop* run_loop,
-             OptimizationGuideModelStreamingExecutionResult result,
-             std::unique_ptr<ModelQualityLogEntry> log_entry) {
+             OptimizationGuideModelStreamingExecutionResult result) {
             run_loop->Quit();
           },
           &run_loop));
@@ -469,8 +465,7 @@ TEST_F(ModelExecutionManagerTest,
       proto::ComposeRequest(),
       base::BindRepeating(
           [](base::RunLoop* run_loop,
-             OptimizationGuideModelStreamingExecutionResult result,
-             std::unique_ptr<ModelQualityLogEntry> log_entry) {
+             OptimizationGuideModelStreamingExecutionResult result) {
             run_loop->Quit();
           },
           &run_loop));
@@ -497,8 +492,7 @@ TEST_F(ModelExecutionManagerTest,
   session->ExecuteModel(
       request, base::BindRepeating(
                    [](base::RunLoop* run_loop,
-                      OptimizationGuideModelStreamingExecutionResult result,
-                      std::unique_ptr<ModelQualityLogEntry> log_entry) {
+                      OptimizationGuideModelStreamingExecutionResult result) {
                      run_loop->Quit();
                    },
                    &run_loop));

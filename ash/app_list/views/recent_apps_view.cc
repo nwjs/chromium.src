@@ -164,7 +164,7 @@ RecentAppsView::RecentAppsView(AppListKeyboardController* keyboard_controller,
   layout_->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kStart);
   layout_->set_cross_axis_alignment(
       views::BoxLayout::CrossAxisAlignment::kStart);
-  GetViewAccessibility().OverrideRole(ax::mojom::Role::kGroup);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
   // TODO(https://crbug.com/1298211): This needs a designated string resource.
   GetViewAccessibility().OverrideName(
       l10n_util::GetStringUTF16(IDS_ASH_LAUNCHER_RECENT_APPS_A11Y_NAME));
@@ -341,7 +341,7 @@ int RecentAppsView::CalculateTilePadding() const {
   return width_to_distribute / ((kMaxRecommendedApps - 1) * 2);
 }
 
-BEGIN_METADATA(RecentAppsView, views::View)
+BEGIN_METADATA(RecentAppsView)
 END_METADATA
 
 }  // namespace ash

@@ -38,8 +38,8 @@
 #include "components/autofill/core/browser/browser_autofill_manager_test_api.h"
 #include "components/autofill/core/browser/test_personal_data_manager.h"
 #include "components/autofill/core/browser/ui/autofill_popup_delegate.h"
+#include "components/autofill/core/browser/ui/popup_hiding_reasons.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
-#include "components/autofill/core/browser/ui/popup_types.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -72,11 +72,11 @@
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/autofill/manual_filling_controller_impl.h"
-#include "chrome/browser/autofill/mock_address_accessory_controller.h"
-#include "chrome/browser/autofill/mock_credit_card_accessory_controller.h"
 #include "chrome/browser/autofill/mock_manual_filling_view.h"
-#include "chrome/browser/autofill/mock_password_accessory_controller.h"
+#include "chrome/browser/keyboard_accessory/android/manual_filling_controller_impl.h"
+#include "chrome/browser/keyboard_accessory/test_utils/android/mock_address_accessory_controller.h"
+#include "chrome/browser/keyboard_accessory/test_utils/android/mock_credit_card_accessory_controller.h"
+#include "chrome/browser/keyboard_accessory/test_utils/android/mock_password_accessory_controller.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
@@ -514,6 +514,15 @@ TEST_F(AutofillPopupControllerImplTest, RemoveSuggestion) {
   EXPECT_TRUE(client().popup_controller(manager()).RemoveSuggestion(
       0,
       AutofillMetrics::SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+}
+
+// Regression test for (crbug.com/1513574): Showing an Autofill Compose
+// suggestion twice does not crash.
+TEST_F(AutofillPopupControllerImplTest, ShowTwice) {
+  ShowSuggestions(manager(),
+                  {Suggestion(u"Help me write", PopupItemId::kCompose)});
+  ShowSuggestions(manager(),
+                  {Suggestion(u"Help me write", PopupItemId::kCompose)});
 }
 
 TEST_F(AutofillPopupControllerImplTest,
@@ -1044,9 +1053,8 @@ TEST_F(AutofillPopupControllerImplTest,
 // picture-in-picture window.
 TEST_F(AutofillPopupControllerImplTest,
        CheckBoundsOverlapWithPictureInPicture) {
-  client().popup_controller(manager());  // Creates the controller.
-  EXPECT_CALL(client().popup_view(), OverlapsWithPictureInPictureWindow)
-      .Times(1);
+  ShowSuggestions(manager(), {PopupItemId::kAddressEntry});
+  EXPECT_CALL(client().popup_view(), OverlapsWithPictureInPictureWindow);
   PictureInPictureWindowManager* picture_in_picture_window_manager =
       PictureInPictureWindowManager::GetInstance();
   picture_in_picture_window_manager->EnterVideoPictureInPicture(web_contents());
@@ -1191,7 +1199,7 @@ TEST_F(AutofillPopupControllerImplTest,
   base::test::ScopedFeatureList scoped_feature_list(
       password_manager::features::
           kUnifiedPasswordManagerLocalPasswordsMigrationWarning);
-  ShowSuggestions(manager(), {PopupItemId::kUsernameEntry});
+  ShowSuggestions(manager(), {PopupItemId::kPasswordEntry});
 
   // Calls are accepted immediately.
   EXPECT_CALL(manager().external_delegate(), DidAcceptSuggestion).Times(1);
@@ -1474,6 +1482,8 @@ class AutofillPopupControllerImplTestHidingLogic
  public:
   void SetUp() override {
     AutofillPopupControllerImplTest::SetUp();
+#if !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_ANDROID)
     sub_frame_ = CreateAndNavigateChildFrame(
                      main_frame(), GURL("https://bar.com"), "sub_frame")
                      ->GetWeakDocumentPtr();
@@ -1609,5 +1619,28 @@ TEST_F(AutofillPopupControllerImplTestHidingLogic,
   EXPECT_CALL(client().popup_controller(sub_manager()),
               Hide(PopupHidingReason::kTabGone));
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+// Tests that if the popup is shown in the *main frame*, changing the zoom hides
+// the popup.
+TEST_F(AutofillPopupControllerImplTestHidingLogic,
+       HideInMainFrameOnZoomChange) {
+  zoom::ZoomController::CreateForWebContents(web_contents());
+  ShowSuggestions(manager(), {PopupItemId::kAddressEntry});
+  test::GenerateTestAutofillPopup(&manager().external_delegate());
+  // Triggered by OnZoomChanged().
+  EXPECT_CALL(client().popup_controller(manager()),
+              Hide(PopupHidingReason::kContentAreaMoved));
+  // Override the default ON_CALL behavior to do nothing to avoid destroying the
+  // hide helper. We want to test ZoomObserver events explicitly.
+  EXPECT_CALL(client().popup_controller(manager()),
+              Hide(PopupHidingReason::kWidgetChanged))
+      .WillOnce(Return());
+  auto* zoom_controller = zoom::ZoomController::FromWebContents(web_contents());
+  zoom_controller->SetZoomLevel(zoom_controller->GetZoomLevel() + 1.0);
+  // Verify and clear before TearDown() closes the popup.
+  Mock::VerifyAndClearExpectations(&client().popup_controller(manager()));
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace autofill

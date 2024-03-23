@@ -97,6 +97,8 @@ try_.orchestrator_builder(
     experiments = {
         # go/nplus1shardsproposal
         "chromium.add_one_test_shard": 10,
+        # crbug/940930
+        "chromium.enable_cleandead": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -181,7 +183,6 @@ try_.orchestrator_builder(
             "no_secondary_abi",
             "use_clang_coverage",
             "partial_code_coverage_instrumentation",
-            "enable_dangling_raw_ptr_feature_flag",
         ],
     ),
     compilator = "android-arm64-rel-compilator",
@@ -191,7 +192,7 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         "chromium.compilator_can_outlive_parent": 100,
         # crbug/940930
-        "chromium.enable_cleandead": 50,
+        "chromium.enable_cleandead": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -304,7 +305,7 @@ try_.builder(
     ],
     gn_args = gn_args.config(
         configs = [
-            "android_builder",
+            "android_builder_without_codecs",
             "cronet_android",
             "debug_static_builder",
             "reclient",
@@ -884,6 +885,8 @@ try_.orchestrator_builder(
     coverage_test_types = ["unit", "overall"],
     experiments = {
         "chromium.add_one_test_shard": 10,
+        # crbug/940930
+        "chromium.enable_cleandead": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -986,6 +989,10 @@ try_.builder(
         ],
     ),
     builderless = not settings.is_main,
+    experiments = {
+        # crbug/940930
+        "chromium.enable_cleandead": 100,
+    },
     main_list_view = "try",
     tryjob = try_.job(),
 )
@@ -1012,6 +1019,10 @@ try_.builder(
     builderless = not settings.is_main,
     cores = 32 if settings.is_main else 16,
     ssd = True,
+    experiments = {
+        # crbug/940930
+        "chromium.enable_cleandead": 100,
+    },
     main_list_view = "try",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(),
@@ -1116,7 +1127,7 @@ try_.builder(
     ),
     gn_args = gn_args.config(
         configs = [
-            "android_builder",
+            "android_builder_without_codecs",
             "cronet_android",
             "release_try_builder",
             "reclient",
@@ -1125,6 +1136,10 @@ try_.builder(
     ),
     builderless = not settings.is_main,
     contact_team_email = "cronet-team@google.com",
+    experiments = {
+        # crbug/940930
+        "chromium.enable_cleandead": 50,
+    },
     main_list_view = "try",
     tryjob = try_.job(),
 )

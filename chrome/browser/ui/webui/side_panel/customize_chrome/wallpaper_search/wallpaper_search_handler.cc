@@ -27,6 +27,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/background/wallpaper_search/wallpaper_search_background_manager.h"
 #include "chrome/browser/search/background/wallpaper_search/wallpaper_search_data.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -142,6 +143,25 @@ WallpaperSearchHandler::~WallpaperSearchHandler() {
             *history_entry_);
   }
 
+  bool is_result = false;
+  if (background_id) {
+    if (base::Contains(wallpaper_search_results_, *background_id)) {
+      base::UmaHistogramEnumeration(
+          "NewTabPage.WallpaperSearch.SessionSetTheme",
+          NtpWallpaperSearchThemeType::kResult);
+      is_result = true;
+    } else {
+      base::UmaHistogramEnumeration(
+          "NewTabPage.WallpaperSearch.SessionSetTheme",
+          NtpWallpaperSearchThemeType::kHistory);
+    }
+  } else if (inspiration_token_ &&
+             wallpaper_search_background_manager_->IsCurrentBackground(
+                 *inspiration_token_)) {
+    base::UmaHistogramEnumeration("NewTabPage.WallpaperSearch.SessionSetTheme",
+                                  NtpWallpaperSearchThemeType::kInspiration);
+  }
+
   if (!log_entries_.empty()) {
     auto& [log_entry, render_time] = log_entries_.back();
     auto* quality =
@@ -152,8 +172,7 @@ WallpaperSearchHandler::~WallpaperSearchHandler() {
       quality->set_complete_latency_ms(
           (base::Time::Now() - *render_time).InMilliseconds());
     }
-    if (background_id.has_value() &&
-        base::Contains(wallpaper_search_results_, *background_id)) {
+    if (is_result) {
       auto* image_quality =
           std::get<0>(wallpaper_search_results_[*background_id]);
       if (image_quality) {
@@ -296,6 +315,26 @@ void WallpaperSearchHandler::GetWallpaperSearchResults(
     side_panel::customize_chrome::mojom::ResultDescriptorsPtr
         result_descriptors,
     GetWallpaperSearchResultsCallback callback) {
+  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
+  if (!identity_manager ||
+      !identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+    std::move(callback).Run(
+        side_panel::customize_chrome::mojom::WallpaperSearchStatus::kSignedOut,
+        std::vector<
+            side_panel::customize_chrome::mojom::WallpaperSearchResultPtr>());
+    return;
+  }
+#if BUILDFLAG(IS_CHROMEOS)
+  // Check if user is browsing in guest mode.
+  if (profile_->IsGuestSession()) {
+    std::move(callback).Run(
+        side_panel::customize_chrome::mojom::WallpaperSearchStatus::kSignedOut,
+        std::vector<
+            side_panel::customize_chrome::mojom::WallpaperSearchResultPtr>());
+    return;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
   callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback),
       side_panel::customize_chrome::mojom::WallpaperSearchStatus::kError,
@@ -725,6 +764,7 @@ void WallpaperSearchHandler::OnInspirationImageDecoded(
     const base::Token& id,
     base::ElapsedTimer timer,
     const gfx::Image& image) {
+  inspiration_token_ = id;
   wallpaper_search_background_manager_->SelectLocalBackgroundImage(
       id, image.AsBitmap(), /*is_inspiration_image=*/true, std::move(timer));
 }

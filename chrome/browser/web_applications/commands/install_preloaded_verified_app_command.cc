@@ -20,6 +20,7 @@
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/browser/web_applications/web_app_icon_operations.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
@@ -148,18 +149,17 @@ void InstallPreloadedVerifiedAppCommand::OnManifestParsed(
   UpdateWebAppInfoFromManifest(*manifest, manifest_url_, web_app_info_.get());
 
   IconUrlSizeSet icon_urls = GetValidIconUrlsToDownload(*web_app_info_);
-  base::EraseIf(icon_urls,
-                [](const std::tuple<GURL, gfx::Size>& url_with_size) {
-                  for (const auto& allowed_host : kHostAllowlist) {
-                    const GURL url(get<GURL>(url_with_size));
-                    if (url.DomainIs(allowed_host)) {
-                      // Found a match, don't erase this url!
-                      return false;
-                    }
-                  }
-                  // No matches, erase this url!
-                  return true;
-                });
+  base::EraseIf(icon_urls, [](const IconUrlWithSize& url_with_size) {
+    for (const auto& allowed_host : kHostAllowlist) {
+      const GURL& icon_url = url_with_size.url;
+      if (icon_url.DomainIs(allowed_host)) {
+        // Found a match, don't erase this url!
+        return false;
+      }
+    }
+    // No matches, erase this url!
+    return true;
+  });
 
   if (icon_urls.empty()) {
     // Abort if there are no icons to download, so we can distinguish this case

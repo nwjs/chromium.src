@@ -37,10 +37,6 @@ BASE_DECLARE_FEATURE(kWebAuthnAndroidCredMan);
 COMPONENT_EXPORT(DEVICE_FIDO)
 inline constexpr base::FeatureParam<bool> kWebAuthnAndroidGpmInCredMan{
     &kWebAuthnAndroidCredMan, "gpm_in_cred_man", false};
-
-// Use the Android 14 Credential Manager API for hybrid requests.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnAndroidCredManForHybrid);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Advertise hybrid prelinking on Android even if the app doesn't have
@@ -74,10 +70,6 @@ BASE_DECLARE_FEATURE(kWebAuthnICloudKeychainForInactiveWithDrive);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnICloudKeychainForInactiveWithoutDrive);
 
-// Allow sites to opt into experimenting with conditional UI presentations.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthConditionalUIExperimentation);
-
 // Allow some sites to experiment with removing caBLE linking in requests.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnLinkingExperimentation);
@@ -98,10 +90,6 @@ BASE_DECLARE_FEATURE(kWebAuthnNewPasskeyUI);
 // user id that starts with "GOOGLE_ACCOUNT:".
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnFilterGooglePasskeys);
-
-// Show an incognito confirmation sheet on Android when creating a credential.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnAndroidIncognitoConfirmation);
 
 // Support evaluating PRFs during create() calls.
 COMPONENT_EXPORT(DEVICE_FIDO)
@@ -140,6 +128,11 @@ BASE_DECLARE_FEATURE(kAllowExtensionsToSetWebAuthnRpIds);
 // Send and receive JSON from Play Services.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnAndroidFidoJson);
+
+// Prefer dispatching to a platform (i.e. internal transport) virtual
+// authenticator if available.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnPreferVirtualPlatformAuthenticator);
 
 }  // namespace device
 

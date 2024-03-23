@@ -178,6 +178,8 @@ bool NetworkState::PropertyChanged(const std::string& key,
     return GetBooleanValue(key, value, &hidden_ssid_);
   } else if (key == shill::kPasspointIDProperty) {
     return GetStringValue(key, value, &passpoint_id_);
+  } else if (key == shill::kMeteredProperty) {
+    return GetBooleanValue(key, value, &metered_);
   } else if (key == shill::kOutOfCreditsProperty) {
     return GetBooleanValue(key, value, &cellular_out_of_credits_);
   } else if (key == shill::kIccidProperty) {
@@ -529,7 +531,7 @@ bool NetworkState::IsSecure() const {
 }
 
 std::string NetworkState::GetHexSsid() const {
-  return base::HexEncode(raw_ssid().data(), raw_ssid().size());
+  return base::HexEncode(raw_ssid());
 }
 
 std::string NetworkState::GetDnsServersAsString() const {

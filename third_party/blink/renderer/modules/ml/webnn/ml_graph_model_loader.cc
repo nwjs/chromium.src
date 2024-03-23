@@ -6,6 +6,7 @@
 
 #include "base/numerics/checked_math.h"
 #include "base/types/expected.h"
+#include "base/types/expected_macros.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_compute_result.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
@@ -59,7 +60,8 @@ base::expected<flatbuffers::DetachedBuffer, String> BuildTfLiteModel(
   for (const auto& [name, operand] : named_outputs) {
     // Serialize output operand of graph into the flat buffer.
     const auto tensor_index = converter.SerializeTensor(operand, name);
-    operand_to_index_map.insert(operand, tensor_index);
+    RETURN_IF_ERROR(tensor_index);
+    operand_to_index_map.insert(operand, tensor_index.value());
   }
 
   const auto* toposorted_operators =
@@ -80,7 +82,8 @@ base::expected<flatbuffers::DetachedBuffer, String> BuildTfLiteModel(
         case MLOperand::OperandKind::kConstant: {
           // Serialize tensor for input or constant operand.
           auto tensor_index = converter.SerializeTensor(operand.Get());
-          operand_to_index_map.insert(operand, tensor_index);
+          RETURN_IF_ERROR(tensor_index);
+          operand_to_index_map.insert(operand, tensor_index.value());
           break;
         }
         case MLOperand::OperandKind::kOutput:
@@ -101,14 +104,13 @@ base::expected<flatbuffers::DetachedBuffer, String> BuildTfLiteModel(
       // operand should be an intermediate operand that connects with two
       // operators.
       const auto tensor_index = converter.SerializeTensor(operand.Get());
-      operand_to_index_map.insert(operand, tensor_index);
+      RETURN_IF_ERROR(tensor_index);
+      operand_to_index_map.insert(operand, tensor_index.value());
     }
 
     const auto serialized_result = converter.SerializeOperation(
         operand_to_index_map, current_operator.Get());
-    if (!serialized_result.has_value()) {
-      return base::unexpected(serialized_result.error());
-    }
+    RETURN_IF_ERROR(serialized_result);
   }
 
   // Build the model in the flat buffer and return the detached Buffer.
@@ -118,16 +120,16 @@ base::expected<flatbuffers::DetachedBuffer, String> BuildTfLiteModel(
 }  // namespace
 
 // static
-void MLGraphModelLoader::ValidateAndBuildAsync(ScopedMLTrace scoped_trace,
-                                        MLContext* ml_context,
-                                        const MLNamedOperands& named_outputs,
-                                        ScriptPromiseResolver* resolver) {
-  scoped_trace.AddStep("MLGraphModelLoader::ValidateAndBuildAsync");
+void MLGraphModelLoader::ValidateAndBuild(ScopedMLTrace scoped_trace,
+                                          MLContext* ml_context,
+                                          const MLNamedOperands& named_outputs,
+                                          ScriptPromiseResolver* resolver) {
+  scoped_trace.AddStep("MLGraphModelLoader::ValidateAndBuild");
   auto* script_state = resolver->GetScriptState();
   auto* execution_context = ExecutionContext::From(script_state);
   auto* graph =
       MakeGarbageCollected<MLGraphModelLoader>(execution_context, ml_context);
-  graph->BuildAsync(std::move(scoped_trace), named_outputs, resolver);
+  graph->Build(std::move(scoped_trace), named_outputs, resolver);
 }
 
 MLGraphModelLoader::MLGraphModelLoader(ExecutionContext* execution_context,
@@ -141,9 +143,9 @@ void MLGraphModelLoader::Trace(Visitor* visitor) const {
   MLGraph::Trace(visitor);
 }
 
-void MLGraphModelLoader::BuildAsyncImpl(ScopedMLTrace scoped_trace,
-                                 const MLNamedOperands& outputs,
-                                 ScriptPromiseResolver* resolver) {
+void MLGraphModelLoader::BuildImpl(ScopedMLTrace scoped_trace,
+                                   const MLNamedOperands& outputs,
+                                   ScriptPromiseResolver* resolver) {
   DOMArrayBuffer* buffer = nullptr;
   if (g_flatbuffer_for_testing) {
     buffer = DOMArrayBuffer::Create(g_flatbuffer_for_testing->data(),
@@ -213,21 +215,11 @@ void MLGraphModelLoader::SetFlatbufferForTesting(
   g_flatbuffer_for_testing = flatbuffer;
 }
 
-MLGraph* MLGraphModelLoader::BuildSyncImpl(ScriptState* script_state,
-                                    const MLNamedOperands& named_outputs,
-                                    ExceptionState& exception_state) {
-  // TODO(crbug.com/1273291): Support sync build that is only exposed to
-  // dedicated worker.
-  exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
-                                    "Not implemented.");
-  return nullptr;
-}
-
-void MLGraphModelLoader::ComputeAsyncImpl(ScopedMLTrace scoped_trace,
-                                   const MLNamedArrayBufferViews& inputs,
-                                   const MLNamedArrayBufferViews& outputs,
-                                   ScriptPromiseResolver* resolver,
-                                   ExceptionState& exception_state) {
+void MLGraphModelLoader::ComputeImpl(ScopedMLTrace scoped_trace,
+                                     const MLNamedArrayBufferViews& inputs,
+                                     const MLNamedArrayBufferViews& outputs,
+                                     ScriptPromiseResolver* resolver,
+                                     ExceptionState& exception_state) {
   // Transfer the `MLNamedArrayBufferViews` to `NamedArrayBufferViewsInfo` which
   // is safe to compute asynchronously.
   auto inputs_info = TransferNamedArrayBufferViews(
@@ -271,7 +263,7 @@ void MLGraphModelLoader::OnComputeGraph(
     std::unique_ptr<Vector<std::pair<String, ArrayBufferViewInfo>>>
         outputs_info,
     ComputeResult mojo_result,
-    const absl::optional<HashMap<String, Vector<uint8_t>>>& mojo_outputs) {
+    const std::optional<HashMap<String, Vector<uint8_t>>>& mojo_outputs) {
   if (mojo_result != ComputeResult::kOk || !mojo_outputs.has_value()) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kOperationError,
@@ -303,15 +295,6 @@ void MLGraphModelLoader::OnComputeGraph(
   result->setInputs(*CreateNamedArrayBufferViews(std::move(inputs_info)));
   result->setOutputs(*CreateNamedArrayBufferViews(std::move(outputs_info)));
   resolver->Resolve(result);
-}
-
-void MLGraphModelLoader::ComputeSyncImpl(const MLNamedArrayBufferViews& inputs,
-                                  const MLNamedArrayBufferViews& outputs,
-                                  ExceptionState& exception_state) {
-  // TODO(crbug.com/1273291): Support sync compute that is only exposed to
-  // dedicated worker.
-  exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
-                                    "Not implemented.");
 }
 
 }  // namespace blink

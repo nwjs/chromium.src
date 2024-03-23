@@ -30,18 +30,21 @@ void IdentityDialogController::ShowAccountsDialog(
     const std::vector<content::IdentityProviderData>& identity_provider_data,
     content::IdentityRequestAccount::SignInMode sign_in_mode,
     blink::mojom::RpMode rp_mode,
-    bool show_auto_reauthn_checkbox,
+    const std::optional<content::IdentityProviderData>& new_account_idp,
     AccountSelectionCallback on_selected,
     LoginToIdPCallback on_add_account,
-    DismissCallback dismiss_callback) {
+    DismissCallback dismiss_callback,
+    AccountsDisplayedCallback accounts_displayed_callback) {
   on_account_selection_ = std::move(on_selected);
   on_login_ = std::move(on_add_account);
   on_dismiss_ = std::move(dismiss_callback);
+  on_accounts_displayed_ = std::move(accounts_displayed_callback);
   if (!account_view_)
     account_view_ = AccountSelectionView::Create(this);
+  // TODO(crbug.com/41490360): Use the `new_account_idp` in the UI.
   account_view_->Show(top_frame_for_display, iframe_for_display,
                       identity_provider_data, sign_in_mode, rp_mode,
-                      show_auto_reauthn_checkbox);
+                      /*show_auto_reauthn_checkbox=*/false);
 }
 
 void IdentityDialogController::ShowFailureDialog(
@@ -88,12 +91,17 @@ void IdentityDialogController::ShowErrorDialog(
                                  idp_metadata, error);
 }
 
-void IdentityDialogController::OnLoginToIdP(const GURL& idp_login_url) {
-  std::move(on_login_).Run(idp_login_url);
+void IdentityDialogController::OnLoginToIdP(const GURL& idp_config_url,
+                                            const GURL& idp_login_url) {
+  std::move(on_login_).Run(idp_config_url, idp_login_url);
 }
 
 void IdentityDialogController::OnMoreDetails() {
   std::move(on_more_details_).Run();
+}
+
+void IdentityDialogController::OnAccountsDisplayed() {
+  std::move(on_accounts_displayed_).Run();
 }
 
 void IdentityDialogController::ShowIdpSigninFailureDialog(

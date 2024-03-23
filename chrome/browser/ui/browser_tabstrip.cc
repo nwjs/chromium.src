@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 
 #include "base/json/json_reader.h"
-#include "extensions/common/extension_messages.h"
 #include "extensions/browser/app_window/app_window.h"
 #include "content/nw/src/nw_content.h"
 #include "content/nw/src/nw_base.h"
@@ -144,7 +143,8 @@ void CloseWebContents(Browser* browser,
                       bool add_to_history) {
   int index = browser->tab_strip_model()->GetIndexOfWebContents(contents);
   if (index == TabStripModel::kNoTab) {
-    NOTREACHED() << "CloseWebContents called for tab not in our strip";
+    DUMP_WILL_BE_NOTREACHED_NORETURN()
+        << "CloseWebContents called for tab not in our strip";
     return;
   }
 

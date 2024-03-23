@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_color_params.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
+#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/instrumentation/canvas_memory_dump_provider.h"
@@ -121,8 +122,8 @@ class CanvasResourceProvider::CanvasImageProvider : public cc::ImageProvider {
   cc::PlaybackImageProvider::RasterMode raster_mode_;
   bool cleanup_task_pending_ = false;
   Vector<ScopedResult> locked_images_;
-  absl::optional<cc::PlaybackImageProvider> playback_image_provider_n32_;
-  absl::optional<cc::PlaybackImageProvider> playback_image_provider_f16_;
+  std::optional<cc::PlaybackImageProvider> playback_image_provider_n32_;
+  std::optional<cc::PlaybackImageProvider> playback_image_provider_f16_;
 
   base::WeakPtrFactory<CanvasImageProvider> weak_factory_{this};
 };
@@ -999,7 +1000,8 @@ CanvasResourceProvider::CreateSharedImageProvider(
   // Overriding the info to use RGBA instead of N32 is needed because code
   // elsewhere assumes RGBA. OTOH the software path seems to be assuming N32
   // somewhere in the later pipeline but for offscreen canvas only.
-  if (!(shared_image_usage_flags & gpu::SHARED_IMAGE_USAGE_WEBGPU)) {
+  if (!(shared_image_usage_flags & (gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
+                                    gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE))) {
     adjusted_info = adjusted_info.makeColorType(
         is_accelerated && info.colorType() != kRGBA_F16_SkColorType
             ? kRGBA_8888_SkColorType
@@ -1060,7 +1062,9 @@ CanvasResourceProvider::CreateWebGPUImageProvider(
       info, cc::PaintFlags::FilterQuality::kLow,
       CanvasResourceProvider::ShouldInitialize::kNo,
       std::move(context_provider_wrapper), RasterMode::kGPU,
-      shared_image_usage_flags | gpu::SHARED_IMAGE_USAGE_WEBGPU, resource_host);
+      shared_image_usage_flags | gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
+          gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE,
+      resource_host);
 }
 
 std::unique_ptr<CanvasResourceProvider>
@@ -1156,7 +1160,7 @@ CanvasResourceProvider::CanvasImageProvider::CanvasImageProvider(
     SkColorType canvas_color_type,
     cc::PlaybackImageProvider::RasterMode raster_mode)
     : raster_mode_(raster_mode) {
-  absl::optional<cc::PlaybackImageProvider::Settings> settings =
+  std::optional<cc::PlaybackImageProvider::Settings> settings =
       cc::PlaybackImageProvider::Settings();
   settings->raster_mode = raster_mode_;
 
@@ -1339,8 +1343,9 @@ void CanvasResourceProvider::FlushIfRecordingLimitExceeded() {
   if (IsPrinting() && clear_frame_) {
     return;
   }
-  if (UNLIKELY(recorder_->OpBytesUsed() > max_recorded_op_bytes_) ||
-      UNLIKELY(recorder_->ImageBytesUsed() > max_pinned_image_bytes_)) {
+  if (UNLIKELY(recorder_->ReleasableOpBytesUsed() > max_recorded_op_bytes_) ||
+      UNLIKELY(recorder_->ReleasableImageBytesUsed() >
+               max_pinned_image_bytes_)) {
     FlushCanvas(FlushReason::kRecordingLimitExceeded);
   }
 }
@@ -1417,7 +1422,7 @@ void CanvasResourceProvider::RecordingCleared() {
   printing_fallback_reason_ = FlushReason::kNone;
 }
 
-cc::PaintCanvas* CanvasResourceProvider::Canvas(bool needs_will_draw) {
+MemoryManagedPaintCanvas& CanvasResourceProvider::Canvas(bool needs_will_draw) {
   // TODO(https://crbug.com/1211912): Video frames don't work without
   // WillDrawIfNeeded(), but we are getting memory leak on CreatePattern
   // with it. There should be a better way to solve this.
@@ -1434,12 +1439,8 @@ void CanvasResourceProvider::OnContextDestroyed() {
 }
 
 void CanvasResourceProvider::OnFlushForImage(PaintImage::ContentId content_id) {
-  if (Canvas()) {
-    MemoryManagedPaintCanvas* canvas =
-        static_cast<MemoryManagedPaintCanvas*>(Canvas());
-    if (canvas->IsCachingImage(content_id)) {
-      FlushCanvas(FlushReason::kSourceImageWillChange);
-    }
+  if (Canvas().IsCachingImage(content_id)) {
+    FlushCanvas(FlushReason::kSourceImageWillChange);
   }
 }
 
@@ -1517,10 +1518,10 @@ gfx::ColorSpace CanvasResourceProvider::GetColorSpace() const {
                      : gfx::ColorSpace::CreateSRGB();
 }
 
-absl::optional<cc::PaintRecord> CanvasResourceProvider::FlushCanvas(
+std::optional<cc::PaintRecord> CanvasResourceProvider::FlushCanvas(
     FlushReason reason) {
-  if (!recorder_->HasRecordedDrawOps()) {
-    return absl::nullopt;
+  if (!recorder_->HasReleasableDrawOps()) {
+    return std::nullopt;
   }
   ScopedRasterTimer timer(IsAccelerated() ? RasterInterface() : nullptr, *this,
                           always_enable_raster_timers_for_testing_);
@@ -1542,10 +1543,10 @@ absl::optional<cc::PaintRecord> CanvasResourceProvider::FlushCanvas(
     clear_frame_ = true;
     printing_fallback_reason_ = FlushReason::kNone;
   }
-  cc::PaintRecord recording = recorder_->finishRecordingAsPicture();
+  cc::PaintRecord recording = recorder_->ReleaseMainRecording();
   RasterRecord(recording);
   last_recording_ =
-      preserve_recording ? absl::optional(recording) : absl::nullopt;
+      preserve_recording ? std::optional(recording) : std::nullopt;
   return recording;
 }
 
@@ -1620,7 +1621,7 @@ bool CanvasResourceProvider::WritePixels(const SkImageInfo& orig_info,
     // WritePixels content is not saved in recording. Calling WritePixels
     // therefore invalidates `last_recording_` because it's now missing that
     // information.
-    last_recording_ = absl::nullopt;
+    last_recording_ = std::nullopt;
   }
   return wrote_pixels;
 }
@@ -1634,9 +1635,9 @@ void CanvasResourceProvider::Clear() {
   // printing operations. See crbug.com/1003114
   DCHECK(IsValid());
   if (info_.alphaType() == kOpaque_SkAlphaType)
-    Canvas()->clear(SkColors::kBlack);
+    Canvas().clear(SkColors::kBlack);
   else
-    Canvas()->clear(SkColors::kTransparent);
+    Canvas().clear(SkColors::kTransparent);
 
   FlushCanvas(FlushReason::kClear);
 }

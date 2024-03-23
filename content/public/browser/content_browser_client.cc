@@ -22,10 +22,9 @@
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "build/chromeos_buildflags.h"
-#include "content/browser/webid/digital_credentials/digital_credential_provider.h"
+#include "content/browser/webid/digital_credentials/digital_identity_provider.h"
 #include "content/public/browser/anchor_element_preconnect_delegate.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
-#include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/browser/client_certificate_delegate.h"
@@ -180,6 +179,10 @@ bool ContentBrowserClient::ShouldLockProcessToSite(
   DCHECK(browser_context);
   if (nw::PinningRenderer())
     return false;
+  return true;
+}
+
+bool ContentBrowserClient::ShouldEnforceNewCanCommitUrlChecks() {
   return true;
 }
 
@@ -436,6 +439,7 @@ bool ContentBrowserClient::AllowSharedWorker(
     const std::optional<url::Origin>& top_frame_origin,
     const std::string& name,
     const blink::StorageKey& storage_key,
+    const blink::mojom::SharedWorkerSameSiteCookies same_site_cookies,
     BrowserContext* context,
     int render_process_id,
     int render_frame_id) {
@@ -585,14 +589,16 @@ bool ContentBrowserClient::IsSharedStorageAllowed(
     content::BrowserContext* browser_context,
     content::RenderFrameHost* rfh,
     const url::Origin& top_frame_origin,
-    const url::Origin& accessing_origin) {
+    const url::Origin& accessing_origin,
+    std::string* out_debug_message) {
   return false;
 }
 
 bool ContentBrowserClient::IsSharedStorageSelectURLAllowed(
     content::BrowserContext* browser_context,
     const url::Origin& top_frame_origin,
-    const url::Origin& accessing_origin) {
+    const url::Origin& accessing_origin,
+    std::string* out_debug_message) {
   return false;
 }
 
@@ -969,7 +975,7 @@ ContentBrowserClient::CreateURLLoaderThrottles(
     const base::RepeatingCallback<WebContents*()>& wc_getter,
     NavigationUIData* navigation_ui_data,
     int frame_tree_node_id,
-    absl::optional<int64_t> navigation_id) {
+    std::optional<int64_t> navigation_id) {
   return std::vector<std::unique_ptr<blink::URLLoaderThrottle>>();
 }
 
@@ -1002,7 +1008,7 @@ void ContentBrowserClient::RegisterNonNetworkSubresourceURLLoaderFactories(
     const std::optional<url::Origin>& request_initiator_origin,
     NonNetworkURLLoaderFactoryMap* factories) {}
 
-bool ContentBrowserClient::WillCreateURLLoaderFactory(
+void ContentBrowserClient::WillCreateURLLoaderFactory(
     BrowserContext* browser_context,
     RenderFrameHost* frame,
     int render_process_id,
@@ -1010,7 +1016,7 @@ bool ContentBrowserClient::WillCreateURLLoaderFactory(
     const url::Origin& request_initiator,
     std::optional<int64_t> navigation_id,
     ukm::SourceIdObj ukm_source_id,
-    mojo::PendingReceiver<network::mojom::URLLoaderFactory>* factory_receiver,
+    network::URLLoaderFactoryBuilder& factory_builder,
     mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
         header_client,
     bool* bypass_redirect_checks,
@@ -1018,7 +1024,6 @@ bool ContentBrowserClient::WillCreateURLLoaderFactory(
     network::mojom::URLLoaderFactoryOverridePtr* factory_override,
     scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
   DCHECK(browser_context);
-  return false;
 }
 
 bool ContentBrowserClient::WillInterceptWebSocket(RenderFrameHost*) {
@@ -1171,8 +1176,7 @@ FontAccessDelegate* ContentBrowserClient::GetFontAccessDelegate() {
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
-SmartCardDelegate* ContentBrowserClient::GetSmartCardDelegate(
-    BrowserContext* browser_context) {
+SmartCardDelegate* ContentBrowserClient::GetSmartCardDelegate() {
   return nullptr;
 }
 #endif
@@ -1326,9 +1330,9 @@ bool ContentBrowserClient::ShouldBlockRendererDebugURL(
   return false;
 }
 
-ui::AXMode ContentBrowserClient::GetAXModeForBrowserContext(
-    BrowserContext* browser_context) {
-  return BrowserAccessibilityState::GetInstance()->GetAccessibilityMode();
+std::optional<base::TimeDelta>
+ContentBrowserClient::GetSpareRendererDelayForSiteURL(const GURL& site_url) {
+  return std::nullopt;
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1428,12 +1432,12 @@ void ContentBrowserClient::IsClipboardPasteAllowedByPolicy(
   std::move(callback).Run(std::move(clipboard_paste_data));
 }
 
-bool ContentBrowserClient::IsClipboardCopyAllowed(
-    content::BrowserContext* browser_context,
-    const GURL& url,
-    size_t data_size_in_bytes,
-    std::u16string& replacement_data) {
-  return true;
+void ContentBrowserClient::IsClipboardCopyAllowedByPolicy(
+    const ClipboardEndpoint& source,
+    const ClipboardMetadata& metadata,
+    const std::u16string& data,
+    IsClipboardCopyAllowedCallback callback) {
+  std::move(callback).Run(data, std::nullopt);
 }
 
 #if BUILDFLAG(ENABLE_VR)
@@ -1501,8 +1505,8 @@ ContentBrowserClient::CreateIdentityRequestDialogController(
   return std::make_unique<IdentityRequestDialogController>();
 }
 
-std::unique_ptr<DigitalCredentialProvider>
-ContentBrowserClient::CreateDigitalCredentialProvider() {
+std::unique_ptr<DigitalIdentityProvider>
+ContentBrowserClient::CreateDigitalIdentityProvider() {
   return nullptr;
 }
 
@@ -1613,6 +1617,11 @@ bool ContentBrowserClient::
   return true;
 }
 
+bool ContentBrowserClient::IsTransientActivationRequiredForHtmlFullscreen(
+    content::RenderFrameHost* render_frame_host) {
+  return true;
+}
+
 bool ContentBrowserClient::ShouldUseFirstPartyStorageKey(
     const url::Origin& origin) {
   return false;
@@ -1680,5 +1689,10 @@ ContentBrowserClient::GetIpProtectionProxyBypassPolicy() {
 void ContentBrowserClient::MaybePrewarmHttpDiskCache(
     BrowserContext& browser_context,
     const GURL& navigation_url) {}
+
+void ContentBrowserClient::NotifyMultiCaptureStateChanged(
+    GlobalRenderFrameHostId capturer_rfh_id,
+    const std::string& label,
+    MultiCaptureChanged state) {}
 
 }  // namespace content

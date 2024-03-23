@@ -47,10 +47,10 @@ class GPU_GLES2_EXPORT OzoneImageBacking final
       GrSurfaceOrigin surface_origin,
       SkAlphaType alpha_type,
       uint32_t usage,
+      std::string debug_label,
       scoped_refptr<SharedContextState> context_state,
       scoped_refptr<gfx::NativePixmap> pixmap,
       const GpuDriverBugWorkarounds& workarounds,
-      bool use_passthrough,
       std::optional<gfx::BufferUsage> buffer_usage = std::nullopt);
 
   OzoneImageBacking(const OzoneImageBacking&) = delete;
@@ -64,6 +64,7 @@ class GPU_GLES2_EXPORT OzoneImageBacking final
   bool UploadFromMemory(const std::vector<SkPixmap>& pixmaps) override;
   scoped_refptr<gfx::NativePixmap> GetNativePixmap() override;
   gfx::GpuMemoryBufferHandle GetGpuMemoryBufferHandle() override;
+  bool IsImportedFromExo() override;
 
   enum class AccessStream { kGL, kVulkan, kWebGPU, kOverlay, kLast };
 
@@ -75,9 +76,6 @@ class GPU_GLES2_EXPORT OzoneImageBacking final
       wgpu::BackendType backend_type,
       std::vector<wgpu::TextureFormat> view_formats,
       scoped_refptr<SharedContextState> context_state) override;
-  std::unique_ptr<GLTextureImageRepresentation> ProduceGLTexture(
-      SharedImageManager* manager,
-      MemoryTypeTracker* tracker) override;
   std::unique_ptr<GLTexturePassthroughImageRepresentation>
   ProduceGLTexturePassthrough(SharedImageManager* manager,
                               MemoryTypeTracker* tracker) override;
@@ -102,7 +100,7 @@ class GPU_GLES2_EXPORT OzoneImageBacking final
 #endif
 
  private:
-  friend class GLOzoneImageRepresentationShared;
+  friend class GLTexturePassthroughOzoneImageRepresentation;
   friend class DawnOzoneImageRepresentation;
   friend class SkiaVkOzoneImageRepresentation;
   friend class VulkanOzoneImageRepresentation;
@@ -138,17 +136,9 @@ class GPU_GLES2_EXPORT OzoneImageBacking final
                  AccessStream access_stream,
                  gfx::GpuFenceHandle fence);
 
-  template <typename T>
-  std::unique_ptr<T> ProduceGLTextureInternal(SharedImageManager* manager,
-                                              MemoryTypeTracker* tracker,
-                                              bool is_passthrough);
-
-  scoped_refptr<OzoneImageGLTexturesHolder> RetainGLTexture(
-      bool is_passthrough);
-  scoped_refptr<OzoneImageGLTexturesHolder> RetainGLTextureForCacheWorkaround(
-      bool is_passthrough);
-  scoped_refptr<OzoneImageGLTexturesHolder> RetainGLTexturePerContextCache(
-      bool is_passthrough);
+  scoped_refptr<OzoneImageGLTexturesHolder> RetainGLTexture();
+  scoped_refptr<OzoneImageGLTexturesHolder> RetainGLTextureForCacheWorkaround();
+  scoped_refptr<OzoneImageGLTexturesHolder> RetainGLTexturePerContextCache();
 
   // gl::GLContext::GLContextObserver:
   void OnGLContextLost(gl::GLContext* context) override;
@@ -190,7 +180,7 @@ class GPU_GLES2_EXPORT OzoneImageBacking final
   AccessStream last_write_stream_;
   scoped_refptr<SharedContextState> context_state_;
   const GpuDriverBugWorkarounds workarounds_;
-  bool use_passthrough_;
+  const bool imported_from_exo_ = false;
 };
 
 }  // namespace gpu

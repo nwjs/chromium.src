@@ -18,6 +18,7 @@
 #include "chrome/browser/new_tab_page/modules/history_clusters/history_clusters_test_support.h"
 #include "chrome/browser/new_tab_page/modules/history_clusters/ranking/history_clusters_category_metrics.h"
 #include "chrome/browser/new_tab_page/modules/history_clusters/ranking/history_clusters_module_ranking_signals.h"
+#include "chrome/browser/new_tab_page/modules/test_support.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/history_clusters/core/clustering_test_utils.h"
 #include "components/history_clusters/core/history_clusters_util.h"
@@ -38,6 +39,7 @@
 
 namespace {
 
+using ntp::MockHistoryService;
 using segmentation_platform::DatabaseClient;
 using FeaturesCallback =
     segmentation_platform::DatabaseClient::FeaturesCallback;
@@ -102,10 +104,17 @@ class HistoryClustersModuleRankerTest : public testing::Test {
                std::vector<history::Cluster>* out_clusters,
                base::flat_map<int64_t, HistoryClustersModuleRankingSignals>*
                    out_ranking_signals,
-               std::vector<history::Cluster> clusters,
+               std::vector<std::pair<history::Cluster, std::optional<float>>>
+                   clusters_with_scores,
                base::flat_map<int64_t, HistoryClustersModuleRankingSignals>
                    ranking_signals) {
-              *out_clusters = std::move(clusters);
+              std::transform(
+                  clusters_with_scores.cbegin(), clusters_with_scores.cend(),
+                  std::back_inserter(*out_clusters),
+                  [](std::pair<history::Cluster, std::optional<float>>
+                         cluster_and_score) {
+                    return cluster_and_score.first;
+                  });
               *out_ranking_signals = std::move(ranking_signals);
               run_loop->Quit();
             },
@@ -183,10 +192,11 @@ TEST_F(HistoryClustersModuleRankerTest, RecencyOnly) {
   }
 
   auto& history_service = mock_history_service();
-  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _))
+  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _, _))
       .WillOnce(Invoke(
           [](const history::QueryOptions& options,
              bool compute_redirect_chain_start_properties,
+             bool get_unclustered_visits_only,
              history::HistoryService::GetAnnotatedVisitsCallback callback,
              base::CancelableTaskTracker* tracker)
               -> base::CancelableTaskTracker::TaskId {
@@ -302,10 +312,11 @@ TEST_F(HistoryClustersModuleRankerTest, WithCategoryBoosting) {
   }
 
   auto& history_service = mock_history_service();
-  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _))
+  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _, _))
       .WillOnce(Invoke(
           [](const history::QueryOptions& options,
              bool compute_redirect_chain_start_properties,
+             bool get_unclustered_visits_only,
              history::HistoryService::GetAnnotatedVisitsCallback callback,
              base::CancelableTaskTracker* tracker)
               -> base::CancelableTaskTracker::TaskId {
@@ -397,11 +408,12 @@ TEST_P(HistoryClustersModuleRankerWithMetricsTest,
   }
 
   auto& history_service = mock_history_service();
-  EXPECT_CALL(history_service, GetAnnotatedVisits(_, false, _, _))
+  EXPECT_CALL(history_service, GetAnnotatedVisits(_, false, false, _, _))
       .WillOnce(Invoke(
           [&cluster1_visit, &cluster2_visit](
               const history::QueryOptions& options,
               bool compute_redirect_chain_start_properties,
+              bool get_unclustered_visits_only,
               history::HistoryService::GetAnnotatedVisitsCallback callback,
               base::CancelableTaskTracker* tracker)
               -> base::CancelableTaskTracker::TaskId {
@@ -532,10 +544,11 @@ TEST_F(HistoryClustersModuleRankerCartTest,
             std::move(callback).Run(true, carts);
           })));
   auto& history_service = mock_history_service();
-  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _))
+  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _, _))
       .WillOnce(Invoke(
           [](const history::QueryOptions& options,
              bool compute_redirect_chain_start_properties,
+             bool get_unclustered_visits_only,
              history::HistoryService::GetAnnotatedVisitsCallback callback,
              base::CancelableTaskTracker* tracker)
               -> base::CancelableTaskTracker::TaskId {
@@ -677,10 +690,11 @@ TEST_F(HistoryClustersModuleRankerWithModelTest,
   }
 
   auto& history_service = mock_history_service();
-  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _))
+  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _, _))
       .WillOnce(Invoke(
           [](const history::QueryOptions& options,
              bool compute_redirect_chain_start_properties,
+             bool get_unclustered_visits_only,
              history::HistoryService::GetAnnotatedVisitsCallback callback,
              base::CancelableTaskTracker* tracker)
               -> base::CancelableTaskTracker::TaskId {
@@ -803,10 +817,11 @@ TEST_F(HistoryClustersModuleRankerWithModelTest, ModelAvailable) {
   cart_db::ChromeCartContentProto cart_proto;
   std::vector<CartDB::KeyAndValue> carts = {{"amazon.com", cart_proto}};
   auto& history_service = mock_history_service();
-  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _))
+  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _, _))
       .WillOnce(Invoke(
           [](const history::QueryOptions& options,
              bool compute_redirect_chain_start_properties,
+             bool get_unclustered_visits_only,
              history::HistoryService::GetAnnotatedVisitsCallback callback,
              base::CancelableTaskTracker* tracker)
               -> base::CancelableTaskTracker::TaskId {
@@ -881,10 +896,11 @@ TEST_F(HistoryClustersModuleRankerWithModelTest, ModelAvailableScoreThreshold) {
   cluster2.cluster_id = 2;
 
   auto& history_service = mock_history_service();
-  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _))
+  EXPECT_CALL(history_service, GetAnnotatedVisits(_, _, _, _, _))
       .WillOnce(Invoke(
           [](const history::QueryOptions& options,
              bool compute_redirect_chain_start_properties,
+             bool get_unclustered_visits_only,
              history::HistoryService::GetAnnotatedVisitsCallback callback,
              base::CancelableTaskTracker* tracker)
               -> base::CancelableTaskTracker::TaskId {

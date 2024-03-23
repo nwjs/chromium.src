@@ -58,6 +58,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1877026089748256423">Chrome is out of date</translation>
 <translation id="1919130412786645364">Allow Chrome sign-in</translation>
 <translation id="1953553007165777902">Downloading… <ph name="MINUTE" /> minute(s) remaining</translation>
+<translation id="2001586581944147178">Make it harder for people with access to your Internet traffic to see which sites you visit. Chrome uses a secure connection to look up a site's IP address in the DNS (Domain Name System).</translation>
 <translation id="2018528049276128029">Each profile holds its own Chrome info, like bookmarks, history, passwords and more</translation>
 <translation id="2018879682492276940">Installation failed. Please try again.</translation>
 <translation id="2071318482926839249">Another account is already signed in. To keep your browsing separate, Chrome can create your own profile for you.</translation>
@@ -76,6 +77,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2151406531797534936">Please restart Chrome now</translation>
 <translation id="2174917724755363426">Installation is not complete. Are you sure that you want to cancel?</translation>
 <translation id="2190166659037789668">Update check error: <ph name="UPDATE_CHECK_ERROR" />.</translation>
+<translation id="2199691482078155239">Chrome gives you more control over the ads that you see and limits what sites can learn about you when they show you personalised ads</translation>
 <translation id="223889379102603431">Information about how Chrome manages its root certificates</translation>
 <translation id="2258103955319320201">To access your Chrome browser across all your devices, sign in, then turn on sync</translation>
 <translation id="2290014774651636340">Google API keys are missing. Some functionality of Google Chrome will be disabled.</translation>
@@ -138,7 +140,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> – Network sign-in – Chrome</translation>
 <translation id="3018957014024118866">Also delete data from Chrome (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">Relaunch to update Chrome OS Flex</translation>
-<translation id="303514781271618814">Chrome is exploring new features that allow sites to deliver the same browsing experience using less of your data</translation>
 <translation id="3037838751736561277">Google Chrome is in background mode.</translation>
 <translation id="3038232873781883849">Waiting to install…</translation>
 <translation id="3059710691562604940">Safe Browsing is off. Chrome recommends turning it on.</translation>
@@ -161,7 +162,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3360895254066713204">Chrome Helper</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome will relaunch now}=1{Chrome will relaunch in 1 second}other{Chrome will relaunch in # seconds}}</translation>
 <translation id="3396977131400919238">An operating system error occurred during installation. Please download Google Chrome again.</translation>
-<translation id="3426646014273736870">Memory Saver Made Chrome Faster</translation>
 <translation id="3428747202529429621">Keeps you safe on Chrome and may be used to improve your security in other Google apps when you are signed in</translation>
 <translation id="3434246496373299699">Chrome can check your passwords when you sign in with your Google Account</translation>
 <translation id="3450887623636316740">This file may be dangerous<ph name="LINE_BREAK" />Chrome can check this download for you, if you provide the password. Info about the file gets sent to Google Safe Browsing, but the file content and password stay on your device.</translation>
@@ -178,6 +178,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3635073343384702370">Chrome can check your passwords when you save them.</translation>
 <translation id="3667616615096815454">Unable to install, the application is unknown to the server.</translation>
 <translation id="3673813398384385993">Chrome found that '<ph name="EXTENSION_NAME" />' contains malware</translation>
+<translation id="3697952514309507634">Other Chrome profiles</translation>
 <translation id="3703994572283698466">Chrome OS is made possible by additional <ph name="BEGIN_LINK_CROS_OSS" />open-source software<ph name="END_LINK_CROS_OSS" />, as is <ph name="BEGIN_LINK_LINUX_OSS" />Linux development environment<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">Chrome OS Flex version</translation>
 <translation id="3718181793972440140">This will delete 1 item from this device. To retrieve your data later, sign in to Chrome as <ph name="USER_EMAIL" />.</translation>
@@ -317,7 +318,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="608006075545470555">Add work profile to this browser</translation>
 <translation id="6113794647360055231">Chrome just got better</translation>
 <translation id="6145313976051292476">Open PDFs in Chrome</translation>
-<translation id="6155960517327665396">Memory saver made Chrome faster</translation>
 <translation id="6157638032135951407">Your organisation deletes Chrome data when it isn't used for <ph name="TIMEOUT_DURATION" />. This could include history, autofill and downloads.</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Google Chrome Beta</translation>
@@ -433,6 +433,7 @@ Permissions that you've already given to websites and apps may apply to this acc
 <translation id="8019103195866286235">This extension was unpublished by its developer and might be unsafe. Remove it from Chrome so that it can no longer see and change your data on sites that you visit, including your personal info.</translation>
 <translation id="80471789339884597">Thanks for installing. You must restart all your browsers before using <ph name="BUNDLE_NAME" />.</translation>
 <translation id="8064015586118426197">Chrome OS Flex</translation>
+<translation id="8077579734294125741">Other Chrome Profiles</translation>
 <translation id="8086881907087796310">Installation failed because your computer does not meet the minimum hardware requirements.</translation>
 <translation id="8129812357326543296">About &amp;Google Chrome</translation>
 <translation id="813913629614996137">Initialising...</translation>

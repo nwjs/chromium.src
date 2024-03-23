@@ -393,6 +393,8 @@ ci.thin_tester(
         ),
         build_gs_bucket = "chromium-chromiumos-archive",
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    sheriff_rotations = args.ignore_default(sheriff_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "simple|release|x64",
         short_name = "tast",
@@ -553,8 +555,8 @@ ci.builder(
             "dcheck_always_on",
         ],
     ),
-    # TODO(crbug.com/1342987): Add to the sheriff rotation if/when the builder
-    # is stable.
+    # Need to remove this builder since it's not running tests and already
+    # migrated to skylab.
     sheriff_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "simple|release",
@@ -598,66 +600,13 @@ ci.builder(
             "dcheck_always_on",
         ],
     ),
-    # TODO(crbug.com/1342987): Add to the sheriff rotation if/when the builder
-    # is stable.
-    sheriff_rotations = args.ignore_default(None),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    sheriff_rotations = args.ignore_default(sheriff_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "simple|release",
         short_name = "oct",
     ),
     main_console_view = "main",
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-)
-
-ci.builder(
-    name = "lacros-amd64-generic-rel-renamed",
-    branch_selector = branches.selector.CROS_BRANCHES,
-    description_html = "This is a renamed builder of lacros-amd64-generic-rel.",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
-            apply_configs = [
-                "checkout_lacros_sdk",
-                "chromeos",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.CHROMEOS,
-            target_cros_boards = [
-                "amd64-generic",
-            ],
-        ),
-        build_gs_bucket = "chromium-chromiumos-archive",
-        skylab_upload_location = builder_config.skylab_upload_location(
-            gs_bucket = "chromium-ci-skylab",
-        ),
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "chromeos_device",
-            "dcheck_off",
-            "reclient",
-            "amd64-generic-crostoolchain",
-            "ozone_headless",
-            "lacros",
-            "release",
-            "is_skylab",
-        ],
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "lacros|x64",
-        short_name = "skylab",
-    ),
-    main_console_view = "main",
-    cq_mirrors_console_view = "mirrors",
-    contact_team_email = "chrome-desktop-engprod@google.com",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -703,9 +652,6 @@ ci.builder(
             "is_skylab",
         ],
     ),
-    # TODO(crbug.com/1471166) Enable sheriffing.
-    sheriff_rotations = args.ignore_default(None),
-    tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "lacros|x64",
         short_name = "skylab",
@@ -794,13 +740,15 @@ ci.thin_tester(
             gs_bucket = "chromium-ci-skylab",
         ),
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    sheriff_rotations = args.ignore_default(sheriff_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "lacros|x64",
         short_name = "tast",
     ),
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
-    contact_team_email = "chrome-desktop-engprod@google.com",
+    contact_team_email = "chromeos-sw-engprod@google.com",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -844,6 +792,8 @@ ci.builder(
             "release",
         ],
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    sheriff_rotations = args.ignore_default(sheriff_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "lacros|x64",
         short_name = "rel",
@@ -940,6 +890,8 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    sheriff_rotations = args.ignore_default(sheriff_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "lacros|arm64",
         short_name = "sky",

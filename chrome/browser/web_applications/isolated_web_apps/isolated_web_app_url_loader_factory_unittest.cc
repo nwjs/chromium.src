@@ -16,12 +16,12 @@
 #include "base/strings/strcat.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/web_applications/test/isolated_web_app_builder.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/pending_install_info.h"
+#include "chrome/browser/web_applications/isolated_web_apps/test/test_signed_web_bundle_builder.h"
 #include "chrome/browser/web_applications/test/fake_web_app_database_factory.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
@@ -488,7 +488,7 @@ TEST_F(IsolatedWebAppURLLoaderFactoryTest,
   EXPECT_THAT(status, IsNetError(net::OK));
 }
 
-TEST_F(IsolatedWebAppURLLoaderFactoryTest, ProxyUrlDoesNotHaveUrlQuery) {
+TEST_F(IsolatedWebAppURLLoaderFactoryTest, ProxyUrlInheritsQuery) {
   RegisterWebApp(CreateIsolatedWebApp(
       kDevAppStartUrl,
       WebApp::IsolationData{DevModeProxy{.proxy_url = url::Origin::Create(
@@ -498,11 +498,12 @@ TEST_F(IsolatedWebAppURLLoaderFactoryTest, ProxyUrlDoesNotHaveUrlQuery) {
   CreateFactory();
 
   auto request = std::make_unique<network::ResourceRequest>();
-  request->url = GURL("isolated-app://" + kDevWebBundleId +
-                      "?testingQueryToRemove=testValue");
+  request->url =
+      GURL("isolated-app://" + kDevWebBundleId + "?testingQuery=testValue");
   CreateLoaderAndRun(std::move(request));
 
-  EXPECT_THAT(url_handler().intercepted_url(), Eq(GURL("http://example.com/")));
+  EXPECT_THAT(url_handler().intercepted_url(),
+              Eq(GURL("http://example.com/?testingQuery=testValue")));
 }
 
 TEST_F(IsolatedWebAppURLLoaderFactoryTest, ProxyUrlDoesNotHaveUrlFragment) {

@@ -1034,11 +1034,15 @@ TEST_F(LockStateControllerMockTimeTest, LockWithoutAnimation) {
 
 class LockStateControllerPineTest : public LockStateControllerTest {
  public:
-  LockStateControllerPineTest() = default;
+  LockStateControllerPineTest() {
+    switches::SetIgnoreForestSecretKeyForTest(true);
+  }
   LockStateControllerPineTest(const LockStateControllerPineTest&) = delete;
   LockStateControllerPineTest& operator=(const LockStateControllerPineTest&) =
       delete;
-  ~LockStateControllerPineTest() override = default;
+  ~LockStateControllerPineTest() override {
+    switches::SetIgnoreForestSecretKeyForTest(false);
+  }
 
   // LockStateControllerTest:
   void SetUp() override {
@@ -1060,7 +1064,7 @@ class LockStateControllerPineTest : public LockStateControllerTest {
   base::ScopedAllowBlockingForTesting allow_blocking_;
   base::ScopedTempDir temp_dir_;
   base::FilePath file_path_;
-  base::test::ScopedFeatureList scoped_feature_list_{features::kPine};
+  base::test::ScopedFeatureList scoped_feature_list_{features::kForestFeature};
 };
 
 // Tests that a pine image is taken when there are windows open.
@@ -1079,6 +1083,15 @@ TEST_F(LockStateControllerPineTest, ShutdownWithWindows) {
   int64_t file_size = 0;
   ASSERT_TRUE(base::GetFileSize(file_path(), &file_size));
   EXPECT_GT(file_size, 0);
+
+  auto* local_state = Shell::Get()->local_state();
+  // Pine screenshot related durations were recorded.
+  const base::TimeDelta screenshot_taken_duration =
+      local_state->GetTimeDelta(prefs::kPineScreenshotTakenDuration);
+  EXPECT_FALSE(screenshot_taken_duration.is_zero());
+  const base::TimeDelta screenshot_encode_and_save_duration =
+      local_state->GetTimeDelta(prefs::kPineScreenshotEncodeAndSaveDuration);
+  EXPECT_FALSE(screenshot_encode_and_save_duration.is_zero());
 }
 
 // Tests that no pine image is taken when there are no windows opened and the

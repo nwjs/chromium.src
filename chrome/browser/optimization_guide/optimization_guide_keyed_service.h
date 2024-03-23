@@ -46,6 +46,7 @@ class ModelExecutionManager;
 class ModelInfo;
 class ModelQualityLogEntry;
 class ModelQualityLogsUploaderService;
+class ModelValidatorKeyedService;
 class OnDeviceModelComponentStateManager;
 class OptimizationGuideStore;
 class PredictionManager;
@@ -186,6 +187,7 @@ class OptimizationGuideKeyedService
   friend class OptimizationGuideWebContentsObserver;
   friend class optimization_guide::ModelExecutionEnabledBrowserTest;
   friend class optimization_guide::ModelExecutionLiveTest;
+  friend class optimization_guide::ModelValidatorKeyedService;
   friend class optimization_guide::PredictionManagerBrowserTestBase;
   friend class optimization_guide::PredictionModelDownloadClient;
   friend class optimization_guide::PredictionModelStoreBrowserTestBase;
@@ -279,12 +281,6 @@ class OptimizationGuideKeyedService
 
   // Manages the storing, loading, and fetching of hints.
   std::unique_ptr<optimization_guide::ChromeHintsManager> hints_manager_;
-
-  // TODO(crbug/1358568): Remove this old model store once the new model store
-  // is launched.
-  // The store of optimization target prediction models and features.
-  std::unique_ptr<optimization_guide::OptimizationGuideStore>
-      prediction_model_and_features_store_;
 
   // Manages the storing, loading, and evaluating of optimization target
   // prediction models.

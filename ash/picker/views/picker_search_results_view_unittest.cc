@@ -6,7 +6,6 @@
 
 #include "ash/picker/mock_picker_asset_fetcher.h"
 #include "ash/picker/model/picker_search_results.h"
-#include "ash/picker/views/picker_item_view.h"
 #include "ash/picker/views/picker_section_view.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/view_drawn_waiter.h"
@@ -31,11 +30,13 @@ using ::testing::Pointee;
 using ::testing::Property;
 using ::testing::SizeIs;
 
+constexpr int kPickerWidth = 320;
+
 using PickerSearchResultsViewTest = AshTestBase;
 
 auto MatchesResultSection(const PickerSearchResults::Section& section) {
   return AllOf(
-      Property(&PickerSectionView::title_for_testing,
+      Property(&PickerSectionView::title_label_for_testing,
                Property(&views::Label::GetText, Eq(section.heading()))),
       Property(&PickerSectionView::item_views_for_testing,
                SizeIs(section.results().size())));
@@ -43,7 +44,7 @@ auto MatchesResultSection(const PickerSearchResults::Section& section) {
 
 TEST_F(PickerSearchResultsViewTest, CreatesResultsSections) {
   MockPickerAssetFetcher asset_fetcher;
-  PickerSearchResultsView view(base::DoNothing(), &asset_fetcher);
+  PickerSearchResultsView view(kPickerWidth, base::DoNothing(), &asset_fetcher);
   const PickerSearchResults kSearchResults({{
       PickerSearchResults::Section(u"Section 1",
                                    {{PickerSearchResult::Text(u"Result A")}}),
@@ -51,7 +52,7 @@ TEST_F(PickerSearchResultsViewTest, CreatesResultsSections) {
                                    {{PickerSearchResult::Text(u"Result B"),
                                      PickerSearchResult::Text(u"Result C")}}),
   }});
-  view.SetSearchResults(kSearchResults);
+  view.AppendSearchResults(kSearchResults);
 
   EXPECT_THAT(view.children(), SizeIs(kSearchResults.sections().size()));
   EXPECT_THAT(
@@ -60,12 +61,29 @@ TEST_F(PickerSearchResultsViewTest, CreatesResultsSections) {
                   Pointee(MatchesResultSection(kSearchResults.sections()[1]))));
 }
 
+TEST_F(PickerSearchResultsViewTest, ClearSearchResults) {
+  MockPickerAssetFetcher asset_fetcher;
+  PickerSearchResultsView view(kPickerWidth, base::DoNothing(), &asset_fetcher);
+  const PickerSearchResults kSearchResults({{
+      PickerSearchResults::Section(u"Section",
+                                   {{PickerSearchResult::Text(u"Result")}}),
+  }});
+  view.AppendSearchResults(kSearchResults);
+
+  view.ClearSearchResults();
+
+  EXPECT_THAT(view.children(), IsEmpty());
+}
+
 TEST_F(PickerSearchResultsViewTest, CreatesResultsSectionWithGif) {
   MockPickerAssetFetcher asset_fetcher;
-  PickerSearchResultsView view(base::DoNothing(), &asset_fetcher);
+  PickerSearchResultsView view(kPickerWidth, base::DoNothing(), &asset_fetcher);
   const PickerSearchResults kSearchResults({{PickerSearchResults::Section(
-      u"Gif Section", {{PickerSearchResult::Gif(GURL())}})}});
-  view.SetSearchResults(kSearchResults);
+      u"Gif Section",
+      {{PickerSearchResult::Gif(
+          /*url=*/GURL(), /*preview_image_url=*/GURL(), gfx::Size(),
+          /*content_description=*/u"")}})}});
+  view.AppendSearchResults(kSearchResults);
 
   EXPECT_THAT(view.children(), SizeIs(kSearchResults.sections().size()));
   EXPECT_THAT(
@@ -75,72 +93,76 @@ TEST_F(PickerSearchResultsViewTest, CreatesResultsSectionWithGif) {
 
 TEST_F(PickerSearchResultsViewTest, UpdatesResultsSections) {
   MockPickerAssetFetcher asset_fetcher;
-  PickerSearchResultsView view(base::DoNothing(), &asset_fetcher);
+  PickerSearchResultsView view(kPickerWidth, base::DoNothing(), &asset_fetcher);
   const PickerSearchResults kInitialSearchResults({{
       PickerSearchResults::Section(u"Section",
                                    {{PickerSearchResult::Text(u"Result")}}),
   }});
-  view.SetSearchResults(kInitialSearchResults);
+  view.AppendSearchResults(kInitialSearchResults);
 
   const PickerSearchResults kUpdatedSearchResults({{
       PickerSearchResults::Section(
           u"Updated Section", {{PickerSearchResult::Text(u"Updated Result")}}),
   }});
-  view.SetSearchResults(kUpdatedSearchResults);
+  view.AppendSearchResults(kUpdatedSearchResults);
 
-  EXPECT_THAT(view.children(), SizeIs(kUpdatedSearchResults.sections().size()));
-  EXPECT_THAT(view.section_views_for_testing(),
-              ElementsAre(Pointee(
-                  MatchesResultSection(kUpdatedSearchResults.sections()[0]))));
+  EXPECT_THAT(view.children(), SizeIs(2));
+  EXPECT_THAT(
+      view.section_views_for_testing(),
+      ElementsAre(
+          Pointee(MatchesResultSection(kInitialSearchResults.sections()[0])),
+          Pointee(MatchesResultSection(kUpdatedSearchResults.sections()[0]))));
 }
 
-TEST_F(PickerSearchResultsViewTest, LeftClickSelectsTextResult) {
+struct PickerSearchResultTestCase {
+  std::string test_name;
+  PickerSearchResult result;
+};
+
+class PickerSearchResultsViewResultSelectionTest
+    : public PickerSearchResultsViewTest,
+      public testing::WithParamInterface<PickerSearchResultTestCase> {};
+
+TEST_P(PickerSearchResultsViewResultSelectionTest, LeftClickSelectsResult) {
+  const PickerSearchResultTestCase& test_case = GetParam();
   std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
   widget->SetFullscreen(true);
   base::test::TestFuture<const PickerSearchResult&> future;
   MockPickerAssetFetcher asset_fetcher;
   auto* view =
       widget->SetContentsView(std::make_unique<PickerSearchResultsView>(
-          future.GetCallback(), &asset_fetcher));
-  view->SetSearchResults(PickerSearchResults({{
-      PickerSearchResults::Section(u"section",
-                                   {{PickerSearchResult::Text(u"result")}}),
+          kPickerWidth, future.GetCallback(), &asset_fetcher));
+  view->AppendSearchResults(PickerSearchResults({{
+      PickerSearchResults::Section(u"section", {{test_case.result}}),
   }}));
   ASSERT_THAT(view->section_views_for_testing(), Not(IsEmpty()));
   ASSERT_THAT(view->section_views_for_testing()[0]->item_views_for_testing(),
               Not(IsEmpty()));
 
-  PickerItemView* result_view =
+  views::View* result_view =
       view->section_views_for_testing()[0]->item_views_for_testing()[0];
   ViewDrawnWaiter().Wait(result_view);
   LeftClickOn(result_view);
 
-  EXPECT_EQ(future.Get(), PickerSearchResult::Text(u"result"));
+  EXPECT_EQ(future.Get(), test_case.result);
 }
 
-TEST_F(PickerSearchResultsViewTest, LeftClickSelectsGifResult) {
-  std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
-  widget->SetFullscreen(true);
-  base::test::TestFuture<const PickerSearchResult&> future;
-  MockPickerAssetFetcher asset_fetcher;
-  auto* view =
-      widget->SetContentsView(std::make_unique<PickerSearchResultsView>(
-          future.GetCallback(), &asset_fetcher));
-  view->SetSearchResults(PickerSearchResults({{
-      PickerSearchResults::Section(u"section",
-                                   {{PickerSearchResult::Gif(GURL())}}),
-  }}));
-  ASSERT_THAT(view->section_views_for_testing(), Not(IsEmpty()));
-  ASSERT_THAT(view->section_views_for_testing()[0]->item_views_for_testing(),
-              Not(IsEmpty()));
-
-  PickerItemView* gif_result_view =
-      view->section_views_for_testing()[0]->item_views_for_testing()[0];
-  ViewDrawnWaiter().Wait(gif_result_view);
-  LeftClickOn(gif_result_view);
-
-  EXPECT_EQ(future.Get(), PickerSearchResult::Gif(GURL()));
-}
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    PickerSearchResultsViewResultSelectionTest,
+    testing::ValuesIn<PickerSearchResultTestCase>(
+        {{"Text", PickerSearchResult::Text(u"result")},
+         {"Emoji", PickerSearchResult::Emoji(u"😊")},
+         {"Symbol", PickerSearchResult::Symbol(u"♬")},
+         {"Emoticon", PickerSearchResult::Emoticon(u"¯\\_(ツ)_/¯")},
+         {"Gif", PickerSearchResult::Gif(/*url=*/GURL(),
+                                         /*preview_image_url=*/GURL(),
+                                         gfx::Size(10, 10),
+                                         u"cat gif")}}),
+    [](const testing::TestParamInfo<
+        PickerSearchResultsViewResultSelectionTest::ParamType>& info) {
+      return info.param.test_name;
+    });
 
 }  // namespace
 }  // namespace ash
