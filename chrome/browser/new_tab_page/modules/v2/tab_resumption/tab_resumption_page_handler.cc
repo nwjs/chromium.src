@@ -189,8 +189,9 @@ void TabResumptionPageHandler::OnAnnotatedVisits(
   for (const auto& annotated_visit : annotated_visits) {
     float visibility_score =
         annotated_visit.content_annotations.model_annotations.visibility_score;
-    /* If score is -1, it has not been evaluated for visibility */
-    if (visibility_score < visibility_threshold_ && visibility_score >= 0) {
+    /* If score is -1, it has not been evaluated for visibility, so don't show
+     * it. */
+    if (visibility_score < visibility_threshold_) {
       continue;
     }
     if (IsVisitInCategories(annotated_visit, categories_blocklist_)) {
@@ -244,7 +245,9 @@ void TabResumptionPageHandler::GetTabs(GetTabsCallback callback) {
     return;
   }
 
-  auto tabs_mojom = GetForeignTabs();
+  // Filter out duplicate host urls.
+  auto tabs_mojom = GetDeduplicatedTabs();
+
   std::vector<GURL> urls;
   for (const auto& tab : tabs_mojom) {
     urls.push_back(tab->url);
@@ -269,6 +272,26 @@ void TabResumptionPageHandler::GetTabs(GetTabsCallback callback) {
 void TabResumptionPageHandler::RegisterProfilePrefs(
     PrefRegistrySimple* registry) {
   registry->RegisterListPref(kDismissedTabsPrefName, base::Value::List());
+}
+
+std::vector<history::mojom::TabPtr>
+TabResumptionPageHandler::GetDeduplicatedTabs() {
+  std::vector<history::mojom::TabPtr> tabs_mojom = GetForeignTabs();
+  std::map<GURL, history::mojom::TabPtr> url_tab_map;
+  for (auto& tab_mojom : tabs_mojom) {
+    GURL url = tab_mojom->url;
+    if (url_tab_map.find(url) == url_tab_map.end() ||
+        url_tab_map[url]->relative_time < tab_mojom->relative_time) {
+      url_tab_map[url] = std::move(tab_mojom);
+    }
+  }
+  tabs_mojom.clear();
+
+  std::vector<history::mojom::TabPtr> unique_tabs;
+  for (auto& url_pair : url_tab_map) {
+    unique_tabs.push_back(std::move(url_pair.second));
+  }
+  return unique_tabs;
 }
 
 // static

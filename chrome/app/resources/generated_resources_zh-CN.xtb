@@ -3420,7 +3420,7 @@
 <translation id="3605156246402033687">{COUNT,plural, =1{{COUNT} 个账号在使用同一密码}other{{COUNT} 个账号在使用同一密码}}</translation>
 <translation id="3605515937536882518">表单值已更新</translation>
 <translation id="3605780360466892872">男性商务人士</translation>
-<translation id="3607671391978830431">适合儿童</translation>
+<translation id="3607671391978830431">儿童使用</translation>
 <translation id="3608460311600621471">请输入打印此数据的原因：</translation>
 <translation id="3608730769702025110">步骤 3/4：检查个人身份信息</translation>
 <translation id="3609277884604412258">快速搜索</translation>
@@ -9457,7 +9457,7 @@
 <translation id="8289128870594824098">磁盘大小</translation>
 <translation id="8289509909262565712">欢迎使用 <ph name="DEVICE_OS" /></translation>
 <translation id="8291415872436043161">下载 Chrome</translation>
-<translation id="8291942417224950075">用于个人用途</translation>
+<translation id="8291942417224950075">个人使用</translation>
 <translation id="8293206222192510085">添加书签</translation>
 <translation id="8294431847097064396">来源</translation>
 <translation id="8294476140219241086">标签页整理工具</translation>
@@ -10122,7 +10122,7 @@
 <translation id="8807588541160250261">未连接任何设备时</translation>
 <translation id="8807632654848257479">稳定</translation>
 <translation id="880812391407122701">让 Chrome 整理标签页</translation>
-<translation id="8808478386290700967">Chrome 应用商店</translation>
+<translation id="8808478386290700967">应用商店</translation>
 <translation id="8808686172382650546">猫</translation>
 <translation id="8809147117840417135">浅蓝绿色</translation>
 <translation id="8811862054141704416">Crostini 麦克风使用权限</translation>
@@ -10771,7 +10771,7 @@
 <translation id="995782501881226248">YouTube</translation>
 <translation id="996250603853062861">正在建立安全连接...</translation>
 <translation id="996803490569799917">查看与亲朋好友相聚时刻的回忆</translation>
-<translation id="997143476478634194">网站会在您访问时自动采用此设置。网站通常会传送通知，以便您知悉重大新闻或聊天消息。</translation>
+<translation id="997143476478634194">网站会在您访问时自动采用此设置。网站通常会发送通知，以便您知悉重大新闻或聊天消息。</translation>
 <translation id="99731366405731005">您需要开启 <ph name="LINK1_BEGIN" />Chrome 同步<ph name="LINK1_END" />才能使用 Wi-Fi 同步功能。<ph name="LINK2_BEGIN" />了解详情<ph name="LINK2_END" /></translation>
 <translation id="998747458861718449">检查(&amp;N)</translation>
 </translationbundle>
