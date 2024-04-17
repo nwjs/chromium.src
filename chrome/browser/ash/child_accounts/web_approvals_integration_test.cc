@@ -33,7 +33,7 @@ class WebApprovalsIntegrationTest : public SupervisedUserIntegrationBaseTest {
   std::string GetMatureSite() { return delegate_.test_data().mature_site; }
 };
 
-// Flaky tests disabled crbug.com/318616623.
+// Flaky tests disabled b/325519819.
 IN_PROC_BROWSER_TEST_F(WebApprovalsIntegrationTest,
                        DISABLED_TestMatureSiteBlocked) {
   SetupContextWidget();

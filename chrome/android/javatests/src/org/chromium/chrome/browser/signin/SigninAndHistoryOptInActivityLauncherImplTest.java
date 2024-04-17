@@ -79,10 +79,12 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     mProfileMock,
                                     SigninAndHistoryOptInCoordinator.NoAccountSigninMode
                                             .BOTTOM_SHEET,
+                                    SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                                            .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                                     SigninAndHistoryOptInCoordinator.HistoryOptInMode.OPTIONAL,
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });
-        verify(mContextMock).startActivity(notNull());
+        verify(mContextMock).startActivity(notNull(), any());
     }
 
     @Test
@@ -99,11 +101,13 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     mProfileMock,
                                     SigninAndHistoryOptInCoordinator.NoAccountSigninMode
                                             .BOTTOM_SHEET,
+                                    SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                                            .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                                     SigninAndHistoryOptInCoordinator.HistoryOptInMode.OPTIONAL,
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });
 
-        verify(mContextMock, never()).startActivity(notNull());
+        verify(mContextMock, never()).startActivity(notNull(), any());
     }
 
     @Test
@@ -125,6 +129,8 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     mProfileMock,
                                     SigninAndHistoryOptInCoordinator.NoAccountSigninMode
                                             .BOTTOM_SHEET,
+                                    SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                                            .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                                     SigninAndHistoryOptInCoordinator.HistoryOptInMode.OPTIONAL,
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });

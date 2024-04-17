@@ -342,10 +342,10 @@ std::optional<FormData> FindFormForContentEditable(
 // `initiating_element` is the element that initiated the autofill process.
 // Returns a list of pairs of the filled elements and their autofill state
 // prior to the filling.
-std::vector<std::pair<FieldRef, blink::WebAutofillState>> ApplyFormAction(
+std::vector<std::pair<FieldRef, blink::WebAutofillState>> ApplyFieldsAction(
+    const blink::WebDocument& document,
     base::span<const FormFieldData::FillData> fields,
-    const blink::WebFormControlElement& initiating_element,
-    mojom::ActionType action_type,
+    mojom::FormActionType action_type,
     mojom::ActionPersistence action_persistence,
     FieldDataManager& field_data_manager);
 
@@ -354,7 +354,7 @@ std::vector<std::pair<FieldRef, blink::WebAutofillState>> ApplyFormAction(
 // `old_autofill_state` is the previous state of the field that initiated the
 // preview.
 void ClearPreviewedElements(
-    mojom::ActionType action_type,
+    mojom::FormActionType action_type,
     base::span<std::pair<blink::WebFormControlElement, blink::WebAutofillState>>
         previewed_elements,
     const blink::WebFormControlElement& initiating_element);
@@ -384,15 +384,6 @@ bool IsWebpageEmpty(const blink::WebLocalFrame* frame);
 // This function checks whether the children of |element|
 // are of the type <script>, <meta>, or <title>.
 bool IsWebElementEmpty(const blink::WebElement& element);
-
-// Previews |suggestion| in |input_element| and highlights the suffix of
-// |suggestion| not included in the |input_element| text. |input_element| must
-// not be null. |user_input| should be the text typed by the user into
-// |input_element|. Note that |user_input| cannot be easily derived from
-// |input_element| by calling value(), because of http://crbug.com/507714.
-void PreviewSuggestion(const std::u16string& suggestion,
-                       const std::u16string& user_input,
-                       blink::WebFormControlElement& input_element);
 
 // Returns the aggregated values of the descendants of |element| that are
 // non-empty text nodes.  This is a faster alternative to |innerText()| for
@@ -459,14 +450,10 @@ void TraverseDomForFourDigitCombinations(
 
 bool IsVisibleIframeForTesting(const blink::WebElement& iframe_element);
 
-// TODO(crbug.com/1007974): There's no internal WebFormElementToFormData()
-// anymore. Revise the test to test the interface.
-std::optional<FormData> WebFormElementToFormDataForTesting(
-    const blink::WebFormElement& form_element,
-    const blink::WebFormControlElement& form_control_element,
-    const FieldDataManager& field_data_manager,
-    DenseSet<ExtractOption> extract_options,
-    FormFieldData* field);
+// Returns the owning form element for a given input.
+// TODO: b/41490287 - Delete the method after ShadowDomSupport launch.
+blink::WebFormElement GetFormElementForPasswordInput(
+    const blink::WebInputElement& element);
 
 }  // namespace form_util
 }  // namespace autofill

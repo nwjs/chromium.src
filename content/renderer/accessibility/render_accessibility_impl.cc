@@ -167,7 +167,8 @@ void RenderAccessibilityImpl::DidCommitProvisionalLoad(
   weak_factory_for_pending_events_.InvalidateWeakPtrs();
 }
 
-void RenderAccessibilityImpl::AccessibilityModeChanged(const ui::AXMode& mode) {
+void RenderAccessibilityImpl::NotifyAccessibilityModeChange(
+    const ui::AXMode& mode) {
   CHECK(reset_token_);
   ui::AXMode old_mode = accessibility_mode_;
   DCHECK(!mode.is_mode_off())
@@ -665,14 +666,6 @@ bool RenderAccessibilityImpl::AXReadyCallback() {
                      weak_factory_for_pending_events_.GetWeakPtr()));
   if (need_to_send_location_changes) {
     SendLocationChanges();
-  }
-
-  if (features::IsAblateSendPendingAccessibilityEventsEnabled()) {
-    // Make the total time equal to 2x the original time.
-    auto new_end_time = base::Time::Now() + timer.Elapsed();
-    while (base::Time::Now() < new_end_time) {
-      // spin loop.
-    }
   }
 
   // Measure the amount of time spent in this function. Keep track of the

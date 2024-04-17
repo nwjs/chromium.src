@@ -12,7 +12,6 @@ import org.hamcrest.Matcher;
 
 import org.chromium.base.test.transit.ViewConditions.DisplayedCondition;
 import org.chromium.base.test.transit.ViewConditions.GatedDisplayedCondition;
-import org.chromium.base.test.transit.ViewConditions.MatchedViewProvider;
 import org.chromium.base.test.transit.ViewConditions.NotDisplayedAnymoreCondition;
 import org.chromium.base.test.transit.ViewElement.Scope;
 
@@ -30,7 +29,6 @@ import java.util.Set;
  */
 class ViewElementInState implements ElementInState {
     private final ViewElement mViewElement;
-    private final String mId;
     private final @Nullable Condition mGate;
 
     private final Condition mEnterCondition;
@@ -40,25 +38,20 @@ class ViewElementInState implements ElementInState {
         mViewElement = viewElement;
         mGate = gate;
 
-        mId = "VE/" + viewElement.getViewMatcherDescription();
-
         Matcher<View> viewMatcher = mViewElement.getViewMatcher();
-        MatchedViewProvider matchedViewProvider;
         if (mGate != null) {
             GatedDisplayedCondition gatedDisplayedCondition =
                     new GatedDisplayedCondition(mViewElement.getViewMatcher(), mGate);
             mEnterCondition = gatedDisplayedCondition;
-            matchedViewProvider = gatedDisplayedCondition;
         } else {
             DisplayedCondition displayedCondition = new DisplayedCondition(viewMatcher);
             mEnterCondition = displayedCondition;
-            matchedViewProvider = displayedCondition;
         }
 
         switch (mViewElement.getScope()) {
             case Scope.CONDITIONAL_STATE_SCOPED:
             case Scope.SHARED:
-                mExitCondition = new NotDisplayedAnymoreCondition(viewMatcher, matchedViewProvider);
+                mExitCondition = new NotDisplayedAnymoreCondition(viewMatcher);
                 break;
             case Scope.UNSCOPED:
                 mExitCondition = null;
@@ -71,7 +64,7 @@ class ViewElementInState implements ElementInState {
 
     @Override
     public String getId() {
-        return mId;
+        return mViewElement.getId();
     }
 
     @Override

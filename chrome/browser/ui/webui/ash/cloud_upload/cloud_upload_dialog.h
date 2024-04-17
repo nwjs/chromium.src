@@ -103,6 +103,7 @@ class CloudOpenTask : public BrowserListObserver,
   // in the closures used for async steps.
   static bool Execute(Profile* profile,
                       const std::vector<storage::FileSystemURL>& file_urls,
+                      const ::file_manager::file_tasks::TaskDescriptor& task,
                       const CloudProvider cloud_provider,
                       std::unique_ptr<CloudOpenMetrics> cloud_open_metrics);
 
@@ -161,6 +162,7 @@ class CloudOpenTask : public BrowserListObserver,
 
   CloudOpenTask(Profile* profile,
                 std::vector<storage::FileSystemURL> file_urls,
+                const ::file_manager::file_tasks::TaskDescriptor& task,
                 const CloudProvider cloud_provider,
                 std::unique_ptr<CloudOpenMetrics> cloud_open_metrics);
 
@@ -176,13 +178,11 @@ class CloudOpenTask : public BrowserListObserver,
   void OpenUploadedDriveUrl(const GURL& url,
                             const OfficeTaskResult task_result);
   void OpenODFSUrls(const OfficeTaskResult task_result_uma);
-  void OpenAndroidOneDriveUrlsIfAccountMatchedODFS(
-      base::OnceCallback<void(OfficeOneDriveOpenErrors)> callback);
-  void CheckEmailAndOpenURLs(
-      const std::string& android_onedrive_email,
-      base::OnceCallback<void(OfficeOneDriveOpenErrors)> callback,
+  void CheckEmailAndOpenAndroidOneDriveURLs(
       base::expected<cloud_upload::ODFSMetadata, base::File::Error>
           metadata_or_error);
+  void OpenAndroidOneDriveUrl(
+      const storage::FileSystemURL& android_onedrive_url);
 
   bool ShouldShowConfirmationDialog();
   void ConfirmMoveOrStartUpload();
@@ -241,12 +241,14 @@ class CloudOpenTask : public BrowserListObserver,
   std::vector<storage::FileSystemURL> file_urls_;
   // File being currently uploaded.
   size_t file_urls_idx_ = 0;
+  const ::file_manager::file_tasks::TaskDescriptor task_;
   CloudProvider cloud_provider_;
   std::unique_ptr<CloudOpenMetrics> cloud_open_metrics_;
   std::vector<::file_manager::file_tasks::TaskDescriptor> local_tasks_;
   raw_ptr<CloudUploadDialog> pending_dialog_ = nullptr;
   base::ElapsedTimer upload_timer_;
   int64_t upload_total_size_ = 0;
+  // True when there is at least one upload error.
   bool has_upload_errors_ = false;
   OfficeFilesTransferRequired transfer_required_ =
       OfficeFilesTransferRequired::kNotRequired;
@@ -266,14 +268,6 @@ bool UrlIsOnAndroidOneDrive(Profile* profile, const FileSystemURL& url);
 // DocumentsProvider.
 std::optional<std::string> GetEmailFromAndroidOneDriveRootDoc(
     const std::string& root_document_id);
-
-// If the Microsoft account logged into the Android OneDrive matches the account
-// logged into ODFS, open office files from ODFS that were originally selected
-// from Android OneDrive. Open the files in the MS 365 PWA. Fails if the Android
-// OneDrive URLS cannot be converted to valid ODFS file paths.
-void OpenAndroidOneDriveUrlsIfAccountMatchedODFS(
-    Profile* profile,
-    const std::vector<storage::FileSystemURL>& android_onedrive_urls);
 
 // Converts the |android_onedrive_file_url| for a file in OneDrive to the
 // equivalent ODFS file path which is then parsed to detect the corresponding

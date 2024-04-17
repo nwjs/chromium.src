@@ -28,7 +28,6 @@
 #include "components/services/storage/indexed_db/locks/partitioned_lock.h"
 #include "components/services/storage/privileged/mojom/indexed_db_control_test.mojom.h"
 #include "components/services/storage/public/cpp/buckets/bucket_locator.h"
-#include "content/browser/indexed_db/indexed_db.h"
 #include "content/browser/indexed_db/indexed_db_external_object.h"
 #include "content/browser/indexed_db/indexed_db_external_object_storage.h"
 #include "content/browser/indexed_db/indexed_db_leveldb_coding.h"
@@ -52,6 +51,7 @@ struct IndexedDBDatabaseMetadata;
 
 namespace content {
 class AutoDidCommitTransaction;
+class IndexedDBBackingStoreTest;
 class IndexedDBBucketContext;
 class IndexedDBActiveBlobRegistry;
 class LevelDBWriteBatch;
@@ -62,7 +62,6 @@ class TransactionalLevelDBTransaction;
 struct IndexedDBValue;
 
 namespace indexed_db_backing_store_unittest {
-class IndexedDBBackingStoreTest;
 FORWARD_DECLARE_TEST(IndexedDBBackingStoreTest, ReadCorruptionInfo);
 }  // namespace indexed_db_backing_store_unittest
 

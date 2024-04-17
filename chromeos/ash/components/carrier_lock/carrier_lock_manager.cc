@@ -3,11 +3,8 @@
 // found in the LICENSE file.
 
 #include "chromeos/ash/components/carrier_lock/carrier_lock_manager.h"
-#include "chromeos/ash/components/carrier_lock/carrier_lock.pb.h"
-#include "chromeos/ash/components/carrier_lock/fcm_topic_subscriber_impl.h"
-#include "chromeos/ash/components/carrier_lock/metrics.h"
-#include "chromeos/ash/components/carrier_lock/provisioning_config_fetcher_impl.h"
-#include "chromeos/ash/components/carrier_lock/psm_claim_verifier_impl.h"
+
+#include <string_view>
 
 #include "ash/constants/ash_features.h"
 #include "base/base64.h"
@@ -17,6 +14,11 @@
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_runner.h"
+#include "chromeos/ash/components/carrier_lock/carrier_lock.pb.h"
+#include "chromeos/ash/components/carrier_lock/fcm_topic_subscriber_impl.h"
+#include "chromeos/ash/components/carrier_lock/metrics.h"
+#include "chromeos/ash/components/carrier_lock/provisioning_config_fetcher_impl.h"
+#include "chromeos/ash/components/carrier_lock/psm_claim_verifier_impl.h"
 #include "chromeos/ash/components/network/device_state.h"
 #include "chromeos/ash/components/network/network_3gpp_handler.h"
 #include "chromeos/ash/components/network/network_connect.h"
@@ -231,6 +233,7 @@ std::unique_ptr<CarrierLockManager> CarrierLockManager::CreateForTesting(
   manager->config_ = std::move(provisioning_config_fetcher);
   manager->psm_ = std::move(psm_claim_verifier);
   manager->fcm_ = std::move(fcm_topic_subscriber);
+  manager->imei_ = "00000000";
   manager->manufacturer_ = "Google";
   manager->model_ = "Pixel 20";
   manager->fcm_->Initialize(
@@ -302,6 +305,7 @@ void CarrierLockManager::OnSessionStateChanged() {
   // Once the OOBE is over, disable observer and wait for network connectivity.
   session_manager_->RemoveObserver(this);
   session_manager_ = nullptr;
+  trigger_first_run_++;
   network_state_handler_->AddObserver(this, FROM_HERE);
   DefaultNetworkChanged(nullptr);
 }
@@ -326,7 +330,7 @@ void CarrierLockManager::Initialize() {
 
   // Check Disable flag.
   if (local_state_->GetBoolean(kDisableManagerPref)) {
-    VLOG(2) << "Manager is Disabled by local flag!";
+    LOG(WARNING) << "Manager is Disabled by local flag!";
     return;
   }
 
@@ -334,7 +338,7 @@ void CarrierLockManager::Initialize() {
   const base::FilePath modem_path = base::FilePath(kFirmwareVariantPath);
   if (!base::PathExists(modem_path)) {
     local_state_->SetBoolean(kDisableManagerPref, true);
-    VLOG(2) << "No modem found. Manager will be disabled.";
+    LOG(WARNING) << "No modem found. Manager will be disabled.";
     return;
   }
 
@@ -372,7 +376,7 @@ void CarrierLockManager::Initialize() {
     buffer[length] = '\0';
     manufacturer_ = buffer.get();
   } else {
-    LOG(ERROR) << "Manufacturer name file doesn't exist!";
+    LOG(WARNING) << "Manufacturer name file doesn't exist!";
   }
 
   const base::FilePath model_path(kModelNamePath);
@@ -384,7 +388,7 @@ void CarrierLockManager::Initialize() {
     buffer[length] = '\0';
     model_ = buffer.get();
   } else {
-    LOG(ERROR) << "Model name file doesn't exist!";
+    LOG(WARNING) << "Model name file doesn't exist!";
   }
 
   DCHECK(base::SingleThreadTaskRunner::HasCurrentDefault());
@@ -398,6 +402,11 @@ void CarrierLockManager::Initialize() {
 }
 
 void CarrierLockManager::DefaultNetworkChanged(const NetworkState* network) {
+  if (!network) {
+    network = network_state_handler_->DefaultNetwork();
+  } else {
+    trigger_network_++;
+  }
   if (retry_backoff_.ShouldRejectRequest()) {
     // Ignore this event.
     VLOG(2) << "Change of default network skipped because of backoff timer.";
@@ -407,10 +416,6 @@ void CarrierLockManager::DefaultNetworkChanged(const NetworkState* network) {
     // Modem configuration is complete.
     return;
   }
-
-  if (!network) {
-    network = network_state_handler_->DefaultNetwork();
-  }
   if (!network || !network->IsConnectedState()) {
     VLOG(2) << "No network connectivity.";
     return;
@@ -419,6 +424,14 @@ void CarrierLockManager::DefaultNetworkChanged(const NetworkState* network) {
   if (configuration_state_ == ConfigurationState::kNone) {
     // Ready to start configuration process.
     configuration_state_ = ConfigurationState::kInitialize;
+    base::UmaHistogramCounts10000(kInitializationTriggerFirstRun,
+                                  trigger_first_run_);
+    base::UmaHistogramCounts10000(kInitializationTriggerNetwork,
+                                  trigger_network_);
+    base::UmaHistogramCounts10000(kInitializationTriggerRetryStep,
+                                  trigger_retry_step_);
+    base::UmaHistogramCounts10000(kInitializationTriggerScheduler,
+                                  trigger_scheduler_);
     RunStep(configuration_state_);
     return;
   }
@@ -426,6 +439,7 @@ void CarrierLockManager::DefaultNetworkChanged(const NetworkState* network) {
   retry_backoff_.InformOfRequest(/*succeeded=*/false);
   VLOG(2) << "Network connection was interrupted. Restart setup in "
           << retry_backoff_.GetTimeUntilRelease().InSeconds() << " seconds.";
+  trigger_scheduler_++;
 
   // Call this function after delay to check if configuration process
   // failed and restart it from initial step.
@@ -530,6 +544,8 @@ bool CarrierLockManager::RetryStep() {
     LOG(ERROR) << "Step "
                << ConfigurationStateToStringView(configuration_state_)
                << " failed " << (kMaxRetries + 1) << " times. Exiting...";
+    trigger_retry_step_++;
+
     // Wait for new connection and retry...
     configuration_state_ = ConfigurationState::kNone;
     return false;
@@ -580,22 +596,9 @@ void CarrierLockManager::LogError(Result result) {
 }
 
 void CarrierLockManager::CheckState() {
-  system::StatisticsProvider* statistics;
-  const DeviceState* cellular_device =
-      network_state_handler_->GetDeviceStateByType(
-          ash::NetworkTypePattern::Cellular());
-  if (cellular_device) {
-    imei_ = cellular_device->imei();
-  }
-  if (!cellular_device || imei_.empty()) {
-    LOG(ERROR) << "Cellular device not found or invalid.";
-    LogError(Result::kModemNotFound);
-    RetryStep();
-    return;
-  }
-
   if (serial_.empty()) {
-    statistics = system::StatisticsProvider::GetInstance();
+    system::StatisticsProvider* statistics =
+        system::StatisticsProvider::GetInstance();
     if (!statistics) {
       LOG(ERROR) << "StatisticsProvider is not initialized.";
       LogError(Result::kSerialProviderFailed);
@@ -612,15 +615,15 @@ void CarrierLockManager::CheckState() {
     }
 
     // Overwrite oem and model if defined in VPD.
-    if (const std::optional<base::StringPiece> model =
+    if (const std::optional<std::string_view> model =
             statistics->GetMachineStatistic(kMachineModelName)) {
       model_ = model.value();
-      VLOG(2) << "Model changed to " << model_ << ".";
+      LOG(WARNING) << "Model changed to " << model_ << ".";
     }
-    if (const std::optional<base::StringPiece> oem =
+    if (const std::optional<std::string_view> oem =
             statistics->GetMachineStatistic(kMachineOemName)) {
       manufacturer_ = oem.value();
-      VLOG(2) << "Manufacturer changed to " << manufacturer_ << ".";
+      LOG(WARNING) << "Manufacturer changed to " << manufacturer_ << ".";
     }
   }
 
@@ -640,6 +643,25 @@ void CarrierLockManager::CheckState() {
                                   InitialState::kObsoleteConfiguration);
     is_first_setup_ = false;
     RunStep(ConfigurationState::kFcmGetToken);
+    return;
+  }
+
+  // Get IMEI of cellular modem.
+  const DeviceState* cellular_device =
+      network_state_handler_->GetDeviceStateByType(
+          ash::NetworkTypePattern::Cellular());
+  if (!cellular_device) {
+    LOG(ERROR) << "Cellular device not found or invalid.";
+    LogError(Result::kModemNotFound);
+    RetryStep();
+    return;
+  }
+
+  imei_ = cellular_device->imei();
+  if (imei_.empty()) {
+    LOG(ERROR) << "Cellular device has invalid IMEI.";
+    LogError(Result::kInvalidImei);
+    RetryStep();
     return;
   }
 
@@ -682,7 +704,7 @@ void CarrierLockManager::PsmCallback(Result result) {
     base::UmaHistogramEnumeration(kPsmClaimResponse, PsmResult::kDeviceLocked);
     RunStep(ConfigurationState::kFcmGetToken);
   } else {
-    VLOG(2) << "Not a member in PSM group, manager will be disabled.";
+    LOG(WARNING) << "Not a member in PSM group, manager will be disabled.";
     base::UmaHistogramEnumeration(kPsmClaimResponse,
                                   PsmResult::kDeviceUnlocked);
     RunStep(ConfigurationState::kDeviceUnlocked);
@@ -690,6 +712,26 @@ void CarrierLockManager::PsmCallback(Result result) {
 }
 
 void CarrierLockManager::RequestConfig() {
+  if (imei_.empty()) {
+    const DeviceState* cellular_device =
+        network_state_handler_->GetDeviceStateByType(
+            ash::NetworkTypePattern::Cellular());
+    if (!cellular_device) {
+      LOG(ERROR) << "Cellular device not found or invalid.";
+      LogError(Result::kModemNotFound);
+      RetryStep();
+      return;
+    }
+
+    imei_ = cellular_device->imei();
+    if (imei_.empty()) {
+      LOG(ERROR) << "Cellular device has invalid IMEI.";
+      LogError(Result::kInvalidImei);
+      RetryStep();
+      return;
+    }
+  }
+
   config_->RequestConfig(serial_, imei_, manufacturer_, model_, fcm_token_,
                          base::BindOnce(&CarrierLockManager::ConfigCallback,
                                         weak_ptr_factory_.GetWeakPtr()));
@@ -853,15 +895,20 @@ void CarrierLockManager::FcmNotification(bool is_from_topic) {
   // in order to request new configuration in case of failure or reboot.
   local_state_->SetTime(kLastConfigTimePref, base::Time::Now() - kFcmTimeout);
 
-  base::UmaHistogramEnumeration(
-      kFcmNotificationType, (is_from_topic ? FcmNotification::kUpdateProfile
-                                           : FcmNotification::kUnlockDevice));
-
   if (configuration_state_ == ConfigurationState::kNone) {
+    base::UmaHistogramEnumeration(
+        kFcmNotificationType,
+        (is_from_topic ? FcmNotification::kUpdateProfileBeforeInit
+                       : FcmNotification::kUnlockDeviceBeforeInit));
     // Configuration process will start from beginning.
     return;
   }
   if (configuration_state_ < ConfigurationState::kDeviceLocked) {
+    base::UmaHistogramEnumeration(
+        kFcmNotificationType,
+        (is_from_topic ? FcmNotification::kUpdateProfileWhileBusy
+                       : FcmNotification::kUnlockDeviceWhileBusy));
+
     // Wait until the configuration process is completed.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE,
@@ -870,6 +917,10 @@ void CarrierLockManager::FcmNotification(bool is_from_topic) {
         kConfigDelay);
     return;
   }
+
+  base::UmaHistogramEnumeration(
+      kFcmNotificationType, (is_from_topic ? FcmNotification::kUpdateProfile
+                                           : FcmNotification::kUnlockDevice));
 
   // Call to RunStep is delayed to workaround racing issue: b/265987223
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(

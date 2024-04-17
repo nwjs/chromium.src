@@ -26,6 +26,7 @@
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
@@ -594,6 +595,23 @@ void BrowserSetLastActiveWaiter::OnBrowserSetLastActive(Browser* browser) {
       run_loop_.Quit();
     }
   }
+}
+
+void WaitForBrowserSetLastActive(Browser* browser,
+                                 bool wait_for_set_last_active_observed) {
+  BrowserSetLastActiveWaiter waiter(browser, wait_for_set_last_active_observed);
+  waiter.Wait();
+}
+
+Browser* OpenNewEmptyWindowAndWaitUntilSetAsLastActive(
+    Profile* profile,
+    bool should_trigger_session_restore) {
+  BrowserChangeObserver new_browser_observer(
+      nullptr, ui_test_utils::BrowserChangeObserver::ChangeType::kAdded);
+  chrome::NewEmptyWindow(profile, should_trigger_session_restore);
+  Browser* new_browser = new_browser_observer.Wait();
+  WaitForBrowserSetLastActive(new_browser);
+  return new_browser;
 }
 
 void SendToOmniboxAndSubmit(Browser* browser,

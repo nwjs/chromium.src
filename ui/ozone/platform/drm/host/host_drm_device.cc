@@ -129,10 +129,10 @@ bool HostDrmDevice::GpuRefreshNativeDisplays() {
 void HostDrmDevice::GpuConfigureNativeDisplays(
     const std::vector<display::DisplayConfigurationParams>& config_requests,
     display::ConfigureCallback callback,
-    uint32_t modeset_flag) {
+    display::ModesetFlags modeset_flags) {
   DCHECK_CALLED_ON_VALID_THREAD(on_ui_thread_);
   if (IsConnected()) {
-    drm_device_->ConfigureNativeDisplays(config_requests, modeset_flag,
+    drm_device_->ConfigureNativeDisplays(config_requests, modeset_flags,
                                          std::move(callback));
   } else {
     // Post this task to protect the callstack from accumulating too many
@@ -306,6 +306,17 @@ void HostDrmDevice::GpuSetPrivacyScreen(
     // with a failed state.
     std::move(callback).Run(/*success=*/false);
   }
+}
+
+void HostDrmDevice::GpuGetSeamlessRefreshRates(
+    int64_t display_id,
+    display::GetSeamlessRefreshRatesCallback callback) {
+  DCHECK_CALLED_ON_VALID_THREAD(on_ui_thread_);
+  if (!IsConnected()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  drm_device_->GetSeamlessRefreshRates(display_id, std::move(callback));
 }
 
 void HostDrmDevice::GpuRefreshNativeDisplaysCallback(

@@ -83,7 +83,8 @@ enum class ActivationError {
   kLoginDbFileMoveFailed = 3,
   kOutdatedGmsCore = 4,
   kFlagDisabled = 5,
-  kMax = kFlagDisabled,
+  kMigrationWarningUnacknowledged = 6,
+  kMax = kMigrationWarningUnacknowledged,
 };
 
 password_manager::PasswordForm MakeExampleForm() {
@@ -155,6 +156,12 @@ class PasswordManagerAndroidUtilTest : public testing::Test {
                       ".",
                       syncer::GetModelTypeLowerCaseRootTag(syncer::PASSWORDS)}),
         false);
+    pref_service_.registry()->RegisterBooleanPref(
+        password_manager::prefs::
+            kUserAcknowledgedLocalPasswordsMigrationWarning,
+        false);
+    pref_service_.registry()->RegisterBooleanPref(
+        password_manager::prefs::kSettingsMigratedToUPMLocal, false);
 
     SetPasswordSyncEnabledPref(false);
     base::WriteFile(login_db_directory_.Append(
@@ -324,6 +331,41 @@ TEST_F(
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
+       SetUsesSplitStoresAndUPMForLocal_SignedOutNoPasswordsAndCustomSettings) {
+  auto histogram_tester = std::make_unique<base::HistogramTester>();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration,
+       password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration},
+      {});
+  pref_service()->SetBoolean(
+      password_manager::prefs::kEmptyProfileStoreLoginDatabase, true);
+  pref_service()->SetBoolean(password_manager::prefs::kCredentialsEnableService,
+                             false);
+  pref_service()->SetBoolean(
+      password_manager::prefs::kUserAcknowledgedLocalPasswordsMigrationWarning,
+      false);
+  ASSERT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOff));
+
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // The migration is pending.
+  // Even though the migration warning was not acknowledged, the migration
+  // should happen because there are no local passwords. Only settings should be
+  // migrated.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOffAndMigrationPending));
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationError.NonSyncingWithMigration",
+      ActivationError::kNone, 1);
+  histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
+                                       false, 1);
+}
+
+TEST_F(PasswordManagerAndroidUtilTest,
        SetUsesSplitStoresAndUPMForLocal_SignedOutWithFreshProfile) {
   base::HistogramTester histogram_tester;
   base::test::ScopedFeatureList enable_local_upm(
@@ -390,6 +432,21 @@ TEST_F(PasswordManagerAndroidUtilTest,
       password_manager::prefs::kEmptyProfileStoreLoginDatabase, false);
   ASSERT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
             static_cast<int>(kOff));
+
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // The migration warning was not acknowledged so the migration attempt fails.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOff));
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationError.NonSyncingWithMigration",
+      ActivationError::kMigrationWarningUnacknowledged, 1);
+  histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
+                                       false, 1);
+  histogram_tester = std::make_unique<base::HistogramTester>();
+  pref_service()->SetBoolean(
+      password_manager::prefs::kUserAcknowledgedLocalPasswordsMigrationWarning,
+      true);
 
   SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
 
@@ -490,6 +547,9 @@ TEST_F(
            kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration});
   pref_service()->SetBoolean(password_manager::prefs::kCredentialsEnableService,
                              false);
+  pref_service()->SetBoolean(
+      password_manager::prefs::kUserAcknowledgedLocalPasswordsMigrationWarning,
+      true);
   ASSERT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
             static_cast<int>(kOff));
 
@@ -536,6 +596,9 @@ TEST_F(PasswordManagerAndroidUtilTest,
            kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration});
   pref_service()->SetBoolean(
       password_manager::prefs::kCredentialsEnableAutosignin, false);
+  pref_service()->SetBoolean(
+      password_manager::prefs::kUserAcknowledgedLocalPasswordsMigrationWarning,
+      true);
   ASSERT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
             static_cast<int>(kOff));
 
@@ -569,6 +632,75 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kNone, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+}
+
+TEST_F(PasswordManagerAndroidUtilTest,
+       SetUsesSplitStoresAndUPMForLocal_KeepMigrationPendingIfSyncEnabled) {
+  // Set up a user who was signed out with saved passwords (thus got into
+  // kOffAndMigrationPending), failed to migrate (thus stayed in
+  // kOffAndMigrationPending) and later enabled sync.
+  // kLoginDataForAccountFileName exists because the account store was created
+  // when the migration got scheduled, even if it was never used.
+  base::HistogramTester histogram_tester;
+  base::test::ScopedFeatureList enable_local_upm;
+  enable_local_upm.InitWithFeatures(
+      {password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration,
+       password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration},
+      {});
+  pref_service()->SetInteger(kPasswordsUseUPMLocalAndSeparateStores,
+                             static_cast<int>(kOffAndMigrationPending));
+  pref_service()->SetBoolean(
+      password_manager::prefs::kEmptyProfileStoreLoginDatabase, false);
+  SetPasswordSyncEnabledPref(true);
+  base::WriteFile(login_db_directory().Append(
+                      password_manager::kLoginDataForAccountFileName),
+                  "");
+  ASSERT_TRUE(base::PathExists(login_db_directory().Append(
+      password_manager::kLoginDataForProfileFileName)));
+  ASSERT_TRUE(base::PathExists(login_db_directory().Append(
+      password_manager::kLoginDataForAccountFileName)));
+
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // The browser should keep trying to migrate existing passwords to the *local*
+  // Android backend. The login database files should be untouched.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOffAndMigrationPending));
+  EXPECT_TRUE(base::PathExists(login_db_directory().Append(
+      password_manager::kLoginDataForProfileFileName)));
+  EXPECT_TRUE(base::PathExists(login_db_directory().Append(
+      password_manager::kLoginDataForAccountFileName)));
+  histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
+                                      false, 1);
+
+  // Advanced case: roll back too.
+  base::test::ScopedFeatureList disable_local_upm;
+  disable_local_upm.InitWithFeatures(
+      {}, {password_manager::features::
+               kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration,
+           password_manager::features::
+               kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration});
+
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // kOn syncing users that get rolled back will "undo" the login DB file move,
+  // i.e. they replace the "profile" loginDB with the "account" one. This isn't
+  // always perfect, see comment MaybeDeactivateSplitStoresAndLocalUpm(). The
+  // "account" DB might even be empty and overwrite a non-empty "profile" one.
+  // However: for kOffAndMigrationPending users, the "account" DB is *surely*
+  // empty (password sync is suppressed). So replacing the file can only be
+  // worse. Instead, the DB files should just be untouched. The account one is
+  // empty anyway, so no data is leftover.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOff));
+  EXPECT_TRUE(base::PathExists(login_db_directory().Append(
+      password_manager::kLoginDataForProfileFileName)));
+  EXPECT_TRUE(base::PathExists(login_db_directory().Append(
+      password_manager::kLoginDataForAccountFileName)));
+  histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
+                                      false, 2);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -1074,6 +1206,8 @@ TEST_F(UsesSplitStoresAndUPMForLocalTest, SignedOutWithoutPasswords) {
 
 TEST_F(UsesSplitStoresAndUPMForLocalTest, SignedOutWithPasswords) {
   {
+    // Set up a signed-out user, with saved passwords, who already acknowledged
+    // the migration warning.
     base::test::ScopedFeatureList disable_local_upm;
     disable_local_upm.InitWithFeatures(
         {}, {password_manager::features::
@@ -1083,6 +1217,10 @@ TEST_F(UsesSplitStoresAndUPMForLocalTest, SignedOutWithPasswords) {
     CreateProfile();
     profile_password_store()->AddLogin(MakeExampleForm());
     ASSERT_FALSE(UsesSplitStoresAndUPMForLocal(pref_service()));
+    pref_service()->SetBoolean(
+        password_manager::prefs::
+            kUserAcknowledgedLocalPasswordsMigrationWarning,
+        true);
     DestroyProfile();
   }
 
@@ -1116,8 +1254,8 @@ TEST_F(UsesSplitStoresAndUPMForLocalTest, SignedOutWithPasswords) {
     SignInAndEnableSync();
     ASSERT_TRUE(
         SyncDataTypeActiveWaiter(sync_service(), syncer::PREFERENCES).Wait());
-    // TODO(b/321217859): Re-implement sync suppression and uncomment.
-    // ASSERT_FALSE(sync_service()->GetActiveDataTypes().Has(syncer::PASSWORDS));
+    ASSERT_FALSE(sync_service()->GetUserSettings()->GetSelectedTypes().Has(
+        syncer::UserSelectableType::kPasswords));
 
     // Pretend the migration finished.
     // TODO(b/324196888): Once the migration is implemented, make this a

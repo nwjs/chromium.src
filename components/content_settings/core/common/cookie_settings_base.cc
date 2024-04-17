@@ -205,6 +205,50 @@ bool CookieSettingsBase::IsAnyTpcdMetadataAllowMechanism(
 }
 
 // static
+bool CookieSettingsBase::Is1PDtRelatedAllowMechanism(
+    const ThirdPartyCookieAllowMechanism& mechanism) {
+  switch (mechanism) {
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowByTopLevel3PCD:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSource1pDt:
+      return true;
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::kNone:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowByExplicitSetting:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowByGlobalSetting:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::kAllowBy3PCD:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDHeuristics:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowByStorageAccess:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowByTopLevelStorageAccess:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowByCORSException:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowByEnterprisePolicyCookieAllowedForUrls:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSourceUnspecified:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSourceTest:
+
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSource3pDt:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSourceDogFood:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSourceCriticalSector:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSourceCuj:
+    case CookieSettingsBase::ThirdPartyCookieAllowMechanism::
+        kAllowBy3PCDMetadataSourceGovEduTld:
+      return false;
+  }
+}
+
+// static
 ThirdPartyCookieAllowMechanism
 CookieSettingsBase::TpcdMetadataSourceToAllowMechanism(
     const mojom::TpcdMetadataRuleSource& source) {
@@ -389,6 +433,12 @@ bool CookieSettingsBase::IsAllowedByTopLevel3pcdTrialSettings(
                            /*info=*/nullptr) == CONTENT_SETTING_ALLOW;
 }
 
+bool CookieSettingsBase::Are3pcsForceDisabledByOverride(
+    net::CookieSettingOverrides overrides) const {
+  return overrides.Has(
+      net::CookieSettingOverride::kForceDisableThirdPartyCookies);
+}
+
 bool CookieSettingsBase::ShouldConsider3pcdMetadataGrantsSettings(
     net::CookieSettingOverrides overrides) const {
   return base::FeatureList::IsEnabled(net::features::kTpcdMetadataGrants) &&
@@ -473,19 +523,20 @@ CookieSettingsBase::DecideAccess(const GURL& url,
   if (!is_third_party_request) {
     return AllowAllCookies{ThirdPartyCookieAllowMechanism::kNone};
   }
-  if (!ShouldBlockThirdPartyCookies()) {
+  if (!ShouldBlockThirdPartyCookies() &&
+      !Are3pcsForceDisabledByOverride(overrides)) {
     return AllowAllCookies{
         ThirdPartyCookieAllowMechanism::kAllowByGlobalSetting};
   }
   if (IsThirdPartyCookiesAllowedScheme(first_party_url.scheme())) {
     return AllowAllCookies{ThirdPartyCookieAllowMechanism::kNone};
   }
-  if (IsAllowedBy3pcdTrialSettings(url, first_party_url, overrides)) {
-    return AllowAllCookies{ThirdPartyCookieAllowMechanism::kAllowBy3PCD};
-  }
   if (IsAllowedByTopLevel3pcdTrialSettings(first_party_url, overrides)) {
     return AllowAllCookies{
         ThirdPartyCookieAllowMechanism::kAllowByTopLevel3PCD};
+  }
+  if (IsAllowedBy3pcdTrialSettings(url, first_party_url, overrides)) {
+    return AllowAllCookies{ThirdPartyCookieAllowMechanism::kAllowBy3PCD};
   }
   if (IsAllowedBy3pcdHeuristicsGrantsSettings(url, first_party_url,
                                               overrides)) {

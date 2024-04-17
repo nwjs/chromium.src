@@ -7,10 +7,10 @@
 #include <string.h>
 
 #include <limits>
+#include <optional>
 #include <vector>
 
 #include "base/containers/span.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace base {
@@ -46,7 +46,8 @@ TEST(BufferIteratorTest, Object) {
   }
   {
     // Iterator's view of the data is not large enough to read the object.
-    BufferIterator<char> iterator(span(buffer).first<sizeof(buffer) - 1u>());
+    BufferIterator<char> iterator(
+        span<char>(buffer).first<sizeof(buffer) - 1u>());
     const TestStruct* actual = iterator.Object<TestStruct>();
     EXPECT_FALSE(actual);
   }
@@ -180,7 +181,7 @@ TEST(BufferIteratorTest, CopyObject) {
   }
 
   BufferIterator<char> iterator(buffer);
-  absl::optional<TestStruct> actual;
+  std::optional<TestStruct> actual;
   for (int i = 0; i < kNumCopies; i++) {
     actual = iterator.CopyObject<TestStruct>();
     ASSERT_TRUE(actual.has_value());

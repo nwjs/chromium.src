@@ -5,7 +5,7 @@
 import 'chrome://personalization/strings.m.js';
 import 'chrome://webui-test/chromeos/mojo_webui_test_support.js';
 
-import {SeaPenImageLoadingElement, SeaPenImagesElement, setSelectedRecentSeaPenImageAction, SparklePlaceholderElement, WallpaperGridItemElement} from 'chrome://personalization/js/personalization_app.js';
+import {SeaPenImageLoadingElement, SeaPenImagesElement, SeaPenZeroStateSvgElement, setSelectedRecentSeaPenImageAction, SparklePlaceholderElement, WallpaperGridItemElement} from 'chrome://personalization/js/personalization_app.js';
 import {CrIconButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_icon_button/cr_icon_button.js';
 import {PromiseResolver} from 'chrome://resources/ash/common/promise_resolver.js';
 import {MantaStatusCode, SeaPenThumbnail} from 'chrome://resources/ash/common/sea_pen/sea_pen.mojom-webui.js';
@@ -47,7 +47,7 @@ suite('SeaPenImagesElementTest', function() {
     seaPenImagesElement = null;
   });
 
-  test('displays thumbnail placeholders', async () => {
+  test('displays zero state SVG', async () => {
     // Initialize |seaPenImagesElement|.
     seaPenImagesElement = initElement(SeaPenImagesElement);
     await waitAfterNextRender(seaPenImagesElement);
@@ -58,12 +58,10 @@ suite('SeaPenImagesElementTest', function() {
         !!loadingThumbnailPlaceholder,
         'thumbnails should not be in loading state');
 
-    const thumbnailPlaceholders =
-        seaPenImagesElement.shadowRoot!.querySelectorAll(
-            'div:not([hidden]) .thumbnail-placeholder');
-    assertEquals(
-        4, thumbnailPlaceholders!.length,
-        'should be 4 placeholders available.');
+    assertTrue(
+        !!seaPenImagesElement.shadowRoot!.querySelector(
+            SeaPenZeroStateSvgElement.is),
+        'sea-pen-zero-state-svg is shown initially');
   });
 
   test('displays loading thumbnail placeholders', async () => {
@@ -80,8 +78,27 @@ suite('SeaPenImagesElementTest', function() {
             .querySelectorAll<SparklePlaceholderElement>(
                 'div:not([hidden]) sparkle-placeholder');
     assertEquals(
-        4, loadingThumbnailPlaceholders!.length,
-        'should be 4 loading placeholders available.');
+        8, loadingThumbnailPlaceholders!.length,
+        'should be 8 loading placeholders available.');
+    assertTrue(Array.from(loadingThumbnailPlaceholders)
+                   .every(placeholder => !!placeholder.active));
+  });
+
+  test('thumbnail placeholders not active when hidden', async () => {
+    personalizationStore.data.wallpaper.seaPen.loading.thumbnails = false;
+    personalizationStore.data.wallpaper.seaPen.thumbnails =
+        seaPenProvider.images;
+
+    // Initialize |seaPenImagesElement|.
+    seaPenImagesElement = initElement(SeaPenImagesElement);
+    await waitAfterNextRender(seaPenImagesElement);
+
+    const loadingThumbnailPlaceholders =
+        seaPenImagesElement.shadowRoot!
+            .querySelectorAll<SparklePlaceholderElement>(
+                'div:not([hidden]) sparkle-placeholder');
+    assertTrue(Array.from(loadingThumbnailPlaceholders)
+                   .every(placeholder => !placeholder.active));
   });
 
   test('displays image thumbnails', async () => {
@@ -105,7 +122,7 @@ suite('SeaPenImagesElementTest', function() {
         seaPenProvider.images;
     // Index 1 is currently set as wallpaper.
     personalizationStore.data.wallpaper.seaPen.currentSelected =
-        `${seaPenProvider.images[1]!.id}.jpg`;
+        seaPenProvider.images[1]!.id;
 
     seaPenImagesElement = initElement(SeaPenImagesElement);
     await waitAfterNextRender(seaPenImagesElement);
@@ -179,8 +196,8 @@ suite('SeaPenImagesElementTest', function() {
     selectSeaPenThumbnailResolver.resolve({success: true});
     await waitAfterNextRender(seaPenImagesElement);
     // Simulate receiving a confirmation that the sea pen image was selected.
-    personalizationStore.dispatch(setSelectedRecentSeaPenImageAction(
-        `/files/${seaPenProvider.images[0]!.id}.jpg`));
+    personalizationStore.dispatch(
+        setSelectedRecentSeaPenImageAction(seaPenProvider.images[0]!.id));
     await waitAfterNextRender(seaPenImagesElement);
 
     thumbnails = getWallpaperGridItems();

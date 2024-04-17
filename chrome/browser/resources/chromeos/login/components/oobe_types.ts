@@ -56,6 +56,14 @@ export namespace OobeTypes {
     selected?: boolean;
   }
 
+  export interface OobeScreen {
+    tag: string;
+    id: string;
+    condition?: string;
+    extra_classes?: string[];
+  }
+  export interface ScreensList extends Array<OobeScreen>{}
+
   /**
    * OOBE configuration, allows automation during OOBE.
    * Keys are also listed in chrome/browser/ash/login/configuration_keys.h
@@ -148,7 +156,6 @@ export namespace OobeTypes {
   export enum EnrollmentStep {
     LOADING = 'loading',
     SIGNIN = 'signin',
-    AD_JOIN = 'ad-join',
     WORKING = 'working',
     ATTRIBUTE_PROMPT = 'attribute-prompt',
     ERROR = 'error',
@@ -157,7 +164,6 @@ export namespace OobeTypes {
     TPM_CHECKING = 'tpm-checking',
     KIOSK_ENROLLMENT = 'kiosk-enrollment',
     ATTRIBUTE_PROMPT_ERROR = 'attribute-prompt-error',
-    ACTIVE_DIRECTORY_JOIN_ERROR = 'active-directory-join-error',
   }
 
   /**

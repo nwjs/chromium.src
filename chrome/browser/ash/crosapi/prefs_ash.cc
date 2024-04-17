@@ -74,7 +74,7 @@ std::string_view GetProfilePrefNameForPref(mojom::PrefPath path) {
           {mojom::PrefPath::kIsolatedWebAppsEnabled,
            ash::prefs::kIsolatedWebAppsEnabled},
       });
-  auto* pref_name = kProfilePrefPathToName.find(path);
+  auto pref_name = kProfilePrefPathToName.find(path);
   DCHECK(pref_name != kProfilePrefPathToName.end());
   return pref_name->second;
 }
@@ -115,7 +115,7 @@ std::string_view GetExtensionPrefNameForPref(mojom::PrefPath path) {
            {mojom::PrefPath::kAccessibilityVirtualKeyboardEnabled,
             ash::prefs::kAccessibilityVirtualKeyboardEnabled},
            {mojom::PrefPath::kProxy, ash::prefs::kProxy}});
-  auto* pref_name = kExtensionPrefPathToName.find(path);
+  auto pref_name = kExtensionPrefPathToName.find(path);
   DCHECK(pref_name != kExtensionPrefPathToName.end());
   return pref_name->second;
 }
@@ -271,6 +271,9 @@ std::optional<PrefsAsh::State> PrefsAsh::GetState(mojom::PrefPath path) {
   switch (path) {
     case mojom::PrefPath::kUnknown:
     case mojom::PrefPath::kProtectedContentDefaultDeprecated:
+    case mojom::PrefPath::kDnsOverHttpsTemplates:
+    case mojom::PrefPath::kDnsOverHttpsTemplatesWithIdentifiers:
+    case mojom::PrefPath::kDnsOverHttpsSalt:
       LOG(WARNING) << "Unknown pref path: " << path;
       return std::nullopt;
     case mojom::PrefPath::kMetricsReportingEnabled:
@@ -321,16 +324,10 @@ std::optional<PrefsAsh::State> PrefsAsh::GetState(mojom::PrefPath path) {
     case mojom::PrefPath::kDnsOverHttpsMode:
       return State{local_state_, &local_state_registrar_,
                    AshPrefSource::kNormal, prefs::kDnsOverHttpsMode};
-    case mojom::PrefPath::kDnsOverHttpsSalt:
-      return State{local_state_, &local_state_registrar_,
-                   AshPrefSource::kNormal, prefs::kDnsOverHttpsSalt};
-    case mojom::PrefPath::kDnsOverHttpsTemplates:
-      return State{local_state_, &local_state_registrar_,
-                   AshPrefSource::kNormal, prefs::kDnsOverHttpsTemplates};
-    case mojom::PrefPath::kDnsOverHttpsTemplatesWithIdentifiers:
+    case mojom::PrefPath::kDnsOverHttpsEffectiveTemplatesChromeOS:
       return State{local_state_, &local_state_registrar_,
                    AshPrefSource::kNormal,
-                   prefs::kDnsOverHttpsTemplatesWithIdentifiers};
+                   prefs::kDnsOverHttpsEffectiveTemplatesChromeOS};
     case mojom::PrefPath::kDockedMagnifierEnabled:
     case mojom::PrefPath::kAccessibilityAutoclickEnabled:
     case mojom::PrefPath::kAccessibilityCaretHighlightEnabled:

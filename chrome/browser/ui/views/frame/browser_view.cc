@@ -187,7 +187,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/theme_copying_widget.h"
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
-#include "chrome/browser/ui/views/toolbar/chrome_labs_button.h"
+#include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_button.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
@@ -198,6 +198,7 @@
 #include "chrome/browser/ui/views/user_education/browser_user_education_service.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
@@ -239,6 +240,8 @@
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/user_education/common/feature_promo_handle.h"
 #include "components/user_education/common/help_bubble_factory_registry.h"
+#include "components/user_education/common/new_badge_controller.h"
+#include "components/user_education/common/user_education_features.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "components/version_info/channel.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -367,6 +370,7 @@
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
+#include "chrome/browser/enterprise/data_protection/data_protection_navigation_observer.h"
 #include "chrome/browser/enterprise/watermark/watermark_view.h"
 #endif  // BUILDFLAG(ENTERPRISE_WATERMARK)
 
@@ -912,8 +916,7 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
 
   // Not all browsers do feature promos. Conditionally create one (or don't) for
   // this browser window.
-  feature_promo_controller_ =
-      BrowserFeaturePromoController::MaybeCreateForBrowserView(this);
+  feature_promo_controller_ = CreateUserEducationResources(this);
 
   browser_->tab_strip_model()->AddObserver(this);
   resizable_ = browser_->initial_resizable();
@@ -981,18 +984,15 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
       contents_container->AddChildView(std::move(contents_web_view));
   contents_web_view_->set_is_primary_web_contents_for_window(true);
 
-  views::View* watermark_view = nullptr;
-
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
   if (base::FeatureList::IsEnabled(features::kEnableWatermarkView)) {
-    watermark_view = contents_container->AddChildView(
-        std::make_unique<enterprise_watermark::WatermarkView>(
-            "Private! Confidential!"));
+    watermark_view_ = contents_container->AddChildView(
+        std::make_unique<enterprise_watermark::WatermarkView>());
   }
 #endif  // BUILDFLAG(ENTERPRISE_WATERMARK)
 
   contents_container->SetLayoutManager(std::make_unique<ContentsLayoutManager>(
-      devtools_web_view_, contents_web_view_, watermark_view));
+      devtools_web_view_, contents_web_view_, watermark_view_));
 
   toolbar_ = top_container_->AddChildView(
       std::make_unique<ToolbarView>(browser_.get(), this));
@@ -1060,6 +1060,9 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
       base::BindRepeating(&BrowserView::UpdateFullscreenAllowedFromPolicy,
                           base::Unretained(this), CanFullscreen()));
   UpdateFullscreenAllowedFromPolicy(CanFullscreen());
+
+  WebUIContentsPreloadManager::GetInstance()->WarmupForBrowserContext(
+      GetProfile());
 }
 
 void BrowserView::ForceClose() {
@@ -1184,6 +1187,12 @@ BrowserView::~BrowserView() {
     tabstrip->parent()->RemoveChildViewT(tabstrip);
   }
 
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+  // `watermark_view_` is a raw pointer to a child view, so it needs to be set
+  // to null before `RemoveAllChildViews()` is called to avoid dangling.
+  watermark_view_ = nullptr;
+#endif  // BUILDFLAG(ENTERPRISE_WATERMARK)
+
   // Child views maintain PrefMember attributes that point to
   // OffTheRecordProfile's PrefService which gets deleted by ~Browser.
   RemoveAllChildViews();
@@ -1294,6 +1303,14 @@ bool BrowserView::UsesImmersiveFullscreenTabbedMode() const {
           base::FeatureList::IsEnabled(features::kImmersiveFullscreen) &&
           base::FeatureList::IsEnabled(features::kImmersiveFullscreenTabs)) &&
          !GetIsWebAppType();
+}
+#endif
+
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+void BrowserView::SetWatermarkString(const std::string& text) {
+  if (watermark_view_) {
+    watermark_view_->SetString(text);
+  }
 }
 #endif
 
@@ -1538,6 +1555,11 @@ void BrowserView::Close() {
 }
 
 void BrowserView::Activate() {
+#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS_ASH)
+  // Update the list managed by `BrowserList` synchronously the same way
+  // `BrowserView::Show()` does.
+  BrowserList::SetLastActive(browser());
+#endif
   frame_->Activate();
 }
 
@@ -1923,6 +1945,14 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
   if (AppUsesBorderlessMode() && !old_contents) {
     SetWindowManagementPermissionSubscriptionForBorderlessMode(new_contents);
   }
+
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+  enterprise_data_protection::DataProtectionNavigationObserver::
+      GetDataProtectionSettings(
+          GetProfile(), web_contents(),
+          base::BindOnce(&BrowserView::ApplyDataProtectionSettings,
+                         weak_ptr_factory_.GetWeakPtr()));
+#endif
 }
 
 void BrowserView::OnTabDetached(content::WebContents* contents,
@@ -2847,6 +2877,19 @@ void BrowserView::TouchModeChanged() {
   MaybeInitializeWebUITabStrip();
   MaybeShowWebUITabStripIPH();
 }
+
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+void BrowserView::DidStartNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (base::FeatureList::IsEnabled(features::kEnableWatermarkView)) {
+    enterprise_data_protection::DataProtectionNavigationObserver::
+        CreateForNavigationIfNeeded(
+            GetProfile(), navigation_handle,
+            base::BindOnce(&BrowserView::ApplyDataProtectionSettings,
+                           weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+#endif
 
 void BrowserView::MaybeShowWebUITabStripIPH() {
   if (!webui_tab_strip_)
@@ -4687,10 +4730,15 @@ void BrowserView::AddedToWidget() {
                      GetAsWeakPtr()),
       base::Minutes(5));
 
+  // Show the promo delayed after a while at startup. This is not the right way
+  // to show delayed promos, as this does not take user actions into account
+  // such as user typing, user navigating, while the promo is displayed. Contact
+  // the user education team for the right approach.
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&BrowserView::MaybeShowExperimentalAIIPH, GetAsWeakPtr()),
-      base::Minutes(5));
+      user_education::features::GetSessionStartGracePeriod() +
+          base::Minutes(5));
 
   initialized_ = true;
 }
@@ -5446,12 +5494,23 @@ void BrowserView::NotifyFeatureEngagementEvent(const char* event_name) {
       event_name);
 }
 
-void BrowserView::NotifyPromoFeatureUsed(const base::Feature& iph_feature) {
-  if (!feature_promo_controller_) {
-    return;
+void BrowserView::NotifyPromoFeatureUsed(const base::Feature& feature) {
+  if (feature_promo_controller_) {
+    feature_promo_controller_->NotifyFeatureUsedIfValid(feature);
   }
-  feature_promo_controller_->feature_engagement_tracker()->NotifyUsedEvent(
-      iph_feature);
+  auto* const service =
+      UserEducationServiceFactory::GetForBrowserContext(GetProfile());
+  if (service && service->new_badge_registry() &&
+      service->new_badge_registry()->IsFeatureRegistered(feature)) {
+    service->new_badge_controller()->NotifyFeatureUsedIfValid(feature);
+  }
+}
+
+bool BrowserView::MaybeShowNewBadgeFor(const base::Feature& feature) {
+  auto* const service =
+      UserEducationServiceFactory::GetForBrowserContext(GetProfile());
+  return service && service->new_badge_controller() &&
+         service->new_badge_controller()->MaybeShowNewBadge(feature);
 }
 
 bool BrowserView::DoCutCopyPasteForWebContents(WebContents* contents,
@@ -5681,6 +5740,11 @@ void BrowserView::UpdateFullscreenAllowedFromPolicy(
         allowed_without_policy &&
         GetProfile()->GetPrefs()->GetBoolean(fullscreen_pref_path));
   }
+}
+
+void BrowserView::ApplyDataProtectionSettings(
+    const std::string& watermark_text) {
+  SetWatermarkString(watermark_text);
 }
 
 BEGIN_METADATA(BrowserView)

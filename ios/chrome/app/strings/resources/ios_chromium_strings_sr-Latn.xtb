@@ -80,7 +80,6 @@ Još podešavanja koja koriste podatke za poboljšanje doživljaja Chromium-a po
 <translation id="3219277919172823720">Pretražujte glasom u Chromium-u</translation>
 <translation id="3228349498066165585">Neki Chromium podaci još nisu sačuvani na Google nalogu.
         Sačekajte nekoliko minuta pre nego što se odjavite. Ako se odjavite odmah, ovi podaci će biti izbrisani.</translation>
-<translation id="3256316712990552818">Kopirana u Chromium</translation>
 <translation id="328933489847748230">{count,plural, =1{Sada se prikazuje 1 Chromium prozor}one{Sada se prikazuje {count} Chromium prozor}few{Sada se prikazuju {count} Chromium prozora}other{Sada se prikazuje {count} Chromium prozora}}</translation>
 <translation id="3344973607274501920">Chromium nije uspeo da vam proveri lozinke. Proverite internet vezu.</translation>
 <translation id="3366305173356742781">Chromium podaci na nalogu</translation>
@@ -118,6 +117,7 @@ Podaci se šifruju pomoću pristupne fraze. Unesite je da biste koristili i sa�
 <translation id="4195557071150719219">Pogledajte nedavne kartice Chromium-a</translation>
 <translation id="4200712796753248893">Koristite Chromium radnje na iOS-u</translation>
 <translation id="420541179527342563">Da biste onemogućili režim zaključavanja u Chromium-u, isključite ga na iPad-u.</translation>
+<translation id="427331839909790668">Povežite Chromium i druge Google usluge ako želite da personalizuju vaš doživljaj tako što međusobno dele podatke</translation>
 <translation id="4408912345039114853">Pokreni Chromium proveru bezbednosti</translation>
 <translation id="4432744876818348753">Prijavite se da biste iskoristili Chromium na najbolji način.</translation>
 <translation id="4445228361214254027">Organizacija je isključila mogućnost korišćenja i čuvanja Chromium podataka na Google nalogu. Novi obeleživači, lozinke i drugi sadržaj će se čuvati samo na ovom uređaju.</translation>
@@ -219,6 +219,7 @@ Samo neko ko ima pristupnu frazu može da čita šifrovane podatke. Pristupna fr
 <translation id="6852799557929001644">Pristupajte Chromium lozinkama i ostalim funkcijama u drugim aplikacijama na ovom uređaju.</translation>
 <translation id="6887138405044152640">Da biste poslali ovu karticu na drugi uređaj, prijavite se u Chromium tamo.</translation>
 <translation id="6911341667534646387">Nastavite da koristite Chromium podatke na Google nalogu</translation>
+<translation id="7002548535535009764">Da biste imali najpersonalizovaniji doživljaj, uvrstite Chromium u: <ph name="FEATURE_NAME_1" /> i <ph name="FEATURE_NAME_2" /></translation>
 <translation id="7006920032187763988">Možete da koristite lozinke koje ste sačuvali u Menadžeru lozinki u drugim aplikacijama na iPad-u.</translation>
 <translation id="7018284295775193585">Chromium ne može da se ažurira</translation>
 <translation id="7045244423563602563">Prilagodite Chromium sebi</translation>

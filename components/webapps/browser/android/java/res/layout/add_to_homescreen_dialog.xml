@@ -61,6 +61,7 @@ found in the LICENSE file.
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:maxHeight="128dp"
+            android:layout_marginStart="4dp"
             android:textAppearance="@style/TextAppearance.AddToHomeScreenWebAppName" />
 
         <!-- An editable text field for homebrew apps. -->
@@ -70,9 +71,6 @@ found in the LICENSE file.
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.AddToHomeScreenEditText"
-            android:layout_marginStart="-4dp"
-            android:layout_marginTop="-4dp"
-            android:layout_marginBottom="-4dp"
             android:singleLine="true" />
 
         <!-- The origin of the web app, displayed for security purposes. -->
@@ -80,6 +78,7 @@ found in the LICENSE file.
             android:id="@+id/origin"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
             android:paddingBottom="2dp"
             android:textAppearance="@style/TextAppearance.TextMedium.Secondary" />
 

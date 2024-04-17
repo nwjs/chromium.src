@@ -5,9 +5,9 @@
 #ifndef CC_SLIM_LAYER_H_
 #define CC_SLIM_LAYER_H_
 
+#include <optional>
 #include <vector>
 
-#include <optional>
 #include "base/component_export.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -278,7 +278,7 @@ class COMPONENT_EXPORT(CC_SLIM) Layer : public base::RefCounted<Layer> {
   raw_ptr<Layer> parent_ = nullptr;
   std::vector<scoped_refptr<Layer>> children_;
 
-  raw_ptr<LayerTree, DanglingUntriaged> layer_tree_ = nullptr;
+  raw_ptr<LayerTree> layer_tree_ = nullptr;
 
   int num_descendants_that_draw_content_ = 0;
 

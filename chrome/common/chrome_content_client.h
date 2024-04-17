@@ -61,6 +61,7 @@ class ChromeContentClient : public content::ContentClient {
   void SetNWReportURL(const GURL& url) override;
   void SetGpuInfo(const gpu::GPUInfo& gpu_info) override;
   void AddPlugins(std::vector<content::ContentPluginInfo>* plugins) override;
+  std::vector<url::Origin> GetPdfInternalPluginAllowedOrigins() override;
   void AddContentDecryptionModules(
       std::vector<content::CdmInfo>* cdms,
       std::vector<media::CdmHostFilePath>* cdm_host_file_paths) override;

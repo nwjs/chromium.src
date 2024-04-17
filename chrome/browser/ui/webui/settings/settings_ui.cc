@@ -106,6 +106,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "content/public/common/content_features.h"
 #include "crypto/crypto_buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/network/public/cpp/features.h"
@@ -358,16 +359,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
   bool show_privacy_guide =
-      !chrome::ShouldDisplayManagedUi(profile) && !profile->IsChild();
+      base::FeatureList::IsEnabled(features::kPrivacyGuideForceAvailable) ||
+      (!chrome::ShouldDisplayManagedUi(profile) && !profile->IsChild());
   html_source->AddBoolean("showPrivacyGuide", show_privacy_guide);
-
-  html_source->AddBoolean("enablePrivacyGuide3", base::FeatureList::IsEnabled(
-                                                     features::kPrivacyGuide3));
-
-  html_source->AddBoolean(
-      "enablePrivacyGuidePreload",
-      base::FeatureList::IsEnabled(features::kPrivacyGuidePreload) &&
-          base::FeatureList::IsEnabled(features::kPrivacyGuide3));
 
   html_source->AddBoolean(
       "enableCbdTimeframeRequired",
@@ -499,9 +493,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(network::features::kPrivateStateTokens) ||
           base::FeatureList::IsEnabled(network::features::kFledgePst));
 
-  html_source->AddBoolean("safetyCheckNotificationPermissionsEnabled",
-                          base::FeatureList::IsEnabled(
-                              features::kSafetyCheckNotificationPermissions));
   html_source->AddBoolean(
       "safetyCheckUnusedSitePermissionsEnabled",
       base::FeatureList::IsEnabled(
@@ -547,22 +538,17 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           performance_manager::features::kMemorySaverMultistateMode));
   html_source->AddBoolean(
-      "isDiscardExceptionsImprovementsEnabled",
-      base::FeatureList::IsEnabled(
-          performance_manager::features::kDiscardExceptionsImprovements));
-  html_source->AddBoolean(
       "isBatterySaverModeManagedByOS",
       performance_manager::user_tuning::IsBatterySaverModeManagedByOS());
-
-  html_source->AddBoolean(
-      "enablePermissionStorageAccessApi",
-      base::FeatureList::IsEnabled(
-          permissions::features::kPermissionStorageAccessAPI));
 
   html_source->AddBoolean(
       "autoPictureInPictureEnabled",
       base::FeatureList::IsEnabled(
           blink::features::kMediaSessionEnterPictureInPicture));
+
+  html_source->AddBoolean("enableAutomaticFullscreenContentSetting",
+                          base::FeatureList::IsEnabled(
+                              features::kAutomaticFullscreenContentSetting));
 
   // AI
   optimization_guide::proto::ModelExecutionFeature

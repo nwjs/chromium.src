@@ -220,7 +220,7 @@ enum {
   // kPageColors = 100162, (no longer synced)
   kPerformanceTracingEnabled = 100163,
   kPluginsAlwaysOpenPdfExternally = 100164,
-  kPrivacySandboxApisEnabled = 100165,
+  // kPrivacySandboxApisEnabled = 100165, (deprecated)
   kPrivacySandboxRelatedWebsiteSetsEnabled = 100166,
   // kPrivacySandboxManuallyControlled = 100167, (deprecated)
   kPromptForDownload = 100168,
@@ -326,6 +326,9 @@ enum {
   kAccessibilityFaceGazeCursorSpeedRight = 100266,
   kAccessibilityFaceGazeCursorSmoothing = 100267,
   kAccessibilityFaceGazeCursorUseAcceleration = 100268,
+  kFingerprintingProtectionEnabled = 100269,
+  kAccessibilityFaceGazeGesturesToMacros = 100270,
+  kAccessibilityFaceGazeGesturesToConfidence = 100271,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -1092,6 +1095,14 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityFaceGazeCursorUseAcceleration,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityFaceGazeGesturesToMacros,
+     {syncable_prefs_ids::kAccessibilityFaceGazeGesturesToMacros,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kMergeableDict}},
+    {ash::prefs::kAccessibilityFaceGazeGesturesToConfidence,
+     {syncable_prefs_ids::kAccessibilityFaceGazeGesturesToConfidence,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kMergeableDict}},
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
     {performance_manager::user_tuning::prefs::kTabDiscardingExceptions,
      {syncable_prefs_ids::kTabDiscardingExceptions, syncer::PREFERENCES,
@@ -1179,10 +1190,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kPluginsAlwaysOpenPdfExternally,
      {syncable_prefs_ids::kPluginsAlwaysOpenPdfExternally, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone}},
-    {prefs::kPrivacySandboxApisEnabled,
-     {syncable_prefs_ids::kPrivacySandboxApisEnabled, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kPrivacySandboxRelatedWebsiteSetsEnabled,
@@ -1406,6 +1413,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kIpProtectionEnabled, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {prefs::kFingerprintingProtectionEnabled,
+     {syncable_prefs_ids::kFingerprintingProtectionEnabled, syncer::PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
     {prefs::kHttpsFirstModeIncognito,
      {syncable_prefs_ids::kHttpsFirstModeIncognito, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
@@ -1417,7 +1428,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
 std::optional<sync_preferences::SyncablePrefMetadata>
 ChromeSyncablePrefsDatabase::GetSyncablePrefMetadata(
     const std::string& pref_name) const {
-  const auto* it = kChromeSyncablePrefsAllowlist.find(pref_name);
+  const auto it = kChromeSyncablePrefsAllowlist.find(pref_name);
   if (it != kChromeSyncablePrefsAllowlist.end()) {
     DCHECK(!common_syncable_prefs_database_.GetSyncablePrefMetadata(pref_name)
                 .has_value());

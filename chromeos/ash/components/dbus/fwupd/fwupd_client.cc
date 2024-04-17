@@ -34,7 +34,12 @@ namespace {
 // ash/webui/firmware_update_ui/mojom/firmware_update.mojom
 enum UpdatePriority { kLow, kMedium, kHigh, kCritical };
 
+// Global singleton instance. Always set.
 FwupdClient* g_instance = nullptr;
+
+// Global singleton for fake instance. Only set when a InitializeFake is used.
+// If not null, matches g_instance.
+FakeFwupdClient* g_fake_instance = nullptr;
 
 const char kCabFileExtension[] = ".cab";
 const int kSha256Length = 64;
@@ -48,6 +53,51 @@ const uint64_t kTrustedReportsReleaseFlag = 1llu << 8;
 // "10000"(5th bit) is the fwupd feature flag to allow interactive requests.
 // Defined here: https://github.com/fwupd/fwupd/blob/main/libfwupd/fwupd-enums.h
 const uint64_t kRequestsFeatureFlag = 1llu << 4;
+
+// String to FwupdResult conversion
+// Consistent with
+// https://github.com/fwupd/fwupd/blob/988f27fd96c5334089ec5daf9c4b2a34f5c6943a/libfwupd/fwupd-error.c#L26
+FwupdResult GetFwupdResult(const std::string& error_name) {
+  if (error_name == std::string(kFwupdErrorName_Internal)) {
+    return FwupdResult::kInternalError;
+  } else if (error_name == std::string(kFwupdErrorName_VersionNewer)) {
+    return FwupdResult::kVersionNewerError;
+  } else if (error_name == std::string(kFwupdErrorName_VersionSame)) {
+    return FwupdResult::kVersionSameError;
+  } else if (error_name == std::string(kFwupdErrorName_AlreadyPending)) {
+    return FwupdResult::kAlreadyPendingError;
+  } else if (error_name == std::string(kFwupdErrorName_AuthFailed)) {
+    return FwupdResult::kAuthFailedError;
+  } else if (error_name == std::string(kFwupdErrorName_Read)) {
+    return FwupdResult::kReadError;
+  } else if (error_name == std::string(kFwupdErrorName_Write)) {
+    return FwupdResult::kWriteError;
+  } else if (error_name == std::string(kFwupdErrorName_InvalidFile)) {
+    return FwupdResult::kInvalidFileError;
+  } else if (error_name == std::string(kFwupdErrorName_NotFound)) {
+    return FwupdResult::kNotFoundError;
+  } else if (error_name == std::string(kFwupdErrorName_NothingToDo)) {
+    return FwupdResult::kNothingToDoError;
+  } else if (error_name == std::string(kFwupdErrorName_NotSupported)) {
+    return FwupdResult::kNotSupportedError;
+  } else if (error_name == std::string(kFwupdErrorName_SignatureInvalid)) {
+    return FwupdResult::kSignatureInvalidError;
+  } else if (error_name == std::string(kFwupdErrorName_AcPowerRequired)) {
+    return FwupdResult::kAcPowerRequiredError;
+  } else if (error_name == std::string(kFwupdErrorName_PermissionDenied)) {
+    return FwupdResult::kPermissionDeniedError;
+  } else if (error_name == std::string(kFwupdErrorName_BrokenSystem)) {
+    return FwupdResult::kBrokenSystemError;
+  } else if (error_name == std::string(kFwupdErrorName_BatteryLevelTooLow)) {
+    return FwupdResult::kBatteryLevelTooLowError;
+  } else if (error_name == std::string(kFwupdErrorName_NeedsUserAction)) {
+    return FwupdResult::kNeedsUserActionError;
+  } else if (error_name == std::string(kFwupdErrorName_AuthExpired)) {
+    return FwupdResult::kAuthExpiredError;
+  }
+  FIRMWARE_LOG(ERROR) << "No matching error found for: " << error_name;
+  return FwupdResult::kUnknownError;
+}
 
 base::FilePath GetFilePathFromUri(const GURL uri) {
   const std::string filepath = uri.spec();
@@ -198,7 +248,8 @@ class FwupdClientImpl : public FwupdClient {
 
   void InstallUpdate(const std::string& device_id,
                      base::ScopedFD file_descriptor,
-                     FirmwareInstallOptions options) override {
+                     FirmwareInstallOptions options,
+                     base::OnceCallback<void(FwupdResult)> callback) override {
     FIRMWARE_LOG(USER) << "fwupd: InstallUpdate called for id: " << device_id;
     dbus::MethodCall method_call(kFwupdServiceInterface,
                                  kFwupdInstallMethodName);
@@ -224,22 +275,7 @@ class FwupdClientImpl : public FwupdClient {
     proxy_->CallMethodWithErrorResponse(
         &method_call, dbus::ObjectProxy::TIMEOUT_INFINITE,
         base::BindOnce(&FwupdClientImpl::InstallUpdateCallback,
-                       weak_ptr_factory_.GetWeakPtr()));
-  }
-
-  void TriggerPropertiesChangeForTesting(uint32_t percentage,
-                                         uint32_t status) override {
-    // No-op, this only has an effect when called with FakeFwupdClient.
-  }
-  void TriggerSuccessfulUpdateForTesting() override {
-    // No-op, this only has an effect when called with FakeFwupdClient.
-  }
-  bool HasUpdateStartedForTesting() override {
-    // This only returns a real value when called with FakeFwupdClient.
-    return false;
-  }
-  void EmitDeviceRequestForTesting(uint32_t device_request_id) override {
-    // No-op, this only has an effect when called with FakeFwupdClient.
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
  private:
@@ -463,19 +499,19 @@ class FwupdClientImpl : public FwupdClient {
     }
   }
 
-  void InstallUpdateCallback(dbus::Response* response,
+  void InstallUpdateCallback(base::OnceCallback<void(FwupdResult)> callback,
+                             dbus::Response* response,
                              dbus::ErrorResponse* error_response) {
-    bool success = true;
+    FwupdResult result = FwupdResult::kSuccess;
     if (error_response) {
       FIRMWARE_LOG(ERROR) << "Firmware install failed with error message: "
                           << error_response->ToString();
-      success = false;
+      result = GetFwupdResult(error_response->GetErrorName());
     }
 
-    FIRMWARE_LOG(USER) << "fwupd: InstallUpdate returned with: " << success;
-    for (auto& observer : observers_) {
-      observer.OnInstallResponse(success);
-    }
+    FIRMWARE_LOG(USER) << "fwupd: InstallUpdate returned with: "
+                       << static_cast<int>(result);
+    std::move(callback).Run(result);
   }
 
   void OnSignalConnected(const std::string& interface_name,
@@ -600,6 +636,11 @@ FwupdClient* FwupdClient::Get() {
 }
 
 // static
+FakeFwupdClient* FwupdClient::GetFake() {
+  return g_fake_instance;
+}
+
+// static
 void FwupdClient::Initialize(dbus::Bus* bus) {
   CHECK(bus);
   (new FwupdClientImpl())->Init(bus);
@@ -607,7 +648,8 @@ void FwupdClient::Initialize(dbus::Bus* bus) {
 
 // static
 void FwupdClient::InitializeFake() {
-  (new FakeFwupdClient())->Init(nullptr);
+  g_fake_instance = new FakeFwupdClient();
+  g_fake_instance->Init(nullptr);
 }
 
 // static

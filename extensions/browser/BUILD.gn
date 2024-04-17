@@ -86,8 +86,6 @@ source_set("browser_sources") {
 
     # TODO(https://crbug.com/883570): Anything under api/ should be moved out of
     # this target.
-    "api/activity_log/web_request_constants.cc",
-    "api/activity_log/web_request_constants.h",
     "api/api_resource.cc",
     "api/api_resource.h",
     "api/api_resource_manager.h",
@@ -540,16 +538,16 @@ source_set("browser_sources") {
     "service_worker/service_worker_host.h",
     "service_worker/service_worker_keepalive.cc",
     "service_worker/service_worker_keepalive.h",
+    "service_worker/service_worker_task_queue.cc",
+    "service_worker/service_worker_task_queue.h",
+    "service_worker/service_worker_task_queue_factory.cc",
+    "service_worker/service_worker_task_queue_factory.h",
     "service_worker/worker_id.cc",
     "service_worker/worker_id.h",
     "service_worker/worker_id_set.cc",
     "service_worker/worker_id_set.h",
     "service_worker_manager.cc",
     "service_worker_manager.h",
-    "service_worker_task_queue.cc",
-    "service_worker_task_queue.h",
-    "service_worker_task_queue_factory.cc",
-    "service_worker_task_queue_factory.h",
     "state_store.cc",
     "state_store.h",
     "state_store_test_observer.cc",
@@ -758,7 +756,6 @@ source_set("browser_tests") {
     "//build:chromeos_buildflags",
     "//components/guest_view/browser:test_support",
     "//components/storage_monitor:test_support",
-    "//content/test:test_support",
     "//device/bluetooth:mocks",
     "//extensions:test_support",
     "//extensions/browser:test_support",
@@ -773,6 +770,8 @@ source_set("browser_tests") {
     "//services/service_manager/public/cpp",
     "//ui/display:test_support",
   ]
+
+  public_deps = [ "//content/test:test_support" ]
 
   if (is_chromeos_ash) {
     sources += [
@@ -1016,7 +1015,10 @@ source_set("unit_tests") {
   ]
 
   if (is_chromeos) {
-    deps += [ "//chromeos/constants" ]
+    deps += [
+      "//chromeos/constants",
+      "//chromeos/crosapi/mojom",
+    ]
   }
 
   if (is_chromeos_ash) {
@@ -1062,6 +1064,10 @@ source_set("unit_tests") {
       "//components/user_manager:test_support",
       "//extensions/shell:app_shell_lib",
     ]
+  }
+
+  if (is_chromeos_lacros) {
+    deps += [ "//chromeos/startup" ]
   }
 
   data = [

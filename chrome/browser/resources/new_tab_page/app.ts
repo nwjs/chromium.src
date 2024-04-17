@@ -3,8 +3,9 @@
 // found in the LICENSE file.
 
 import './iframe.js';
-import './realbox/realbox.js';
 import './logo.js';
+import './strings.m.js';
+import 'chrome://resources/cr_components/omnibox/realbox.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 
@@ -18,6 +19,7 @@ import {BrowserCommandProxy} from 'chrome://resources/js/browser_command/browser
 import {hexColorToSkColor, skColorToRgba} from 'chrome://resources/js/color_utils.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 import type {DomIf} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -26,7 +28,6 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 import {getTemplate} from './app.html.js';
 import {BackgroundManager} from './background_manager.js';
 import {CustomizeDialogPage} from './customize_dialog_types.js';
-import {loadTimeData} from './i18n_setup.js';
 import type {IframeElement} from './iframe.js';
 import type {LogoElement} from './logo.js';
 import {recordDuration, recordLoadDuration} from './metrics_utils.js';
@@ -66,6 +67,7 @@ export enum NtpElement {
   CUSTOMIZE_BUTTON = 9,
   CUSTOMIZE_DIALOG = 10,
   WALLPAPER_SEARCH_BUTTON = 11,
+  MAX_VALUE = WALLPAPER_SEARCH_BUTTON,
 }
 
 /**
@@ -78,6 +80,7 @@ export enum NtpCustomizeChromeEntryPoint {
   MODULE = 1,
   URL = 2,
   WALLPAPER_SEARCH_BUTTON = 3,
+  MAX_VALUE = WALLPAPER_SEARCH_BUTTON,
 }
 
 const CUSTOMIZE_URL_PARAM: string = 'customize';
@@ -88,13 +91,13 @@ export const CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID =
 
 function recordClick(element: NtpElement) {
   chrome.metricsPrivate.recordEnumerationValue(
-      'NewTabPage.Click', element, Object.keys(NtpElement).length);
+      'NewTabPage.Click', element, NtpElement.MAX_VALUE + 1);
 }
 
 function recordCustomizeChromeOpen(element: NtpCustomizeChromeEntryPoint) {
   chrome.metricsPrivate.recordEnumerationValue(
       'NewTabPage.CustomizeChromeOpened', element,
-      Object.keys(NtpCustomizeChromeEntryPoint).length);
+      NtpCustomizeChromeEntryPoint.MAX_VALUE + 1);
 }
 
 // Adds a <script> tag that holds the lazy loaded code.
@@ -208,7 +211,7 @@ export class AppElement extends AppElementBase {
         type: Object,
       },
 
-      // Used in ntp-realbox component via host-context.
+      // Used in cr-realbox component via host-context.
       colorSourceIsBaseline: {
         type: Boolean,
         computed: 'computeColorSourceIsBaseline(theme_)',
@@ -703,7 +706,7 @@ export class AppElement extends AppElementBase {
         'NewTabPage.BackgroundImageSource',
         (theme.backgroundImage ? theme.backgroundImage.imageSource :
                                  NtpBackgroundImageSource.kNoImage),
-        NtpBackgroundImageSource.MAX_VALUE);
+        NtpBackgroundImageSource.MAX_VALUE + 1);
 
     chrome.metricsPrivate.recordSparseValueWithPersistentHash(
         'NewTabPage.Collections.IdOnLoad',
@@ -942,7 +945,7 @@ export class AppElement extends AppElementBase {
         case $$(this, 'ntp-logo'):
           recordClick(NtpElement.LOGO);
           return;
-        case $$(this, 'ntp-realbox'):
+        case $$(this, 'cr-realbox'):
           recordClick(NtpElement.REALBOX);
           return;
         case $$(this, 'cr-most-visited'):

@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/transform_paint_property_node.h"
 
 #include "base/memory/values_equivalent.h"
+#include "third_party/blink/renderer/platform/graphics/paint/scroll_paint_property_node.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 
@@ -152,8 +153,23 @@ bool TransformPaintPropertyNodeOrAlias::Changed(
   return relative_to_node.Changed(change, TransformPaintPropertyNode::Root());
 }
 
+void TransformPaintPropertyNodeOrAlias::ClearChangedToRoot(
+    int sequence_number) const {
+  for (auto* n = this; n && n->ChangedSequenceNumber() != sequence_number;
+       n = n->Parent()) {
+    n->ClearChanged(sequence_number);
+    if (n->IsParentAlias()) {
+      continue;
+    }
+    if (const auto* scroll =
+            static_cast<const TransformPaintPropertyNode*>(n)->ScrollNode()) {
+      scroll->ClearChangedToRoot(sequence_number);
+    }
+  }
+}
+
 std::unique_ptr<JSONObject> TransformPaintPropertyNode::ToJSON() const {
-  auto json = ToJSONBase();
+  auto json = TransformPaintPropertyNodeOrAlias::ToJSON();
   if (IsIdentityOr2dTranslation()) {
     if (!Get2dTranslation().IsZero())
       json->SetString("translation2d", String(Get2dTranslation().ToString()));

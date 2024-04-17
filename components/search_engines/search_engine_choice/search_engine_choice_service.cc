@@ -25,6 +25,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/eea_countries_ids.h"
 #include "components/search_engines/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
@@ -230,6 +231,11 @@ SearchEngineChoiceService::GetDynamicChoiceScreenConditions(
   // TODO(b/319050536): Remove the function declaration on these platforms.
   return SearchEngineChoiceScreenConditions::kUnsupportedBrowserType;
 #else
+  // Don't show the dialog if the choice has already been made.
+  if (IsSearchEngineChoiceCompleted(*profile_prefs_)) {
+    return SearchEngineChoiceScreenConditions::kAlreadyCompleted;
+  }
+
   // Don't show the dialog if the default search engine is set by an extension.
   if (template_url_service.IsExtensionControlledDefaultSearch()) {
     return SearchEngineChoiceScreenConditions::kExtensionControlled;
@@ -247,6 +253,13 @@ SearchEngineChoiceService::GetDynamicChoiceScreenConditions(
     return SearchEngineChoiceScreenConditions::kControlledByPolicy;
   }
   CHECK(default_search_engine);
+
+  if (switches::kSearchEngineChoiceTriggerSkipFor3p.Get()) {
+    if (default_search_engine->GetEngineType(
+            template_url_service.search_terms_data()) != SEARCH_ENGINE_GOOGLE) {
+      return SearchEngineChoiceScreenConditions::kHasNonGoogleSearchEngine;
+    }
+  }
 
   if (!template_url_service.IsPrepopulatedOrDefaultProviderByPolicy(
           default_search_engine)) {
@@ -272,10 +285,6 @@ SearchEngineChoiceService::GetDynamicChoiceScreenConditions(
     RecordUnexpectedSearchProvider(default_search_engine->data());
     return SearchEngineChoiceScreenConditions::
         kHasRemovedPrepopulatedSearchEngine;
-  }
-
-  if (IsSearchEngineChoiceCompleted(*profile_prefs_)) {
-    return SearchEngineChoiceScreenConditions::kAlreadyCompleted;
   }
 
   return SearchEngineChoiceScreenConditions::kEligible;
@@ -351,6 +360,16 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
     return;
   }
 
+  // Check parameters from `switches::kSearchEngineChoiceTriggerRepromptParams`.
+  std::optional<base::Value::Dict> reprompt_params = base::JSONReader::ReadDict(
+      switches::kSearchEngineChoiceTriggerRepromptParams.Get());
+  if (!reprompt_params) {
+    // No valid reprompt parameters.
+    base::UmaHistogramEnumeration(kSearchEngineChoiceRepromptHistogram,
+                                  RepromptResult::kInvalidDictionary);
+    return;
+  }
+
   // If existing prefs are missing or have a wrong format, force a reprompt.
   if (!profile_prefs_->HasPrefPath(
           prefs::kDefaultSearchProviderChoiceScreenCompletionVersion)) {
@@ -366,16 +385,6 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
     WipeSearchEngineChoicePrefs(
         profile_prefs_.get(),
         WipeSearchEngineChoiceReason::kInvalidChoiceVersion);
-    return;
-  }
-
-  // Check parameters from `switches::kSearchEngineChoiceTriggerRepromptParams`.
-  std::optional<base::Value::Dict> reprompt_params = base::JSONReader::ReadDict(
-      switches::kSearchEngineChoiceTriggerRepromptParams.Get());
-  if (!reprompt_params) {
-    // No valid reprompt parameters.
-    base::UmaHistogramEnumeration(kSearchEngineChoiceRepromptHistogram,
-                                  RepromptResult::kInvalidDictionary);
     return;
   }
 

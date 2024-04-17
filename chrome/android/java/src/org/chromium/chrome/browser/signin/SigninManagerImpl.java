@@ -38,6 +38,7 @@ import org.chromium.chrome.browser.signin.services.SigninPreferencesManager;
 import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
+import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.SigninFeatures;
@@ -50,7 +51,6 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.IdentityMutator;
 import org.chromium.components.signin.identitymanager.PrimaryAccountError;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
-import org.chromium.components.signin.metrics.SignoutDelete;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -168,7 +168,9 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
             mAccountManagerFacade.addObserver(this);
             Promise<List<CoreAccountInfo>> coreAccountInfosPromise =
                     mAccountManagerFacade.getCoreAccountInfos();
-            if (coreAccountInfosPromise.isFulfilled()) {
+            if (coreAccountInfosPromise.isFulfilled()
+                    && (mAccountManagerFacade.didAccountFetchSucceed()
+                            || !coreAccountInfosPromise.getResult().isEmpty())) {
                 seedThenReloadAllAccountsFromSystem(
                         CoreAccountInfo.getIdFrom(
                                 identityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN)));
@@ -177,8 +179,8 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
     }
 
     /**
-     * Triggered during SigninManagerAndroidWrapper's KeyedService::Shutdown.
-     * Drop references with external services and native.
+     * Triggered during SigninManagerAndroidWrapper's KeyedService::Shutdown. Drop references with
+     * external services and native.
      */
     @VisibleForTesting
     @CalledByNative
@@ -203,10 +205,19 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                 mAccountManagerFacade.getCoreAccountInfos();
         assert coreAccountInfosPromise.isFulfilled();
         List<CoreAccountInfo> coreAccountInfos = coreAccountInfosPromise.getResult();
+        if (!mAccountManagerFacade.didAccountFetchSucceed() && coreAccountInfos.isEmpty()) {
+            // If the account fetch did not succeed, the AccountManagerFacade falls back to an empty
+            // list. Do nothing when this is the case.
+            return;
+        }
+
         @Nullable
         CoreAccountInfo primaryAccountInfo =
                 mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN);
-        if (primaryAccountInfo == null || coreAccountInfos.contains(primaryAccountInfo)) {
+        if (primaryAccountInfo == null
+                || AccountUtils.findCoreAccountInfoByGaiaId(
+                                coreAccountInfos, primaryAccountInfo.getGaiaId())
+                        != null) {
             // Reload the coreAccountInfos if the primary account is still on the device or if the
             // user is signed out.
             seedThenReloadAllAccountsFromSystem(CoreAccountInfo.getIdFrom(primaryAccountInfo));
@@ -566,11 +577,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                         ? SignOutState.DataWipeAction.WIPE_SYNC_DATA_ONLY
                         : SignOutState.DataWipeAction.WIPE_SIGNIN_DATA_ONLY);
 
-        mIdentityMutator.revokeSyncConsent(
-                signoutSource,
-                // Always use IGNORE_METRIC as Chrome Android has just a single-profile which is
-                // never deleted.
-                SignoutDelete.IGNORE_METRIC);
+        mIdentityMutator.revokeSyncConsent(signoutSource);
 
         notifySignOutAllowedChanged();
         disableSyncAndWipeData(this::finishSignOut);
@@ -608,12 +615,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                         ? SignOutState.DataWipeAction.WIPE_ALL_PROFILE_DATA
                         : SignOutState.DataWipeAction.WIPE_SIGNIN_DATA_ONLY);
 
-        mIdentityMutator.clearPrimaryAccount(
-                signoutSource,
-                // Always use IGNORE_METRIC for the profile deletion argument. Chrome
-                // Android has just a single-profile which is never deleted upon
-                // sign-out.
-                SignoutDelete.IGNORE_METRIC);
+        mIdentityMutator.clearPrimaryAccount(signoutSource);
 
         notifySignOutAllowedChanged();
         disableSyncAndWipeData(this::finishSignOut);
@@ -781,7 +783,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                                         Arrays.asList(
                                                 BrowsingDataType.HISTORY,
                                                 BrowsingDataType.CACHE,
-                                                BrowsingDataType.COOKIES,
+                                                BrowsingDataType.SITE_DATA,
                                                 BrowsingDataType.FORM_DATA));
                         // If usesSplitStoresAndUPMForLocal() is true, browser sign-in won't upload
                         // existing passwords, so there's no reason to wipe them immediately before.

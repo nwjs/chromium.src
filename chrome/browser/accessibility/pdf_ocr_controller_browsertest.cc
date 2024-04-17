@@ -11,6 +11,7 @@
 #include "chrome/browser/accessibility/pdf_ocr_controller_factory.h"
 #include "chrome/browser/pdf/pdf_extension_test_base.h"
 #include "chrome/browser/screen_ai/screen_ai_install_state.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -228,11 +229,6 @@ IN_PROC_BROWSER_TEST_P(PdfOcrControllerBrowserTest,
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 IN_PROC_BROWSER_TEST_P(PdfOcrControllerBrowserTest,
                        NotEnabledWithoutSelectToSpeak) {
-  // TODO(crbug.com/1445746): Remove once the test passes for OOPIF PDF.
-  if (UseOopif()) {
-    GTEST_SKIP();
-  }
-
   EnableSelectToSpeak(false);
 
   screen_ai::PdfOcrControllerFactory::GetForProfile(browser()->profile())
@@ -244,9 +240,7 @@ IN_PROC_BROWSER_TEST_P(PdfOcrControllerBrowserTest,
   // Wait until the PDF OCR pref changes accordingly.
   pref_waiter.Wait();
 
-  extensions::MimeHandlerViewGuest* guest = LoadPdfGetMimeHandlerView(
-      embedded_test_server()->GetURL("/pdf/test.pdf"));
-  ASSERT_TRUE(guest);
+  ASSERT_TRUE(LoadPdf(embedded_test_server()->GetURL("/pdf/test.pdf")));
   content::WebContents* pdf_contents = GetActiveWebContents();
   ui::AXMode ax_mode = pdf_contents->GetAccessibilityMode();
   EXPECT_FALSE(ax_mode.has_mode(ui::AXMode::kPDFOcr));

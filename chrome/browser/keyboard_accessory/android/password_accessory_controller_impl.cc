@@ -18,12 +18,12 @@
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/trace_event/trace_event.h"
-#include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
-#include "chrome/browser/keyboard_accessory/android/manual_filling_utils.h"
 #include "chrome/browser/keyboard_accessory/android/accessory_sheet_data.h"
 #include "chrome/browser/keyboard_accessory/android/accessory_sheet_enums.h"
-#include "chrome/browser/password_manager/android/all_passwords_bottom_sheet_controller.h"
+#include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
+#include "chrome/browser/keyboard_accessory/android/manual_filling_utils.h"
 #include "chrome/browser/keyboard_accessory/android/password_accessory_controller.h"
+#include "chrome/browser/password_manager/android/all_passwords_bottom_sheet_controller.h"
 #include "chrome/browser/password_manager/android/password_generation_controller.h"
 #include "chrome/browser/password_manager/android/password_manager_launcher_android.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
@@ -563,8 +563,18 @@ void PasswordAccessoryControllerImpl::ChangeCurrentOriginSavePasswordsStatus(
   password_manager::PasswordFormDigest form_digest(
       password_manager::PasswordForm::Scheme::kHtml,
       password_manager::GetSignonRealm(origin_as_gurl), origin_as_gurl);
-  password_manager::PasswordStoreInterface* store =
-      password_client_->GetProfilePasswordStore();
+
+  password_manager::PasswordStoreInterface* store;
+  if (password_client_->GetPasswordFeatureManager()
+          ->IsOptedInForAccountStorage() &&
+      password_client_->GetPasswordFeatureManager()
+              ->GetDefaultPasswordStore() ==
+          password_manager::PasswordForm::Store::kAccountStore) {
+    store = password_client_->GetAccountPasswordStore();
+  } else {
+    store = password_client_->GetProfilePasswordStore();
+  }
+
   if (saving_enabled) {
     store->Unblocklist(form_digest);
   } else {
@@ -657,8 +667,7 @@ bool PasswordAccessoryControllerImpl::ShouldTriggerBiometricReauth(
     return false;
   }
 
-  return password_manager_util::CanUseBiometricAuth(authenticator_.get(),
-                                                    password_client_);
+  return password_client_->CanUseBiometricAuthForFilling(authenticator_.get());
 }
 
 void PasswordAccessoryControllerImpl::OnReauthCompleted(

@@ -144,7 +144,7 @@ TEST(TriggerRegistrationTest, Parse) {
       {
           "event_triggers_wrong_type",
           R"json({"event_trigger_data":{}})json",
-          ErrorIs(TriggerRegistrationError::kEventTriggerDataListWrongType),
+          ErrorIs(TriggerRegistrationError::kEventTriggerDataWrongType),
       },
       {
           "event_trigger_data_wrong_type",
@@ -199,8 +199,7 @@ TEST(TriggerRegistrationTest, Parse) {
       {
           "aggregatable_trigger_data_list_wrong_type",
           R"json({"aggregatable_trigger_data": {}})json",
-          ErrorIs(
-              TriggerRegistrationError::kAggregatableTriggerDataListWrongType),
+          ErrorIs(TriggerRegistrationError::kAggregatableTriggerDataWrongType),
       },
       {
           "aggregatable_trigger_data_wrong_type",
@@ -245,7 +244,7 @@ TEST(TriggerRegistrationTest, Parse) {
       {
           "aggregatable_dedup_keys_wrong_type",
           R"json({"aggregatable_deduplication_keys":{}})json",
-          ErrorIs(TriggerRegistrationError::kAggregatableDedupKeyListWrongType),
+          ErrorIs(TriggerRegistrationError::kAggregatableDedupKeyWrongType),
       },
       {
           "aggregatable_dedup_key_wrong_type",
@@ -277,12 +276,12 @@ TEST(TriggerRegistrationTest, Parse) {
           "aggregatable_source_registration_time_invalid",
           R"json({"aggregatable_source_registration_time":123})json",
           ErrorIs(TriggerRegistrationError::
-                      kAggregatableSourceRegistrationTimeWrongType),
+                      kAggregatableSourceRegistrationTimeValueInvalid),
       },
   };
 
   static constexpr char kTriggerRegistrationErrorMetric[] =
-      "Conversions.TriggerRegistrationError9";
+      "Conversions.TriggerRegistrationError11";
 
   for (const auto& test_case : kTestCases) {
     SCOPED_TRACE(test_case.description);
@@ -369,18 +368,19 @@ TEST(TriggerRegistrationTest, ParseAggregationCoordinator) {
       {
           "aggregation_coordinator_origin_wrong_type",
           R"json({"aggregation_coordinator_origin":123})json",
-          ErrorIs(TriggerRegistrationError::kAggregationCoordinatorWrongType),
+          ErrorIs(
+              TriggerRegistrationError::kAggregationCoordinatorValueInvalid),
       },
       {
           "aggregation_coordinator_origin_invalid_value",
           R"json({"aggregation_coordinator_origin":"https://unknown.example.test"})json",
           ErrorIs(
-              TriggerRegistrationError::kAggregationCoordinatorUnknownValue),
+              TriggerRegistrationError::kAggregationCoordinatorValueInvalid),
       },
   };
 
   static constexpr char kTriggerRegistrationErrorMetric[] =
-      "Conversions.TriggerRegistrationError9";
+      "Conversions.TriggerRegistrationError11";
 
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(

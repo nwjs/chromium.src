@@ -150,7 +150,10 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
       selectElementWithMatcher:chrome_test_util::SettingsSearchEngineButton()]
       performAction:grey_tap()];
 
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(@"Yahoo!")]
+  NSString* yahooSearchEngineName =
+      [SettingsAppInterface usYahooSearchEngineName];
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityLabel(yahooSearchEngineName)]
       performAction:grey_tap()];
 
   [[EarlGrey
@@ -233,7 +236,10 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   // Verify the default search engine is back to Google.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsDoneButton()]
       performAction:grey_tap()];
-  [SearchEngineChoiceEarlGreyUI verifyDefaultSearchEngineSetting:@"Google"];
+  NSString* googleSearchEngineName =
+      [SettingsAppInterface googleSearchEngineName];
+  [SearchEngineChoiceEarlGreyUI
+      verifyDefaultSearchEngineSetting:googleSearchEngineName];
 }
 
 // TODO(crbug.com/325379827): Re-enable this test.
@@ -268,7 +274,10 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   // Verify the default search engine is still Google.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsDoneButton()]
       performAction:grey_tap()];
-  [SearchEngineChoiceEarlGreyUI verifyDefaultSearchEngineSetting:@"Google"];
+  NSString* googleSearchEngineName =
+      [SettingsAppInterface googleSearchEngineName];
+  [SearchEngineChoiceEarlGreyUI
+      verifyDefaultSearchEngineSetting:googleSearchEngineName];
 }
 
 #pragma mark - helpers

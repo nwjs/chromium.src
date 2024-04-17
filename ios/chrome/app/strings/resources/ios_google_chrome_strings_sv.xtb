@@ -22,6 +22,7 @@ Om du vill ändra den här inställningen <ph name="BEGIN_LINK" />rensar du Chro
 <translation id="1436059927646026729">Öppna Min senaste flik i Chrome</translation>
 <translation id="1449241544691504574">Lägg till bokmärken i Chrome</translation>
 <translation id="1462727070346936664">Logga in så att du får ut mesta möjliga av Chrome.</translation>
+<translation id="1462833127986525564">Länka Chrome och andra tjänster från Google om du vill att upplevelsen ska anpassas med hjälp av data som delas mellan tjänsterna</translation>
 <translation id="1491435845014430217">Aktivera Lås inkognitoflikar när du stänger Chrome.</translation>
 <translation id="1493827051843127077">Ställ in Chrome som standardwebbläsare och synkronisera flikar, lösenord och betalningsuppgifter på alla enheter</translation>
 <translation id="1504372625950710826">Chrome kunde inte söka efter uppdateringar. Testa att kontrollera internetanslutningen.</translation>
@@ -142,6 +143,7 @@ Din krypterade data kan endast läsas av en person som har din lösenfras. Löse
 <translation id="4834499902900503484">När du är inloggad i Chrome lagras lösenord du sparar i ditt Google-konto. <ph name="BEGIN_LINK" />Öppna inställningarna<ph name="END_LINK" /> om du vill inaktivera detta.</translation>
 <translation id="484033449593719797">Stöds inte på Chrome Beta</translation>
 <translation id="4840404732697892756">Google Lösenordshantering kan kontrollera dina lösenord när du loggar in med Google-kontot.</translation>
+<translation id="4856636171409137183">Om du inkluderar Chrome i <ph name="FEATURE_NAME_1" /> och <ph name="FEATURE_NAME_2" /> får du en så anpassad upplevelse som möjligt</translation>
 <translation id="4860330141789125848">{COUNT,plural, =1{Du kan spåra paketet på sidan Ny flik i Chrome.}other{Du kan spåra paketen på sidan Ny flik i Chrome.}}</translation>
 <translation id="4903674399067644695">Det här kortet visar förslag på hur du får ut mesta möjliga av Chrome.</translation>
 <translation id="49200511069271369">Din organisation, <ph name="DOMAIN" />, hanterar kontot du loggar in på och hur Chrome kan användas. Administratören kan konfigurera eller begränsa vissa funktioner.</translation>
@@ -198,7 +200,6 @@ Din krypterade data kan endast läsas av en person som har din lösenfras. Löse
 Din data krypteras med lösenfrasen. Ange den om du vill använda och spara Chrome-data i ditt Google-konto.</translation>
 <translation id="6540120577248033958">Besök en webbplats och klicka på Följ i Chrome-menyn</translation>
 <translation id="6545449117344801102">Chrome identifierar adresser och använder Google Maps för att ge dig vägbeskrivningar och lokal information.</translation>
-<translation id="6600954340915313787">Kopierat till Chrome</translation>
 <translation id="6634107063912726160">När du har loggat ut synkroniseras ingen mer data med ditt Google-konto i Chrome. Data som redan har synkroniserats finns kvar i kontot.</translation>
 <translation id="6646696210740573446">En obfuskerad del av webbadressen skickas till Google via en integritetsserver som döljer din IP-adress. Om du utsätts för försök att kapa ditt lösenord på en webbplats eller om du laddar ned en skadlig fil kan webbadresserna skickas från Chrome till Google tillsammans med delar av sidinnehållet.</translation>
 <translation id="6648150602980899529">Du håller på att logga in med ett konto som hanteras av <ph name="DOMAIN" /> vilket ger administratören kontroll över data i Chrome. Din data kopplas permanent till det här kontot. Om du loggar ut från Chrome raderas all din data från enheten, men den lagras fortfarande på Google-kontot.</translation>

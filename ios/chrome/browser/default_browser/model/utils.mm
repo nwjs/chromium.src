@@ -382,14 +382,6 @@ BOOL HasUserInteractedWithFirstRunPromoBefore() {
   return number.boolValue;
 }
 
-// Returns the number of times a fullscreen default browser promo has been
-// displayed.
-NSInteger DisplayedFullscreenPromoCount() {
-  NSNumber* number =
-      GetObjectFromStorageForKey<NSNumber>(kDisplayedFullscreenPromoCount);
-  return number.integerValue;
-}
-
 // Returns the number of time the fullscreen default browser promo has been
 // displayed.
 NSInteger GenericPromoInteractionCount() {
@@ -518,20 +510,6 @@ void LogToFETDefaultBrowserPromoShown(feature_engagement::Tracker* tracker) {
   tracker->NotifyEvent(feature_engagement::events::kDefaultBrowserPromoShown);
 }
 
-void LogToFETUserPastedURLIntoOmnibox(feature_engagement::Tracker* tracker) {
-  base::RecordAction(
-      base::UserMetricsAction("Mobile.Omnibox.iOS.PastedValidURL"));
-
-  // OTR browsers can sometimes pass a null tracker, check for that here.
-  if (!tracker) {
-    return;
-  }
-
-  if (HasRecentValidURLPastesAndRecordsCurrentPaste()) {
-    tracker->NotifyEvent(feature_engagement::events::kBlueDotPromoCriterionMet);
-  }
-}
-
 bool ShouldTriggerDefaultBrowserHighlightFeature(
     const base::Feature& feature,
     feature_engagement::Tracker* tracker,
@@ -592,11 +570,8 @@ DefaultPromoType ForceDefaultPromoType() {
 }
 
 bool IsDefaultBrowserTriggerCriteraExperimentEnabled() {
-  return base::FeatureList::IsEnabled(kDefaultBrowserTriggerCriteriaExperiment);
-}
-
-bool IsFullScreenPromoOnOmniboxCopyPasteEnabled() {
-  return base::FeatureList::IsEnabled(kFullScreenPromoOnOmniboxCopyPaste);
+  return base::FeatureList::IsEnabled(
+      feature_engagement::kDefaultBrowserTriggerCriteriaExperiment);
 }
 
 bool IsDBVideoPromoFullscreenEnabled() {
@@ -648,6 +623,12 @@ NSInteger UserInteractionWithNonModalPromoCount() {
   return number.integerValue;
 }
 
+NSInteger DisplayedFullscreenPromoCount() {
+  NSNumber* number =
+      GetObjectFromStorageForKey<NSNumber>(kDisplayedFullscreenPromoCount);
+  return number.integerValue;
+}
+
 void LogFullscreenDefaultBrowserPromoDisplayed() {
   const NSInteger displayed_promo_count = DisplayedFullscreenPromoCount();
   NSDictionary<NSString*, NSObject*>* update = @{
@@ -679,20 +660,22 @@ void LogUserInteractionWithTailoredFullscreenPromo() {
   });
 }
 
-void LogUserInteractionWithNonModalPromo() {
-  const NSInteger interaction_count = UserInteractionWithNonModalPromoCount();
-
+void LogUserInteractionWithNonModalPromo(
+    NSInteger currentNonModalPromoInteractionsCount,
+    NSInteger currentFullscreenPromoInteractionsCount) {
   if (IsNonModalDefaultBrowserPromoCooldownRefactorEnabled()) {
     UpdateStorageWithDictionary(@{
       kLastTimeUserInteractedWithNonModalPromo : [NSDate date],
-      kUserInteractedWithNonModalPromoCount : @(interaction_count + 1),
+      kUserInteractedWithNonModalPromoCount :
+          @(currentNonModalPromoInteractionsCount + 1),
     });
   } else {
-    const NSInteger displayed_promo_count = DisplayedFullscreenPromoCount();
     UpdateStorageWithDictionary(@{
       kLastTimeUserInteractedWithFullscreenPromo : [NSDate date],
-      kUserInteractedWithNonModalPromoCount : @(interaction_count + 1),
-      kDisplayedFullscreenPromoCount : @(displayed_promo_count + 1),
+      kUserInteractedWithNonModalPromoCount :
+          @(currentNonModalPromoInteractionsCount + 1),
+      kDisplayedFullscreenPromoCount :
+          @(currentFullscreenPromoInteractionsCount + 1),
     });
   }
 }
@@ -713,15 +696,24 @@ void CleanupStorageForTriggerExperiment() {
   [defaults removeObjectForKey:kAllTimestampsAppLaunchWarmStart];
   [defaults removeObjectForKey:kAllTimestampsAppLaunchIndirectStart];
   [defaults removeObjectForKey:kAutofillUseCount];
+  [defaults removeObjectForKey:kSpecialTabsUseCount];
+  [defaults removeObjectForKey:kOmniboxUseCount];
 }
 
-void LogCopyPasteInOmniboxForDefaultBrowserPromo() {
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeGeneral);
+void LogCopyPasteInOmniboxForCriteriaExperiment() {
+  if (!IsDefaultBrowserTriggerCriteraExperimentEnabled()) {
+    CleanupStorageForTriggerExperiment();
+    return;
+  }
   StoreCurrentTimestampForKey(kOmniboxUseCount);
 }
 
-void LogBookmarkUseForDefaultBrowserPromo() {
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeAllTabs);
+void LogBookmarkUseForCriteriaExperiment() {
+  if (!IsDefaultBrowserTriggerCriteraExperimentEnabled()) {
+    CleanupStorageForTriggerExperiment();
+    return;
+  }
+
   StoreCurrentTimestampForKey(kBookmarkUseCount);
 }
 
@@ -733,12 +725,12 @@ void LogAutofillUseForCriteriaExperiment() {
   StoreCurrentTimestampForKey(kAutofillUseCount);
 }
 
-void LogRemoteTabsUsedForDefaultBrowserPromo() {
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeAllTabs);
-  StoreCurrentTimestampForKey(kSpecialTabsUseCount);
-}
+void LogRemoteTabsUseForCriteriaExperiment() {
+  if (!IsDefaultBrowserTriggerCriteraExperimentEnabled()) {
+    CleanupStorageForTriggerExperiment();
+    return;
+  }
 
-void LogPinnedTabsUsedForDefaultBrowserPromo() {
   StoreCurrentTimestampForKey(kSpecialTabsUseCount);
 }
 
@@ -910,8 +902,7 @@ int GetNonModalDefaultBrowserPromoImpressionLimit() {
   return limit;
 }
 
-bool ShouldRegisterPromoWithPromoManager(bool is_signed_in,
-                                         bool is_omnibox_copy_paste) {
+bool ShouldRegisterPromoWithPromoManager(bool is_signed_in) {
   if (ShouldForceDefaultPromoType()) {
     return YES;
   }
@@ -919,12 +910,6 @@ bool ShouldRegisterPromoWithPromoManager(bool is_signed_in,
   // Consider showing the default browser promo if chrome is not likely set as
   // default browser.
   if (IsChromeLikelyDefaultBrowser()) {
-    return NO;
-  }
-
-  // Consider showing full-screen promo on omnibox copy-paste event iff
-  // corresponding experiment is enabled.
-  if (IsFullScreenPromoOnOmniboxCopyPasteEnabled() != is_omnibox_copy_paste) {
     return NO;
   }
 

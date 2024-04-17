@@ -7,6 +7,8 @@
 
 #include "services/webnn/public/mojom/webnn_context_provider.mojom-blink.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_device_preference.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_device_type.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_model_format.h"
@@ -18,12 +20,15 @@
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
+#include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 
 namespace blink {
 
 class ML;
+class MLBuffer;
+class MLBufferDescriptor;
+class MLComputeResult;
 class MLContextOptions;
-class MLModelLoader;
 
 class MODULES_EXPORT MLContext : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
@@ -31,7 +36,7 @@ class MODULES_EXPORT MLContext : public ScriptWrappable {
  public:
   // Resolves `resolver` with a newly created MLContext. The caller must call
   // `Promise()` on `resolver` before calling this method.
-  static void ValidateAndCreate(ScriptPromiseResolver* resolver,
+  static void ValidateAndCreate(ScriptPromiseResolverTyped<MLContext>* resolver,
                                 MLContextOptions* options,
                                 ML* ml);
 
@@ -57,33 +62,40 @@ class MODULES_EXPORT MLContext : public ScriptWrappable {
   void LogConsoleWarning(const String& message);
 
   ML* GetML();
-  // This method returns a MLModelLoader that's used and shared by WebNN APIs
-  // invoked on this MLContext.
-  MLModelLoader* GetModelLoaderForWebNN(ScriptState* script_state);
 
   void Trace(Visitor* visitor) const override;
 
   // IDL interface:
-  ScriptPromise compute(ScriptState* script_state,
-                        MLGraph* graph,
-                        const MLNamedArrayBufferViews& inputs,
-                        const MLNamedArrayBufferViews& outputs,
-                        ExceptionState& exception_state);
+  ScriptPromiseTyped<MLComputeResult> compute(
+      ScriptState* script_state,
+      MLGraph* graph,
+      const MLNamedArrayBufferViews& inputs,
+      const MLNamedArrayBufferViews& outputs,
+      ExceptionState& exception_state);
 
- protected:
-  // Create and initialize a MLContext object. Resolve the promise with this
-  // concrete object if the underlying context gets created successfully.
-  void Create(ScopedMLTrace scoped_trace,
-              ScriptPromiseResolver* resolver,
-              MLContextOptions* options);
+  MLBuffer* createBuffer(ScriptState* script_state,
+                         const MLBufferDescriptor* descriptor,
+                         ExceptionState& exception_state);
 
-  // An MLContext backend should implement this method to create and initialize
-  // a platform specific context asynchronously.
-  virtual void CreateImpl(ScopedMLTrace scoped_trace,
-                          ScriptPromiseResolver* resolver,
-                          MLContextOptions* options);
+  // Creates a platform-specific compute graph described by `graph_info`.
+  void CreateWebNNGraph(
+      webnn::mojom::blink::GraphInfoPtr graph_info,
+      webnn::mojom::blink::WebNNContext::CreateGraphCallback callback);
+
+  // Creates platform specific buffer described by `buffer_info`.
+  void CreateWebNNBuffer(
+      mojo::PendingReceiver<webnn::mojom::blink::WebNNBuffer> receiver,
+      webnn::mojom::blink::BufferInfoPtr buffer_info,
+      const base::UnguessableToken& buffer_handle);
 
  private:
+  // The callback of creating `WebNNContext` mojo interface from WebNN Service.
+  // Return `CreateContextResult::kNotSupported` on non-supported input
+  // configuration.
+  void OnCreateWebNNContext(ScopedMLTrace scoped_trace,
+                            ScriptPromiseResolverTyped<MLContext>* resolver,
+                            webnn::mojom::blink::CreateContextResultPtr result);
+
   V8MLDevicePreference device_preference_;
   V8MLDeviceType device_type_;
   V8MLPowerPreference power_preference_;
@@ -91,8 +103,10 @@ class MODULES_EXPORT MLContext : public ScriptWrappable {
   unsigned int num_threads_;
 
   Member<ML> ml_;
-  // WebNN uses this MLModelLoader to build a computational graph.
-  Member<MLModelLoader> ml_model_loader_;
+
+  // The `WebNNContext` is a initialized context that can be used by the
+  // hardware accelerated OS machine learning API.
+  HeapMojoRemote<webnn::mojom::blink::WebNNContext> remote_context_;
 };
 
 }  // namespace blink

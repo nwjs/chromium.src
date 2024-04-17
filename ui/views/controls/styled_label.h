@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/lru_cache.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
@@ -177,6 +178,9 @@ class VIEWS_EXPORT StyledLabel : public View {
   // wrapped).  If 0, no fixed width is enforced.
   void SizeToFit(int fixed_width);
 
+  [[nodiscard]] base::CallbackListSubscription AddTextChangedCallback(
+      views::PropertyChangedCallback callback);
+
   // If true, the preferred size is dependent on the last set width.
   // See the comment on `use_legacy_preferred_size_`.
   void set_use_legacy_preferred_size(bool use_legacy_preferred_size) {
@@ -187,6 +191,7 @@ class VIEWS_EXPORT StyledLabel : public View {
   gfx::Size CalculatePreferredSize() const final;
   gfx::Size CalculatePreferredSize(
       const SizeBounds& available_size) const override;
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   int GetHeightForWidth(int w) const override;
   void Layout(PassKey) override;
   void PreferredSizeChanged() override;
@@ -247,6 +252,8 @@ class VIEWS_EXPORT StyledLabel : public View {
   // delete the rest.
   void RemoveOrDeleteAllChildViews();
 
+  void RecreateChildViews();
+
   // The text to display.
   std::u16string text_;
 
@@ -276,6 +283,11 @@ class VIEWS_EXPORT StyledLabel : public View {
   // recalculation, while |layout_views_| only exists until the next Layout().
   mutable LayoutSizeInfo layout_size_info_{0};
   mutable std::unique_ptr<LayoutViews> layout_views_;
+  // Saves the LayoutSizeInfo for additional CalculateLayout() calls. Layout
+  // managers sometimes repeatedly ask for size information for the same (small)
+  // number of widths. Caching multiple LayoutSideInfos helps avoid doing many
+  // unnecessary calculations.
+  mutable base::LRUCache<int, LayoutSizeInfo> layout_size_info_cache_{16};
 
   // Background color on which the label is drawn, for auto color readability.
   ColorVariant displayed_on_background_color_;
@@ -286,6 +298,12 @@ class VIEWS_EXPORT StyledLabel : public View {
 
   // Controls whether subpixel rendering is enabled.
   bool subpixel_rendering_enabled_ = true;
+
+  // Controls whether subviews need to be recreated. Recreating subviews can
+  // cause some functionality to break under certain circumstances.
+  // eg: If re-creating the subview occurs after OnMousePressed() and before
+  // OnMouseRelease(), the link will not be clickable.
+  bool need_recreate_child_ = true;
 
   // The horizontal alignment. This value is flipped for RTL. The default
   // behavior is to align left in LTR UI and right in RTL UI.

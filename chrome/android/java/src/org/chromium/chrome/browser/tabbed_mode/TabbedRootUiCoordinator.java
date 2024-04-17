@@ -48,8 +48,6 @@ import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.desktop_site.DesktopSiteSettingsIPHController;
 import org.chromium.chrome.browser.dragdrop.ChromeTabbedOnDragListener;
-import org.chromium.chrome.browser.feature_guide.notifications.FeatureNotificationUtils;
-import org.chromium.chrome.browser.feature_guide.notifications.FeatureType;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedFollowIntroController;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ActivityType;
@@ -184,6 +182,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private final OneshotSupplier<HubManager> mHubManagerSupplier;
     private TouchEventObserver mDragDropTouchObserver;
     private ViewGroup mCoordinator;
+    private final ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
 
     /**
      * A common {@link CallbackController} used for being notified when {@link TabSwitcher} or
@@ -275,8 +274,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
      * @param backPressManager The {@link BackPressManager} handling back press.
      * @param savedInstanceState The saved bundle for the last recorded state.
      * @param multiInstanceManager Manages multi-instance mode.
-     * @param overviewIncognitoSupplier An optional incognito state for the overview. When not set,
-     *     the tab model is used to determine incognito state.
+     * @param overviewColorSupplier Notifies when the overview color changes.
      * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
      *     suggestion list) will position themselves relative to. If null, the content view will be
      *     used.
@@ -330,7 +328,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             @NonNull BackPressManager backPressManager,
             @Nullable Bundle savedInstanceState,
             @Nullable MultiInstanceManager multiInstanceManager,
-            @Nullable BooleanSupplier overviewIncognitoSupplier,
+            @Nullable ObservableSupplier<Integer> overviewColorSupplier,
             @Nullable View baseChromeLayout) {
         super(
                 activity,
@@ -375,7 +373,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 initializeUiWithIncognitoColors,
                 backPressManager,
                 savedInstanceState,
-                overviewIncognitoSupplier,
+                overviewColorSupplier,
                 baseChromeLayout);
         mControlContainerHeightResource = controlContainerHeightResource;
         mInsetObserverViewSupplier = insetObserverViewSupplier;
@@ -406,12 +404,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         mHubManagerSupplier = hubManagerSupplier;
         mStatusBarColorController.setAllowToolbarColorOnTablets(
                 ToolbarFeatures.shouldUseToolbarBgColorForStripTransitionScrim());
+        mEdgeToEdgeControllerSupplier = edgeToEdgeSupplier;
     }
 
     @Override
     public void onDestroy() {
-        FeatureNotificationUtils.unregisterIPHCallback(FeatureType.DEFAULT_BROWSER);
-
         if (mSystemUiCoordinator != null) mSystemUiCoordinator.destroy();
 
         if (mOfflineIndicatorController != null) {
@@ -511,7 +508,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         mActivity.getWindow(),
                         mTabModelSelectorSupplier.get(),
                         mLayoutManagerSupplier,
-                        mFullscreenManager);
+                        mFullscreenManager,
+                        mEdgeToEdgeControllerSupplier);
     }
 
     @Override
@@ -832,7 +830,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         mWindowAndroid,
                         mAppMenuCoordinator,
                         mActivityLifecycleDispatcher,
-                        mProfileSupplier,
+                        profile,
                         mActivityTabProvider,
                         mIsInOverviewModeSupplier,
                         mToolbarManager.getMenuButtonView(),
@@ -840,13 +838,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         mReadAloudIPHController =
                 new ReadAloudIPHController(
                         mActivity,
+                        profile,
                         getToolbarManager().getMenuButtonView(),
                         mAppMenuCoordinator.getAppMenuHandler(),
                         mActivityTabProvider,
-                        mReadAloudControllerSupplier);
+                        mReadAloudControllerSupplier,
+                        /* showAppMenuTextBubble= */ true);
         mReadLaterIPHController =
                 new ReadLaterIPHController(
                         mActivity,
+                        profile,
                         getToolbarManager().getMenuButtonView(),
                         mAppMenuCoordinator.getAppMenuHandler());
 
@@ -913,16 +914,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         }
 
         if (!didTriggerPromo) {
-            didTriggerPromo = FeatureNotificationUtils.willShowIPH(FeatureType.DEFAULT_BROWSER);
-            FeatureNotificationUtils.registerIPHCallback(
-                    FeatureType.DEFAULT_BROWSER,
-                    () -> {
-                        DefaultBrowserPromoUtils.prepareLaunchPromoIfNeeded(
-                                mActivity, mWindowAndroid, /* ignoreMaxCount= */ true);
-                    });
-        }
-
-        if (!didTriggerPromo) {
             didTriggerPromo = triggerPromo(profile, intentWithEffect);
         }
 
@@ -939,6 +930,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                     && MultiWindowUtils.shouldShowManageWindowsMenu()) {
                 MultiInstanceIphController.maybeShowInProductHelp(
                         mActivity,
+                        profile,
                         getToolbarManager().getMenuButtonView(),
                         mAppMenuCoordinator.getAppMenuHandler(),
                         R.id.manage_all_windows_menu_id);
@@ -961,6 +953,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             mOfflineIndicatorInProductHelpController =
                     new OfflineIndicatorInProductHelpController(
                             mActivity,
+                            profile,
                             mToolbarManager,
                             mAppMenuCoordinator.getAppMenuHandler(),
                             mStatusIndicatorCoordinator);
@@ -982,6 +975,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         mAppBannerInProductHelpController =
                 AppBannerInProductHelpControllerFactory.createAppBannerInProductHelpController(
                         mActivity,
+                        profile,
                         mAppMenuCoordinator.getAppMenuHandler(),
                         () -> mToolbarManager.getMenuButtonView(),
                         R.id.add_to_homescreen_id);
@@ -1005,6 +999,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             mWebFeedFollowIntroController =
                     new WebFeedFollowIntroController(
                             mActivity,
+                            profile,
                             mAppMenuCoordinator.getAppMenuHandler(),
                             mActivityTabProvider,
                             mToolbarManager.getMenuButtonView(),
@@ -1027,6 +1022,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 PageZoomIPHController mPageZoomIPHController =
                         new PageZoomIPHController(
                                 mActivity,
+                                profile,
                                 mAppMenuCoordinator.getAppMenuHandler(),
                                 mToolbarManager.getMenuButtonView());
                 mPageZoomIPHController.showColdStartIPH();
@@ -1041,7 +1037,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         final BrowserControlsSizer browserControlsSizer = mBrowserControlsManager;
 
         int topControlsNewHeight;
-        if (ChromeFeatureList.sDynamicTopChrome.isEnabled()) {
+        if (ToolbarFeatures.isDynamicTopChromeEnabled()) {
             // This method can be called when the toolbar didn't go through a layout pass (e.g. when
             // theme switches in settings, activity recreates), so getToolbar().getHeight() returns
             // 0.
@@ -1168,7 +1164,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private void initTabStripTransitionCoordinator() {
         // Tab strip transition is only supported for tablets.
         if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
-                || !ChromeFeatureList.sDynamicTopChrome.isEnabled()) return;
+                || !ToolbarFeatures.isDynamicTopChromeEnabled()) return;
 
         mOnTabStripHeightChangedCallback = (height) -> updateTopControlsHeight();
         mToolbarManager.getTabStripHeightSupplier().addObserver(mOnTabStripHeightChangedCallback);

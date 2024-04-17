@@ -11,7 +11,6 @@
 #include <tuple>
 
 #include "base/check.h"
-#include "base/containers/cxx20_erase.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -482,6 +481,12 @@ void WaylandEventSource::DumpState(std::ostream& out) const {
     scroll_data.DumpState(out);
     out << std::endl;
   }
+}
+
+void WaylandEventSource::ResetStateForTesting() {
+  event_watcher_->Flush();
+  event_watcher_->RoundTripQueue();
+  event_watcher_->StopProcessingEvents();
 }
 
 const gfx::PointF& WaylandEventSource::GetPointerLocation() const {

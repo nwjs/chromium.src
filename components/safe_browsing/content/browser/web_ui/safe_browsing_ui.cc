@@ -14,7 +14,6 @@
 #include "base/base64.h"
 #include "base/base64url.h"
 #include "base/command_line.h"
-#include "base/containers/cxx20_erase.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -504,7 +503,7 @@ void WebUIInfoSingleton::RegisterWebUIInstance(SafeBrowsingUIHandler* webui) {
 }
 
 void WebUIInfoSingleton::UnregisterWebUIInstance(SafeBrowsingUIHandler* webui) {
-  base::Erase(webui_instances_, webui);
+  std::erase(webui_instances_, webui);
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
   // Notify other WebUIs that the source of the tailored verdict override is
@@ -796,6 +795,10 @@ std::string SerializeClientSideDetectionType(ClientSideDetectionType csd_type) {
       return "TRIGGER_MODELS";
     case ClientSideDetectionType::NOTIFICATION_PERMISSION_PROMPT:
       return "NOTIFICATION_PERMISSION_PROMPT";
+    case ClientSideDetectionType::KEYBOARD_LOCK_REQUESTED:
+      return "KEYBOARD_LOCK_REQUESTED";
+    case ClientSideDetectionType::POINTER_LOCK_REQUESTED:
+      return "POINTER_LOCK_REQUESTED";
   }
   return "UNKNOWN_ENUM_SPECIFIED";
 }
@@ -2846,7 +2849,9 @@ base::Value::Dict SerializeDeepScanDebugData(const std::string& token,
 #endif  // BUILDFLAG(FULL_SAFE_BROWSING)
 }  // namespace
 
-SafeBrowsingUI::SafeBrowsingUI(content::WebUI* web_ui)
+SafeBrowsingUI::SafeBrowsingUI(
+    content::WebUI* web_ui,
+    std::unique_ptr<SafeBrowsingLocalStateDelegate> delegate)
     : content::WebUIController(web_ui) {
   content::BrowserContext* browser_context =
       web_ui->GetWebContents()->GetBrowserContext();
@@ -2857,8 +2862,8 @@ SafeBrowsingUI::SafeBrowsingUI(content::WebUI* web_ui)
 
   // Register callback handler.
   // Handles messages from JavaScript to C++ via chrome.send().
-  web_ui->AddMessageHandler(
-      std::make_unique<SafeBrowsingUIHandler>(browser_context));
+  web_ui->AddMessageHandler(std::make_unique<SafeBrowsingUIHandler>(
+      browser_context, std::move(delegate)));
 
   // Add required resources.
   html_source->AddResourcePath("safe_browsing.css", IDR_SAFE_BROWSING_CSS);
@@ -2873,8 +2878,10 @@ SafeBrowsingUI::SafeBrowsingUI(content::WebUI* web_ui)
 
 SafeBrowsingUI::~SafeBrowsingUI() {}
 
-SafeBrowsingUIHandler::SafeBrowsingUIHandler(content::BrowserContext* context)
-    : browser_context_(context) {}
+SafeBrowsingUIHandler::SafeBrowsingUIHandler(
+    content::BrowserContext* context,
+    std::unique_ptr<SafeBrowsingLocalStateDelegate> delegate)
+    : browser_context_(context), delegate_(std::move(delegate)) {}
 
 SafeBrowsingUIHandler::~SafeBrowsingUIHandler() {
   WebUIInfoSingleton::GetInstance()->UnregisterWebUIInstance(this);
@@ -2951,8 +2958,9 @@ void SafeBrowsingUIHandler::OnGetCookie(
 }
 
 void SafeBrowsingUIHandler::GetSavedPasswords(const base::Value::List& args) {
-  password_manager::HashPasswordManager hash_manager(
-      user_prefs::UserPrefs::Get(browser_context_));
+  password_manager::HashPasswordManager hash_manager;
+  hash_manager.set_prefs(user_prefs::UserPrefs::Get(browser_context_));
+  hash_manager.set_local_prefs(delegate_->GetLocalState());
 
   base::Value::List saved_passwords;
   for (const password_manager::PasswordHashData& hash_data :
@@ -3068,6 +3076,12 @@ std::string SerializeDownloadUrlChecked(const std::vector<GURL>& urls,
       break;
     case DownloadCheckResult::PROMPT_FOR_LOCAL_PASSWORD_SCANNING:
       url_and_result.Set("result", "PROMPT_FOR_LOCAL_PASSWORD_SCANNING");
+      break;
+    case DownloadCheckResult::BLOCKED_SCAN_FAILED:
+      url_and_result.Set("result", "BLOCKED_SCAN_FAILED");
+      break;
+    case DownloadCheckResult::IMMEDIATE_DEEP_SCAN:
+      url_and_result.Set("result", "IMMEDIATE_DEEP_SCAN");
       break;
   }
 

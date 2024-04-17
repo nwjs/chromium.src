@@ -80,7 +80,6 @@ Jei reikia daugiau nustatymų, pagal kuriuos duomenys naudojami „Chromium“ f
 <translation id="3219277919172823720">Paieška balsu naršyklėje „Chromium“</translation>
 <translation id="3228349498066165585">Kai kurie „Chromium“ duomenys dar neišsaugoti „Google“ paskyroje.
         Pabandykite palaukti kelias minutes prieš atsijungdami. Jei atsijungsite dabar, šie duomenys bus ištrinti.</translation>
-<translation id="3256316712990552818">Nukopijuota į „Chromium“</translation>
 <translation id="328933489847748230">{count,plural, =1{Dabar rodomas vienas „Chromium“ langas}one{Dabar rodomas {count} „Chromium“ langas}few{Dabar rodomi {count} „Chromium“ langai}many{Dabar rodoma {count} „Chromium“ lango}other{Dabar rodoma {count} „Chromium“ langų}}</translation>
 <translation id="3344973607274501920">„Chromium“ nepavyko patikrinti jūsų slaptažodžių. Pabandykite patikrinti interneto ryšį.</translation>
 <translation id="3366305173356742781">„Chromium“ duomenys jūsų paskyroje</translation>
@@ -118,6 +117,7 @@ Duomenys užšifruoti naudojant slaptafrazę. Įveskite ją, kad galėtumėte na
 <translation id="4195557071150719219">Žr. „Chromium“ naujausius skirtukus</translation>
 <translation id="4200712796753248893">„Chromium“ veiksmų naudojimas sistemoje „iOS“</translation>
 <translation id="420541179527342563">Jei norite išjungti užrakinimo režimą naršyklėje „Chromium“, išjunkite jį „iPad“ įrenginyje.</translation>
+<translation id="427331839909790668">Susiekite „Chromium“ ir kitas „Google“ paslaugas, jei norite, kad jos suasmenintų jums teikiamas funkcijas pagal skirtingų paslaugų duomenis</translation>
 <translation id="4408912345039114853">„Chromium“ saugos patikros vykdymas</translation>
 <translation id="4432744876818348753">Prisijunkite, kad išnaudotumėte visas „Chromium“ galimybes.</translation>
 <translation id="4445228361214254027">Organizacija išjungė galimybę naudoti ir išsaugoti „Chromium“ duomenis „Google“ paskyroje. Nauji slaptažodžiai, žymės ir kt. bus išsaugoti tik šiame įrenginyje.</translation>
@@ -219,6 +219,7 @@ Tik jūsų slaptafrazę turintis asmuo galės perskaityti šifruotus duomenis. S
 <translation id="6852799557929001644">Pasiekite „Chromium“ slaptažodžius ir kitas programas kitose šio įrenginio programose.</translation>
 <translation id="6887138405044152640">Jei norite siųsti šį skirtuką į kitą įrenginį, prisijunkite prie „Chromium“ čia.</translation>
 <translation id="6911341667534646387">Toliau naudokite „Chromium“ duomenis „Google“ paskyroje</translation>
+<translation id="7002548535535009764">Jei norite išnaudoti visus suasmenintų funkcijų pranašumus, įtraukite „Chromium“ į „<ph name="FEATURE_NAME_1" />“ ir „<ph name="FEATURE_NAME_2" />“</translation>
 <translation id="7006920032187763988">Galite naudoti Slaptažodžių tvarkytuvėje išsaugotus slaptažodžius kitose „iPad“ programose.</translation>
 <translation id="7018284295775193585">Nepavyko atnaujinti „Chromium“</translation>
 <translation id="7045244423563602563">Suasmeninkite „Chromium“</translation>

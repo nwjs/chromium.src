@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/apps/app_service/metrics/website_metrics.h"
+
 #include <memory>
 #include <optional>
 #include <set>
@@ -12,7 +14,6 @@
 #include "base/run_loop.h"
 #include "base/time/time.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/apps/app_service/metrics/website_metrics.h"
 #include "chrome/browser/apps/app_service/metrics/website_metrics_browser_test_mixin.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
@@ -794,11 +796,11 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest,
   wm::GetActivationClient(window1->GetRootWindow())->DeactivateWindow(window1);
 
   // Detach `tab1`.
-  auto detached =
-      browser1->tab_strip_model()->DetachWebContentsAtForInsertion(0);
+  std::unique_ptr<tabs::TabModel> detached_tab =
+      browser1->tab_strip_model()->DetachTabAtForInsertion(0);
 
   // Attach `tab1` to `browser2`.
-  browser2->tab_strip_model()->InsertWebContentsAt(0, std::move(detached),
+  browser2->tab_strip_model()->InsertDetachedTabAt(0, std::move(detached_tab),
                                                    AddTabTypes::ADD_ACTIVE);
   auto* tab3 = browser2->tab_strip_model()->GetWebContentsAt(0);
 
@@ -921,11 +923,11 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest,
   wm::GetActivationClient(window1->GetRootWindow())->DeactivateWindow(window1);
 
   // Detach `tab2`.
-  auto detached =
-      browser1->tab_strip_model()->DetachWebContentsAtForInsertion(1);
+  std::unique_ptr<tabs::TabModel> detached_tab =
+      browser1->tab_strip_model()->DetachTabAtForInsertion(1);
 
   // Attach `tab2` to `browser2`.
-  browser2->tab_strip_model()->InsertWebContentsAt(0, std::move(detached),
+  browser2->tab_strip_model()->InsertDetachedTabAt(0, std::move(detached_tab),
                                                    AddTabTypes::ADD_ACTIVE);
   auto* tab3 = browser2->tab_strip_model()->GetWebContentsAt(0);
 

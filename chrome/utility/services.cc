@@ -19,7 +19,6 @@
 #include "components/services/language_detection/public/mojom/language_detection.mojom.h"
 #include "components/services/patch/file_patcher_impl.h"
 #include "components/services/patch/public/mojom/file_patcher.mojom.h"
-#include "components/services/screen_ai/buildflags/buildflags.h"
 #include "components/services/unzip/public/mojom/unzipper.mojom.h"
 #include "components/services/unzip/unzipper_impl.h"
 #include "components/webapps/services/web_app_origin_association/public/mojom/web_app_origin_association_parser.mojom.h"
@@ -29,11 +28,12 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/service_factory.h"
 #include "printing/buildflags/buildflags.h"
+#include "services/screen_ai/buildflags/buildflags.h"
 #include "ui/accessibility/accessibility_features.h"
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-#include "components/services/screen_ai/public/mojom/screen_ai_factory.mojom.h"  // nogncheck
-#include "components/services/screen_ai/screen_ai_service_impl.h"  // nogncheck
+#include "services/screen_ai/public/mojom/screen_ai_factory.mojom.h"  // nogncheck
+#include "services/screen_ai/screen_ai_service_impl.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -127,6 +127,7 @@
 #include "chromeos/ash/services/orca/orca_library.h"
 #include "chromeos/ash/services/quick_pair/quick_pair_service.h"
 #include "chromeos/ash/services/recording/recording_service.h"
+#include "chromeos/constants/chromeos_features.h"  // nogncheck
 #include "chromeos/services/tts/public/mojom/tts_service.mojom.h"
 #include "chromeos/services/tts/tts_service.h"
 
@@ -141,7 +142,6 @@
 #include "chromeos/components/mahi/public/mojom/content_extraction.mojom.h"
 #include "chromeos/components/quick_answers/public/cpp/service/spell_check_service.h"
 #include "chromeos/components/quick_answers/public/mojom/spell_check.mojom.h"
-#include "chromeos/constants/chromeos_features.h"  // nogncheck
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
@@ -533,9 +533,7 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
 
 #if BUILDFLAG(IS_CHROMEOS)
   services.Add(RunQuickAnswersSpellCheckService);
-  if (chromeos::features::IsMahiEnabled()) {
-    services.Add(RunMahiContentExtractionServiceFactory);
-  }
+  services.Add(RunMahiContentExtractionServiceFactory);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 

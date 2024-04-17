@@ -308,8 +308,7 @@ void ManagePasswordsUIController::OnAutomaticPasswordSave(
 }
 
 void ManagePasswordsUIController::OnPasswordAutofilled(
-    const std::vector<raw_ptr<const password_manager::PasswordForm,
-                              VectorExperimental>>& password_forms,
+    base::span<const password_manager::PasswordForm> password_forms,
     const url::Origin& origin,
     const std::vector<raw_ptr<const password_manager::PasswordForm,
                               VectorExperimental>>* federated_matches) {
@@ -884,6 +883,14 @@ void ManagePasswordsUIController::NavigateToPasswordManagerSettingsPage(
     password_manager::ManagePasswordsReferrer referrer) {
   NavigateToManagePasswordsPage(chrome::FindBrowserWithTab(web_contents()),
                                 referrer);
+}
+
+void ManagePasswordsUIController::
+    NavigateToPasswordDetailsPageInPasswordManager(
+        const std::string& password_domain_name,
+        password_manager::ManagePasswordsReferrer referrer) {
+  NavigateToPasswordDetailsPage(chrome::FindBrowserWithTab(web_contents()),
+                                password_domain_name, referrer);
 }
 
 void ManagePasswordsUIController::

@@ -19,10 +19,17 @@
 #include "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #include "url/gurl.h"
 
+// TODO(crbug.com/328831758): Remove this once all use cases for
+// MoveWebStateWrapperAt have landed and covered by tests.
+#include "base/gtest_prod_util.h"
+
 class RemovingIndexes;
 class TabGroup;
 class WebStateListDelegate;
 class WebStateListObserver;
+// TODO(crbug.com/328831758): Remove this once all use cases for
+// MoveWebStateWrapperAt have landed and covered by tests.
+class WebStateListTest;
 
 namespace tab_groups {
 class TabGroupVisualData;
@@ -47,20 +54,33 @@ class WebStateList {
  public:
   // Parameters used when inserting WebStates.
   struct InsertionParams {
-    WebStateOpener opener;
-    bool inherit_opener = false;
-    bool activate = false;
-    bool pinned = false;
-    int desired_index = kInvalidIndex;
-
     // Lets the WebStateList decide where to insert the WebState.
     static InsertionParams Automatic() { return {}; }
 
     // Provides the WebStateList with a desired index where to insert the
     // WebState.
     static InsertionParams AtIndex(int desired_index) {
-      return {.desired_index = desired_index};
+      InsertionParams params;
+      params.desired_index = desired_index;
+      return params;
     }
+
+    InsertionParams(const InsertionParams&);
+    InsertionParams& operator=(const InsertionParams&);
+    InsertionParams(InsertionParams&&);
+    InsertionParams& operator=(InsertionParams&&);
+
+    WebStateOpener opener;
+    raw_ptr<const TabGroup> in_group = nullptr;
+    int desired_index = kInvalidIndex;
+    bool inherit_opener = false;
+    bool activate = false;
+    bool pinned = false;
+
+    // Used to check that Pinned() or InGroup() have not been
+    // called on the same object.
+    bool pinned_called = false;
+    bool in_group_called = false;
 
     // Sets the potential opener.
     InsertionParams& WithOpener(WebStateOpener an_opener) {
@@ -82,11 +102,29 @@ class WebStateList {
       return *this;
     }
 
-    // Whether the WebState is added to the pinned WebStates.
+    // Whether the WebState is added to the pinned WebStates. This is ignored if
+    // an opener is set or inherited which belongs to a group. The WebState will
+    // then be inserted in that group.
+    // Cannot be called after `InGroup(...)`.
     InsertionParams& Pinned(bool pin = true) {
-      this->pinned = pin;
+      CHECK(!in_group_called);
+      pinned_called = true;
+      pinned = pin;
       return *this;
     }
+
+    // Sets the group the new WebState belongs to.
+    // Cannot be called after `Pinned(...)`.
+    InsertionParams& InGroup(const TabGroup* group) {
+      CHECK(!pinned_called);
+      in_group_called = true;
+      in_group = group;
+      return *this;
+    }
+
+   private:
+    // Client code should use `Automatic()` to make intention explicit.
+    InsertionParams();
   };
 
   // Constants used when closing WebStates.
@@ -158,18 +196,63 @@ class WebStateList {
     constexpr bool IsValid() const { return *this != InvalidRange(); }
 
     // Getters.
-    constexpr int start() const { return start_; }
+    constexpr int range_begin() const { return start_; }
     constexpr int count() const { return count_; }
 
-    // End is the first index not in the range.
-    constexpr int end() const { return start_ + count_; }
+    // `range_end` is the first index not in the range.
+    constexpr int range_end() const { return start_ + count_; }
     // Whether the index is inside the range.
     constexpr bool contains(int index) const {
       return start_ <= index && index < start_ + count_;
     }
 
+    // Updates the range by moving it by one in a given direction.
+    constexpr void MoveLeft() {
+      CHECK_GT(start_, 0);
+      --start_;
+    }
+    constexpr void MoveRight() { ++start_; }
+
+    // Updates the range by expanding/contracting by one in a given direction.
+    constexpr void ExpandLeft() {
+      MoveLeft();
+      ExpandRight();
+    }
+    constexpr void ExpandRight() { ++count_; }
+    constexpr void ContractLeft() {
+      MoveRight();
+      ContractRight();
+    }
+    constexpr void ContractRight() {
+      CHECK_GT(count_, 0);
+      --count_;
+    }
+
     constexpr bool operator==(const Range& other) const = default;
     constexpr bool operator!=(const Range& other) const = default;
+
+    // Support for range-based for-loops. Ex:
+    //
+    //  Range range = ...;
+    //  for (int i : range) {
+    //    // ... do something with the index from the range.
+    //  }
+    //
+    class iterator {
+     public:
+      constexpr iterator(int current) : current_(current) {}
+
+      int operator*() const { return current_; }
+      void operator++() { ++current_; }
+      bool operator!=(const iterator& other) const {
+        return current_ != other.current_;
+      }
+
+     private:
+      int current_;
+    };
+    iterator begin() const { return iterator{start_}; }
+    iterator end() const { return iterator{range_end()}; }
 
    private:
     int start_;
@@ -293,7 +376,10 @@ class WebStateList {
 
   // Returns the range of WebStates belonging to the tab group. The group must
   // be valid and belong to this WebStateList.
-  Range GetWebStates(const TabGroup* group) const;
+  Range GetGroupRange(const TabGroup* group) const;
+
+  // Returns the list of all groups.
+  std::set<const TabGroup*> GetGroups() const;
 
   // Creates a new tab group and moves the set of WebStates at `indices` to
   // it.
@@ -309,6 +395,18 @@ class WebStateList {
   const TabGroup* CreateGroup(
       const std::set<int>& indices,
       const tab_groups::TabGroupVisualData& visual_data);
+
+  // Moves the set of WebStates at `indices` at the end of the given tab group.
+  void MoveToGroup(const std::set<int>& indices, const TabGroup* group);
+
+  // Removes the set of WebStates at `indices` from the groups they are in,
+  // if any. The WebStates are reordered out of the groups if necessary.
+  void RemoveFromGroups(const std::set<int>& indices);
+
+  // Removes all WebStates from the group. The WebStates stay where they are.
+  // The group is destroyed.
+  // TODO(crbug.com/325422747): Actually destroy the group.
+  void DeleteGroup(const TabGroup* group);
 
   // Adds an observer to the model.
   void AddObserver(WebStateListObserver* observer);
@@ -345,9 +443,7 @@ class WebStateList {
   // Moves the WebState at the specified index to another index.
   //
   // Assumes that the WebStateList is locked.
-  void MoveWebStateAtImpl(int from_index,
-                          int to_index,
-                          bool pinned_state_change);
+  void MoveWebStateAtImpl(int from_index, int to_index);
 
   // Replaces the WebState at the specified index with new WebState. Returns
   // the old WebState at that index to the caller (abandon ownership of the
@@ -403,6 +499,24 @@ class WebStateList {
       const std::set<int>& indices,
       const tab_groups::TabGroupVisualData& visual_data);
 
+  // Moves the set of WebStates at `indices` at the end of the given tab group.
+  //
+  // Assumes that the WebStateList is locked.
+  void MoveToGroupImpl(const std::set<int>& indices, const TabGroup* group);
+
+  // Removes the set of WebStates at `indices` from the groups they are in,
+  // if any. The WebStates are reordered out of the groups if necessary.
+  //
+  // Assumes that the WebStateList is locked.
+  void RemoveFromGroupsImpl(const std::set<int>& indices);
+
+  // Removes all WebStates from the group. The WebStates stay where they are.
+  // The group is destroyed.
+  // TODO(crbug.com/325422747): Actually destroy the group.
+  //
+  // Assumes that the WebStateList is locked.
+  void DeleteGroupImpl(const TabGroup* group);
+
   // Sets the opener of any WebState that reference the WebState at the
   // specified index to null.
   void ClearOpenersReferencing(int index);
@@ -427,12 +541,17 @@ class WebStateList {
   // to call this with an index such that `ContainsIndex(index)` returns false.
   WebStateWrapper* GetWebStateWrapperAt(int index) const;
 
-  // Moves the wrapper of the WebState at `from_index` to `to_index`. This only
-  // performs the move, and doesn't notify observers. The indices must be valid,
-  // i.e. there is no fallback.
+  // Moves the wrapper of the WebState at `from_index` to `to_index`. This
+  // performs the move, updates the relevant WebStateList state (number of
+  // pinned tabs, index of the active WebState, groups ranges), and notifies
+  // observers. The indices and state changes must be valid, i.e. there is no
+  // fallback.
   //
   // Assumes that the WebStateList is locked.
-  void MoveWebStateWrapperAt(int from_index, int to_index);
+  void MoveWebStateWrapperAt(int from_index,
+                             int to_index,
+                             bool pinned,
+                             const TabGroup* group);
 
   // Updates the active index, updates the WebState opener for the old active
   // WebState if exists and brings the new active WebState to the "realized"
@@ -476,6 +595,15 @@ class WebStateList {
 
   // Weak pointer factory.
   base::WeakPtrFactory<WebStateList> weak_factory_{this};
+
+  // TODO(crbug.com/328831758): Remove this once all use cases for
+  // MoveWebStateWrapperAt have landed and covered by tests.
+  FRIEND_TEST_ALL_PREFIXES(WebStateListTest, MoveToGroup_NoMove_GoToRightGroup);
+  FRIEND_TEST_ALL_PREFIXES(WebStateListTest,
+                           MoveToGroup_NoMove_GoToRightGroup_OldGroupEmpty);
+  FRIEND_TEST_ALL_PREFIXES(WebStateListTest,
+                           MoveToGroup_NoMove_GoToRightGroup_OldGroupNonEmpty);
+  FRIEND_TEST_ALL_PREFIXES(WebStateListTest, MoveToGroup_NoMove_PinnedToGroup);
 };
 
 // Helper function that closes all WebStates in `web_state_list`. The operation

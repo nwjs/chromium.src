@@ -24,7 +24,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
-#import "ios/chrome/test/earl_grey/chrome_earl_grey_app_interface.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/web_http_server_chrome_test_case.h"
@@ -98,10 +97,9 @@ BOOL WaitForKeyboardToAppear() {
   // enabled by default.
   [PasswordSuggestionBottomSheetAppInterface setDismissCount:0];
   // Manually clear sync passwords pref before testShowAccountStorageNotice*.
-  [ChromeEarlGreyAppInterface
-      clearUserPrefWithName:base::SysUTF8ToNSString(
-                                syncer::SyncPrefs::GetPrefNameForTypeForTesting(
-                                    syncer::UserSelectableType::kPasswords))];
+  [ChromeEarlGrey
+      clearUserPrefWithName:syncer::SyncPrefs::GetPrefNameForTypeForTesting(
+                                syncer::UserSelectableType::kPasswords)];
 }
 
 - (void)tearDown {
@@ -309,6 +307,58 @@ BOOL WaitForKeyboardToAppear() {
   [ChromeEarlGrey
       waitForUIElementToAppearWithMatcher:
           PasswordInfobarLabels(IDS_IOS_PASSWORD_MANAGER_UPDATE_PASSWORD)];
+
+  [[EarlGrey
+      selectElementWithMatcher:PasswordInfobarButton(
+                                   IDS_IOS_PASSWORD_MANAGER_UPDATE_BUTTON)]
+      performAction:grey_tap()];
+
+  // Wait until the update password infobar disappears.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:
+          PasswordInfobarLabels(IDS_IOS_PASSWORD_MANAGER_UPDATE_PASSWORD)];
+
+  credentialsCount = [PasswordManagerAppInterface storedCredentialsCount];
+  GREYAssertEqual(1, credentialsCount, @"Wrong number of final credentials.");
+}
+
+// Tests that update password prompt is shown on submitting the new password
+// for an already stored login in local store.
+- (void)testUpdateLocalPasswordPromptOnFormSubmission {
+  // Load the page the first time an store credentials locally.
+  [self loadLoginPage];
+  [PasswordManagerAppInterface storeCredentialWithUsername:@"Eguser"
+                                                  password:@"OldPass"];
+  int credentialsCount = [PasswordManagerAppInterface storedCredentialsCount];
+  GREYAssertEqual(1, credentialsCount, @"Wrong number of initial credentials.");
+
+  // Sign in with identity.
+  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+  [ChromeEarlGrey waitForSyncEngineInitialized:YES
+                                   syncTimeout:base::Seconds(10)];
+
+  // Load the page again and have a new password value to save.
+  [self loadLoginPage];
+  // Simulate user interacting with fields.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(kFormUsername)];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(kFormPassword)];
+
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId("submit_button")];
+
+  // Wait until the update password prompt becomes visible.
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:
+          PasswordInfobarLabels(IDS_IOS_PASSWORD_MANAGER_UPDATE_PASSWORD)];
+
+  // Verify the update subtitle describes a local update as the password was
+  // stored locally.
+  [[EarlGrey selectElementWithMatcher:
+                 grey_accessibilityLabel(l10n_util::GetNSString(
+                     IDS_IOS_PASSWORD_MANAGER_LOCAL_SAVE_SUBTITLE))]
+      assertWithMatcher:grey_sufficientlyVisible()];
 
   [[EarlGrey
       selectElementWithMatcher:PasswordInfobarButton(

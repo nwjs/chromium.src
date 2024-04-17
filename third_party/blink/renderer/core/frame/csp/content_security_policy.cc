@@ -1355,7 +1355,7 @@ bool ContentSecurityPolicy::ShouldBypassMainWorldDeprecated(
       const_cast<ExecutionContext*>(context)->GetSecurityOrigin()->hasUniversalAccess())
     return true;
 
-  return ShouldBypassMainWorldDeprecated(context->GetCurrentWorld().get());
+  return ShouldBypassMainWorldDeprecated(context->GetCurrentWorld());
 }
 
 // static

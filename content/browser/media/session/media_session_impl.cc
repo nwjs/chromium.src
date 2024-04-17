@@ -278,8 +278,8 @@ void MediaSessionImpl::WebContentsDestroyed() {
 
   AbandonSystemAudioFocusIfNeeded();
 
-  content::GetContentClient()->browser()->RemovePresentationObserver(
-      this, web_contents());
+  GetContentClient()->browser()->RemovePresentationObserver(this,
+                                                            web_contents());
 }
 
 void MediaSessionImpl::RenderFrameDeleted(RenderFrameHost* rfh) {
@@ -965,8 +965,7 @@ void MediaSessionImpl::Initialize() {
   DidUpdateFaviconURL(web_contents()->GetPrimaryMainFrame(),
                       web_contents()->GetFaviconURLs());
 
-  content::GetContentClient()->browser()->AddPresentationObserver(
-      this, web_contents());
+  GetContentClient()->browser()->AddPresentationObserver(this, web_contents());
 }
 
 void MediaSessionImpl::OnPresentationsChanged(bool has_presentation) {
@@ -1118,6 +1117,8 @@ MediaSessionImpl::GetMediaSessionInfoSync() {
                             ? media_session_client->ShouldHideMetadata(
                                   web_contents()->GetBrowserContext())
                             : false;
+
+  info->meets_visibility_threshold = HasSufficientlyVisibleVideo();
 
   return info;
 }
@@ -1681,6 +1682,13 @@ void MediaSessionImpl::OnAudioOutputSinkChangingDisabled() {
   RebuildAndNotifyMediaSessionInfoChanged();
 }
 
+void MediaSessionImpl::OnVideoVisibilityChanged() {
+  if (normal_players_.size() == 0) {
+    return;
+  }
+  RebuildAndNotifyMediaSessionInfoChanged();
+}
+
 void MediaSessionImpl::SetRemotePlaybackMetadata(
     media_session::mojom::RemotePlaybackMetadataPtr metadata) {
   remote_playback_metadata_ = std::move(metadata);
@@ -1844,7 +1852,7 @@ void MediaSessionImpl::BuildMetadata(
     metadata.title = SanitizeMediaTitle(web_contents()->GetTitle());
   }
 
-  ContentClient* content_client = content::GetContentClient();
+  ContentClient* content_client = GetContentClient();
   const GURL& url = web_contents()->GetLastCommittedURL();
 
   // If |url| wraps a chrome extension ID or System Web App, we can display
@@ -1878,6 +1886,17 @@ bool MediaSessionImpl::IsPictureInPictureAvailable() const {
 
   auto& first = normal_players_.begin()->first;
   return first.observer->IsPictureInPictureAvailable(first.player_id);
+}
+
+bool MediaSessionImpl::HasSufficientlyVisibleVideo() const {
+  for (const auto& player : normal_players_) {
+    if (player.first.observer->HasSufficientlyVisibleVideo(
+            player.first.player_id)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 std::string MediaSessionImpl::GetSharedAudioOutputDeviceId() const {

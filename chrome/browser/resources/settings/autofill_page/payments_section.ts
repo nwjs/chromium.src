@@ -44,11 +44,8 @@ import type {PaymentsManagerProxy} from './payments_manager_proxy.js';
 import {PaymentsManagerImpl} from './payments_manager_proxy.js';
 import {getTemplate} from './payments_section.html.js';
 
-/**
- * TODO(crbug.com/322869650): Replace the help URL when the correct article
- * is ready.
- */
-export const GOOGLE_PAY_HELP_URL = 'https://support.google.com/googlepay/';
+export const GOOGLE_PAY_HELP_URL =
+    'https://support.google.com/googlepay?p=card_benefits_chrome';
 
 type DotsCardMenuiClickEvent = CustomEvent<{
   creditCard: chrome.autofillPrivate.CreditCardEntry,
@@ -74,7 +71,6 @@ export interface SettingsPaymentsSectionElement {
     creditCardSharedMenu: CrActionMenuElement,
     ibanSharedActionMenu: CrLazyRenderElement<CrActionMenuElement>,
     mandatoryAuthToggle: SettingsToggleButtonElement,
-    menuClearCreditCard: HTMLElement,
     menuEditCreditCard: HTMLElement,
     menuRemoveCreditCard: HTMLElement,
     menuAddVirtualCard: HTMLElement,
@@ -214,7 +210,7 @@ export class SettingsPaymentsSectionElement extends
       },
 
       /**
-       * Checks if card benefits feature flag is enabled.
+       * Checks if a card benefits feature flag is enabled.
        */
       cardBenefitsFlagEnabled_: {
         type: Boolean,
@@ -520,16 +516,6 @@ export class SettingsPaymentsSectionElement extends
     this.showLocalIbanRemoveConfirmationDialog_ = true;
     this.$.ibanSharedActionMenu.get().close();
   }
-
-  /**
-   * Handles clicking on the "Clear copy" button for cached credit cards.
-   */
-  private onMenuClearCreditCardClick_() {
-    this.paymentsManager_.clearCachedCreditCard(this.activeCreditCard_!.guid!);
-    this.$.creditCardSharedMenu.close();
-    this.activeCreditCard_ = null;
-  }
-
 
   private onMenuAddVirtualCardClick_() {
     this.paymentsManager_.addVirtualCard(this.activeCreditCard_!.guid!);

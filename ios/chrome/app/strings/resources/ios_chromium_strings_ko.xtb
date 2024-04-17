@@ -80,7 +80,6 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="3219277919172823720">Chromium에서 음성으로 검색하기</translation>
 <translation id="3228349498066165585">Chromium 데이터 중 일부가 아직 Google 계정에 저장되지 않았습니다.
         잠시 기다렸다가 로그아웃하세요. 지금 로그아웃하면 이 데이터가 삭제됩니다.</translation>
-<translation id="3256316712990552818">Chromium에 복사됨</translation>
 <translation id="328933489847748230">{count,plural, =1{Chromium 창 1개 표시 중}other{Chromium 창 {count}개 표시 중}}</translation>
 <translation id="3344973607274501920">Chromium에서 비밀번호를 확인할 수 없습니다. 인터넷 연결 상태를 확인하세요.</translation>
 <translation id="3366305173356742781">사용자 계정의 Chromium 데이터</translation>
@@ -118,6 +117,7 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="4195557071150719219">Chromium 최근 탭 보기</translation>
 <translation id="4200712796753248893">iOS에서 Chromium Actions 사용</translation>
 <translation id="420541179527342563">Chromium에서 잠금 모드를 사용 중지하려면 iPad에서 사용 중지하세요</translation>
+<translation id="427331839909790668">Chromium 및 기타 Google 서비스가 서로의 데이터를 사용하여 내 환경을 맞춤설정하도록 하려면 이러한 서비스를 연결하세요</translation>
 <translation id="4408912345039114853">Chromium 안전 확인 실행</translation>
 <translation id="4432744876818348753">로그인하여 Chromium의 모든 기능을 이용하세요</translation>
 <translation id="4445228361214254027">조직에서 Google 계정에 Chromium 데이터를 사용하고 저장하는 기능을 사용 중지했습니다. 새 북마크, 비밀번호 등이 이 기기에만 저장됩니다.</translation>
@@ -219,6 +219,7 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="6852799557929001644">이 기기의 다른 앱에서 Chromium 비밀번호 등에 액세스합니다.</translation>
 <translation id="6887138405044152640">이 탭을 다른 기기로 보내려면 해당 기기에서 Chromium에 로그인하세요.</translation>
 <translation id="6911341667534646387">Google 계정의 Chromium 데이터를 계속 사용하세요.</translation>
+<translation id="7002548535535009764">최적의 맞춤 환경을 이용하려면 <ph name="FEATURE_NAME_1" /> 및 <ph name="FEATURE_NAME_2" />에 Chromium을 포함하세요</translation>
 <translation id="7006920032187763988">비밀번호 관리자에 저장된 비밀번호를 iPad의 다른 앱에서 사용할 수 있습니다</translation>
 <translation id="7018284295775193585">Chromium을 업데이트할 수 없습니다.</translation>
 <translation id="7045244423563602563">나만의 Chromium 만들기</translation>

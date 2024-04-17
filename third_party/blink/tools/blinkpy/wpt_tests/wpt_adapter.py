@@ -134,6 +134,7 @@ class WPTAdapter:
     PORT_NAME_BY_PRODUCT = {
         'android_webview': 'webview',
         'chrome': 'chrome',
+        'chrome_android': 'android',
     }
 
     def __init__(self, product, port, options, paths):
@@ -284,6 +285,10 @@ class WPTAdapter:
                     self.fs.join(self.port.results_directory(),
                                  'wpt_reports.json'))
             ]
+
+        # Dump `*-{actual,expected}.png` screenshots for all failures like
+        # `run_web_tests.py` does. See crbug.com/40947531.
+        runner_options.reftest_screenshot = 'fail'
         runner_options.log = wptlogging.setup(dict(vars(runner_options)),
                                               {'grouped': sys.stdout})
         logging.root.handlers.clear()

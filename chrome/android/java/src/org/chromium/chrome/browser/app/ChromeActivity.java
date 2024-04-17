@@ -42,6 +42,7 @@ import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.InputHintChecker;
 import org.chromium.base.Log;
 import org.chromium.base.PowerMonitor;
 import org.chromium.base.StrictModeContext;
@@ -183,6 +184,7 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.ui.device_lock.MissingDeviceLockLauncher;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
@@ -292,7 +294,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     private final UnownedUserDataSupplier<TabCreatorManager> mTabCreatorManagerSupplier =
             new TabCreatorManagerSupplier();
 
-    private final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeControllerSupplier =
+    protected final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeControllerSupplier =
             new ObservableSupplierImpl<>();
 
     private final UnownedUserDataSupplier<ManualFillingComponent> mManualFillingComponentSupplier =
@@ -432,17 +434,13 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     @Override
     protected void onPreCreate() {
+        // The startup metrics tracker should be created as early as possible in the Activity
+        // lifetime.
+        mActivityTabStartupMetricsTracker =
+                new ActivityTabStartupMetricsTracker(mActivityId, mTabModelSelectorSupplier);
         CachedFlagsSafeMode.getInstance().onStartOrResumeCheckpoint();
-        if (earlyInitializeStartupMetrics()) {
-            mActivityTabStartupMetricsTracker =
-                    new ActivityTabStartupMetricsTracker(mActivityId, mTabModelSelectorSupplier);
-        }
         super.onPreCreate();
         initializeBackPressHandling();
-    }
-
-    private boolean earlyInitializeStartupMetrics() {
-        return ChromeFeatureList.sEarlyInitializeStartupMetrics.isEnabled();
     }
 
     @Override
@@ -753,10 +751,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 ChromeActivitySessionTracker.getInstance();
         chromeActivitySessionTracker.registerTabModelSelectorSupplier(
                 this, mTabModelSelectorSupplier);
-        if (!earlyInitializeStartupMetrics()) {
-            mActivityTabStartupMetricsTracker =
-                    new ActivityTabStartupMetricsTracker(mActivityId, mTabModelSelectorSupplier);
-        }
     }
 
     public ActivityTabStartupMetricsTracker getActivityTabStartupMetricsTracker() {
@@ -881,7 +875,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // Add an inset observer that stores the insets to access later.
         // WebContents needs the insets to determine the portion of the screen obscured by
         // non-content displaying things such as the OSK.
-        mInsetObserverViewSupplier.set(new InsetObserver(rootView));
+        mInsetObserverViewSupplier.set(
+                new InsetObserver(rootView, EdgeToEdgeUtils.isInsetsManagementEnabled()));
 
         super.onInitialLayoutInflationComplete();
     }
@@ -990,7 +985,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 getTabModelSelector(),
                 getToolbarManager(),
                 getWindow().getDecorView(),
-                null,
                 null,
                 mBookmarkModelSupplier,
                 /* incognitoReauthControllerOneshotSupplier= */ null,
@@ -1209,10 +1203,10 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // Close the current UMA record and start a new UMA one.
         markSessionResume();
 
-        // Inform the actity lifecycle observers. Among other things, the observers record
-        // metrics pertaining to the "resumed" activity. This needs to happens after
-        // markSessionResume has closed the old UMA record, pertaining to the previous
-        // (backgrounded) activity, and opened a new one pertaining to the "resumed" activity.
+        // Inform the activity lifecycle observers. Among other things, the observers record metrics
+        // pertaining to the "resumed" activity. This needs to happen after markSessionResume has
+        // closed the old UMA record, pertaining to the previous (backgrounded) activity, and opened
+        // a new one pertaining to the "resumed" activity.
         super.onResumeWithNative();
 
         // Resume the ChromeActivity...
@@ -1230,8 +1224,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             if (webContents != null) webContents.notifyRendererPreferenceUpdate();
         }
 
-        ChromeSessionState.setIsInMultiWindowMode(
-                MultiWindowUtils.getInstance().isInMultiWindowMode(this));
+        boolean inMultiWindowMode = MultiWindowUtils.getInstance().isInMultiWindowMode(this);
+        ChromeSessionState.setIsInMultiWindowMode(inMultiWindowMode);
 
         boolean appIsInNightMode = getNightModeStateProvider().isInNightMode();
         boolean systemIsInNightMode = SystemNightModeMonitor.getInstance().isSystemNightModeOn();
@@ -1246,6 +1240,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         getManualFillingComponent().onResume();
         checkForDeviceLockOnAutomotive();
+        setViewForInputHint(inMultiWindowMode);
+    }
+
+    private void setViewForInputHint(boolean inMultiWindowMode) {
+        View view = inMultiWindowMode ? null : getWindow().getDecorView();
+        InputHintChecker.setView(view);
     }
 
     private void checkForDeviceLockOnAutomotive() {
@@ -1982,10 +1982,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     }
 
     /**
+     * TODO: remove this method after InfoBar is deprecated.
+     *
      * @return a supplier for the {@link EdgeToEdgeController} that supports drawing to the edge of
      *     the screen.
      */
-    protected final ObservableSupplierImpl<EdgeToEdgeController> getEdgeToEdgeSupplier() {
+    public final ObservableSupplier<EdgeToEdgeController> getEdgeToEdgeSupplier() {
         return mEdgeToEdgeControllerSupplier;
     }
 
@@ -2625,9 +2627,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             return false;
         }
 
-        if (id == R.id.bookmark_this_page_id
-                || id == R.id.add_bookmark_menu_id
-                || id == R.id.edit_bookmark_menu_id) {
+        if (id == R.id.bookmark_this_page_id) {
             mTabBookmarkerSupplier.get().addOrEditBookmark(currentTab);
             TrackerFactory.getTrackerForProfile(currentTab.getProfile())
                     .notifyEvent(EventConstants.APP_MENU_BOOKMARK_STAR_ICON_PRESSED);
@@ -3100,12 +3100,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                         R.drawable.outline_chevron_right_24dp,
                         R.drawable.down_arrow_on_circular_background,
                         R.drawable.chrome_logo_on_circular_background);
-        if (!pwaUniversalInstallBottomSheetCoordinator.show()) {
-            // Fall back to install method for the PWA.
-            return doAddToHomescreenOrInstallWebApp(
-                    currentTab, AppMenuVerbiage.APP_MENU_OPTION_INSTALL);
-        }
-
+        pwaUniversalInstallBottomSheetCoordinator.showBottomSheetAsync();
         return true;
     }
 

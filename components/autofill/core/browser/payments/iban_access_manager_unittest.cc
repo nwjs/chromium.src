@@ -9,6 +9,7 @@
 #include "base/test/task_environment.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/payments/mock_test_payments_network_interface.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_personal_data_manager.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
@@ -37,19 +38,11 @@ class IbanAccessManagerTest : public testing::Test {
     autofill_client_.set_personal_data_manager(
         std::make_unique<TestPersonalDataManager>());
     autofill_client_.set_sync_service(&sync_service_);
-    autofill_client_.set_test_payments_network_interface(
-        std::make_unique<MockTestPaymentsNetworkInterface>());
+    autofill_client_.GetPaymentsAutofillClient()
+        ->set_test_payments_network_interface(
+            std::make_unique<MockTestPaymentsNetworkInterface>());
     personal_data().SetSyncingForTest(true);
-    personal_data().Init(/*profile_database=*/nullptr,
-                         /*account_database=*/nullptr,
-                         /*pref_service=*/autofill_client_.GetPrefs(),
-                         /*local_state=*/autofill_client_.GetPrefs(),
-                         /*identity_manager=*/nullptr,
-                         /*history_service=*/nullptr,
-                         /*sync_service=*/nullptr,
-                         /*strike_database=*/nullptr,
-                         /*image_fetcher=*/nullptr,
-                         /*shared_storage_handler=*/nullptr);
+    personal_data().SetPrefService(autofill_client_.GetPrefs());
     iban_access_manager_ =
         std::make_unique<IbanAccessManager>(&autofill_client_);
   }
@@ -81,7 +74,8 @@ class IbanAccessManagerTest : public testing::Test {
 
   MockTestPaymentsNetworkInterface* payments_network_interface() {
     return static_cast<MockTestPaymentsNetworkInterface*>(
-        autofill_client_.GetPaymentsNetworkInterface());
+        autofill_client_.GetPaymentsAutofillClient()
+            ->GetPaymentsNetworkInterface());
   }
 
   base::test::TaskEnvironment task_environment_{
@@ -194,7 +188,8 @@ TEST_F(IbanAccessManagerTest, FetchValue_LocalIbanNoProgressDialog) {
   base::MockCallback<IbanAccessManager::OnIbanFetchedCallback> callback;
   iban_access_manager_->FetchValue(suggestion, callback.Get());
 
-  EXPECT_FALSE(autofill_client_.autofill_progress_dialog_shown());
+  EXPECT_FALSE(autofill_client_.GetPaymentsAutofillClient()
+                   ->autofill_progress_dialog_shown());
 }
 
 // Verify that there will be a progress dialog when unmasking a server IBAN.
@@ -210,8 +205,10 @@ TEST_F(IbanAccessManagerTest, FetchValue_ServerIban_ProgressDialog_Success) {
   base::MockCallback<IbanAccessManager::OnIbanFetchedCallback> callback;
   iban_access_manager_->FetchValue(suggestion, callback.Get());
 
-  EXPECT_TRUE(autofill_client_.autofill_progress_dialog_shown());
-  EXPECT_FALSE(autofill_client_.autofill_error_dialog_shown());
+  EXPECT_TRUE(autofill_client_.GetPaymentsAutofillClient()
+                  ->autofill_progress_dialog_shown());
+  EXPECT_FALSE(autofill_client_.GetPaymentsAutofillClient()
+                   ->autofill_error_dialog_shown());
 }
 
 // Verify that there will be a progress dialog when unmasking a server IBAN,
@@ -228,8 +225,10 @@ TEST_F(IbanAccessManagerTest, FetchValue_ServerIban_ProgressDialog_Failure) {
   base::MockCallback<IbanAccessManager::OnIbanFetchedCallback> callback;
   iban_access_manager_->FetchValue(suggestion, callback.Get());
 
-  EXPECT_TRUE(autofill_client_.autofill_progress_dialog_shown());
-  EXPECT_TRUE(autofill_client_.autofill_error_dialog_shown());
+  EXPECT_TRUE(autofill_client_.GetPaymentsAutofillClient()
+                  ->autofill_progress_dialog_shown());
+  EXPECT_TRUE(autofill_client_.GetPaymentsAutofillClient()
+                  ->autofill_error_dialog_shown());
 }
 
 // Verify that local IBAN metadata has been recorded correctly.
@@ -249,7 +248,10 @@ TEST_F(IbanAccessManagerTest, LocalIban_LogUsageMetric) {
 
   histogram_tester.ExpectUniqueSample(
       "Autofill.DaysSinceLastUse.StoredIban.Local", kDaysSinceLastUsed, 1);
-  EXPECT_EQ(personal_data().GetIbanByGUID(local_iban.guid())->use_count(),
+  EXPECT_EQ(personal_data()
+                .payments_data_manager()
+                .GetIbanByGUID(local_iban.guid())
+                ->use_count(),
             kDefaultUseCount + 1);
 }
 
@@ -272,6 +274,7 @@ TEST_F(IbanAccessManagerTest, ServerIban_LogUsageMetric) {
   histogram_tester.ExpectUniqueSample(
       "Autofill.DaysSinceLastUse.StoredIban.Server", kDaysSinceLastUsed, 1);
   EXPECT_EQ(personal_data()
+                .payments_data_manager()
                 .GetIbanByInstrumentId(server_iban.instrument_id())
                 ->use_count(),
             kDefaultUseCount + 1);

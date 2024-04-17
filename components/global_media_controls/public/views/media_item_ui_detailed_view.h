@@ -16,6 +16,10 @@
 #include "components/media_message_center/notification_theme.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "components/global_media_controls/public/views/chapter_item_view.h"
+#endif
+
 namespace views {
 class BoxLayoutView;
 class Button;
@@ -34,10 +38,10 @@ struct AXNodeData;
 
 namespace global_media_controls {
 
+class MediaActionButton;
 class MediaProgressView;
 
 namespace {
-class MediaButton;
 class MediaLabelButton;
 }  // namespace
 
@@ -95,6 +99,8 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIDetailedView
   void UpdateWithMediaPosition(
       const media_session::MediaPosition& position) override;
   void UpdateWithMediaArtwork(const gfx::ImageSkia& image) override;
+  void UpdateWithChapterArtwork(int index,
+                                const gfx::ImageSkia& image) override;
   void UpdateWithFavicon(const gfx::ImageSkia& icon) override {}
   void UpdateWithVectorIcon(const gfx::VectorIcon* vector_icon) override {}
   void UpdateWithMuteStatus(bool mute) override {}
@@ -121,6 +127,10 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIDetailedView
   MediaItemUIFooter* GetFooterForTesting();
   MediaItemUIDeviceSelector* GetDeviceSelectorForTesting();
   views::View* GetDeviceSelectorSeparatorForTesting();
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  views::View* GetChapterListViewForTesting();
+  base::flat_map<int, ChapterItemView*> GetChaptersForTesting();
+#endif
 
  private:
   friend class MediaItemUIDetailedViewTest;
@@ -128,15 +138,15 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIDetailedView
   // Callback for a media label being pressed.
   void MediaLabelPressed(MediaLabelButton* button);
 
-  MediaButton* CreateMediaButton(views::View* parent,
-                                 int button_id,
-                                 const gfx::VectorIcon& vector_icon,
-                                 int tooltip_text_id);
+  MediaActionButton* CreateMediaActionButton(views::View* parent,
+                                             int button_id,
+                                             const gfx::VectorIcon& vector_icon,
+                                             int tooltip_text_id);
 
   void UpdateActionButtonsVisibility();
 
   // Callback for a media action button being pressed.
-  void MediaButtonPressed(views::Button* button);
+  void MediaActionButtonPressed(views::Button* button);
 
   // Callback for the user dragging the progress view. A playing media should be
   // temporarily paused when the user is dragging the progress line.
@@ -184,13 +194,22 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIDetailedView
   raw_ptr<views::ImageView> chevron_icon_ = nullptr;
 
   raw_ptr<MediaProgressView> progress_view_ = nullptr;
-  raw_ptr<MediaButton> play_pause_button_ = nullptr;
-  raw_ptr<MediaButton> start_casting_button_ = nullptr;
-  raw_ptr<MediaButton> picture_in_picture_button_ = nullptr;
+  raw_ptr<MediaActionButton> play_pause_button_ = nullptr;
+  raw_ptr<MediaActionButton> start_casting_button_ = nullptr;
+  raw_ptr<MediaActionButton> picture_in_picture_button_ = nullptr;
 
   raw_ptr<MediaItemUIFooter> footer_view_ = nullptr;
   raw_ptr<MediaItemUIDeviceSelector> device_selector_view_ = nullptr;
   raw_ptr<views::BoxLayoutView> device_selector_view_separator_ = nullptr;
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // The chapter list view, which will be built only for chrome os ash.
+  raw_ptr<views::View> chapter_list_view_ = nullptr;
+
+  // The current `ChapterItemView` for the chapter at the index of the chapter
+  // list.
+  base::flat_map<int, ChapterItemView*> chapters_;
+#endif
 };
 
 }  // namespace global_media_controls

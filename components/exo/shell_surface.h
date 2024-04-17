@@ -18,9 +18,9 @@
 #include "components/exo/shell_surface_observer.h"
 #include "ui/base/ui_base_types.h"
 
-namespace ash {
+namespace wm {
 class ScopedAnimationDisabler;
-}  // namespace ash
+}  // namespace wm
 
 namespace ui {
 class CompositorLock;
@@ -186,10 +186,12 @@ class ShellSurface : public ShellSurfaceBase, public ash::WindowStateObserver {
                          aura::Window* lost_active) override;
 
   // Overridden from ShellSurfaceBase:
+  void OnSurfaceCommit() override;
   gfx::Rect ComputeAdjustedBounds(const gfx::Rect& bounds) const override;
   void SetWidgetBounds(const gfx::Rect& bounds,
                        bool adjusted_by_server) override;
   bool OnPreWidgetCommit() override;
+  void ShowWidget(bool activate) override;
   std::unique_ptr<views::NonClientFrameView> CreateNonClientFrameView(
       views::Widget* widget) override;
   void SetRootSurface(Surface* root_surface) override;
@@ -238,13 +240,13 @@ class ShellSurface : public ShellSurfaceBase, public ash::WindowStateObserver {
     aura::Window::OcclusionState GetInitialStateForConfigure(
         chromeos::WindowStateType state_type);
 
+    void MaybeConfigure(aura::Window* window);
+
     // aura::WindowObserver:
     void OnWindowDestroying(aura::Window* window) override;
     void OnWindowOcclusionChanged(aura::Window* window) override;
 
    private:
-    void MaybeConfigure(aura::Window* window);
-
     // Keeps track of what the current state should be. During initialization,
     // we want to defer sending occlusion messages until everything is ready,
     // so this may be different to the current occlusion state.
@@ -282,7 +284,7 @@ class ShellSurface : public ShellSurfaceBase, public ash::WindowStateObserver {
   // TODO(tluk): Screen position changes should be merged into Configure().
   void OnWidgetScreenPositionChanged();
 
-  std::unique_ptr<ash::ScopedAnimationDisabler> animations_disabler_;
+  std::unique_ptr<wm::ScopedAnimationDisabler> animations_disabler_;
   std::optional<OcclusionObserver> occlusion_observer_;
 
   // Temporarily stores the `host_window()`'s layer when it's recreated for

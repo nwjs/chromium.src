@@ -14,6 +14,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
@@ -115,9 +116,18 @@ class AutocompleteControllerTest : public testing::Test {
       bool allowed_to_be_default_match,
       int traditional_relevance,
       float ml_output) {
-    return CreateAutocompleteMatch(name, AutocompleteMatchType::HISTORY_URL,
-                                   allowed_to_be_default_match, false,
-                                   traditional_relevance, ml_output);
+    return CreateMlScoredMatch(name, AutocompleteMatchType::HISTORY_URL,
+                               allowed_to_be_default_match,
+                               traditional_relevance, ml_output);
+  }
+
+  AutocompleteMatch CreateMlScoredMatch(std::string name,
+                                        AutocompleteMatchType::Type type,
+                                        bool allowed_to_be_default_match,
+                                        int traditional_relevance,
+                                        float ml_output) {
+    return CreateAutocompleteMatch(name, type, allowed_to_be_default_match,
+                                   false, traditional_relevance, ml_output);
   }
 
   AutocompleteMatch CreateBoostedShortcutMatch(std::string name,
@@ -320,10 +330,9 @@ TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage_MostAggressive) {
               metrics::OmniboxEventProto_Feature_COMPANY_ENTITY_ADJUSTMENT));
 }
 
+// Desktop has some special handling for bare '@' inputs.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_F(AutocompleteControllerTest, FilterMatchesForInstantKeywordWithBareAt) {
-  base::test::ScopedFeatureList feature_list(
-      omnibox::kOmniboxKeywordModeRefresh);
-
   SetAutocompleteMatches({
       CreateSearchMatch(u"@"),
       CreateCompanyEntityMatch("https://example.com"),
@@ -346,6 +355,7 @@ TEST_F(AutocompleteControllerTest, FilterMatchesForInstantKeywordWithBareAt) {
                            match.contents == u"@";
                   }));
 }
+#endif
 
 TEST_F(AutocompleteControllerTest, UpdateResult_SyncAnd2Async) {
   auto sync_match = CreateSearchMatch("sync", true, 1300);
@@ -1291,6 +1301,26 @@ TEST_F(AutocompleteControllerTest, MlRanking_MappedSearchBlending) {
                   "search",
                   "history",
               }));
+
+  // If a (remote) document suggestion has a traditional score of zero, then the
+  // final relevance score should remain zero (instead of using the formula
+  // "final_score = min + ml_score * (max - min)" to overwrite the score). This
+  // will result in the document suggestion getting culled from the final list
+  // of suggestions.
+  const auto type = AutocompleteMatchType::DOCUMENT_SUGGESTION;
+  EXPECT_THAT(
+      controller_.SimulateCleanAutocompletePass({
+          // Final score: 1150 (== 600 + 0.25 * (2800 - 600))
+          CreateMlScoredMatch("document 1400 0.25", type, false, 1400, 0.25),
+          // Final score: 0 (!= 600 + 0.95 * (2800 - 600))
+          CreateMlScoredMatch("document 0 0.95", type, false, 0, 0.95),
+          // Final score: 2250 (== 600 + 0.75 * (2800 - 600))
+          CreateMlScoredMatch("document 1200 0.75", type, false, 1200, 0.75),
+      }),
+      testing::ElementsAreArray({
+          "document 1200 0.75",
+          "document 1400 0.25",
+      }));
 
   // Simple case of ranking with linear score mapping.
   EXPECT_THAT(

@@ -193,7 +193,7 @@ class ServiceWorkerSubresourceLoader::StreamWaiter
   void OnAborted() override { owner_->OnBodyReadingComplete(net::ERR_ABORTED); }
 
  private:
-  raw_ptr<ServiceWorkerSubresourceLoader, ExperimentalRenderer> owner_;
+  raw_ptr<ServiceWorkerSubresourceLoader> owner_;
   mojo::Receiver<blink::mojom::ServiceWorkerStreamCallback> receiver_;
 };
 
@@ -374,8 +374,6 @@ void ServiceWorkerSubresourceLoader::DispatchFetchEvent() {
   } race_network_request_mode = kDefault;
   if (eval_result) {  // matched the rule.
     const auto& sources = eval_result->sources;
-    // TODO(crbug.com/1371756): support other sources in the full form.
-    // https://github.com/yoshisatoyanagisawa/service-worker-static-routing-api/blob/main/final-form.md
     auto source_type = sources[0].type;
     set_used_router_source_type(source_type);
 

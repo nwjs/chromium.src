@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 
+#include <memory>
+
 #include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -13,7 +15,6 @@
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_info.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
-#include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 
 namespace blink {
@@ -132,10 +133,12 @@ TEST_F(SoftNavigationHeuristicsTest, UmaHistogramRecording) {
 TEST_F(SoftNavigationHeuristicsTest, ResetHeuristicOnSetBecameEmpty) {
   auto* heuristics = CreateSoftNavigationHeuristicsForTest();
   ASSERT_TRUE(heuristics);
-  auto* tracker = ThreadScheduler::Current()->GetTaskAttributionTracker();
-  ASSERT_TRUE(tracker);
 
   auto* script_state = GetScriptStateForTest();
+  auto* tracker =
+      scheduler::TaskAttributionTracker::From(script_state->GetIsolate());
+  ASSERT_TRUE(tracker);
+
   Persistent<scheduler::TaskAttributionInfo> root_task = nullptr;
   // Simulate a click.
   {
@@ -143,9 +146,9 @@ TEST_F(SoftNavigationHeuristicsTest, ResetHeuristicOnSetBecameEmpty) {
         heuristics->CreateEventScope(
             SoftNavigationHeuristics::EventScope::Type::kClick,
             /*is_new_interaction=*/true));
-    std::unique_ptr<TaskScope> task_scope = tracker->CreateTaskScope(
+    TaskScope task_scope = tracker->CreateTaskScope(
         script_state, /*parent_task=*/nullptr, TaskScopeType::kCallback);
-    root_task = tracker->RunningTask(script_state->GetIsolate());
+    root_task = tracker->RunningTask();
   }
   EXPECT_TRUE(root_task);
   EXPECT_GT(heuristics->GetLastInteractionTaskIdForTest(), 0u);
@@ -153,9 +156,9 @@ TEST_F(SoftNavigationHeuristicsTest, ResetHeuristicOnSetBecameEmpty) {
   // Simulate a descendant task.
   Persistent<scheduler::TaskAttributionInfo> descendant_task = nullptr;
   {
-    std::unique_ptr<TaskScope> task_scope = tracker->CreateTaskScope(
-        script_state, root_task, TaskScopeType::kCallback);
-    descendant_task = tracker->RunningTask(script_state->GetIsolate());
+    TaskScope task_scope = tracker->CreateTaskScope(script_state, root_task,
+                                                    TaskScopeType::kCallback);
+    descendant_task = tracker->RunningTask();
   }
   EXPECT_TRUE(descendant_task);
 

@@ -81,8 +81,8 @@ class MockAutofillDriver : public TestContentAutofillDriver {
   using TestContentAutofillDriver::TestContentAutofillDriver;
   MOCK_METHOD(void,
               ApplyFieldAction,
-              (mojom::ActionPersistence action_persistence,
-               mojom::TextReplacement text_replacement,
+              (mojom::FieldActionType action_type,
+               mojom::ActionPersistence action_persistence,
                const FieldGlobalId& field,
                const std::u16string&),
               (override));
@@ -91,11 +91,6 @@ class MockAutofillDriver : public TestContentAutofillDriver {
 class CreditCardAccessoryControllerTest
     : public ChromeRenderViewHostTestHarness {
  public:
-  CreditCardAccessoryControllerTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kAutofillEnableManualFallbackForVirtualCards);
-  }
-
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
     NavigateAndCommit(GURL(kExampleSite));
@@ -115,8 +110,8 @@ class CreditCardAccessoryControllerTest
   void TearDown() override {
     data_manager_.SetSyncServiceForTest(nullptr);
     data_manager_.SetPrefService(nullptr);
-    data_manager_.ClearCreditCards();
-    data_manager_.ClearCreditCardOfferData();
+    data_manager_.test_payments_data_manager().ClearCreditCards();
+    data_manager_.test_payments_data_manager().ClearCreditCardOfferData();
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
@@ -315,8 +310,8 @@ TEST_P(CreditCardAccessoryControllerCardUnmaskTest, CardUnmask) {
                          .renderer_id = FieldRendererId(123)};
 
   EXPECT_CALL(autofill_driver(),
-              ApplyFieldAction(mojom::ActionPersistence::kFill,
-                               mojom::TextReplacement::kReplaceAll, field_id,
+              ApplyFieldAction(mojom::FieldActionType::kReplaceAll,
+                               mojom::ActionPersistence::kFill, field_id,
                                card.number()));
 
   controller()->OnFillingTriggered(field_id, field);

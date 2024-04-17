@@ -675,9 +675,8 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
           ax::mojom::blink::Role::kContentDeletion,
           ax::mojom::blink::Role::kContentInfo,
           ax::mojom::blink::Role::kContentInsertion,
+          ax::mojom::blink::Role::kDefinition,
           ax::mojom::blink::Role::kDescriptionList,
-          ax::mojom::blink::Role::kDescriptionListDetail,
-          ax::mojom::blink::Role::kDescriptionListTerm,
           ax::mojom::blink::Role::kDetails,
           ax::mojom::blink::Role::kDialog,
           ax::mojom::blink::Role::kDocAcknowledgments,
@@ -1504,8 +1503,9 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
   if (IsA<HTMLLegendElement>(*GetNode()))
     return ax::mojom::blink::Role::kLegend;
 
-  if (IsA<HTMLRubyElement>(*GetNode()))
+  if (GetNode()->HasTagName(html_names::kRubyTag)) {
     return ax::mojom::blink::Role::kRuby;
+  }
 
   if (IsA<HTMLDListElement>(*GetNode()))
     return ax::mojom::blink::Role::kDescriptionList;
@@ -1516,13 +1516,13 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
     return ax::mojom::blink::Role::kVideo;
 
   if (GetNode()->HasTagName(html_names::kDdTag))
-    return ax::mojom::blink::Role::kDescriptionListDetail;
+    return ax::mojom::blink::Role::kDefinition;
 
   if (GetNode()->HasTagName(html_names::kDfnTag))
     return ax::mojom::blink::Role::kTerm;
 
   if (GetNode()->HasTagName(html_names::kDtTag))
-    return ax::mojom::blink::Role::kDescriptionListTerm;
+    return ax::mojom::blink::Role::kTerm;
 
   // Mapping of MathML elements. See https://w3c.github.io/mathml-aam/
   if (auto* element = DynamicTo<MathMLElement>(GetNode())) {
@@ -3396,6 +3396,11 @@ AXObject* AXNodeObject::ChooserPopup() const {
 }
 
 String AXNodeObject::GetValueForControl() const {
+  AXObjectSet visited;
+  return GetValueForControl(visited);
+}
+
+String AXNodeObject::GetValueForControl(AXObjectSet& visited) const {
   // TODO(crbug.com/1165853): Remove this method completely and compute value on
   // the browser side.
   Node* node = GetNode();
@@ -3522,7 +3527,6 @@ String AXNodeObject::GetValueForControl() const {
     }
 
     // An ARIA combobox can get value from inner contents.
-    AXObjectSet visited;
     return TextFromDescendants(visited, nullptr, false);
   }
 
@@ -3530,6 +3534,12 @@ String AXNodeObject::GetValueForControl() const {
 }
 
 String AXNodeObject::SlowGetValueForControlIncludingContentEditable() const {
+  AXObjectSet visited;
+  return SlowGetValueForControlIncludingContentEditable(visited);
+}
+
+String AXNodeObject::SlowGetValueForControlIncludingContentEditable(
+    AXObjectSet& visited) const {
   if (IsNonAtomicTextField()) {
     Element* element = GetElement();
     return element ? element->GetInnerTextWithoutUpdate() : String();
@@ -5122,19 +5132,6 @@ bool AXNodeObject::OnNativeFocusAction() {
     return true;
   }
 
-  // If this node is already the currently focused node, then calling
-  // focus() won't do anything.  That is a problem when focus is removed
-  // from the webpage to chrome, and then returns.  In these cases, we need
-  // to do what keyboard and mouse focus do, which is reset focus first.
-  if (document->FocusedElement() == element) {
-    document->ClearFocusedElement();
-
-    // Calling ClearFocusedElement could result in changes to the document,
-    // like this AXObject becoming detached.
-    if (IsDetached())
-      return false;
-  }
-
   if (base::FeatureList::IsEnabled(blink::features::kSimulateClickOnAXFocus)) {
     // If the object is not natively focusable but can be focused using an ARIA
     // active descendant, perform a native click instead. This will enable Web
@@ -5458,7 +5455,7 @@ String AXNodeObject::NativeTextAlternative(
   AXRelatedObjectVector local_related_objects;
 
   // 5.1/5.5 Text inputs, Other labelable Elements
-  // If you change this logic, update AXNodeObject::nameFromLabelElement, too.
+  // If you change this logic, update AXNodeObject::IsNameFromLabelElement, too.
   auto* html_element = DynamicTo<HTMLElement>(GetNode());
   if (html_element && html_element->IsLabelable()) {
     name_from = ax::mojom::blink::NameFrom::kRelatedElement;
@@ -6103,7 +6100,8 @@ String AXNodeObject::Description(
     AXObject* ruby_annotation_ax_object = nullptr;
     for (const auto& child : children_) {
       if (child->RoleValue() == ax::mojom::blink::Role::kRubyAnnotation &&
-          child->GetNode() && IsA<HTMLRTElement>(child->GetNode())) {
+          child->GetNode() &&
+          child->GetNode()->HasTagName(html_names::kRtTag)) {
         ruby_annotation_ax_object = child;
         break;
       }
@@ -6411,17 +6409,37 @@ String AXNodeObject::GetValueContributionToName(AXObjectSet& visited) const {
   // "If the embedded control has role combobox or listbox, return the text
   // alternative of the chosen option."
   if (UseNameFromSelectedOption()) {
-    StringBuilder accumulated_text;
     AXObjectVector selected_options;
     SelectedOptions(selected_options);
-    for (const auto& child : selected_options) {
-      if (visited.insert(child).is_new_entry) {
-        if (accumulated_text.length())
-          accumulated_text.Append(" ");
-        accumulated_text.Append(child->ComputedName());
+    if (selected_options.size() == 0) {
+      // Per https://www.w3.org/TR/wai-aria/#combobox, a combobox gets its
+      // value in the following way:
+      // "If the combobox element is a host language element that provides a
+      // value, such as an HTML input element, the value of the combobox is the
+      // value of that element. Otherwise, the value of the combobox is
+      // represented by its descendant elements and can be determined using the
+      // same method used to compute the name of a button from its descendant
+      // content."
+      //
+      // Section 2C of the accname computation steps for the combobox/listbox
+      // case (https://w3c.github.io/accname/#comp_embedded_control) only
+      // mentions getting the text alternative from the chosen option, which
+      // doesn't precisely fit for combobox, but a clarification is coming; see
+      // https://github.com/w3c/accname/issues/232 and
+      // https://github.com/w3c/accname/issues/200.
+      return SlowGetValueForControlIncludingContentEditable(visited);
+    } else {
+      StringBuilder accumulated_text;
+      for (const auto& child : selected_options) {
+        if (visited.insert(child).is_new_entry) {
+          if (accumulated_text.length()) {
+            accumulated_text.Append(" ");
+          }
+          accumulated_text.Append(child->ComputedName());
+        }
       }
+      return accumulated_text.ToString();
     }
-    return accumulated_text.ToString();
   }
 
   return String();

@@ -163,13 +163,14 @@ void DownloadBubbleContentsView::AddSecuritySubpageWarningActionEvent(
 
 void DownloadBubbleContentsView::ProcessDeepScanPress(
     const ContentId& id,
+    DownloadItemWarningData::DeepScanTrigger trigger,
     base::optional_ref<const std::string> password) {
 #if 0
   if (DownloadUIModel* model = GetDownloadModel(id); model) {
     LogDeepScanEvent(model->GetDownloadItem(),
                      safe_browsing::DeepScanEvent::kPromptAccepted);
     safe_browsing::DownloadProtectionService::UploadForConsumerDeepScanning(
-        model->GetDownloadItem(), password);
+        model->GetDownloadItem(), trigger, password);
   }
 #endif
 }

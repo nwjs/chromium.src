@@ -83,7 +83,7 @@ class TabResumptionPageHandlerTest : public BrowserWithTestWindowTest {
 
 TEST_F(TabResumptionPageHandlerTest, GetTabs) {
   const size_t kSampleSessionsCount = 2;
-  const size_t kSampleTabsCount = 3;
+  const size_t kSampleTabsCount = 2;
   std::vector<std::unique_ptr<sync_sessions::SyncedSession>> sample_sessions;
   std::vector<base::Time> timestamps = {base::Time::Now(),
                                         base::Time::Now() - base::Minutes(1),
@@ -146,12 +146,9 @@ TEST_F(TabResumptionPageHandlerTest, GetTabs) {
               MockHistoryService::ToAnnotatedVisitsCallback callback,
               base::CancelableTaskTracker* tracker) {
             std::vector<history::AnnotatedVisit> annotated_visits;
-            for (size_t i = 0; i < visit_rows.size(); i++) {
+            for (auto visit : visit_rows) {
               history::URLRow url_row;
-              size_t url_suffix = visit_rows.size() - i - 1;
-              url_row.set_url(GURL(
-                  kSampleUrl +
-                  (url_suffix != 0 ? base::NumberToString(url_suffix) : "")));
+              url_row.set_url(GURL(kSampleUrl));
               history::AnnotatedVisit annotated_visit;
               annotated_visit.url_row = url_row;
               history::VisitContentModelAnnotations model_annotations;
@@ -169,24 +166,23 @@ TEST_F(TabResumptionPageHandlerTest, GetTabs) {
 
   ASSERT_EQ(4u, tabs_mojom.size());
 
-  // As the relative time on the tabs is the tab_id (in minutes) the tabs will
-  // be ranked 1 (tab_id = 0), 0 (tab_id = 1), 0 (tab_id = 2), 0 (tab_id = 3)
-  // with regard to session_tag. As there are duplicate tabs now the most recent
-  // one (by a microseconds difference) will be the first tab (Test Name 2).
-  std::vector<std::string> session_names = {"Test Name 1", "Test Name 0",
-                                            "Test Name 0", "Test Name 0"};
-
-  for (size_t i = 0; i < tabs_mojom.size(); i++) {
+  for (size_t i = 0; i < kSampleSessionsCount * kSampleTabsCount; i++) {
     const auto& tab_mojom = tabs_mojom[i];
     ASSERT_TRUE(tab_mojom);
-    ASSERT_EQ(session_names[i], tab_mojom->session_name);
+    // As the relative time on the tabs is the tab_id (in minutes) the tabs will
+    // be ranked 1 (tab_id = 0), 1 (tab_id = 1), 0 (tab_id = 2), 0 (tab_id = 3)
+    // with regard to session_tag.
+    ASSERT_EQ(
+        "Test Name " + base::NumberToString(
+                           ((kSampleSessionsCount * kSampleTabsCount - 1) - i) /
+                           kSampleSessionsCount),
+        tab_mojom->session_name);
     // Assert that for a tab from 0 minutes ago the displayed text is 'Recently
     // opened'. The first tab after ranking will have be 0 minutes ago.
     if (i == 0) {
       ASSERT_EQ("Recently opened", tab_mojom->relative_time_text);
     }
-    ASSERT_EQ(GURL(kSampleUrl + (i != 0 ? base::NumberToString(i) : "")),
-              tab_mojom->url);
+    ASSERT_EQ(GURL(kSampleUrl), tab_mojom->url);
   }
 }
 
@@ -195,7 +191,8 @@ TEST_F(TabResumptionPageHandlerTest, BlocklistTest) {
   std::vector<std::unique_ptr<sync_sessions::SyncedSession>> sample_sessions;
   std::vector<base::Time> timestamps = {base::Time::Now(),
                                         base::Time::Now() - base::Minutes(1),
-                                        base::Time::Now() - base::Minutes(2)};
+                                        base::Time::Now() - base::Minutes(2),
+                                        base::Time::Now() - base::Minutes(3)};
   for (size_t i = 0; i < kSampleSessionsCount; i++) {
     sample_sessions.push_back(SampleSession(
         ("Test Name " + base::NumberToString(i)).c_str(), 1, 1, timestamps));
@@ -252,10 +249,9 @@ TEST_F(TabResumptionPageHandlerTest, BlocklistTest) {
               MockHistoryService::ToAnnotatedVisitsCallback callback,
               base::CancelableTaskTracker* tracker) {
             std::vector<history::AnnotatedVisit> annotated_visits;
-            for (size_t i = 0; i < visit_rows.size(); i++) {
+            for (auto visit : visit_rows) {
               history::URLRow url_row;
-              url_row.set_url(
-                  GURL(kSampleUrl + (i != 0 ? base::NumberToString(i) : "")));
+              url_row.set_url(GURL(kSampleUrl));
               history::AnnotatedVisit annotated_visit;
               annotated_visit.url_row = url_row;
               history::VisitContentModelAnnotations model_annotations;
@@ -284,12 +280,10 @@ TEST_F(TabResumptionPageHandlerTest, BlocklistTest) {
     ASSERT_TRUE(tab_mojom);
     // Ranking reverses the order due to setting timestamp as
     // reverse order of timestamps array above.
-    // Third entry is gone from blocklist so this ends at "Test Name 1"
-    // and starts at Test Name 2.
-    ASSERT_EQ("Test Name " + base::NumberToString(kSampleSessionsCount - i - 1),
+    // Third entry is gone from blocklist so this starts at "Test Name 1".
+    ASSERT_EQ("Test Name " + base::NumberToString(kSampleSessionsCount - i - 2),
               tab_mojom->session_name);
-    ASSERT_EQ(GURL(kSampleUrl + (i != 0 ? base::NumberToString(i) : "")),
-              tab_mojom->url);
+    ASSERT_EQ(GURL(kSampleUrl), tab_mojom->url);
   }
 }
 }  // namespace

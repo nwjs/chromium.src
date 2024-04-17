@@ -9,6 +9,7 @@
 #include "base/scoped_observation.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
+#include "components/qr_code_generator/bitmap_generator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -37,38 +38,6 @@ TEST_F(QRCodeGeneratorBubbleTest, SuggestedDownloadURLNoIP) {
   EXPECT_EQ(
       QRCodeGeneratorBubble::GetQRCodeFilenameForURL(GURL("text, not url")),
       u"qrcode_chrome.png");
-}
-
-TEST_F(QRCodeGeneratorBubbleTest, GeneratedCodeHasQuietZone) {
-  const int kBaseSizeDip = 16;
-  const int kQuietZoneTiles = 4;
-  const int kTileToDip = 2;
-  const int kQuietZoneDip = kQuietZoneTiles * kTileToDip;
-
-  SkBitmap base_bitmap;
-  base_bitmap.allocN32Pixels(kBaseSizeDip, kBaseSizeDip);
-  base_bitmap.eraseColor(SK_ColorRED);
-  auto base_image = gfx::ImageSkia::CreateFrom1xBitmap(base_bitmap);
-
-  auto image = QRCodeGeneratorBubble::AddQRCodeQuietZone(
-      base_image,
-      gfx::Size(kBaseSizeDip / kTileToDip, kBaseSizeDip / kTileToDip),
-      SK_ColorTRANSPARENT);
-
-  EXPECT_EQ(base_image.width(), kBaseSizeDip);
-  EXPECT_EQ(base_image.height(), kBaseSizeDip);
-  EXPECT_EQ(image.width(), kBaseSizeDip + kQuietZoneDip * 2);
-  EXPECT_EQ(image.height(), kBaseSizeDip + kQuietZoneDip * 2);
-
-  EXPECT_EQ(SK_ColorRED, base_image.bitmap()->getColor(0, 0));
-
-  EXPECT_EQ(SK_ColorTRANSPARENT, image.bitmap()->getColor(0, 0));
-  EXPECT_EQ(SK_ColorTRANSPARENT,
-            image.bitmap()->getColor(kQuietZoneDip, kQuietZoneDip - 1));
-  EXPECT_EQ(SK_ColorTRANSPARENT,
-            image.bitmap()->getColor(kQuietZoneDip - 1, kQuietZoneDip));
-  EXPECT_EQ(SK_ColorRED,
-            image.bitmap()->getColor(kQuietZoneDip, kQuietZoneDip));
 }
 
 class VisibilityChangedWaiter : public views::ViewObserver {
@@ -147,7 +116,7 @@ class QRCodeGeneratorBubbleUITest : public ChromeViewsTestBase {
 
   bool ErrorLabelHiddenAndA11yIgnored() {
     return !error_label()->GetVisible() &&
-           error_label()->GetViewAccessibility().IsIgnored();
+           error_label()->GetViewAccessibility().GetIsIgnored();
   }
 
  private:

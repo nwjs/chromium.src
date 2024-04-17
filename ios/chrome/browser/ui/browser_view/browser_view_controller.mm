@@ -603,15 +603,6 @@ enum HeaderBehaviour {
 
 #pragma mark - Public methods
 
-- (void)setPrimary:(BOOL)primary {
-  if (_tabUsageRecorderBrowserAgent) {
-    _tabUsageRecorderBrowserAgent->RecordPrimaryBrowserChange(primary);
-  }
-  if (primary) {
-    [self updateBroadcastState];
-  }
-}
-
 - (void)shieldWasTapped:(id)sender {
   [self.omniboxCommandsHandler cancelOmniboxEdit];
 }
@@ -937,6 +928,20 @@ enum HeaderBehaviour {
   self.viewVisible = YES;
   [self updateBroadcastState];
   [self updateToolbarState];
+
+  // If there is no first responder, try to make the webview the first
+  // responder to have it answer keyboard commands (e.g. space bar to scroll
+  // and respond to gampad controllers). The WKContentView must be the first
+  // responder before (or very shortly after) a load starts in order for
+  // gamepads to work. (Ref: crbug.com/325307469)
+  web::WebState* activeWebState = self.currentWebState;
+  if (activeWebState && !GetFirstResponder()) {
+    NewTabPageTabHelper* NTPHelper =
+        NewTabPageTabHelper::FromWebState(activeWebState);
+    if (!NTPHelper || !NTPHelper->IsActive()) {
+      [activeWebState->GetWebViewProxy() becomeFirstResponder];
+    }
+  }
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -1011,6 +1016,13 @@ enum HeaderBehaviour {
   // After `-shutdown` is called, browserState is invalid and will cause a
   // crash.
   if (_isShutdown) {
+    return;
+  }
+
+  if (self.traitCollection.horizontalSizeClass ==
+          previousTraitCollection.horizontalSizeClass &&
+      self.traitCollection.verticalSizeClass ==
+          previousTraitCollection.verticalSizeClass) {
     return;
   }
 
@@ -1327,26 +1339,16 @@ enum HeaderBehaviour {
   }
 
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    const bool canShowTabStrip = IsRegularXRegularSizeClass(self);
     if (IsModernTabStripOrRaccoonEnabled()) {
       [self.tabStripCoordinator start];
+      [self.tabStripCoordinator hideTabStrip:!canShowTabStrip];
     } else {
       self.legacyTabStripCoordinator.presentationProvider = self;
       [self.legacyTabStripCoordinator start];
+      [self.legacyTabStripCoordinator hideTabStrip:!canShowTabStrip];
     }
   }
-}
-
-// Called by NSNotificationCenter when the view's window becomes key to account
-// for topLayoutGuide length updates.
-- (void)updateToolbarHeightForKeyWindow {
-  // Update the toolbar height to account for `topLayoutGuide` changes.
-  self.primaryToolbarHeightConstraint.constant =
-      [self primaryToolbarHeightWithInset];
-  // Stop listening for the key window notification.
-  [[NSNotificationCenter defaultCenter]
-      removeObserver:self
-                name:UIWindowDidBecomeKeyNotification
-              object:self.view.window];
 }
 
 // The height of the primary toolbar with the top safe area inset included.
@@ -1499,8 +1501,14 @@ enum HeaderBehaviour {
             (UIViewAutoresizingFlexibleWidth |
              UIViewAutoresizingFlexibleBottomMargin);
       }
-      [self.view insertSubview:primaryToolbarView
-                  belowSubview:self.tabStripView];
+      if (IsModernTabStripOrRaccoonEnabled()) {
+        [self.view insertSubview:primaryToolbarView
+                    aboveSubview:self.tabStripView];
+      } else {
+        [self.view insertSubview:primaryToolbarView
+                    belowSubview:self.tabStripView];
+      }
+
     } else {
       [self.view addSubview:primaryToolbarView];
     }
@@ -2556,7 +2564,14 @@ enum HeaderBehaviour {
   tabStripFrame.origin.y = self.headerOffset;
   tabStripFrame.size.width = CGRectGetWidth([self view].bounds);
   [self.tabStripView setFrame:tabStripFrame];
-  [[self view] addSubview:tabStripView];
+
+  if (IsModernTabStripOrRaccoonEnabled()) {
+    UIView* primaryToolbar =
+        self.toolbarCoordinator.primaryToolbarViewController.view;
+    [self.view insertSubview:tabStripView belowSubview:primaryToolbar];
+  } else {
+    [self.view addSubview:tabStripView];
+  }
 }
 
 #pragma mark - FindBarPresentationDelegate

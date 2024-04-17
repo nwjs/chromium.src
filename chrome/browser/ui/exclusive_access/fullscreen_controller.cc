@@ -241,12 +241,6 @@ void FullscreenController::EnterFullscreenModeForTab(
 }
 
 void FullscreenController::ExitFullscreenModeForTab(WebContents* web_contents) {
-  // Reset the popunder preventer after the window exits content fullscreen.
-  // This activates any popup windows that were created while fullscreen.
-  base::ScopedClosureRunner reset_popunder_preventer(
-      base::BindOnce(&std::unique_ptr<PopunderPreventer>::reset,
-                     base::Unretained(&popunder_preventer_), nullptr));
-
   if (MaybeToggleFullscreenWithinTab(web_contents, false)) {
     // During tab capture of fullscreen-within-tab views, the browser window
     // fullscreen state is unchanged, so return now.
@@ -395,6 +389,10 @@ void FullscreenController::FullscreenTransitionCompleted() {
 #endif  // DCHECK_IS_ON()
   tab_fullscreen_target_display_id_ = display::kInvalidDisplayId;
   started_fullscreen_transition_ = false;
+  if (!IsTabFullscreen()) {
+    // Activate any popup windows created while content fullscreen, after exit.
+    popunder_preventer_.reset();
+  }
 }
 
 void FullscreenController::RunOrDeferUntilTransitionIsComplete(
@@ -421,6 +419,18 @@ bool FullscreenController::HandleUserPressedEscape() {
   ExitExclusiveAccessIfNecessary();
   base::RecordAction(base::UserMetricsAction("ExitFullscreen_Esc"));
   return true;
+}
+
+void FullscreenController::HandleUserHeldEscape() {
+  if (RequiresPressAndHoldEscToExit()) {
+    ExitFullscreenModeInternal();
+  }
+}
+
+void FullscreenController::HandleUserReleasedEscapeEarly() {}
+
+bool FullscreenController::RequiresPressAndHoldEscToExit() const {
+  return IsFullscreenForBrowser();
 }
 
 void FullscreenController::ExitExclusiveAccessToPreviousState() {

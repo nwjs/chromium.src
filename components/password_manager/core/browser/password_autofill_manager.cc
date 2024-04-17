@@ -37,7 +37,6 @@
 #include "components/password_manager/core/browser/password_manager_driver.h"
 #include "components/password_manager/core/browser/password_manager_metrics_recorder.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
-#include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/browser/password_manual_fallback_flow.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
 #include "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
@@ -89,7 +88,7 @@ bool HasLoadingSuggestion(base::span<const autofill::Suggestion> suggestions,
 }
 
 std::vector<autofill::Suggestion> SetUnlockLoadingState(
-    base::span<const autofill::Suggestion> suggestions,
+    std::vector<autofill::Suggestion> suggestions,
     autofill::PopupItemId unlock_item,
     IsLoading is_loading) {
   DCHECK(unlock_item == autofill::PopupItemId::kPasswordAccountStorageOptIn ||
@@ -97,13 +96,10 @@ std::vector<autofill::Suggestion> SetUnlockLoadingState(
              autofill::PopupItemId::kPasswordAccountStorageReSignin ||
          unlock_item ==
              autofill::PopupItemId::kPasswordAccountStorageOptInAndGenerate);
-  std::vector<autofill::Suggestion> new_suggestions;
-  new_suggestions.reserve(suggestions.size());
-  base::ranges::copy(suggestions, std::back_inserter(new_suggestions));
-  auto unlock_iter = base::ranges::find(new_suggestions, unlock_item,
+  auto unlock_iter = base::ranges::find(suggestions, unlock_item,
                                         &autofill::Suggestion::popup_item_id);
   unlock_iter->is_loading = is_loading;
-  return new_suggestions;
+  return suggestions;
 }
 
 void LogAccountStoredPasswordsCountInFillDataAfterUnlock(
@@ -136,9 +132,11 @@ PasswordAutofillManager::PasswordAutofillManager(
 
 PasswordAutofillManager::~PasswordAutofillManager() {
   CancelBiometricReauthIfOngoing();
+}
 
-  if (deletion_callback_)
-    std::move(deletion_callback_).Run();
+absl::variant<autofill::AutofillDriver*, PasswordManagerDriver*>
+PasswordAutofillManager::GetDriver() {
+  return password_manager_driver_.get();
 }
 
 void PasswordAutofillManager::OnPopupShown() {}
@@ -184,11 +182,8 @@ void PasswordAutofillManager::OnUnlockItemAccepted(
           : signin_metrics::ReauthAccessPoint::kGeneratePasswordDropdown;
   password_client_->TriggerReauthForPrimaryAccount(
       reauth_access_point,
-      base::BindOnce(
-          &PasswordAutofillManager::OnUnlockReauthCompleted,
-          weak_ptr_factory_.GetWeakPtr(), unlock_item,
-          autofill_client_->GetReopenPopupArgs(
-              autofill::AutofillSuggestionTriggerSource::kPasswordManager)));
+      base::BindOnce(&PasswordAutofillManager::OnUnlockReauthCompleted,
+                     weak_ptr_factory_.GetWeakPtr(), unlock_item));
 }
 
 void PasswordAutofillManager::DidAcceptSuggestion(
@@ -265,8 +260,8 @@ void PasswordAutofillManager::DidAcceptSuggestion(
           password_client_->GetDeviceAuthenticator();
       // Note: this is currently only implemented on Android, Mac and Windows.
       // For other platforms, the `authenticator` will be null.
-      if (!password_manager_util::CanUseBiometricAuth(authenticator.get(),
-                                                      password_client_)) {
+      if (!password_client_->CanUseBiometricAuthForFilling(
+              authenticator.get())) {
         bool success = FillSuggestion(
             GetUsernameFromSuggestion(suggestion.main_text.value),
             suggestion.popup_item_id);
@@ -319,19 +314,6 @@ void PasswordAutofillManager::ClearPreviewedForm() {
 autofill::FillingProduct PasswordAutofillManager::GetMainFillingProduct()
     const {
   return autofill::FillingProduct::kPassword;
-}
-
-int32_t PasswordAutofillManager::GetWebContentsPopupControllerAxId() const {
-  // TODO: Needs to be implemented when we step up accessibility features in the
-  // future.
-  // See http://crbug.com/991253
-  NOTIMPLEMENTED_LOG_ONCE();
-  return 0;
-}
-
-void PasswordAutofillManager::RegisterDeletionCallback(
-    base::OnceClosure deletion_callback) {
-  deletion_callback_ = std::move(deletion_callback);
 }
 
 void PasswordAutofillManager::OnAddPasswordFillData(
@@ -404,7 +386,7 @@ void PasswordAutofillManager::OnShowPasswordSuggestions(
               password_client_->GetProfilePasswordStore(),
               password_client_->GetAccountPasswordStore()));
     }
-    manual_fallback_flow_->RunFlow(bounds, text_direction);
+    manual_fallback_flow_->RunFlow(element_id, bounds, text_direction);
     return;
   }
   bool autofill_available =
@@ -500,16 +482,18 @@ bool PasswordAutofillManager::ShowPopup(
     return false;
   }
   LogMetricsForSuggestions(suggestions);
-  autofill::AutofillClient::PopupOpenArgs open_args(
+  // TODO(crbug.com/991253): Set the right `form_control_ax_id`.
+  last_popup_open_args_ = autofill::AutofillClient::PopupOpenArgs(
       bounds, text_direction, suggestions,
-      autofill::AutofillSuggestionTriggerSource::kPasswordManager);
-  autofill_client_->ShowAutofillPopup(open_args,
+      autofill::AutofillSuggestionTriggerSource::kPasswordManager,
+      /*form_control_ax_id=*/0);
+  autofill_client_->ShowAutofillPopup(last_popup_open_args_,
                                       weak_ptr_factory_.GetWeakPtr());
   return true;
 }
 
 void PasswordAutofillManager::UpdatePopup(
-    const std::vector<autofill::Suggestion>& suggestions) {
+    std::vector<autofill::Suggestion> suggestions) {
   if (!password_manager_driver_->CanShowAutofillUi())
     return;
   if (!ContainsOtherThanManagePasswords(suggestions)) {
@@ -520,6 +504,7 @@ void PasswordAutofillManager::UpdatePopup(
   autofill_client_->UpdatePopup(
       suggestions, autofill::FillingProduct::kPassword,
       autofill::AutofillSuggestionTriggerSource::kPasswordManager);
+  last_popup_open_args_.suggestions = std::move(suggestions);
 }
 
 bool PasswordAutofillManager::FillSuggestion(
@@ -621,9 +606,8 @@ void PasswordAutofillManager::OnFaviconReady(
 
 void PasswordAutofillManager::OnUnlockReauthCompleted(
     autofill::PopupItemId unlock_item,
-    autofill::AutofillClient::PopupOpenArgs reopen_args,
     PasswordManagerClient::ReauthSucceeded reauth_succeeded) {
-  autofill_client_->ShowAutofillPopup(reopen_args,
+  autofill_client_->ShowAutofillPopup(last_popup_open_args_,
                                       weak_ptr_factory_.GetWeakPtr());
   autofill_client_->PinPopupView();
   if (reauth_succeeded) {
@@ -635,8 +619,11 @@ void PasswordAutofillManager::OnUnlockReauthCompleted(
     }
     return;
   }
-  UpdatePopup(SetUnlockLoadingState(reopen_args.suggestions, unlock_item,
-                                    IsLoading(false)));
+  UpdatePopup(
+      SetUnlockLoadingState(std::move(last_popup_open_args_).suggestions,
+                            unlock_item, IsLoading(false)));
+  // Resets the popup arguments until the next ShowPopup() call.
+  last_popup_open_args_ = {};
 }
 
 void PasswordAutofillManager::OnBiometricReauthCompleted(

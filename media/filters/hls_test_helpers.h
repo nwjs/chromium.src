@@ -109,7 +109,7 @@ class MockHlsRenditionHost : public HlsRenditionHost {
 
   MOCK_METHOD(void,
               UpdateRenditionManifestUri,
-              (std::string, GURL, base::OnceClosure),
+              (std::string, GURL, base::OnceCallback<void(bool)>),
               (override));
 
   MOCK_METHOD(void,
@@ -119,6 +119,8 @@ class MockHlsRenditionHost : public HlsRenditionHost {
               (override));
 
   MOCK_METHOD(void, UpdateNetworkSpeed, (uint64_t), (override));
+
+  MOCK_METHOD(void, SetEndOfStream, (bool), (override));
 };
 
 class MockHlsRendition : public HlsRendition {

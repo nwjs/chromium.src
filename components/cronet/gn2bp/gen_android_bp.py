@@ -302,6 +302,9 @@ def add_androidx_junit_java_deps(module, arch):
 def add_androidx_test_runner_java_deps(module, arch):
     module.static_libs.add("androidx.test.runner")
 
+def add_androidx_test_rules_java_deps(module, arch):
+    module.static_libs.add("androidx.test.rules")
+
 
 def add_android_test_base_java_deps(module, arch):
     module.libs.add("android.test.base")
@@ -391,6 +394,8 @@ _builtin_deps = {
     add_android_test_base_java_deps,
     '//third_party/accessibility_test_framework:accessibility_test_framework_java':
     add_accessibility_test_framework_java_deps,
+    '//third_party/accessibility_test_framework:accessibility_core_java':
+    add_accessibility_test_framework_java_deps,
     '//third_party/android_deps:espresso_java':
     add_espresso_java_deps,
     '//third_party/android_sdk:android_test_mock_java':
@@ -411,6 +416,8 @@ _builtin_deps = {
     add_androidx_activity_activity,
     '//third_party/androidx:androidx_fragment_fragment_java':
     add_androidx_fragment_fragment,
+    '//third_party/androidx:androidx_test_rules_java':
+    add_androidx_test_rules_java_deps,
 }
 builtin_deps = {
     "{}{}".format(key, suffix): value

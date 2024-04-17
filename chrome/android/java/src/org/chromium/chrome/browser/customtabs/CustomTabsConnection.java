@@ -52,6 +52,7 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.ChainedTasks;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.build.annotations.MockedInTests;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeApplicationImpl;
@@ -67,6 +68,7 @@ import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
+import org.chromium.chrome.browser.page_insights.PageInsightsConfigRequest;
 import org.chromium.chrome.browser.page_insights.proto.Config.PageInsightsConfig;
 import org.chromium.chrome.browser.page_insights.proto.IntentParams.PageInsightsIntentParams;
 import org.chromium.chrome.browser.page_load_metrics.PageLoadMetrics;
@@ -107,10 +109,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Implementation of the ICustomTabsService interface.
  *
- * Note: This class is meant to be package private, and is public to be
- * accessible from {@link ChromeApplicationImpl}.
+ * <p>Note: This class is meant to be package private, and is public to be accessible from {@link
+ * ChromeApplicationImpl}.
  */
 @JNINamespace("customtabs")
+@MockedInTests
 public class CustomTabsConnection {
     private static final String TAG = "ChromeConnection";
     private static final String LOG_SERVICE_REQUESTS = "custom-tabs-log-service-requests";
@@ -389,7 +392,7 @@ public class CustomTabsConnection {
     private static void initializeBrowser(final Context context) {
         ThreadUtils.assertOnUiThread();
         ChromeBrowserInitializer.getInstance().handleSynchronousStartupWithGpuWarmUp();
-        ChildProcessLauncherHelper.warmUp(context, true);
+        ChildProcessLauncherHelper.warmUpOnAnyThread(context, true);
     }
 
     public boolean warmup(long flags) {
@@ -1962,6 +1965,11 @@ public class CustomTabsConnection {
         return mClientManager.getEngagementSignalsCallbackForSession(session) != null;
     }
 
+    /** Whether a CustomTabs instance should include interactive Omnibox. */
+    public boolean shouldEnableOmniboxForIntent(BrowserServicesIntentDataProvider intentData) {
+        return false;
+    }
+
     /**
      * Whether PageInsight Hub is enabled by the launching Intent. False by default.
      * @param intentData {@link BrowserServicesIntentDataProvider} built from the Intent that
@@ -1981,6 +1989,7 @@ public class CustomTabsConnection {
     public PageInsightsConfig getPageInsightsConfig(
             BrowserServicesIntentDataProvider intentData,
             @Nullable NavigationHandle navigationHandle,
+            @Nullable NavigationEntry navigationEntry,
             Supplier<Profile> profileSupplier) {
         // For all params, by default populate the most conservative values.
         return PageInsightsConfig.newBuilder()
@@ -1996,16 +2005,14 @@ public class CustomTabsConnection {
      * if {@link #shouldEnablePageInsightsForIntent(BrowserServicesIntentDataProvider)} returns
      * true.
      *
+     * @param request {@link PageInsightsConfigRequest} containing info important for config
      * @param intentData {@link BrowserServicesIntentDataProvider} built from the Intent that
      *     launched this CCT.
-     * @param navigationHandle the {@link NavigationHandle} for the current URL.
-     * @param navigationEntry the {@link NavigationEntry} for the current URL.
      * @param profileSupplier supplier of the current {@link Profile}.
      */
     public PageInsightsConfig getPageInsightsConfig(
+            PageInsightsConfigRequest request,
             BrowserServicesIntentDataProvider intentData,
-            @Nullable NavigationHandle navigationHandle,
-            @Nullable NavigationEntry navigationEntry,
             Supplier<Profile> profileSupplier) {
         // For all params, by default populate the most conservative values.
         return PageInsightsConfig.newBuilder()
@@ -2014,6 +2021,17 @@ public class CustomTabsConnection {
                 .setIsInitialPage(false)
                 .setServerShouldNotLogOrPersonalize(true)
                 .build();
+    }
+
+    /**
+     * Whether Google Bottom Bar is enabled by the launching Intent. False by default.
+     *
+     * @param intentData {@link BrowserServicesIntentDataProvider} built from the Intent that
+     *     launched this CCT.
+     */
+    public boolean shouldEnableGoogleBottomBarForIntent(
+            BrowserServicesIntentDataProvider intentData) {
+        return false;
     }
 
     /**

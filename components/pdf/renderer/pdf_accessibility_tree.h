@@ -12,11 +12,11 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "components/services/screen_ai/buildflags/buildflags.h"
 #include "content/public/renderer/plugin_ax_tree_source.h"
 #include "content/public/renderer/render_frame_observer.h"
 #include "pdf/accessibility_structs.h"
 #include "pdf/pdf_accessibility_data_handler.h"
+#include "services/screen_ai/buildflags/buildflags.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_tree.h"
@@ -28,8 +28,8 @@
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 #include "base/containers/queue.h"
 #include "base/sequence_checker.h"
-#include "components/services/screen_ai/public/mojom/screen_ai_service.mojom.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
@@ -141,9 +141,7 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
                                    const ui::AXTreeUpdate& tree_update);
 
     // `image_fetcher_` owns `this`.
-    const raw_ptr<chrome_pdf::PdfAccessibilityImageFetcher,
-                  ExperimentalRenderer>
-        image_fetcher_;
+    const raw_ptr<chrome_pdf::PdfAccessibilityImageFetcher> image_fetcher_;
 
     uint32_t pages_per_batch_;
     uint32_t remaining_page_count_;
@@ -354,15 +352,12 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
   // ‌PdfAccessibilityTree belongs to the PDF plugin which is created by the
   // renderer. `render_frame_` is reset when renderer sends OnDestruct() to its
   // observers.
-  raw_ptr<content::RenderFrame, ExperimentalRenderer> render_frame_;
+  raw_ptr<content::RenderFrame> render_frame_;
 
   // Unowned. Must outlive `this`.
-  const raw_ptr<chrome_pdf::PdfAccessibilityActionHandler, ExperimentalRenderer>
-      action_handler_;
-  const raw_ptr<chrome_pdf::PdfAccessibilityImageFetcher, ExperimentalRenderer>
-      image_fetcher_;
-  const raw_ptr<blink::WebPluginContainer, ExperimentalRenderer>
-      plugin_container_;
+  const raw_ptr<chrome_pdf::PdfAccessibilityActionHandler> action_handler_;
+  const raw_ptr<chrome_pdf::PdfAccessibilityImageFetcher> image_fetcher_;
+  const raw_ptr<blink::WebPluginContainer> plugin_container_;
 
   // `zoom_` signifies the zoom level set in for the browser content.
   // `scale_` signifies the scale level set by user. Scale is applied

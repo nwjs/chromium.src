@@ -35,12 +35,10 @@ import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.content_settings.CookieBlocking3pcdStatus;
-import org.chromium.components.content_settings.CookieControlsBreakageConfidenceLevel;
 import org.chromium.components.content_settings.CookieControlsBridge;
 import org.chromium.components.content_settings.CookieControlsEnforcement;
 import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.content_settings.CookieControlsObserver;
-import org.chromium.components.content_settings.CookieControlsStatus;
 import org.chromium.components.content_settings.PrefNames;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
@@ -65,11 +63,13 @@ public class CookieControlsBridgeTest {
 
         @Override
         public void onStatusChanged(
-                @CookieControlsStatus int status,
+                boolean controlsVisible,
+                boolean protectionsOn,
                 @CookieControlsEnforcement int enforcement,
                 @CookieBlocking3pcdStatus int blockingStatus,
                 long expiration) {
-            mStatus = status;
+            mCookieControlsVisible = controlsVisible;
+            mThirdPartyCookiesBlocked = protectionsOn;
             mEnforcement = enforcement;
             mExpiration = expiration;
             mHelper.notifyCalled();
@@ -83,9 +83,8 @@ public class CookieControlsBridgeTest {
         }
 
         @Override
-        public void onBreakageConfidenceLevelChanged(
-                @CookieControlsBreakageConfidenceLevel int level) {
-            mLevel = level;
+        public void onHighlightCookieControl(boolean shouldHighlight) {
+            mShouldHighlight = shouldHighlight;
             mHelper.notifyCalled();
         }
     }
@@ -102,27 +101,29 @@ public class CookieControlsBridgeTest {
     private CallbackHelper mCallbackHelper;
     private TestCallbackHandler mCallbackHandler;
     private CookieControlsBridge mCookieControlsBridge;
-    private int mStatus;
+    private boolean mCookieControlsVisible;
+    private boolean mThirdPartyCookiesBlocked;
     private int mEnforcement;
     private long mExpiration;
     private int mAllowedCookies;
     private int mBlockedCookies;
     private int mAllowedSites;
     private int mBlockedSites;
-    private int mLevel;
+    private boolean mShouldHighlight;
 
     @Before
     public void setUp() throws Exception {
         mCallbackHelper = new CallbackHelper();
         mCallbackHandler = new TestCallbackHandler(mCallbackHelper);
         mTestServer = sActivityTestRule.getTestServer();
-        mStatus = CookieControlsStatus.UNINITIALIZED;
+        mCookieControlsVisible = false;
+        mThirdPartyCookiesBlocked = false;
         mAllowedCookies = -1;
         mBlockedCookies = -1;
         mAllowedSites = -1;
         mBlockedSites = -1;
-        mLevel = CookieControlsBreakageConfidenceLevel.UNINITIALIZED;
         mExpiration = -1;
+        mShouldHighlight = false;
     }
 
     @After
@@ -138,7 +139,7 @@ public class CookieControlsBridgeTest {
                     BrowsingDataBridge.getForProfile(profile)
                             .clearBrowsingData(
                                     helper::notifyCalled,
-                                    new int[] {BrowsingDataType.COOKIES},
+                                    new int[] {BrowsingDataType.SITE_DATA},
                                     TimePeriod.ALL_TIME);
                 });
         helper.waitForCallback(0);
@@ -169,7 +170,8 @@ public class CookieControlsBridgeTest {
                 });
 
         mCallbackHelper.waitForCallback(currentCallCount, 2);
-        assertEquals(CookieControlsStatus.DISABLED, mStatus);
+        assertEquals(false, mCookieControlsVisible);
+        assertEquals(false, mThirdPartyCookiesBlocked);
         assertEquals(CookieControlsEnforcement.NO_ENFORCEMENT, mEnforcement);
         assertEquals(0, mAllowedSites);
         assertEquals(0, mBlockedSites);
@@ -199,7 +201,8 @@ public class CookieControlsBridgeTest {
                 });
 
         mCallbackHelper.waitForCallback(currentCallCount, 2);
-        assertEquals(CookieControlsStatus.ENABLED, mStatus);
+        assertEquals(true, mCookieControlsVisible);
+        assertEquals(true, mThirdPartyCookiesBlocked);
         assertEquals(CookieControlsEnforcement.NO_ENFORCEMENT, mEnforcement);
         assertEquals(0, mAllowedSites);
         assertEquals(0, mBlockedSites);
@@ -223,7 +226,8 @@ public class CookieControlsBridgeTest {
                 });
 
         mCallbackHelper.waitForCallback(currentCallCount, 2);
-        assertEquals(CookieControlsStatus.DISABLED, mStatus);
+        assertEquals(false, mCookieControlsVisible);
+        assertEquals(false, mThirdPartyCookiesBlocked);
         assertEquals(CookieControlsEnforcement.NO_ENFORCEMENT, mEnforcement);
         assertEquals(0, mAllowedSites);
         assertEquals(0, mBlockedSites);
@@ -266,7 +270,8 @@ public class CookieControlsBridgeTest {
                 });
 
         mCallbackHelper.waitForCallback(currentCallCount, 2);
-        assertEquals(CookieControlsStatus.ENABLED, mStatus);
+        assertEquals(true, mCookieControlsVisible);
+        assertEquals(true, mThirdPartyCookiesBlocked);
         assertEquals(CookieControlsEnforcement.NO_ENFORCEMENT, mEnforcement);
         assertEquals(0, mAllowedSites);
         assertEquals(0, mBlockedSites);
@@ -306,7 +311,8 @@ public class CookieControlsBridgeTest {
                 });
 
         mCallbackHelper.waitForCallback(currentCallCount, 2);
-        assertEquals(CookieControlsStatus.DISABLED, mStatus);
+        assertEquals(false, mCookieControlsVisible);
+        assertEquals(false, mThirdPartyCookiesBlocked);
         assertEquals(CookieControlsEnforcement.NO_ENFORCEMENT, mEnforcement);
         assertEquals(0, mAllowedSites);
         assertEquals(0, mBlockedSites);
@@ -322,7 +328,8 @@ public class CookieControlsBridgeTest {
                                     incognitoTab.getProfile().getOriginalProfile());
                 });
         mCallbackHelper.waitForCallback(currentCallCount, 2);
-        assertEquals(CookieControlsStatus.ENABLED, mStatus);
+        assertEquals(true, mCookieControlsVisible);
+        assertEquals(true, mThirdPartyCookiesBlocked);
         assertEquals(CookieControlsEnforcement.NO_ENFORCEMENT, mEnforcement);
         assertEquals(0, mAllowedSites);
         assertEquals(0, mBlockedSites);

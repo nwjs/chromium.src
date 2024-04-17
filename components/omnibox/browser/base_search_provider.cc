@@ -9,8 +9,8 @@
 
 #include <algorithm>
 #include <memory>
+#include <vector>
 
-#include "base/containers/cxx20_erase.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/i18n/case_conversion.h"
@@ -309,24 +309,6 @@ AutocompleteMatch BaseSearchProvider::CreateOnDeviceSearchSuggestion(
       autocomplete_provider, input, /*in_keyword_mode=*/false, suggest_result,
       template_url, search_terms_data, accepted_suggestion,
       /*append_extra_query_params_from_command_line=*/true);
-}
-
-// static
-void BaseSearchProvider::AppendSuggestClientToAdditionalQueryParams(
-    const TemplateURL* template_url,
-    const SearchTermsData& search_terms_data,
-    metrics::OmniboxEventProto::PageClassification page_classification,
-    TemplateURLRef::SearchTermsArgs* search_terms_args) {
-  // Only append the suggest client query param for Google template URL.
-  if (!search::TemplateURLIsGoogle(template_url, search_terms_data)) {
-    return;
-  }
-
-  if (page_classification == metrics::OmniboxEventProto::CHROMEOS_APP_LIST) {
-    if (!search_terms_args->additional_query_params.empty())
-      search_terms_args->additional_query_params.append("&");
-    search_terms_args->additional_query_params.append("sclient=cros-launcher");
-  }
 }
 
 // static
@@ -668,7 +650,7 @@ void BaseSearchProvider::OnDeletionComplete(
     const int response_code,
     std::unique_ptr<std::string> response_body) {
   RecordDeletionResult(response_code == 200);
-  base::EraseIf(
+  std::erase_if(
       deletion_loaders_,
       [source](const std::unique_ptr<network::SimpleURLLoader>& loader) {
         return loader.get() == source;

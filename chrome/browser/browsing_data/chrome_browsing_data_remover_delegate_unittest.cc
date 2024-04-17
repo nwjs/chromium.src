@@ -53,6 +53,8 @@
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_core_service_impl.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
+#include "chrome/browser/file_system_access/chrome_file_system_access_permission_context.h"
+#include "chrome/browser/file_system_access/file_system_access_permission_context_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/language/url_language_histogram_factory.h"
 #include "chrome/browser/media/webrtc/media_device_salt_service_factory.h"
@@ -78,7 +80,7 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/trusted_vault/trusted_vault_service_factory.h"
-#include "chrome/browser/web_data_service_factory.h"
+#include "chrome/browser/webdata_services/web_data_service_factory.h"
 #include "chrome/browser/webid/federated_identity_permission_context.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
@@ -893,7 +895,7 @@ class RemoveAutofillTester {
   void AddProfileAndCard() {
     personal_data_manager_->AddProfile(autofill::test::GetFullProfile());
     personal_data_manager_->AddCreditCard(autofill::test::GetCreditCard());
-    autofill::PersonalDataProfileTaskWaiter(*personal_data_manager_).Wait();
+    autofill::PersonalDataChangedWaiter(*personal_data_manager_).Wait();
   }
 
  private:
@@ -4159,6 +4161,45 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   // Token is not found because cookies are deleted.
   ASSERT_FALSE(token.has_token_value());
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       RevokeActiveFileSystemPermission) {
+  ChromeFileSystemAccessPermissionContext* context =
+      FileSystemAccessPermissionContextFactory::GetForProfile(GetProfile());
+
+  auto kTestOrigin1 = url::Origin::Create(GURL("https://a.com"));
+  auto kTestOrigin2 = url::Origin::Create(GURL("https://b.com"));
+
+  const base::FilePath kTestPath1 = base::FilePath(FILE_PATH_LITERAL("/a/b"));
+  const base::FilePath kTestPath2 = base::FilePath(FILE_PATH_LITERAL("/a/c"));
+
+  // Populate the `grants` object with permissions.
+  auto origin1_file_read_grant =
+      context->GetExtendedReadPermissionGrantForTesting(
+          kTestOrigin1, kTestPath1,
+          ChromeFileSystemAccessPermissionContext::HandleType::kFile);
+  auto origin2_file_read_grant =
+      context->GetExtendedReadPermissionGrantForTesting(
+          kTestOrigin2, kTestPath2,
+          ChromeFileSystemAccessPermissionContext::HandleType::kFile);
+
+  EXPECT_EQ(
+      origin1_file_read_grant->GetStatus(),
+      content::FileSystemAccessPermissionGrant::PermissionStatus::GRANTED);
+  EXPECT_EQ(
+      origin2_file_read_grant->GetStatus(),
+      content::FileSystemAccessPermissionGrant::PermissionStatus::GRANTED);
+
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                constants::DATA_TYPE_CONTENT_SETTINGS, false);
+
+  EXPECT_EQ(origin1_file_read_grant->GetStatus(),
+            content::FileSystemAccessPermissionGrant::PermissionStatus::ASK);
+  EXPECT_EQ(origin2_file_read_grant->GetStatus(),
+            content::FileSystemAccessPermissionGrant::PermissionStatus::ASK);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 class ChromeBrowsingDataRemoverDelegateOriginTrialsTest
     : public ChromeBrowsingDataRemoverDelegateTest {

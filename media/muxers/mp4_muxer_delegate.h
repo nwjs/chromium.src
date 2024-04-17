@@ -44,6 +44,8 @@ class Mp4MuxerDelegateInterface {
       base::TimeTicks timestamp) = 0;
 
   virtual bool Flush() = 0;
+
+  virtual bool FlushFragment() = 0;
 };
 
 // Mp4MuxerDelegate builds the MP4 boxes from the encoded stream.
@@ -73,6 +75,7 @@ class MEDIA_EXPORT Mp4MuxerDelegate : public Mp4MuxerDelegateInterface {
       base::TimeTicks timestamp) override;
   // Write to the big endian ISO-BMFF boxes and call `write_callback`.
   bool Flush() override;
+  bool FlushFragment() override;
 
  private:
   void BuildFileTypeBox(mp4::writable_boxes::FileType& mp4_file_type_box);
@@ -135,9 +138,11 @@ class MEDIA_EXPORT Mp4MuxerDelegate : public Mp4MuxerDelegateInterface {
   int audio_sample_rate_ = 0;
 
   // Flush for startup is only called once.
-  absl::optional<size_t> written_file_type_box_size_;
+  std::optional<size_t> written_file_type_box_size_;
 
-  absl::optional<size_t> written_mov_box_size_;
+  std::optional<size_t> written_mov_box_size_;
+
+  bool live_mode_ = false;
 
   uint32_t sequence_number_ = 1;
 

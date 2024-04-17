@@ -151,6 +151,7 @@ UtilityProcessHost::UtilityProcessHost(std::unique_ptr<Client> client)
       name_(u"utility process"),
       file_data_(std::make_unique<ChildProcessLauncherFileData>()),
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS_ASH)
+      allowed_gpu_(false),
       gpu_client_(nullptr, base::OnTaskRunnerDeleter(nullptr)),
 #endif
       client_(std::move(client)) {
@@ -231,6 +232,12 @@ void UtilityProcessHost::SetPinUser32() {
   pin_user32_ = true;
 }
 #endif  // BUILDFLAG(IS_WIN)
+
+void UtilityProcessHost::SetAllowGpuClient() {
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS_ASH)
+  allowed_gpu_ = true;
+#endif
+}
 
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
 void UtilityProcessHost::AddFileToPreload(
@@ -343,11 +350,9 @@ bool UtilityProcessHost::StartProcess() {
 #endif
       switches::kEnableBackgroundThreadPool,
       switches::kEnableExperimentalCookieFeatures,
-      switches::kEnableLogging,
       switches::kForceTextDirection,
       switches::kForceUIDirection,
       switches::kIgnoreCertificateErrors,
-      switches::kLoggingLevel,
       switches::kOverrideUseSoftwareGLForTests,
       switches::kOverrideEnabledCdmInterfaceVersion,
       switches::kProxyServer,
@@ -361,8 +366,6 @@ bool UtilityProcessHost::StartProcess() {
       switches::kUtilityStartupDialog,
       switches::kUseANGLE,
       switches::kUseGL,
-      switches::kV,
-      switches::kVModule,
       switches::kEnableExperimentalWebPlatformFeatures,
       // These flags are used by the audio service:
       switches::kAudioBufferSize,

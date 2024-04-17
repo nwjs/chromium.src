@@ -76,8 +76,13 @@ RendererColorMap COMPONENT_EXPORT(COLOR)
 ColorProvider COMPONENT_EXPORT(COLOR) CreateColorProviderFromRendererColorMap(
     const RendererColorMap& renderer_color_map);
 
+// Adds colors for emulating Windows 10 default high contrast color themes
+// to `mixer`. Used to support the devtools forced colors emulation feature.
+void COMPONENT_EXPORT(COLOR)
+    AddEmulatedForcedColorsToMixer(ColorMixer& mixer, bool dark_mode);
+
 // Creates a color provider emulating Windows 10 default high contrast color
-// themes. Currently only defines colors for scrollbar parts.
+// themes.
 ColorProvider COMPONENT_EXPORT(COLOR)
     CreateEmulatedForcedColorsColorProvider(bool dark_mode);
 
@@ -88,11 +93,13 @@ ColorProvider COMPONENT_EXPORT(COLOR)
 ColorProvider COMPONENT_EXPORT(COLOR)
     CreateEmulatedForcedColorsColorProviderForTest();
 
-// Creates a default color provider for Blink Pages that are not associated with
-// a web view. This includes tests, dummy pages,  and non ordinary pages. These
-// scenarios do not use the normal machinery to establish color providers in the
-// renderer. The color mappings for this provider are derived from old Aura
-// colors for controls.
+// TODO(crbug.com/40779801): Enhance this function by incorporating platform
+// specific overrides, particularly for CSS system colors.
+// Creates a default fallback color provider for Blink Pages that are not
+// associated with a web view. This includes tests, dummy pages, and non
+// ordinary pages. These scenarios do not use the normal machinery to establish
+// color providers in the renderer. The color mappings for this provider are
+// derived from old Aura colors for controls.
 ColorProvider COMPONENT_EXPORT(COLOR)
     CreateDefaultColorProviderForBlink(bool dark_mode);
 
@@ -113,6 +120,11 @@ void COMPONENT_EXPORT(COLOR)
     CompleteDefaultNonWebNativeRendererColorIdsDefinition(
         ui::ColorMixer& mixer);
 
+// Completes default color definitions for the CSS system colors.
+void COMPONENT_EXPORT(COLOR)
+    CompleteDefaultCssSystemColorDefinition(ui::ColorMixer& mixer,
+                                            bool dark_mode);
+
 // Returns a default set of color maps for tests and non ordinary pages. These
 // places do not use the normal machinery to establish a color provider in the
 // renderer since they are not associated with a web view.
@@ -123,7 +135,7 @@ RendererColorMap COMPONENT_EXPORT(COLOR)
 // Returns true if `color_provider` and `renderer_color_map` map renderer
 // color ids to the same SkColor.
 bool COMPONENT_EXPORT(COLOR) IsRendererColorMappingEquivalent(
-    const ColorProvider& color_provider,
+    const ColorProvider* color_provider,
     const RendererColorMap& renderer_color_map);
 
 // Sets the callback for converting a ChromeColorId to a string name. This is

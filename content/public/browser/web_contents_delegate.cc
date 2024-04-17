@@ -400,10 +400,6 @@ WebContentsDelegate::GetInstalledWebappGeolocationContext() {
   return nullptr;
 }
 
-base::WeakPtr<WebContentsDelegate> WebContentsDelegate::GetDelegateWeakPtr() {
-  return nullptr;
-}
-
 bool WebContentsDelegate::IsPrivileged() {
   return false;
 }

@@ -247,6 +247,15 @@ void ChromeRenderFrameObserver::ReadyToCommitNavigation(
 #endif
 }
 
+void ChromeRenderFrameObserver::DidSetPageLifecycleState(
+    bool restoring_from_bfcache) {
+#if 0
+  if (restoring_from_bfcache && translate_agent_) {
+    translate_agent_->RenewPageRegistration();
+  }
+#endif
+}
+
 void ChromeRenderFrameObserver::DidFinishLoad() {
   WebLocalFrame* frame = render_frame()->GetWebFrame();
   // Don't do anything for subframes.

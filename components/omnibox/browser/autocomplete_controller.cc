@@ -46,7 +46,6 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
-#include "components/omnibox/browser/autocomplete_scoring_model_service.h"
 #include "components/omnibox/browser/autocomplete_scoring_signals_annotator.h"
 #include "components/omnibox/browser/bookmark_provider.h"
 #include "components/omnibox/browser/bookmark_scoring_signals_annotator.h"
@@ -75,6 +74,7 @@
 #include "components/omnibox/browser/zero_suggest_verbatim_match_provider.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/open_from_clipboard/clipboard_recent_content.h"
+#include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -98,6 +98,12 @@
 #include "components/omnibox/browser/history_cluster_provider.h"
 #include "components/open_from_clipboard/clipboard_recent_content_generic.h"
 #endif
+
+#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+#include "components/omnibox/browser/autocomplete_scoring_model_service.h"
+#endif
+
+constexpr bool kIsDesktop = !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS);
 
 namespace {
 
@@ -1261,17 +1267,9 @@ void AutocompleteController::AttachActions() {
 #endif
   }
   internal_result_.TrimOmniboxActions(input_.IsZeroSuggest());
-
-  // TODO(crbug.com/1477861): Eliminate the NTP realbox check when realbox UI
-  //  is fixed for this feature. For now the *IncludeRealbox feature param is
-  //  defaulted to true so that developers see realbox issues but they can
-  //  be prevented in experiments.
-  if (OmniboxFieldTrial::IsActionsUISimplificationEnabled() &&
-      (OmniboxFieldTrial::kActionsUISimplificationIncludeRealbox.Get() ||
-       input_.current_page_classification() !=
-           metrics::OmniboxEventProto::NTP_REALBOX)) {
-    internal_result_.SplitActionsToSuggestions();
-  }
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  internal_result_.SplitActionsToSuggestions();
+#endif
 }
 
 void AutocompleteController::UpdateAssociatedKeywords(
@@ -1302,8 +1300,7 @@ void AutocompleteController::UpdateAssociatedKeywords(
       // Prevent starter-pack keywords from attaching to non-starter-pack
       // matches. Those will have a dedicated UI with an explicit match
       // selection to enter keyword mode.
-      if (OmniboxFieldTrial::IsKeywordModeRefreshEnabled() &&
-          match.type != AutocompleteMatchType::STARTER_PACK) {
+      if (kIsDesktop && match.type != AutocompleteMatchType::STARTER_PACK) {
         TemplateURL* turl =
             template_url_service_->GetTemplateURLForKeyword(exact_keyword);
         // Note, starter pack matches that removed the '@' from the beginning of
@@ -1336,8 +1333,7 @@ void AutocompleteController::UpdateAssociatedKeywords(
     if (!keyword.empty()) {
       // Prevent starter-pack keywords from attaching to non-starter-pack
       // matches.
-      if (OmniboxFieldTrial::IsKeywordModeRefreshEnabled() &&
-          match.type != AutocompleteMatchType::STARTER_PACK) {
+      if (kIsDesktop && match.type != AutocompleteMatchType::STARTER_PACK) {
         TemplateURL* turl =
             template_url_service_->GetTemplateURLForKeyword(keyword);
         if (turl && turl->starter_pack_id() != 0 &&
@@ -1349,8 +1345,7 @@ void AutocompleteController::UpdateAssociatedKeywords(
       // Only add the keyword if the match does not have a duplicate keyword
       // with a more relevant match.
       if (!keywords.count(keyword) ||
-          (OmniboxFieldTrial::IsKeywordModeRefreshEnabled() &&
-           match.type == AutocompleteMatchType::STARTER_PACK)) {
+          (kIsDesktop && match.type == AutocompleteMatchType::STARTER_PACK)) {
         keywords.insert(keyword);
         match.associated_keyword = std::make_unique<AutocompleteMatch>(
             keyword_provider_->CreateVerbatimMatch(match.fill_into_edit,
@@ -1895,8 +1890,9 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
                                  relevance_heap.size());
 
     // Record how long it took to execute the model for all eligible matches.
-    base::UmaHistogramTimes("Omnibox.URLScoringModelExecuted.ElapsedTime",
-                            elapsed_timer.Elapsed());
+    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+        "Omnibox.URLScoringModelExecuted.ElapsedTime", elapsed_timer.Elapsed(),
+        base::Microseconds(1), base::Milliseconds(3), 100);
   }
 
   while (!relevance_heap.empty()) {
@@ -1975,8 +1971,9 @@ void AutocompleteController::RunBatchUrlScoringModelWithStableSearches(
                                results.size());
 
   // Record how long it took to execute the model for all eligible matches.
-  base::UmaHistogramTimes("Omnibox.URLScoringModelExecuted.ElapsedTime",
-                          elapsed_timer.Elapsed());
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "Omnibox.URLScoringModelExecuted.ElapsedTime", elapsed_timer.Elapsed(),
+      base::Microseconds(1), base::Milliseconds(3), 100);
 
   // Record whether the model was executed for at least one eligible match.
   provider_client_->GetOmniboxTriggeredFeatureService()->FeatureTriggered(
@@ -2054,8 +2051,14 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   std::vector<size_t> scored_positions;
   for (size_t i = 0; i < internal_result_.size(); ++i) {
     const auto& match = internal_result_.matches_[i];
-    if (!match.IsUrlScoringEligible())
+    // Do not attempt to score matches that are generally ineligible for ML
+    // scoring nor any stale suggestions sourced from the DocumentProvider
+    // cache.
+    if (!match.IsUrlScoringEligible() ||
+        (match.type == AutocompleteMatchType::DOCUMENT_SUGGESTION &&
+         match.relevance == 0)) {
       continue;
+    }
     batch_scoring_signals.push_back(&match.scoring_signals.value());
     scored_positions.push_back(i);
   }
@@ -2075,8 +2078,9 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
                                results.size());
 
   // Record how long it took to execute the model for all eligible matches.
-  base::UmaHistogramTimes("Omnibox.URLScoringModelExecuted.ElapsedTime",
-                          elapsed_timer.Elapsed());
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "Omnibox.URLScoringModelExecuted.ElapsedTime", elapsed_timer.Elapsed(),
+      base::Microseconds(1), base::Milliseconds(3), 100);
 
   // Record whether the model was executed for at least one eligible match.
   provider_client_->GetOmniboxTriggeredFeatureService()->FeatureTriggered(
@@ -2198,8 +2202,7 @@ void AutocompleteController::MaybeCleanSuggestionsForKeywordMode(
     // Realbox doesn't support keyword mode yet, so keep original list intact.
     return;
   }
-  if (OmniboxFieldTrial::IsKeywordModeRefreshEnabled() &&
-      input.text().starts_with(u'@')) {
+  if (kIsDesktop && input.text().starts_with(u'@')) {
     // When the input is '@' exactly, some special filtering rules are applied.
     // Note: the rule preserving other matches with `associated_keyword` is
     // not currently necessary, but is intended to make it easy to coexist

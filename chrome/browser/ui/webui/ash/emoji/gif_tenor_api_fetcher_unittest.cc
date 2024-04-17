@@ -18,6 +18,7 @@
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
 namespace ash {
@@ -57,7 +58,7 @@ constexpr char kFakeGifsResponse[] = R"json(
               339
             ],
             "url": "https://tenor.com/view/media.tenor.com/full_url0",
-            "preview": "https://tenor.com/view/media.tenor.com/full_image_url0"
+            "preview": ""
           },
           "tinygif": {
             "dims": [
@@ -65,7 +66,15 @@ constexpr char kFakeGifsResponse[] = R"json(
               150
             ],
             "url": "https://tenor.com/view/media.tenor.com/preview_url0",
-            "preview": "https://tenor.com/view/media.tenor.com/preview_image_url0"
+            "preview": ""
+          },
+          "tinygifpreview": {
+            "dims": [
+              220,
+              150
+            ],
+            "url": "https://tenor.com/view/media.tenor.com/preview_image_url0",
+            "preview": ""
           }
         }
       },
@@ -79,7 +88,7 @@ constexpr char kFakeGifsResponse[] = R"json(
               498
             ],
             "url": "https://tenor.com/view/media.tenor.com/full_url1",
-            "preview": "https://tenor.com/view/media.tenor.com/full_image_url1"
+            "preview": ""
           },
           "tinygif": {
             "dims": [
@@ -87,7 +96,15 @@ constexpr char kFakeGifsResponse[] = R"json(
               220
             ],
             "url": "https://tenor.com/view/media.tenor.com/preview_url1",
-            "preview": "https://tenor.com/view/media.tenor.com/preview_image_url1"
+            "preview": ""
+          },
+          "tinygifpreview": {
+            "dims": [
+              220,
+              220
+            ],
+            "url": "https://tenor.com/view/media.tenor.com/preview_image_url1",
+            "preview": ""
           }
         }
       }
@@ -103,14 +120,14 @@ std::vector<emoji_picker::mojom::GifResponsePtr> GetFakeGifs() {
           GURL("https://tenor.com/view/media.tenor.com/full_url0"),
           GURL("https://tenor.com/view/media.tenor.com/preview_url0"),
           GURL("https://tenor.com/view/media.tenor.com/preview_image_url0")),
-      gfx::Size(220, 150)));
+      gfx::Size(220, 150), gfx::Size(498, 339)));
   gifs.push_back(emoji_picker::mojom::GifResponse::New(
       "1", "GIF1",
       emoji_picker::mojom::GifUrls::New(
           GURL("https://tenor.com/view/media.tenor.com/full_url1"),
           GURL("https://tenor.com/view/media.tenor.com/preview_url1"),
           GURL("https://tenor.com/view/media.tenor.com/preview_image_url1")),
-      gfx::Size(220, 220)));
+      gfx::Size(220, 220), gfx::Size(498, 498)));
   return gifs;
 }
 }  // namespace

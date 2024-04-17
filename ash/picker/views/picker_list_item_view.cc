@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/ash_element_identifiers.h"
 #include "ash/bubble/bubble_utils.h"
 #include "ash/picker/views/picker_item_view.h"
 #include "ash/style/style_util.h"
@@ -26,6 +27,7 @@
 #include "ui/views/layout/layout_manager.h"
 #include "ui/views/layout/layout_types.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_utils.h"
 
 namespace ash {
 namespace {
@@ -33,12 +35,14 @@ namespace {
 constexpr auto kPickerListItemBorderInsets = gfx::Insets::TLBR(8, 16, 8, 8);
 
 constexpr gfx::Size kLeadingIconSizeDip(20, 20);
+constexpr int kImageDisplayHeight = 72;
 constexpr auto kLeadingIconRightPadding = gfx::Insets::TLBR(0, 0, 0, 16);
 
 }  // namespace
 
 PickerListItemView::PickerListItemView(SelectItemCallback select_item_callback)
-    : PickerItemView(std::move(select_item_callback)) {
+    : PickerItemView(std::move(select_item_callback),
+                     FocusIndicatorStyle::kFocusBar) {
   SetLayoutManager(std::make_unique<views::FlexLayout>());
   auto* item_contents =
       AddChildView(views::Builder<views::FlexLayoutView>()
@@ -63,6 +67,8 @@ PickerListItemView::PickerListItemView(SelectItemCallback select_item_callback)
       main_container->AddChildView(std::make_unique<views::FlexLayoutView>());
 
   SetBorder(views::CreateEmptyBorder(kPickerListItemBorderInsets));
+  SetProperty(views::kElementIdentifierKey,
+              kPickerSearchResultsListItemElementId);
 }
 
 PickerListItemView::~PickerListItemView() = default;
@@ -80,6 +86,12 @@ void PickerListItemView::SetPrimaryImage(
   primary_container_->RemoveAllChildViews();
   auto* image_view = primary_container_->AddChildView(std::move(primary_image));
   image_view->SetCanProcessEventsWithinSubtree(false);
+  const gfx::Size original_size = image_view->GetImageModel().Size();
+  if (original_size.height() > 0) {
+    image_view->SetImageSize(gfx::ScaleToRoundedSize(
+        original_size,
+        static_cast<float>(kImageDisplayHeight) / original_size.height()));
+  }
   // TODO: b/316936418 - Get accessible name for image contents.
   SetAccessibleName(u"image contents");
 }
@@ -101,6 +113,28 @@ void PickerListItemView::SetSecondaryText(
   secondary_container_->AddChildView(bubble_utils::CreateLabel(
       TypographyToken::kCrosAnnotation2, secondary_text,
       cros_tokens::kCrosSysOnSurfaceVariant));
+}
+
+std::u16string PickerListItemView::GetPrimaryTextForTesting() const {
+  if (primary_container_->children().empty()) {
+    return u"";
+  }
+  if (const auto* label = views::AsViewClass<views::Label>(
+          primary_container_->children().front().get())) {
+    return label->GetText();
+  }
+  return u"";
+}
+
+ui::ImageModel PickerListItemView::GetPrimaryImageForTesting() const {
+  if (primary_container_->children().empty()) {
+    return ui::ImageModel();
+  }
+  if (const auto* image = views::AsViewClass<views::ImageView>(
+          primary_container_->children().front().get())) {
+    return image->GetImageModel();
+  }
+  return ui::ImageModel();
 }
 
 BEGIN_METADATA(PickerListItemView)

@@ -40,8 +40,9 @@ void CollectUpgradeCandidateInNode(Node& root,
     if (root_element->GetCustomElementState() == CustomElementState::kUndefined)
       candidates.push_back(root_element);
     if (auto* shadow_root = root_element->GetShadowRoot()) {
-      if (shadow_root->GetType() != ShadowRootType::kUserAgent)
+      if (shadow_root->GetMode() != ShadowRootMode::kUserAgent) {
         CollectUpgradeCandidateInNode(*shadow_root, candidates);
+      }
     }
   }
   for (auto& element : Traversal<HTMLElement>::ChildrenOf(root))
@@ -335,8 +336,8 @@ CustomElementRegistry::whenDefined(ScriptState* script_state,
   if (ThrowIfInvalidName(name, false, exception_state))
     return ScriptPromiseTyped<V8CustomElementConstructor>();
   if (CustomElementDefinition* definition = DefinitionForName(name)) {
-    return ScriptPromiseTyped<V8CustomElementConstructor>::Cast(
-        script_state, definition->GetConstructorForScript());
+    return ToResolvedPromise<V8CustomElementConstructor>(
+        script_state, definition->GetV8CustomElementConstructor());
   }
   const auto it = when_defined_promise_map_.find(name);
   if (it != when_defined_promise_map_.end())

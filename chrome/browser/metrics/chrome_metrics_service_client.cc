@@ -159,6 +159,7 @@
 #include "base/feature_list.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/printing/printer_metrics_provider.h"
+#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/keyboard_backlight_color_metrics_provider.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_theme_metrics_provider.h"
@@ -197,8 +198,8 @@
 #include "components/metrics/motherboard_metrics_provider.h"
 #endif
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
-#include "third_party/crashpad/crashpad/client/crashpad_info.h"  // nogncheck
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/metrics/chrome_metrics_service_crash_reporter.h"
 #endif
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
@@ -233,20 +234,10 @@ const int kMaxHistogramGatheringWaitDuration = 60000;  // 60 seconds.
 // Needs to be kept in sync with the writer in
 // third_party/crashpad/crashpad/handler/handler_main.cc.
 const char kCrashpadHistogramAllocatorName[] = "CrashpadMetrics";
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
-// The stream type assigned to the minidump stream that holds the serialized
-// system profile proto.
-const uint32_t kSystemProfileMinidumpStreamType = 0x4B6B0003;
-
-// A serialized environment (SystemProfileProto) that was registered with the
-// crash reporter, or the empty string if no environment was registered yet.
-// Ownership must be maintained after registration as the crash reporter does
-// not assume it.
-// TODO(manzagop): revisit this if the Crashpad API evolves.
-base::LazyInstance<std::string>::Leaky g_environment_for_crash_reporter =
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+base::LazyInstance<ChromeMetricsServiceCrashReporter>::Leaky g_crash_reporter =
     LAZY_INSTANCE_INITIALIZER;
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 
 void RegisterFileMetricsPreferences(PrefRegistrySimple* registry) {
   metrics::FileMetricsProvider::RegisterSourcePrefs(registry,
@@ -662,29 +653,14 @@ std::string ChromeMetricsServiceClient::GetVersionString() {
 }
 
 void ChromeMetricsServiceClient::OnEnvironmentUpdate(std::string* environment) {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
-  DCHECK(environment);
-
-  // Register the environment with the crash reporter. Note this only registers
-  // the first environment, meaning ulterior updates to the environment are not
-  // reflected in crash report environments (e.g. fieldtrial information). This
-  // approach is due to the Crashpad API at time of implementation (registered
-  // data cannot be updated). It would however be unwise to rely on such a
-  // mechanism to retrieve the value of the dynamic fields due to the
-  // environment update lag. Also note there is a window from startup to this
-  // point during which crash reports will not have an environment set.
-  if (!g_environment_for_crash_reporter.Get().empty()) {
-    return;
-  }
-
-  g_environment_for_crash_reporter.Get() = std::move(*environment);
-
-  crashpad::CrashpadInfo::GetCrashpadInfo()->AddUserDataMinidumpStream(
-      kSystemProfileMinidumpStreamType,
-      reinterpret_cast<const void*>(
-          g_environment_for_crash_reporter.Get().data()),
-      g_environment_for_crash_reporter.Get().size());
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+  // TODO(https://bugs.chromium.org/p/crashpad/issues/detail?id=135): call this
+  // on Mac when the Crashpad API supports it.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+  // Register the environment with the crash reporter. Note that there is a
+  // window from startup to this point during which crash reports will not have
+  // an environment set.
+  g_crash_reporter.Get().OnEnvironmentUpdate(*environment);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 }
 
 void ChromeMetricsServiceClient::MergeSubprocessHistograms() {
@@ -1184,23 +1160,6 @@ bool ChromeMetricsServiceClient::RegisterForProfileEvents(Profile* profile) {
   if (!profiles::IsRegularUserProfile(profile)) {
     return true;
   }
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_CHROMEOS_ASH)
-  // Begin initializing the structured metrics system. Initialization must wait
-  // until a profile is added, because it reads keys stored within the user's
-  // cryptohome. We only initialize for profiles that are valid candidates
-  // for metrics collection, ignoring the sign-in profile, lock screen app
-  // profile, and guest sessions.
-  //
-  // TODO(crbug.com/1016655): This call would be better placed in
-  // metrics::structured::Recorder, but can't be because it depends on Chrome
-  // code. Investigate whether there's a way of checking this from the
-  // component.
-  metrics::structured::Recorder::GetInstance()->ProfileAdded(
-      profile->GetPath());
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
-       // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // If the device is in Demo Mode, observe the sync service to enable UKM to

@@ -18,12 +18,14 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/side_panel/companion/companion_utils.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 #include "chrome/browser/ui/views/extensions/browser_action_drag_data.h"
 #include "chrome/browser/ui/views/frame/browser_actions.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/side_panel/search_companion/search_companion_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
 #include "chrome/grit/generated_resources.h"
@@ -40,6 +42,7 @@
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/actions/action_view_controller.h"
+#include "ui/views/cascading_property.h"
 #include "ui/views/controls/button/button_controller.h"
 #include "ui/views/layout/animating_layout_manager.h"
 #include "ui/views/layout/flex_layout.h"
@@ -124,6 +127,20 @@ PinnedToolbarActionsContainer::PinnedToolbarActionsContainer(
 
   // Initialize the pinned action buttons.
   action_view_controller_ = std::make_unique<views::ActionViewController>();
+
+  // Before creating the pinned buttons, verify that the pref value is correct
+  // and update it if not. If the user has been moved into a different default
+  // pin state group (i.e. from the default being false to the default being
+  // true) we want to make sure their pin state changes if they have not
+  // explicitly changed it themselves.
+  if (SearchCompanionSidePanelCoordinator::IsSupported(
+          browser_view_->GetProfile(),
+          /*include_runtime_checks=*/false) &&
+      browser_view_->GetProfile()->GetPrefs()) {
+    companion::UpdateCompanionDefaultPinnedToToolbarState(
+        browser_view_->GetProfile());
+  }
+
   UpdateViews();
 }
 
@@ -204,7 +221,7 @@ void PinnedToolbarActionsContainer::UpdateActionState(actions::ActionId id,
   if (!pinned) {
     button = GetPoppedOutButtonFor(id);
     if (!button && is_active) {
-      button = AddPopOutButtonFor(id);
+      button = AddPoppedOutButtonFor(id);
     }
   }
   // If the button doesn't exist, do nothing. This could happen if |is_active|
@@ -221,12 +238,31 @@ void PinnedToolbarActionsContainer::UpdateActionState(actions::ActionId id,
     button->ResetHighlight();
   }
 
-  if (!pinned && !is_active) {
-    RemovePoppedOutButtonFor(id);
+  if (!is_active) {
+    MaybeRemovePoppedOutButtonFor(id);
   }
 
   UpdateDividerFlexSpecification();
   InvalidateLayout();
+}
+
+void PinnedToolbarActionsContainer::ShowActionEphemerallyInToolbar(
+    actions::ActionId id,
+    bool show) {
+  auto* button = GetButtonFor(id);
+  // If the button doesn't exist and shouldn't be shown, do nothing.
+  if (!button && !show) {
+    return;
+  }
+  // Create the button if it doesn't exist.
+  if (!button) {
+    button = AddPoppedOutButtonFor(id);
+  }
+  button->SetShouldShowEphemerallyInToolbar(show);
+
+  if (!show) {
+    MaybeRemovePoppedOutButtonFor(id);
+  }
 }
 
 void PinnedToolbarActionsContainer::UpdateDividerFlexSpecification() {
@@ -324,11 +360,15 @@ int PinnedToolbarActionsContainer::OnDragUpdated(
   const int offset_into_icon_area = GetMirroredXInView(event.x());
   const size_t before_icon_unclamped = WidthToIconCount(offset_into_icon_area);
 
-  const size_t visible_pinned_icons = pinned_buttons_.size();
+  const size_t visible_pinned_icons = base::ranges::count_if(
+      pinned_buttons_,
+      [](PinnedActionToolbarButton* button) { return button->GetVisible(); });
+  const size_t button_offset = pinned_buttons_.size() - visible_pinned_icons;
 
   // Because the user can drag outside the container bounds, we need to clamp
   // to the valid range.
-  before_icon = std::min(before_icon_unclamped, visible_pinned_icons - 1);
+  before_icon =
+      std::min(before_icon_unclamped, visible_pinned_icons - 1) + button_offset;
 
   if (!drop_info_.get() || drop_info_->index != before_icon) {
     drop_info_ = std::make_unique<DropInfo>(
@@ -441,7 +481,7 @@ actions::ActionItem* PinnedToolbarActionsContainer::GetActionItemFor(
               ->root_action_item());
 }
 
-PinnedActionToolbarButton* PinnedToolbarActionsContainer::AddPopOutButtonFor(
+PinnedActionToolbarButton* PinnedToolbarActionsContainer::AddPoppedOutButtonFor(
     const actions::ActionId& id) {
   CHECK(GetActionItemFor(id));
   auto popped_out_button = std::make_unique<PinnedActionToolbarButton>(
@@ -454,12 +494,13 @@ PinnedActionToolbarButton* PinnedToolbarActionsContainer::AddPopOutButtonFor(
   return button;
 }
 
-void PinnedToolbarActionsContainer::RemovePoppedOutButtonFor(
+void PinnedToolbarActionsContainer::MaybeRemovePoppedOutButtonFor(
     const actions::ActionId& id) {
   const auto iter = base::ranges::find(
       popped_out_buttons_, id,
       [](PinnedActionToolbarButton* button) { return button->GetActionId(); });
-  if (iter == popped_out_buttons_.end()) {
+  if (iter == popped_out_buttons_.end() ||
+      ShouldRemainPoppedOutInToolbar(*iter)) {
     return;
   }
   GetAnimatingLayoutManager()->FadeOut(*iter);
@@ -508,7 +549,7 @@ void PinnedToolbarActionsContainer::RemovePinnedActionButtonFor(
   if (iter == pinned_buttons_.end()) {
     return;
   }
-  if (!(*iter)->IsActive()) {
+  if (!ShouldRemainPoppedOutInToolbar(*iter)) {
     GetAnimatingLayoutManager()->FadeOut(*iter);
     GetAnimatingLayoutManager()->PostOrQueueAction(
         base::BindOnce(&PinnedToolbarActionsContainer::RemoveButton,
@@ -538,6 +579,19 @@ PinnedActionToolbarButton* PinnedToolbarActionsContainer::GetPoppedOutButtonFor(
       popped_out_buttons_, id,
       [](PinnedActionToolbarButton* button) { return button->GetActionId(); });
   return iter == popped_out_buttons_.end() ? nullptr : *iter;
+}
+
+PinnedActionToolbarButton* PinnedToolbarActionsContainer::GetButtonFor(
+    const actions::ActionId& id) {
+  if (auto* button = GetPinnedButtonFor(id)) {
+    return button;
+  }
+  return GetPoppedOutButtonFor(id);
+}
+
+bool PinnedToolbarActionsContainer::ShouldRemainPoppedOutInToolbar(
+    PinnedActionToolbarButton* button) {
+  return button->IsActive() || button->ShouldShowEphemerallyInToolbar();
 }
 
 void PinnedToolbarActionsContainer::RemoveButton(

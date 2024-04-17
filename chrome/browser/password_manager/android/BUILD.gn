@@ -31,6 +31,7 @@ source_set("backend_public") {
     "//chrome/browser/profiles:profile",
     "//components/keyed_service/content:content",
     "//components/password_manager/core/browser:browser",
+    "//components/password_manager/core/browser/features:password_features",
     "//components/prefs:prefs",
     "//components/sync/service",
     "//content/public/browser",
@@ -48,6 +49,8 @@ source_set("backend") {
   sources = [
     "built_in_backend_to_android_backend_migrator.cc",
     "built_in_backend_to_android_backend_migrator.h",
+    "legacy_password_store_backend_migration_decorator.cc",
+    "legacy_password_store_backend_migration_decorator.h",
     "password_manager_lifecycle_helper.cc",
     "password_manager_lifecycle_helper.h",
     "password_manager_lifecycle_helper_impl.cc",
@@ -474,6 +477,7 @@ source_set("utils") {
     "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/core/common:common",
     "//components/prefs:prefs",
+    "//components/version_info/android:channel_getter",
   ]
 }
 
@@ -490,6 +494,7 @@ source_set("unit_tests") {
     "fake_password_manager_lifecycle_helper.cc",
     "fake_password_manager_lifecycle_helper.h",
     "generated_password_saved_message_delegate_unittest.cc",
+    "legacy_password_store_backend_migration_decorator_unittest.cc",
     "mock_password_checkup_launcher_helper.cc",
     "mock_password_checkup_launcher_helper.h",
     "mock_password_manager_error_message_helper_bridge.cc",

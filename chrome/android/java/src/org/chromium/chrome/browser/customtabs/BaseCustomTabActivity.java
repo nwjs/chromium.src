@@ -230,7 +230,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
                         getCompositorViewHolderSupplier(),
                         getTabContentManagerSupplier(),
                         this::getSnackbarManager,
-                        getEdgeToEdgeSupplier(),
+                        mEdgeToEdgeControllerSupplier,
                         getActivityType(),
                         this::isInOverviewMode,
                         this::isWarmOnResume,
@@ -547,7 +547,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
                 isMenuIconAtStart,
                 mBaseCustomTabRootUiCoordinator::isPageInsightsHubEnabled,
                 mBaseCustomTabRootUiCoordinator.getReadAloudControllerSupplier(),
-                mIntentDataProvider.getClientPackageName() != null);
+                mIntentDataProvider.getClientPackageNameIdentitySharing() != null);
     }
 
     @Override

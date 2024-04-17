@@ -1801,7 +1801,7 @@ void WizardController::OnLocalDataLossWarningScreenExit(
       ShowOSAuthErrorScreen();
       break;
     case LocalDataLossWarningScreen::Result::kCancel:
-      ShowLoginScreen();
+      LoginDisplayHost::default_host()->CancelPasswordChangedFlow();
       break;
     case LocalDataLossWarningScreen::Result::kBackToOnlineAuth:
       ShowEnterOldPasswordScreen();

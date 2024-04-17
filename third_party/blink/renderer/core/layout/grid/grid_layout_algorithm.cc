@@ -1070,14 +1070,10 @@ LayoutUnit ComputeBlockSizeForSubgrid(const GridSizingSubtree& sizing_subtree,
   const auto& node = To<GridNode>(subgrid_data.node);
   const auto& style = node.Style();
 
-  const auto available_inline_size =
-      std::make_optional(space.AvailableSize().inline_size);
-
   return ComputeBlockSizeForFragment(
       space, style, ComputeBorders(space, node) + ComputePadding(space, style),
       node.ComputeSubgridIntrinsicBlockSize(sizing_subtree, space),
-      (*available_inline_size == kIndefiniteSize) ? std::nullopt
-                                                  : available_inline_size);
+      space.AvailableSize().inline_size);
 }
 
 }  // namespace
@@ -1597,10 +1593,9 @@ void GridLayoutAlgorithm::ComputeGridItemBaselines(
                               std::move(subgrid_layout_subtree));
 
     // Skip this item if we aren't able to resolve our inline size.
-    const auto& item_style = grid_item.node.Style();
-    if (InlineLengthUnresolvable(space, item_style.LogicalWidth()) ||
-        InlineLengthUnresolvable(space, item_style.LogicalMinWidth()) ||
-        InlineLengthUnresolvable(space, item_style.LogicalMaxWidth())) {
+    if (CalculateInitialFragmentGeometry(space, grid_item.node,
+                                         /* break_token */ nullptr)
+            .border_box_size.inline_size == kIndefiniteSize) {
       continue;
     }
 
@@ -1622,7 +1617,8 @@ void GridLayoutAlgorithm::ComputeGridItemBaselines(
     }
 
     const LayoutUnit extra_margin = GetExtraMarginForBaseline(
-        ComputeMarginsFor(space, item_style, baseline_writing_direction),
+        ComputeMarginsFor(space, grid_item.node.Style(),
+                          baseline_writing_direction),
         subgridded_item, track_direction, writing_mode);
 
     const LayoutUnit baseline =
@@ -1737,10 +1733,6 @@ void GridLayoutAlgorithm::InitializeTrackSizes(
         grid_item.ComputeSetIndices(track_collection);
       }
     } else {
-      // If this grid has a standalone axis, invalidate its min/max sizes cache,
-      // since they're only valid for the current step of the sizing algorithm.
-      Node().InvalidateMinMaxSizesCache();
-
       auto& track_collection = layout_data.SizingCollection(track_direction);
       CacheGridItemsProperties(track_collection, &grid_items);
 
@@ -1963,12 +1955,68 @@ void GridLayoutAlgorithm::CompleteTrackSizingAlgorithm(
       });
 }
 
+namespace {
+
+// A subgrid's `MinMaxSizes` cache is stored in its respective `LayoutGrid` and
+// gets invalidated via the `IsSubgridMinMaxSizesCacheDirty` flag.
+//
+// However, a subgrid might need to invalidate the cache if it inherited a
+// different track collection in its subgridded axis, which might cause its
+// intrinsic sizes to change. This invalidation goes from parent to children,
+// which is not accounted for by the invalidation logic in `LayoutObject`.
+//
+// This method addresses such issue by traversing the tree in postorder checking
+// whether the cache at each subgrid level is reusable or not: if the subgrid
+// has a valid cache, but its input tracks for the subgridded axis changed,
+// then we'll invalidate the cache for that subgrid and its ancestors.
+bool ValidateMinMaxSizesCache(const GridNode& grid_node,
+                              const GridSizingSubtree& sizing_subtree,
+                              GridTrackSizingDirection track_direction) {
+  DCHECK(sizing_subtree.HasValidRootFor(grid_node));
+
+  bool should_invalidate_min_max_sizes_cache = false;
+
+  // Only iterate over items if this grid has nested subgrids.
+  if (auto next_subgrid_subtree = sizing_subtree.FirstChild()) {
+    for (const auto& grid_item : sizing_subtree.GetGridItems()) {
+      if (!grid_item.IsSubgrid()) {
+        continue;
+      }
+
+      DCHECK(next_subgrid_subtree);
+      should_invalidate_min_max_sizes_cache |= ValidateMinMaxSizesCache(
+          To<GridNode>(grid_item.node), next_subgrid_subtree,
+          RelativeDirectionInSubgrid(track_direction, grid_item));
+      next_subgrid_subtree = next_subgrid_subtree.NextSibling();
+    }
+  }
+
+  const auto& layout_data = sizing_subtree.LayoutData();
+  if (layout_data.IsSubgridWithStandaloneAxis(track_direction)) {
+    // If no nested subgrid marked this subtree to be invalidated already, check
+    // that the cached intrinsic sizes are reusable by the current sizing tree.
+    if (!should_invalidate_min_max_sizes_cache) {
+      should_invalidate_min_max_sizes_cache =
+          grid_node.ShouldInvalidateMinMaxSizesCacheFor(layout_data);
+    }
+
+    if (should_invalidate_min_max_sizes_cache) {
+      grid_node.InvalidateMinMaxSizesCache();
+    }
+  }
+  return should_invalidate_min_max_sizes_cache;
+}
+
+}  // namespace
+
 void GridLayoutAlgorithm::CompleteTrackSizingAlgorithm(
     const GridSizingTree& sizing_tree,
     GridTrackSizingDirection track_direction,
     SizingConstraint sizing_constraint,
     bool* opt_needs_additional_pass) const {
   const auto sizing_subtree = GridSizingSubtree(sizing_tree);
+
+  ValidateMinMaxSizesCache(Node(), sizing_subtree, track_direction);
 
   ComputeBaselineAlignment(sizing_tree.FinalizeTree(), sizing_subtree,
                            /* opt_subgrid_data */ kNoSubgriddedItemData,
@@ -3702,8 +3750,9 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
 
     // Only allow growth on "auto" block-size items, (a fixed block-size item
     // can't grow).
-    if (!item_style.LogicalHeight().IsAutoOrContentOrIntrinsic())
+    if (!item_style.LogicalHeight().HasAutoOrContentOrIntrinsic()) {
       return false;
+    }
 
     // Only allow growth on items which only span a single row.
     if (grid_item.SpanSize(kForRows) > 1)
@@ -3716,7 +3765,7 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
       return false;
 
     return !grid_item.IsSpanningFixedMinimumTrack(kForRows) ||
-           Style().LogicalHeight().IsAutoOrContentOrIntrinsic();
+           Style().LogicalHeight().HasAutoOrContentOrIntrinsic();
   };
 
   wtf_size_t previous_expansion_row_set_index = kNotFound;
@@ -4043,18 +4092,17 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
   while (ExpandRow())
     PlaceItems();
 
-  if (fragmentainer_space != kIndefiniteSize) {
-    // Encompass any fragmentainer overflow (caused by monolithic content). We
-    // want this to contribute to the grid container fragment size, and it is
-    // also needed to shift any breakpoints all the way into the next
-    // fragmentainer.
-    fragmentainer_space = std::max(fragmentainer_space, max_item_block_end);
-  }
-
   // See if we need to take a row break-point, and if-so re-run |PlaceItems()|.
   // We only need to do this once.
-  if (ShiftBreakpointIntoNextFragmentainer())
+  if (ShiftBreakpointIntoNextFragmentainer()) {
     PlaceItems();
+  } else if (fragmentainer_space != kIndefiniteSize) {
+    // Encompass any fragmentainer overflow (caused by monolithic content)
+    // that hasn't been accounted for. We want this to contribute to the
+    // grid container fragment size, and it is also needed to shift any
+    // breakpoints all the way into the next fragmentainer.
+    fragmentainer_space = std::max(fragmentainer_space, max_item_block_end);
+  }
 
   if (has_subsequent_children)
     container_builder_.SetHasSubsequentChildren();

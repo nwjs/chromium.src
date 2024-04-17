@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/animation/property_handle.h"
 #include "third_party/blink/renderer/core/animation/transition_interpolation.h"
 #include "third_party/blink/renderer/core/css/css_cyclic_variable_value.h"
+#include "third_party/blink/renderer/core/css/css_flip_revert_value.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_invalid_variable_value.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
@@ -202,37 +203,8 @@ void StyleCascade::Apply(CascadeFilter filter) {
 
   ApplyCascadeAffecting(resolver);
 
-  if (map_.NativeBitset().Has(CSSPropertyID::kColorScheme)) {
-    // Affects the computed value of 'color', hence needs to happen before
-    // high-priority properties.
-    LookupAndApply(GetCSSPropertyColorScheme(), resolver);
-  }
-
-  if (map_.NativeBitset().Has(CSSPropertyID::kMathDepth)) {
-    // Affects the computed value of 'font-size', hence needs to happen before
-    // high-priority properties.
-    LookupAndApply(GetCSSPropertyMathDepth(), resolver);
-  }
-
-  if (map_.NativeBitset().Has(CSSPropertyID::kMaskImage)) {
-    // mask-image needs to be applied before {-webkit-}mask-composite,
-    // otherwise {-webkit-}mask-composite has no effect.
-    LookupAndApply(GetCSSPropertyMaskImage(), resolver);
-  }
-
-  if (map_.NativeBitset().Has(CSSPropertyID::kWebkitMaskImage)) {
-    // -webkit-mask-image needs to be applied before -webkit-mask-composite,
-    // otherwise -webkit-mask-composite has no effect.
-    LookupAndApply(GetCSSPropertyWebkitMaskImage(), resolver);
-  }
-
-  if (map_.NativeBitset().Has(CSSPropertyID::kForcedColorAdjust)) {
-    // Affects the computed value of color when it is inherited and
-    // forced-color- adjust is set to preserve-parent-color.
-    LookupAndApply(GetCSSPropertyForcedColorAdjust(), resolver);
-  }
-
   ApplyHighPriority(resolver);
+  state_.UpdateFont();
 
   if (map_.NativeBitset().Has(CSSPropertyID::kLineHeight)) {
     LookupAndApply(GetCSSPropertyLineHeight(), resolver);
@@ -360,8 +332,12 @@ StyleCascade::GetCascadedValues() const {
   for (CSSPropertyID id : map_.NativeBitset()) {
     CSSPropertyName name(id);
     CascadePriority priority = map_.At(name);
-    DCHECK(priority.HasOrigin());
     if (IsInterpolation(priority)) {
+      continue;
+    }
+    if (!priority.HasOrigin()) {
+      // Declarations added for explicit defaults (AddExplicitDefaults)
+      // should not be observable.
       continue;
     }
     const CSSValue* cascaded = ValueAt(match_result_, priority.GetPosition());
@@ -413,6 +389,8 @@ void StyleCascade::AnalyzeIfNeeded() {
 }
 
 void StyleCascade::AnalyzeMatchResult() {
+  AddExplicitDefaults();
+
   int index = 0;
   for (const MatchedProperties& properties :
        match_result_.GetMatchedProperties()) {
@@ -457,8 +435,13 @@ void StyleCascade::AnalyzeInterpolations() {
       auto name = active_interpolation.key.GetCSSPropertyName();
       uint32_t position = EncodeInterpolationPosition(
           name.Id(), i, active_interpolation.key.IsPresentationAttribute());
-      CascadePriority priority(entries[i].origin, false, 0, false, false, 0,
-                               position);
+      CascadePriority priority(entries[i].origin,
+                               /* important */ false,
+                               /* tree_order */ 0,
+                               /* is_inline_style */ false,
+                               /* is_try_style */ false,
+                               /* is_try_tactics_style */ false,
+                               /* layer_order */ 0, position);
 
       CSSPropertyRef ref(name, GetDocument());
       DCHECK(ref.IsValid());
@@ -481,6 +464,40 @@ void StyleCascade::AnalyzeInterpolations() {
   }
 }
 
+// The implicit defaulting behavior of inherited properties is to take
+// the value of the parent style [1]. However, we never reach
+// Longhand::ApplyInherit for implicit defaults, which is needed to adjust
+// Lengths with premultiplied zoom. Therefore, all inherited properties
+// are instead explicitly defaulted [2] when the effective zoom has changed
+// versus the parent zoom.
+//
+// [1] https://drafts.csswg.org/css-cascade/#defaulting
+// [2] https://drafts.csswg.org/css-cascade/#defaulting-keywords
+void StyleCascade::AddExplicitDefaults() {
+  if (RuntimeEnabledFeatures::StandardizedBrowserZoomEnabled() &&
+      effective_zoom_changed_) {
+    // TODO(crbug.com/40946858): Generate a list from json5.
+    //
+    // At a glance, these inherited properties can contain lengths:
+    //
+    //   -webkit-border-horizontal-spacing
+    //   -webkit-border-vertical-spacing
+    //   -webkit-text-stroke-width
+    //   letter-spacing
+    //   line-height
+    //   list-style-image
+    //   stroke-dashoffset
+    //   stroke-width
+    //   text-indent
+    //   text-shadow
+    //   text-underline-offset
+    //   word-spacing
+    //
+    // (And maybe more).
+    map_.Add(CSSPropertyID::kLineHeight, CascadePriority(CascadeOrigin::kNone));
+  }
+}
+
 void StyleCascade::Reanalyze() {
   map_.Reset();
   generation_ = 0;
@@ -500,6 +517,12 @@ void StyleCascade::ApplyCascadeAffecting(CascadeResolver& resolver) {
   // values on ComputedStyle.
   auto direction = state_.StyleBuilder().Direction();
   auto writing_mode = state_.StyleBuilder().GetWritingMode();
+  // Similarly, we assume that the effective zoom of this element
+  // is the same as the parent's effective zoom. If it isn't,
+  // we re-cascade with explicit defaults inserted at CascadeOrigin::kNone.
+  //
+  // See also StyleCascade::AddExplicitDefaults.
+  float effective_zoom = state_.StyleBuilder().EffectiveZoom();
 
   if (map_.NativeBitset().Has(CSSPropertyID::kDirection)) {
     LookupAndApply(GetCSSPropertyDirection(), resolver);
@@ -507,12 +530,25 @@ void StyleCascade::ApplyCascadeAffecting(CascadeResolver& resolver) {
   if (map_.NativeBitset().Has(CSSPropertyID::kWritingMode)) {
     LookupAndApply(GetCSSPropertyWritingMode(), resolver);
   }
+  if (map_.NativeBitset().Has(CSSPropertyID::kZoom)) {
+    LookupAndApply(GetCSSPropertyZoom(), resolver);
+  }
+
+  bool reanalyze = false;
 
   if (depends_on_cascade_affecting_property_) {
     if (direction != state_.StyleBuilder().Direction() ||
         writing_mode != state_.StyleBuilder().GetWritingMode()) {
-      Reanalyze();
+      reanalyze = true;
     }
+  }
+  if (effective_zoom != state_.StyleBuilder().EffectiveZoom()) {
+    effective_zoom_changed_ = true;
+    reanalyze = true;
+  }
+
+  if (reanalyze) {
+    Reanalyze();
   }
 }
 
@@ -524,8 +560,6 @@ void StyleCascade::ApplyHighPriority(CascadeResolver& resolver) {
     bits &= bits - 1;  // Clear the lowest bit.
     LookupAndApply(CSSProperty::Get(ConvertToCSSPropertyID(i)), resolver);
   }
-
-  state_.UpdateFont();
 }
 
 void StyleCascade::ApplyWideOverlapping(CascadeResolver& resolver) {
@@ -606,7 +640,13 @@ void StyleCascade::ApplyWideOverlapping(CascadeResolver& resolver) {
 // in a second phase so that we know which ones actually won the cascade
 // before we start applying, as some properties can affect others.
 void StyleCascade::ApplyMatchResult(CascadeResolver& resolver) {
-  for (CSSPropertyID id : map_.NativeBitset()) {
+  // All the high-priority properties were dealt with in ApplyHighPriority(),
+  // so we don't need to look at them again. (That would be a no-op due to
+  // the generation check below, but it's cheaper just to mask them out
+  // entirely.)
+  for (auto it = map_.NativeBitset().BeginAfterHighPriority();
+       it != map_.NativeBitset().end(); ++it) {
+    CSSPropertyID id = *it;
     CascadePriority* p = map_.FindKnownToExist(id);
     const CascadePriority priority = *p;
     if (priority.GetGeneration() >= resolver.generation_) {
@@ -660,7 +700,13 @@ void StyleCascade::ApplyInterpolationMap(const ActiveInterpolationsMap& map,
     auto name = entry.key.GetCSSPropertyName();
     uint32_t position = EncodeInterpolationPosition(
         name.Id(), index, entry.key.IsPresentationAttribute());
-    CascadePriority priority(origin, false, 0, false, false, 0, position);
+    CascadePriority priority(origin,
+                             /* important */ false,
+                             /* tree_order */ 0,
+                             /* is_inline_style */ false,
+                             /* is_try_style */ false,
+                             /* is_try_tactics_style */ false,
+                             /* layer_order */ 0, position);
     priority = CascadePriority(priority, resolver.generation_);
 
     CSSPropertyRef ref(name, GetDocument());
@@ -766,9 +812,13 @@ void StyleCascade::LookupAndApplyDeclaration(const CSSProperty& property,
   *priority = CascadePriority(*priority, resolver.generation_);
   DCHECK(!property.IsSurrogate());
   DCHECK(priority->GetOrigin() < CascadeOrigin::kAnimation);
-  const CSSValue* value = ValueAt(match_result_, priority->GetPosition());
-  DCHECK(value);
   CascadeOrigin origin = priority->GetOrigin();
+  // Values at CascadeOrigin::kNone are used for explicit defaulting,
+  // see StyleCascade::AddExplicitDefaults.
+  const CSSValue* value = (origin == CascadeOrigin::kNone)
+                              ? cssvalue::CSSUnsetValue::Create()
+                              : ValueAt(match_result_, priority->GetPosition());
+  DCHECK(value);
   value = Resolve(property, *value, *priority, origin, resolver);
   DCHECK(IsA<CustomProperty>(property) || !value->IsUnparsedDeclaration());
   DCHECK(!value->IsPendingSubstitutionValue());
@@ -931,7 +981,10 @@ const CSSValue* StyleCascade::Resolve(const CSSProperty& property,
     return ResolveRevert(property, *result, origin, resolver);
   }
   if (result->IsRevertLayerValue() || TreatAsRevertLayer(priority)) {
-    return ResolveRevertLayer(property, *result, priority, origin, resolver);
+    return ResolveRevertLayer(property, priority, origin, resolver);
+  }
+  if (const auto* v = DynamicTo<CSSFlipRevertValue>(result)) {
+    return ResolveFlipRevert(*v, priority, origin, resolver);
   }
 
   resolver.CollectFlags(property, origin);
@@ -1149,7 +1202,7 @@ const CSSValue* StyleCascade::ResolveRevert(const CSSProperty& property,
 }
 
 const CSSValue* StyleCascade::ResolveRevertLayer(const CSSProperty& property,
-                                                 const CSSValue& value,
+
                                                  CascadePriority priority,
                                                  CascadeOrigin& origin,
                                                  CascadeResolver& resolver) {
@@ -1162,6 +1215,16 @@ const CSSValue* StyleCascade::ResolveRevertLayer(const CSSProperty& property,
   origin = p->GetOrigin();
   return Resolve(property, *ValueAt(match_result_, p->GetPosition()), *p,
                  origin, resolver);
+}
+
+const CSSValue* StyleCascade::ResolveFlipRevert(const CSSFlipRevertValue& value,
+                                                CascadePriority priority,
+                                                CascadeOrigin& origin,
+                                                CascadeResolver& resolver) {
+  const CSSProperty& property =
+      ResolveSurrogate(CSSProperty::Get(value.PropertyID()));
+  // TODO(crbug.com/40279608): Transform the result before returning.
+  return ResolveRevertLayer(property, priority, origin, resolver);
 }
 
 scoped_refptr<CSSVariableData> StyleCascade::ResolveVariableData(
@@ -1316,6 +1379,8 @@ bool StyleCascade::ResolveFunctionInto(StringView function_name,
                                        const CSSParserContext& context,
                                        const FunctionContext& function_context,
                                        TokenSequence& out) {
+  state_.StyleBuilder().SetAffectedByCSSFunction();
+
   // TODO(sesse): Deal with tree-scoped references.
   StyleRuleFunction* function = nullptr;
   if (GetDocument().GetScopedStyleResolver()) {
@@ -1578,8 +1643,8 @@ void StyleCascade::MarkHasVariableReference(const CSSProperty& property) {
 }
 
 bool StyleCascade::TreatAsRevertLayer(CascadePriority priority) const {
-  return priority.IsFallbackStyle() && !ComputedStyle::HasOutOfFlowPosition(
-                                           state_.StyleBuilder().GetPosition());
+  return priority.IsTryStyle() && !ComputedStyle::HasOutOfFlowPosition(
+                                      state_.StyleBuilder().GetPosition());
 }
 
 const Document& StyleCascade::GetDocument() const {

@@ -1,4 +1,4 @@
-// Copyright 2023 The Chromium Authors
+// Copyright 2024 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -15,13 +16,20 @@
 #include "ash/public/cpp/picker/picker_search_result.h"
 #include "base/check.h"
 #include "base/check_deref.h"
+#include "base/containers/span.h"
+#include "base/files/file_enumerator.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notimplemented.h"
+#include "base/ranges/algorithm.h"
+#include "base/ranges/functional.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ash/app_list/search/chrome_search_result.h"
+#include "chrome/browser/ash/app_list/search/files/drive_search_provider.h"
+#include "chrome/browser/ash/app_list/search/files/file_search_provider.h"
 #include "chrome/browser/ash/app_list/search/omnibox/omnibox_lacros_provider.h"
 #include "chrome/browser/ash/app_list/search/omnibox/omnibox_provider.h"
 #include "chrome/browser/ash/app_list/search/search_engine.h"
@@ -47,38 +55,46 @@ enum class AppListSearchResultType;
 namespace {
 
 constexpr int kMaxGifsToSearch = 4;
+constexpr base::span<std::string_view> kImageExtensions = {
+    (std::string_view[]){".jpg", ".jpeg", ".png", ".gif", ".webp"}};
 
-void OnGifSearchResponse(PickerClientImpl::FetchGifsCallback callback,
-                         emoji_picker::mojom::Status status,
-                         emoji_picker::mojom::TenorGifResponsePtr response) {
-  if (status != emoji_picker::mojom::Status::kHttpOk) {
-    // TODO: b/325368650 - Add better handling of errors.
-    std::move(callback).Run({});
-    return;
+int GetAutocompleteProviderTypes(ash::PickerCategory category) {
+  switch (category) {
+    case ash::PickerCategory::kEmojis:
+    case ash::PickerCategory::kSymbols:
+    case ash::PickerCategory::kEmoticons:
+    case ash::PickerCategory::kGifs:
+    case ash::PickerCategory::kLocalFiles:
+    case ash::PickerCategory::kDriveFiles:
+      DLOG(FATAL) << "Unexpected category for autocomplete: "
+                  << static_cast<int>(category);
+      return 0;
+    case ash::PickerCategory::kBookmarks:
+      return AutocompleteProvider::TYPE_BOOKMARK;
+    case ash::PickerCategory::kBrowsingHistory:
+      return AutocompleteProvider::TYPE_HISTORY_QUICK |
+             AutocompleteProvider::TYPE_HISTORY_URL |
+             AutocompleteProvider::TYPE_HISTORY_FUZZY;
+    case ash::PickerCategory::kOpenTabs:
+      return AutocompleteProvider::TYPE_OPEN_TAB;
   }
-
-  std::vector<ash::PickerSearchResult> picker_results;
-  CHECK(response);
-  picker_results.reserve(response->results.size());
-  for (const emoji_picker::mojom::GifResponsePtr& result : response->results) {
-    CHECK(result);
-    const emoji_picker::mojom::GifUrlsPtr& urls = result->url;
-    CHECK(urls);
-    picker_results.push_back(ash::PickerSearchResult::Gif(
-        urls->preview, urls->preview_image, result->preview_size,
-        base::UTF8ToUTF16(result->content_description)));
-  }
-
-  std::move(callback).Run(std::move(picker_results));
 }
 
-int AutocompleteProviderTypes() {
-  return AutocompleteProvider::TYPE_BOOKMARK |
-         AutocompleteProvider::TYPE_HISTORY_QUICK |
-         AutocompleteProvider::TYPE_HISTORY_URL |
-         AutocompleteProvider::TYPE_HISTORY_FUZZY |
-         AutocompleteProvider::TYPE_OPEN_TAB |
-         AutocompleteProvider::TYPE_BOOKMARK;
+int GetAllAutocompleteProviderTypes() {
+  return GetAutocompleteProviderTypes(ash::PickerCategory::kBookmarks) |
+         GetAutocompleteProviderTypes(ash::PickerCategory::kBrowsingHistory) |
+         GetAutocompleteProviderTypes(ash::PickerCategory::kOpenTabs);
+}
+
+std::unique_ptr<app_list::SearchProvider> CreateDriveSearchProvider(
+    Profile* profile) {
+  return std::make_unique<app_list::DriveSearchProvider>(profile);
+}
+
+std::unique_ptr<app_list::SearchProvider> CreateFileSearchProvider(
+    Profile* profile) {
+  return std::make_unique<app_list::FileSearchProvider>(
+      profile, base::FileEnumerator::FileType::FILES);
 }
 
 }  // namespace
@@ -118,22 +134,89 @@ void PickerClientImpl::FetchGifSearch(const std::string& query,
   CHECK(storage_partition);
   // This will cancel the previous in-flight request if there is one.
   current_gif_fetcher_ = gif_tenor_api_fetcher_.FetchGifSearchCancellable(
-      base::BindOnce(&OnGifSearchResponse, std::move(callback)),
+      base::BindOnce(&PickerClientImpl::OnGifSearchResponse,
+                     weak_factory_.GetWeakPtr(), std::move(callback), query),
       storage_partition->GetURLLoaderFactoryForBrowserProcess(), query,
       std::nullopt, kMaxGifsToSearch);
+  current_gif_search_query_ = query;
+}
+
+void PickerClientImpl::OnGifSearchResponse(
+    PickerClientImpl::FetchGifsCallback callback,
+    std::string gif_search_query,
+    emoji_picker::mojom::Status status,
+    emoji_picker::mojom::TenorGifResponsePtr response) {
+  if (gif_search_query != current_gif_search_query_) {
+    // Do not call the callback at all if this is an old request.
+    return;
+  }
+  if (status != emoji_picker::mojom::Status::kHttpOk) {
+    // TODO: b/325368650 - Add better handling of errors.
+    std::move(callback).Run({});
+    return;
+  }
+
+  std::vector<ash::PickerSearchResult> picker_results;
+  CHECK(response);
+  picker_results.reserve(response->results.size());
+  for (const emoji_picker::mojom::GifResponsePtr& result : response->results) {
+    CHECK(result);
+    const emoji_picker::mojom::GifUrlsPtr& urls = result->url;
+    CHECK(urls);
+    picker_results.push_back(ash::PickerSearchResult::Gif(
+        urls->preview, urls->preview_image, result->preview_size, urls->full,
+        result->full_size, base::UTF8ToUTF16(result->content_description)));
+  }
+
+  std::move(callback).Run(std::move(picker_results));
 }
 
 void PickerClientImpl::StopGifSearch() {
   current_gif_fetcher_.reset();
+  current_gif_search_query_.reset();
 }
 
-void PickerClientImpl::StartCrosSearch(const std::u16string& query,
-                                       CrosSearchResultsCallback callback) {
-  CHECK(search_engine_);
-  search_engine_->StartSearch(
-      query, app_list::SearchOptions(),
-      base::BindRepeating(&PickerClientImpl::OnCrosSearchResultsUpdated,
-                          weak_factory_.GetWeakPtr(), std::move(callback)));
+void PickerClientImpl::StartCrosSearch(
+    const std::u16string& query,
+    std::optional<ash::PickerCategory> category,
+    CrosSearchResultsCallback callback) {
+  if (!category.has_value()) {
+    CHECK(search_engine_);
+    search_engine_->StartSearch(
+        query, app_list::SearchOptions(),
+        base::BindRepeating(&PickerClientImpl::OnCrosSearchResultsUpdated,
+                            weak_factory_.GetWeakPtr(), std::move(callback)));
+    return;
+  }
+
+  switch (*category) {
+    case ash::PickerCategory::kEmojis:
+    case ash::PickerCategory::kSymbols:
+    case ash::PickerCategory::kEmoticons:
+    case ash::PickerCategory::kGifs:
+      DLOG(FATAL) << "Unexpected category for StartCrosSearch: "
+                  << static_cast<int>(*category);
+      break;
+    case ash::PickerCategory::kBookmarks:
+    case ash::PickerCategory::kBrowsingHistory:
+    case ash::PickerCategory::kOpenTabs:
+    case ash::PickerCategory::kDriveFiles:
+    case ash::PickerCategory::kLocalFiles: {
+      if (filtered_search_engine_ == nullptr ||
+          current_filter_category_ != category) {
+        filtered_search_engine_ =
+            std::make_unique<app_list::SearchEngine>(profile_);
+        filtered_search_engine_->AddProvider(
+            CreateSearchProviderForCategory(*category));
+        current_filter_category_ = category;
+      }
+
+      filtered_search_engine_->StartSearch(
+          query, app_list::SearchOptions(),
+          base::BindRepeating(&PickerClientImpl::OnCrosSearchResultsUpdated,
+                              weak_factory_.GetWeakPtr(), std::move(callback)));
+    } break;
+  }
 }
 
 void PickerClientImpl::OnCrosSearchResultsUpdated(
@@ -142,16 +225,53 @@ void PickerClientImpl::OnCrosSearchResultsUpdated(
     std::vector<std::unique_ptr<ChromeSearchResult>> results) {
   std::vector<ash::PickerSearchResult> picker_results;
   picker_results.reserve(results.size());
-  for (std::unique_ptr<ChromeSearchResult>& result : results) {
+
+  for (const std::unique_ptr<ChromeSearchResult>& result : results) {
     CHECK(result);
-    // TODO: b/316936687 - Handle results for each provider.
-    std::optional<GURL> result_url =
-        app_list_controller_delegate_.GetUrlForSearchResult(*result);
-    if (result_url.has_value()) {
-      picker_results.push_back(ash::PickerSearchResult::BrowsingHistory(
-          *result_url, result->title(), result->icon().icon));
-    } else {
-      picker_results.push_back(ash::PickerSearchResult::Text(result->title()));
+  }
+
+  base::ranges::sort(results, base::ranges::greater(),
+                     [](const std::unique_ptr<ChromeSearchResult>& result) {
+                       return result->relevance();
+                     });
+
+  for (const std::unique_ptr<ChromeSearchResult>& result : results) {
+    switch (result->result_type()) {
+      case ash::AppListSearchResultType::kOmnibox: {
+        if (std::optional<GURL> result_url = result->url();
+            result_url.has_value()) {
+          picker_results.push_back(ash::PickerSearchResult::BrowsingHistory(
+              *result_url, result->title(), result->icon().icon));
+        } else {
+          picker_results.push_back(
+              ash::PickerSearchResult::Text(result->title()));
+        }
+        break;
+      }
+      case ash::AppListSearchResultType::kFileSearch: {
+        // TODO: b/322926411 - Move this filtering to the search provider.
+        bool is_image = false;
+        for (std::string_view extension : kImageExtensions) {
+          if (result->filePath().MatchesFinalExtension(extension)) {
+            is_image = true;
+            break;
+          }
+        }
+
+        if (is_image) {
+          picker_results.push_back(ash::PickerSearchResult::LocalFile(
+              result->title(), result->filePath()));
+        }
+        break;
+      }
+      case ash::AppListSearchResultType::kDriveSearch:
+        picker_results.push_back(ash::PickerSearchResult::DriveFile(
+            result->title(), *result->url()));
+        break;
+      default:
+        LOG(DFATAL) << "Got unexpected search result type "
+                    << static_cast<int>(result->result_type());
+        break;
     }
   }
 
@@ -188,14 +308,45 @@ void PickerClientImpl::SetProfile(Profile* profile) {
   profile_ = profile;
 
   search_engine_ = std::make_unique<app_list::SearchEngine>(profile_);
+  search_engine_->AddProvider(
+      CreateOmniboxProvider(GetAllAutocompleteProviderTypes()));
+  search_engine_->AddProvider(CreateFileSearchProvider(profile_));
+  search_engine_->AddProvider(CreateDriveSearchProvider(profile_));
+}
+
+std::unique_ptr<app_list::SearchProvider>
+PickerClientImpl::CreateOmniboxProvider(int provider_types) {
   if (crosapi::browser_util::IsLacrosEnabled()) {
-    search_engine_->AddProvider(
-        std::make_unique<app_list::OmniboxLacrosProvider>(
-            profile_, &app_list_controller_delegate_,
-            crosapi::CrosapiManager::Get()));
+    // TODO: b/326147929 - Add autocomplete provider types for the Lacros
+    // provider.
+    return std::make_unique<app_list::OmniboxLacrosProvider>(
+        profile_, &app_list_controller_delegate_,
+        crosapi::CrosapiManager::Get());
   } else {
-    search_engine_->AddProvider(std::make_unique<app_list::OmniboxProvider>(
-        profile_, &app_list_controller_delegate_, AutocompleteProviderTypes()));
+    return std::make_unique<app_list::OmniboxProvider>(
+        profile_, &app_list_controller_delegate_, provider_types);
+  }
+}
+
+std::unique_ptr<app_list::SearchProvider>
+PickerClientImpl::CreateSearchProviderForCategory(
+    ash::PickerCategory category) {
+  switch (category) {
+    case ash::PickerCategory::kEmojis:
+    case ash::PickerCategory::kSymbols:
+    case ash::PickerCategory::kEmoticons:
+    case ash::PickerCategory::kGifs:
+      DLOG(FATAL) << "Unexpected category for autocomplete: "
+                  << static_cast<int>(category);
+      return nullptr;
+    case ash::PickerCategory::kBookmarks:
+    case ash::PickerCategory::kBrowsingHistory:
+    case ash::PickerCategory::kOpenTabs:
+      return CreateOmniboxProvider(GetAutocompleteProviderTypes(category));
+    case ash::PickerCategory::kLocalFiles:
+      return CreateFileSearchProvider(profile_);
+    case ash::PickerCategory::kDriveFiles:
+      return CreateDriveSearchProvider(profile_);
   }
 }
 
@@ -203,15 +354,6 @@ PickerClientImpl::PickerAppListControllerDelegate::
     PickerAppListControllerDelegate() = default;
 PickerClientImpl::PickerAppListControllerDelegate::
     ~PickerAppListControllerDelegate() = default;
-
-std::optional<GURL>
-PickerClientImpl::PickerAppListControllerDelegate::GetUrlForSearchResult(
-    ChromeSearchResult& result) {
-  last_opened_url_ = std::nullopt;
-  // This may call `OpenURL`, which will set `last_opened_url_`.
-  result.Open(0);
-  return std::exchange(last_opened_url_, std::nullopt);
-}
 
 void PickerClientImpl::PickerAppListControllerDelegate::DismissView() {
   NOTIMPLEMENTED_LOG_ONCE();
@@ -269,5 +411,5 @@ void PickerClientImpl::PickerAppListControllerDelegate::OpenURL(
     const GURL& url,
     ui::PageTransition transition,
     WindowOpenDisposition disposition) {
-  last_opened_url_ = url;
+  NOTIMPLEMENTED_LOG_ONCE();
 }

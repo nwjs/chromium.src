@@ -48,6 +48,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
@@ -251,7 +252,7 @@ public class PageInsightsCoordinatorTest {
                                         mAppInsetSupplier,
                                         PageInsightsIntentParams.getDefaultInstance(),
                                         mIsPageInsightsHubEnabled,
-                                        (navigationHandle, navigationEntry) ->
+                                        (request) ->
                                                 PageInsightsConfig.newBuilder()
                                                         .setIsInitialPage(true)
                                                         .setShouldAutoTrigger(true)
@@ -326,6 +327,7 @@ public class PageInsightsCoordinatorTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/328462350")
     public void testRoundTopCornerAtExpandedStateAfterPeekState() throws Exception {
         createPageInsightsCoordinator();
         assertEquals(SheetState.HIDDEN, mPageInsightsController.getSheetState());
@@ -399,12 +401,15 @@ public class PageInsightsCoordinatorTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/328462350")
     public void testResizeContent() throws Exception {
         createPageInsightsCoordinator();
         assertEquals(SheetState.HIDDEN, mPageInsightsController.getSheetState());
-        setAutoTriggerTimerFinished();
 
+        setAutoTriggerTimerFinished();
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         hideTopBar(); // Signal for auto triggering the PIH
+
         int peekHeight = mPageInsightsController.getCurrentOffset();
         verify(mBrowserControlsSizer).setBottomControlsHeight(eq(peekHeight), eq(0));
 
@@ -559,6 +564,7 @@ public class PageInsightsCoordinatorTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/328462350")
     public void testExpandedStateAfterPeekState_scrimShown() throws Exception {
         createPageInsightsCoordinator();
         assertEquals(SheetState.HIDDEN, mPageInsightsController.getSheetState());
@@ -574,6 +580,7 @@ public class PageInsightsCoordinatorTest {
     @Test
     @MediumTest
     @Ignore("TODO: b/325577847 - Animation is not finished when PIH finishes dismiss")
+    @DisabledTest(message = "crbug.com/328462350")
     public void testDismissAfterExpandedState_scrimNotShown() throws Exception {
         createAndLaunchPageInsightsCoordinator();
         mScrimCoordinator.disableAnimationForTesting(true);

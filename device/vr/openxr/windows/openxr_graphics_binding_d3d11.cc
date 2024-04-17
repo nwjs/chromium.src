@@ -190,11 +190,11 @@ void OpenXrGraphicsBindingD3D11::CreateSharedImages(
                                         gpu::SHARED_IMAGE_USAGE_GLES2_WRITE;
 
     swap_chain_info.shared_image = sii->CreateSharedImage(
-        viz::SinglePlaneFormat::kRGBA_8888, buffer_size,
-        gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT709,
-                        gfx::ColorSpace::TransferID::LINEAR),
-        kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, shared_image_usage,
-        "OpenXrSwapChain", std::move(gpu_memory_buffer_handle));
+        {viz::SinglePlaneFormat::kRGBA_8888, buffer_size,
+         gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT709,
+                         gfx::ColorSpace::TransferID::LINEAR),
+         shared_image_usage, "OpenXrSwapChain"},
+        std::move(gpu_memory_buffer_handle));
     CHECK(swap_chain_info.shared_image);
     swap_chain_info.sync_token = sii->GenVerifiedSyncToken();
   }
@@ -309,11 +309,16 @@ void OpenXrGraphicsBindingD3D11::SetWebXrTexture(
 }
 
 bool OpenXrGraphicsBindingD3D11::SetOverlayTexture(
-    mojo::PlatformHandle texture_handle,
+    gfx::GpuMemoryBufferHandle texture,
     const gpu::SyncToken& sync_token,
     const gfx::RectF& left,
     const gfx::RectF& right) {
-  return texture_helper_->SetOverlayTexture(texture_handle.TakeHandle(),
+  if (texture.is_null()) {
+    return false;
+  }
+
+  CHECK(texture.type == gfx::DXGI_SHARED_HANDLE);
+  return texture_helper_->SetOverlayTexture(std::move(texture.dxgi_handle),
                                             sync_token, left, right);
 }
 

@@ -20,7 +20,6 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/ntp/feed_control_delegate.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
-#import "ios/chrome/browser/ui/ntp/metrics/feed_session_recorder.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_follow_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_metrics_delegate.h"
 
@@ -35,8 +34,6 @@ using feed::FeedEngagementType;
 using feed::FeedUserActionType;
 
 @interface FeedMetricsRecorder ()
-// Helper for recording session time metrics.
-@property(nonatomic, strong) FeedSessionRecorder* sessionRecorder;
 // Tracking property to avoid duplicate recordings of
 // FeedEngagementType::kFeedEngagedSimple.
 @property(nonatomic, assign) BOOL engagedSimpleReportedDiscover;
@@ -110,15 +107,6 @@ using feed::FeedUserActionType;
     _prefService = prefService;
   }
   return self;
-}
-
-#pragma mark - Properties
-
-- (FeedSessionRecorder*)sessionRecorder {
-  if (!_sessionRecorder) {
-    _sessionRecorder = [[FeedSessionRecorder alloc] init];
-  }
-  return _sessionRecorder;
 }
 
 #pragma mark - Public
@@ -262,7 +250,15 @@ using feed::FeedUserActionType;
     // PrefService.
 
     // Also calculate total aggregate for the time in feed aggregate metric.
-    self.timeSpentInFeed = base::Time::Now() - self.feedBecameVisibleTime;
+
+    // When the user opens the browser directly to a website while they
+    // originally were on the NTP. Set `feedBecameVisibleTime` to now if it has
+    // never been set before.
+    base::Time now = base::Time::Now();
+    if (self.feedBecameVisibleTime.is_null()) {
+      self.feedBecameVisibleTime = now;
+    }
+    self.timeSpentInFeed = now - self.feedBecameVisibleTime;
 
     [self checkEngagementGoodVisitWithInteraction:NO];
     self.prefService->SetDouble(kTimeSpentInFeedAggregateKey,
@@ -1043,8 +1039,6 @@ using feed::FeedUserActionType;
   if (scrollDistance > kMinScrollThreshold || interacted) {
     [self recordEngaged];
   }
-
-  [self.sessionRecorder recordUserInteractionOrScrolling];
 }
 
 // Checks if a Good Visit should be recorded. `interacted` is YES if it was
@@ -1260,8 +1254,11 @@ using feed::FeedUserActionType;
   if (additionalTimeInFeed.is_negative()) {
     base::debug::DumpWithoutCrashing();
   }
+  // Temporary fix to resolve negative values in prefs.
+  // TODO(crbug.com/329274886): Remove fix once crashes are down to zero.
   if (self.previousTimeInFeedForGoodVisitSession < 0) {
     base::debug::DumpWithoutCrashing();
+    self.previousTimeInFeedForGoodVisitSession = 0;
   }
   self.previousTimeInFeedForGoodVisitSession =
       self.previousTimeInFeedForGoodVisitSession +

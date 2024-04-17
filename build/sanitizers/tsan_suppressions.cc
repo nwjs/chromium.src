@@ -42,9 +42,6 @@ char kTSanDefaultSuppressions[] =
     // http://crbug.com/476529
     "deadlock:cc::VideoLayerImpl::WillDraw\n"
 
-    // http://crbug.com/328826
-    "race:skia::(anonymous namespace)::g_pixel_geometry\n"
-
     // http://crbug.com/328868
     "race:PR_Lock\n"
 
@@ -86,6 +83,9 @@ char kTSanDefaultSuppressions[] =
     "race:*::perfetto_track_event::internal::g_category_state_storage\n"
     "race:perfetto::DataSource*::static_state_\n"
     "race:perfetto::*::ResetForTesting\n"
+
+    // https://crbug.com/327473683
+    "race:SetCoveredByBucketing\n"
 
     // In V8 each global safepoint might lock isolate mutexes in a different
     // order. This is allowed in this context as it is always guarded by a

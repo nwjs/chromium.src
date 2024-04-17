@@ -38,6 +38,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ApplicationLifetime;
 import org.chromium.chrome.browser.ChromeBaseAppCompatActivity;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
+import org.chromium.chrome.browser.accessibility.settings.AccessibilitySettings;
 import org.chromium.chrome.browser.accessibility.settings.ChromeAccessibilitySettingsDelegate;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsCoordinator;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
@@ -57,8 +58,10 @@ import org.chromium.chrome.browser.password_check.PasswordCheckComponentUiFactor
 import org.chromium.chrome.browser.password_check.PasswordCheckFragmentView;
 import org.chromium.chrome.browser.password_entry_edit.CredentialEditUiFactory;
 import org.chromium.chrome.browser.password_entry_edit.CredentialEntryFragmentViewBase;
+import org.chromium.chrome.browser.password_manager.PasswordManagerHelper;
 import org.chromium.chrome.browser.password_manager.settings.PasswordSettings;
 import org.chromium.chrome.browser.privacy_guide.PrivacyGuideFragment;
+import org.chromium.chrome.browser.privacy_sandbox.ChromeIpProtectionDelegate;
 import org.chromium.chrome.browser.privacy_sandbox.ChromeTrackingProtectionDelegate;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxSettingsBaseFragment;
 import org.chromium.chrome.browser.privacy_sandbox.TopicsManageFragment;
@@ -77,7 +80,6 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.device_lock.MissingDeviceLockLauncher;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
-import org.chromium.components.browser_ui.accessibility.AccessibilitySettings;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerFactory;
 import org.chromium.components.browser_ui.bottomsheet.ManagedBottomSheetController;
@@ -96,6 +98,7 @@ import org.chromium.components.browser_ui.widget.displaystyle.ViewResizer;
 import org.chromium.components.browser_ui.widget.displaystyle.ViewResizerUtil;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.privacy_sandbox.IpProtectionSettingsFragment;
 import org.chromium.components.privacy_sandbox.TrackingProtectionSettings;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -534,7 +537,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                     SyncConsentActivityLauncherImpl.get(),
                     getModalDialogManagerSupplier(),
                     SyncServiceFactory.getForProfile(mProfile),
-                    UserPrefs.get(mProfile));
+                    UserPrefs.get(mProfile),
+                    PasswordManagerHelper.getForProfile(mProfile));
         }
         if (fragment instanceof PasswordCheckFragmentView) {
             PasswordCheckComponentUiFactory.create(
@@ -542,7 +546,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                     HelpAndFeedbackLauncherImpl.getForProfile(mProfile),
                     mSettingsLauncher,
                     LaunchIntentDispatcher::createCustomTabActivityIntent,
-                    IntentUtils::addTrustedIntentExtras);
+                    IntentUtils::addTrustedIntentExtras,
+                    mProfile);
         }
         if (fragment instanceof CredentialEntryFragmentViewBase) {
             CredentialEditUiFactory.create(
@@ -607,6 +612,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (fragment instanceof AccessibilitySettings) {
             ((AccessibilitySettings) fragment)
                     .setDelegate(new ChromeAccessibilitySettingsDelegate(mProfile));
+            ((AccessibilitySettings) fragment).setPrefService(UserPrefs.get(mProfile));
         }
         if (fragment instanceof PasswordSettings) {
             ((PasswordSettings) fragment).setBottomSheetController(mBottomSheetController);
@@ -628,6 +634,14 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (fragment instanceof TopicsManageFragment) {
             ((TopicsManageFragment) fragment)
                     .setModalDialogManagerSupplier(getModalDialogManagerSupplier());
+        }
+        if (fragment instanceof IpProtectionSettingsFragment) {
+            IpProtectionSettingsFragment ipProtectionSettingsFragment =
+                    ((IpProtectionSettingsFragment) fragment);
+            ipProtectionSettingsFragment.setIProtectionDelegate(
+                    new ChromeIpProtectionDelegate(mProfile));
+            ipProtectionSettingsFragment.setCustomTabIntentHelper(
+                    LaunchIntentDispatcher::createCustomTabActivityIntent);
         }
     }
 

@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -592,13 +593,13 @@ class TestSharedStorageWorkletHost : public SharedStorageWorkletHost {
 class TestSharedStorageObserver
     : public SharedStorageWorkletHostManager::SharedStorageObserverInterface {
  public:
-  using Access = std::
-      tuple<AccessType, std::string, std::string, SharedStorageEventParams>;
+  using Access =
+      std::tuple<AccessType, int, std::string, SharedStorageEventParams>;
 
   void OnSharedStorageAccessed(
       const base::Time& access_time,
       AccessType type,
-      const std::string& main_frame_id,
+      int main_frame_id,
       const std::string& owner_origin,
       const SharedStorageEventParams& params) override {
     accesses_.emplace_back(type, main_frame_id, owner_origin, params);
@@ -850,7 +851,7 @@ class SharedStorageBrowserTestBase : public ContentBrowserTest {
               {"SharedStorageStalenessThreshold",
                TimeDeltaToString(base::Days(kStalenessThresholdDays))},
           }},
-         {blink::features::kSharedStorageAPIM123, {}}},
+         {blink::features::kSharedStorageAPIM124, {}}},
         /*disabled_features=*/{});
 
     fenced_frame_feature_.InitAndEnableFeature(blink::features::kFencedFrames);
@@ -932,12 +933,7 @@ class SharedStorageBrowserTestBase : public ContentBrowserTest {
         .root();
   }
 
-  std::string MainFrameId() {
-    return PrimaryFrameTreeNodeRoot()
-        ->current_frame_host()
-        ->devtools_frame_token()
-        .ToString();
-  }
+  int MainFrameId() { return PrimaryFrameTreeNodeRoot()->frame_tree_node_id(); }
 
   SharedStorageBudgetMetadata* GetSharedStorageBudgetMetadata(
       const GURL& urn_uuid) {
@@ -1514,7 +1510,9 @@ IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest,
   histogram_tester_.ExpectUniqueSample(
       kDestroyedStatusHistogram,
       blink::SharedStorageWorkletDestroyedStatus::kDidNotEnterKeepAlive, 1);
-  histogram_tester_.ExpectUniqueSample(
+  histogram_tester_.ExpectBucketCount(
+      kErrorTypeHistogram, blink::SharedStorageWorkletErrorType::kSuccess, 1);
+  histogram_tester_.ExpectBucketCount(
       kErrorTypeHistogram, blink::SharedStorageWorkletErrorType::kRunWebVisible,
       1);
   histogram_tester_.ExpectTotalCount(kTimingUsefulResourceHistogram, 1);
@@ -4122,10 +4120,10 @@ IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest,
 
   GURL out_script_url;
   ExecuteScriptInWorklet(shell(), R"(
-      await sharedStorage.set('key0', 'a'.repeat(1024));
+      await sharedStorage.set('k', 'a'.repeat(2621439));
 
-      // This will fail due to the would-be length being too big.
-      await sharedStorage.append('key0', 'a');
+      // This will fail due to the storage quota being reached.
+      await sharedStorage.append('k', 'a');
     )",
                          &out_script_url);
 
@@ -4146,10 +4144,10 @@ IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest,
         SharedStorageEventParams::CreateForRun("test-operation",
                                                blink::CloneableMessage())},
        {AccessType::kWorkletSet, MainFrameId(), origin_str,
-        SharedStorageEventParams::CreateForSet("key0", std::string(1024, 'a'),
+        SharedStorageEventParams::CreateForSet("k", std::string(2621439, 'a'),
                                                false)},
        {AccessType::kWorkletAppend, MainFrameId(), origin_str,
-        SharedStorageEventParams::CreateForAppend("key0", "a")}});
+        SharedStorageEventParams::CreateForAppend("k", "a")}});
 }
 
 IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest, DeleteOperationInWorklet) {
@@ -6427,6 +6425,199 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameInteractionBrowserTest,
        "sharedStorage.selectURL() failed because number of urn::uuid to url ",
        "mappings has reached the limit.\"\n"});
   EXPECT_EQ(expected_error, extra_result.error);
+}
+
+class SharedStorageFencedFrameDocumentGetBrowserTest
+    : public SharedStorageFencedFrameInteractionBrowserTest {
+ public:
+  SharedStorageFencedFrameDocumentGetBrowserTest() {
+    fenced_frame_feature_.InitAndEnableFeature(
+        /*feature=*/
+        blink::features::kFencedFramesLocalUnpartitionedDataAccess);
+  }
+
+ private:
+  base::test::ScopedFeatureList fenced_frame_feature_;
+};
+
+IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
+                       GetAllowedInNetworkRestrictedFencedFrame) {
+  GURL main_frame_url = https_server()->GetURL("a.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'apple');
+  )"));
+
+  FrameTreeNode* fenced_frame_root_node =
+      CreateFencedFrame(https_server()->GetURL("a.test", kFencedFramePath));
+
+  EvalJsResult get_result = EvalJs(fenced_frame_root_node, R"(
+    (async () => {
+      await window.fence.disableUntrustedNetwork();
+      return sharedStorage.get('test');
+    })();
+  )");
+
+  EXPECT_EQ(get_result, "apple");
+}
+
+IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
+                       GetRejectsInFencedFrameWithoutRestrictedNetwork) {
+  GURL main_frame_url = https_server()->GetURL("a.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'apple');
+  )"));
+
+  FrameTreeNode* fenced_frame_root_node =
+      CreateFencedFrame(https_server()->GetURL("a.test", kFencedFramePath));
+
+  EvalJsResult get_result = EvalJs(fenced_frame_root_node, R"(
+    sharedStorage.get('test');
+  )");
+
+  EXPECT_THAT(
+      get_result.error,
+      testing::HasSubstr(
+          "sharedStorage.get() is not allowed in a fenced frame until network "
+          "access for it and all descendent frames has been revoked with "
+          "window.fence.disableUntrustedNetwork()"));
+}
+
+IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
+                       GetInFencedFrameOnlyFetchesValuesFromCurrentOrigin) {
+  // sharedStorage.set() for a.test
+  GURL main_frame_url1 = https_server()->GetURL("a.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url1));
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'apple');
+  )"));
+
+  // sharedStorage.set() for b.test
+  GURL main_frame_url2 = https_server()->GetURL("b.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url2));
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'banana');
+  )"));
+
+  // An a.test fenced frame embedded in b.test should only read a.test's set
+  // values.
+  FrameTreeNode* fenced_frame_root_node =
+      CreateFencedFrame(https_server()->GetURL("a.test", kFencedFramePath));
+
+  EvalJsResult get_result = EvalJs(fenced_frame_root_node, R"(
+    (async () => {
+      await window.fence.disableUntrustedNetwork();
+      return sharedStorage.get('test');
+    })();
+  )");
+
+  EXPECT_EQ(get_result, "apple");
+}
+
+IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
+                       GetRejectsInMainFrame) {
+  GURL main_frame_url = https_server()->GetURL("a.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'apple');
+  )"));
+
+  EvalJsResult get_result_main_frame = EvalJs(shell(), R"(
+    sharedStorage.get('test');
+  )");
+
+  EXPECT_THAT(
+      get_result_main_frame.error,
+      testing::HasSubstr("Cannot call get() outside of a fenced frame."));
+}
+
+IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
+                       GetRejectsInIFrame) {
+  GURL main_frame_url = https_server()->GetURL("a.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'apple');
+  )"));
+
+  FrameTreeNode* iframe_root =
+      CreateIFrame(PrimaryFrameTreeNodeRoot(), main_frame_url);
+
+  EvalJsResult get_result_iframe = EvalJs(iframe_root, R"(
+    sharedStorage.get('test');
+  )");
+
+  EXPECT_THAT(
+      get_result_iframe.error,
+      testing::HasSubstr("Cannot call get() outside of a fenced frame."));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SharedStorageFencedFrameDocumentGetBrowserTest,
+    GetAllowedInNetworkRestrictedNestedFencedFrameIfParentStillHasNetwork) {
+  GURL main_frame_url = https_server()->GetURL("a.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'apple');
+  )"));
+
+  GURL fenced_frame_url = https_server()->GetURL("a.test", kFencedFramePath);
+  // The parent fenced frame never calls window.fence.disableUntrustedNetwork().
+  FrameTreeNode* fenced_frame_root_node = CreateFencedFrame(fenced_frame_url);
+
+  FrameTreeNode* nested_fenced_frame_root_node =
+      CreateFencedFrame(fenced_frame_root_node, fenced_frame_url);
+
+  EvalJsResult get_result = EvalJs(nested_fenced_frame_root_node, R"(
+    (async () => {
+      await window.fence.disableUntrustedNetwork();
+      return sharedStorage.get('test');
+    })();
+  )");
+
+  EXPECT_EQ(get_result, "apple");
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SharedStorageFencedFrameDocumentGetBrowserTest,
+    GetNotAllowedInNetworkRestrictedParentFencedFrameIfChildStillHasNetwork) {
+  GURL main_frame_url = https_server()->GetURL("a.test", kSimplePagePath);
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+
+  EXPECT_TRUE(ExecJs(shell(), R"(
+    sharedStorage.set('test', 'apple');
+  )"));
+
+  GURL fenced_frame_url = https_server()->GetURL("a.test", kFencedFramePath);
+  FrameTreeNode* fenced_frame_root_node = CreateFencedFrame(fenced_frame_url);
+
+  CreateFencedFrame(fenced_frame_root_node, fenced_frame_url);
+
+  // Note that we do *not* await the call to disableUntrustedNetwork, because we
+  // need to operate in the top frame while the nested frame still hasn't
+  // disabled network access.
+  // TODO(crbug.com/324440086): disableUntrustedNetwork() should not resolve
+  // until all child frames also disable untrusted network. However, that
+  // behavior is yet to be implemented. We should add a timeout check here
+  // once the async behavior of disableUntrustedNetwork() is correct.
+  EvalJsResult get_result = EvalJs(fenced_frame_root_node, R"(
+    (async () => {
+      let disable_network_promise = window.fence.disableUntrustedNetwork();
+      await sharedStorage.get('test');
+    })();
+  )");
+
+  EXPECT_THAT(
+      get_result.error,
+      testing::HasSubstr(
+          "sharedStorage.get() is not allowed in a fenced frame until network "
+          "access for it and all descendent frames has been revoked with "
+          "window.fence.disableUntrustedNetwork()"));
 }
 
 class SharedStorageSelectURLNotAllowedInFencedFrameBrowserTest
@@ -10060,17 +10251,13 @@ IN_PROC_BROWSER_TEST_F(SharedStorageHeaderObserverBrowserTest,
 
   FetchWithSharedStorageWritable(shell(), subresource_or_subframe_url_);
 
-  std::string long_str(1025, 'x');
   WaitForSubresourceOrSubframeRequestAndSendResponse(
       /*expect_writable_header=*/true,
       /*http_status=*/net::HTTP_OK,
       /*extra_headers=*/
-      {base::StrCat(
-          {"Shared-Storage-Write: clear, set;key=", long_str,
-           ";value=v,set;key=k;value=", long_str, ",append;key=k;value=",
-           long_str, ",append;key=", long_str, ";value=v,delete;key=", long_str,
-           ",set;key=\"\";value=v,append;key=\"\";value=v,delete;key=\"\","
-           "clear"})});
+      {base::StrCat({"Shared-Storage-Write: clear, ",
+                     "set;key=\"\";value=v,append;key=\"\";value=v,",
+                     "delete;key=\"\",clear"})});
 
   ASSERT_TRUE(observer_);
   observer_->WaitForOperations(2);
@@ -10079,8 +10266,7 @@ IN_PROC_BROWSER_TEST_F(SharedStorageHeaderObserverBrowserTest,
   EXPECT_EQ(observer_->header_results().front().first,
             subresource_or_subframe_origin_);
   EXPECT_THAT(observer_->header_results().front().second,
-              testing::ElementsAre(true, false, false, false, false, false,
-                                   false, false, false, true));
+              testing::ElementsAre(true, false, false, false, true));
   EXPECT_THAT(
       observer_->operations(),
       testing::ElementsAre(ClearOperation(subresource_or_subframe_origin_,

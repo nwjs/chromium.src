@@ -82,8 +82,8 @@ class RenderAccessibilityManager;
 class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
                                                public RenderFrameObserver {
  public:
-  // A call to AccessibilityModeChanged() is required after construction to
-  // start accessibility.
+  // A call to NotifyAccessibilityModeChange() is required after construction
+  // to start accessibility.
   RenderAccessibilityImpl(
       RenderAccessibilityManager* const render_accessibility_manager,
       RenderFrameImpl* const render_frame);
@@ -93,6 +93,7 @@ class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
 
   ~RenderAccessibilityImpl() override;
 
+  void NotifyAccessibilityModeChange(const ui::AXMode& mode);
   ui::AXMode GetAccessibilityMode() { return accessibility_mode_; }
 
   // RenderAccessibility implementation.
@@ -107,7 +108,6 @@ class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
   // RenderFrameObserver implementation.
   void DidCreateNewDocument() override;
   void DidCommitProvisionalLoad(ui::PageTransition transition) override;
-  void AccessibilityModeChanged(const ui::AXMode& mode) override;
 
   void HitTest(const gfx::Point& point,
                ax::mojom::Event event_to_fire,
@@ -161,6 +161,10 @@ class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
   // Whether we should highlight annotation results visually on the page
   // for debugging.
   bool image_annotation_debugging_ = false;
+
+  AXAnnotatorsManager* ax_annotators_manager_for_testing() {
+    return ax_annotators_manager_.get();
+  }
 
  protected:
   // Check the entire accessibility tree to see if any nodes have
@@ -216,11 +220,10 @@ class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
                                  bool mark_plugin_subtree_dirty);
 
   // The RenderAccessibilityManager that owns us.
-  raw_ptr<RenderAccessibilityManager, ExperimentalRenderer>
-      render_accessibility_manager_;
+  raw_ptr<RenderAccessibilityManager> render_accessibility_manager_;
 
   // The associated RenderFrameImpl by means of the RenderAccessibilityManager.
-  raw_ptr<RenderFrameImpl, ExperimentalRenderer> render_frame_;
+  raw_ptr<RenderFrameImpl> render_frame_;
 
   // This keeps accessibility enabled as long as it lives.
   std::unique_ptr<blink::WebAXContext> ax_context_;
@@ -233,7 +236,7 @@ class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
   // AXTreeSerializer's AXSourceNodeVectorType is not a vector<raw_ptr> due to
   // performance regressions detected in blink_perf.accessibility tests.
   RAW_PTR_EXCLUSION std::unique_ptr<PluginAXTreeSerializer> plugin_serializer_;
-  raw_ptr<PluginAXTreeSource, ExperimentalRenderer> plugin_tree_source_;
+  raw_ptr<PluginAXTreeSource> plugin_tree_source_;
 
   // Token to return this token in the next IPC, so that RenderFrameHostImpl
   // can discard stale data, when the token does not match the expected token.

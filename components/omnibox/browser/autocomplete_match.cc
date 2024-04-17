@@ -4,8 +4,9 @@
 
 #include "components/omnibox/browser/autocomplete_match.h"
 
+#include <vector>
+
 #include "base/check_op.h"
-#include "base/containers/cxx20_erase.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
@@ -30,6 +31,7 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/document_provider.h"
+#include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/search_engine_type.h"
@@ -48,6 +50,8 @@
 #include "components/omnibox/browser/vector_icons.h"  // nogncheck
 #include "components/vector_icons/vector_icons.h"     // nogncheck
 #endif
+
+constexpr bool kIsDesktop = !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS);
 
 namespace {
 
@@ -129,8 +133,7 @@ int GetDeduplicationProviderPreferenceScore(
       {AutocompleteProvider::TYPE_BOOKMARK, 1},
       // Don't let bookmarks override builtins, as that interferes with
       // starter pack matches when user has bookmarked their destination.
-      {AutocompleteProvider::TYPE_BUILTIN,
-       OmniboxFieldTrial::IsKeywordModeRefreshEnabled() ? 1 : 0},
+      {AutocompleteProvider::TYPE_BUILTIN, kIsDesktop ? 1 : 0},
       // Prefer non-shorcut matches over shortcuts, the latter of which may
       // have stale or missing URL titles (the latter from what-you-typed
       // matches).
@@ -653,7 +656,7 @@ bool AutocompleteMatch::MoreRelevant(const AutocompleteMatch& match1,
 // static
 bool AutocompleteMatch::BetterDuplicate(const AutocompleteMatch& match1,
                                         const AutocompleteMatch& match2) {
-  if (OmniboxFieldTrial::IsKeywordModeRefreshEnabled()) {
+  if (kIsDesktop) {
     // Prefer starter pack matches.
     if (match1.type == AutocompleteMatchType::STARTER_PACK &&
         match2.type != AutocompleteMatchType::STARTER_PACK) {
@@ -1364,6 +1367,27 @@ bool AutocompleteMatch::IsOnDeviceSearchSuggestion() const {
   return from_on_device_provider && subtypes.contains(271);
 }
 
+int AutocompleteMatch::GetSortingOrder() const {
+  if (IsStarterPackType(type)) {
+    return 0;
+  }
+#if !BUILDFLAG(IS_IOS)
+  // Group history cluster suggestions with searches.
+  if (type == AutocompleteMatchType::HISTORY_CLUSTER) {
+    return 2;
+  }
+#endif  // !BUILDFLAG(IS_IOS)
+  if (IsSearchType(type)) {
+    return 2;
+  }
+  // Group boosted shortcuts above searches.
+  if (omnibox_feature_configs::ShortcutBoosting::Get().group_with_searches &&
+      shortcut_boosted) {
+    return 1;
+  }
+  return 3;
+}
+
 bool AutocompleteMatch::IsUrlScoringEligible() const {
   return scoring_signals.has_value() &&
          type != AutocompleteMatchType::URL_WHAT_YOU_TYPED;
@@ -1418,7 +1442,7 @@ void AutocompleteMatch::FilterAndSortActionsInSuggest() {
   // Collect all Actions in Suggest.
   omnibox::ActionInfo::ActionType remove_action_type =
       OmniboxFieldTrial::kActionsInSuggestRemoveActionTypes.Get();
-  base::EraseIf(actions, [&actions_in_suggest_to_reinsert, remove_action_type](
+  std::erase_if(actions, [&actions_in_suggest_to_reinsert, remove_action_type](
                              const scoped_refptr<OmniboxAction>& action) {
     auto* ais = OmniboxActionInSuggest::FromAction(action.get());
     if (ais != nullptr && ais->Type() != remove_action_type) {

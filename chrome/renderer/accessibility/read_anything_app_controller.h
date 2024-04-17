@@ -92,7 +92,7 @@ class ReadAnythingAppController
   void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id,
                                ukm::SourceId ukm_source_id,
                                const GURL& hostname,
-                               bool force_update_state) override;
+                               bool is_pdf) override;
   void OnAXTreeDestroyed(const ui::AXTreeID& tree_id) override;
   void OnThemeChanged(
       read_anything::mojom::ReadAnythingThemePtr new_theme) override;
@@ -192,6 +192,10 @@ class ReadAnythingAppController
   // supported for speech.
   const std::string& GetLanguageCodeForSpeech() const;
 
+  const std::string GetDisplayNameForLocale(
+      const std::string& locale,
+      const std::string& display_locale) const;
+
   void Distill();
   void Draw();
   void DrawSelection();
@@ -205,7 +209,8 @@ class ReadAnythingAppController
   void OnAXTreeDistilled(const ui::AXTreeID& tree_id,
                          const std::vector<ui::AXNodeID>& content_node_ids);
 
-  void PostProcessSelection();
+  // Returns true if a draw occured.
+  bool PostProcessSelection();
 
   // Signals that the side panel has finished loading and it's safe to show
   // the UI to avoid loading artifacts.

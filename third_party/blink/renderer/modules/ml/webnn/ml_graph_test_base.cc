@@ -19,35 +19,16 @@ MLGraph* ToMLGraph(V8TestingScope* scope, ScriptValue value) {
       scope->GetIsolate(), value.V8Value(), scope->GetExceptionState());
 }
 
-std::string TestVarietyToString(
-    const ::testing::TestParamInfo<TestVariety>& info) {
-  BackendType backend_type = info.param.backend_type;
-  std::string name;
-
-  switch (backend_type) {
+std::string TestParamInfoToString(
+    const ::testing::TestParamInfo<BackendType>& info) {
+  switch (info.param) {
     case BackendType::kFake:
-      // The name of Fake backend from test parameter doesn't output avoid
-      // duplicating with the fixture name |FakeMLGraphTest|.
-      name += "";
-      break;
+      return "FakeBackend";
     case BackendType::kXnnpack:
-      name += "Xnnpack_";
-      break;
-    case BackendType::kModelLoader:
-      name += "ModelLoader_";
-      break;
+      return "Xnnpack";
     case BackendType::kWebNNService:
-      name += "WebNNService_";
-      break;
+      return "WebNNService";
   }
-
-  // TODO: crbug.com/40283536 - Remove this.
-  name += "Async";
-  return name;
-}
-
-BackendType MLGraphTestBase::GetBackendType() {
-  return GetParam().backend_type;
 }
 
 MLGraphTestBase::BuildResult MLGraphTestBase::BuildGraph(
@@ -79,7 +60,8 @@ DOMException* MLGraphTestBase::ComputeGraph(V8TestingScope& scope,
                                             MLNamedArrayBufferViews& inputs,
                                             MLNamedArrayBufferViews& outputs) {
   auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver>(scope.GetScriptState());
+      MakeGarbageCollected<ScriptPromiseResolverTyped<MLComputeResult>>(
+          scope.GetScriptState());
   ScriptPromiseTester tester(scope.GetScriptState(), resolver->Promise());
   graph->Compute(ScopedMLTrace("Compute"), inputs, outputs, resolver,
                  scope.GetExceptionState());

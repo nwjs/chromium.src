@@ -17,6 +17,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/numerics/angle_conversions.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
@@ -24,7 +25,6 @@
 #include "base/time/time.h"
 #include "services/device/generic_sensor/platform_sensor_reader_win_base.h"
 #include "services/device/public/cpp/generic_sensor/sensor_reading.h"
-#include "ui/gfx/geometry/angle_conversions.h"
 
 namespace device {
 
@@ -342,7 +342,7 @@ class PlatformSensorReaderWinrtAbsOrientationQuaternion final
           ABI::Windows::Devices::Sensors::
               IOrientationSensorReadingChangedEventArgs> {
  public:
-  static constexpr double kRadianThreshold = gfx::DegToRad(0.1);
+  static constexpr double kRadianThreshold = base::DegToRad(0.1);
 
   static std::unique_ptr<PlatformSensorReaderWinBase> Create();
 

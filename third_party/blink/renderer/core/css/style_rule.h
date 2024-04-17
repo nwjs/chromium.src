@@ -71,11 +71,10 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
     kCounterStyle,
     kScope,
     kSupports,
-    kPositionFallback,
-    kTry,
     kStartingStyle,
     kViewTransition,
     kFunction,
+    kPositionTry,
   };
 
   // Name of a cascade layer as given by an @layer rule, split at '.' into a
@@ -110,8 +109,6 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
   bool IsScopeRule() const { return GetType() == kScope; }
   bool IsSupportsRule() const { return GetType() == kSupports; }
   bool IsImportRule() const { return GetType() == kImport; }
-  bool IsPositionFallbackRule() const { return GetType() == kPositionFallback; }
-  bool IsTryRule() const { return GetType() == kTry; }
   bool IsStartingStyleRule() const { return GetType() == kStartingStyle; }
   bool IsViewTransitionRule() const { return GetType() == kViewTransition; }
   bool IsConditionRule() const {
@@ -119,6 +116,7 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
            GetType() == kSupports || GetType() == kStartingStyle;
   }
   bool IsFunctionRule() const { return GetType() == kFunction; }
+  bool IsPositionTryRule() const { return GetType() == kPositionTry; }
 
   StyleRuleBase* Copy() const;
 
@@ -787,8 +785,7 @@ struct DowncastTraits<StyleRuleGroup> {
   static bool AllowFrom(const StyleRuleBase& rule) {
     return rule.IsMediaRule() || rule.IsSupportsRule() ||
            rule.IsContainerRule() || rule.IsLayerBlockRule() ||
-           rule.IsScopeRule() || rule.IsPositionFallbackRule() ||
-           rule.IsStartingStyleRule();
+           rule.IsScopeRule() || rule.IsStartingStyleRule();
   }
 };
 

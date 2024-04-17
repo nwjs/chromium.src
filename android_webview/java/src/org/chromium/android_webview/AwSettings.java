@@ -17,6 +17,8 @@ import android.provider.Settings;
 import android.webkit.WebSettings;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
@@ -36,6 +38,8 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.components.webauthn.WebauthnMode;
+import org.chromium.components.webauthn.WebauthnModeProvider;
 import org.chromium.content_public.browser.WebContents;
 
 import java.lang.annotation.Retention;
@@ -113,6 +117,7 @@ public class AwSettings {
     private Set<String> mRequestedWithHeaderAllowedOriginRules;
 
     private Context mContext;
+    private WebContents mWebContents;
 
     // This class must be created on the UI thread. Afterwards, it can be
     // used from any thread. Internally, the class uses a message queue
@@ -196,6 +201,8 @@ public class AwSettings {
     private boolean mBuiltInZoomControls;
     private boolean mDisplayZoomControls = true;
     private final AwMediaIntegrityApiStatusConfig mIntegrityApiStatusConfig;
+
+    private @WebauthnMode int mWebauthnMode = WebauthnMode.NONE;
 
     // Cache default user agent string obtained through JNI, since it will not change during the
     // process lifetime. This saves a JNI call when creating new AwSettings objects after the first
@@ -373,6 +380,12 @@ public class AwSettings {
         // Defer initializing the native side until a native WebContents instance is set.
     }
 
+    /** Get the AwSettings for the WebView with the given WebContents */
+    @Nullable
+    public static AwSettings fromWebContents(@NonNull WebContents webContents) {
+        return AwSettingsJni.get().fromWebContents(webContents);
+    }
+
     public int getUiModeNight() {
         return mContext.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
     }
@@ -413,7 +426,10 @@ public class AwSettings {
                 mEventHandler.bindUiThread();
                 mNativeAwSettings = AwSettingsJni.get().init(AwSettings.this, webContents);
                 updateEverythingLocked();
+                WebauthnModeProvider.getInstance()
+                        .setWebauthnModeForWebContents(webContents, mWebauthnMode);
             }
+            mWebContents = webContents;
         }
     }
 
@@ -2003,11 +2019,36 @@ public class AwSettings {
         }
     }
 
+    public void setWebauthnSupport(@WebauthnMode int support) {
+        synchronized (mAwSettingsLock) {
+            if (mWebauthnMode != support) {
+                mWebauthnMode = support;
+                mEventHandler.updateWebkitPreferencesLocked();
+                WebauthnModeProvider.getInstance()
+                        .setWebauthnModeForWebContents(mWebContents, support);
+            }
+        }
+    }
+
+    @CalledByNative
+    public @WebauthnMode int getWebauthnSupportLocked() {
+        assert Thread.holdsLock(mAwSettingsLock);
+        return mWebauthnMode;
+    }
+
+    public int getWebauthnSupport() {
+        synchronized (mAwSettingsLock) {
+            return getWebauthnSupportLocked();
+        }
+    }
+
     @NativeMethods
     interface Natives {
         long init(AwSettings caller, WebContents webContents);
 
         void destroy(long nativeAwSettings, AwSettings caller);
+
+        AwSettings fromWebContents(WebContents webContents);
 
         void populateWebPreferencesLocked(
                 long nativeAwSettings, AwSettings caller, long webPrefsPtr);

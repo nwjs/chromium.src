@@ -259,7 +259,7 @@ Channel GetStatefulLacrosChannel() {
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           kLacrosStabilitySwitch);
   if (!stability_switch_value.empty()) {
-    if (auto* it = kStabilitySwitchToChannelMap.find(stability_switch_value);
+    if (auto it = kStabilitySwitchToChannelMap.find(stability_switch_value);
         it != kStabilitySwitchToChannelMap.end()) {
       return it->second;
     }
@@ -599,9 +599,8 @@ std::optional<LacrosSelection> DetermineLacrosSelection() {
 
 ComponentInfo GetLacrosComponentInfoForChannel(version_info::Channel channel) {
   // We default to the Dev component for UNKNOWN channels.
-  // TODO(crbug.com/1513684): Convert to MakeFixedFlatMap().
-  static const auto kChannelToComponentInfoMap =
-      base::MakeFixedFlatMapNonConsteval<Channel, const ComponentInfo*>({
+  static constexpr auto kChannelToComponentInfoMap =
+      base::MakeFixedFlatMap<Channel, const ComponentInfo*>({
           {Channel::UNKNOWN, &kLacrosDogfoodDevInfo},
           {Channel::CANARY, &kLacrosDogfoodCanaryInfo},
           {Channel::DEV, &kLacrosDogfoodDevInfo},
@@ -679,12 +678,12 @@ void ClearLacrosSelectionCacheForTest() {
   g_lacros_selection_cache.reset();
 }
 
-void RecordMigrationStatus() {
+std::optional<MigrationStatus> GetMigrationStatus() {
   PrefService* local_state = g_browser_process->local_state();
   if (!local_state) {
     // This can happen in tests.
     CHECK_IS_TEST();
-    return;
+    return std::nullopt;
   }
 
   const auto* user = GetPrimaryUser();
@@ -692,16 +691,14 @@ void RecordMigrationStatus() {
     // The function is intended to be run after primary user is initialized.
     // The function might be run in tests without primary user being set.
     CHECK_IS_TEST();
-    return;
+    return std::nullopt;
   }
 
-  const MigrationStatus status = GetMigrationStatus(local_state, user);
-
-  UMA_HISTOGRAM_ENUMERATION(kLacrosMigrationStatus, status);
+  return GetMigrationStatusForUser(local_state, user);
 }
 
-MigrationStatus GetMigrationStatus(PrefService* local_state,
-                                   const user_manager::User* user) {
+MigrationStatus GetMigrationStatusForUser(PrefService* local_state,
+                                          const user_manager::User* user) {
   if (!crosapi::browser_util::IsLacrosEnabledForMigration(
           user, crosapi::browser_util::PolicyInitState::kAfterInit)) {
     return MigrationStatus::kLacrosNotEnabled;
@@ -799,7 +796,7 @@ LacrosLaunchSwitchSource GetLacrosLaunchSwitchSource() {
 
 std::optional<LacrosSelectionPolicy> ParseLacrosSelectionPolicy(
     std::string_view value) {
-  auto* it = kLacrosSelectionPolicyMap.find(value);
+  auto it = kLacrosSelectionPolicyMap.find(value);
   if (it != kLacrosSelectionPolicyMap.end())
     return it->second;
 
@@ -809,7 +806,7 @@ std::optional<LacrosSelectionPolicy> ParseLacrosSelectionPolicy(
 
 std::optional<LacrosDataBackwardMigrationMode>
 ParseLacrosDataBackwardMigrationMode(std::string_view value) {
-  auto* it = kLacrosDataBackwardMigrationModeMap.find(value);
+  auto it = kLacrosDataBackwardMigrationModeMap.find(value);
   if (it != kLacrosDataBackwardMigrationModeMap.end())
     return it->second;
 

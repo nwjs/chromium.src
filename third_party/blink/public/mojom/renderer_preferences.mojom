@@ -65,8 +65,8 @@ struct RendererPreferences {
   bool browser_handles_all_top_level_requests = false;
 
   // Cursor blink rate.
-  // Currently only changed from default on Linux.  Uses |gtk-cursor-blink|
-  // from GtkSettings.
+  // On Linux, uses |gtk-cursor-blink| from GtkSettings.
+  // On platforms with views toolkit, uses the system value from ui::NativeTheme.
   // Note: Null |caret_blink_interval| should be interpreted as the default
   // value kDefaultCaretBlinkIntervalInMilliseconds.
   mojo_base.mojom.TimeDelta? caret_blink_interval;
@@ -179,4 +179,12 @@ struct RendererPreferences {
 
   array<uint16> explicitly_allowed_network_ports;
 
+  // Whether the prefixed video-specific fullscreen APIs (e.g.
+  // video.webkitEnterFullscreen() and others) are available or not.
+  // - If not set, the availability of the APIs is determined by the
+  //   PrefixedVideoFullscreen RuntimeEnabled feature.
+  // - If set, enables/disables the APIs by overriding the
+  //   PrefixedVideoFullscreen RuntimeEnabled feature.
+  // TODO(crbug.com/40352864): Remove this when the APIs are removed for good.
+  bool? prefixed_fullscreen_video_api_availability;
 };

@@ -979,14 +979,15 @@ id<GREYMatcher> OpenKeyboardButton() {
 }
 
 - (void)testOpenPasswordBottomSheetWithSingleSharedPassword {
+  [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+  NSURL* URL = net::NSURLWithGURL(
+      self.testServer->GetURL("/simple_login_form_empty.html"));
   [PasswordSuggestionBottomSheetAppInterface setUpMockReauthenticationModule];
   [PasswordSuggestionBottomSheetAppInterface
       mockReauthenticationModuleExpectedResult:ReauthenticationResult::
                                                    kSuccess];
 
   // Save 1 password that has been received via sharing and the other not.
-  NSURL* URL = net::NSURLWithGURL(
-      self.testServer->GetURL("/simple_login_form_empty.html"));
   [PasswordManagerAppInterface storeCredentialWithUsername:@"user1"
                                                   password:@"password1"
                                                        URL:URL
@@ -995,7 +996,9 @@ id<GREYMatcher> OpenKeyboardButton() {
                                                   password:@"password2"
                                                        URL:URL
                                                     shared:NO];
-  [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+  int credentialsCount = [PasswordManagerAppInterface storedCredentialsCount];
+  GREYAssertEqual(2, credentialsCount, @"Wrong number of stored credentials.");
+
   [self loadLoginPage];
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
@@ -1013,6 +1016,8 @@ id<GREYMatcher> OpenKeyboardButton() {
       assertWithMatcher:grey_notNil()];
 
   // Verify that the other password is also accessible to fill.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"user1")]
+      performAction:grey_swipeSlowInDirection(kGREYDirectionUp)];
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"user1")]
       performAction:grey_tap()];
   [ChromeEarlGrey

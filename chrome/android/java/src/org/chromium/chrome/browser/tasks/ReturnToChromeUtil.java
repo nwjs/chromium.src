@@ -923,11 +923,6 @@ public final class ReturnToChromeUtil {
                 && StartSurfaceConfiguration.SURFACE_POLISH_MOVE_DOWN_LOGO.getValue();
     }
 
-    /** Returns true if START_SURFACE_REFACTOR is enabled. */
-    public static boolean isStartSurfaceRefactorEnabled(Context context) {
-        return ChromeFeatureList.sStartSurfaceRefactor.isEnabled();
-    }
-
     /**
      * Records a user action that Start surface is showing due to tapping the back button.
      * @param from: Where the back navigation is initiated, either "FromTab" or "FromTabSwitcher".

@@ -765,8 +765,21 @@ void HTMLFormElement::CollectListedElements(
     ListedElement::List* elements_including_shadow_trees,
     bool in_shadow_tree) const {
   DCHECK(!in_shadow_tree || elements_including_shadow_trees);
-  if (!in_shadow_tree)
+  // A performance optimization used below - if `root_is_descendant` is true,
+  // then we can save some checks whether elements that we are traversing are
+  // descendants of `this`.
+  const bool root_is_descendant = in_shadow_tree || &root == this;
+  HeapVector<Member<HTMLFormElement>> nested_forms;
+  if (!in_shadow_tree) {
     elements.clear();
+    if (base::FeatureList::IsEnabled(
+            features::kAutofillIncludeFormElementsInShadowDom)) {
+      for (HTMLFormElement& nested_form :
+           Traversal<HTMLFormElement>::DescendantsOf(*this)) {
+        nested_forms.push_back(nested_form);
+      }
+    }
+  }
   for (HTMLElement& element : Traversal<HTMLElement>::StartsAfter(root)) {
     if (ListedElement* listed_element = ListedElement::From(element)) {
       // There are two scenarios:
@@ -793,9 +806,21 @@ void HTMLFormElement::CollectListedElements(
         elements.push_back(listed_element);
         if (elements_including_shadow_trees)
           elements_including_shadow_trees->push_back(listed_element);
+      } else if (base::Contains(nested_forms, listed_element->Form())) {
+        if (elements_including_shadow_trees) {
+          elements_including_shadow_trees->push_back(listed_element);
+        }
       }
     }
+    // Descend recursively into shadow DOM if the following conditions are met:
+    // - We are supposed to gather elements in shadow trees.
+    // - `element` is a shadow root.
+    // - `element` is a shadow-including descendant of `this`. If `root` is a
+    //   descendant of `this`, then that is trivially true.
+    // - If `kAutofillIncludeFormElementsInShadowDom` is disabled, then we also
+    //   require that there no nested forms.
     if (elements_including_shadow_trees && element.AuthorShadowRoot() &&
+        (root_is_descendant || element.IsDescendantOf(this)) &&
         (base::FeatureList::IsEnabled(
              features::kAutofillIncludeFormElementsInShadowDom) ||
          !HasFormInBetween(in_shadow_tree ? &root : this, &element))) {
@@ -1069,6 +1094,22 @@ void HTMLFormElement::InvalidateDefaultButtonStyle() const {
 
 void HTMLFormElement::InvalidateListedElementsIncludingShadowTrees() {
   listed_elements_including_shadow_trees_are_dirty_ = true;
+}
+
+void HTMLFormElement::UseCountPropertyAccess(
+    v8::Local<v8::Name>& v8_property_name,
+    const v8::PropertyCallbackInfo<v8::Value>& info) {
+  bool hasPropertyInPrototypeChain =
+      !info.Holder()
+           ->GetRealNamedPropertyInPrototypeChain(
+               info.GetIsolate()->GetCurrentContext(), v8_property_name)
+           .IsEmpty();
+
+  UseCounter::Count(
+      GetDocument(),
+      hasPropertyInPrototypeChain
+          ? WebFeature::kDOMClobberedShadowedFormPropertyAccessed
+          : WebFeature::kDOMClobberedNotShadowedFormPropertyAccessed);
 }
 
 }  // namespace blink

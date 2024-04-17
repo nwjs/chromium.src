@@ -19,6 +19,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
+#include "components/ml/webnn/graph_validation_utils.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/webnn/dml/command_queue.h"
 #include "services/webnn/dml/command_recorder.h"
@@ -31,7 +32,6 @@
 #include "services/webnn/webnn_utils.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/fp16/src/include/fp16.h"
-#include "ui/gl/gl_angle_util_win.h"
 
 namespace webnn::dml {
 namespace {
@@ -52,6 +52,12 @@ using IdToNodeOutputMap = std::map<uint64_t, const NodeOutput*>;
 
 constexpr const uint32_t kNhwcToNchwPermutation[] = {0, 3, 1, 2};
 constexpr const uint32_t kNchwToNhwcPermutation[] = {0, 2, 3, 1};
+// The `nhwc` input layout of regular conv2d is `ohwi` filter layout by default
+// that need to be transposed to `oihw`.
+constexpr const uint32_t kOhwiToOihwPermutation[] = {0, 3, 1, 2};
+// The `nhwc` input layout of depthwise conv2d is `ihwo` filter layout by
+// default that need to be transposed to `oihw`.
+constexpr const uint32_t kIhwoToOihwPermutation[] = {3, 0, 1, 2};
 
 DML_TENSOR_DATA_TYPE GetTensorDataType(Operand::DataType type) {
   switch (type) {
@@ -745,12 +751,13 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForConv2d(
 
   const NodeOutput* filter =
       GetNodeOutputForOperand(id_to_node_output_map, conv2d->filter_operand_id);
-  const auto& filter_tensor_desc = filter->GetTensorDesc();
+  auto filter_tensor_desc = filter->GetTensorDesc();
 
   uint64_t output_id = conv2d->output_operand_id;
   // The output tensor description may be transposed.
   auto output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, output_id);
+  CHECK_EQ(output_tensor_desc.GetDimensions().size(), 4u);
 
   std::vector<const NodeOutput*> inputs = {input, filter};
   std::optional<TensorDesc> reshaped_bias_tensor_desc;
@@ -790,6 +797,19 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForConv2d(
     // To support other layouts, we can transpose the input and output
     // tensors
     case mojom::InputOperandLayout::kChannelsLast: {
+      if (conv2d->kind == mojom::Conv2d::Kind::kDirect) {
+        const uint32_t input_channels = input_tensor_desc.GetDimensions()[3];
+        const uint32_t output_channels = output_tensor_desc.GetDimensions()[3];
+        const bool depthwise = webnn::IsDepthwiseConv2d(
+            input_channels, output_channels, conv2d->groups);
+        if (depthwise) {
+          // The filter layout is `ihwo` for depthwise conv2d.
+          filter_tensor_desc.Transpose(kIhwoToOihwPermutation);
+        } else {
+          // The filter layout is `ohwi` for regular conv2d.
+          filter_tensor_desc.Transpose(kOhwiToOihwPermutation);
+        }
+      }
       input_tensor_desc.Transpose(kNhwcToNchwPermutation);
       output_tensor_desc.Transpose(kNhwcToNchwPermutation);
       break;
@@ -829,12 +849,12 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForConv2d(
   }
 
   DML_CONVOLUTION_DIRECTION conv2d_direction;
-  switch (conv2d->type) {
-    case mojom::Conv2d_Type::kDirect:
+  switch (conv2d->kind) {
+    case mojom::Conv2d::Kind::kDirect:
       conv2d_direction =
           DML_CONVOLUTION_DIRECTION::DML_CONVOLUTION_DIRECTION_FORWARD;
       break;
-    case mojom::Conv2d_Type::kTransposed:
+    case mojom::Conv2d::Kind::kTransposed:
       conv2d_direction =
           DML_CONVOLUTION_DIRECTION::DML_CONVOLUTION_DIRECTION_BACKWARD;
       break;
@@ -1189,19 +1209,39 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForPool2d(
       break;
     }
     case mojom::Pool2d::Kind::kMaxPool2d: {
-      DML_MAX_POOLING2_OPERATOR_DESC max_pooling_desc = {
-          .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
-          .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
-          .OutputIndicesTensor = nullptr,
-          .DimensionCount =
-              base::checked_cast<uint32_t>(window_dimensions.size()),
-          .Strides = strides.data(),
-          .WindowSize = window_dimensions.data(),
-          .StartPadding = start_padding.data(),
-          .EndPadding = end_padding.data(),
-          .Dilations = dilations.data()};
-      pool2d_node = graph_builder.CreateOperatorNode(DML_OPERATOR_MAX_POOLING2,
-                                                     &max_pooling_desc, inputs);
+      // If the dilations are { 1, 1 } by default, prefer using
+      // `DML_MAX_POOLING_OPERATOR_DESC` without dilations supported for best
+      // compatibility.
+      // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_max_pooling_operator_desc.
+      // TODO(issues.chromium.org/327244278): Remove the workaround of using
+      // `DML_MAX_POOLING_OPERATOR_DESC` without dilations.
+      if (dilations[0] == 1 && dilations[1] == 1) {
+        DML_MAX_POOLING_OPERATOR_DESC max_pooling_desc = {
+            .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
+            .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
+            .DimensionCount =
+                base::checked_cast<uint32_t>(window_dimensions.size()),
+            .Strides = strides.data(),
+            .WindowSize = window_dimensions.data(),
+            .StartPadding = start_padding.data(),
+            .EndPadding = end_padding.data()};
+        pool2d_node = graph_builder.CreateOperatorNode(
+            DML_OPERATOR_MAX_POOLING, &max_pooling_desc, inputs);
+      } else {
+        DML_MAX_POOLING2_OPERATOR_DESC max_pooling2_desc = {
+            .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
+            .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
+            .OutputIndicesTensor = nullptr,
+            .DimensionCount =
+                base::checked_cast<uint32_t>(window_dimensions.size()),
+            .Strides = strides.data(),
+            .WindowSize = window_dimensions.data(),
+            .StartPadding = start_padding.data(),
+            .EndPadding = end_padding.data(),
+            .Dilations = dilations.data()};
+        pool2d_node = graph_builder.CreateOperatorNode(
+            DML_OPERATOR_MAX_POOLING2, &max_pooling2_desc, inputs);
+      }
       break;
     }
     default:
@@ -1871,11 +1911,11 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGemm(
     IdToNodeOutputMap& id_to_node_output_map) {
   const NodeOutput* input_a_node_output =
       GetNodeOutputForOperand(id_to_node_output_map, gemm->a_operand_id);
-  const auto& input_a_tensor_desc = input_a_node_output->GetTensorDesc();
+  auto input_a_tensor_desc = input_a_node_output->GetTensorDesc();
 
   const NodeOutput* input_b_node_output =
       GetNodeOutputForOperand(id_to_node_output_map, gemm->b_operand_id);
-  const auto& input_b_tensor_desc = input_b_node_output->GetTensorDesc();
+  auto input_b_tensor_desc = input_b_node_output->GetTensorDesc();
 
   std::vector<const NodeOutput*> inputs{input_a_node_output,
                                         input_b_node_output};
@@ -1908,13 +1948,28 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGemm(
     }
   }
 
+  // Use 4D GEMM which is available since feature level 1.0 for best
+  // compatibility. There is no performance difference in the shader between
+  // 2D/3D/4D, as 2D is just a variant of 4D with a batch/channel size of 1.
+  // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gemm_operator_desc.
+  // TODO(issues.chromium.org/327244277): Remove the workaround of coercing
+  // GEMM's tensors to 4D.
+  input_a_tensor_desc.EnsureMinimumRank(4, TensorDesc::Alignment::kTrailing);
+  input_b_tensor_desc.EnsureMinimumRank(4, TensorDesc::Alignment::kTrailing);
+  if (input_c_tensor_desc) {
+    input_c_tensor_desc->EnsureMinimumRank(4, TensorDesc::Alignment::kTrailing);
+  }
+  auto expanded_output_tensor_desc = output_tensor_desc;
+  expanded_output_tensor_desc.EnsureMinimumRank(
+      4, TensorDesc::Alignment::kTrailing);
+
   DML_GEMM_OPERATOR_DESC gemm_operator_desc{
       .ATensor = &input_a_tensor_desc.GetDMLTensorDesc(),
       .BTensor = &input_b_tensor_desc.GetDMLTensorDesc(),
       .CTensor = input_c_tensor_desc.has_value()
                      ? &input_c_tensor_desc->GetDMLTensorDesc()
                      : nullptr,
-      .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
+      .OutputTensor = &expanded_output_tensor_desc.GetDMLTensorDesc(),
       .TransA = (gemm->a_transpose) ? DML_MATRIX_TRANSFORM_TRANSPOSE
                                     : DML_MATRIX_TRANSFORM_NONE,
       .TransB = (gemm->b_transpose) ? DML_MATRIX_TRANSFORM_TRANSPOSE
@@ -2277,11 +2332,25 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForMatmul(
   CHECK_EQ(input_a_tensor_desc.GetDimensions().size(),
            output_tensor_dims.size());
 
+  // Use 4D GEMM which is available since feature level 1.0 for best
+  // compatibility. There is no performance difference in the shader between
+  // 2D/3D/4D, as 2D is just a variant of 4D with a batch/channel size of 1.
+  // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gemm_operator_desc.
+  // TODO(issues.chromium.org/327244277): Remove the workaround of coercing
+  // GEMM's tensors to 4D.
+  auto expanded_output_tensor_desc = output_tensor_desc;
+  if (output_tensor_dims.size() < 4) {
+    input_a_tensor_desc.EnsureMinimumRank(4, TensorDesc::Alignment::kTrailing);
+    input_b_tensor_desc.EnsureMinimumRank(4, TensorDesc::Alignment::kTrailing);
+    expanded_output_tensor_desc.EnsureMinimumRank(
+        4, TensorDesc::Alignment::kTrailing);
+  }
+
   DML_GEMM_OPERATOR_DESC matmul_operator_desc{
       .ATensor = &input_a_tensor_desc.GetDMLTensorDesc(),
       .BTensor = &input_b_tensor_desc.GetDMLTensorDesc(),
       .CTensor = nullptr,
-      .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
+      .OutputTensor = &expanded_output_tensor_desc.GetDMLTensorDesc(),
       .TransA = DML_MATRIX_TRANSFORM_NONE,
       .TransB = DML_MATRIX_TRANSFORM_NONE,
       .Alpha = 1.0f,
@@ -2760,9 +2829,14 @@ GraphImpl::GraphImpl(std::unique_ptr<CommandRecorder> command_recorder,
 GraphImpl::~GraphImpl() = default;
 
 ComPtr<IDMLCompiledOperator> GraphImpl::CompileOnBackgroundThread(
-    GraphBuilder graph_builder) {
+    GraphBuilder graph_builder,
+    const bool pass_dml_execution_disable_meta_commands) {
   TRACE_EVENT0("gpu", "dml::GraphImpl::CompileOnBackgroundThread");
-  return graph_builder.Compile(DML_EXECUTION_FLAG_NONE);
+  DML_EXECUTION_FLAGS flags = DML_EXECUTION_FLAG_NONE;
+  if (pass_dml_execution_disable_meta_commands) {
+    flags |= DML_EXECUTION_FLAG_DISABLE_META_COMMANDS;
+  }
+  return graph_builder.Compile(flags);
 }
 
 // static
@@ -3013,7 +3087,8 @@ void GraphImpl::CreateAndBuild(
     scoped_refptr<CommandQueue> command_queue,
     ComPtr<IDMLDevice> dml_device,
     mojom::GraphInfoPtr graph_info,
-    mojom::WebNNContext::CreateGraphCallback callback) {
+    mojom::WebNNContext::CreateGraphCallback callback,
+    const bool pass_dml_execution_disable_meta_commands) {
   TRACE_EVENT0("gpu", "dml::GraphImpl::CreateAndBuild");
   // `CommandRecorder` would keep reference of command queue and DML device.
   std::unique_ptr<CommandRecorder> command_recorder =
@@ -3367,7 +3442,8 @@ void GraphImpl::CreateAndBuild(
       {base::TaskPriority::USER_BLOCKING,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&GraphImpl::CompileOnBackgroundThread,
-                     std::move(graph_builder)),
+                     std::move(graph_builder),
+                     pass_dml_execution_disable_meta_commands),
       base::BindOnce(&GraphImpl::OnCompilationComplete, std::move(callback),
                      std::move(command_recorder),
                      std::move(graph_info->constant_id_to_buffer_map),

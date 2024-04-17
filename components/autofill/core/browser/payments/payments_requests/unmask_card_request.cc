@@ -60,6 +60,9 @@ void ParseAs3dsChallengeOption(
   if (url_to_open) {
     parsed_challenge_option->url_to_open = GURL(*url_to_open);
   }
+
+  parsed_challenge_option->challenge_info = l10n_util::GetStringUTF16(
+      IDS_AUTOFILL_CARD_UNMASK_AUTHENTICATION_SELECTION_DIALOG_THREE_DOMAIN_SECURE_CHALLENGE_INFO);
 }
 
 // Parses the `defined_challenge_option` as an  OTP challenge option, and sets
@@ -210,9 +213,9 @@ CardUnmaskChallengeOption ParseCardUnmaskChallengeOption(
 UnmaskCardRequest::UnmaskCardRequest(
     const PaymentsNetworkInterface::UnmaskRequestDetails& request_details,
     const bool full_sync_enabled,
-    base::OnceCallback<void(AutofillClient::PaymentsRpcResult,
-                            PaymentsNetworkInterface::UnmaskResponseDetails&)>
-        callback)
+    base::OnceCallback<
+        void(AutofillClient::PaymentsRpcResult,
+             const PaymentsNetworkInterface::UnmaskResponseDetails&)> callback)
     : request_details_(request_details),
       full_sync_enabled_(full_sync_enabled),
       callback_(std::move(callback)) {

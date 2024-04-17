@@ -32,6 +32,7 @@
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/network/cross_origin_opener_policy_reporter.h"
+#include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/agent_scheduling_group_host.h"
 #include "content/browser/renderer_host/back_forward_cache_metrics.h"
@@ -1602,7 +1603,7 @@ RenderFrameHostManager::GetFrameHostForNavigation(
     // https://crbug.com/926820 and https://crbug.com/927705.
     if (current_frame_host()->IsInactiveAndDisallowActivation(
             DisallowActivationReasonId::kNavigatingInInactiveFrame)) {
-      NOTREACHED() << "Navigation in an inactive frame";
+      DUMP_WILL_BE_NOTREACHED_NORETURN() << "Navigation in an inactive frame";
       DEBUG_ALIAS_FOR_GURL(url, request->common_params().url);
       base::debug::DumpWithoutCrashing();
     }
@@ -1861,38 +1862,48 @@ RenderFrameHostManager::GetFrameHostForNavigation(
       navigation_rfh->GetSiteInstance()->GetIsolationContext();
   request->AddOriginAgentClusterStateIfNecessary(isolation_context);
 
-  // If this function picked an incompatible process for the URL, except for
-  // allowed cases such as navigating to an error page reusing the current
-  // process, capture a crash dump to diagnose why it is occurring.
+  // If this function picked an incompatible process for the origin that's about
+  // to commit, except for allowed cases such as navigating to an error page
+  // reusing the current process, capture a crash dump to diagnose why it is
+  // occurring.
   // TODO(creis): Remove this check after we've gathered enough information to
   // debug issues with browser-side security checks. https://crbug.com/931895.
   auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
   const auto process_lock = navigation_rfh->GetProcess()->GetProcessLock();
   if (!process_lock.is_error_page() &&
       request->common_params().url.IsStandard() &&
-      // TODO(https://crbug.com/888079): Replace `common_params().url` with
-      // the origin to commit calculated on the browser side.
-      !policy->CanAccessDataForOrigin(
-          navigation_rfh->GetProcess()->GetID(),
-          url::Origin::Create(request->common_params().url)) &&
       !request->IsForMhtmlSubframe() &&
       request->ComputeErrorPageProcess() !=
           NavigationRequest::ErrorPageProcess::kCurrentProcess) {
-    SCOPED_CRASH_KEY_STRING256("GetFrameHostForNav", "lock_url",
-                               process_lock.ToString());
-    SCOPED_CRASH_KEY_STRING64(
-        "GetFrameHostForNav", "commit_origin",
-        request->common_params().url.DeprecatedGetOriginAsURL().spec());
-    SCOPED_CRASH_KEY_BOOL("GetFrameHostForNav", "is_main_frame",
-                          frame_tree_node_->IsMainFrame());
-    SCOPED_CRASH_KEY_BOOL("GetFrameHostForNav", "use_current_rfh",
-                          use_current_rfh);
-    NOTREACHED() << "Picked an incompatible process for URL: "
-                 << process_lock.ToString() << " lock vs "
-                 << request->common_params().url.DeprecatedGetOriginAsURL()
-                 << ", request_is_sandboxed = "
-                 << request->GetUrlInfo().is_sandboxed;
-    base::debug::DumpWithoutCrashing();
+    // Note that GetOriginToCommit() could return nullopt if the response is
+    // received but does not need to be rendered, for example for a download.
+    // However, that case should never need to pick a RenderFrameHost via
+    // GetFrameHostForNavigation(), so getting here should imply that
+    // GetOriginToCommit() always has a value.
+    const url::Origin origin_to_commit =
+        request->state() >= NavigationRequest::WILL_PROCESS_RESPONSE
+            ? request->GetOriginToCommit().value()
+            : request->GetTentativeOriginAtRequestTime();
+    if (!policy->CanAccessDataForOrigin(navigation_rfh->GetProcess()->GetID(),
+                                        origin_to_commit)) {
+      SCOPED_CRASH_KEY_STRING256("GetFrameHostForNav", "lock_url",
+                                 process_lock.ToString());
+      SCOPED_CRASH_KEY_STRING64(
+          "GetFrameHostForNav", "commit_url_origin",
+          request->common_params().url.DeprecatedGetOriginAsURL().spec());
+      SCOPED_CRASH_KEY_STRING64("GetFrameHostForNav", "commit_origin",
+                                origin_to_commit.GetDebugString());
+      SCOPED_CRASH_KEY_BOOL("GetFrameHostForNav", "is_main_frame",
+                            frame_tree_node_->IsMainFrame());
+      SCOPED_CRASH_KEY_BOOL("GetFrameHostForNav", "use_current_rfh",
+                            use_current_rfh);
+      NOTREACHED() << "Picked an incompatible process for origin: "
+                   << process_lock.ToString() << " lock vs "
+                   << origin_to_commit.GetDebugString()
+                   << ", request_is_sandboxed = "
+                   << request->GetUrlInfo().is_sandboxed;
+      base::debug::DumpWithoutCrashing();
+    }
   }
 
   return navigation_rfh;
@@ -2411,6 +2422,23 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   if (DoesNavigationChangeStoragePartition(current_instance,
                                            destination_url_info)) {
     return BrowsingContextGroupSwap::CreateSecuritySwap();
+  }
+
+  // If the destination might have been a prefetch based on cross-site state, we
+  // want to swap to make it more difficult to observe that the navigation
+  // completes faster than normal.
+  // https://crbug.com/1439246
+  if (destination_url_info.is_prefetch_with_cross_site_contamination) {
+    UMA_HISTOGRAM_EXACT_LINEAR(
+        "Preloading.PrefetchBCGSwap.RelatedActiveContents",
+        base::saturated_cast<base::HistogramBase::Sample>(
+            current_instance->GetRelatedActiveContentsCount()),
+        51);
+    if (base::FeatureList::IsEnabled(
+            features::kPrefetchStateContaminationMitigation) &&
+        features::kPrefetchStateContaminationSwapsBrowsingContextGroup.Get()) {
+      return BrowsingContextGroupSwap::CreateSecuritySwap();
+    }
   }
 
   // We've checked that we didn't need to do a hard BrowsingInstance swap. If

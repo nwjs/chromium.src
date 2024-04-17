@@ -382,7 +382,7 @@ struct FormFieldData {
 
   CheckStatus check_status = CheckStatus::kNotCheckable;
   bool is_focusable = true;
-  bool is_visible = true;
+  bool is_visible = true;  // See `features::kAutofillDetectFieldVisibility`.
   bool should_autocomplete = true;
   RoleAttribute role = RoleAttribute::kOther;
   base::i18n::TextDirection text_direction = base::i18n::UNKNOWN_DIRECTION;
@@ -425,6 +425,8 @@ struct FormFieldData {
 struct FormFieldData::FillData {
   FillData();
   explicit FillData(const FormFieldData& field);
+  FillData(const FillData&);
+  FillData& operator=(const FillData&);
 
   ~FillData();
 
@@ -432,8 +434,13 @@ struct FormFieldData::FillData {
   std::u16string value;
 
   // Uniquely identifies the DOM element that this field represents among the
-  // field DOM elements in the same frame.
+  // field DOM elements in the same document.
   FieldRendererId renderer_id;
+
+  // Uniquely identifies the DOM element of the form containing this field among
+  // elements in the same document (or the collection of unowned fields of the
+  // DOM in case this ID is null).
+  FormRendererId host_form_id;
 
   // The unique identifier of the section (e.g. billing vs. shipping address)
   // of this field.

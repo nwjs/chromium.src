@@ -80,7 +80,6 @@
 <translation id="3219277919172823720">Chromium-д дуу хоолойгоор хайх</translation>
 <translation id="3228349498066165585">Таны Chromium-н зарим өгөгдлийг одоогоор Google Бүртгэлд тань хадгалаагүй.
         Гарахаасаа өмнө хэдэн минут хүлээж үзнэ үү. Хэрэв та одоо гарвал энэ өгөгдлийг устгана.</translation>
-<translation id="3256316712990552818">Chromium руу хуулсан</translation>
 <translation id="328933489847748230">{count,plural, =1{Одоо Chromium-н 1 цонхыг харуулж байна}other{Одоо Chromium-н {count} цонхыг харуулж байна}}</translation>
 <translation id="3344973607274501920">Chromium таны нууц үгнүүдийг шалгаж чадсангүй. Интернэт холболтоо шалгаж үзнэ үү.</translation>
 <translation id="3366305173356742781">Таны бүртгэлийн Chromium-н өгөгдөл</translation>
@@ -118,6 +117,7 @@
 <translation id="4195557071150719219">Chromium-н саяхны табуудыг харах</translation>
 <translation id="4200712796753248893">iOS-т Chromium-н үйлдлүүдийг ашиглах</translation>
 <translation id="420541179527342563">Chromium-д Түгжих горимыг идэвхгүй болгохын тулд үүнийг iPad-даа унтраана уу.</translation>
+<translation id="427331839909790668">Хэрэв та Chromium болон Google-н бусад үйлчилгээг нэг нэгийнхээ өгөгдлийг ашиглан хэрэглээг тань хувийн болгохыг хүсвэл тэдгээрийг холбоно уу</translation>
 <translation id="4408912345039114853">Chromium-н Аюулгүй байдлын шалгалтыг явуулах</translation>
 <translation id="4432744876818348753">Chromium-г бүрэн ашиглахын тулд нэвтэрнэ үү.</translation>
 <translation id="4445228361214254027">Танай байгууллага Chromium-н өгөгдлийг таны Google Бүртгэлд ашиглах болон хадгалах чадамжийг унтраасан. Шинэ хавчуурга, нууц үг болон бусад зүйлийг зөвхөн энэ төхөөрөмжид хадгална.</translation>
@@ -219,6 +219,7 @@
 <translation id="6852799557929001644">Энэ төхөөрөмжийн бусад аппаас Chromium-н нууц үгнүүд болон бусад зүйлдээ хандаарай.</translation>
 <translation id="6887138405044152640">Энэ табыг өөр төхөөрөмж рүү илгээхийн тулд тэндээс Chromium-д нэвтэрнэ үү.</translation>
 <translation id="6911341667534646387">Google Бүртгэлдээ Chromium-н өгөгдлийг үргэлжлүүлэн ашиглана уу</translation>
+<translation id="7002548535535009764">Хамгийн хувийн болгосон хэрэглээг авахын тулд Chromium-г <ph name="FEATURE_NAME_1" /> болон <ph name="FEATURE_NAME_2" />-д багтаана уу</translation>
 <translation id="7006920032187763988">Та Нууц үгний менежерт хадгалсан нууц үгнүүдээ iPad дээрх бусад аппад ашиглах боломжтой.</translation>
 <translation id="7018284295775193585">Chromium-г шинэчлэх боломжгүй байна</translation>
 <translation id="7045244423563602563">Chromium-г өөрийн болгоoрой</translation>

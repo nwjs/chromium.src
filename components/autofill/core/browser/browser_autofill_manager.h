@@ -108,12 +108,31 @@ enum class ValuePatternsMetric {
   kMaxValue = kIban,
 };
 
+// Describes whether Autocomplete suggestions would have been suppressed by a
+// plus address suggestion.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// TODO(b/327328460): Clean up once the metric is has been evaluated.
+enum class AutocompleteSuppressionByPlusAddress {
+  // The Autocomplete suggestions would not have been suppressed.
+  kNotSuppressed = 0,
+  // The Autocomplete suggestions would have been suppressed and would have
+  // contained email addresses.
+  kSuppressedWithEmailResults = 1,
+  // The Autocomplete suggestions would have been suppressed and would not have
+  // contained email addresses.
+  kSuppressedWithoutEmailResults = 2,
+  kMaxValue = kSuppressedWithoutEmailResults,
+};
+
+inline constexpr char kAutocompleteSuppressionByPlusAddressUma[] =
+    "Autofill.Autocomplete.SuppressionByPlusAddress";
+
 // Manages saving and restoring the user's personal information entered into web
 // forms. One per frame; owned by the AutofillDriver.
 class BrowserAutofillManager : public AutofillManager {
  public:
   BrowserAutofillManager(AutofillDriver* driver,
-                         AutofillClient* client,
                          const std::string& app_locale);
 
   BrowserAutofillManager(const BrowserAutofillManager&) = delete;
@@ -138,7 +157,8 @@ class BrowserAutofillManager : public AutofillManager {
                                           const FormFieldData& field_data,
                                           const gfx::RectF& element_bounds);
 
-  virtual void FillCreditCardForm(
+  virtual void FillOrPreviewCreditCardForm(
+      mojom::ActionPersistence action_persistence,
       const FormData& form,
       const FormFieldData& field,
       const CreditCard& credit_card,
@@ -149,7 +169,7 @@ class BrowserAutofillManager : public AutofillManager {
   // Virtual for testing.
   // TODO(crbug.com/1331312): Replace FormFieldData parameter by FieldGlobalId.
   virtual void FillOrPreviewField(mojom::ActionPersistence action_persistence,
-                                  mojom::TextReplacement text_replacement,
+                                  mojom::FieldActionType action_type,
                                   const FormData& form,
                                   const FormFieldData& field,
                                   const std::u16string& value,
@@ -175,12 +195,9 @@ class BrowserAutofillManager : public AutofillManager {
       const AutofillProfile& profile,
       const AutofillTriggerDetails& trigger_details);
 
-  // Fills or previews the credit card form.
-  // Assumes the form and field are valid.
   // Asks for authentication via CVC before filling with server card data.
   // TODO(crbug.com/1330108): Clean up the API.
-  virtual void FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence action_persistence,
+  virtual void AuthenticateThenFillCreditCardForm(
       const FormData& form,
       const FormFieldData& field,
       const CreditCard& credit_card,
@@ -266,8 +283,6 @@ class BrowserAutofillManager : public AutofillManager {
       const FormFieldData& field,
       const std::u16string& old_value) override;
   void Reset() override;
-  void OnContextMenuShownInField(const FormGlobalId& form_global_id,
-                                 const FieldGlobalId& field_global_id) override;
 
   // Retrieves the four digit combinations from the DOM of the current web page
   // and stores them in `four_digit_combinations_in_dom_`. This is used to check
@@ -408,9 +423,9 @@ class BrowserAutofillManager : public AutofillManager {
  private:
   friend class BrowserAutofillManagerTestApi;
 
-  // When `FillOrPreviewCreditCardForm()` fetches a credit card, this gets
-  // called once the fetching has finished. If successful, the `credit_card` is
-  // filled.
+  // When `AuthenticateThenFillCreditCardForm()` fetches a credit card, this
+  // gets called once the fetching has finished. If successful, the
+  // `credit_card` is filled.
   void OnCreditCardFetched(CreditCardFetchResult result,
                            const CreditCard* credit_card);
 
@@ -533,9 +548,10 @@ class BrowserAutofillManager : public AutofillManager {
   bool ShouldUploadUkm(const FormStructure& form_structure);
 
   // Returns a compose suggestion if the compose service is available for
-  // `field`.
+  // `field` and `trigger_source`.
   std::optional<Suggestion> MaybeGetComposeSuggestion(
-      const FormFieldData& field);
+      const FormFieldData& field,
+      AutofillSuggestionTriggerSource trigger_source);
 
   // Delegates to perform external processing (display, selection) on
   // our behalf.

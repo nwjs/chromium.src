@@ -609,8 +609,7 @@ TEST_P(PointerTest, OnPointerMotion) {
   std::unique_ptr<SubSurface> sub(new SubSurface(sub_surface.get(), surface));
   surface->SetSubSurfacePosition(sub_surface.get(), gfx::PointF(5, 5));
   constexpr gfx::Size sub_buffer_size(5, 5);
-  std::unique_ptr<Buffer> sub_buffer(
-      new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(sub_buffer_size)));
+  auto sub_buffer = test::ExoTestHelper::CreateBuffer(sub_buffer_size);
   sub_surface->Attach(sub_buffer.get());
   sub_surface->Commit();
   surface->Commit();
@@ -633,8 +632,7 @@ TEST_P(PointerTest, OnPointerMotion) {
   child_shell_surface->DisableMovement();
   child_shell_surface->SetParent(shell_surface.get());
   constexpr gfx::Size child_buffer_size(15, 15);
-  std::unique_ptr<Buffer> child_buffer(
-      new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(child_buffer_size)));
+  auto child_buffer = test::ExoTestHelper::CreateBuffer(child_buffer_size);
   child_surface->Attach(child_buffer.get());
   child_surface->Commit();
 
@@ -1433,8 +1431,7 @@ TEST_P(PointerTest, OnPointerRelativeMotion) {
   auto sub = std::make_unique<SubSurface>(sub_surface.get(), surface);
   surface->SetSubSurfacePosition(sub_surface.get(), gfx::PointF(5, 5));
   constexpr gfx::Size sub_buffer_size(5, 5);
-  auto sub_buffer = std::make_unique<Buffer>(
-      exo_test_helper()->CreateGpuMemoryBuffer(sub_buffer_size));
+  auto sub_buffer = test::ExoTestHelper::CreateBuffer(sub_buffer_size);
   sub_surface->Attach(sub_buffer.get());
   sub_surface->Commit();
   surface->Commit();
@@ -1469,8 +1466,7 @@ TEST_P(PointerTest, OnPointerRelativeMotion) {
   child_shell_surface->DisableMovement();
   child_shell_surface->SetParent(shell_surface.get());
   constexpr gfx::Size child_buffer_size(15, 15);
-  auto child_buffer = std::make_unique<Buffer>(
-      exo_test_helper()->CreateGpuMemoryBuffer(child_buffer_size));
+  auto child_buffer = test::ExoTestHelper::CreateBuffer(child_buffer_size);
   child_surface->Attach(child_buffer.get());
   child_surface->Commit();
 
@@ -2060,9 +2056,9 @@ TEST_P(PointerTest, SetCursorBitmapFromBuffer) {
   generator.MoveMouseTo(surface->window()->GetBoundsInScreen().origin());
 
   constexpr gfx::Size buffer_size(10, 10);
+  const gfx::BufferFormat buffer_format = gfx::BufferFormat::RGBA_8888;
   std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer =
-      exo_test_helper()->CreateGpuMemoryBuffer(buffer_size,
-                                               gfx::BufferFormat::RGBA_8888);
+      test::ExoTestHelper::CreateGpuMemoryBuffer(buffer_size, buffer_format);
   ASSERT_TRUE(gpu_memory_buffer->Map());
   ASSERT_NE(nullptr, gpu_memory_buffer->memory(0));
   ASSERT_NE(0, gpu_memory_buffer->stride(0));
@@ -2075,8 +2071,9 @@ TEST_P(PointerTest, SetCursorBitmapFromBuffer) {
   gpu_memory_buffer->Unmap();
 
   std::unique_ptr<Surface> pointer_surface(new Surface);
-  std::unique_ptr<Buffer> pointer_buffer(
-      new Buffer(std::move(gpu_memory_buffer)));
+  std::unique_ptr<Buffer> pointer_buffer =
+      test::ExoTestHelper::CreateBufferFromGMBHandle(
+          gpu_memory_buffer->CloneHandle(), buffer_size, buffer_format);
   pointer_surface->Attach(pointer_buffer.get());
   pointer_surface->Commit();
 

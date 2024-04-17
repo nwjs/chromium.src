@@ -642,7 +642,7 @@ void CaptionBubble::Init() {
   title->SetBackgroundColor(SK_ColorTRANSPARENT);
   title->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
   title->SetText(l10n_util::GetStringUTF16(IDS_LIVE_CAPTION_BUBBLE_TITLE));
-  title->GetViewAccessibility().OverrideIsIgnored(true);
+  title->GetViewAccessibility().SetIsIgnored(true);
 
   // Define an error message that will be displayed in the caption bubble if a
   // generic error is encountered.
@@ -683,7 +683,7 @@ void CaptionBubble::Init() {
       views::style::CONTEXT_DIALOG_BODY_TEXT);
 
   // Make the whole text view behave as a link for accessibility.
-  media_foundation_renderer_error_text->GetViewAccessibility().OverrideRole(
+  media_foundation_renderer_error_text->GetViewAccessibility().SetRole(
       ax::mojom::Role::kLink);
 
   const std::u16string link =
@@ -790,7 +790,7 @@ void CaptionBubble::Init() {
                             base::Unretained(this)));
     language_label->SetHorizontalAlignment(
         gfx::HorizontalAlignment::ALIGN_LEFT);
-    language_label->GetViewAccessibility().OverrideIsIgnored(true);
+    language_label->GetViewAccessibility().SetIsIgnored(true);
 
     source_language_code_ =
         profile_prefs_->GetString(prefs::kLiveCaptionLanguageCode);
@@ -1017,6 +1017,7 @@ void CaptionBubble::SetModel(CaptionBubbleModel* model) {
   if (model_) {
     model_->SetObserver(this);
     back_to_tab_button_->SetVisible(model_->GetContext()->IsActivatable());
+    UpdateLanguageLabelText();
   } else {
     UpdateBubbleVisibility();
   }
@@ -1057,6 +1058,8 @@ void CaptionBubble::OnDownloadProgressTextChanged() {
 
   // Do not display captions while language packs are downloading.
   label_->SetVisible(false);
+
+  UpdateBubbleAndTitleVisibility();
 
   if (GetWidget()->IsVisible()) {
     ResetInactivityTimer();
@@ -1303,22 +1306,20 @@ void CaptionBubble::SetTextColor() {
   // Update Live Translate label style with the default colors before parsing
   // the CSS color string.
   if (base::FeatureList::IsEnabled(media::kLiveTranslate)) {
-    SkColor secondary_color = color_provider->GetColor(
-        ui::kColorLiveCaptionBubbleForegroundSecondary);
-    download_progress_label_->SetEnabledColor(secondary_color);
-
+    download_progress_label_->SetEnabledColor(primary_color);
     language_label_->SetBaseColor();
     language_label_->SetImageModel(
         views::Button::ButtonState::STATE_NORMAL,
         ui::ImageModel::FromVectorIcon(
-            vector_icons::kTranslateChromeRefreshIcon, secondary_color,
+            vector_icons::kTranslateChromeRefreshIcon, icon_color,
             kLiveTranslateImageWidthDip));
     language_label_->SetImageModel(
         views::Button::ButtonState::STATE_HOVERED,
         ui::ImageModel::FromVectorIcon(
-            vector_icons::kTranslateChromeRefreshIcon, primary_color));
+            vector_icons::kTranslateChromeRefreshIcon, primary_color,
+            kLiveTranslateImageWidthDip));
     language_label_->SetTextColor(views::Button::ButtonState::STATE_NORMAL,
-                                  secondary_color);
+                                  icon_color);
     language_label_->SetTextColor(views::Button::ButtonState::STATE_HOVERED,
                                   primary_color);
   }

@@ -80,7 +80,6 @@ Para ver mais definições que usam dados para melhorar a sua experiência do Ch
 <translation id="3219277919172823720">Pesquise com a voz no Chromium</translation>
 <translation id="3228349498066165585">Alguns dos seus dados do Chromium ainda não foram guardados na sua Conta Google.
         Experimente aguardar alguns minutos antes de terminar sessão. Se terminar sessão agora, estes dados vão ser eliminados.</translation>
-<translation id="3256316712990552818">Copiado para o Chromium</translation>
 <translation id="328933489847748230">{count,plural, =1{A mostrar 1 janela do Chromium agora}other{A mostrar {count} janelas do Chromium agora}}</translation>
 <translation id="3344973607274501920">O Chromium não conseguiu verificar as suas palavras-passe. Experimente verificar a sua ligação à Internet.</translation>
 <translation id="3366305173356742781">Dados do Chromium na sua conta</translation>
@@ -118,6 +117,7 @@ Os seus dados estão encriptados com a sua frase de acesso. Introduza-a para usa
 <translation id="4195557071150719219">Veja os separadores recentes do Chromium</translation>
 <translation id="4200712796753248893">Use as ações do Chromium no iOS</translation>
 <translation id="420541179527342563">Para desativar o modo de bloqueio no Chromium, desative-o no seu iPad.</translation>
+<translation id="427331839909790668">Associe o Chromium e outros serviços Google se quiser que personalizem a sua experiência usando dados uns dos outros</translation>
 <translation id="4408912345039114853">Execute a verificação de segurança do Chromium</translation>
 <translation id="4432744876818348753">Inicie sessão para tirar o máximo partido do Chromium.</translation>
 <translation id="4445228361214254027">A sua organização desativou a capacidade de usar e guardar dados do Chromium na sua Conta Google. Os novos marcadores, palavras-passe e muito mais são guardados apenas neste dispositivo.</translation>
@@ -219,6 +219,7 @@ Só alguém com a sua frase de acesso pode ler os dados encriptados. A Google n�
 <translation id="6852799557929001644">Aceda às suas palavras-passe do Chromium e muito mais noutras apps neste dispositivo.</translation>
 <translation id="6887138405044152640">Para enviar este separador para outro dispositivo, inicie sessão no Chromium nesse dispositivo.</translation>
 <translation id="6911341667534646387">Continue a usar os dados do Chromium na sua Conta Google</translation>
+<translation id="7002548535535009764">Para ter a experiência mais personalizada, inclua o Chromium na <ph name="FEATURE_NAME_1" /> e nos <ph name="FEATURE_NAME_2" /></translation>
 <translation id="7006920032187763988">Pode utilizar as palavras-passe que guardou no Gestor de palavras-passe noutras apps no seu iPad.</translation>
 <translation id="7018284295775193585">Não é possível atualizar o Chromium.</translation>
 <translation id="7045244423563602563">Personalize o Chromium</translation>

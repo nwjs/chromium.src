@@ -184,6 +184,10 @@ BASE_DECLARE_FEATURE(kPrivacySandboxInternalsDevUI);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kIpProtectionV1);
 
+// Enables fingerprinting protection setting behavior.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kFingerprintingProtectionSetting);
+
 // Enables showing IP Protection toggle on the settings page.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kIpProtectionUx);
@@ -191,6 +195,10 @@ BASE_DECLARE_FEATURE(kIpProtectionUx);
 // Enables updated cookie settings page UI.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kCookieSettingsUiAlignment);
+
+// Enables settings UX + behavior for the full Tracking Protection launch.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kTrackingProtectionSettingsLaunch);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables the trackingProtectionNoticeController to notify the

@@ -4,29 +4,31 @@
 
 package org.chromium.chrome.browser.ui.signin;
 
-import android.app.Activity;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.FrameLayout;
 
+import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
 
 import org.chromium.base.Callback;
+import org.chromium.chrome.browser.back_press.BackPressHelper;
+import org.chromium.chrome.browser.back_press.SecondaryActivityBackPressUma.SecondaryActivity;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetCoordinator;
-import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetCoordinator.EntryPoint;
+import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetMediator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerDelegate;
+import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerLaunchMode;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerFactory;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.base.GoogleServiceAuthError;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.WindowAndroid;
@@ -35,12 +37,13 @@ import org.chromium.ui.widget.Toast;
 /** Responsible of showing the sign-in bottom sheet. */
 public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
     private final WindowAndroid mWindowAndroid;
-    private final Activity mActivity;
+    private final ComponentActivity mActivity;
     private final ViewGroup mContainerView;
 
     private final Delegate mDelegate;
     private final DeviceLockActivityLauncher mDeviceLockActivityLauncher;
     private final SigninManager mSigninManager;
+    private final @AccountPickerLaunchMode int mAccountPickerLaunchMode;
     private final @SigninAccessPoint int mSigninAccessPoint;
 
     private ScrimCoordinator mScrim;
@@ -53,7 +56,7 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
         /** Called when the sign-in successfully finishes. */
         void onSignInComplete();
 
-        /** Called when the sign-in is aborted. */
+        /** Called when the bottom sheet is dismissed without completing sign-in. */
         void onSignInCancel();
     }
 
@@ -62,7 +65,7 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
      * sheet.
      *
      * @param windowAndroid The window that hosts the sign-in flow.
-     * @param activity The {@link Activity} that hosts the sign-in flow.
+     * @param activity The {@link ComponentActivity} that hosts the sign-in flow.
      * @param containerView The {@link ViewGroup} that should contain the bottom sheet.
      * @param delegate The delegate for this coordinator.
      * @param deviceLockActivityLauncher The launcher to start up the device lock page.
@@ -71,11 +74,12 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
      */
     public SigninAccountPickerCoordinator(
             @NonNull WindowAndroid windowAndroid,
-            @NonNull Activity activity,
+            @NonNull ComponentActivity activity,
             @NonNull ViewGroup containerView,
             @NonNull Delegate delegate,
             @NonNull DeviceLockActivityLauncher deviceLockActivityLauncher,
             @NonNull SigninManager signinManager,
+            @AccountPickerLaunchMode int accountPickerLaunchMode,
             @SigninAccessPoint int signinAccessPoint) {
         mWindowAndroid = windowAndroid;
         mActivity = activity;
@@ -83,6 +87,7 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
         mDelegate = delegate;
         mDeviceLockActivityLauncher = deviceLockActivityLauncher;
         mSigninManager = signinManager;
+        mAccountPickerLaunchMode = accountPickerLaunchMode;
         mSigninAccessPoint = signinAccessPoint;
 
         initAndShowBottomSheet();
@@ -122,30 +127,31 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
                         mBottomSheetController.removeObserver(this);
                         onBottomSheetDismiss(reason);
                     }
-
-                    @Override
-                    public void onSheetStateChanged(int newState, @StateChangeReason int reason) {
-                        switch (newState) {
-                            case SheetState.PEEK:
-                            case SheetState.HALF:
-                            case SheetState.FULL:
-                                break;
-                            case SheetState.HIDDEN:
-                                mBottomSheetController.removeObserver(this);
-                                onBottomSheetDismiss(reason);
-                                break;
-                        }
-                    }
                 };
 
         mBottomSheetController.addObserver(mBottomSheetObserver);
+        BackPressHandler bottomSheetBackPressHandler =
+                mBottomSheetController.getBottomSheetBackPressHandler();
+        BackPressHelper.create(
+                mActivity,
+                mActivity.getOnBackPressedDispatcher(),
+                bottomSheetBackPressHandler,
+                SecondaryActivity.SIGNIN_AND_HISTORY_OPT_IN);
+
+        // TODO(crbug.com/41493768): Update the sign-in flow API to accept strings from embedder,
+        // and do not initialize AccountPickerBottomSheetStrings here.
+        AccountPickerBottomSheetStrings strings =
+                new AccountPickerBottomSheetStrings(R.string.sign_in_to_chrome, 0, 0);
         mAccountPickerBottomSheetCoordinator =
                 new AccountPickerBottomSheetCoordinator(
                         mWindowAndroid,
                         mBottomSheetController,
                         this,
-                        new AccountPickerBottomSheetStrings() {},
-                        mDeviceLockActivityLauncher);
+                        strings,
+                        mDeviceLockActivityLauncher,
+                        mAccountPickerLaunchMode,
+                        mSigninAccessPoint == SigninAccessPoint.WEB_SIGNIN,
+                        mSigninAccessPoint);
     }
 
     /** Called when the account picker is destroyed after dismissal. */
@@ -164,24 +170,21 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
      *     not used in this flow.
      */
     @Override
-    public void signIn(
-            CoreAccountInfo accountInfo, Callback<GoogleServiceAuthError> onSignInErrorCallback) {
+    public void signIn(CoreAccountInfo accountInfo, AccountPickerBottomSheetMediator mediator) {
         SigninManager.SignInCallback callback =
                 new SigninManager.SignInCallback() {
                     @Override
                     public void onSignInComplete() {
+                        mBottomSheetController.hideContent(
+                                mBottomSheetController.getCurrentSheetContent(),
+                                true,
+                                StateChangeReason.INTERACTION_COMPLETE);
                         mDelegate.onSignInComplete();
                     }
 
                     @Override
                     public void onSignInAborted() {
-                        // onSignInErrorCallback was meant to be called by the WebSigninBridge which
-                        // is not used in this sign-in flow, as we do not need to wait for cookies
-                        // to propagate.
-                        // Instead of calling AccountPickerBottomSheetMediator.onSigninFailed()
-                        // from the signin bridge we directly perform the creation of the "try
-                        // again" bottom sheet view:
-                        mAccountPickerBottomSheetCoordinator.setTryAgainBottomSheetView();
+                        mediator.switchToTryAgainView();
                     }
                 };
 
@@ -194,11 +197,19 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
         }
     }
 
-    /** Returns the bottom sheet entry point. */
     @Override
-    public @EntryPoint int getEntryPoint() {
-        // TODO(https://crbug.com/1520783): Add and use entry points for the new sign-in flow.
-        return EntryPoint.WEB_SIGNIN;
+    public void isAccountManaged(CoreAccountInfo accountInfo, Callback<Boolean> callback) {
+        mSigninManager.isAccountManaged(accountInfo, callback);
+    }
+
+    @Override
+    public void setUserAcceptedAccountManagement(boolean confirmed) {
+        mSigninManager.setUserAcceptedAccountManagement(confirmed);
+    }
+
+    @Override
+    public String extractDomainName(String accountEmail) {
+        return mSigninManager.extractDomainName(accountEmail);
     }
 
     /**
@@ -223,7 +234,14 @@ public class SigninAccountPickerCoordinator implements AccountPickerDelegate {
     }
 
     private void onBottomSheetDismiss(@StateChangeReason int reason) {
+        if (mAccountPickerBottomSheetCoordinator == null) {
+            return;
+        }
+
         mAccountPickerBottomSheetCoordinator = null;
-        // TODO(https://crbug.com/1520783): Handle different dismiss reasons.
+        // The case of successful sign-in is already handled by the SignInCallBack.
+        if (reason != StateChangeReason.INTERACTION_COMPLETE) {
+            mDelegate.onSignInCancel();
+        }
     }
 }

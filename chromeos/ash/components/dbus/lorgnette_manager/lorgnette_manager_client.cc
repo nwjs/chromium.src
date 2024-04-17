@@ -43,6 +43,7 @@ LorgnetteManagerClient* g_instance = nullptr;
 
 constexpr base::TimeDelta kDiscoveryMonitorInterval = base::Seconds(1);
 constexpr base::TimeDelta kDiscoveryMaxInactivity = base::Seconds(20);
+constexpr base::TimeDelta kSlowOperationTimeout = base::Seconds(60);
 
 // The LorgnetteManagerClient implementation used in production.
 class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
@@ -56,6 +57,7 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
   void ListScanners(
       const std::string& client_id,
       bool local_only,
+      bool preferred_only,
       chromeos::DBusMethodCallback<lorgnette::ListScannersResponse> callback)
       override {
     if (features::IsAsynchronousScannerDiscoveryEnabled()) {
@@ -72,7 +74,7 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
 
       lorgnette::StartScannerDiscoveryRequest request;
       request.set_client_id(client_id);
-      request.set_preferred_only(true);
+      request.set_preferred_only(preferred_only);
       request.set_local_only(local_only);
 
       StartScannerDiscovery(
@@ -198,7 +200,7 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
       return;
     }
     lorgnette_daemon_proxy_->CallMethod(
-        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        &method_call, kSlowOperationTimeout.InMilliseconds(),
         base::BindOnce(&LorgnetteManagerClientImpl::OnStartPreparedScanResponse,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
@@ -250,7 +252,7 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
       return;
     }
     lorgnette_daemon_proxy_->CallMethod(
-        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        &method_call, kSlowOperationTimeout.InMilliseconds(),
         base::BindOnce(&LorgnetteManagerClientImpl::OnReadScanDataResponse,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }

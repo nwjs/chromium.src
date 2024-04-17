@@ -4,6 +4,9 @@
 
 #import "ios/chrome/browser/tips_notifications/model/tips_notification_client.h"
 
+#import "base/metrics/histogram_functions.h"
+#import "base/metrics/user_metrics.h"
+#import "base/metrics/user_metrics_action.h"
 #import "base/task/bind_post_task.h"
 #import "base/time/time.h"
 #import "components/feature_engagement/public/tracker.h"
@@ -22,6 +25,7 @@
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
@@ -84,15 +88,19 @@ void TipsNotificationClient::HandleNotificationInteraction(
 
   interacted_type_ = ParseTipsNotificationType(response.notification.request);
   if (!interacted_type_.has_value()) {
-    // TODO(crbug.com/1519157): Add logging for this error condition.
+    base::UmaHistogramEnumeration("IOS.Notifications.Tips.Interaction",
+                                  TipsNotificationType::kError);
     return;
   }
+  base::UmaHistogramEnumeration("IOS.Notifications.Tips.Interaction",
+                                interacted_type_.value());
 
   // If the app is not yet foreground active, store the notification type and
   // handle it later when the app becomes foreground active.
   if (IsSceneLevelForegroundActive()) {
     HandleNotificationInteraction(interacted_type_.value());
     interacted_type_ = std::nullopt;
+    ClearAndMaybeRequestNotification(base::DoNothing());
   }
 }
 
@@ -108,6 +116,9 @@ void TipsNotificationClient::HandleNotificationInteraction(
       break;
     case TipsNotificationType::kSignin:
       ShowSignin();
+      break;
+    case TipsNotificationType::kError:
+      NOTREACHED();
       break;
   }
 }
@@ -184,6 +195,8 @@ void TipsNotificationClient::OnNotificationCleared(
   std::optional<TipsNotificationType> type = ParseTipsNotificationType(request);
   if (type.has_value()) {
     MarkNotificationTypeNotSent(type.value());
+    base::UmaHistogramEnumeration("IOS.Notifications.Tips.Cleared",
+                                  type.value());
   }
   [UNUserNotificationCenter.currentNotificationCenter
       removePendingNotificationRequestsWithIdentifiers:@[
@@ -245,9 +258,10 @@ void TipsNotificationClient::OnNotificationRequested(TipsNotificationType type,
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!error) {
     MarkNotificationTypeSent(type);
+  } else {
+    base::RecordAction(
+        base::UserMetricsAction("IOS.Notifications.Tips.NotSentError"));
   }
-  // TODO(crbug.com/1519157): Add logging if there is an
-  // error.
 }
 
 bool TipsNotificationClient::ShouldSendNotification(TipsNotificationType type) {
@@ -259,12 +273,17 @@ bool TipsNotificationClient::ShouldSendNotification(TipsNotificationType type) {
       return ShouldSendWhatsNew();
     case TipsNotificationType::kSignin:
       return ShouldSendSignin();
+    case TipsNotificationType::kError:
+      NOTREACHED_NORETURN();
   }
 }
 
 bool TipsNotificationClient::ShouldSendWhatsNew() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   Browser* browser = GetSceneLevelForegroundActiveBrowser();
+  if (!browser) {
+    return false;
+  }
   feature_engagement::Tracker* tracker =
       feature_engagement::TrackerFactory::GetForBrowserState(
           browser->GetBrowserState());
@@ -275,6 +294,9 @@ bool TipsNotificationClient::ShouldSendWhatsNew() {
 bool TipsNotificationClient::ShouldSendSignin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   Browser* browser = GetSceneLevelForegroundActiveBrowser();
+  if (!browser) {
+    return false;
+  }
   ChromeBrowserState* browser_state = browser->GetBrowserState();
   AuthenticationService* auth_service =
       AuthenticationServiceFactory::GetForBrowserState(browser_state);
@@ -291,17 +313,28 @@ bool TipsNotificationClient::IsSceneLevelForegroundActive() {
 void TipsNotificationClient::ShowDefaultBrowserPromo() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   Browser* browser = GetSceneLevelForegroundActiveBrowser();
-  [HandlerForProtocol(browser->GetCommandDispatcher(), SettingsCommands)
-      showDefaultBrowserSettingsFromViewController:nil
-                                      sourceForUMA:DefaultBrowserPromoSource::
-                                                       kTipsNotification];
+  id<ApplicationCommands> application_handler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), ApplicationCommands);
+  [application_handler prepareToPresentModal:^{
+    id<SettingsCommands> settings_handler =
+        HandlerForProtocol(browser->GetCommandDispatcher(), SettingsCommands);
+    [settings_handler
+        showDefaultBrowserSettingsFromViewController:nil
+                                        sourceForUMA:
+                                            DefaultBrowserSettingsPageSource::
+                                                kTipsNotification];
+  }];
 }
 
 void TipsNotificationClient::ShowWhatsNew() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  raw_ptr<Browser> browser = GetSceneLevelForegroundActiveBrowser();
-  [HandlerForProtocol(browser->GetCommandDispatcher(),
-                      BrowserCoordinatorCommands) showWhatsNew];
+  Browser* browser = GetSceneLevelForegroundActiveBrowser();
+  id<ApplicationCommands> application_handler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), ApplicationCommands);
+  [application_handler prepareToPresentModal:^{
+    [HandlerForProtocol(browser->GetCommandDispatcher(),
+                        BrowserCoordinatorCommands) showWhatsNew];
+  }];
 }
 
 void TipsNotificationClient::ShowSignin() {
@@ -327,8 +360,12 @@ void TipsNotificationClient::ShowSignin() {
                             PROMO_ACTION_NO_SIGNIN_PROMO
                callback:nil];
 
-  [HandlerForProtocol(browser->GetCommandDispatcher(), SigninPresenter)
-      showSignin:command];
+  id<ApplicationCommands> application_handler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), ApplicationCommands);
+  [application_handler prepareToPresentModal:^{
+    [HandlerForProtocol(browser->GetCommandDispatcher(), SigninPresenter)
+        showSignin:command];
+  }];
 }
 
 void TipsNotificationClient::MarkNotificationTypeSent(
@@ -338,6 +375,7 @@ void TipsNotificationClient::MarkNotificationTypeSent(
   int sent_bitfield = local_state->GetInteger(kTipsNotificationsSentPref);
   sent_bitfield |= 1 << int(type);
   local_state->SetInteger(kTipsNotificationsSentPref, sent_bitfield);
+  base::UmaHistogramEnumeration("IOS.Notifications.Tips.Sent", type);
 }
 
 void TipsNotificationClient::MarkNotificationTypeNotSent(

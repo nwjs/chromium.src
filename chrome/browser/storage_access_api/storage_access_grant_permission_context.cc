@@ -53,14 +53,6 @@ static int implicit_grant_limit = 0;
 constexpr base::TimeDelta kStorageAccessAPITopLevelUserInteractionBound =
     base::Days(30);
 
-// `kPermissionStorageAccessAPI` enables StorageAccessAPIwithPrompts
-// (https://chromestatus.com/feature/5085655327047680), which should not
-// auto-deny if FPS is irrelevant.
-bool ShouldAutoDenyOutsideFPS() {
-  return !base::FeatureList::IsEnabled(
-      permissions::features::kPermissionStorageAccessAPI);
-}
-
 // Returns true if the request wasn't answered by the user explicitly.
 bool IsImplicitOutcome(RequestOutcome outcome) {
   switch (outcome) {
@@ -136,13 +128,13 @@ content_settings::ContentSettingConstraints ComputeConstraints(
       constraints.set_lifetime(
           permissions::kStorageAccessAPIRelatedWebsiteSetsLifetime);
       constraints.set_session_model(
-          content_settings::SessionModel::NonRestorableUserSession);
+          content_settings::mojom::SessionModel::NON_RESTORABLE_USER_SESSION);
       return constraints;
     case RequestOutcome::kGrantedByAllowance:
       constraints.set_lifetime(
           permissions::kStorageAccessAPIImplicitPermissionLifetime);
       constraints.set_session_model(
-          content_settings::SessionModel::UserSession);
+          content_settings::mojom::SessionModel::USER_SESSION);
       return constraints;
     case RequestOutcome::kDismissedByUser:
     case RequestOutcome::kDeniedByFirstPartySet:
@@ -159,7 +151,8 @@ content_settings::ContentSettingConstraints ComputeConstraints(
     case RequestOutcome::kDeniedByUser:
       constraints.set_lifetime(
           permissions::kStorageAccessAPIExplicitPermissionLifetime);
-      constraints.set_session_model(content_settings::SessionModel::Durable);
+      constraints.set_session_model(
+          content_settings::mojom::SessionModel::DURABLE);
       return constraints;
   }
 }
@@ -342,14 +335,6 @@ void StorageAccessGrantPermissionContext::CheckForAutoGrantOrAutoDenial(
         break;
     }
   }
-  if (ShouldAutoDenyOutsideFPS()) {
-    NotifyPermissionSetInternal(request_data.id, request_data.requesting_origin,
-                                request_data.embedding_origin,
-                                std::move(callback),
-                                /*persist=*/true, CONTENT_SETTING_BLOCK,
-                                RequestOutcome::kDeniedByFirstPartySet);
-    return;
-  }
 
   // Get all of our implicit grants and see which ones apply to our
   // |requesting_origin|.
@@ -360,7 +345,7 @@ void StorageAccessGrantPermissionContext::CheckForAutoGrantOrAutoDenial(
     ContentSettingsForOneType implicit_grants =
         settings_map->GetSettingsForOneType(
             ContentSettingsType::STORAGE_ACCESS,
-            content_settings::SessionModel::UserSession);
+            content_settings::mojom::SessionModel::USER_SESSION);
 
     const int existing_implicit_grants = base::ranges::count_if(
         implicit_grants, [&request_data](const auto& entry) {
@@ -479,12 +464,12 @@ void StorageAccessGrantPermissionContext::NotifyPermissionSet(
                             ContentSettingsType::STORAGE_ACCESS, &info);
 
     switch (info.metadata.session_model()) {
-      case content_settings::SessionModel::NonRestorableUserSession:
-      case content_settings::SessionModel::UserSession:
+      case content_settings::mojom::SessionModel::NON_RESTORABLE_USER_SESSION:
+      case content_settings::mojom::SessionModel::USER_SESSION:
         outcome = RequestOutcome::kReusedImplicitGrant;
         break;
-      case content_settings::SessionModel::Durable:
-      case content_settings::SessionModel::OneTime:
+      case content_settings::mojom::SessionModel::DURABLE:
+      case content_settings::mojom::SessionModel::ONE_TIME:
         break;
     }
   }

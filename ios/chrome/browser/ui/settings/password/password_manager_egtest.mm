@@ -21,7 +21,6 @@
 #import "components/sync/base/features.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/sync_prefs.h"
-#import "ios/chrome/browser/credential_provider_promo/model/features.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/passwords/model/metrics/ios_password_manager_metrics.h"
 #import "ios/chrome/browser/policy/model/policy_earl_grey_utils.h"
@@ -39,6 +38,7 @@
 #import "ios/chrome/browser/ui/settings/password/reauthentication/reauthentication_constants.h"
 #import "ios/chrome/browser/ui/settings/password/widget_promo_instructions/widget_promo_instructions_constants.h"
 #import "ios/chrome/browser/ui/settings/settings_root_table_constants.h"
+#import "ios/chrome/common/ui/confirmation_alert/constants.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_event.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_protocol.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
@@ -46,7 +46,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
-#import "ios/chrome/test/earl_grey/chrome_earl_grey_app_interface.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
@@ -345,7 +344,8 @@ id<GREYMatcher> PasswordManagerWidgetPromoInstructions() {
 // instruction screen.
 id<GREYMatcher> PasswordManagerWidgetPromoInstructionsCloseButton() {
   return grey_allOf(
-      ButtonWithAccessibilityLabel(l10n_util::GetNSString(IDS_CLOSE)),
+      grey_accessibilityID(
+          kConfirmationAlertSecondaryActionAccessibilityIdentifier),
       grey_interactable(), nullptr);
 }
 
@@ -644,10 +644,9 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   [super setUp];
   // Manually clear sync passwords pref before testShowAccountStorageNotice*.
   // TODO(crbug.com/1069086): Wipe the PrefService between tests.
-  [ChromeEarlGreyAppInterface
-      clearUserPrefWithName:base::SysUTF8ToNSString(
-                                syncer::SyncPrefs::GetPrefNameForTypeForTesting(
-                                    syncer::UserSelectableType::kPasswords))];
+  [ChromeEarlGrey
+      clearUserPrefWithName:syncer::SyncPrefs::GetPrefNameForTypeForTesting(
+                                syncer::UserSelectableType::kPasswords)];
   GREYAssertNil([MetricsAppInterface setupHistogramTester],
                 @"Cannot setup histogram tester.");
   _passwordAutoFillStatusSwizzler =
@@ -687,10 +686,6 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   // prevent flakiness, due to a spinner that appears in some tests and blocks
   // later ones from interacting with the UI.
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
-
-  // TODO(crbug.com/1448574): Re-enable CPE promo and update
-  // testCopyPasswordToast and testCopyPasswordMenuItem to check for the promo.
-  config.features_disabled.push_back(kCredentialProviderExtensionPromo);
 
   if ([self isRunningTest:@selector
             (testAccountStorageSwitchDisabledByPolicy_SyncToSigninDisabled)] ||
@@ -1558,11 +1553,11 @@ void OpenPasswordManagerWidgetPromoInstructions() {
         performAction:TurnTableViewSwitchOn(!expected_state)];
 
     // Check that the switch has been modified.
-    [EarlGrey selectElementWithMatcher:
-                  grey_allOf(chrome_test_util::TableViewSwitchCell(
-                                 kPasswordSettingsSavePasswordSwitchTableViewId,
-                                 !expected_state),
-                             grey_sufficientlyVisible(), nil)];
+    [[EarlGrey selectElementWithMatcher:
+                   chrome_test_util::TableViewSwitchCell(
+                       kPasswordSettingsSavePasswordSwitchTableViewId,
+                       !expected_state)]
+        assertWithMatcher:grey_sufficientlyVisible()];
 
     // Close settings submenu.
     [[EarlGrey

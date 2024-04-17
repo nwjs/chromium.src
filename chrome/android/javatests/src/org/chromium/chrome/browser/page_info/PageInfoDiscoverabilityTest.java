@@ -124,12 +124,15 @@ public class PageInfoDiscoverabilityTest {
                             .value(ContentSettingsType.IDLE_DETECTION, true));
             parameters.add(
                     new ParameterSet()
-                            .name("RequestType.kMicStream")
-                            .value(ContentSettingsType.MEDIASTREAM_MIC, true));
+                            .name("RequestType.kIdentityProvider")
+                            .value(
+                                    ContentSettingsType
+                                            .FEDERATED_IDENTITY_IDENTITY_PROVIDER_REGISTRATION,
+                                    false));
             parameters.add(
                     new ParameterSet()
-                            .name("RequestType.kMidi")
-                            .value(ContentSettingsType.MIDI, false));
+                            .name("RequestType.kMicStream")
+                            .value(ContentSettingsType.MEDIASTREAM_MIC, true));
             parameters.add(
                     new ParameterSet()
                             .name("RequestType.kMidiSysex")

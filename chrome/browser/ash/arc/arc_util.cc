@@ -156,6 +156,7 @@ bool IsArcCompatibleFilesystem(const base::FilePath& path) {
   // If it can be verified it is not on ecryptfs, then it is ok.
   struct statfs statfs_buf;
   if (statfs(path.value().c_str(), &statfs_buf) < 0) {
+    VLOG(1) << "statfs failed, errno=" << errno;
     return false;
   }
   return statfs_buf.f_type != ECRYPTFS_SUPER_MAGIC;
@@ -533,7 +534,8 @@ bool SetArcPlayStoreEnabledForProfile(Profile* profile, bool enabled) {
       return false;
     }
     if (enabled) {
-      arc_session_manager->AllowActivation();
+      arc_session_manager->AllowActivation(
+          ArcSessionManager::AllowActivationReason::kUserEnableAction);
       arc_session_manager->RequestEnable();
     } else {
       arc_session_manager->RequestDisableWithArcDataRemoval();
@@ -549,8 +551,15 @@ bool AreArcAllOptInPreferencesIgnorableForProfile(const Profile* profile) {
   // The preferences are ignorable iff both backup&restore and location services
   // are set by policy.
   const PrefService* prefs = profile->GetPrefs();
-  return prefs->IsManagedPreference(prefs::kArcBackupRestoreEnabled) &&
-         prefs->IsManagedPreference(prefs::kArcLocationServiceEnabled);
+
+  if (ash::features::IsCrosPrivacyHubLocationEnabled()) {
+    // When PH is enabled, location toggle is no longer ARC specific (applies to
+    // entire ChromeOS);
+    return prefs->IsManagedPreference(prefs::kArcBackupRestoreEnabled);
+  } else {
+    return prefs->IsManagedPreference(prefs::kArcBackupRestoreEnabled) &&
+           prefs->IsManagedPreference(prefs::kArcLocationServiceEnabled);
+  }
 }
 
 bool IsArcOobeOptInActive() {

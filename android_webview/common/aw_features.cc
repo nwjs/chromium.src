@@ -85,6 +85,12 @@ BASE_FEATURE(kWebViewMediaIntegrityApi,
              "WebViewMediaIntegrityApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enable the WebView Media Integrity API as a Blink extension.
+// This feature requires `kWebViewMediaIntegrityApi` to be disabled.
+BASE_FEATURE(kWebViewMediaIntegrityApiBlinkExtension,
+             "WebViewMediaIntegrityApiBlinkExtension",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, passive mixed content (Audio/Video/Image subresources loaded
 // over HTTP on HTTPS sites) will be autoupgraded to HTTPS, and the load will be
 // blocked if the resource fails to load over HTTPS. This only affects apps that
@@ -226,9 +232,25 @@ BASE_FEATURE(kWebViewUmaUploadQualityOfServiceSetToDefault,
              "WebViewUmaUploadQualityOfServiceSetToDefault",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Whether to use initial network state during initialization to speed up
+// startup.
+BASE_FEATURE(kWebViewUseInitialNetworkStateAtStartup,
+             "WebViewUseInitialNetworkStateAtStartup",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // This enables zoom keyboard shortcuts for zoom-in, zoom-out and zoom reset.
 BASE_FEATURE(kWebViewZoomKeyboardShortcuts,
              "WebViewZoomKeyboardShortcuts",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This enables reducing webview user-agent android version and device model.
+BASE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel,
+             "WebViewReduceUAAndroidVersionDeviceModel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This enables WebView crashes.
+BASE_FEATURE(kWebViewEnableCrash,
+             "WebViewEnableCrash",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

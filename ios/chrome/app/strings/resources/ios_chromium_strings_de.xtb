@@ -79,7 +79,6 @@ Weitere Einstellungen, bei denen Daten zur Verbesserung von Chromium verwendet w
 <translation id="3219277919172823720">Sprachsuche in Chromium</translation>
 <translation id="3228349498066165585">Einige deiner Chromium-Daten wurden noch nicht in deinem Google-Konto gespeichert.
         Warte einige Minuten, bevor du dich abmeldest. Wenn du dich jetzt abmeldest, werden diese Daten gelöscht.</translation>
-<translation id="3256316712990552818">In Chromium kopiert</translation>
 <translation id="328933489847748230">{count,plural, =1{Aktuell wird 1 Chromium-Fenster angezeigt}other{Aktuell werden {count} Chromium-Fenster angezeigt}}</translation>
 <translation id="3344973607274501920">Chromium konnte deine Passwörter nicht prüfen. Prüfe deine Internetverbindung.</translation>
 <translation id="3366305173356742781">Chromium-Daten in deinem Konto</translation>
@@ -117,6 +116,7 @@ Deine Daten werden mit deiner Passphrase verschlüsselt. Gib sie ein, um Chromiu
 <translation id="4195557071150719219">Zuletzt geöffnete Tabs in Chromium ansehen</translation>
 <translation id="4200712796753248893">Chromium-Aktionen unter iOS verwenden</translation>
 <translation id="420541179527342563">Wenn du den Blockierungsmodus in Chromium deaktivieren möchtest, musst du ihn auf deinem iPad ausschalten.</translation>
+<translation id="427331839909790668">Wenn du Chromium und andere Google-Dienste verknüpfst, können sie Daten untereinander austauschen, um deine Nutzung zu personalisieren</translation>
 <translation id="4408912345039114853">Chromium-Sicherheitscheck ausführen</translation>
 <translation id="4432744876818348753">Wenn du Chromium optimal nutzen möchtest, melde dich an.</translation>
 <translation id="4445228361214254027">Deine Organisation hat die Möglichkeit deaktiviert, Chromium-Daten in deinem Google-Konto zu speichern und zu nutzen. Neue Lesezeichen, Passwörter und weitere Informationen werden nur auf diesem Gerät gespeichert.</translation>
@@ -218,6 +218,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="6852799557929001644">Du kannst in anderen Apps auf diesem Gerät auf deine Chromium-Passwörter und mehr zugreifen.</translation>
 <translation id="6887138405044152640">Wenn du diesen Tab an ein anderes Gerät senden möchtest, melde dich dort in Chromium an.</translation>
 <translation id="6911341667534646387">Chromium-Daten in deinem Google-Konto weiterhin verwenden</translation>
+<translation id="7002548535535009764">Für eine optimale Personalisierung kannst du Chromium in <ph name="FEATURE_NAME_1" /> und <ph name="FEATURE_NAME_2" /> einbinden</translation>
 <translation id="7006920032187763988">Du kannst die im Passwortmanager gespeicherten Passwörter in anderen Apps auf deinem iPad verwenden.</translation>
 <translation id="7018284295775193585">Chromium kann nicht aktualisiert werden</translation>
 <translation id="7045244423563602563">Chromium personalisieren</translation>

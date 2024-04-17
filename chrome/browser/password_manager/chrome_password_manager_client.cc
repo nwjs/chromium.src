@@ -21,13 +21,13 @@
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/affiliations/affiliation_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/password_manager/account_password_store_factory.h"
-#include "chrome/browser/password_manager/affiliation_service_factory.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate_factory.h"
 #include "chrome/browser/password_manager/field_info_manager_factory.h"
@@ -130,6 +130,7 @@
 #include "chrome/browser/password_manager/android/auto_signin_prompt_controller.h"
 #include "chrome/browser/password_manager/android/cred_man_controller.h"
 #include "chrome/browser/password_manager/android/credential_leak_controller_android.h"
+#include "chrome/browser/password_manager/android/local_passwords_migration_warning_util.h"
 #include "chrome/browser/password_manager/android/password_checkup_launcher_helper_impl.h"
 #include "chrome/browser/password_manager/android/password_generation_controller.h"
 #include "chrome/browser/password_manager/android/password_manager_error_message_helper_bridge_impl.h"
@@ -470,6 +471,27 @@ bool ChromePasswordManagerClient::ShowKeyboardReplacingSurface(
 }
 #endif
 
+bool ChromePasswordManagerClient::CanUseBiometricAuthForFilling(
+    device_reauth::DeviceAuthenticator* authenticator) {
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+  if (!GetLocalStatePrefs() || !GetPrefs() || !authenticator) {
+    return false;
+  }
+  return GetPasswordFeatureManager()
+      ->IsBiometricAuthenticationBeforeFillingEnabled();
+#elif BUILDFLAG(IS_ANDROID)
+  if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+    CHECK(authenticator);
+    return true;
+  }
+  return authenticator && authenticator->CanAuthenticateWithBiometrics() &&
+         base::FeatureList::IsEnabled(
+             password_manager::features::kBiometricTouchToFill);
+#else
+  return false;
+#endif
+}
+
 std::unique_ptr<device_reauth::DeviceAuthenticator>
 ChromePasswordManagerClient::GetDeviceAuthenticator() {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
@@ -581,8 +603,7 @@ void ChromePasswordManagerClient::ResetSubmissionTrackingAfterTouchToFill() {
 
 void ChromePasswordManagerClient::UpdateCredentialCache(
     const url::Origin& origin,
-    const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
-        best_matches,
+    base::span<const PasswordForm> best_matches,
     bool is_blocklisted) {
 #if BUILDFLAG(IS_ANDROID)
   credential_cache_.SaveCredentialsAndBlocklistedForOrigin(
@@ -607,8 +628,7 @@ void ChromePasswordManagerClient::AutomaticPasswordSave(
 }
 
 void ChromePasswordManagerClient::PasswordWasAutofilled(
-    const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
-        best_matches,
+    base::span<const PasswordForm> best_matches,
     const url::Origin& origin,
     const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>*
         federated_matches,
@@ -1346,7 +1366,7 @@ TouchToFillController*
 ChromePasswordManagerClient::GetOrCreateTouchToFillController() {
   if (!touch_to_fill_controller_) {
     touch_to_fill_controller_ = std::make_unique<TouchToFillController>(
-        GetOrCreateKeyboardReplacingSurfaceVisibilityController());
+        profile_, GetOrCreateKeyboardReplacingSurfaceVisibilityController());
   }
   return touch_to_fill_controller_.get();
 }
@@ -1427,6 +1447,13 @@ ChromePasswordManagerClient::ChromePasswordManagerClient(
   if (!tried_launching_warning_on_startup) {
     tried_launching_warning_on_startup = true;
     TryToShowLocalPasswordMigrationWarning();
+  }
+  // This prevents the post migration sheet from trying to show on opening new
+  // tabs after the initial attempt to show the sheet on startup.
+  static bool tried_launching_post_migration_sheet_on_startup = false;
+  if (!tried_launching_post_migration_sheet_on_startup) {
+    tried_launching_post_migration_sheet_on_startup = true;
+    TryToShowPostPasswordMigrationSheet();
   }
 #endif
 }
@@ -1668,6 +1695,15 @@ void ChromePasswordManagerClient::TryToShowLocalPasswordMigrationWarning() {
           base::BindOnce(&local_password_migration::ShowWarning));
   password_migration_warning_startup_launcher_
       ->MaybeFetchPasswordsAndShowWarning(GetProfilePasswordStore());
+}
+
+void ChromePasswordManagerClient::TryToShowPostPasswordMigrationSheet() {
+  // This is to let the method run after all the initialization tasks have been
+  // completed.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&local_password_migration::MaybeShowPostMigrationSheet,
+                     web_contents()->GetTopLevelNativeWindow(), profile_));
 }
 #endif
 

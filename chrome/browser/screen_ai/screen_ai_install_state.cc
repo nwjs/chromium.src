@@ -7,9 +7,8 @@
 #include <memory>
 
 #include "base/check_is_test.h"
-#include "base/debug/alias.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -20,8 +19,8 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/screen_ai/pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/services/screen_ai/public/cpp/utilities.h"
 #include "content/public/browser/browser_thread.h"
+#include "services/screen_ai/public/cpp/utilities.h"
 #include "ui/accessibility/accessibility_features.h"
 
 #if BUILDFLAG(IS_LINUX)
@@ -82,24 +81,17 @@ bool ScreenAIInstallState::VerifyLibraryVersion(const base::Version& version) {
   return true;
 }
 
-// TODO(b/41489907): Remove this function once we know why the path is sometimes
-// unexpected.
+// TODO(b/41489907): Remove this function once it's known why the binary is
+// sometimes not available.
 // static
 bool ScreenAIInstallState::VerifyLibraryAvailablity(
     const base::FilePath& install_dir) {
-  // Check the file iterator heuristic to find the library in the sandbox
-  // returns the same directory as `install_dir`.
-  base::FilePath binary_path = screen_ai::GetLatestComponentBinaryPath();
-  if (binary_path.DirName() == install_dir) {
-    return true;
-  }
-
-  VLOG(0) << "Library is installed in an unexpected folder.";
-  DEBUG_ALIAS_FOR_CSTR(expected_path, binary_path.MaybeAsASCII().c_str(), 1024);
-  DEBUG_ALIAS_FOR_CSTR(installed_path, install_dir.MaybeAsASCII().c_str(),
-                       1024);
-  base::debug::DumpWithoutCrashing();
-  return false;
+    // TODO(b/41489907): Try adding a browser test for this case.
+    bool binary_available =
+        base::PathExists(install_dir.Append(GetComponentBinaryFileName()));
+    base::UmaHistogramBoolean(
+        "Accessibility.ScreenAI.Component.BinaryAvailable", binary_available);
+    return binary_available;
 }
 
 ScreenAIInstallState::ScreenAIInstallState() {

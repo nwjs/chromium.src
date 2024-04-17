@@ -134,6 +134,10 @@ public class IntentHandler {
     public static final String EXTRA_CALLING_ACTIVITY_PACKAGE =
             "org.chromium.chrome.browser.calling_activity_package";
 
+    /** Intent extra used to deliver the package name provided via #getLaunchedFromPackage. */
+    public static final String EXTRA_LAUNCHED_FROM_PACKAGE =
+            "org.chromium.chrome.browser.launched_from_package";
+
     /** A referrer id used for Chrome to Chrome referrer passing. */
     public static final String EXTRA_REFERRER_ID = "org.chromium.chrome.browser.referrer_id";
 
@@ -236,6 +240,13 @@ public class IntentHandler {
     /** An enum to indicate whether the intent is created by link or tab. */
     public static final String EXTRA_URL_DRAG_SOURCE =
             "org.chromium.chrome.browser.url_drag_source";
+
+    /** A boolean to indicate whether the intent should launch the history page in Chrome. */
+    public static final String EXTRA_OPEN_HISTORY = "org.chromium.chrome.browser.open_history";
+
+    /** A boolean to indicate whether the intent should launch only app specific history */
+    public static final String EXTRA_APP_SPECIFIC_HISTORY =
+            "org.chromium.chrome.browser.app_specific_history";
 
     private static Pair<Integer, String> sPendingReferrer;
     private static int sReferrerId;

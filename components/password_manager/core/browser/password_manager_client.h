@@ -210,6 +210,9 @@ class PasswordManagerClient {
       bool is_webauthn_form);
 #endif
 
+  virtual bool CanUseBiometricAuthForFilling(
+      device_reauth::DeviceAuthenticator* authenticator);
+
   // Returns a pointer to a DeviceAuthenticator. Might be null if
   // BiometricAuthentication is not available for a given platform.
   virtual std::unique_ptr<device_reauth::DeviceAuthenticator>
@@ -268,8 +271,7 @@ class PasswordManagerClient {
   // Currently only implemented on Android.
   virtual void UpdateCredentialCache(
       const url::Origin& origin,
-      const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
-          best_matches,
+      base::span<const PasswordForm> best_matches,
       bool is_blocklisted);
 
   // Called when a password is saved in an automated fashion. Embedder may
@@ -287,8 +289,7 @@ class PasswordManagerClient {
   // implementation is a noop. |was_autofilled_on_pageload| contains information
   // if password form was autofilled on pageload.
   virtual void PasswordWasAutofilled(
-      const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
-          best_matches,
+      base::span<const PasswordForm> best_matches,
       const url::Origin& origin,
       const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>*
           federated_matches,

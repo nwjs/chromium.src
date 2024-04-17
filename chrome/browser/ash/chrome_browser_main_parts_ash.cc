@@ -57,6 +57,7 @@
 #include "chrome/browser/ash/arc/memory_pressure/container_app_killer.h"
 #include "chrome/browser/ash/arc/session/arc_service_launcher.h"
 #include "chrome/browser/ash/audio/audio_survey_handler.h"
+#include "chrome/browser/ash/bluetooth/bluetooth_log_controller.h"
 #include "chrome/browser/ash/bluetooth/hats_bluetooth_revamp_trigger_impl.h"
 #include "chrome/browser/ash/boot_times_recorder.h"
 #include "chrome/browser/ash/camera/camera_general_survey_handler.h"
@@ -165,6 +166,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
 #include "chrome/browser/chromeos/kcer/kcer_factory.h"
+#include "chrome/browser/chromeos/mahi/mahi_web_contents_manager.h"
 #include "chrome/browser/chromeos/video_conference/video_conference_manager_client.h"
 #include "chrome/browser/component_updater/cros_component_installer_chromeos.h"
 #include "chrome/browser/defaults.h"
@@ -859,6 +861,9 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
 
   g_browser_process->platform_part()->InitializeUserManager();
 
+  bluetooth_log_controller_ = std::make_unique<ash::BluetoothLogController>(
+      user_manager::UserManager::Get());
+
   if (base::FeatureList::IsEnabled(features::kPerUserMetrics)) {
     // Enable per-user metrics support as soon as user_manager is created.
     g_browser_process->metrics_service()->InitPerUserMetrics();
@@ -965,13 +970,17 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           ::switches::kTestType) ||
       ShouldAutoLaunchKioskApp(*base::CommandLine::ForCurrentProcess(),
-                               g_browser_process->local_state())) {
+                               *g_browser_process->local_state())) {
     WizardController::SetZeroDelays();
   }
 
   // Initialize `SimpleGeolocationProvider` for the system parts.
   SimpleGeolocationProvider::Initialize(
       g_browser_process->shared_url_loader_factory());
+
+  // Instantiate TImeZoneResolverManager here, so it subscribes to
+  // SessionManager and profile creation notification is properly propagated.
+  g_browser_process->platform_part()->GetTimezoneResolverManager();
 
   // On Chrome OS, Chrome does not exit when all browser windows are closed.
   // UnregisterKeepAlive is called from chrome::HandleAppExitingForPlatform.
@@ -1077,6 +1086,7 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
 
     session_manager::SessionManager::Get()->CreateSessionForRestart(
         account_id, user_id_hash);
+    ash::Shell::Get()->login_unlock_throughput_recorder()->OnAshRestart();
 
     // If restarting demo session, mark demo session as started before primary
     // profile starts initialization so browser context keyed services created
@@ -1455,6 +1465,10 @@ void ChromeBrowserMainPartsAsh::PostBrowserStart() {
       NetworkHandler::Get()->managed_network_configuration_handler(),
       NetworkHandler::Get()->network_state_handler());
 
+  if (chromeos::features::IsMahiEnabled()) {
+    mahi::MahiWebContentsManager::Get()->Initialize();
+  }
+
   ChromeBrowserMainPartsLinux::PostBrowserStart();
 }
 
@@ -1716,6 +1730,8 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   if (pre_profile_init_called_) {
     network_portal_detector::Shutdown();
   }
+
+  bluetooth_log_controller_.reset();
 
   g_browser_process->platform_part()->ShutdownSessionManager();
   // Ash needs to be closed before UserManager is destroyed.

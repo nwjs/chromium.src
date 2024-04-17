@@ -22,6 +22,7 @@
 #include "ash/shell.h"
 #include "ash/style/close_button.h"
 #include "ash/style/icon_button.h"
+#include "ash/wm/desks/desk_action_button.h"
 #include "ash/wm/desks/desk_action_view.h"
 #include "ash/wm/desks/desk_mini_view.h"
 #include "ash/wm/desks/desk_name_view.h"
@@ -4729,6 +4730,13 @@ TEST_F(SavedDeskTest, TabbingDuringExitAnimation) {
 }
 
 TEST_F(SavedDeskTest, SaveDeskFilterByProfileID) {
+  // Disable max limit for testing. This is needed since the max limit for
+  // floating workspace templates is 0.
+  desks_storage::LocalDeskDataManager::SetDisableMaxTemplateLimitForTesting(
+      true);
+  desks_storage::LocalDeskDataManager* local_desk_data_manager =
+      static_cast<desks_storage::LocalDeskDataManager*>(desk_model());
+  local_desk_data_manager->SetupFloatingWorkspaceForTest();
   DesksController* desks_controller = DesksController::Get();
   ASSERT_EQ(0, desks_controller->GetActiveDeskIndex());
   uint64_t lacros_profile_id = 1001;
@@ -4753,11 +4761,25 @@ TEST_F(SavedDeskTest, SaveDeskFilterByProfileID) {
                              desk_profile_delegate->GetPrimaryProfileId());
   test_window_2->SetProperty(ash::kLacrosProfileId,
                              desk_profile_delegate->GetPrimaryProfileId() + 1);
-  //  Open overview and save a template.
-  OpenOverviewAndSaveTemplate(Shell::Get()->GetPrimaryRootWindow());
+  // Open overview and save a floating workspace template.
+  ToggleOverview();
+  auto* overview_session = GetOverviewSession();
+  ASSERT_TRUE(overview_session);
+  overview_session->saved_desk_presenter()->MaybeSaveActiveDeskAsSavedDesk(
+      DeskTemplateType::kFloatingWorkspace, Shell::GetPrimaryRootWindow());
+
   ASSERT_EQ(1ul, GetAllEntries().size());
   const auto* app_restore_data =
       QueryRestoreData(*GetAllEntries()[0], {}, win_2_id);
   EXPECT_FALSE(app_restore_data);
 }
+
+// Tests that we can enter tablet mode while in overview during a guest session
+// without crashing. Regression test for http://b/328708800.
+TEST_F(SavedDeskTest, NoCrashDuringGuest) {
+  SimulateGuestLogin();
+  ToggleOverview();
+  EnterTabletMode();
+}
+
 }  // namespace ash

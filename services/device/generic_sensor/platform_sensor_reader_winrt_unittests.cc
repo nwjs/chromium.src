@@ -7,6 +7,7 @@
 #include <objbase.h>
 
 #include "base/notreached.h"
+#include "base/numerics/angle_conversions.h"
 #include "base/numerics/math_constants.h"
 #include "base/run_loop.h"
 #include "base/task/task_traits.h"
@@ -1133,9 +1134,9 @@ TEST_F(PlatformSensorReaderTestWinrt, CheckGyrometerReadingConversion) {
     base::RunLoop run_loop;
     EXPECT_CALL(*mock_client, OnReadingUpdated(::testing::_))
         .WillOnce(testing::Invoke([&](const SensorReading& reading) {
-          EXPECT_EQ(gfx::DegToRad(expected_x), reading.gyro.x);
-          EXPECT_EQ(gfx::DegToRad(expected_y), reading.gyro.y);
-          EXPECT_EQ(gfx::DegToRad(expected_z), reading.gyro.z);
+          EXPECT_EQ(base::DegToRad(expected_x), reading.gyro.x);
+          EXPECT_EQ(base::DegToRad(expected_y), reading.gyro.y);
+          EXPECT_EQ(base::DegToRad(expected_z), reading.gyro.z);
           run_loop.Quit();
         }));
     fake_sensor->TriggerFakeSensorReading(reading);

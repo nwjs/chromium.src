@@ -27,6 +27,7 @@ class WebContents;
 struct CONTENT_EXPORT ClipboardPasteData {
   ClipboardPasteData();
   ClipboardPasteData(const ClipboardPasteData&);
+  ClipboardPasteData& operator=(const ClipboardPasteData&);
   ClipboardPasteData(ClipboardPasteData&&);
   ClipboardPasteData& operator=(ClipboardPasteData&&);
   ~ClipboardPasteData();
@@ -39,6 +40,11 @@ struct CONTENT_EXPORT ClipboardPasteData {
   // between what fields actually represent, this should only be used when only
   // one field has been populated.
   size_t size();
+
+  // Override the members of `this` with non-empty members in `other`. This is
+  // used to merge `ClipboardPasteData` objects representing a single type of
+  // clipboard data into one representing all of them.
+  void Merge(ClipboardPasteData&& other);
 
   // UTF-16 encoded plain text data to scan.
   std::u16string text;

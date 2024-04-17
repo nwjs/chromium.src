@@ -44,7 +44,15 @@ void OpenXrGraphicsBinding::GetRequiredExtensions(
 }
 
 OpenXrGraphicsBindingOpenGLES::OpenXrGraphicsBindingOpenGLES() = default;
-OpenXrGraphicsBindingOpenGLES::~OpenXrGraphicsBindingOpenGLES() = default;
+OpenXrGraphicsBindingOpenGLES::~OpenXrGraphicsBindingOpenGLES() {
+  if (back_buffer_fbo_) {
+    glDeleteFramebuffersEXT(1, &back_buffer_fbo_);
+  }
+
+  if (overlay_texture_) {
+    glDeleteTextures(1, &overlay_texture_);
+  }
+}
 
 bool OpenXrGraphicsBindingOpenGLES::Initialize(XrInstance instance,
                                                XrSystemId system) {
@@ -252,14 +260,15 @@ void OpenXrGraphicsBindingOpenGLES::ResizeSharedBuffer(
   // actually done in the linear space. So set up our shared image to be linear.
   // Note that this matches the behavior in the D3D11 graphics binding as well.
   swap_chain_info.shared_image = sii->CreateSharedImage(
-      viz::SinglePlaneFormat::kRGBA_8888, transfer_size,
-      gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT709,
-                      gfx::ColorSpace::TransferID::LINEAR),
-      kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, shared_image_usage,
-      "OpenXrGraphicsBinding", std::move(gmb_handle));
+      {viz::SinglePlaneFormat::kRGBA_8888, transfer_size,
+       gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT709,
+                       gfx::ColorSpace::TransferID::LINEAR),
+       shared_image_usage, "OpenXrGraphicsBinding"},
+      std::move(gmb_handle));
   CHECK(swap_chain_info.shared_image);
   swap_chain_info.sync_token = sii->GenVerifiedSyncToken();
-  DCHECK(!gpu::NativeBufferNeedsPlatformSpecificTextureTarget(format));
+  DCHECK_EQ(swap_chain_info.shared_image->GetTextureTarget(format),
+            static_cast<uint32_t>(GL_TEXTURE_2D));
 
   DVLOG(2) << ": CreateSharedImage, mailbox="
            << swap_chain_info.shared_image->mailbox().ToDebugString()
@@ -323,6 +332,7 @@ bool OpenXrGraphicsBindingOpenGLES::Render(
   glDisable(GL_CULL_FACE);
   glDisable(GL_SCISSOR_TEST);
   glDisable(GL_POLYGON_OFFSET_FILL);
+  glDisable(GL_BLEND);
 
   // TODO(https://crbug.com/324596270): This shouldn't be necessary, but we
   // can't seem to get the image set up to be treated as linear any other way.
@@ -332,7 +342,32 @@ bool OpenXrGraphicsBindingOpenGLES::Render(
   gfx::Transform transform;
   float transform_floats[16];
   transform.GetColMajorF(transform_floats);
-  renderer_->Draw(swap_chain_info.shared_buffer_texture, transform_floats);
+
+  if (webxr_visible_) {
+    renderer_->Draw(swap_chain_info.shared_buffer_texture, transform_floats);
+  }
+
+  if (overlay_visible_) {
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    if (webxr_visible_) {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    auto egl_image = gpu::CreateEGLImageFromAHardwareBuffer(
+        overlay_handle_.android_hardware_buffer.get());
+    if (!egl_image.is_valid()) {
+      return false;
+    }
+
+    if (!overlay_texture_) {
+      glGenTextures(1, &overlay_texture_);
+    }
+
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, overlay_texture_);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, egl_image.get());
+    renderer_->Draw(overlay_texture_, transform_floats);
+  }
 
   return true;
 }
@@ -364,15 +399,21 @@ void OpenXrGraphicsBindingOpenGLES::OnSwapchainImageActivated(
 void OpenXrGraphicsBindingOpenGLES::SetOverlayAndWebXrVisibility(
     bool overlay_visible,
     bool webxr_visible) {
-  // TODO(https://crbug.com/40901055): Implement overlay code.
+  overlay_visible_ = overlay_visible;
+  webxr_visible_ = webxr_visible;
 }
 
 bool OpenXrGraphicsBindingOpenGLES::SetOverlayTexture(
-    mojo::PlatformHandle texture_handle,
+    gfx::GpuMemoryBufferHandle texture,
     const gpu::SyncToken& sync_token,
     const gfx::RectF& left,
     const gfx::RectF& right) {
-  // TODO(https://crbug.com/40901055): Implement overlay code.
+  if (texture.is_null()) {
+    return false;
+  }
+
+  CHECK(texture.type == gfx::ANDROID_HARDWARE_BUFFER);
+  overlay_handle_ = std::move(texture);
   return true;
 }
 

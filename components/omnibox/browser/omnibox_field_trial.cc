@@ -550,26 +550,6 @@ bool OmniboxFieldTrial::HUPSearchDatabase() {
   return value.empty() || (value == "true");
 }
 
-bool OmniboxFieldTrial::IsActionsUISimplificationEnabled() {
-  return base::FeatureList::IsEnabled(omnibox::kOmniboxActionsUISimplification);
-}
-
-bool OmniboxFieldTrial::IsKeywordModeRefreshEnabled() {
-  return base::FeatureList::IsEnabled(omnibox::kOmniboxKeywordModeRefresh);
-}
-
-const base::FeatureParam<bool>
-    OmniboxFieldTrial::kActionsUISimplificationIncludeRealbox(
-        &omnibox::kOmniboxActionsUISimplification,
-        "ActionsUISimplificationIncludeRealbox",
-        true);
-
-const base::FeatureParam<bool>
-    OmniboxFieldTrial::kActionsUISimplificationTrimExtra(
-        &omnibox::kOmniboxActionsUISimplification,
-        "ActionsUISimplificationTrimExtra",
-        true);
-
 bool OmniboxFieldTrial::IsOnDeviceHeadSuggestEnabledForIncognito() {
   return base::FeatureList::IsEnabled(omnibox::kOnDeviceHeadProviderIncognito);
 }
@@ -1071,6 +1051,14 @@ MLConfig::MLConfig() {
           .Get();
 
   url_scoring_model = base::FeatureList::IsEnabled(omnibox::kUrlScoringModel);
+
+  ml_url_score_caching =
+      base::FeatureList::IsEnabled(omnibox::kMlUrlScoreCaching);
+  max_ml_score_cache_size =
+      base::FeatureParam<int>(&omnibox::kMlUrlScoreCaching,
+                              "MlUrlScoreCaching_MaxMlScoreCacheSize",
+                              max_ml_score_cache_size)
+          .Get();
 }
 
 MLConfig::MLConfig(const MLConfig&) = default;
@@ -1121,6 +1109,9 @@ bool IsMlUrlScoringUnlimitedNumCandidatesEnabled() {
 }
 bool IsUrlScoringModelEnabled() {
   return GetMLConfig().url_scoring_model;
+}
+bool IsMlUrlScoreCachingEnabled() {
+  return GetMLConfig().ml_url_score_caching;
 }
 
 // <- ML Relevance Scoring

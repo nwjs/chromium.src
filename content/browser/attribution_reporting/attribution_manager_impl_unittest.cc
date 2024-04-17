@@ -37,6 +37,9 @@
 #include "components/attribution_reporting/aggregatable_values.h"
 #include "components/attribution_reporting/event_trigger_data.h"
 #include "components/attribution_reporting/os_registration.h"
+#include "components/attribution_reporting/privacy_math.h"
+#include "components/attribution_reporting/registration_header_error.h"
+#include "components/attribution_reporting/registration_header_type.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
 #include "content/browser/aggregation_service/aggregation_service.h"
@@ -59,7 +62,6 @@
 #include "content/browser/attribution_reporting/common_source_info.h"
 #include "content/browser/attribution_reporting/create_report_result.h"
 #include "content/browser/attribution_reporting/os_registration.h"
-#include "content/browser/attribution_reporting/privacy_math.h"
 #include "content/browser/attribution_reporting/send_result.h"
 #include "content/browser/attribution_reporting/storable_source.h"
 #include "content/browser/attribution_reporting/stored_source.h"
@@ -71,6 +73,7 @@
 #include "content/public/browser/attribution_data_model.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/test/browser_task_environment.h"
@@ -108,6 +111,7 @@ using ::testing::Le;
 using ::testing::Matcher;
 using ::testing::Optional;
 using ::testing::Pointee;
+using ::testing::Property;
 using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
@@ -126,6 +130,9 @@ constexpr size_t kMaxPendingEvents = 5;
 constexpr size_t kMaxPendingReportsTimings = 50;
 
 const GlobalRenderFrameHostId kFrameId = {0, 1};
+const ContentBrowserClient::AttributionReportingOsReportTypes kOsReportTypes = {
+    ContentBrowserClient::AttributionReportingOsReportType::kWeb,
+    ContentBrowserClient::AttributionReportingOsReportType::kWeb};
 
 constexpr AttributionStorageDelegate::OfflineReportDelayConfig
     kDefaultOfflineReportDelay{
@@ -906,30 +913,28 @@ TEST_F(AttributionManagerImplTest, TriggerHandled_ObserversNotified) {
   {
     InSequence seq;
 
-    EXPECT_CALL(
-        observer,
-        OnTriggerHandled(_, _,
-                         CreateReportEventLevelStatusIs(
-                             AttributionTrigger::EventLevelResult::kSuccess)))
+    EXPECT_CALL(observer,
+                OnTriggerHandled(
+                    _, CreateReportEventLevelStatusIs(
+                           AttributionTrigger::EventLevelResult::kSuccess)))
         .Times(3);
 
     EXPECT_CALL(checkpoint, Call(1));
 
     EXPECT_CALL(
         observer,
-        OnTriggerHandled(_, _,
-                         AllOf(ReplacedEventLevelReportIs(Optional(
-                                   EventLevelDataIs(TriggerPriorityIs(1)))),
-                               CreateReportEventLevelStatusIs(
-                                   AttributionTrigger::EventLevelResult::
-                                       kSuccessDroppedLowerPriority))));
+        OnTriggerHandled(_, AllOf(ReplacedEventLevelReportIs(Optional(
+                                      EventLevelDataIs(TriggerPriorityIs(1)))),
+                                  CreateReportEventLevelStatusIs(
+                                      AttributionTrigger::EventLevelResult::
+                                          kSuccessDroppedLowerPriority))));
 
     EXPECT_CALL(checkpoint, Call(2));
 
     EXPECT_CALL(
         observer,
         OnTriggerHandled(
-            _, _,
+            _,
             AllOf(ReplacedEventLevelReportIs(std::nullopt),
                   CreateReportEventLevelStatusIs(
                       AttributionTrigger::EventLevelResult::kPriorityTooLow))));
@@ -938,20 +943,18 @@ TEST_F(AttributionManagerImplTest, TriggerHandled_ObserversNotified) {
 
     EXPECT_CALL(
         observer,
-        OnTriggerHandled(_, _,
-                         AllOf(ReplacedEventLevelReportIs(Optional(
-                                   EventLevelDataIs(TriggerPriorityIs(2)))),
-                               CreateReportEventLevelStatusIs(
-                                   AttributionTrigger::EventLevelResult::
-                                       kSuccessDroppedLowerPriority))));
+        OnTriggerHandled(_, AllOf(ReplacedEventLevelReportIs(Optional(
+                                      EventLevelDataIs(TriggerPriorityIs(2)))),
+                                  CreateReportEventLevelStatusIs(
+                                      AttributionTrigger::EventLevelResult::
+                                          kSuccessDroppedLowerPriority))));
     EXPECT_CALL(
         observer,
-        OnTriggerHandled(_, _,
-                         AllOf(ReplacedEventLevelReportIs(Optional(
-                                   EventLevelDataIs(TriggerPriorityIs(3)))),
-                               CreateReportEventLevelStatusIs(
-                                   AttributionTrigger::EventLevelResult::
-                                       kSuccessDroppedLowerPriority))));
+        OnTriggerHandled(_, AllOf(ReplacedEventLevelReportIs(Optional(
+                                      EventLevelDataIs(TriggerPriorityIs(3)))),
+                                  CreateReportEventLevelStatusIs(
+                                      AttributionTrigger::EventLevelResult::
+                                          kSuccessDroppedLowerPriority))));
   }
 
   attribution_manager_->HandleSource(SourceBuilder()
@@ -1111,14 +1114,22 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
       browser_client,
       GetAttributionSupport(
           ContentBrowserClient::AttributionReportingOsApiState::kEnabled,
-          testing::_))
+          /*client_os_disabled=*/false))
       .WillRepeatedly(
           testing::Return(network::mojom::AttributionSupport::kWebAndOs));
+  EXPECT_CALL(
+      browser_client,
+      GetAttributionSupport(
+          ContentBrowserClient::AttributionReportingOsApiState::kEnabled,
+          /*client_os_disabled=*/true))
+      .WillRepeatedly(
+          testing::Return(network::mojom::AttributionSupport::kWeb));
 
   const GURL kRegistrationUrl1("https://r1.test/x");
   const GURL kRegistrationUrl2("https://r2.test/y");
   const GURL kRegistrationUrl3;  // opaque
   const GURL kRegistrationUrl4("https://r4.test/y");
+  const GURL kRegistrationUrl5("https://r5.test/y");
 
   const auto kRegistrationOrigin1 = url::Origin::Create(kRegistrationUrl1);
   const auto kRegistrationOrigin2 = url::Origin::Create(kRegistrationUrl2);
@@ -1140,16 +1151,16 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
     const OsRegistration registration1(
         {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false)},
         kTopLevelOrigin1, AttributionInputEvent(),
-        /*is_within_fenced_frame=*/false, kFrameId);
+        /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes);
     EXPECT_CALL(*os_level_manager_,
                 Register(registration1,
                          /*is_debug_key_allowed=*/ElementsAre(true), _))
         .WillOnce(base::test::RunOnceCallback<2>(registration1, true));
 
     const OsRegistration registration2(
-        {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
+        {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/true)},
         kTopLevelOrigin2, AttributionInputEvent(),
-        /*is_within_fenced_frame=*/false, kFrameId);
+        /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes);
     EXPECT_CALL(*os_level_manager_,
                 Register(registration2,
                          /*is_debug_key_allowed=*/ElementsAre(false), _))
@@ -1161,7 +1172,8 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
         Register(OsRegistration({OsRegistrationItem(kRegistrationUrl3,
                                                     /*debug_reporting=*/false)},
                                 kTopLevelOrigin3, AttributionInputEvent(),
-                                /*is_within_fenced_frame=*/false, kFrameId),
+                                /*is_within_fenced_frame=*/false, kFrameId,
+                                kOsReportTypes),
                  _, _))
         .Times(0);
 
@@ -1170,7 +1182,7 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
         {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false),
          OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
         kTopLevelOrigin5, AttributionInputEvent(),
-        /*is_within_fenced_frame=*/false, kFrameId);
+        /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes);
     EXPECT_CALL(*os_level_manager_,
                 Register(registration5,
                          /*is_debug_key_allowed=*/ElementsAre(true, false), _))
@@ -1182,7 +1194,8 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
         Register(OsRegistration({OsRegistrationItem(kRegistrationUrl4,
                                                     /*debug_reporting=*/false)},
                                 kTopLevelOrigin4, AttributionInputEvent(),
-                                /*is_within_fenced_frame=*/false, kFrameId),
+                                /*is_within_fenced_frame=*/false, kFrameId,
+                                kOsReportTypes),
                  _, _))
         .Times(0);
 
@@ -1197,26 +1210,46 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
                 Register(registration2,
                          /*is_debug_key_allowed=*/ElementsAre(true), _))
         .WillOnce(base::test::RunOnceCallback<2>(registration2, false));
+
+    // Dropped due to Os attribution being disabled by the client.
+    EXPECT_CALL(*os_level_manager_,
+                Register(OsRegistration(
+                             {OsRegistrationItem(kRegistrationUrl5,
+                                                 /*debug_reporting=*/false)},
+                             kTopLevelOrigin1, AttributionInputEvent(),
+                             /*is_within_fenced_frame=*/false, kFrameId,
+                             {ContentBrowserClient::
+                                  AttributionReportingOsReportType::kDisabled,
+                              ContentBrowserClient::
+                                  AttributionReportingOsReportType::kDisabled}),
+                         _, _))
+        .Times(0);
   }
 
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false)},
       kTopLevelOrigin1, AttributionInputEvent(),
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
-      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
+      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/true)},
       kTopLevelOrigin2, AttributionInputEvent(),
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl3, /*debug_reporting=*/false)},
       kTopLevelOrigin3, AttributionInputEvent(),
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl3, /*debug_reporting=*/false),
        OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false),
        OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
       kTopLevelOrigin5, AttributionInputEvent(),
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
+  attribution_manager_->HandleOsRegistration(OsRegistration(
+      {OsRegistrationItem(kRegistrationUrl5, /*debug_reporting=*/false)},
+      kTopLevelOrigin1, AttributionInputEvent(),
+      /*is_within_fenced_frame=*/false, kFrameId,
+      {ContentBrowserClient::AttributionReportingOsReportType::kDisabled,
+       ContentBrowserClient::AttributionReportingOsReportType::kDisabled}));
 
   ExpectOperationAllowed(
       browser_client, AttributionReportingOperation::kOsSource,
@@ -1232,12 +1265,6 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
       AttributionReportingOperation::kOsSourceTransitionalDebugReporting,
       /*source_origin=*/&kTopLevelOrigin1, /*destination_origin=*/nullptr,
       /*reporting_origin=*/kRegistrationOrigin1, /*allowed=*/false);
-  ExpectOperationAllowed(
-      browser_client,
-      AttributionReportingOperation::kOsSourceVerboseDebugReport,
-      /*source_origin=*/&kTopLevelOrigin1, /*destination_origin=*/nullptr,
-      /*reporting_origin=*/kRegistrationOrigin1, /*allowed=*/true);
-
   ExpectOperationAllowed(
       browser_client, AttributionReportingOperation::kOsSource,
       /*source_origin=*/&kTopLevelOrigin2, /*destination_origin=*/nullptr,
@@ -1269,20 +1296,21 @@ TEST_F(AttributionManagerImplTest, HandleOsSource) {
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl4, /*debug_reporting=*/false)},
       kTopLevelOrigin4, AttributionInputEvent(),
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false)},
       kTopLevelOrigin1, AttributionInputEvent(),
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
-      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
+      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/true)},
       kTopLevelOrigin2, AttributionInputEvent(),
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
 
   EXPECT_THAT(
       histograms.GetAllSamples("Conversions.OsRegistrationResult.Source"),
       ElementsAre(
           base::Bucket(OsRegistrationResult::kPassedToOs, 4),
+          base::Bucket(OsRegistrationResult::kUnsupported, 1),
           base::Bucket(OsRegistrationResult::kInvalidRegistrationUrl, 2),
           base::Bucket(OsRegistrationResult::kProhibitedByBrowserPolicy, 1),
           base::Bucket(OsRegistrationResult::kRejectedByOs, 2)));
@@ -1297,14 +1325,22 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
       browser_client,
       GetAttributionSupport(
           ContentBrowserClient::AttributionReportingOsApiState::kEnabled,
-          testing::_))
+          /*client_os_disabled=*/false))
       .WillRepeatedly(
           testing::Return(network::mojom::AttributionSupport::kWebAndOs));
+  EXPECT_CALL(
+      browser_client,
+      GetAttributionSupport(
+          ContentBrowserClient::AttributionReportingOsApiState::kEnabled,
+          /*client_os_disabled=*/true))
+      .WillRepeatedly(
+          testing::Return(network::mojom::AttributionSupport::kWeb));
 
   const GURL kRegistrationUrl1("https://r1.test/x");
   const GURL kRegistrationUrl2("https://r2.test/y");
   const GURL kRegistrationUrl3;  // opaque
   const GURL kRegistrationUrl4("https://r4.test/y");
+  const GURL kRegistrationUrl5("https://r5.test/y");
 
   const auto kRegistrationOrigin1 = url::Origin::Create(kRegistrationUrl1);
   const auto kRegistrationOrigin2 = url::Origin::Create(kRegistrationUrl2);
@@ -1327,17 +1363,17 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
         {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false)},
         kTopLevelOrigin1,
         /*input_event=*/std::nullopt, /*is_within_fenced_frame=*/false,
-        kFrameId);
+        kFrameId, kOsReportTypes);
     EXPECT_CALL(*os_level_manager_,
                 Register(registration1,
                          /*is_debug_key_allowed=*/ElementsAre(true), _))
         .WillOnce(base::test::RunOnceCallback<2>(registration1, true));
 
     const OsRegistration registration2(
-        {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
+        {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/true)},
         kTopLevelOrigin2,
         /*input_event=*/std::nullopt, /*is_within_fenced_frame=*/false,
-        kFrameId);
+        kFrameId, kOsReportTypes);
     EXPECT_CALL(*os_level_manager_,
                 Register(registration2,
                          /*is_debug_key_allowed=*/ElementsAre(false), _))
@@ -1350,7 +1386,8 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
                                                     /*debug_reporting=*/false)},
                                 kTopLevelOrigin3,
                                 /*input_event=*/std::nullopt,
-                                /*is_within_fenced_frame=*/false, kFrameId),
+                                /*is_within_fenced_frame=*/false, kFrameId,
+                                kOsReportTypes),
                  _, _))
         .Times(0);
 
@@ -1359,7 +1396,7 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
         {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false),
          OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
         kTopLevelOrigin5, /*input_event=*/std::nullopt,
-        /*is_within_fenced_frame=*/false, kFrameId);
+        /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes);
     EXPECT_CALL(*os_level_manager_,
                 Register(expected_registration5,
                          /*is_debug_key_allowed=*/ElementsAre(true, false), _))
@@ -1372,7 +1409,8 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
                                                     /*debug_reporting=*/false)},
                                 kTopLevelOrigin4,
                                 /*input_event=*/std::nullopt,
-                                /*is_within_fenced_frame=*/false, kFrameId),
+                                /*is_within_fenced_frame=*/false, kFrameId,
+                                kOsReportTypes),
                  _, _))
         .Times(0);
 
@@ -1387,29 +1425,49 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
                 Register(registration2,
                          /*is_debug_key_allowed=*/ElementsAre(true), _))
         .WillOnce(base::test::RunOnceCallback<2>(registration2, false));
+
+    // Dropped due to Os attribution being disabled by the client.
+    EXPECT_CALL(*os_level_manager_,
+                Register(OsRegistration(
+                             {OsRegistrationItem(kRegistrationUrl5,
+                                                 /*debug_reporting=*/false)},
+                             kTopLevelOrigin1, /*input_event=*/std::nullopt,
+                             /*is_within_fenced_frame=*/false, kFrameId,
+                             {ContentBrowserClient::
+                                  AttributionReportingOsReportType::kDisabled,
+                              ContentBrowserClient::
+                                  AttributionReportingOsReportType::kDisabled}),
+                         _, _))
+        .Times(0);
   }
 
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false)},
       kTopLevelOrigin1,
       /*input_event=*/std::nullopt,
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
-      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
+      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/true)},
       kTopLevelOrigin2,
       /*input_event=*/std::nullopt,
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl3, /*debug_reporting=*/false)},
       kTopLevelOrigin3,
       /*input_event=*/std::nullopt,
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl3, /*debug_reporting=*/false),
        OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false),
        OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
       kTopLevelOrigin5, /*input_event=*/std::nullopt,
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
+  attribution_manager_->HandleOsRegistration(OsRegistration(
+      {OsRegistrationItem(kRegistrationUrl5, /*debug_reporting=*/false)},
+      kTopLevelOrigin1, /*input_event=*/std::nullopt,
+      /*is_within_fenced_frame=*/false, kFrameId,
+      {ContentBrowserClient::AttributionReportingOsReportType::kDisabled,
+       ContentBrowserClient::AttributionReportingOsReportType::kDisabled}));
 
   ExpectOperationAllowed(
       browser_client, AttributionReportingOperation::kOsTrigger,
@@ -1425,11 +1483,6 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
       AttributionReportingOperation::kOsTriggerTransitionalDebugReporting,
       /*source_origin=*/nullptr, /*destination_origin=*/&kTopLevelOrigin1,
       /*reporting_origin=*/kRegistrationOrigin1, /*allowed=*/false);
-  ExpectOperationAllowed(
-      browser_client,
-      AttributionReportingOperation::kOsTriggerVerboseDebugReport,
-      /*source_origin=*/nullptr, /*destination_origin=*/&kTopLevelOrigin1,
-      /*reporting_origin=*/kRegistrationOrigin1, /*allowed=*/true);
 
   ExpectOperationAllowed(
       browser_client, AttributionReportingOperation::kOsTrigger,
@@ -1463,22 +1516,23 @@ TEST_F(AttributionManagerImplTest, HandleOsTrigger) {
       {OsRegistrationItem(kRegistrationUrl4, /*debug_reporting=*/false)},
       kTopLevelOrigin4,
       /*input_event=*/std::nullopt,
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
       {OsRegistrationItem(kRegistrationUrl1, /*debug_reporting=*/false)},
       kTopLevelOrigin1,
       /*input_event=*/std::nullopt,
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
   attribution_manager_->HandleOsRegistration(OsRegistration(
-      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/false)},
+      {OsRegistrationItem(kRegistrationUrl2, /*debug_reporting=*/true)},
       kTopLevelOrigin2,
       /*input_event=*/std::nullopt,
-      /*is_within_fenced_frame=*/false, kFrameId));
+      /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes));
 
   EXPECT_THAT(
       histograms.GetAllSamples("Conversions.OsRegistrationResult.Trigger"),
       ElementsAre(
           base::Bucket(OsRegistrationResult::kPassedToOs, 4),
+          base::Bucket(OsRegistrationResult::kUnsupported, 1),
           base::Bucket(OsRegistrationResult::kInvalidRegistrationUrl, 2),
           base::Bucket(OsRegistrationResult::kProhibitedByBrowserPolicy, 1),
           base::Bucket(OsRegistrationResult::kRejectedByOs, 2)));
@@ -1492,71 +1546,25 @@ TEST_F(AttributionManagerImplTest, ConversionsSentFromUI_ReportedImmediately) {
     EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
         .Times(0);
     EXPECT_CALL(checkpoint, Call(1));
-    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _));
+    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
+        .WillOnce(InvokeReportSentCallback(SendResult::Status::kSent));
   }
 
   attribution_manager_->HandleSource(
       SourceBuilder().SetExpiry(kImpressionExpiry).Build(), kFrameId);
   attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
   std::vector<AttributionReport> reports = StoredReports();
-  EXPECT_THAT(reports, SizeIs(1));
+  ASSERT_THAT(reports, SizeIs(1));
 
   checkpoint.Call(1);
 
-  attribution_manager_->SendReportsForWebUI({reports.front().id()},
-                                            base::DoNothing());
+  int calls = 0;
+
+  attribution_manager_->SendReportForWebUI(
+      reports.front().id(), base::BindLambdaForTesting([&]() { ++calls; }));
+
   task_environment_.FastForwardBy(base::TimeDelta());
-}
-
-TEST_F(AttributionManagerImplTest,
-       ConversionsSentFromUI_CallbackInvokedWhenAllDone) {
-  std::vector<ReportSentCallback> report_sent_callbacks;
-  std::vector<AttributionReport> sent_reports;
-
-  Checkpoint checkpoint;
-  {
-    InSequence seq;
-
-    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
-        .Times(0);
-    EXPECT_CALL(checkpoint, Call(1));
-    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
-        .WillRepeatedly([&](AttributionReport report, bool is_debug_report,
-                            ReportSentCallback callback) {
-          report_sent_callbacks.push_back(std::move(callback));
-          sent_reports.push_back(std::move(report));
-        });
-  }
-
-  size_t callback_calls = 0;
-
-  attribution_manager_->HandleSource(
-      SourceBuilder().SetExpiry(kImpressionExpiry).Build(), kFrameId);
-  attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
-  attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
-  std::vector<AttributionReport> reports = StoredReports();
-  EXPECT_THAT(reports, SizeIs(2));
-
-  checkpoint.Call(1);
-
-  attribution_manager_->SendReportsForWebUI(
-      {reports.front().id(), reports.back().id()},
-      base::BindLambdaForTesting([&]() { callback_calls++; }));
-  task_environment_.FastForwardBy(base::TimeDelta());
-  EXPECT_EQ(callback_calls, 0u);
-
-  ASSERT_THAT(report_sent_callbacks, SizeIs(2));
-  ASSERT_THAT(sent_reports, SizeIs(2));
-
-  std::move(report_sent_callbacks[0])
-      .Run(std::move(sent_reports[0]), SendResult(SendResult::Status::kSent));
-  task_environment_.FastForwardBy(base::TimeDelta());
-  EXPECT_EQ(callback_calls, 0u);
-
-  std::move(report_sent_callbacks[1])
-      .Run(std::move(sent_reports[1]), SendResult(SendResult::Status::kSent));
-  task_environment_.FastForwardBy(base::TimeDelta());
-  EXPECT_EQ(callback_calls, 1u);
+  EXPECT_EQ(calls, 1);
 }
 
 TEST_F(AttributionManagerImplTest, ExpiredReportsAtStartup_Delayed) {
@@ -1834,10 +1842,6 @@ TEST_F(AttributionManagerImplTest,
                          &source_origin, /*destination_origin=*/nullptr,
                          reporting_origin,
                          /*allowed=*/false);
-  ExpectOperationAllowed(
-      browser_client, AttributionReportingOperation::kSourceVerboseDebugReport,
-      &source_origin, /*destination_origin=*/nullptr, reporting_origin,
-      /*allowed=*/true);
   ScopedContentBrowserClientSetting setting(&browser_client);
 
   attribution_manager_->HandleSource(source, kFrameId);
@@ -1859,15 +1863,15 @@ TEST_F(AttributionManagerImplTest,
 
   const auto trigger = DefaultTrigger();
 
-  EXPECT_CALL(observer, OnTriggerHandled(
-                            trigger, _,
-                            AllOf(_,
-                                  CreateReportEventLevelStatusIs(
-                                      AttributionTrigger::EventLevelResult::
-                                          kProhibitedByBrowserPolicy),
-                                  CreateReportAggregatableStatusIs(
-                                      AttributionTrigger::AggregatableResult::
-                                          kProhibitedByBrowserPolicy))));
+  EXPECT_CALL(
+      observer,
+      OnTriggerHandled(_, AllOf(Property(&CreateReportResult::trigger, trigger),
+                                CreateReportEventLevelStatusIs(
+                                    AttributionTrigger::EventLevelResult::
+                                        kProhibitedByBrowserPolicy),
+                                CreateReportAggregatableStatusIs(
+                                    AttributionTrigger::AggregatableResult::
+                                        kProhibitedByBrowserPolicy))));
 
   MockAttributionReportingContentBrowserClient browser_client;
   EXPECT_CALL(
@@ -1876,8 +1880,6 @@ TEST_F(AttributionManagerImplTest,
           _,
           AnyOf(
               AttributionReportingOperation::kSource,
-              AttributionReportingOperation::kSourceVerboseDebugReport,
-              AttributionReportingOperation::kTriggerVerboseDebugReport,
               AttributionReportingOperation::kSourceTransitionalDebugReporting),
           _, _, _, _, _))
       .WillRepeatedly(Return(true));
@@ -1915,8 +1917,6 @@ TEST_F(AttributionManagerImplTest, EmbedderDisallowsReporting_ReportNotSent) {
           AnyOf(
               AttributionReportingOperation::kSource,
               AttributionReportingOperation::kTrigger,
-              AttributionReportingOperation::kSourceVerboseDebugReport,
-              AttributionReportingOperation::kTriggerVerboseDebugReport,
               AttributionReportingOperation::kSourceTransitionalDebugReporting),
           _, _, _, _, _))
       .WillRepeatedly(Return(true));
@@ -1975,8 +1975,6 @@ TEST_F(AttributionManagerImplTest,
           AnyOf(
               AttributionReportingOperation::kSource,
               AttributionReportingOperation::kTrigger,
-              AttributionReportingOperation::kSourceVerboseDebugReport,
-              AttributionReportingOperation::kTriggerVerboseDebugReport,
               AttributionReportingOperation::kSourceTransitionalDebugReporting,
               AttributionReportingOperation::
                   kTriggerTransitionalDebugReporting),
@@ -2233,8 +2231,8 @@ TEST_F(AttributionManagerImplTest, SendReportsFromWebUI_DoesNotRecordMetrics) {
 
   EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _));
 
-  attribution_manager_->SendReportsForWebUI({AttributionReport::Id(1)},
-                                            base::DoNothing());
+  attribution_manager_->SendReportForWebUI(AttributionReport::Id(1),
+                                           base::DoNothing());
   task_environment_.FastForwardBy(base::TimeDelta());
 
   histograms.ExpectTotalCount("Conversions.ExtraReportDelay2", 0);
@@ -2245,9 +2243,10 @@ class AttributionManagerImplFakeReportTest : public AttributionManagerImplTest {
  protected:
   void ConfigureStorageDelegate(
       ConfigurableStorageDelegate& delegate) const override {
-    delegate.set_randomized_response(std::vector<FakeEventLevelReport>{
-        {.trigger_data = 0, .window_index = 0},
-    });
+    delegate.set_randomized_response(
+        std::vector<attribution_reporting::FakeEventLevelReport>{
+            {.trigger_data = 0, .window_index = 0},
+        });
   }
 };
 
@@ -2441,11 +2440,8 @@ TEST_F(AttributionManagerImplTest, HandleSource_DebugKey) {
     EXPECT_CALL(
         browser_client,
         IsAttributionReportingOperationAllowed(
-            _,
-            AnyOf(ContentBrowserClient::AttributionReportingOperation::kSource,
-                  ContentBrowserClient::AttributionReportingOperation::
-                      kSourceVerboseDebugReport),
-            _, _, IsNull(), Pointee(*reporting_origin), _))
+            _, ContentBrowserClient::AttributionReportingOperation::kSource, _,
+            _, IsNull(), Pointee(*reporting_origin), _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(browser_client,
                 IsAttributionReportingOperationAllowed(
@@ -2508,11 +2504,7 @@ TEST_F(AttributionManagerImplTest, HandleTrigger_DebugKey) {
         IsAttributionReportingOperationAllowed(
             _,
             AnyOf(ContentBrowserClient::AttributionReportingOperation::kSource,
-                  ContentBrowserClient::AttributionReportingOperation::
-                      kSourceVerboseDebugReport,
                   ContentBrowserClient::AttributionReportingOperation::kTrigger,
-                  ContentBrowserClient::AttributionReportingOperation::
-                      kTriggerVerboseDebugReport,
                   ContentBrowserClient::AttributionReportingOperation::
                       kSourceTransitionalDebugReporting),
             _, _, _, Pointee(*reporting_origin), _))
@@ -2543,8 +2535,7 @@ TEST_F(AttributionManagerImplTest, HandleTrigger_DebugKey) {
                                        kFrameId);
 
     EXPECT_THAT(StoredSources(), SizeIs(1)) << test_case.name;
-    EXPECT_CALL(observer,
-                OnTriggerHandled(_, test_case.expected_cleared_key, _));
+    EXPECT_CALL(observer, OnTriggerHandled(test_case.expected_cleared_key, _));
     attribution_manager_->HandleTrigger(
         TriggerBuilder()
             .SetReportingOrigin(reporting_origin)
@@ -3480,13 +3471,9 @@ TEST_F(AttributionManagerImplNullAggregatableReportTest, ReportSent) {
 TEST_F(AttributionManagerImplNullAggregatableReportTest,
        EmbedderDisallowsReporting_ReportNotSent) {
   MockAttributionReportingContentBrowserClient browser_client;
-  EXPECT_CALL(
-      browser_client,
-      IsAttributionReportingOperationAllowed(
-          _,
-          AnyOf(AttributionReportingOperation::kTrigger,
-                AttributionReportingOperation::kTriggerVerboseDebugReport),
-          _, _, _, _, _))
+  EXPECT_CALL(browser_client,
+              IsAttributionReportingOperationAllowed(
+                  _, AttributionReportingOperation::kTrigger, _, _, _, _, _))
       .WillRepeatedly(Return(true));
   const auto destination_origin =
       url::Origin::Create(GURL("https://sub.conversion.test/"));
@@ -3535,7 +3522,7 @@ TEST_F(AttributionManagerImplTest,
         is_os_source
             ? std::make_optional<AttributionInputEvent>(AttributionInputEvent())
             : std::nullopt,
-        /*is_within_fenced_frame=*/false, kFrameId);
+        /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes);
 
     EXPECT_CALL(*os_level_manager_, Register)
         .WillOnce(base::test::RunOnceCallback<2>(registration, true));
@@ -3570,7 +3557,7 @@ TEST_F(AttributionManagerImplTest,
         is_os_source
             ? std::make_optional<AttributionInputEvent>(AttributionInputEvent())
             : std::nullopt,
-        /*is_within_fenced_frame=*/false, kFrameId);
+        /*is_within_fenced_frame=*/false, kFrameId, kOsReportTypes);
 
     EXPECT_CALL(*report_sender_, SendReport(_, _)).Times(0);
 
@@ -3579,7 +3566,7 @@ TEST_F(AttributionManagerImplTest,
         browser_client,
         GetAttributionSupport(
             ContentBrowserClient::AttributionReportingOsApiState::kEnabled,
-            testing::_))
+            /*client_os_disabled=*/false))
         .WillOnce(
             testing::Return(network::mojom::AttributionSupport::kWebAndOs));
     EXPECT_CALL(browser_client,
@@ -3631,7 +3618,6 @@ TEST_F(AttributionManagerImplTest,
           _,
           AnyOf(
               AttributionReportingOperation::kSource,
-              AttributionReportingOperation::kSourceVerboseDebugReport,
               AttributionReportingOperation::kSourceTransitionalDebugReporting),
           _, _, _, _, _))
       .WillRepeatedly(Return(true));
@@ -3663,7 +3649,6 @@ TEST_F(AttributionManagerImplTest,
           _,
           AnyOf(
               AttributionReportingOperation::kSource,
-              AttributionReportingOperation::kSourceVerboseDebugReport,
               AttributionReportingOperation::kSourceTransitionalDebugReporting),
           _, _, _, _, _))
       .WillRepeatedly(Return(true));
@@ -3769,6 +3754,33 @@ TEST_F(AttributionManagerImplTest,
   task_environment_.FastForwardBy(kDefaultOfflineReportDelay.max);
 
   histograms.ExpectTotalCount("Conversions.DelayOnAttestationsLoaded", 1);
+}
+
+TEST_F(AttributionManagerImplTest, RegistrationHeaderErrorDebugReport) {
+  for (const bool allowed : {false, true}) {
+    SCOPED_TRACE(allowed);
+
+    base::HistogramTester histograms;
+
+    MockAttributionReportingContentBrowserClient browser_client;
+    EXPECT_CALL(browser_client, IsAttributionReportingAllowedForContext)
+        .WillOnce(Return(allowed));
+    ScopedContentBrowserClientSetting setting(&browser_client);
+
+    EXPECT_CALL(*report_sender_, SendReport(_, _)).Times(allowed);
+
+    attribution_manager_->ReportRegistrationHeaderError(
+        *SuitableOrigin::Deserialize("https://r.test"),
+        attribution_reporting::RegistrationHeaderError(
+            attribution_reporting::mojom::RegistrationHeaderType::kSource,
+            /*header_value=*/"!!!"),
+        *SuitableOrigin::Deserialize("https://c.test"),
+        /*is_within_fenced_frame=*/false, kFrameId);
+
+    // kHeaderParsingError = 28
+    histograms.ExpectUniqueSample(kSentVerboseDebugReportTypeMetric,
+                                  /*sample=*/28, allowed);
+  }
 }
 
 }  // namespace content

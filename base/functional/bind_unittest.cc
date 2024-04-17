@@ -12,10 +12,6 @@
 
 #include "base/allocator/partition_alloc_features.h"
 #include "base/allocator/partition_alloc_support.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/dangling_raw_ptr_checks.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_buildflags.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_for_testing.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_root.h"
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -27,6 +23,10 @@
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
+#include "partition_alloc/dangling_raw_ptr_checks.h"
+#include "partition_alloc/partition_alloc_buildflags.h"
+#include "partition_alloc/partition_alloc_for_testing.h"
+#include "partition_alloc/partition_root.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -1305,6 +1305,15 @@ TEST_F(BindTest, BindMoveOnlyVector) {
   VerifyVector(final_result);
 }
 
+// Using Passed() on a functor should not cause a compile error.
+TEST_F(BindTest, PassedFunctor) {
+  struct S {
+    void operator()() const {}
+  };
+
+  BindRepeating(Passed(S())).Run();
+}
+
 // Argument copy-constructor usage for non-reference copy-only parameters.
 //   - Bound arguments are only copied once.
 //   - Forwarded arguments are only copied once.
@@ -1773,6 +1782,30 @@ TEST_F(BindTest, OverloadedOperator) {
 
   EXPECT_EQ(42, BindOnce(s, 42).Run());
   EXPECT_EQ("Hello", BindOnce(s, "Hello").Run());
+}
+
+TEST_F(BindTest, OverloadedOperatorQualifiers) {
+  // Bind should be able to pick the correct `operator()()` to invoke on a
+  // functor when the only difference between the overloads is their qualifiers.
+  struct S {
+    int operator()() const& { return 1; }
+    int operator()() && { return 2; }
+  } s;
+
+  // `BindRepeating()` normally stores a value and passes a const ref to the
+  // invoked method, regardless of whether lvalue or rvalue was originally
+  // provided.
+  EXPECT_EQ(1, BindRepeating(s).Run());
+  EXPECT_EQ(1, BindRepeating(S()).Run());
+
+  // The exception is if `Passed()` is used, which tells `BindRepeating()` to
+  // move the specified argument during invocation.
+  EXPECT_EQ(2, BindRepeating(Passed(S())).Run());
+
+  // `BindOnce()` also stores a value, but it always moves that value during
+  // invocation, regardless of whether lvalue or rvalue was originally provided.
+  EXPECT_EQ(2, BindOnce(s).Run());
+  EXPECT_EQ(2, BindOnce(S()).Run());
 }
 
 TEST_F(BindTest, OverloadedOperatorInexactMatch) {

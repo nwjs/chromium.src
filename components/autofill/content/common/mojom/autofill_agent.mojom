@@ -23,18 +23,20 @@ interface AutofillAgent {
   // Fills or previews the form identified by `form` with the data of its
   // fields. `action_type` denotes if the action is a Fill or Undo.
   // `action_persistence` denotes if the operation is a Fill or Preview.
-  ApplyFormAction(ActionType action_type,
+  ApplyFieldsAction(FormActionType action_type,
                   ActionPersistence action_persistence,
-                  FormData_FillData form);
+                  array<FormFieldData_FillData> fields);
 
   // Fills or previews the field identified by `field` with `value`.
   // `action_persistence` denotes if the operation is a Fill or Preview.
-  // `text_replacement` indicates whether to replace the field's entire value
-  // or only the current selection. For non-text fields, this parameter has no
-  // effect. This must not be `kReplaceSelection` if `action_persistence` is
-  // `kPreview`. Enabling this is desirable but not implemented, yet.
-  ApplyFieldAction(ActionPersistence action_persistence,
-                   TextReplacement text_replacement,
+  // `action_type` indicates whether to replace the field's entire value
+  // or only the current selection or select all text inside the field.
+  // For non-text fields, this parameter has no effect. This must not be
+  // `kReplaceSelection` if `action_persistence` is `kPreview`.
+  // Enabling this is desirable but not implemented, yet.
+  // If `action_type` is `kSelectAll`, then the `value` must be empty.
+  ApplyFieldAction(FieldActionType action_type,
+                   ActionPersistence action_persistence,
                    FieldRendererId field,
                    mojo_base.mojom.String16 value);
 
@@ -86,10 +88,6 @@ interface AutofillAgent {
   // Tells the renderer to preview the generated password.
   PreviewPasswordGenerationSuggestion(mojo_base.mojom.String16 password);
 
-  // Allows heavy scraping of form data (e.g., button titles for
-  // unowned forms).
-  EnableHeavyFormDataScraping();
-
   // Returns a vector of four digit combinations present in the DOM of a
   // webpage. Used to check for the presence of the virtual card last four in
   // the DOM prior to offering CVC autofill for a virtual card saved on a
@@ -118,6 +116,12 @@ interface PasswordAutofillAgent {
 
   // Fills the given `credential` into the last focused text input.
   FillIntoFocusedField(bool is_password, mojo_base.mojom.String16 credential);
+
+  // Previews the given `value` into the field identified by `field_id`.
+  PreviewField(FieldRendererId field_id, mojo_base.mojom.String16 value);
+
+  // Fills the given `value` into the field identified by `field_id`.
+  FillField(FieldRendererId field_id, mojo_base.mojom.String16 value);
 
   // Notification to start (`active` == true) or stop (`active` == false)
   // logging the decisions made about saving the password.

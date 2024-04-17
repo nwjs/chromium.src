@@ -16,6 +16,8 @@ import androidx.preference.PreferenceViewHolder;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils.ErrorCardDetails;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils.ErrorUiAction;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils.SyncError;
@@ -28,6 +30,7 @@ public class IdentityErrorCardPreference extends Preference
         void onIdentityErrorCardButtonClicked(@SyncError int error);
     }
 
+    private Profile mProfile;
     private SyncService mSyncService;
     private Listener mListener;
 
@@ -41,19 +44,15 @@ public class IdentityErrorCardPreference extends Preference
     }
 
     /**
-     * Initialize the dependencies for the IdentityErrorCardPreference.
-     *
-     * <p>Must be called before the preference is attached, which is called from the containing
-     * settings screen's onViewCreated method.
+     * Initialize the dependencies for the IdentityErrorCardPreference and update the error card.
      */
-    public void initialize(SyncService syncService, Listener listener) {
-        mSyncService = syncService;
-        mListener = listener;
-    }
+    public void initialize(Profile profile, Listener listener) {
+        assert getParent() != null : "Not attached to any parent.";
 
-    @Override
-    public void onAttached() {
-        super.onAttached();
+        mProfile = profile;
+        mSyncService = SyncServiceFactory.getForProfile(mProfile);
+        mListener = listener;
+
         if (mSyncService != null) {
             mSyncService.addSyncStateChangedListener(this);
         }
@@ -80,7 +79,7 @@ public class IdentityErrorCardPreference extends Preference
     }
 
     private void update() {
-        @SyncError int error = SyncSettingsUtils.getIdentityError(mSyncService);
+        @SyncError int error = SyncSettingsUtils.getIdentityError(mProfile);
         if (error == mIdentityError) {
             // Nothing changed.
             return;

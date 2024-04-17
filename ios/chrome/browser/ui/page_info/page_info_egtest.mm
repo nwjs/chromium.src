@@ -6,9 +6,14 @@
 #import <XCTest/XCTest.h>
 
 #import "base/ios/ios_util.h"
+#import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "components/content_settings/core/browser/content_settings_uma_util.h"
+#import "components/content_settings/core/common/content_settings_types.h"
 #import "components/optimization_guide/core/optimization_guide_switches.h"
+#import "components/page_info/core/page_info_action.h"
 #import "components/strings/grit/components_branded_strings.h"
+#import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/overlays/model/public/web_content_area/alert_constants.h"
 #import "ios/chrome/browser/ui/page_info/features.h"
 #import "ios/chrome/browser/ui/page_info/page_info_app_interface.h"
@@ -44,6 +49,19 @@ id<GREYMatcher> MicrophonePermissionsSwitch(BOOL isOn) {
       kPageInfoMicrophoneSwitchAccessibilityIdentifier, isOn);
 }
 
+// Matcher for Security help center link in footer.
+id<GREYMatcher> SecurityHelpCenterLink() {
+  return grey_allOf(
+      // The link is within the security footer with ID
+      // `kPageInfoSecurityFooterAccessibilityIdentifier`.
+      grey_ancestor(
+          grey_accessibilityID(kPageInfoSecurityFooterAccessibilityIdentifier)),
+      // UIKit instantiates a `UIAccessibilityLinkSubelement` for the link
+      // element in the label with attributed string.
+      grey_kindOfClassName(@"UIAccessibilityLinkSubelement"),
+      grey_accessibilityTrait(UIAccessibilityTraitLink), nil);
+}
+
 void AddAboutThisSiteHint(GURL url) {
   [PageInfoAppInterface
       addAboutThisSiteHintForURL:
@@ -52,6 +70,35 @@ void AddAboutThisSiteHint(GURL url) {
                      description:
                          @"A domain used in illustrative examples in documents"
                 aboutThisSiteURL:@"https://diner.com"];
+}
+
+void ExpectPageInfoActionHistograms(page_info::PageInfoAction action) {
+  GREYAssertNil(
+      [MetricsAppInterface
+           expectCount:1
+             forBucket:action
+          forHistogram:base::SysUTF8ToNSString(
+                           page_info::kWebsiteSettingsActionHistogram)],
+      @"WebsiteSettings.Action histogram not logged.");
+}
+
+void ExpectPermissionChangedHistograms(ContentSettingsType type) {
+  int bucket =
+      content_settings_uma_util::ContentSettingTypeToHistogramValue(type);
+  GREYAssertNil([MetricsAppInterface
+                     expectCount:1
+                       forBucket:bucket
+                    forHistogram:base::SysUTF8ToNSString(
+                                     kOriginInfoPermissionChangedHistogram)],
+                @"PermissionChanged histogram not logged.");
+  GREYAssertNil(
+      [MetricsAppInterface
+           expectCount:1
+             forBucket:bucket
+          forHistogram:base::SysUTF8ToNSString(
+                           kOriginInfoPermissionChangedBlockedHistogram)],
+      @"PermissionChanged.Blocked histogram not logged.");
+  ExpectPageInfoActionHistograms(page_info::PAGE_INFO_CHANGED_PERMISSION);
 }
 
 }  // namespace
@@ -74,6 +121,19 @@ void AddAboutThisSiteHint(GURL url) {
       std::string("-") +
       optimization_guide::switches::kDisableCheckingUserPermissionsForTesting);
   return config;
+}
+
+- (void)setUp {
+  [super setUp];
+  [ChromeEarlGrey clearBrowsingHistory];
+  GREYAssertNil([MetricsAppInterface setupHistogramTester],
+                @"Failed to set up histogram tester.");
+}
+
+- (void)tearDown {
+  [super tearDown];
+  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
+                @"Cannot reset histogram tester.");
 }
 
 // Checks that if the alert for site permissions pops up, and allow it.
@@ -139,6 +199,8 @@ void AddAboutThisSiteHint(GURL url) {
   [ChromeEarlGrey loadURL:self.testServer->GetURL("/")];
   [ChromeEarlGreyUI openPageInfo];
 
+  ExpectPageInfoActionHistograms(page_info::PAGE_INFO_OPENED);
+
   // Checks that the page info view has appeared.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
                                           kPageInfoViewAccessibilityIdentifier)]
@@ -183,10 +245,14 @@ void AddAboutThisSiteHint(GURL url) {
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
   [ChromeEarlGrey loadURL:self.testServer->GetURL("/")];
   [ChromeEarlGreyUI openPageInfo];
-  // Checks that permission header is not visible.
+  // Checks that no permissions are not visible.
   [[EarlGrey
-      selectElementWithMatcher:grey_text(l10n_util::GetNSString(
-                                   IDS_IOS_PAGE_INFO_PERMISSIONS_HEADER))]
+      selectElementWithMatcher:grey_anyOf(CameraPermissionsSwitch(YES),
+                                          CameraPermissionsSwitch(NO), nil)]
+      assertWithMatcher:grey_notVisible()];
+  [[EarlGrey
+      selectElementWithMatcher:grey_anyOf(MicrophonePermissionsSwitch(YES),
+                                          MicrophonePermissionsSwitch(NO), nil)]
       assertWithMatcher:grey_notVisible()];
 }
 
@@ -208,14 +274,9 @@ void AddAboutThisSiteHint(GURL url) {
       loadURL:self.testServer->GetURL("/permissions/microphone_only.html")];
   [self checkAndAllowPermissionAlerts];
 
-  // Check that permission header is visible.
-  [ChromeEarlGreyUI openPageInfo];
-  [[EarlGrey
-      selectElementWithMatcher:grey_text(l10n_util::GetNSString(
-                                   IDS_IOS_PAGE_INFO_PERMISSIONS_HEADER))]
-      assertWithMatcher:grey_sufficientlyVisible()];
   // Check that camera permission item is hidden, and in accordance with the
   // web state permission states.
+  [ChromeEarlGreyUI openPageInfo];
   [self checkStatesForPermissions:@{
     @(web::PermissionCamera) : @(web::PermissionStateNotAccessible),
     @(web::PermissionMicrophone) : @(web::PermissionStateAllowed)
@@ -235,6 +296,10 @@ void AddAboutThisSiteHint(GURL url) {
     @(web::PermissionCamera) : @(web::PermissionStateNotAccessible),
     @(web::PermissionMicrophone) : @(web::PermissionStateBlocked)
   }];
+
+  // Check that the correct histograms are logged when a camera permission is
+  // changed via Page Info.
+  ExpectPermissionChangedHistograms(ContentSettingsType::MEDIASTREAM_MIC);
 }
 
 // Tests that two accessible permissions are shown in Permissions section with
@@ -255,13 +320,8 @@ void AddAboutThisSiteHint(GURL url) {
                               "/permissions/camera_and_microphone.html")];
   [self checkAndAllowPermissionAlerts];
 
-  // Check that permission header is visible.
-  [ChromeEarlGreyUI openPageInfo];
-  [[EarlGrey
-      selectElementWithMatcher:grey_text(l10n_util::GetNSString(
-                                   IDS_IOS_PAGE_INFO_PERMISSIONS_HEADER))]
-      assertWithMatcher:grey_sufficientlyVisible()];
   // Check that switchs for both permissions are visible.
+  [ChromeEarlGreyUI openPageInfo];
   [self checkStatesForPermissions:@{
     @(web::PermissionCamera) : @(web::PermissionStateAllowed),
     @(web::PermissionMicrophone) : @(web::PermissionStateAllowed)
@@ -280,6 +340,10 @@ void AddAboutThisSiteHint(GURL url) {
     @(web::PermissionCamera) : @(web::PermissionStateBlocked),
     @(web::PermissionMicrophone) : @(web::PermissionStateAllowed)
   }];
+
+  // Check that the correct histograms are logged when a camera permission is
+  // changed via Page Info.
+  ExpectPermissionChangedHistograms(ContentSettingsType::MEDIASTREAM_CAMERA);
 }
 
 // Tests that rotating the device will not dismiss the navigation bar.
@@ -344,6 +408,16 @@ void AddAboutThisSiteHint(GURL url) {
       selectElementWithMatcher:
           grey_accessibilityID(kPageInfoSecurityFooterAccessibilityIdentifier)]
       assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Tap on the Learn more link.
+  [[EarlGrey selectElementWithMatcher:SecurityHelpCenterLink()]
+      performAction:grey_tap()];
+
+  // Check that the help center article was opened.
+  GREYAssertEqual(std::string("support.google.com"),
+                  [ChromeEarlGrey webStateVisibleURL].host(),
+                  @"Did not navigate to the help center article.");
+  ExpectPageInfoActionHistograms(page_info::PAGE_INFO_CONNECTION_HELP_OPENED);
 }
 
 // Tests the security section by checking that the correct connection label is
@@ -379,6 +453,8 @@ void AddAboutThisSiteHint(GURL url) {
       selectElementWithMatcher:
           grey_accessibilityID(kPageInfoSecurityViewAccessibilityIdentifier)]
       assertWithMatcher:grey_sufficientlyVisible()];
+
+  ExpectPageInfoActionHistograms(page_info::PAGE_INFO_SECURITY_DETAILS_OPENED);
 }
 
 // Most of the tests for AboutThisSite section are in chrome-internal

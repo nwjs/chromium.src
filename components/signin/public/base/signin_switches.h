@@ -12,6 +12,8 @@
 #include "build/chromeos_buildflags.h"
 #include "components/signin/public/base/signin_buildflags.h"
 
+class PrefService;
+
 namespace switches {
 
 // These switches should not be queried from CommandLine::HasSwitch() directly.
@@ -40,7 +42,7 @@ extern const char kClearTokenService[];
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableBoundSessionCredentials);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-bool IsBoundSessionCredentialsEnabled();
+bool IsBoundSessionCredentialsEnabled(const PrefService* profile_prefs);
 
 // This parameter is applicable only to the platforms that use DICE as an
 // account consistency protocol.
@@ -65,7 +67,7 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableChromeRefreshTokenBinding);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-bool IsChromeRefreshTokenBindingEnabled();
+bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs);
 #endif
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -87,6 +89,8 @@ BASE_DECLARE_FEATURE(kRestoreSignedInAccountAndSettingsFromBackup);
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSearchEngineChoice);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSearchEnginePromoDialogRewrite);
 #endif
 
 // Used to experiment and validate the UNO model on Desktop. Not meant to be
@@ -128,6 +132,8 @@ extern const base::FeatureParam<int> kMinorModeRestrictionsFetchDeadlineMs;
 #endif
 
 #if BUILDFLAG(IS_IOS)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kUseSystemCapabilitiesForMinorModeRestrictions);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kRemoveSignedInAccountsDialog);
 #endif

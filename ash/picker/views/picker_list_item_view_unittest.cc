@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "ash/resources/vector_icons/vector_icons.h"
-#include "ash/test/ash_test_base.h"
 #include "base/functional/callback_helpers.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -17,16 +16,16 @@
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/test/views_test_base.h"
 #include "ui/views/view_utils.h"
 
 namespace ash {
 namespace {
 
-using ::testing::Eq;
 using ::testing::Property;
 using ::testing::SizeIs;
 
-using PickerListItemViewTest = AshTestBase;
+using PickerListItemViewTest = views::ViewsTestBase;
 
 TEST_F(PickerListItemViewTest, SetsPrimaryText) {
   PickerListItemView item_view(base::DoNothing());
@@ -39,7 +38,7 @@ TEST_F(PickerListItemViewTest, SetsPrimaryText) {
       item_view.primary_container_for_testing()->children()[0];
   ASSERT_TRUE(views::IsViewClass<views::Label>(primary_label));
   EXPECT_THAT(views::AsViewClass<views::Label>(primary_label),
-              Property(&views::Label::GetText, Eq(kPrimaryText)));
+              Property(&views::Label::GetText, kPrimaryText));
 }
 
 TEST_F(PickerListItemViewTest, SetsPrimaryImage) {

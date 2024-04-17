@@ -195,6 +195,7 @@
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/resource_coordinator/public/mojom/memory_instrumentation/memory_instrumentation.mojom.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
+#include "skia/ext/switches.h"
 #include "storage/browser/database/database_tracker.h"
 #include "storage/browser/quota/quota_manager.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
@@ -3230,7 +3231,7 @@ void RenderProcessHostImpl::NotifyRendererOfLockedStateUpdate() {
 
   GetRendererInterface()->SetIsCrossOriginIsolated(
       process_lock.GetWebExposedIsolationLevel() >=
-      WebExposedIsolationLevel::kMaybeIsolated);
+      WebExposedIsolationLevel::kIsolated);
 
   GetRendererInterface()->SetIsIsolatedContext(IsIsolatedContext(this));
 
@@ -3398,17 +3399,17 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
   // Propagate the following switches to the renderer command line (along
   // with any associated values) if present in the browser command line.
   static const char* const kSwitchNames[] = {
-    "nwjs-test-mode",
-    switches::kDisableInProcessStackTraces,
-    sandbox::policy::switches::kDisableSeccompFilterSandbox,
-    sandbox::policy::switches::kNoSandbox,
+      "nwjs-test-mode",
+      switches::kDisableInProcessStackTraces,
+      sandbox::policy::switches::kDisableSeccompFilterSandbox,
+      sandbox::policy::switches::kNoSandbox,
 #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS_ASH) && \
     !BUILDFLAG(IS_CHROMEOS_LACROS)
-    switches::kDisableDevShmUsage,
+      switches::kDisableDevShmUsage,
 #endif
 #if BUILDFLAG(IS_MAC)
-    // Allow this to be set when invoking the browser and relayed along.
-    sandbox::policy::switches::kEnableSandboxLogging,
+      // Allow this to be set when invoking the browser and relayed along.
+      sandbox::policy::switches::kEnableSandboxLogging,
 #endif
     switches::kAllowCommandLinePlugins,
     switches::kDisableRAFThrottling,
@@ -3432,7 +3433,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableGpuMemoryBufferVideoFrames,
     switches::kDisableHistogramCustomizer,
     switches::kDisableLCDText,
-    switches::kDisableLogging,
     switches::kDisableBackgroundMediaSuspend,
     switches::kDisableNotifications,
     switches::kDisableOriginTrialControlledBlinkFeatures,
@@ -3460,7 +3460,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnableGpuMemoryBufferVideoFrames,
     switches::kEnableGPUServiceLogging,
     switches::kEnableLCDText,
-    switches::kEnableLogging,
     switches::kEnableNetworkInformationDownlinkMax,
     switches::kEnablePluginPlaceholderTesting,
     switches::kEnablePreciseMemoryInfo,
@@ -3484,8 +3483,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kGaiaUrl,
     switches::kIPCConnectionTimeout,
     switches::kLogBestEffortTasks,
-    switches::kLogFile,
-    switches::kLoggingLevel,
     switches::kMaxActiveWebGLContexts,
     switches::kMaxDecodedImageSizeMb,
     switches::kMaxWebMediaPlayerCount,
@@ -3514,10 +3511,8 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kUseFakeCodecForPeerConnection,
     switches::kUseFakeUIForMediaStream,
     switches::kUseMobileUserAgent,
-    switches::kV,
     switches::kVideoCaptureUseGpuMemoryBuffer,
     switches::kVideoThreads,
-    switches::kVModule,
     switches::kWaitForDebuggerOnNavigation,
     switches::kWebAuthRemoteDesktopSupport,
     switches::kWebViewDrawFunctorUsesVulkan,
@@ -3535,7 +3530,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     blink::switches::kDisableNewBaseUrlInheritanceBehavior,
     blink::switches::kDisablePreferCompositingToLCDText,
     blink::switches::kDisableRGBA4444Textures,
-    blink::switches::kDisableThrottleNonVisibleCrossOriginIframes,
     blink::switches::kEnableLeakDetectionHeapSnapshot,
     blink::switches::kEnableLowResTiling,
     blink::switches::kEnablePreferCompositingToLCDText,
@@ -3574,8 +3568,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
 #if BUILDFLAG(ENABLE_PPAPI)
       switches::kEnablePepperTesting,
 #endif
-      switches::kDisableWebRtcHWDecoding,
-      switches::kDisableWebRtcHWEncoding,
       switches::kEnableWebRtcSrtpEncryptedHeaders,
       switches::kEnforceWebRtcIPPermissionCheck,
       switches::kWebRtcMaxCaptureFramerate,
@@ -3588,6 +3580,8 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
 #endif
 #if BUILDFLAG(IS_WIN)
       switches::kDisableHighResTimer,
+      switches::kTextContrast,
+      switches::kTextGamma,
       switches::kTrySupportedChannelLayouts,
       switches::kRaiseTimerFrequency,
 #endif
@@ -5134,7 +5128,7 @@ void RenderProcessHostImpl::UpdateProcessPriorityInputs() {
   ChildProcessImportance new_effective_importance =
       ChildProcessImportance::NORMAL;
 #endif
-  for (auto* client : priority_clients_) {
+  for (RenderProcessHostPriorityClient* client : priority_clients_) {
     RenderProcessHostPriorityClient::Priority priority = client->GetPriority();
 
     // Compute the lowest depth of widgets with highest visibility priority.

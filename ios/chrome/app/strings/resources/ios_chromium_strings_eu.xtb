@@ -80,7 +80,6 @@ Chromium-en erabilera hobetzeko datuak erabiltzen dituzten ezarpen gehiago ikust
 <translation id="3219277919172823720">Bilatu Voice-rekin Chromium-en</translation>
 <translation id="3228349498066165585">Chromium-eko datu batzuk ez dira gorde Google-ko kontuan oraindik.
         Saioa amaitu aurretik, itxaron minutu batzuk. Orain amaitzen baduzu saioa, ezabatu egingo dira datuak.</translation>
-<translation id="3256316712990552818">Chromium-en kopiatu da</translation>
 <translation id="328933489847748230">{count,plural, =1{Chromium-eko leiho bat dago ikusgai}other{Chromium-eko {count} leiho daude ikusgai}}</translation>
 <translation id="3344973607274501920">Chromium-ek ezin izan ditu egiaztatu pasahitzak. Egiaztatu Internetera konektatuta zaudela.</translation>
 <translation id="3366305173356742781">Kontuan dauden Chromium-eko datuak</translation>
@@ -118,6 +117,7 @@ Datuak pasaesaldiarekin enkriptatuta daude. Chromium-eko datuak Google-ko kontua
 <translation id="4195557071150719219">Ikusi Chromium-en azken fitxak</translation>
 <translation id="4200712796753248893">Erabili Chromium-en ekintzak iOS-en</translation>
 <translation id="420541179527342563">Chromium-en blokeo modua desgaitzeko, desaktiba ezazu iPad-ean.</translation>
+<translation id="427331839909790668">Lotu Chromium eta Google-ren beste zerbitzuak, elkarren datuak erabiliz zure erabilera pertsonalizatzea nahi baduzu</translation>
 <translation id="4408912345039114853">Exekutatu Chromium-en segurtasun-egiaztapena</translation>
 <translation id="4432744876818348753">Hasi saioa Chromium-i etekinik handiena ateratzeko.</translation>
 <translation id="4445228361214254027">Erakundeak Chromium-eko datuak Google-ko kontuan erabiltzeko eta gordetzeko aukera desaktibatu du. Laster-marka, pasahitz eta bestelako elementu berriak gailu honetan soilik gordeko dira.</translation>
@@ -219,6 +219,7 @@ Zure pasaesaldia dakitenek soilik irakur ditzakete zure datu enkriptatuak. Googl
 <translation id="6852799557929001644">Erabili Chromium-eko pasahitzak eta gainerako informazioa gailu honetako beste aplikazioetan.</translation>
 <translation id="6887138405044152640">Fitxa beste gailu batera bidaltzeko, hasi saioa Chromium-en bertan.</translation>
 <translation id="6911341667534646387">Jarraitu Google-ko kontuko Chromium-en datuak erabiltzen</translation>
+<translation id="7002548535535009764">Erabilera pertsonalizatuena izateko, sartu Chromium hemen: <ph name="FEATURE_NAME_1" /> eta <ph name="FEATURE_NAME_2" /></translation>
 <translation id="7006920032187763988">iPad-eko beste aplikazio batzuk erabiltzen ari zinela Pasahitz-kudeatzailea zerbitzuan gorde zenituen pasahitzak erabil ditzakezu.</translation>
 <translation id="7018284295775193585">Ezin da eguneratu Chromium</translation>
 <translation id="7045244423563602563">Pertsonalizatu Chromium</translation>

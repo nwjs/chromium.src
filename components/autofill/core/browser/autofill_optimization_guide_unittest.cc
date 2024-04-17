@@ -61,7 +61,7 @@ class MockOptimizationGuideDecider
        const base::flat_set<optimization_guide::proto::OptimizationType>&,
        optimization_guide::proto::RequestContext,
        optimization_guide::OnDemandOptimizationGuideDecisionRepeatingCallback,
-       optimization_guide::proto::RequestContextMetadata*
+       std::optional<optimization_guide::proto::RequestContextMetadata>
            request_context_metadata),
       (override));
 };
@@ -81,16 +81,8 @@ class AutofillOptimizationGuideTest : public testing::Test {
     test_api(card).set_network_for_virtual_card(kVisaCard);
     card.set_virtual_card_enrollment_type(
         CreditCard::VirtualCardEnrollmentType::kNetwork);
-    personal_data_manager_->Init(
-        /*profile_database=*/nullptr,
-        /*account_database=*/nullptr,
-        /*pref_service=*/pref_service_.get(),
-        /*local_state=*/pref_service_.get(),
-        /*identity_manager=*/nullptr,
-        /*history_service=*/nullptr,
-        /*sync_service=*/&sync_service_,
-        /*strike_database=*/nullptr,
-        /*image_fetcher=*/nullptr, /*shared_storage_handler=*/nullptr);
+    personal_data_manager_->SetPrefService(pref_service_.get());
+    personal_data_manager_->SetSyncServiceForTest(&sync_service_);
     personal_data_manager_->AddServerCreditCard(card);
   }
 
@@ -345,7 +337,7 @@ TEST_F(AutofillOptimizationGuideTest,
           optimization_guide::OptimizationGuideDecision::kFalse));
 
   EXPECT_TRUE(autofill_optimization_guide_->ShouldBlockFormFieldSuggestion(
-      url, &virtual_card));
+      url, virtual_card));
 }
 
 // Test that if the URL is not blocklisted, we do not block a virtual card
@@ -368,7 +360,7 @@ TEST_F(AutofillOptimizationGuideTest,
           optimization_guide::OptimizationGuideDecision::kTrue));
 
   EXPECT_FALSE(autofill_optimization_guide_->ShouldBlockFormFieldSuggestion(
-      url, &virtual_card));
+      url, virtual_card));
 }
 
 // Test that we do not block virtual card suggestions in the VCN merchant
@@ -391,7 +383,7 @@ TEST_F(AutofillOptimizationGuideTest,
       .Times(0);
 
   EXPECT_FALSE(autofill_optimization_guide_->ShouldBlockFormFieldSuggestion(
-      url, &virtual_card));
+      url, virtual_card));
 }
 
 // Test that we do not block the virtual card suggestion from being shown in the
@@ -416,7 +408,7 @@ TEST_F(
       .Times(0);
 
   EXPECT_FALSE(autofill_optimization_guide_->ShouldBlockFormFieldSuggestion(
-      url, &virtual_card));
+      url, virtual_card));
 }
 
 // Test that the Amex category-benefit optimization types are registered when we
@@ -424,7 +416,7 @@ TEST_F(
 TEST_F(AutofillOptimizationGuideTest,
        CreditCardFormFound_AmexCategoryBenefits) {
   base::test::ScopedFeatureList feature_list{
-      features::kAutofillEnableCardBenefits};
+      features::kAutofillEnableCardBenefitsForAmericanExpress};
   FormStructure form_structure{
       CreateTestCreditCardFormData(/*is_https=*/true,
                                    /*use_month_type=*/true)};
@@ -452,7 +444,7 @@ TEST_F(AutofillOptimizationGuideTest,
 TEST_F(AutofillOptimizationGuideTest,
        CreditCardFormFound_CapitalOneCategoryBenefits) {
   base::test::ScopedFeatureList feature_list{
-      features::kAutofillEnableCardBenefits};
+      features::kAutofillEnableCardBenefitsForCapitalOne};
   FormStructure form_structure{
       CreateTestCreditCardFormData(/*is_https=*/true,
                                    /*use_month_type=*/true)};
@@ -478,11 +470,13 @@ TEST_F(AutofillOptimizationGuideTest,
 }
 
 // Test that the Amex category-benefit optimization types are not registered
-// when the kAutofillEnableCardBenefits experiment is disabled.
+// when the kAutofillEnableCardBenefitsForAmericanExpress experiment is
+// disabled.
 TEST_F(AutofillOptimizationGuideTest,
        CreditCardFormFound_AmexCategoryBenefits_ExperimentDisabled) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(features::kAutofillEnableCardBenefits);
+  feature_list.InitAndDisableFeature(
+      features::kAutofillEnableCardBenefitsForAmericanExpress);
   FormStructure form_structure{
       CreateTestCreditCardFormData(/*is_https=*/true,
                                    /*use_month_type=*/true)};
@@ -507,11 +501,13 @@ TEST_F(AutofillOptimizationGuideTest,
 }
 
 // Test that the Capital One category-benefit optimization types are not
-// registered when the kAutofillEnableCardBenefits experiment is disabled.
+// registered when the kAutofillEnableCardBenefitsForCapitalOne experiment is
+// disabled.
 TEST_F(AutofillOptimizationGuideTest,
        CreditCardFormFound_CapitalOneCategoryBenefits_ExperimentDisabled) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(features::kAutofillEnableCardBenefits);
+  feature_list.InitAndDisableFeature(
+      features::kAutofillEnableCardBenefitsForCapitalOne);
   FormStructure form_structure{
       CreateTestCreditCardFormData(/*is_https=*/true,
                                    /*use_month_type=*/true)};

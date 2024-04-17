@@ -325,8 +325,6 @@ void ServiceWorkerMainResourceLoader::StartRequest(
       router_info->matched_source_type = source_type;
       response_head_->service_worker_router_info = std::move(router_info);
 
-      // TODO(crbug.com/1371756): support other sources in the full form.
-      // https://github.com/yoshisatoyanagisawa/service-worker-static-routing-api/blob/main/final-form.md
       switch (source_type) {
         case network::mojom::ServiceWorkerRouterSourceType::kNetwork:
           // Network fallback is requested.
@@ -988,6 +986,10 @@ void ServiceWorkerMainResourceLoader::StartResponse(
   // ServiceWorker, we have to check the security level of the responses.
   DCHECK(version->GetMainScriptResponse());
   response_head_->ssl_info = version->GetMainScriptResponse()->ssl_info;
+
+  CHECK(version->policy_container_host());
+  response_head_->client_address_space =
+      version->policy_container_host()->ip_address_space();
 
   // Handle a redirect response. ComputeRedirectInfo returns non-null redirect
   // info if the given response is a redirect.

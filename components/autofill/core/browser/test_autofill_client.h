@@ -32,7 +32,6 @@
 #include "components/autofill/core/browser/mock_autofill_optimization_guide.h"
 #include "components/autofill/core/browser/mock_iban_manager.h"
 #include "components/autofill/core/browser/mock_merchant_promo_code_manager.h"
-#include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_cvc_authenticator.h"
 #include "components/autofill/core/browser/payments/credit_card_otp_authenticator.h"
@@ -115,7 +114,7 @@ class TestAutofillClientTemplate : public T {
     return channel_for_testing_;
   }
 
-  bool IsOffTheRecord() override { return is_off_the_record_; }
+  bool IsOffTheRecord() const override { return is_off_the_record_; }
 
   AutofillCrowdsourcingManager* GetCrowdsourcingManager() override {
     return crowdsourcing_manager_.get();
@@ -214,11 +213,6 @@ class TestAutofillClientTemplate : public T {
           std::make_unique<payments::TestPaymentsAutofillClient>();
     }
     return payments_autofill_client_.get();
-  }
-
-  payments::TestPaymentsNetworkInterface* GetPaymentsNetworkInterface()
-      override {
-    return payments_network_interface_.get();
   }
 
   payments::PaymentsWindowManager* GetPaymentsWindowManager() override {
@@ -449,11 +443,6 @@ class TestAutofillClientTemplate : public T {
 
   void PinPopupView() override {}
 
-  AutofillClient::PopupOpenArgs GetReopenPopupArgs(
-      AutofillSuggestionTriggerSource trigger_source) const override {
-    return {};
-  }
-
   void UpdatePopup(const std::vector<Suggestion>& suggestions,
                    FillingProduct main_filling_product,
                    AutofillSuggestionTriggerSource trigger_source) override {}
@@ -466,26 +455,6 @@ class TestAutofillClientTemplate : public T {
   bool IsShowingAutofillPopup() { return is_showing_popup_; }
 
   PopupHidingReason popup_hiding_reason() { return popup_hidden_reason_; }
-
-  void ShowAutofillErrorDialog(
-      const AutofillErrorDialogContext& context) override {
-    autofill_error_dialog_shown_ = true;
-    autofill_error_dialog_context_ = context;
-  }
-
-  void ShowAutofillProgressDialog(
-      AutofillProgressDialogType autofill_progress_dialog_type,
-      base::OnceClosure cancel_callback) override {
-    autofill_progress_dialog_shown_ = true;
-  }
-
-  void CloseAutofillProgressDialog(
-      bool show_confirmation_before_closing,
-      base::OnceClosure no_user_perceived_authentication_callback) override {
-    if (no_user_perceived_authentication_callback) {
-      std::move(no_user_perceived_authentication_callback).Run();
-    }
-  }
 
   bool IsAutocompleteEnabled() const override { return true; }
 
@@ -505,6 +474,10 @@ class TestAutofillClientTemplate : public T {
   }
 
   LogManager* GetLogManager() const override { return log_manager_.get(); }
+
+  bool ShouldFormatForLargeKeyboardAccessory() const override {
+    return format_for_large_keyboard_accessory_;
+  }
 
   FormInteractionsFlowId GetCurrentFormInteractionsFlowId() override {
     return {};
@@ -567,6 +540,11 @@ class TestAutofillClientTemplate : public T {
     test_personal_data_manager_ = std::move(pdm);
   }
 
+  void set_payments_autofill_client(
+      std::unique_ptr<payments::TestPaymentsAutofillClient> payments_client) {
+    payments_autofill_client_ = std::move(payments_client);
+  }
+
   void set_cvc_authenticator(
       std::unique_ptr<CreditCardCvcAuthenticator> authenticator) {
     cvc_authenticator_ = std::move(authenticator);
@@ -582,11 +560,6 @@ class TestAutofillClientTemplate : public T {
     test_strike_database_ = std::move(test_strike_database);
   }
 
-  void set_test_payments_network_interface(
-      std::unique_ptr<payments::TestPaymentsNetworkInterface>
-          payments_network_interface) {
-    payments_network_interface_ = std::move(payments_network_interface);
-  }
 
   void set_payments_window_manager(
       std::unique_ptr<payments::PaymentsWindowManager>
@@ -657,28 +630,14 @@ class TestAutofillClientTemplate : public T {
     return offer_to_save_credit_card_bubble_was_shown_.value();
   }
 
-  void set_autofill_error_dialog_shown(bool autofill_error_dialog_shown) {
-    autofill_error_dialog_shown_ = autofill_error_dialog_shown;
-  }
-
-  bool autofill_error_dialog_shown() { return autofill_error_dialog_shown_; }
-
-  bool autofill_progress_dialog_shown() {
-    return autofill_progress_dialog_shown_;
-  }
-
-  bool virtual_card_error_dialog_is_permanent_error() {
-    return autofill_error_dialog_context().type ==
-           AutofillErrorDialogType::kVirtualCardPermanentError;
+  void set_format_for_large_keyboard_accessory(
+      bool format_for_large_keyboard_accessory) {
+    format_for_large_keyboard_accessory_ = format_for_large_keyboard_accessory;
   }
 
   bool risk_based_authentication_invoked() {
     return risk_based_authenticator_ &&
            risk_based_authenticator_->authenticate_invoked();
-  }
-
-  AutofillErrorDialogContext autofill_error_dialog_context() {
-    return autofill_error_dialog_context_;
   }
 
   AutofillClient::SaveCreditCardOptions get_save_credit_card_options() {
@@ -746,6 +705,10 @@ class TestAutofillClientTemplate : public T {
 
   ukm::TestUkmRecorder* GetTestUkmRecorder() { return &test_ukm_recorder_; }
 
+  signin::IdentityTestEnvironment& identity_test_environment() {
+    return identity_test_env_;
+  }
+
  private:
   ukm::TestAutoSetUkmRecorder test_ukm_recorder_;
   signin::IdentityTestEnvironment identity_test_env_;
@@ -782,8 +745,6 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
   std::unique_ptr<payments::TestPaymentsAutofillClient>
       payments_autofill_client_;
-  std::unique_ptr<payments::TestPaymentsNetworkInterface>
-      payments_network_interface_;
   std::unique_ptr<payments::PaymentsWindowManager> payments_window_manager_;
   std::unique_ptr<testing::NiceMock<MockIbanManager>> mock_iban_manager_;
 
@@ -812,18 +773,7 @@ class TestAutofillClientTemplate : public T {
   bool confirm_upload_iban_to_cloud_called_ = false;
   LegalMessageLines legal_message_lines_;
 
-  bool autofill_error_dialog_shown_ = false;
-
-  bool autofill_progress_dialog_shown_ = false;
-
-  // Context parameters that are used to display an error dialog during card
-  // number retrieval. This context will have information that the autofill
-  // error dialog uses to display a dialog specific to the error that occurred.
-  // An example of where this dialog is used is if an error occurs during
-  // virtual card number retrieval, as this context is then filled with fields
-  // specific to the type of error that occurred, and then based on the contents
-  // of this context the dialog is shown.
-  AutofillErrorDialogContext autofill_error_dialog_context_;
+  bool format_for_large_keyboard_accessory_ = false;
 
   // Populated if save was offered. True if bubble was shown, false otherwise.
   std::optional<bool> offer_to_save_credit_card_bubble_was_shown_;

@@ -27,6 +27,7 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
 namespace ash {
@@ -46,7 +47,7 @@ constexpr char kArRangeName[] = "ar_range";
 constexpr char kArRangeValue[] = "wide";
 
 constexpr char kMediaFilterName[] = "media_filter";
-constexpr char kMediaFilterValue[] = "gif,tinygif";
+constexpr char kMediaFilterValue[] = "gif,tinygif,tinygifpreview";
 
 constexpr char kClientKeyName[] = "client_key";
 constexpr char kClientKeyValue[] = "chromeos";
@@ -145,6 +146,26 @@ std::vector<emoji_picker::mojom::GifResponsePtr> ParseGifs(
       continue;
     }
 
+    const base::Value::List* full_size = full_gif->FindList("dims");
+    if (!full_size) {
+      continue;
+    }
+
+    if (full_size->size() != 2) {
+      // [width, height]
+      continue;
+    }
+
+    const std::optional<int> full_width = full_size->front().GetIfInt();
+    if (!full_width.has_value()) {
+      continue;
+    }
+
+    const std::optional<int> full_height = full_size->back().GetIfInt();
+    if (!full_height.has_value()) {
+      continue;
+    }
+
     const auto* full_url = full_gif->FindString("url");
     if (!full_url) {
       continue;
@@ -170,13 +191,13 @@ std::vector<emoji_picker::mojom::GifResponsePtr> ParseGifs(
       continue;
     }
 
-    const auto width = preview_size->front().GetIfInt();
-    if (!width.has_value()) {
+    const auto preview_width = preview_size->front().GetIfInt();
+    if (!preview_width.has_value()) {
       continue;
     }
 
-    const auto height = preview_size->back().GetIfInt();
-    if (!height.has_value()) {
+    const auto preview_height = preview_size->back().GetIfInt();
+    if (!preview_height.has_value()) {
       continue;
     }
 
@@ -190,21 +211,29 @@ std::vector<emoji_picker::mojom::GifResponsePtr> ParseGifs(
       continue;
     }
 
-    const std::string* preview_image = preview_gif->FindString("preview");
-    if (!preview_image) {
+    const base::Value::Dict* tiny_gif_preview =
+        media_formats->FindDict("tinygifpreview");
+    if (!tiny_gif_preview) {
       continue;
     }
 
-    const GURL preview_image_gurl = GURL(preview_image->c_str());
-    if (!preview_gurl.is_valid()) {
+    const std::string* tiny_gif_preview_url =
+        tiny_gif_preview->FindString("url");
+    if (!tiny_gif_preview_url) {
+      continue;
+    }
+
+    const GURL tiny_gif_preview_gurl = GURL(*tiny_gif_preview_url);
+    if (!tiny_gif_preview_gurl.is_valid()) {
       continue;
     }
 
     gifs.push_back(emoji_picker::mojom::GifResponse::New(
         *id, *content_description,
         emoji_picker::mojom::GifUrls::New(full_gurl, preview_gurl,
-                                          preview_image_gurl),
-        gfx::Size(width.value(), height.value())));
+                                          tiny_gif_preview_gurl),
+        gfx::Size(preview_width.value(), preview_height.value()),
+        gfx::Size(*full_width, *full_height)));
   }
   return gifs;
 }

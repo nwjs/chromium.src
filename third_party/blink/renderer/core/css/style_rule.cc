@@ -35,14 +35,13 @@
 #include "third_party/blink/renderer/core/css/css_media_rule.h"
 #include "third_party/blink/renderer/core/css/css_namespace_rule.h"
 #include "third_party/blink/renderer/core/css/css_page_rule.h"
-#include "third_party/blink/renderer/core/css/css_position_fallback_rule.h"
+#include "third_party/blink/renderer/core/css/css_position_try_rule.h"
 #include "third_party/blink/renderer/core/css/css_property_rule.h"
 #include "third_party/blink/renderer/core/css/css_scope_rule.h"
 #include "third_party/blink/renderer/core/css/css_starting_style_rule.h"
 #include "third_party/blink/renderer/core/css/css_style_rule.h"
 #include "third_party/blink/renderer/core/css/css_style_sheet.h"
 #include "third_party/blink/renderer/core/css/css_supports_rule.h"
-#include "third_party/blink/renderer/core/css/css_try_rule.h"
 #include "third_party/blink/renderer/core/css/css_view_transition_rule.h"
 #include "third_party/blink/renderer/core/css/parser/container_query_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
@@ -162,12 +161,6 @@ void StyleRuleBase::Trace(Visitor* visitor) const {
     case kCounterStyle:
       To<StyleRuleCounterStyle>(this)->TraceAfterDispatch(visitor);
       return;
-    case kPositionFallback:
-      To<StyleRulePositionFallback>(this)->TraceAfterDispatch(visitor);
-      return;
-    case kTry:
-      To<StyleRuleTry>(this)->TraceAfterDispatch(visitor);
-      return;
     case kStartingStyle:
       To<StyleRuleStartingStyle>(this)->TraceAfterDispatch(visitor);
       return;
@@ -176,6 +169,9 @@ void StyleRuleBase::Trace(Visitor* visitor) const {
       return;
     case kFunction:
       To<StyleRuleFunction>(this)->TraceAfterDispatch(visitor);
+      return;
+    case kPositionTry:
+      To<StyleRulePositionTry>(this)->TraceAfterDispatch(visitor);
       return;
   }
   NOTREACHED();
@@ -243,12 +239,6 @@ void StyleRuleBase::FinalizeGarbageCollectedObject() {
     case kCounterStyle:
       To<StyleRuleCounterStyle>(this)->~StyleRuleCounterStyle();
       return;
-    case kPositionFallback:
-      To<StyleRulePositionFallback>(this)->~StyleRulePositionFallback();
-      return;
-    case kTry:
-      To<StyleRuleTry>(this)->~StyleRuleTry();
-      return;
     case kStartingStyle:
       To<StyleRuleStartingStyle>(this)->~StyleRuleStartingStyle();
       return;
@@ -257,6 +247,9 @@ void StyleRuleBase::FinalizeGarbageCollectedObject() {
       return;
     case kFunction:
       To<StyleRuleFunction>(this)->~StyleRuleFunction();
+      return;
+    case kPositionTry:
+      To<StyleRulePositionTry>(this)->~StyleRulePositionTry();
       return;
   }
   NOTREACHED();
@@ -307,14 +300,12 @@ StyleRuleBase* StyleRuleBase::Copy() const {
       return To<StyleRuleContainer>(this)->Copy();
     case kCounterStyle:
       return To<StyleRuleCounterStyle>(this)->Copy();
-    case kPositionFallback:
-      return To<StyleRulePositionFallback>(this)->Copy();
     case kStartingStyle:
       return To<StyleRuleStartingStyle>(this)->Copy();
     case kViewTransition:
       return To<StyleRuleViewTransition>(this)->Copy();
-    case kTry:
-      return To<StyleRuleTry>(this)->Copy();
+    case kPositionTry:
+      return To<StyleRulePositionTry>(this)->Copy();
   }
   NOTREACHED();
   return nullptr;
@@ -395,10 +386,6 @@ CSSRule* StyleRuleBase::CreateCSSOMWrapper(wtf_size_t position_hint,
       rule = MakeGarbageCollected<CSSCounterStyleRule>(
           To<StyleRuleCounterStyle>(self), parent_sheet);
       break;
-    case kPositionFallback:
-      rule = MakeGarbageCollected<CSSPositionFallbackRule>(
-          To<StyleRulePositionFallback>(self), parent_sheet);
-      break;
     case kStartingStyle:
       rule = MakeGarbageCollected<CSSStartingStyleRule>(
           To<StyleRuleStartingStyle>(self), parent_sheet);
@@ -407,10 +394,9 @@ CSSRule* StyleRuleBase::CreateCSSOMWrapper(wtf_size_t position_hint,
       rule = MakeGarbageCollected<CSSViewTransitionRule>(
           To<StyleRuleViewTransition>(self), parent_sheet);
       break;
-    case kTry:
-      // @try rules must be child rules of @position-fallback.
-      CHECK(!parent_sheet);
-      rule = MakeGarbageCollected<CSSTryRule>(To<StyleRuleTry>(self));
+    case kPositionTry:
+      rule = MakeGarbageCollected<CSSPositionTryRule>(
+          To<StyleRulePositionTry>(self), parent_sheet);
       break;
     case kFontFeature:
     case kKeyframe:
@@ -625,12 +611,11 @@ void StyleRuleBase::Reparent(StyleRule* old_parent, StyleRule* new_parent) {
     case kLayerStatement:
     case kNamespace:
     case kCounterStyle:
-    case kPositionFallback:
-    case kTry:
     case kKeyframe:
     case kCharset:
     case kViewTransition:
     case kFunction:
+    case kPositionTry:
       // Cannot have any child rules.
       break;
   }

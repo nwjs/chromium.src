@@ -55,7 +55,6 @@
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_controller_browsertest.h"
 #include "chrome/browser/ui/web_applications/web_app_menu_model.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/scope_extension_info.h"
@@ -1353,7 +1352,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
 
 #if BUILDFLAG(IS_WIN)
   views::NamedWidgetShownWaiter widget_waiter(
-      views::test::AnyWidgetTestPasskey{}, "DropdownBarHost");
+      views::test::AnyWidgetTestPasskey{}, "FindBarHost");
   // Press Ctrl+F to open find bar.
   content::NativeWebKeyboardEvent event(
       blink::WebKeyboardEvent::Type::kRawKeyDown,
@@ -1757,7 +1756,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
       LoadWholeAppIsDraggableTestPageWithDataAndGetURL()));
   content::WaitForLoadStop(helper()->browser_view()->GetActiveWebContents());
 
-  absl::optional<SkRegion> draggable_region =
+  std::optional<SkRegion> draggable_region =
       helper()->browser_view()->browser()->app_controller()->draggable_region();
 
   EXPECT_TRUE(draggable_region.has_value());

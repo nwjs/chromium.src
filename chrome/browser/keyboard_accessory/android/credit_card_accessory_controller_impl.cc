@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/check.h"
-#include "base/containers/cxx20_erase_vector.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
@@ -17,9 +16,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/android/preferences/autofill/settings_launcher_helper.h"
+#include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_utils.h"
-#include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
@@ -221,8 +220,8 @@ void CreditCardAccessoryControllerImpl::OnFillingTriggered(
   // Credit card number fields have a GUID populated to allow deobfuscation
   // before filling.
   if (selection.id().empty()) {
-    GetDriver()->ApplyFieldAction(mojom::ActionPersistence::kFill,
-                                  mojom::TextReplacement::kReplaceAll,
+    GetDriver()->ApplyFieldAction(mojom::FieldActionType::kReplaceAll,
+                                  mojom::ActionPersistence::kFill,
                                   focused_field_id, selection.text_to_fill());
     return;
   }
@@ -273,24 +272,21 @@ void CreditCardAccessoryControllerImpl::OnToggleChanged(
 bool CreditCardAccessoryController::AllowedForWebContents(
     content::WebContents* web_contents) {
   DCHECK(web_contents) << "Need valid WebContents to attach controller to!";
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableManualFallbackForVirtualCards)) {
-    Profile* profile =
-        Profile::FromBrowserContext(web_contents->GetBrowserContext());
-    PersonalDataManager* personal_data_manager =
-        PersonalDataManagerFactory::GetForProfile(profile);
-    if (personal_data_manager) {
-      std::vector<CreditCard*> cards =
-          personal_data_manager->GetCreditCardsToSuggest();
-      bool has_virtual_card = base::ranges::any_of(cards, [](const auto& card) {
-        return card->virtual_card_enrollment_state() ==
-               CreditCard::VirtualCardEnrollmentState::kEnrolled;
-      });
-      if (has_virtual_card) {
-        // Virtual cards are available. We should always show manual fallback
-        // for virtual cards.
-        return true;
-      }
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  PersonalDataManager* personal_data_manager =
+      PersonalDataManagerFactory::GetForProfile(profile);
+  if (personal_data_manager) {
+    std::vector<CreditCard*> cards =
+        personal_data_manager->GetCreditCardsToSuggest();
+    bool has_virtual_card = base::ranges::any_of(cards, [](const auto& card) {
+      return card->virtual_card_enrollment_state() ==
+             CreditCard::VirtualCardEnrollmentState::kEnrolled;
+    });
+    if (has_virtual_card) {
+      // Virtual cards are available. We should always show manual fallback
+      // for virtual cards.
+      return true;
     }
   }
 
@@ -352,8 +348,8 @@ void CreditCardAccessoryControllerImpl::OnCreditCardFetched(
   DCHECK(credit_card);
   DCHECK(GetDriver());
 
-  GetDriver()->ApplyFieldAction(mojom::ActionPersistence::kFill,
-                                mojom::TextReplacement::kReplaceAll,
+  GetDriver()->ApplyFieldAction(mojom::FieldActionType::kReplaceAll,
+                                mojom::ActionPersistence::kFill,
                                 last_focused_field_id_, credit_card->number());
   last_focused_field_id_ = {};
 }
@@ -435,7 +431,7 @@ CreditCardAccessoryControllerImpl::GetUnmaskedCreditCards() const {
     return card_info->card.record_type() !=
            CreditCard::RecordType::kVirtualCard;
   };
-  base::EraseIf(unmasked_cards, not_virtual_card);
+  std::erase_if(unmasked_cards, not_virtual_card);
   return unmasked_cards;
 }
 

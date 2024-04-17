@@ -53,7 +53,11 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
 };
 
 // The minimum scale factor of the title label showing the URL.
-float kTitleLabelMinimumScaleFactor = 0.7f;
+const float kTitleLabelMinimumScaleFactor = 0.7f;
+
+// The maximum number of lines we should show for a page's description in the
+// AboutThisSite section.
+const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
 
 }  // namespace
 
@@ -122,6 +126,16 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
     return;
   }
 
+  // Update the security information if it was fetched while the page was being
+  // loaded. If page info is opened while the page is being loaded, its
+  // certificates might not have been loaded yet and so the page is shown as
+  // insecure. The next time the user opens page info, we should update the
+  // security information when the page is fully loaded so it's up to date.
+  if (self.pageInfoSecurityDescription.isPageLoading) {
+    _pageInfoSecurityDescription =
+        [self.pageInfoPresentationHandler updatedSiteSecurityDescription];
+  }
+
   [self loadModel];
 }
 
@@ -159,7 +173,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
     [self updateSnapshot:snapshot forPermission:permission];
   }
 
-  if (IsRevampPageInfoIosEnabled()) {
+  if (IsAboutThisSiteFeatureEnabled()) {
     [self updateSnapshotForAboutThisSite:snapshot];
   }
 
@@ -197,7 +211,14 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
 
 - (CGFloat)tableView:(UITableView*)tableView
     heightForHeaderInSection:(NSInteger)section {
-  return section == SectionIdentifierSecurityContent
+  SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
+      [_dataSource sectionIdentifierForIndex:section].integerValue);
+
+  if (IsRevampPageInfoIosEnabled()) {
+    return ChromeTableViewHeightForHeaderInSection(sectionIdentifier);
+  }
+
+  return sectionIdentifier == SectionIdentifierSecurityContent
              ? kPageInfoPaddingFirstSectionHeader
              : UITableViewAutomaticDimension;
 }
@@ -211,6 +232,10 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
     case SectionIdentifierAboutThisSite:
       return nil;
     case SectionIdentifierPermissions: {
+      if (IsRevampPageInfoIosEnabled()) {
+        return nil;
+      }
+
       TableViewTextHeaderFooterView* header =
           DequeueTableViewHeaderFooter<TableViewTextHeaderFooterView>(
               self.tableView);
@@ -261,7 +286,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
 
 - (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(CrURL*)URL {
   DCHECK(URL.gurl == GURL(kPageInfoHelpCenterURL));
-  [self.pageInfoCommandsHandler showSecurityHelpPage];
+  [self.pageInfoPresentationHandler showSecurityHelpPage];
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate
@@ -330,6 +355,16 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
       [cell.switchView addTarget:self
                           action:@selector(permissionSwitchToggled:)
                 forControlEvents:UIControlEventValueChanged];
+
+      if (IsRevampPageInfoIosEnabled()) {
+        [cell setIconImage:CustomSymbolWithPointSize(kCameraSymbol,
+                                                     kPageInfoSymbolPointSize)
+                  tintColor:UIColor.whiteColor
+            backgroundColor:[UIColor colorNamed:kOrange500Color]
+               cornerRadius:kColorfulBackgroundSymbolCornerRadius
+                borderWidth:0];
+      }
+
       return cell;
     }
     case ItemIdentifierPermissionsMicrophone: {
@@ -349,6 +384,16 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
       [cell.switchView addTarget:self
                           action:@selector(permissionSwitchToggled:)
                 forControlEvents:UIControlEventValueChanged];
+
+      if (IsRevampPageInfoIosEnabled()) {
+        [cell setIconImage:DefaultSymbolWithPointSize(kMicrophoneSymbol,
+                                                      kPageInfoSymbolPointSize)
+                  tintColor:UIColor.whiteColor
+            backgroundColor:[UIColor colorNamed:kOrange500Color]
+               cornerRadius:kColorfulBackgroundSymbolCornerRadius
+                borderWidth:0];
+      }
+
       return cell;
     }
     case ItemIdentifierAboutThisSiteHeader: {
@@ -357,6 +402,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
       cell.textLabel.text =
           l10n_util::GetNSString(IDS_IOS_PAGE_INFO_ABOUT_THIS_PAGE);
       cell.detailText = _aboutThisSiteInfo.summary;
+      cell.detailTextNumberOfLines = kAboutThisSiteDetailTextNumberOfLines;
       cell.textLayoutConstraintAxis = UILayoutConstraintAxisVertical;
 
       UIImage* icon =
@@ -414,6 +460,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
 // Updates `snapshot` to reflect the changes to AboutThisSite info.
 - (void)updateSnapshotForAboutThisSite:
     (NSDiffableDataSourceSnapshot<NSNumber*, NSNumber*>*)snapshot {
+  CHECK(IsAboutThisSiteFeatureEnabled());
   if (!_aboutThisSiteInfo || !self.pageInfoSecurityDescription.secure) {
     return;
   }
@@ -509,6 +556,7 @@ float kTitleLabelMinimumScaleFactor = 0.7f;
 #pragma mark - PageInfoAboutThisSiteConsumer
 
 - (void)setAboutThisSiteSection:(PageInfoAboutThisSiteInfo*)info {
+  CHECK(IsAboutThisSiteFeatureEnabled());
   _aboutThisSiteInfo = info;
 }
 

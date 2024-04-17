@@ -7,10 +7,10 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <vector>
 
 #include "base/auto_reset.h"
 #include "base/barrier_closure.h"
-#include "base/containers/cxx20_erase_vector.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/location.h"
@@ -412,9 +412,7 @@ void PrefetchService::PrefetchUrl(
            delegate_->IsExtendedPreloadingEnabled());
       if (!allow_all_domains &&
           !delegate_->IsDomainInPrefetchAllowList(
-              RenderFrameHost::FromID(
-                  prefetch_container->GetReferringRenderFrameHostId())
-                  ->GetLastCommittedURL())) {
+              prefetch_container->GetReferringOrigin().GetURL())) {
         DVLOG(1) << *prefetch_container
                  << ": not prefetched (not in allow list)";
         return;
@@ -1428,7 +1426,7 @@ std::vector<PrefetchContainer*> PrefetchService::FindPrefetchContainerToServe(
     prefetch_container->UpdateServingPageMetrics();
   }
 
-  base::EraseIf(matches, [](const auto* prefetch_container) {
+  std::erase_if(matches, [](const auto* prefetch_container) {
     if (prefetch_container->HasPrefetchBeenConsideredToServe()) {
       DVLOG(1) << "PrefetchService::FindPrefetchContainerToServe: skipped "
                << "because already considered to serve: "
@@ -1535,8 +1533,8 @@ PrefetchService::HandlePrefetchContainerToServe(
           weak_method_factory_.GetWeakPtr(), key,
           prefetch_match_resolver.GetWeakPtr(), prefetch_container.GetURL(),
           prefetch_container.GetWeakPtr()));
-      base::TimeDelta block_until_head_timeout = PrefetchBlockUntilHeadTimeout(
-          prefetch_container.GetPrefetchType().GetEagerness());
+      base::TimeDelta block_until_head_timeout =
+          PrefetchBlockUntilHeadTimeout(prefetch_container.GetPrefetchType());
       if (block_until_head_timeout.is_positive()) {
         std::unique_ptr<base::OneShotTimer> block_until_head_timer =
             std::make_unique<base::OneShotTimer>();

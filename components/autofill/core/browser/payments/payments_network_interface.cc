@@ -225,6 +225,16 @@ PaymentsNetworkInterface::GetDetailsForEnrollmentResponseDetails::
 
 PaymentsNetworkInterface::UploadCardResponseDetails::UploadCardResponseDetails() =
     default;
+PaymentsNetworkInterface::UploadCardResponseDetails::UploadCardResponseDetails(
+    const UploadCardResponseDetails&) = default;
+PaymentsNetworkInterface::UploadCardResponseDetails::UploadCardResponseDetails(
+    UploadCardResponseDetails&&) = default;
+PaymentsNetworkInterface::UploadCardResponseDetails&
+PaymentsNetworkInterface::UploadCardResponseDetails::operator=(
+    const UploadCardResponseDetails&) = default;
+PaymentsNetworkInterface::UploadCardResponseDetails&
+PaymentsNetworkInterface::UploadCardResponseDetails::operator=(
+    UploadCardResponseDetails&&) = default;
 PaymentsNetworkInterface::UploadCardResponseDetails::~UploadCardResponseDetails() =
     default;
 
@@ -267,8 +277,9 @@ void PaymentsNetworkInterface::GetUnmaskDetails(
 
 void PaymentsNetworkInterface::UnmaskCard(
     const PaymentsNetworkInterface::UnmaskRequestDetails& request_details,
-    base::OnceCallback<void(AutofillClient::PaymentsRpcResult,
-                            PaymentsNetworkInterface::UnmaskResponseDetails&)> callback) {
+    base::OnceCallback<void(
+        AutofillClient::PaymentsRpcResult,
+        const PaymentsNetworkInterface::UnmaskResponseDetails&)> callback) {
   IssueRequest(std::make_unique<UnmaskCardRequest>(
       request_details,
       account_info_getter_->IsSyncFeatureEnabledForPaymentsServerMetrics(),

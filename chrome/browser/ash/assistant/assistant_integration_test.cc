@@ -74,7 +74,7 @@ class AssistantIntegrationTest : public AshIntegrationTest,
 
 INSTANTIATE_TEST_SUITE_P(All, AssistantIntegrationTest, testing::Bool());
 
-// Flaky tests disabled crbug.com/318616623.
+// Flaky tests disabled b/325519819.
 IN_PROC_BROWSER_TEST_P(AssistantIntegrationTest, DISABLED_Hotkey) {
   SetupContextWidget();
 

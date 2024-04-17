@@ -34,6 +34,7 @@ BASE_DECLARE_FEATURE(kWebViewInjectPlatformJsApis);
 extern const base::FeatureParam<int> kWebViewIpProtectionExclusionCriteria;
 BASE_DECLARE_FEATURE(kWebViewJavaJsBridgeMojo);
 BASE_DECLARE_FEATURE(kWebViewMediaIntegrityApi);
+BASE_DECLARE_FEATURE(kWebViewMediaIntegrityApiBlinkExtension);
 BASE_DECLARE_FEATURE(kWebViewMixedContentAutoupgrades);
 BASE_DECLARE_FEATURE(kWebViewMuteAudio);
 BASE_DECLARE_FEATURE(kWebViewOriginTrials);
@@ -53,7 +54,10 @@ BASE_DECLARE_FEATURE(kWebViewXRequestedWithHeaderControl);
 extern const base::FeatureParam<int> kWebViewXRequestedWithHeaderMode;
 BASE_DECLARE_FEATURE(kWebViewXRequestedWithHeaderManifestAllowList);
 BASE_DECLARE_FEATURE(kWebViewUmaUploadQualityOfServiceSetToDefault);
+BASE_DECLARE_FEATURE(kWebViewUseInitialNetworkStateAtStartup);
 BASE_DECLARE_FEATURE(kWebViewZoomKeyboardShortcuts);
+BASE_DECLARE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel);
+BASE_DECLARE_FEATURE(kWebViewEnableCrash);
 
 }  // namespace features
 }  // namespace android_webview

@@ -239,12 +239,23 @@ CommandLine::CommandLine(const StringVector& argv)
   InitFromArgv(argv);
 }
 
-CommandLine::CommandLine(const CommandLine& other)
-    : argv_(other.argv_),
-      original_argv_(other.original_argv_),
-      switches_(other.switches_),
-      begin_args_(other.begin_args_),
-      argc0_(other.argc0_), argv0_(nullptr) {
+CommandLine::CommandLine(const CommandLine& other) = default;
+CommandLine::CommandLine(CommandLine&& other) noexcept
+    :
+#if BUILDFLAG(IS_WIN)
+      raw_command_line_string_(
+          std::exchange(other.raw_command_line_string_, StringPieceType())),
+      has_single_argument_switch_(
+          std::exchange(other.has_single_argument_switch_, false)),
+#endif  // BUILDFLAG(IS_WIN)
+      argv_(std::exchange(other.argv_, StringVector(1))),
+      switches_(std::move(other.switches_)),
+      begin_args_(std::exchange(other.begin_args_, 1)),
+      argc0_(0), argv0_(nullptr) {
+
+#if BUILDFLAG(ENABLE_COMMANDLINE_SEQUENCE_CHECKS)
+  other.sequence_checker_.Detach();
+#endif
 
 #if defined(OS_WIN)
   if (other.argv0_) {
@@ -259,12 +270,21 @@ CommandLine::CommandLine(const CommandLine& other)
   argv0_ = other.argv0_;
 #endif
 }
-
-CommandLine& CommandLine::operator=(const CommandLine& other) {
-  argv_ = other.argv_;
+CommandLine& CommandLine::operator=(const CommandLine& other) = default;
+CommandLine& CommandLine::operator=(CommandLine&& other) noexcept {
+#if BUILDFLAG(IS_WIN)
+  raw_command_line_string_ =
+      std::exchange(other.raw_command_line_string_, StringPieceType());
+  has_single_argument_switch_ =
+      std::exchange(other.has_single_argument_switch_, false);
+#endif  // BUILDFLAG(IS_WIN)
+  argv_ = std::exchange(other.argv_, StringVector(1));
+  switches_ = std::move(other.switches_);
+  begin_args_ = std::exchange(other.begin_args_, 1);
+#if BUILDFLAG(ENABLE_COMMANDLINE_SEQUENCE_CHECKS)
+  other.sequence_checker_.Detach();
+#endif
   original_argv_ = other.original_argv_;
-  switches_ = other.switches_;
-  begin_args_ = other.begin_args_;
 #if defined(OS_WIN)
   if (other.argv0_) {
     argc0_ = other.argc0_;

@@ -48,6 +48,7 @@ struct AXTreeUpdate;
 namespace blink {
 
 class AbstractInlineTextBox;
+class AriaNotifications;
 class AriaNotificationOptions;
 class AXObject;
 class AccessibleNode;
@@ -164,6 +165,15 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
   virtual void HandleAttributeChanged(const QualifiedName& attr_name,
                                       AccessibleNode*) = 0;
 
+  // Handles a notification from the `ariaNotify` API.
+  virtual void HandleAriaNotification(const Node*,
+                                      const String&,
+                                      const AriaNotificationOptions*) = 0;
+
+  // Retrieves the `AriaNotifications` associated to a given `AXObject`.
+  // Ownership of these notifications must be transferred to the caller.
+  virtual AriaNotifications RetrieveAriaNotifications(const AXObject*) = 0;
+
   // Called when a HTMLFrameOwnerElement (such as an iframe element) changes the
   // embedding token of its child frame.
   virtual void EmbeddingTokenChanged(HTMLFrameOwnerElement*) = 0;
@@ -191,27 +201,11 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
 
   virtual void OnTouchAccessibilityHover(const gfx::Point&) = 0;
 
-  // Gets the AXID of the given Node. If there is not yet an associated
-  // AXObject, this method will create one (along with its parent chain) and
-  // return the id.
-  virtual AXID GetAXID(Node*) = 0;
-
-  // Crash dumps have shown there are times where AXID's are queried
-  // 'out-of-band' where we may not be in a state where creating AXObjects and
-  // repairing parent chains is possible. This will look for the current
-  // AXObject associated with the given node and return its id without creating
-  // or recomputing any state.
-  virtual AXID GetExistingAXID(Node*) = 0;
-
   virtual AXObject* ObjectFromAXID(AXID) const = 0;
 
   virtual AXObject* Root() = 0;
 
   virtual AXID GenerateAXID() const = 0;
-
-  virtual void AddAriaNotification(Node*,
-                                   const String,
-                                   const AriaNotificationOptions*) = 0;
 
   virtual ComputedAccessibleNode* GetOrCreateComputedAccessibleNode(AXID) = 0;
 

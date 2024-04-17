@@ -20,7 +20,8 @@ void RecordDownloadSource(ChromeDownloadSource source) {
 
 void MaybeRecordDangerousDownloadWarningShown(DownloadUIModel& model) {
 #if 0
-  if (!model.IsDangerous()) {
+  if (!model.IsDangerous() ||
+      model.GetState() == download::DownloadItem::DownloadState::CANCELLED) {
     return;
   }
   if (model.WasUIWarningShown()) {

@@ -46,9 +46,12 @@ inline constexpr char kBrowserLockdownModeEnabled[] =
 inline constexpr char kBrowserStateInfoCache[] = "profile.info_cache";
 
 // Directory of the browser state profile used.
+// TODO(crbug.com/325921947): Remove use of this key, kBrowserStatesLastActive
+// should be used.
 inline constexpr char kBrowserStateLastUsed[] = "profile.last_used";
 
 // List of directories of the browser states last active.
+// TODO(crbug.com/325923177): Update this key with active BrowserStates.
 inline constexpr char kBrowserStatesLastActive[] =
     "profile.last_active_profiles";
 
@@ -123,6 +126,11 @@ inline constexpr char kIosCredentialProviderPromoSource[] =
 inline constexpr char kIosBookmarkCachedFolderId[] =
     "ios.bookmark.cached_folder_id";
 
+// Caches the folder’s model of user's position in the bookmark hierarchy
+// navigator.
+inline constexpr char kIosBookmarkCachedFolderModel[] =
+    "ios.bookmark.cached_folder_model";
+
 // Caches the scroll position of Bookmarks.
 inline constexpr char kIosBookmarkCachedTopMostRow[] =
     "ios.bookmark.cached_top_most_row";
@@ -140,7 +148,7 @@ inline constexpr char kIosBookmarkLastUsedFolderReceivingBookmarks[] =
 
 // Preference that keep information about the storage type for
 // kIosBookmarkLastUsedFolderReceivingBookmarks. The value is based on
-// bookmarks::StorageType enum. This value should be ignored if the value of
+// BookmarkModelType enum. This value should be ignored if the value of
 // `kIosBookmarkLastUsedFolderReceivingBookmarks` preference is
 // `kLastUsedBookmarkFolderNone`. Related to
 // `kIosBookmarkLastUsedFolderReceivingBookmarks`.
@@ -270,10 +278,6 @@ inline constexpr char kIosPromosManagerActivePromos[] =
 // campaigns. Key is the promo name, value is the time to become active.
 inline constexpr char kIosPromosManagerSingleDisplayPendingPromos[] =
     "ios.promos_manager.pending_promos";
-
-// List preference containing the promo impression history.
-inline constexpr char kIosPromosManagerImpressions[] =
-    "ios.promos_manager.impressions";
 
 // List preference maintaining the list of single-display, active promo
 // campaigns.
@@ -569,6 +573,10 @@ inline constexpr char kNotificationsPromoTimesDismissed[] =
 inline constexpr char kInsecureFormWarningsEnabled[] =
     "ios.insecure_form_warnings_enabled";
 
+// TODO(crbug.com/329381234) Remove once we have a better solution.
+// This value is true if the default user agent was changed. To be used
+// only when raccoon is enabled.
+inline constexpr char kUserAgentWasChanged[] = "UserAgentWasChanged";
 }  // namespace prefs
 
 #endif  // IOS_CHROME_BROWSER_PREFS_PREF_NAMES_H_

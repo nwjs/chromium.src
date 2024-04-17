@@ -90,6 +90,8 @@ PermissionToSchedulingFeature(PermissionType permission_name) {
     case PermissionType::SMART_CARD:
     case PermissionType::WEB_PRINTING:
     case PermissionType::SPEAKER_SELECTION:
+    case PermissionType::KEYBOARD_LOCK:
+    case PermissionType::POINTER_LOCK:
       return std::nullopt;
   }
 }
@@ -803,8 +805,8 @@ PermissionControllerImpl::GetExclusionAreaBoundsInScreen(
 }
 
 void PermissionControllerImpl::NotifyEventListener() {
-  if (onchange_listeners_callback_for_tests_.has_value()) {
-    onchange_listeners_callback_for_tests_.value().Run();
+  if (onchange_listeners_callback_for_tests_) {
+    onchange_listeners_callback_for_tests_.Run();
   }
 }
 

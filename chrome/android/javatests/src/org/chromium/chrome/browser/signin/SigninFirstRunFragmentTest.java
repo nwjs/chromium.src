@@ -38,6 +38,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.widget.ProgressBar;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.test.espresso.ViewAction;
 import androidx.test.filters.MediumTest;
@@ -64,6 +65,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.ScalableTimeout;
@@ -84,7 +86,7 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninChecker;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.signin.services.SigninManager.SignInCallback;
-import org.chromium.chrome.browser.ui.signin.fre.SigninFirstRunMediator.LoadPoint;
+import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninMediator.LoadPoint;
 import org.chromium.chrome.test.AutomotiveContextWrapperTestRule;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.R;
@@ -94,6 +96,7 @@ import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.externalauth.ExternalAuthUtils;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -256,12 +259,16 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWhenRemovingChildAccountDynamically() {
-        mSigninTestRule.addAccount(
-                CHILD_ACCOUNT_EMAIL, CHILD_FULL_NAME, /* givenName= */ null, /* avatar= */ null);
+        CoreAccountInfo accountInfo =
+                mSigninTestRule.addAccount(
+                        CHILD_ACCOUNT_EMAIL,
+                        CHILD_FULL_NAME,
+                        /* givenName= */ null,
+                        /* avatar= */ null);
         launchActivityWithFragment();
         checkFragmentWithChildAccount(true, true);
 
-        mSigninTestRule.removeAccount(CHILD_ACCOUNT_EMAIL);
+        mSigninTestRule.removeAccount(accountInfo.getId());
 
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -279,12 +286,14 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWhenDefaultAccountIsRemoved() {
-        mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, /* avatar= */ null);
+        CoreAccountInfo accountInfo1 =
+                mSigninTestRule.addAccount(
+                        TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, /* avatar= */ null);
         mSigninTestRule.addAccount(
                 TEST_EMAIL2, /* fullName= */ null, /* givenName= */ null, /* avatar= */ null);
         launchActivityWithFragment();
 
-        mSigninTestRule.removeAccount(TEST_EMAIL1);
+        mSigninTestRule.removeAccount(accountInfo1.getId());
 
         checkFragmentWithSelectedAccount(TEST_EMAIL2, /* fullName= */ null, /* givenName= */ null);
     }
@@ -293,7 +302,9 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testRemovingAllAccountsDismissesAccountPickerDialog() {
-        mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, /* avatar= */ null);
+        CoreAccountInfo accountInfo =
+                mSigninTestRule.addAccount(
+                        TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, /* avatar= */ null);
         launchActivityWithFragment();
         checkFragmentWithSelectedAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1);
         onView(withText(TEST_EMAIL1)).perform(click());
@@ -301,7 +312,7 @@ public class SigninFirstRunFragmentTest {
                 .inRoot(isDialog())
                 .check(matches(isDisplayed()));
 
-        mSigninTestRule.removeAccount(TEST_EMAIL1);
+        mSigninTestRule.removeAccount(accountInfo.getId());
 
         onView(withText(R.string.signin_account_picker_dialog_title)).check(doesNotExist());
         onView(withText(R.string.signin_add_account_to_device)).check(matches(isDisplayed()));
@@ -371,7 +382,7 @@ public class SigninFirstRunFragmentTest {
                                     .getSigninManager(ProfileManager.getLastUsedRegularProfile()))
                             .thenReturn(mSigninManagerMock);
                     // IdentityManager#getPrimaryAccountInfo() is called during this test flow by
-                    // SigninFirstRunMediator.
+                    // FullscreenSigninMediator.
                     when(IdentityServicesProvider.get()
                                     .getIdentityManager(ProfileManager.getLastUsedRegularProfile()))
                             .thenReturn(mIdentityManagerMock);
@@ -705,7 +716,7 @@ public class SigninFirstRunFragmentTest {
                                     .getSigninManager(ProfileManager.getLastUsedRegularProfile()))
                             .thenReturn(mSigninManagerMock);
                     // IdentityManager#getPrimaryAccountInfo() is called during this test flow by
-                    // SigninFirstRunMediator.
+                    // FullscreenSigninMediator.
                     when(IdentityServicesProvider.get()
                                     .getIdentityManager(ProfileManager.getLastUsedRegularProfile()))
                             .thenReturn(mIdentityManagerMock);
@@ -851,7 +862,7 @@ public class SigninFirstRunFragmentTest {
                                     .getSigninManager(ProfileManager.getLastUsedRegularProfile()))
                             .thenReturn(mSigninManagerMock);
                     // IdentityManager#getPrimaryAccountInfo() is called during this test flow by
-                    // SigninFirstRunMediator.
+                    // FullscreenSigninMediator.
                     when(IdentityServicesProvider.get()
                                     .getIdentityManager(ProfileManager.getLastUsedRegularProfile()))
                             .thenReturn(mIdentityManagerMock);
@@ -865,17 +876,7 @@ public class SigninFirstRunFragmentTest {
         clickContinueButton(continueAsText);
 
         verify(mFirstRunPageDelegateMock).acceptTermsOfService(true);
-        onView(withId(R.id.fre_signin_progress_spinner)).check(matches(isDisplayed()));
-        onView(withText(R.string.fre_signing_in)).check(matches(isDisplayed()));
-        onView(withText(R.string.fre_welcome)).check(matches(isDisplayed()));
-        onView(withText(R.string.signin_fre_subtitle)).check(matches(isDisplayed()));
-        onView(withText(TEST_EMAIL1)).check(matches(not(isDisplayed())));
-        onView(withText(FULL_NAME1)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.signin_fre_selected_account_expand_icon))
-                .check(matches(not(isDisplayed())));
-        onView(withText(continueAsText)).check(matches(not(isDisplayed())));
-        onView(withText(R.string.signin_fre_dismiss_button)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.signin_fre_footer)).check(matches(not(isDisplayed())));
+        checkFragmentWithSignInSpinner(TEST_EMAIL1, FULL_NAME1, continueAsText);
     }
 
     @Test
@@ -910,21 +911,15 @@ public class SigninFirstRunFragmentTest {
 
         clickOnUmaDialogLinkAndWait();
 
-        onView(withText(R.string.signin_fre_uma_dialog_title))
-                .inRoot(isDialog())
-                .check(matches(isDisplayed()));
-        onView(withId(R.id.fre_uma_dialog_switch)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.signin_fre_uma_dialog_title)).check(matches(isDisplayed()));
+        onView(withId(R.id.fre_uma_dialog_switch)).check(matches(isDisplayed()));
         onView(withText(R.string.signin_fre_uma_dialog_first_section_header))
-                .inRoot(isDialog())
                 .check(matches(isDisplayed()));
         onView(withText(R.string.signin_fre_uma_dialog_first_section_body))
-                .inRoot(isDialog())
                 .check(matches(isDisplayed()));
         onView(withText(R.string.signin_fre_uma_dialog_second_section_header))
-                .inRoot(isDialog())
                 .check(matches(isDisplayed()));
         onView(withText(R.string.signin_fre_uma_dialog_second_section_body))
-                .inRoot(isDialog())
                 .check(matches(isDisplayed()));
         onView(withText(R.string.done)).check(matches(isDisplayed()));
     }
@@ -993,7 +988,8 @@ public class SigninFirstRunFragmentTest {
         clickContinueButton(continueAsText);
 
         verify(mFirstRunPageDelegateMock).acceptTermsOfService(false);
-        verify(mFirstRunPageDelegateMock, timeout(2000)).advanceToNextPage();
+        verify(mFirstRunPageDelegateMock, timeout(CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL))
+                .advanceToNextPage();
     }
 
     @Test
@@ -1025,6 +1021,37 @@ public class SigninFirstRunFragmentTest {
         checkFragmentWithSelectedAccount(TEST_EMAIL1, /* fullName= */ null, /* givenName= */ null);
         verify(mFirstRunPageDelegateMock)
                 .recordFreProgressHistogram(MobileFreProgress.WELCOME_ADD_ACCOUNT);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SEED_ACCOUNTS_REVAMP)
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    public void testFragmentSigninWhenAddedAccountIsNotYetAvailable() {
+        // This will freeze AccountManagerFacade with the currently available list of accounts.
+        // The added account from add account flow later on will not be available.
+        mSigninTestRule.blockGetCoreAccountInfosUpdate(/* populateCache= */ true);
+        mSigninTestRule.setResultForNextAddAccountFlow(Activity.RESULT_OK, TEST_EMAIL1);
+        launchActivityWithFragment();
+        onView(withText(R.string.signin_add_account_to_device)).perform(click());
+        checkFragmentWithSelectedAccount(TEST_EMAIL1, /* fullName= */ null, /* givenName= */ null);
+
+        final String continueAsText =
+                mActivityTestRule
+                        .getActivity()
+                        .getString(R.string.sync_promo_continue_as, TEST_EMAIL1);
+        clickContinueButton(continueAsText);
+
+        // The click on continue button should be a no-op.
+        verify(mFirstRunPageDelegateMock, never()).advanceToNextPage();
+        checkFragmentWithSelectedAccount(TEST_EMAIL1, /* fullName= */ null, /* givenName= */ null);
+
+        // Allow account list update and the continue button starts sign-in.
+        mSigninTestRule.unblockGetCoreAccountInfos();
+        clickContinueButton(continueAsText);
+        verify(mFirstRunPageDelegateMock, timeout(CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL))
+                .advanceToNextPage();
+        checkFragmentWithSignInSpinner(TEST_EMAIL1, /* fullName= */ null, continueAsText);
     }
 
     @Test
@@ -1123,7 +1150,7 @@ public class SigninFirstRunFragmentTest {
         slowestPointHistogram =
                 HistogramWatcher.newBuilder().expectNoRecords("MobileFre.SlowestLoadPoint").build();
 
-        // Changing the activity orientation will create SigninFirstRunCoordinator again and call
+        // Changing the activity orientation will create FullscreenSigninCoordinator again and call
         // SigninFirstRunFragment.notifyCoordinatorWhenNativePolicyAndChildStatusAreLoaded()
         ActivityTestUtils.rotateActivityToOrientation(
                 mActivityTestRule.getActivity(), Configuration.ORIENTATION_LANDSCAPE);
@@ -1184,7 +1211,7 @@ public class SigninFirstRunFragmentTest {
         launchActivityWithFragment();
         onView(withId(R.id.fre_native_and_policy_load_progress_spinner))
                 .check(matches(isDisplayed()));
-        onView(withId(R.id.title)).check(matches(isDisplayed()));
+        onView(withId(R.id.title)).check(matches(not(isDisplayed())));
         onView(withId(R.id.subtitle)).check(matches(not(isDisplayed())));
 
         TestThreadUtils.runOnUiThreadBlocking(() -> mNativeInitializationPromise.fulfill(null));
@@ -1281,7 +1308,7 @@ public class SigninFirstRunFragmentTest {
     private void checkFragmentWhenLoadingNativeAndPolicy() {
         onView(withId(R.id.fre_native_and_policy_load_progress_spinner))
                 .check(matches(isDisplayed()));
-        onView(withText(R.string.fre_welcome)).check(matches(isDisplayed()));
+        onView(withText(R.string.fre_welcome)).check(matches(not(isDisplayed())));
         onView(withId(R.id.subtitle)).check(matches(not(isDisplayed())));
         onView(withText(TEST_EMAIL1)).check(matches(not(isDisplayed())));
         onView(withText(FULL_NAME1)).check(matches(not(isDisplayed())));
@@ -1351,6 +1378,23 @@ public class SigninFirstRunFragmentTest {
                 .signinAndEnableSync(any(CoreAccountInfo.class), anyInt(), any());
     }
 
+    private void checkFragmentWithSignInSpinner(
+            String email, @Nullable String fullName, String continueAsText) {
+        onView(withId(R.id.fre_signin_progress_spinner)).check(matches(isDisplayed()));
+        onView(withText(R.string.fre_signing_in)).check(matches(isDisplayed()));
+        onView(withText(R.string.fre_welcome)).check(matches(isDisplayed()));
+        onView(withText(R.string.signin_fre_subtitle)).check(matches(isDisplayed()));
+        onView(withText(email)).check(matches(not(isDisplayed())));
+        if (fullName != null) {
+            onView(withText(fullName)).check(matches(not(isDisplayed())));
+        }
+        onView(withId(R.id.signin_fre_selected_account_expand_icon))
+                .check(matches(not(isDisplayed())));
+        onView(withText(continueAsText)).check(matches(not(isDisplayed())));
+        onView(withText(R.string.signin_fre_dismiss_button)).check(matches(not(isDisplayed())));
+        onView(withId(R.id.signin_fre_footer)).check(matches(not(isDisplayed())));
+    }
+
     private void checkFragmentWhenSigninIsDisabledByPolicy() {
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -1405,7 +1449,10 @@ public class SigninFirstRunFragmentTest {
      */
     private void clickOnUmaDialogLinkAndWait() {
         onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
-        ViewUtils.onViewWaiting(withText(R.string.done)).check(matches(isDisplayed()));
+        ViewUtils.onViewWaiting(
+                        withText(R.string.done),
+                        true) // Sets dialog to be in focus. Needed for API 30+.
+                .check(matches(isDisplayed()));
     }
 
     private ViewAction clickOnUmaDialogLink() {

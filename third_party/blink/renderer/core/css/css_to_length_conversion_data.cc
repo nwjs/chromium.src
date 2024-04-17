@@ -30,6 +30,7 @@
 
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 
+#include "third_party/blink/renderer/core/css/anchor_evaluator.h"
 #include "third_party/blink/renderer/core/css/container_query.h"
 #include "third_party/blink/renderer/core/css/container_query_evaluator.h"
 #include "third_party/blink/renderer/core/css/css_resolution_units.h"
@@ -267,11 +268,14 @@ void CSSToLengthConversionData::ContainerSizes::CacheSizeIfNeeded(
   cache = FindSizeForContainerAxis(requested_axis, context_element_);
 }
 
-CSSToLengthConversionData::AnchorData::AnchorData(
-    Length::AnchorEvaluator* evaluator)
+CSSToLengthConversionData::AnchorData::AnchorData(Element* anchored,
+                                                  AnchorEvaluator* evaluator)
     : evaluator_(evaluator) {
-  // TODO(crbug.com/41483417): Note that this will become something more
-  // than a simple wrapper over Length::AnchorEvaluator* in the future.
+  if (!evaluator_ && anchored) {
+    if (OutOfFlowData* out_of_flow_data = anchored->GetOutOfFlowData()) {
+      evaluator_ = &out_of_flow_data->GetAnchorResults();
+    }
+  }
 }
 
 CSSToLengthConversionData::CSSToLengthConversionData(
@@ -458,6 +462,10 @@ CSSToLengthConversionData::ContainerSizes
 CSSToLengthConversionData::PreCachedContainerSizesCopy() const {
   SetFlag(Flag::kContainerRelative);
   return container_sizes_.PreCachedCopy();
+}
+
+void CSSToLengthConversionData::ReferenceTreeScope() const {
+  SetFlag(Flag::kTreeScopedReference);
 }
 
 void CSSToLengthConversionData::ReferenceAnchor() const {

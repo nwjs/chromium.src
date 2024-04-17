@@ -43,7 +43,6 @@
   }
 
   :host(:not([modules-redesigned_])) #tabs {
-    background-color: unset;
     margin: 0 0 8px 0;
   }
 
@@ -93,7 +92,6 @@
   }
 
   .icon {
-    background-color: var(--color-new-tab-page-module-background);
     margin-inline: 10px;
   }
 
@@ -121,7 +119,7 @@
 
   .tab-title,
   .tab-domain,
-  :host(:not([modules-redesigned_])) .tab-device {
+  .tab-device {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -140,16 +138,8 @@
     line-height: 16px;
   }
 
-  :host(:not([modules-redesigned_])) .tab-description {
+  .tab-description {
     line-height: 20px;
-  }
-
-  :host([modules-redesigned_]) .tab-device {
-    height: 14px;
-    margin-bottom: auto;
-    margin-inline: 0 4px;
-    margin-top: auto;
-    width: 14px;
   }
 
   .date {
@@ -193,16 +183,16 @@
       <div class="tab-info">
         <div class="tab-title">[[item.title]]</div>
         <div class="tab-description">
-          <iron-icon class="tab-device" icon="[[computeIcon_(item)]]"
-                     hidden="[[!modulesRedesigned_]]"></iron-icon>
-          <div class="tab-device" hidden="[[modulesRedesigned_]]">
-            [[i18n('modulesTabResumptionDevicePrefix')]]
-            [[item.sessionName]]</div>
+          <div class="tab-domain">[[computeDomain_(item)]]</div>
+          <span class="dot">
+            &nbsp&#8226&nbsp</span>
+          <div class="tab-device">
+            [[computeDeviceName_(item)]]
+            </div>
           <span class="dot" hidden="[[modulesRedesigned_]]">
             &nbsp&#8226&nbsp</span>
-          <div class="tab-domain">[[computeDomain_(item)]]</div>
-          <span class="dot">&nbsp&#8226&nbsp</span>
-          <div class="date">[[item.relativeTimeText]]</div>
+          <div class="date" hidden="[[modulesRedesigned_]]">
+            [[item.relativeTimeText]]</div>
         </div>
       </div>
     </a>

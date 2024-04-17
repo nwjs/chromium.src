@@ -397,7 +397,8 @@ Node* FileInputType::FileStatusElement() const {
 }
 
 void FileInputType::DisabledAttributeChanged() {
-  DCHECK(IsShadowHost(GetElement()));
+  DCHECK(RuntimeEnabledFeatures::CreateInputShadowTreeDuringLayoutEnabled() ||
+         IsShadowHost(GetElement()));
   if (Element* button = UploadButton()) {
     button->SetBooleanAttribute(html_names::kDisabledAttr,
                                 GetElement().IsDisabledFormControl());
@@ -405,7 +406,8 @@ void FileInputType::DisabledAttributeChanged() {
 }
 
 void FileInputType::MultipleAttributeChanged() {
-  DCHECK(IsShadowHost(GetElement()));
+  DCHECK(RuntimeEnabledFeatures::CreateInputShadowTreeDuringLayoutEnabled() ||
+         IsShadowHost(GetElement()));
   if (Element* button = UploadButton()) {
     button->setAttribute(
         html_names::kValueAttr,

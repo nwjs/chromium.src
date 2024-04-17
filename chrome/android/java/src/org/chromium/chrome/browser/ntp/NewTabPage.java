@@ -44,8 +44,6 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.compositor.layouts.content.InvalidationAwareThumbnailProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.feature_guide.notifications.FeatureNotificationUtils;
-import org.chromium.chrome.browser.feature_guide.notifications.FeatureType;
 import org.chromium.chrome.browser.feed.FeedActionDelegate;
 import org.chromium.chrome.browser.feed.FeedReliabilityLogger;
 import org.chromium.chrome.browser.feed.FeedSurfaceCoordinator;
@@ -192,6 +190,8 @@ public class NewTabPage
     private boolean mSnapshotSingleTabCardChanged;
     private final boolean mIsSurfacePolishEnabled;
     private final boolean mIsSurfacePolishOmniboxColorEnabled;
+    private final boolean mIsSurfacePolishLessBrandSpaceEnabled;
+    private final boolean mIsLogoPolishEnabled;
     private final boolean mIsInNightMode;
     @Nullable private final OneshotSupplier<ModuleRegistry> mModuleRegistrySupplier;
 
@@ -435,6 +435,10 @@ public class NewTabPage
         mIsSurfacePolishOmniboxColorEnabled =
                 mIsSurfacePolishEnabled
                         && StartSurfaceConfiguration.SURFACE_POLISH_OMNIBOX_COLOR.getValue();
+        mIsSurfacePolishLessBrandSpaceEnabled =
+                mIsSurfacePolishEnabled
+                        && StartSurfaceConfiguration.SURFACE_POLISH_LESS_BRAND_SPACE.getValue();
+        mIsLogoPolishEnabled = StartSurfaceConfiguration.isLogoPolishEnabled();
         if (mIsSurfacePolishEnabled) {
             mBackgroundColor =
                     ChromeColors.getSurfaceColor(
@@ -569,6 +573,8 @@ public class NewTabPage
                 isNtpAsHomeSurfaceOnTablet(),
                 mIsSurfacePolishEnabled,
                 mIsSurfacePolishOmniboxColorEnabled,
+                mIsSurfacePolishLessBrandSpaceEnabled,
+                mIsLogoPolishEnabled,
                 mIsTablet,
                 mTabStripHeightSupplier);
 
@@ -909,10 +915,6 @@ public class NewTabPage
         RecordUserAction.record("MobileNTPShown");
         mJankTracker.startTrackingScenario(JankScenario.NEW_TAB_PAGE);
         SuggestionsMetrics.recordSurfaceVisible();
-
-        FeatureNotificationUtils.registerIPHCallback(
-                FeatureType.VOICE_SEARCH,
-                mNewTabPageLayout::maybeShowFeatureNotificationVoiceSearchIPH);
     }
 
     /** Records UMA for the NTP being hidden and the time spent on it. */
@@ -922,7 +924,6 @@ public class NewTabPage
                 "NewTabPage.TimeSpent",
                 (System.nanoTime() - mLastShownTimeNs) / TimeUtils.NANOSECONDS_PER_MILLISECOND);
         SuggestionsMetrics.recordSurfaceHidden();
-        FeatureNotificationUtils.unregisterIPHCallback(FeatureType.VOICE_SEARCH);
     }
 
     /**
@@ -1160,9 +1161,13 @@ public class NewTabPage
 
     private int getLogoTopMargin() {
         Resources resources = mNewTabPageLayout.getResources();
+
+        if (mIsLogoPolishEnabled && mSearchProviderHasLogo) {
+            return LogoUtils.getTopMarginForLogoPolish(resources);
+        }
+
         if (mIsSurfacePolishEnabled && mSearchProviderHasLogo) {
-            if (StartSurfaceConfiguration.SURFACE_POLISH_LESS_BRAND_SPACE.getValue()
-                    && !mIsTablet) {
+            if (mIsSurfacePolishLessBrandSpaceEnabled && !mIsTablet) {
                 return LogoUtils.getTopMarginPolishedSmall(resources);
 
             } else {
@@ -1179,9 +1184,13 @@ public class NewTabPage
 
     private int getLogoBottomMargin() {
         Resources resources = mNewTabPageLayout.getResources();
+
+        if (mIsLogoPolishEnabled && mSearchProviderHasLogo) {
+            return LogoUtils.getBottomMarginForLogoPolish(resources);
+        }
+
         if (mIsSurfacePolishEnabled && mSearchProviderHasLogo) {
-            if (StartSurfaceConfiguration.SURFACE_POLISH_LESS_BRAND_SPACE.getValue()
-                    && !mIsTablet) {
+            if (mIsSurfacePolishLessBrandSpaceEnabled && !mIsTablet) {
                 return LogoUtils.getBottomMarginPolishedSmall(resources);
             } else {
                 return LogoUtils.getBottomMarginPolished(resources);

@@ -1496,12 +1496,28 @@ void HTMLCanvasElement::DiscardResourceProvider() {
   dirty_rect_ = gfx::RectF();
 }
 
+HTMLCanvasElement::AnimationState HTMLCanvasElement::ComputeAnimationState()
+    const {
+  DCHECK(GetPage());
+  const bool is_hidden = GetPage()->GetVisibilityState() ==
+                         mojom::blink::PageVisibilityState::kHidden;
+  if (is_hidden) {
+    if (HasCanvasCapture()) {
+      const bool allow_synthetic_timing =
+          RuntimeEnabledFeatures::AllowSyntheticTimingForCanvasCaptureEnabled();
+      return allow_synthetic_timing ? AnimationState::kActiveWithSyntheticTiming
+                                    : AnimationState::kActive;
+    } else {
+      return AnimationState::kSuspended;
+    }
+  }
+
+  return AnimationState::kActive;
+}
+
 void HTMLCanvasElement::UpdateSuspendOffscreenCanvasAnimation() {
   if (GetPage()) {
-    SetSuspendOffscreenCanvasAnimation(
-        GetPage()->GetVisibilityState() ==
-            mojom::blink::PageVisibilityState::kHidden &&
-        !HasCanvasCapture());
+    SetSuspendOffscreenCanvasAnimation(ComputeAnimationState());
   }
 }
 
@@ -1677,7 +1693,7 @@ gfx::Size HTMLCanvasElement::BitmapSourceSize() const {
   return Size();
 }
 
-ScriptPromise HTMLCanvasElement::CreateImageBitmap(
+ScriptPromiseTyped<ImageBitmap> HTMLCanvasElement::CreateImageBitmap(
     ScriptState* script_state,
     std::optional<gfx::Rect> crop_rect,
     const ImageBitmapOptions* options,
@@ -1686,7 +1702,7 @@ ScriptPromise HTMLCanvasElement::CreateImageBitmap(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "`createImageBitmap()` cannot be called with open layers.");
-    return ScriptPromise();
+    return ScriptPromiseTyped<ImageBitmap>();
   }
   return ImageBitmapSource::FulfillImageBitmap(
       script_state, MakeGarbageCollected<ImageBitmap>(this, crop_rect, options),

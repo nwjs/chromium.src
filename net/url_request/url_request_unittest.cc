@@ -10499,10 +10499,8 @@ class HTTPSOCSPTest : public HTTPSCertNetFetchingTest {
 
 static bool UsingBuiltinCertVerifier() {
 #if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
-    BUILDFLAG(CHROME_ROOT_STORE_ONLY)
+    BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
   return true;
-#elif BUILDFLAG(CHROME_ROOT_STORE_OPTIONAL)
-  return base::FeatureList::IsEnabled(features::kChromeRootStoreUsed);
 #else
   return false;
 #endif
@@ -12910,33 +12908,15 @@ TEST_F(URLRequestTest, SetIsolationInfoFromNak) {
 
 TEST_F(URLRequestTest, CookiePartitionKey) {
   const url::Origin kOrigin = url::Origin::Create(GURL("http://foo.test/"));
-
-  {  // Partitioned cookies disabled.
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndDisableFeature(features::kPartitionedCookies);
-    TestDelegate d;
-    std::unique_ptr<URLRequest> r(default_context().CreateRequest(
-        GURL("ws://foo.test/"), DEFAULT_PRIORITY, &d,
-        TRAFFIC_ANNOTATION_FOR_TESTS));
-    r->set_isolation_info(
-        IsolationInfo::Create(IsolationInfo::RequestType::kMainFrame, kOrigin,
-                              kOrigin, SiteForCookies::FromOrigin(kOrigin)));
-    EXPECT_FALSE(r->cookie_partition_key());
-  }
-
-  {  // Partitioned cookies enabled.
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeature(features::kPartitionedCookies);
-    TestDelegate d;
-    std::unique_ptr<URLRequest> r(default_context().CreateRequest(
-        GURL("ws://foo.test/"), DEFAULT_PRIORITY, &d,
-        TRAFFIC_ANNOTATION_FOR_TESTS));
-    r->set_isolation_info(
-        IsolationInfo::Create(IsolationInfo::RequestType::kMainFrame, kOrigin,
-                              kOrigin, SiteForCookies::FromOrigin(kOrigin)));
-    EXPECT_TRUE(r->cookie_partition_key());
-    EXPECT_EQ(r->cookie_partition_key()->site(), SchemefulSite(kOrigin));
-  }
+  TestDelegate d;
+  std::unique_ptr<URLRequest> r(
+      default_context().CreateRequest(GURL("ws://foo.test/"), DEFAULT_PRIORITY,
+                                      &d, TRAFFIC_ANNOTATION_FOR_TESTS));
+  r->set_isolation_info(
+      IsolationInfo::Create(IsolationInfo::RequestType::kMainFrame, kOrigin,
+                            kOrigin, SiteForCookies::FromOrigin(kOrigin)));
+  EXPECT_TRUE(r->cookie_partition_key());
+  EXPECT_EQ(r->cookie_partition_key()->site(), SchemefulSite(kOrigin));
 }
 
 class URLRequestMaybeAsyncFirstPartySetsTest

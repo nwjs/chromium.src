@@ -46,11 +46,11 @@
 #include <tuple>
 
 #include "base/containers/queue.h"
-#include "components/services/screen_ai/public/mojom/screen_ai_service.mojom.h"  // nogncheck crbug.com/1125897
-#include "components/services/screen_ai/public/test/fake_screen_ai_annotator.h"
-#include "components/services/screen_ai/screen_ai_ax_tree_serializer.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"  // nogncheck crbug.com/1125897
+#include "services/screen_ai/public/test/fake_screen_ai_annotator.h"
+#include "services/screen_ai/screen_ai_ax_tree_serializer.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -2697,7 +2697,10 @@ class PdfOcrServiceTest
 
     ui::AXNode* paragraph_node = page_node->GetChildAtIndex(0);
     ASSERT_NE(nullptr, paragraph_node);
-    ASSERT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
+    ASSERT_EQ((is_ocr_service_started_before_pdf_loads && !create_empty_results)
+                  ? ax::mojom::Role::kGenericContainer
+                  : ax::mojom::Role::kParagraph,
+              paragraph_node->GetRole());
     ASSERT_EQ(2u, paragraph_node->GetChildCount());
 
     ui::AXNode* first_node = paragraph_node->GetChildAtIndex(0);
@@ -3338,7 +3341,7 @@ TEST_F(PdfOcrTest, TestTransformFromOnOcrDataReceived) {
 
   paragraph_node = page_node->GetChildAtIndex(0);
   ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
+  EXPECT_EQ(ax::mojom::Role::kGenericContainer, paragraph_node->GetRole());
   ASSERT_EQ(1u, paragraph_node->GetChildCount());
 
   ui::AXNode* region_node = paragraph_node->GetChildAtIndex(0);

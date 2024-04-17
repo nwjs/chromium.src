@@ -80,7 +80,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="3219277919172823720">Chromium で音声検索</translation>
 <translation id="3228349498066165585">Chromium データの一部が Google アカウントにまだ保存されていません。
         数分待ってからログアウトしてください。今すぐログアウトすると、このデータは削除されます。</translation>
-<translation id="3256316712990552818">Chromium にコピー済み</translation>
 <translation id="328933489847748230">{count,plural, =1{現在 1 個の Chromium ウィンドウを表示しています}other{現在 {count} 個の Chromium ウィンドウを表示しています}}</translation>
 <translation id="3344973607274501920">Chromium でパスワードを確認できませんでした。インターネット接続を確認してみてください。</translation>
 <translation id="3366305173356742781">アカウントの Chromium データ</translation>
@@ -118,6 +117,7 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="4195557071150719219">Chromium で最近使ったタブを表示</translation>
 <translation id="4200712796753248893">iOS で Chromium アクションを使用する</translation>
 <translation id="420541179527342563">Chromium のロックダウン モードを無効にするには、iPad でロックダウン モードをオフにします。</translation>
+<translation id="427331839909790668">Chromium と他の Google サービスをリンクすると、相互のデータ使用によりサービスがパーソナライズされます</translation>
 <translation id="4408912345039114853">Chromium で安全チェックを実行する</translation>
 <translation id="4432744876818348753">Chromium を最大限に活用するにはログインしてください。</translation>
 <translation id="4445228361214254027">Google アカウントで Chromium データを使用、保存する機能は組織によって無効にされています。新しいブックマークやパスワードなどは、このデバイスにのみ保存されます。</translation>
@@ -219,6 +219,7 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="6852799557929001644">このデバイスの他のアプリから、Chromium のパスワードなどにアクセスできます。</translation>
 <translation id="6887138405044152640">このタブを別のデバイスに送信するには、送信先のデバイスで Chromium にログインしてください。</translation>
 <translation id="6911341667534646387">Google アカウントの Chromium データを引き続き使用してください</translation>
+<translation id="7002548535535009764">よりパーソナライズされたサービスを利用するには、<ph name="FEATURE_NAME_1" /> と <ph name="FEATURE_NAME_2" /> に Chromium を追加してください</translation>
 <translation id="7006920032187763988">他のアプリや iPad でパスワード マネージャーに保存したパスワードを使用できます。</translation>
 <translation id="7018284295775193585">Chromium を更新できません</translation>
 <translation id="7045244423563602563">Chromium を独自にカスタマイズ</translation>

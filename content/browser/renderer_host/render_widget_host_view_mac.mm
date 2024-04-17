@@ -1637,6 +1637,11 @@ std::optional<SkColor> RenderWidgetHostViewMac::GetBackgroundColor() {
   return (color && *color == SK_ColorTRANSPARENT) ? SK_ColorWHITE : color;
 }
 
+viz::SurfaceId RenderWidgetHostViewMac::GetFallbackSurfaceIdForTesting() const {
+  return browser_compositor_->GetDelegatedFrameHost()
+      ->GetFallbackSurfaceIdForTesting();  // IN-TEST
+}
+
 void RenderWidgetHostViewMac::SetBackgroundLayerColor(SkColor color) {
   if (color == background_layer_color_)
     return;
@@ -1697,6 +1702,10 @@ void RenderWidgetHostViewMac::ShowSharePicker(
 ///////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostNSViewHostHelper and mojom::RenderWidgetHostNSViewHost
 // implementation:
+
+id RenderWidgetHostViewMac::GetAccessibilityElement() {
+  return GetNativeViewAccessible();
+}
 
 id RenderWidgetHostViewMac::GetRootBrowserAccessibilityElement() {
   if (auto* manager = host()->GetRootBrowserAccessibilityManager())
@@ -2218,6 +2227,15 @@ void RenderWidgetHostViewMac::StartSpeaking() {
 
 void RenderWidgetHostViewMac::StopSpeaking() {
   ui::TextServicesContextMenu::StopSpeaking();
+}
+
+void RenderWidgetHostViewMac::GetRenderWidgetAccessibilityToken(
+    GetRenderWidgetAccessibilityTokenCallback callback) {
+  base::ProcessId pid = getpid();
+  id element_id = GetNativeViewAccessible();
+  std::vector<uint8_t> token =
+      ui::RemoteAccessibility::GetTokenForLocalElement(element_id);
+  std::move(callback).Run(pid, token);
 }
 
 void RenderWidgetHostViewMac::SetRemoteAccessibilityWindowToken(

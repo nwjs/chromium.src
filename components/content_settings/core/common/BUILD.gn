@@ -28,9 +28,7 @@ static_library("common") {
     "content_settings_utils.cc",
     "content_settings_utils.h",
     "cookie_blocking_3pcd_status.h",
-    "cookie_controls_breakage_confidence_level.h",
     "cookie_controls_enforcement.h",
-    "cookie_controls_status.h",
     "cookie_settings_base.cc",
     "cookie_settings_base.h",
     "host_indexed_content_settings.cc",
@@ -141,10 +139,6 @@ mojom("mojo_bindings") {
         {
           mojom = "content_settings.mojom.RendererContentSettingRules"
           cpp = "::RendererContentSettingRules"
-        },
-        {
-          mojom = "content_settings.mojom.SessionModel"
-          cpp = "::content_settings::SessionModel"
         },
         {
           mojom = "content_settings.mojom.RuleMetaData"

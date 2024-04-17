@@ -1517,3 +1517,81 @@ TEST(AutocompleteGrouperSectionsTest,
         {100, 99, 98, 97, 96, 95, 94, 93}, false);
   }
 }
+
+// Test that (on Android) sections are grouped by Search vs URL.
+#if BUILDFLAG(IS_ANDROID)
+TEST(AutocompleteGrouperSectionsTest,
+     AndroidNonZPSSection_groupsBySearchVsUrl) {
+  auto test = [](ACMatches matches, std::vector<int> expected_relevances) {
+    PSections sections;
+    omnibox::GroupConfigMap group_configs;
+    sections.push_back(std::make_unique<AndroidNonZPSSection>(group_configs));
+    auto out_matches = Section::GroupMatches(std::move(sections), matches);
+    VerifyMatches(out_matches, expected_relevances);
+  };
+
+  auto make_search = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_SEARCH);
+    match.type = AutocompleteMatchType::SEARCH_HISTORY;
+    return match;
+  };
+
+  auto make_url = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_OTHER_NAVS);
+    match.type = AutocompleteMatchType::NAVSUGGEST;
+    return match;
+  };
+
+  {
+    SCOPED_TRACE("No matches = no crashes.");
+    test({}, {});
+  }
+  {
+    SCOPED_TRACE("Grouping top section only.");
+    test({make_search(100)}, {100});
+  }
+  {
+    SCOPED_TRACE("Grouping top two sections.");
+    test(
+        {
+            make_url(20),
+            make_url(19),
+            make_url(18),
+            make_search(10),
+            make_search(9),
+        },
+        // 20     -- default match.
+        // 10, 9  -- top searches.
+        // 19, 18 -- top URLs.
+        {20, 10, 9, 19, 18});
+  }
+  {
+    SCOPED_TRACE("Grouping all sections.");
+    test(
+        {
+            make_url(20),
+            // top adaptive group
+            make_url(19),
+            make_url(18),
+            make_search(10),
+            make_search(9),
+            make_url(17),
+            // bottom adaptive group
+            make_url(16),
+            make_search(8),
+            make_search(7),
+            make_url(15),
+            make_url(14),
+            make_search(6),
+            make_search(5),
+            make_url(13),
+            make_url(12),
+        },
+        {
+            20,                             // the default match
+            10, 9, 19, 18, 17,              // the top adaptive group
+            8, 7, 6, 5, 16, 15, 14, 13, 12  // the bottom adaptive group.
+        });
+  }
+}
+#endif

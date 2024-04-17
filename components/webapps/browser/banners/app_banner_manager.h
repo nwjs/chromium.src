@@ -147,9 +147,16 @@ class AppBannerManager : public content::WebContentsObserver,
 
   InstallableWebAppCheckResult GetInstallableWebAppCheckResult();
 
-  // Constructs and returns data about the web app on this page. Returns a
-  // std::nullopt if it doesn't exist. This is not guaranteed to have all data,
-  // please use the observer to wait.
+  // Constructs and returns data about the web app on this page. This is not
+  // guaranteed to have all data, and its presence does not mean the current
+  // page is promotable. If the page doesn't have a manifest url at all, this
+  // can still be populated with the default manifest. To ensure completion of
+  // the AppBannerManager pipeline & appropriate status, use the Observer
+  // interface to wait for an installable status. This returns a std::nullopt if
+  // - The manifest is hasn't been fetched yet.
+  // - This page is not eligible for installing (not https, incognito profile,
+  //   etc).
+  // - There were parsing errors or network errors fetching the manifest.
   std::optional<WebAppBannerData> GetCurrentWebAppBannerData() const;
 
   // Returns whether installability checks satisfy promotion requirements
@@ -291,10 +298,6 @@ class AppBannerManager : public content::WebContentsObserver,
   virtual bool IsRelatedNonWebAppInstalled(
       const blink::Manifest::RelatedApplication& related_app) const = 0;
 
-  // Returns whether the installed web app at the current page can be
-  // overwritten with a new app install for the current page.
-  virtual bool ShouldAllowWebAppReplacementInstall();
-
   // Callback invoked by the InstallableManager once it has fetched the page's
   // manifest.
   virtual void OnDidGetManifest(const InstallableData& data);
@@ -330,7 +333,7 @@ class AppBannerManager : public content::WebContentsObserver,
   virtual void ResetCurrentPageData();
 
   // Stops the banner pipeline early.
-  void Terminate();
+  void Terminate(InstallableStatusCode code);
 
   // Stops the banner pipeline, preventing any outstanding callbacks from
   // running and resetting the manager state. This method is virtual to allow
@@ -435,7 +438,7 @@ class AppBannerManager : public content::WebContentsObserver,
   void DisplayAppBanner() override;
 
   // Returns a status code based on the current state, to log when terminating.
-  InstallableStatusCode TerminationCode() const;
+  InstallableStatusCode TerminationCodeFromState() const;
 
   // Fetches the data required to display a banner for the current page.
   raw_ptr<InstallableManager> manager_;

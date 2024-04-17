@@ -5,12 +5,14 @@
 #import "ios/chrome/browser/browser_state/model/browser_state_keyed_service_factories.h"
 
 #import "base/feature_list.h"
+#import "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_classifier_factory.h"
 #import "ios/chrome/browser/autocomplete/model/in_memory_url_index_factory.h"
 #import "ios/chrome/browser/autocomplete/model/shortcuts_backend_factory.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_sync_service_factory.h"
+#import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_undo_service_factory.h"
 #import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_sync_service_factory.h"
@@ -58,7 +60,6 @@
 #import "ios/chrome/browser/plus_addresses/model/plus_address_service_factory.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service_factory.h"
 #import "ios/chrome/browser/policy_url_blocking/model/policy_url_blocking_service.h"
-#import "ios/chrome/browser/promos_manager/model/promos_manager_event_exporter_factory.h"
 #import "ios/chrome/browser/promos_manager/model/promos_manager_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_browser_state_service_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
@@ -136,6 +137,7 @@ void EnsureBrowserStateKeyedServiceFactoriesBuilt() {
   ios::AutocompleteClassifierFactory::GetInstance();
   ios::LocalOrSyncableBookmarkModelFactory::GetInstance();
   ios::AccountBookmarkModelFactory::GetInstance();
+  ios::BookmarkModelFactory::GetInstance();
   ios::BookmarkUndoServiceFactory::GetInstance();
   ios::CookieSettingsFactory::GetInstance();
   ios::FaviconServiceFactory::GetInstance();
@@ -172,6 +174,7 @@ void EnsureBrowserStateKeyedServiceFactoriesBuilt() {
   GoogleLogoServiceFactory::GetInstance();
   IdentityManagerFactory::GetInstance();
   IOSChromeAccountPasswordStoreFactory::GetInstance();
+  IOSChromeAffiliationServiceFactory::GetInstance();
   IOSChromeFaviconLoaderFactory::GetInstance();
   IOSChromeGCMProfileServiceFactory::GetInstance();
   IOSChromeLargeIconCacheFactory::GetInstance();
@@ -193,7 +196,6 @@ void EnsureBrowserStateKeyedServiceFactoriesBuilt() {
   PlusAddressServiceFactory::GetInstance();
   policy::UserPolicySigninServiceFactory::GetInstance();
   PolicyBlocklistServiceFactory::GetInstance();
-  PromosManagerEventExporterFactory::GetInstance();
   PromosManagerFactory::GetInstance();
   PushNotificationBrowserStateServiceFactory::GetInstance();
   ReadingListModelFactory::GetInstance();

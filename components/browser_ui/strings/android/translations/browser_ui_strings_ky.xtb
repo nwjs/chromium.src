@@ -100,6 +100,7 @@
 <translation id="2586657967955657006">Алмашуу буфери</translation>
 <translation id="2597457036804169544">Сайттарга караңгы тема колдонулбасын</translation>
 <translation id="2606760465469169465">Автоматтык түрдө ырастоо</translation>
+<translation id="2613007545732217283"><ph name="HOST_NAME" /> <ph name="SEPARATOR" /> <ph name="RECENCY" /></translation>
 <translation id="2621115761605608342">Белгилүү бир сайтта JavaScript иштешине уруксат берүү.</translation>
 <translation id="2653659639078652383">Тапшыруу</translation>
 <translation id="2677748264148917807">Чыгуу</translation>
@@ -122,7 +123,6 @@
 <translation id="2979365474350987274">Үчүнчү тараптын cookie файлдары чектелген</translation>
 <translation id="3008272652534848354">Уруксаттарды өзгөртүү</translation>
 <translation id="301521992641321250">Автоматтык түрдө бөгөттөлдү</translation>
-<translation id="3025010840409371499"><ph name="RECENCY" /> <ph name="SEPARATOR" /> <ph name="HOST_NAME" /></translation>
 <translation id="3069226013421428034">Белгилүү бир сайтка үчүнчү тараптан кирүүгө уруксат бериңиз.</translation>
 <translation id="3082992102194421695">{COUNT,plural, =1{Мөөнөтү эртең бүтөт}other{Мөөнөтү # күндөн кийин бүтөт}}</translation>
 <translation id="310297983047869047">Мурунку слайд</translation>
@@ -262,7 +262,7 @@
 <translation id="5389626883706033615">Сайттарга сиз жөнүндө сакталган маалыматты колдонууга уруксат суроого тыюу алынды</translation>
 <translation id="5394307150471348411">{DETAIL_COUNT,plural, =1{(+ дагы 1)}other{(+ дагы #)}}</translation>
 <translation id="5403592356182871684">Ысымдар</translation>
-<translation id="5438097262470833822">Ушуну менен <ph name="WEBSITE" /> сайтынын уруксаттары баштапкы абалга келтирилет</translation>
+<translation id="5438097262470833822">Ушуну менен <ph name="WEBSITE" /> сайтынын уруксаттары баштапкы абалга келет</translation>
 <translation id="5459413148890178711">Бул параметр күйүп турганда, сайттар жайгашкан жериңизди колдонууга уруксат сурашы мүмкүн. Бул параметр өчүп турганда, сайттар жайгашкан жериңизди көрө алышпайт.</translation>
 <translation id="5489227211564503167"><ph name="TOTAL_TIME" /> ичинен <ph name="ELAPSED_TIME" /> өттү.</translation>
 <translation id="5502860503640766021">Уруксат берилген: <ph name="PERMISSION_1" />. Бөгөттөлгөн: <ph name="PERMISSION_2" />.</translation>
@@ -345,6 +345,7 @@
 <translation id="6612358246767739896">Корголгон мазмун</translation>
 <translation id="662080504995468778">Калуу</translation>
 <translation id="6653342741369270081">Толук экрандан чыгуу үчүн "Артка" баскычын басыңыз.</translation>
+<translation id="6670377348676659110">{TILE_COUNT,plural, =1{Бул өтмөктө улантууну жашыруу}other{Бул өтмөктөрдө улантууну жашыруу}}</translation>
 <translation id="6689172468748959065">Профилдин сүрөттөрү</translation>
 <translation id="6697925417670533197">Жүктөлүп алынган файлдар</translation>
 <translation id="6722828510648505498">Идентификациялык кызматтарда кирүү сурамдарын бөгөттөө.</translation>
@@ -367,6 +368,7 @@
 <translation id="702275896380648118">Бул сайт сизге жаккан нерселерди аныктап, башка сайттарга жарнамаларды сунуштап турат. Ошондой эле, ал Сhrome'дон жарнама темаларыңыз тууралуу маалымат алып, сизге ылайыктуу жарнамаларды көрсөтүп турат.</translation>
 <translation id="7053983685419859001">Бөгөттөө</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 тандалды}other{# тандалды}}</translation>
+<translation id="708014373017851679">"<ph name="APP_NAME" />" эскирип калган. Колдонмону жаңыртыңыз.</translation>
 <translation id="7087918508125750058"><ph name="ITEM_COUNT" /> тандалды.  Параметрлер экрандын жогору жагында берилген</translation>
 <translation id="7141896414559753902">Сайттарда калкыма терезелерди көрсөтүү менен багыттоолор бөгөттөлсүн (сунушталат)</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> Кб</translation>
@@ -483,7 +485,6 @@
 <translation id="8803526663383843427">Күйүп турганда</translation>
 <translation id="8805385115381080995">Сайттар чыныгы колдонуучу экениңизди ырастоону азыраак сураса, серептөө тезирээк болот</translation>
 <translation id="8816026460808729765">Сайттардын сенсорлорду колдонуусун бөгөттөө</translation>
-<translation id="8843699287283948910">Башка түзмөктөрдөгү өтмөктөрдү жашыруу</translation>
 <translation id="8847988622838149491">USB</translation>
 <translation id="8874790741333031443">Үчүнчү тараптын cookie файлдарына убактылуу уруксат берип көрүңүз. Мында Интернетте коопсуздугуңуз азыраак корголот, бирок сайттын функциялары ойдогудай иштеши мүмкүн.</translation>
 <translation id="8889294078294184559">Андан кийин башка сайттарга өтсөңүз, алар Chrome аркылуу бот эмес экениңизди текшере алышат</translation>

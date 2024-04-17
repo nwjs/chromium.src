@@ -8,22 +8,20 @@
 #import "base/i18n/message_formatter.h"
 #import "base/ios/ios_util.h"
 #import "base/strings/sys_string_conversions.h"
-#import "components/bookmarks/common/storage_type.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/sync/base/features.h"
+#import "ios/chrome/browser/bookmarks/model/bookmark_model_type.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
-#import "ios/chrome/browser/ui/authentication/signin_earl_grey_app_interface.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/bookmarks/bookmark_earl_grey.h"
 #import "ios/chrome/browser/ui/bookmarks/bookmark_earl_grey_ui.h"
 #import "ios/chrome/browser/ui/bookmarks/bookmark_ui_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
-#import "ios/chrome/test/earl_grey/chrome_earl_grey_app_interface.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/web_http_server_chrome_test_case.h"
@@ -176,10 +174,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // Tests that the batch upload dialog is not shown when the feature is disabled.
 - (void)testNoBatchUploadDialogIfFeatureDisabled {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -209,10 +206,8 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 - (void)setUp {
   [super setUp];
   // Add last syncing account.
-  [ChromeEarlGreyAppInterface
-      setStringValue:[FakeSystemIdentity fakeIdentity1].gaiaID
-         forUserPref:base::SysUTF8ToNSString(
-                         prefs::kGoogleServicesLastSyncingGaiaId)];
+  [ChromeEarlGrey setStringValue:[FakeSystemIdentity fakeIdentity1].gaiaID
+                     forUserPref:prefs::kGoogleServicesLastSyncingGaiaId];
   // Reset pref to offer upload sync left-behind bookamrks.
   [ChromeEarlGrey
       setBoolValue:false
@@ -232,10 +227,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // Tests that no batch upload dialog is shown if the user is not signed-in.
 - (void)testNoBatchUploadDialogIfNotSignedIn {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   [BookmarkEarlGreyUI openBookmarks];
@@ -256,10 +250,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // last syncing account.
 - (void)testBatchUploadDialogIfSignedInWithLastSyncingAccount {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -278,16 +271,13 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // account that is different than the last syncing account.
 - (void)testNoBatchUploadDialogIfSignedInWithAnotherAccount {
   // Change the default last syncing account.
-  [ChromeEarlGreyAppInterface
-      setStringValue:@"foo2ID"
-         forUserPref:base::SysUTF8ToNSString(
-                         prefs::kGoogleServicesLastSyncingGaiaId)];
+  [ChromeEarlGrey setStringValue:@"foo2ID"
+                     forUserPref:prefs::kGoogleServicesLastSyncingGaiaId];
 
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -310,10 +300,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [ChromeEarlGrey addBookmarkWithSyncPassphrase:kPassphrase];
 
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -363,10 +352,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // the sync left-behind bookmarks.
 - (void)testNoBatchUploadDialogIfLeftBehindBookmarksAlreadyUploaded {
   // Add one local bookmark as a left-behind data.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -404,10 +392,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [SigninEarlGreyUI signOut];
 
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example2"
-                       URL:@"https://www.example2.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example2"
+                                     URL:@"https://www.example2.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Sign in.
@@ -448,10 +435,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // single local bookmark.
 - (void)testBatchUploadDialogTestIfSingleLocalBookmark {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -478,14 +464,12 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // multiple local bookmarks.
 - (void)testBatchUploadDialogTextIfMultipleLocalBookmarks {
   // Add two local bookmarks.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example2"
-                       URL:@"https://www.example2.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example2"
+                                     URL:@"https://www.example2.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -512,10 +496,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // behind the screen.
 - (void)testBatchUploadDialogRemovedIfLocalBookmarkIsRemoved {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -532,7 +515,7 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
   // bookmark behind the screen (for eg. from another tab).
   [BookmarkEarlGrey
       removeBookmarkWithTitle:@"example1"
-                    inStorage:bookmarks::StorageType::kLocalOrSyncable];
+                    inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Verify that the batch upload dialog is removed.
@@ -543,14 +526,12 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // on another screen.
 - (void)testBatchUploadDialogUpdateIfLocalBookmarkIsRemoved {
   // Add two local bookmarks.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example2"
-                       URL:@"https://www.example2.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example2"
+                                     URL:@"https://www.example2.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -567,7 +548,7 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
   // bookmark on another screen (for eg. from another tab).
   [BookmarkEarlGrey
       removeBookmarkWithTitle:@"example1"
-                    inStorage:bookmarks::StorageType::kLocalOrSyncable];
+                    inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Verify that the batch upload dialog is updated.
@@ -578,10 +559,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // batch upload button in bookmarks home.
 - (void)testBatchUploadAlert {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -611,10 +591,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // in bookmarks home) does not alter the bookmarks home UI.
 - (void)testBatchUploadAlertDismiss {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -655,10 +634,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // alert is dismissed and the batch upload dialog has been removed.
 - (void)testBatchUploadAlertConfirm {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -705,10 +683,9 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // profile and account sections.
 - (void)testBatchUploadRemovesProfileSection {
   // Add one local bookmark.
-  [BookmarkEarlGrey
-      addBookmarkWithTitle:@"example1"
-                       URL:@"https://www.example1.com"
-                 inStorage:bookmarks::StorageType::kLocalOrSyncable];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
+                                     URL:@"https://www.example1.com"
+                               inStorage:BookmarkModelType::kLocalOrSyncable];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Adds and signs in with `fakeIdentity`.
@@ -719,7 +696,7 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
   // Add one account bookmark.
   [BookmarkEarlGrey addBookmarkWithTitle:@"example2"
                                      URL:@"https://www.example2.com"
-                               inStorage:bookmarks::StorageType::kAccount];
+                               inStorage:BookmarkModelType::kAccount];
   [ChromeEarlGreyUI waitForAppToIdle];
 
   [BookmarkEarlGreyUI openBookmarks];

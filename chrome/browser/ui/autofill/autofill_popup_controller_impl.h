@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/autofill_popup_hide_helper.h"
 #include "chrome/browser/ui/autofill/next_idle_time_ticks.h"
@@ -83,7 +84,8 @@ class AutofillPopupControllerImpl
       content::WebContents* web_contents,
       gfx::NativeView container_view,
       const gfx::RectF& element_bounds,
-      base::i18n::TextDirection text_direction);
+      base::i18n::TextDirection text_direction,
+      int32_t form_control_ax_id);
 
   // Shows the popup, or updates the existing popup with the given values.
   virtual void Show(std::vector<Suggestion> suggestions,
@@ -114,7 +116,7 @@ class AutofillPopupControllerImpl
   void OnSuggestionsChanged() override;
   void SelectSuggestion(int index) override;
   void UnselectSuggestion() override;
-  void AcceptSuggestion(int index, base::TimeTicks event_time) override;
+  void AcceptSuggestion(int index) override;
   void PerformButtonActionForSuggestion(int index) override;
   bool RemoveSuggestion(
       int list_index,
@@ -160,6 +162,7 @@ class AutofillPopupControllerImpl
       gfx::NativeView container_view,
       const gfx::RectF& element_bounds,
       base::i18n::TextDirection text_direction,
+      int32_t form_control_ax_id,
       base::RepeatingCallback<void(
           gfx::NativeWindow,
           Profile*,
@@ -171,7 +174,6 @@ class AutofillPopupControllerImpl
   gfx::NativeView container_view() const override;
   content::WebContents* GetWebContents() const override;
   const gfx::RectF& element_bounds() const override;
-  void SetElementBounds(const gfx::RectF& bounds);
   base::i18n::TextDirection GetElementTextDirection() const override;
 
   // Returns true if the popup still has non-options entries to show the user.
@@ -255,6 +257,9 @@ class AutofillPopupControllerImpl
   AutofillSuggestionTriggerSource trigger_source_ =
       AutofillSuggestionTriggerSource::kUnspecified;
 
+  // The AX ID of the field on which Autofill was triggered.
+  int32_t form_control_ax_id_ = 0;
+
   // If set to true, the popup will stay open regardless of external changes on
   // the machine that would normally cause the popup to be hidden.
   bool keep_popup_open_for_testing_ = false;
@@ -268,6 +273,9 @@ class AutofillPopupControllerImpl
       password_manager::metrics_util::PasswordMigrationWarningTriggers)>
       show_pwd_migration_warning_callback_;
 
+  // Timer to close a fading popup.
+  base::OneShotTimer fading_popup_timer_;
+
   // Whether the popup should ignore mouse observed outside check.
   bool should_ignore_mouse_observed_outside_item_bounds_check_ = false;
 
@@ -280,7 +288,7 @@ class AutofillPopupControllerImpl
   base::WeakPtr<AutofillPopupControllerImpl> sub_popup_controller_;
 
   // This is a helper which detects events that should hide the popup.
-  std::unique_ptr<AutofillPopupHideHelper> popup_hide_helper_;
+  std::optional<AutofillPopupHideHelper> popup_hide_helper_;
 
   // AutofillPopupControllerImpl deletes itself. To simplify memory management,
   // we delete the object asynchronously.

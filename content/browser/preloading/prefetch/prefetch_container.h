@@ -173,6 +173,14 @@ class CONTENT_EXPORT PrefetchContainer {
   // The type of this prefetch. Controls how the prefetch is handled.
   const PrefetchType& GetPrefetchType() const { return prefetch_type_; }
 
+  // Whether this prefetch is initiated by renderer processes.
+  // Currently this is equivalent to whether the trigger type is Speculation
+  // Rules or not.
+  bool IsRendererInitiated() const;
+
+  // The origin and that initiates the prefetch request.
+  const url::Origin& GetReferringOrigin() const { return referring_origin_; }
+
   // Whether or not an isolated network context is required to the next
   // prefetch.
   bool IsIsolatedNetworkContextRequiredForCurrentPrefetch() const;
@@ -412,10 +420,14 @@ class CONTENT_EXPORT PrefetchContainer {
   bool HasPreloadingAttempt() { return !!attempt_; }
   base::WeakPtr<PreloadingAttempt> preloading_attempt() { return attempt_; }
 
-  // Simulates a prefetch container that reaches the interceptor. It sets the
-  // `attempt_` to the correct state: `PreloadingEligibility::kEligible`,
+  // Simulates a prefetch container that has started its request. It sets the
+  //`attempt_` to the correct state: `PreloadingEligibility::kEligible`,
   // `PreloadingHoldbackStatus::kAllowed` and
   // `PreloadingTriggeringOutcome::kReady`.
+  void SimulateAttemptAtRequestStartForTest();
+  // Simulates a prefetch container that reaches the interceptor. Similar to
+  // |SimulateAttemptAtRequestStartForTest| but also marks the prefetch as
+  // completed.
   void SimulateAttemptAtInterceptorForTest();
   void DisablePrecogLoggingForTest() { attempt_ = nullptr; }
 
@@ -564,10 +576,12 @@ class CONTENT_EXPORT PrefetchContainer {
 
   // The ID of the RenderFrameHost/Document that triggered the prefetch.
   const GlobalRenderFrameHostId referring_render_frame_host_id_;
-  // The origin of the page that requested the prefetch.
+
+  // The origin and URL that initiates the prefetch request.
+  // In regards to referring_url_hash_, it is stored as a hash and used by
+  // metrics for equality checks. For renderer-initiated prefetch, these are
+  // calculated by referring RenderFrameHost's LastCommitted(Origin|URL).
   const url::Origin referring_origin_;
-  // The URL of the page that requested the prefetch, stored as a hash as we
-  // just need it for equality checks for metrics.
   const size_t referring_url_hash_;
 
   // The key used to match this PrefetchContainer, including the URL that was

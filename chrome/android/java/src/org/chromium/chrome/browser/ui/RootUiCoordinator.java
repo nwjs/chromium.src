@@ -93,7 +93,6 @@ import org.chromium.chrome.browser.messages.MessagesResourceMapperInitializer;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
-import org.chromium.chrome.browser.omnibox.suggestions.history_clusters.HistoryClustersProcessor.OpenHistoryClustersDelegate;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler.VoiceInteractionSource;
 import org.chromium.chrome.browser.paint_preview.DemoPaintPreview;
@@ -337,7 +336,7 @@ public class RootUiCoordinator
     private @Nullable EdgeToEdgeController mEdgeToEdgeController;
     private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
     private @Nullable BoardingPassController mBoardingPassController;
-    private @Nullable BooleanSupplier mOverviewIncognitoSupplier;
+    private @Nullable ObservableSupplier<Integer> mOverviewColorSupplier;
     private @Nullable View mBaseChromeLayout;
 
     /**
@@ -385,7 +384,7 @@ public class RootUiCoordinator
      * @param initializeUiWithIncognitoColors Whether to initialize the UI with incognito colors.
      * @param backPressManager The {@link BackPressManager} handling back press.
      * @param savedInstanceState The saved bundle for the last recorded state.
-     * @param overviewIncognitoSupplier Whether the overview is showing incognito UI.
+     * @param overviewColorSupplier Notifies when the overview color changes.
      * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
      *     suggestion list) will position themselves relative to. If null, the content view will be
      *     used.
@@ -433,7 +432,7 @@ public class RootUiCoordinator
             boolean initializeUiWithIncognitoColors,
             @Nullable BackPressManager backPressManager,
             @Nullable Bundle savedInstanceState,
-            @Nullable BooleanSupplier overviewIncognitoSupplier,
+            @Nullable ObservableSupplier<Integer> overviewColorSupplier,
             @Nullable View baseChromeLayout) {
         mCallbackController = new CallbackController();
         mActivity = activity;
@@ -569,7 +568,7 @@ public class RootUiCoordinator
                         new Handler());
         mExpandedBottomSheetHelper =
                 new ExpandedSheetHelperImpl(mModalDialogManagerSupplier, getTabObscuringHandler());
-        mOverviewIncognitoSupplier = overviewIncognitoSupplier;
+        mOverviewColorSupplier = overviewColorSupplier;
         mBaseChromeLayout = baseChromeLayout;
     }
 
@@ -878,7 +877,10 @@ public class RootUiCoordinator
         initMerchantTrustSignals();
         initScrollCapture();
         initializeEdgeToEdgeController(
-                mActivity, mActivityTabProvider, mEdgeToEdgeControllerSupplier);
+                mActivity,
+                mActivityTabProvider,
+                mEdgeToEdgeControllerSupplier,
+                mBrowserControlsManager);
         initBoardingPassDetector();
 
         if (DeviceFormFactor.isWindowOnTablet(mWindowAndroid)
@@ -934,7 +936,6 @@ public class RootUiCoordinator
                             controller.maybeShowPlayer();
                         }
                     };
-            mToolbarManager.setReadAloudReadabilitySupplier(controller.getReadabilitySupplier());
             ContextualSearchManager contextualSearchManager =
                     mContextualSearchManagerSupplier.get();
             if (contextualSearchManager != null) {
@@ -1366,8 +1367,6 @@ public class RootUiCoordinator
             mButtonDataProviders =
                     Arrays.asList(mIdentityDiscController, adaptiveToolbarButtonController);
 
-            OpenHistoryClustersDelegate openHistoryClustersDelegate = query -> {};
-
             var omniboxActionDelegate =
                     new OmniboxActionDelegateImpl(
                             mActivity,
@@ -1399,8 +1398,6 @@ public class RootUiCoordinator
                                         mModalDialogManagerSupplier,
                                         /* managePasskeys= */ false);
                             },
-                            // Open History Clusters UI for Query:
-                            openHistoryClustersDelegate,
                             // Open Quick Delete Dialog callback:
                             () -> {
                                 new QuickDeleteController(
@@ -1418,6 +1415,7 @@ public class RootUiCoordinator
                             mActivity,
                             mBrowserControlsManager,
                             mFullscreenManager,
+                            mEdgeToEdgeControllerSupplier,
                             toolbarContainer,
                             mCompositorViewHolderSupplier.get(),
                             urlFocusChangedCallback,
@@ -1458,9 +1456,9 @@ public class RootUiCoordinator
                             mEphemeralTabCoordinatorSupplier,
                             mInitializeUiWithIncognitoColors,
                             mBackPressManager,
-                            openHistoryClustersDelegate,
-                            mOverviewIncognitoSupplier,
-                            mBaseChromeLayout);
+                            mOverviewColorSupplier,
+                            mBaseChromeLayout,
+                            mReadAloudControllerSupplier);
             if (!mSupportsAppMenuSupplier.getAsBoolean()) {
                 mToolbarManager.getToolbar().disableMenuButton();
             }
@@ -1767,11 +1765,13 @@ public class RootUiCoordinator
     protected void initializeEdgeToEdgeController(
             Activity activity,
             ActivityTabProvider activityTabProvider,
-            ObservableSupplierImpl<EdgeToEdgeController> supplier) {
+            ObservableSupplierImpl<EdgeToEdgeController> supplier,
+            BrowserControlsManager browserControlsManager) {
         EdgeToEdgeUtils.recordEligibility(activity);
         if (supportsEdgeToEdge() && EdgeToEdgeControllerFactory.isEnabled()) {
             mEdgeToEdgeController =
-                    EdgeToEdgeControllerFactory.create(activity, activityTabProvider);
+                    EdgeToEdgeControllerFactory.create(
+                            activity, mWindowAndroid, activityTabProvider, browserControlsManager);
             supplier.set(mEdgeToEdgeController);
         }
     }
@@ -1951,8 +1951,6 @@ public class RootUiCoordinator
                 () -> {
                     if (mTabSwitcherSupplier.get() != null) {
                         return mTabSwitcherSupplier.get().getTabSwitcherTabListModelSize();
-                    } else if (mStartSurfaceSupplier.get() != null) {
-                        return mStartSurfaceSupplier.get().getTabSwitcherTabListModelSize();
                     }
                     return 0;
                 };
@@ -1961,11 +1959,6 @@ public class RootUiCoordinator
                 (tabListModelSize) -> {
                     if (mTabSwitcherSupplier.get() != null) {
                         mTabSwitcherSupplier
-                                .get()
-                                .setTabSwitcherRecyclerViewPosition(
-                                        new RecyclerViewPosition(tabListModelSize, 0));
-                    } else if (mStartSurfaceSupplier.get() != null) {
-                        mStartSurfaceSupplier
                                 .get()
                                 .setTabSwitcherRecyclerViewPosition(
                                         new RecyclerViewPosition(tabListModelSize, 0));

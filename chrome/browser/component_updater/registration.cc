@@ -47,9 +47,9 @@
 #include "components/component_updater/url_param_filter_remover.h"
 #include "components/nacl/common/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
-#include "components/services/screen_ai/buildflags/buildflags.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
+#include "services/screen_ai/buildflags/buildflags.h"
 #include "third_party/widevine/cdm/buildflags.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -143,7 +143,7 @@ void RegisterComponentsForUpdate() {
   RegisterMaskedDomainListComponent(cus);
   RegisterPrivacySandboxAttestationsComponent(cus);
   if (base::FeatureList::IsEnabled(
-          features::kEnableNetworkServiceResourceBlockList)) {
+          features::kEnableFingerprintingProtectionBlocklist)) {
     RegisterAntiFingerprintingBlockedDomainListComponent(cus);
   }
 
@@ -157,7 +157,7 @@ void RegisterComponentsForUpdate() {
     // Clean up any existing versions of the blocklist if the feature is
     // disabled.
     if (!base::FeatureList::IsEnabled(
-            features::kEnableNetworkServiceResourceBlockList)) {
+            features::kEnableFingerprintingProtectionBlocklist)) {
       DeleteAntiFingerprintingBlockedDomainListComponent(path);
     }
 

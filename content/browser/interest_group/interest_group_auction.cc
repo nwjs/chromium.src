@@ -21,6 +21,7 @@
 #include "base/base64.h"
 #include "base/check.h"
 #include "base/containers/flat_set.h"
+#include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -84,6 +85,7 @@
 #include "third_party/blink/public/common/interest_group/ad_auction_currencies.h"
 #include "third_party/blink/public/common/interest_group/ad_display_size_utils.h"
 #include "third_party/blink/public/common/interest_group/auction_config.h"
+#include "third_party/blink/public/common/interest_group/devtools_serialization.h"
 #include "third_party/blink/public/common/interest_group/interest_group.h"
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom.h"
 #include "third_party/blink/public/mojom/private_aggregation/private_aggregation_host.mojom.h"
@@ -155,24 +157,6 @@ bool IsKAnon(const base::flat_map<std::string, bool>& kanon_keys,
              const std::string& key) {
   auto it = kanon_keys.find(key);
   return it != kanon_keys.end() && it->second;
-}
-
-bool IsKAnon(const base::flat_map<std::string, bool>& kanon_keys,
-             const blink::InterestGroup& interest_group,
-             const auction_worklet::mojom::BidderWorkletBid* bid) {
-  if (!IsKAnon(kanon_keys,
-               blink::KAnonKeyForAdBid(interest_group, bid->ad_descriptor))) {
-    return false;
-  }
-  if (bid->ad_component_descriptors.has_value()) {
-    for (const blink::AdDescriptor& component :
-         bid->ad_component_descriptors.value()) {
-      if (!IsKAnon(kanon_keys, blink::KAnonKeyForAdComponentBid(component))) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 base::flat_map<auction_worklet::mojom::KAnonKeyPtr, bool> KAnonKeysToMojom(
@@ -253,6 +237,46 @@ const blink::InterestGroup::Ad* FindMatchingAd(
 // Checks that `bid` is a valid bid value for an auction.
 bool IsValidBid(double bid) {
   return !std::isnan(bid) && std::isfinite(bid) && bid > 0;
+}
+
+// Note that this only checks the structure, but does not verify k-anon of
+// individual bids; TryToCreateBid does that.
+bool IsValidMultiBid(
+    auction_worklet::mojom::KAnonymityBidMode kanon_mode,
+    AuctionMetricsRecorder* auction_metrics_recorder,
+    const std::vector<auction_worklet::mojom::BidderWorkletBidPtr>& mojo_bids,
+    uint16_t multi_bid_limit) {
+  unsigned kanon_bids = 0;
+  unsigned non_kanon_bids = 0;
+
+  for (const auto& bid : mojo_bids) {
+    switch (bid->bid_role) {
+      case auction_worklet::mojom::BidRole::kEnforcedKAnon:
+        ++kanon_bids;
+        break;
+
+      case auction_worklet::mojom::BidRole::kUnenforcedKAnon:
+        ++non_kanon_bids;
+        break;
+
+      case auction_worklet::mojom::BidRole::kBothKAnonModes:
+        ++kanon_bids;
+        ++non_kanon_bids;
+        break;
+    }
+  }
+
+  auction_metrics_recorder->RecordNumberOfBidsFromGenerateBid(kanon_bids,
+                                                              mojo_bids.size());
+
+  // There shouldn't be any k-anon bids if we're not dealing with it.
+  if (kanon_mode == auction_worklet::mojom::KAnonymityBidMode::kNone &&
+      kanon_bids != 0) {
+    return false;
+  }
+
+  // Shouldn't make more than `multi_bid_limit` bids in either auction.
+  return (kanon_bids <= multi_bid_limit) && (non_kanon_bids <= multi_bid_limit);
 }
 
 struct BidStatesDescByPriority {
@@ -1050,7 +1074,9 @@ class InterestGroupAuction::BuyerHelper
   // `auction` is expected to own the BuyerHelper, and therefore outlive it.
   BuyerHelper(InterestGroupAuction* auction,
               std::vector<SingleStorageInterestGroup>&& interest_groups)
-      : auction_(auction), owner_(interest_groups[0]->interest_group.owner) {
+      : auction_(auction),
+        owner_(interest_groups[0]->interest_group.owner),
+        multi_bid_limit_(auction_->GetBuyerMultiBidLimit(owner_)) {
     DCHECK(!interest_groups.empty());
 
     // Move interest groups to `bid_states_` and update priorities using
@@ -1178,8 +1204,7 @@ class InterestGroupAuction::BuyerHelper
   }
 
   void OnGenerateBidComplete(
-      auction_worklet::mojom::BidderWorkletBidPtr mojo_bid,
-      auction_worklet::mojom::BidderWorkletKAnonEnforcedBidPtr mojo_kanon_bid,
+      std::vector<auction_worklet::mojom::BidderWorkletBidPtr> mojo_bids,
       std::optional<uint32_t> bidding_signals_data_version,
       const std::optional<GURL>& debug_loss_report_url,
       const std::optional<GURL>& debug_win_report_url,
@@ -1210,9 +1235,8 @@ class InterestGroupAuction::BuyerHelper
     auction_->auction_metrics_recorder_->RecordGenerateBidDependencyLatencies(
         *generate_bid_dependency_latencies);
     OnGenerateBidCompleteInternal(
-        state, std::move(mojo_bid), std::move(mojo_kanon_bid),
-        bidding_signals_data_version, debug_loss_report_url,
-        debug_win_report_url, set_priority,
+        state, std::move(mojo_bids), bidding_signals_data_version,
+        debug_loss_report_url, debug_win_report_url, set_priority,
         std::move(update_priority_signals_overrides), std::move(pa_requests),
         std::move(non_kanon_pa_requests), reject_reason, errors);
   }
@@ -1490,9 +1514,7 @@ class InterestGroupAuction::BuyerHelper
     // noticed, and it will be removed before applying the priority filter.
     OnGenerateBidCompleteInternal(
         bid_state,
-        /*mojo_bid=*/auction_worklet::mojom::BidderWorkletBidPtr(),
-        /*mojo_kanon_bid=*/
-        auction_worklet::mojom::BidderWorkletKAnonEnforcedBidPtr(),
+        /*mojo_bids=*/{},
         /*bidding_signals_data_version=*/std::nullopt,
         /*debug_loss_report_url=*/std::nullopt,
         /*debug_win_report_url=*/std::nullopt,
@@ -1563,7 +1585,6 @@ class InterestGroupAuction::BuyerHelper
       bid_state->handled_direct_from_seller_signals_in_begin_generate_bid =
           true;
     }
-    const url::Origin& owner = bid_state->bidder->interest_group.owner;
     bid_state->worklet_handle->GetBidderWorklet()->BeginGenerateBid(
         auction_worklet::mojom::BidderWorkletNonSharedParams::New(
             interest_group.name,
@@ -1577,7 +1598,7 @@ class InterestGroupAuction::BuyerHelper
             interest_group.ad_components,
             KAnonKeysToMojom(bid_state->kanon_keys)),
         kanon_mode, bid_state->bidder->joining_origin,
-        GetDirectFromSellerPerBuyerSignals(url_builder, owner),
+        GetDirectFromSellerPerBuyerSignals(url_builder, owner_),
         GetDirectFromSellerAuctionSignals(url_builder),
         auction_->config_->seller,
         auction_->parent_ ? auction_->parent_->config_->seller
@@ -1586,8 +1607,7 @@ class InterestGroupAuction::BuyerHelper
             .RoundToMultiple(base::Milliseconds(100)),
         bid_state->bidder->bidding_browser_signals.Clone(),
         auction_->auction_start_time_, auction_->RequestedAdSize(),
-        auction_->GetBuyerMultiBidLimit(owner), *bid_state->trace_id,
-        std::move(pending_remote),
+        multi_bid_limit_, *bid_state->trace_id, std::move(pending_remote),
         bid_state->bid_finalizer.BindNewEndpointAndPassReceiver());
 
     // TODO(morlovich): This should arguably be merged into BeginGenerateBid
@@ -1672,9 +1692,7 @@ class InterestGroupAuction::BuyerHelper
       // with OnGenerateBidCompleteInternal(), which will close the relevant
       // pipes and abort bid generation.
       OnGenerateBidCompleteInternal(
-          state, /*mojo_bid=*/auction_worklet::mojom::BidderWorkletBidPtr(),
-          /*mojo_kanon_bid=*/
-          auction_worklet::mojom::BidderWorkletKAnonEnforcedBidPtr(),
+          state, /*mojo_bids=*/{},
           /*bidding_signals_data_version=*/std::nullopt,
           /*debug_loss_report_url=*/std::nullopt,
           /*debug_win_report_url=*/std::nullopt,
@@ -1766,8 +1784,7 @@ class InterestGroupAuction::BuyerHelper
   // start scoring the bid, if there is one.
   void OnGenerateBidCompleteInternal(
       BidState* state,
-      auction_worklet::mojom::BidderWorkletBidPtr mojo_bid,
-      auction_worklet::mojom::BidderWorkletKAnonEnforcedBidPtr mojo_kanon_bid,
+      std::vector<auction_worklet::mojom::BidderWorkletBidPtr> mojo_bids,
       std::optional<uint32_t> bidding_signals_data_version,
       const std::optional<GURL>& debug_loss_report_url,
       const std::optional<GURL>& debug_win_report_url,
@@ -1815,26 +1832,6 @@ class InterestGroupAuction::BuyerHelper
       }
     }
 
-    // Validate `mojo_kanon_bid` coming in from the less-trusted worklet
-    // process; k-anonymity itself will be checked by TryToCreateBid.
-    if (mojo_kanon_bid) {
-      if (auction_->kanon_mode_ ==
-          auction_worklet::mojom::KAnonymityBidMode::kNone) {
-        generate_bid_client_receiver_set_.ReportBadMessage(
-            "Received k-anon bid data when not considering k-anon");
-        mojo_kanon_bid.reset();
-      } else if (mojo_bid &&
-                 IsKAnon(state->kanon_keys, interest_group, mojo_bid.get())) {
-        if (!mojo_kanon_bid->is_same_as_non_enforced()) {
-          generate_bid_client_receiver_set_.ReportBadMessage(
-              "Received different k-anon bid when unenforced bid already "
-              "k-anon");
-          mojo_kanon_bid = auction_worklet::mojom::
-              BidderWorkletKAnonEnforcedBid::NewSameAsNonEnforced(nullptr);
-        }
-      }
-    }
-
     // The mojom API declaration should ensure none of these are null.
     DCHECK(base::ranges::none_of(
         pa_requests,
@@ -1867,17 +1864,29 @@ class InterestGroupAuction::BuyerHelper
     auction_->errors_.insert(auction_->errors_.end(), errors.begin(),
                              errors.end());
 
-    // Ignore invalid bids.
-    std::unique_ptr<Bid> bid;
-    std::string ad_metadata;
+    // Convert from mojo to our state, and throw away the bids if any validation
+    // fails.
+    std::vector<std::unique_ptr<Bid>> bids;
+
+    // Validate that we did not get too many bids and that the k-anon roles
+    // aren't weird.
+    auto kanon_mode = auction_->kanon_mode_;
+    if (!IsValidMultiBid(kanon_mode, auction_->auction_metrics_recorder_,
+                         mojo_bids, multi_bid_limit_)) {
+      mojo_bids.clear();
+      generate_bid_client_receiver_set_.ReportBadMessage(
+          "Too many bids or wrong roles");
+    }
 
     if (reject_reason != auction_worklet::mojom::RejectReason::kNotAvailable &&
         reject_reason !=
-            auction_worklet::mojom::RejectReason::kWrongGenerateBidCurrency) {
-      // Only possible reject reason from generateBid(), besides the default
-      // "not available", is "wrong generate bid currency".
-      mojo_bid.reset();
-      mojo_kanon_bid.reset();
+            auction_worklet::mojom::RejectReason::kWrongGenerateBidCurrency &&
+        reject_reason !=
+            auction_worklet::mojom::RejectReason::kMultiBidLimitExceeded) {
+      // Only possible reject reasons from generateBid(), besides the default
+      // "not available", are "wrong generate bid currency" and "multi-bid
+      // limit exceeded",
+      mojo_bids.clear();
       state->reject_reason =
           auction_worklet::mojom::RejectReason::kNotAvailable;
       generate_bid_client_receiver_set_.ReportBadMessage(
@@ -1886,46 +1895,48 @@ class InterestGroupAuction::BuyerHelper
       state->reject_reason = reject_reason;
     }
 
-    // `mojo_bid` is null if the worklet doesn't bid, or if the bidder worklet
-    // fails to load / crashes.
-    if (mojo_bid) {
-      // It's possible that k-anon enforced bid is the same as one with out
-      // enforcement, in which case we make sure to only run ScoreBid once.
-      auction_worklet::mojom::BidRole role =
-          auction_worklet::mojom::BidRole::kUnenforcedKAnon;
-      if (mojo_kanon_bid) {
-        if (mojo_kanon_bid->is_same_as_non_enforced()) {
-          role = auction_worklet::mojom::BidRole::kBothKAnonModes;
-          auction_->auction_metrics_recorder_
-              ->RecordInterestGroupWithSameBidForKAnonAndNonKAnon();
-        } else {
-          auction_->auction_metrics_recorder_
-              ->RecordInterestGroupWithSeparateBidsForKAnonAndNonKAnon();
-        }
+    // Provide legacy metrics for non-multibid cases.
+    if (mojo_bids.empty()) {
+      auction_->auction_metrics_recorder_->RecordInterestGroupWithNoBids();
+    } else if (mojo_bids.size() == 1) {
+      if (mojo_bids[0]->bid_role ==
+          auction_worklet::mojom::BidRole::kBothKAnonModes) {
+        auction_->auction_metrics_recorder_
+            ->RecordInterestGroupWithSameBidForKAnonAndNonKAnon();
       } else {
         auction_->auction_metrics_recorder_
             ->RecordInterestGroupWithOnlyNonKAnonBid();
       }
-      bid = TryToCreateBid(role, std::move(mojo_bid), *state,
-                           bidding_signals_data_version, debug_loss_report_url,
-                           debug_win_report_url);
-      if (bid) {
-        state->bidder_debug_loss_report_url = debug_loss_report_url;
-      }
+    } else if (mojo_bids.size() == 2 &&
+               mojo_bids[0]->bid_role ==
+                   auction_worklet::mojom::BidRole::kUnenforcedKAnon &&
+               mojo_bids[1]->bid_role ==
+                   auction_worklet::mojom::BidRole::kEnforcedKAnon) {
+      auction_->auction_metrics_recorder_
+          ->RecordInterestGroupWithSeparateBidsForKAnonAndNonKAnon();
     } else {
-      // Bidders who do not bid are allowed to get loss report.
-      state->bidder_debug_loss_report_url = debug_loss_report_url;
-      auction_->auction_metrics_recorder_->RecordInterestGroupWithNoBids();
+      auction_->auction_metrics_recorder_
+          ->RecordInterestGroupWithOtherMultiBid();
     }
 
-    std::unique_ptr<Bid> kanon_bid;
-    if (mojo_kanon_bid && !mojo_kanon_bid->is_same_as_non_enforced()) {
-      kanon_bid =
-          TryToCreateBid(auction_worklet::mojom::BidRole::kEnforcedKAnon,
-                         std::move(mojo_kanon_bid->get_bid()), *state,
-                         bidding_signals_data_version,
-                         /*debug_loss_report_url=*/std::nullopt,
-                         /*debug_win_report_url=*/std::nullopt);
+    // Even bidders who do not bid are allowed to get loss reports.
+    state->bidder_debug_loss_report_url = debug_loss_report_url;
+
+    // `mojo_bids` is empty if the worklet doesn't bid, or if the bidder worklet
+    // fails to load / crashes.
+    for (auto& mojo_bid : mojo_bids) {
+      auto bid = TryToCreateBid(std::move(mojo_bid), *state,
+                                bidding_signals_data_version,
+                                debug_loss_report_url, debug_win_report_url);
+      if (bid) {
+        bids.push_back(std::move(bid));
+      } else {
+        // Toss all the bids and don't do loss reporting for a compromised
+        // worklet.
+        bids.clear();
+        state->bidder_debug_loss_report_url.reset();
+        break;
+      }
     }
 
     // Release the worklet. If it wins the auction, it will be requested again
@@ -1938,14 +1949,11 @@ class InterestGroupAuction::BuyerHelper
       state->EndTracing();
     }
 
-    if (bid || kanon_bid) {
+    if (!bids.empty()) {
       state->bidder_debug_win_report_url = debug_win_report_url;
       state->made_bid = true;
-      if (bid) {
+      for (auto& bid : bids) {
         auction_->ScoreBidIfReady(std::move(bid));
-      }
-      if (kanon_bid) {
-        auction_->ScoreBidIfReady(std::move(kanon_bid));
       }
     }
 
@@ -2040,7 +2048,6 @@ class InterestGroupAuction::BuyerHelper
   // ReportBadMessage() if it's not valid. Does not mutate `bid_state`, but
   // the returned Bid has a non-const pointer to it.
   std::unique_ptr<InterestGroupAuction::Bid> TryToCreateBid(
-      auction_worklet::mojom::BidRole bid_role,
       auction_worklet::mojom::BidderWorkletBidPtr mojo_bid,
       BidState& bid_state,
       const std::optional<uint32_t>& bidding_signals_data_version,
@@ -2071,9 +2078,10 @@ class InterestGroupAuction::BuyerHelper
 
     const blink::InterestGroup& interest_group =
         bid_state.bidder->interest_group;
-    const blink::InterestGroup::Ad* matching_ad = FindMatchingAd(
-        *interest_group.ads, bid_state.kanon_keys, interest_group, bid_role,
-        /*is_component_ad=*/false, mojo_bid->ad_descriptor);
+    const blink::InterestGroup::Ad* matching_ad =
+        FindMatchingAd(*interest_group.ads, bid_state.kanon_keys,
+                       interest_group, mojo_bid->bid_role,
+                       /*is_component_ad=*/false, mojo_bid->ad_descriptor);
     if (!matching_ad) {
       generate_bid_client_receiver_set_.ReportBadMessage(
           "Bid render ad must have a valid URL and size (if specified)");
@@ -2107,9 +2115,10 @@ class InterestGroupAuction::BuyerHelper
       // group's `ad_components` field.
       for (const blink::AdDescriptor& ad_component_descriptor :
            *mojo_bid->ad_component_descriptors) {
-        const blink::InterestGroup::Ad* matching_ad_component = FindMatchingAd(
-            *interest_group.ad_components, bid_state.kanon_keys, interest_group,
-            bid_role, /*is_component_ad=*/true, ad_component_descriptor);
+        const blink::InterestGroup::Ad* matching_ad_component =
+            FindMatchingAd(*interest_group.ad_components, bid_state.kanon_keys,
+                           interest_group, mojo_bid->bid_role,
+                           /*is_component_ad=*/true, ad_component_descriptor);
         if (!matching_ad_component) {
           generate_bid_client_receiver_set_.ReportBadMessage(
               "Bid ad component must have a valid URL and size (if specified)");
@@ -2127,6 +2136,13 @@ class InterestGroupAuction::BuyerHelper
     // Validate `debug_loss_report_url` and `debug_win_report_url`, if present.
     if (debug_loss_report_url.has_value() &&
         !IsUrlValid(debug_loss_report_url.value())) {
+      SCOPED_CRASH_KEY_BOOL("fledge", "loss-url-valid",
+                            debug_loss_report_url->is_valid());
+      SCOPED_CRASH_KEY_BOOL("fledge", "loss-report-url-https",
+                            IsUrlValid(debug_loss_report_url.value()));
+      SCOPED_CRASH_KEY_STRING256(
+          "fledge", "loss-report-url-null",
+          debug_loss_report_url->possibly_invalid_spec());
       generate_bid_client_receiver_set_.ReportBadMessage(
           "Invalid bidder debugging loss report URL");
       return nullptr;
@@ -2139,7 +2155,7 @@ class InterestGroupAuction::BuyerHelper
     }
 
     return std::make_unique<Bid>(
-        bid_role, std::move(mojo_bid->ad), mojo_bid->bid,
+        mojo_bid->bid_role, std::move(mojo_bid->ad), mojo_bid->bid,
         std::move(mojo_bid->bid_currency), mojo_bid->ad_cost,
         std::move(ad_descriptor), std::move(ad_component_descriptors),
         std::move(mojo_bid->modeling_signals), mojo_bid->bid_duration,
@@ -2162,6 +2178,9 @@ class InterestGroupAuction::BuyerHelper
   const raw_ptr<InterestGroupAuction> auction_;
 
   const url::Origin owner_;
+
+  // How many bids generateBid() is permitted to return at once.
+  const uint16_t multi_bid_limit_;
 
   // State of loaded interest groups owned by `owner_`. Use unique_ptrs so that
   // pointers aren't invalidated by sorting / deleting BidStates.
@@ -2256,7 +2275,7 @@ InterestGroupAuction::InterestGroupAuction(
         parent_ ? base::optional_ref<const std::string>(
                       parent->devtools_auction_id_)
                 : base::optional_ref<const std::string>(),
-        config_->SerializeForDevtools());
+        SerializeAuctionConfigForDevtools(*config_));
   }
 
   uint32_t child_pos = 0;
@@ -2740,6 +2759,9 @@ InterestGroupAuction::CreateReporter(
   top_level_seller_winning_bid_info.direct_from_seller_signals_header_ad_slot =
       std::move(direct_from_seller_signals_header_ad_slot_);
   top_level_seller_winning_bid_info.bid = winner->bid->bid;
+  top_level_seller_winning_bid_info.rounded_bid =
+      InterestGroupAuctionReporter::RoundBidStochastically(
+          top_level_seller_winning_bid_info.bid);
 
   if (winner->bid->auction == this) {
     // Bid came directly from bidder, not a component auction.
@@ -2801,6 +2823,9 @@ InterestGroupAuction::CreateReporter(
         component_auction->direct_from_seller_signals_header_ad_slot_);
     const LeaderInfo& component_leader = component_auction->leader_info();
     component_seller_winning_bid_info->bid = component_leader.top_bid->bid->bid;
+    component_seller_winning_bid_info->rounded_bid =
+        InterestGroupAuctionReporter::RoundBidStochastically(
+            component_leader.top_bid->bid->bid);
     // The bidder in this auction was the actual bidder, so the currency comes
     // from it, too.
     component_seller_winning_bid_info->bid_currency =
@@ -2888,7 +2913,7 @@ void InterestGroupAuction::NotifyConfigPromisesResolved() {
         parent_ ? base::optional_ref<const std::string>(
                       parent_->devtools_auction_id_)
                 : base::optional_ref<const std::string>(),
-        config_->SerializeForDevtools());
+        SerializeAuctionConfigForDevtools(*config_));
   }
 
   // If we haven't started the bidding and scoring phase, we will just handle
@@ -3125,6 +3150,9 @@ base::StringPiece GetRejectReasonString(
       break;
     case auction_worklet::mojom::RejectReason::kWrongScoreAdCurrency:
       reject_reason_str = "wrong-score-ad-currency";
+      break;
+    case auction_worklet::mojom::RejectReason::kMultiBidLimitExceeded:
+      reject_reason_str = "multi-bid-limit-exceeded";
       break;
   }
   return reject_reason_str;
@@ -3795,7 +3823,7 @@ InterestGroupAuction::GetDirectFromSellerSellerSignalsHeaderAdSlot(
 
 const std::vector<blink::AuctionConfig::AdKeywordReplacement>&
 InterestGroupAuction::GetDeprecatedRenderURLReplacements() {
-  return config_->deprecated_render_url_replacements.value();
+  return config_->non_shared_params.deprecated_render_url_replacements.value();
 }
 
 InterestGroupAuction::LeaderInfo::LeaderInfo() = default;
@@ -3850,14 +3878,14 @@ void InterestGroupAuction::OnInterestGroupRead(
   }
 
   // Ignore interest groups with no bidding script or no ads.
-  base::EraseIf(interest_groups, [](const SingleStorageInterestGroup& bidder) {
+  std::erase_if(interest_groups, [](const SingleStorageInterestGroup& bidder) {
     return !bidder->interest_group.bidding_url || !bidder->interest_group.ads ||
            bidder->interest_group.ads->empty();
   });
 
   // Ignore interest groups that don't provide the requested seller
   // capabilities.
-  base::EraseIf(interest_groups,
+  std::erase_if(interest_groups,
                 [this](const SingleStorageInterestGroup& bidder) {
                   return !GroupSatisfiesAllCapabilities(
                       bidder->interest_group,

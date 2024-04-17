@@ -36,6 +36,7 @@ import org.chromium.build.annotations.UsedByReflection;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
+import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.ui.text.EmptyTextWatcher;
@@ -272,15 +273,17 @@ public class AutofillLocalCardEditor extends AutofillCreditCardEditor {
     protected boolean saveEntry() {
         // Remove all spaces in editText.
         String cardNumber = mNumberText.getText().toString().replaceAll("\\s+", "");
-        PersonalDataManager personalDataManager = PersonalDataManager.getInstance();
         // Issuer network will be empty if credit card number is not valid.
         if (TextUtils.isEmpty(
-                personalDataManager.getBasicCardIssuerNetwork(
+                PersonalDataManager.getBasicCardIssuerNetwork(
                         cardNumber, /* emptyIfInvalid= */ true))) {
             mNumberLabel.setError(
                     mContext.getString(R.string.payments_card_number_invalid_validation_message));
             return false;
         }
+
+        PersonalDataManager personalDataManager =
+                PersonalDataManagerFactory.getForProfile(getProfile());
         CreditCard card = personalDataManager.getCreditCardForNumber(cardNumber);
         card.setGUID(mGUID);
         card.setOrigin(SETTINGS_ORIGIN);
@@ -358,7 +361,7 @@ public class AutofillLocalCardEditor extends AutofillCreditCardEditor {
     @Override
     protected void deleteEntry() {
         if (mGUID != null) {
-            PersonalDataManager.getInstance().deleteCreditCard(mGUID);
+            PersonalDataManagerFactory.getForProfile(getProfile()).deleteCreditCard(mGUID);
         }
     }
 
@@ -507,8 +510,8 @@ public class AutofillLocalCardEditor extends AutofillCreditCardEditor {
     }
 
     public static boolean isAmExCard(String cardNumber) {
-        return PersonalDataManager.getInstance()
-                .getBasicCardIssuerNetwork(cardNumber, /* emptyIfInvalid= */ false)
+        return PersonalDataManager.getBasicCardIssuerNetwork(
+                        cardNumber, /* emptyIfInvalid= */ false)
                 .equals(AMEX_NETWORK_NAME);
     }
 }

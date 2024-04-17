@@ -37,7 +37,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.BrowserFullscreen.DurationUpTo24H" units="ms"
-    expires_after="2024-06-30">
+    expires_after="2024-09-01">
   <owner>bur@chromium.org</owner>
   <owner>chrome-mac-dev@google.com</owner>
   <summary>
@@ -49,6 +49,20 @@ chromium-metrics-reviews@google.com.
     while in fullscreen.
 
     Mac-only.
+  </summary>
+</histogram>
+
+<histogram name="Session.ID.RestoredDifference" units="Session IDs"
+    expires_after="2025-02-28">
+  <owner>gambard@chromium.org</owner>
+  <owner>sdefresne@chromium.org</owner>
+  <summary>
+    Records the difference between the highest restored SessionID and the value
+    of the pref used for the next SessionID. If the difference is negative, 0 is
+    recorded (0 means there is no problem, the session ID's pref was correctly
+    restored). Having a value &gt; 0 means that there has been an issue and the
+    SessionID was probably not recorded properly. This is recorded after each
+    session restoration (so it can be recorded multiple times per run).
   </summary>
 </histogram>
 
@@ -771,7 +785,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.TotalDurationMax1Day.{HistorySyncState}" units="ms"
-    expires_after="2024-06-15">
+    expires_after="2024-08-18">
   <owner>mastiz@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <owner>treib@chromium.org</owner>
@@ -810,7 +824,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.TotalDurationMax1Day.{MsbbState}" units="ms"
-    expires_after="2024-06-15">
+    expires_after="2024-08-18">
   <owner>mastiz@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <owner>treib@chromium.org</owner>

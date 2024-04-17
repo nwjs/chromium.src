@@ -46,10 +46,9 @@ class StyleRuleKeyframes;
 class StyleRuleMedia;
 class StyleRuleNamespace;
 class StyleRulePage;
-class StyleRulePositionFallback;
+class StyleRulePositionTry;
 class StyleRuleProperty;
 class StyleRuleSupports;
-class StyleRuleTry;
 class StyleSheetContents;
 class Element;
 
@@ -80,7 +79,6 @@ class CORE_EXPORT CSSParserImpl {
     kRegularRules,
     kKeyframeRules,
     kFontFeatureRules,
-    kTryRules,
     // For parsing at-rules inside declaration lists.
     kNoRules,
     // https://drafts.csswg.org/css-nesting/#nested-group-rules
@@ -118,8 +116,11 @@ class CORE_EXPORT CSSParserImpl {
   static ImmutableCSSPropertyValueSet* ParseInlineStyleDeclaration(
       const String&,
       Element*);
-  static ImmutableCSSPropertyValueSet*
-  ParseInlineStyleDeclaration(const String&, CSSParserMode, SecureContextMode);
+  static ImmutableCSSPropertyValueSet* ParseInlineStyleDeclaration(
+      const String&,
+      CSSParserMode,
+      SecureContextMode,
+      const Document*);
   // NOTE: This function can currently only be used to parse a
   // declaration list with no nested rules, not a full style rule
   // (it is only used for things like inline style).
@@ -186,7 +187,6 @@ class CORE_EXPORT CSSParserImpl {
     kRegularRuleList,
     kKeyframesRuleList,
     kFontFeatureRuleList,
-    kPositionFallbackRuleList,
   };
 
   // Returns whether the first encountered rule was valid
@@ -251,8 +251,7 @@ class CORE_EXPORT CSSParserImpl {
   StyleRuleBase* ConsumeLayerRule(CSSParserTokenStream&,
                                   CSSNestingType,
                                   StyleRule* parent_rule_for_nesting);
-  StyleRulePositionFallback* ConsumePositionFallbackRule(CSSParserTokenStream&);
-  StyleRuleTry* ConsumeTryRule(CSSParserTokenStream&);
+  StyleRulePositionTry* ConsumePositionTryRule(CSSParserTokenStream&);
 
   StyleRuleFunction* ConsumeFunctionRule(CSSParserTokenStream& stream);
   std::optional<Vector<StyleRuleFunction::Parameter>> ConsumeFunctionParameters(

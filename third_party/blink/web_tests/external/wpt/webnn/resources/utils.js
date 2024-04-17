@@ -282,6 +282,32 @@ const getReductionPrecisionTolerance = (resources, operationName) => {
   return tolerance;
 };
 
+/**
+ * Get ULP tolerance of resample2d operations.
+ * @param {Object} resources - Resources used for building a graph
+ * @param {String} operationName - An operation name
+ * @returns {Number} A tolerance number
+ */
+const getResample2dPrecisionTolerance = (resources, operationName) => {
+  const options = {...resources.options};
+  let tolerance;
+  if (options.mode && options.mode === 'linear') {
+    // interpolation mode is linear
+    const precisionType = resources.expected.type;
+    if (precisionType === 'float32') {
+      tolerance = 84;
+    } else if (precisionType === 'float16') {
+      tolerance = 10;
+    } else {
+      tolerance = 1;
+    }
+  } else {
+    // interpolation mode is nearest-neighbor
+    tolerance = 0;
+  }
+  return tolerance;
+};
+
 // Refer to precision metrics on https://github.com/webmachinelearning/webnn/issues/265#issuecomment-1256242643
 const PrecisionMetrics = {
   argMax: {ULP: {int64: 0}},
@@ -356,6 +382,7 @@ const PrecisionMetrics = {
   reduceSumSquare: {ULP: {float32: getReductionPrecisionTolerance, float16: getReductionPrecisionTolerance}},
   // End Reduction operations
   relu: {ULP: {float32: 0, float16: 0}},
+  resample2d: {ULP: {float32: getResample2dPrecisionTolerance, float16: getResample2dPrecisionTolerance}},
   reshape: {ULP: {float32: 0, float16: 0}},
   sigmoid: {ULP: {float32: 32+2, float16: 3}}, // float32 (leaving a few ULP for roundoff)
   slice: {ULP: {float32: 0, float16: 0}},
@@ -825,6 +852,10 @@ const run = async (operationName, context, builder, resources, buildFunc) => {
  * @param {String} deviceType - The execution device type for this test
  */
 const testWebNNOperation = (operationName, buildFunc, deviceType = 'cpu') => {
+  test(() => assert_not_equals(navigator.ml, undefined, "ml property is defined on navigator"));
+  if (navigator.ml === undefined) {
+    return;
+  }
   let operationNameArray;
   if (typeof operationName === 'string') {
     operationNameArray = [operationName];
@@ -893,4 +924,60 @@ const toHalf = (value) => {
     * the exponent, which is OK. */
   bits += m & 1;
   return bits;
+};
+
+
+/**
+ * WebNN buffer creation.
+ * @param {MLContext} context - the context used to create the buffer.
+ * @param {Number} bufferSize - Size of the buffer to create, in bytes.
+ */
+const createBuffer = (context, bufferSize) => {
+  let buffer;
+  try {
+    buffer = context.createBuffer({size: bufferSize});
+    assert_equals(buffer.size, bufferSize);
+  } catch (e) {
+    assert_true(e instanceof DOMException);
+    assert_equals(e.name, "NotSupportedError");
+  }
+  return buffer;
+};
+
+/**
+ * WebNN destroy buffer twice test.
+ * @param {String} testName - The name of the test operation.
+ * @param {String} deviceType - The execution device type for this test.
+ */
+const testDestroyWebNNBuffer = (testName, deviceType = 'cpu') => {
+  let context;
+  let buffer;
+  promise_setup(async () => {
+    context = await navigator.ml.createContext({deviceType});
+    buffer = createBuffer(context, 4);
+  });
+  promise_test(async () => {
+    // MLBuffer is not supported for this deviceType.
+    if (buffer === undefined) {
+      return;
+    }
+    buffer.destroy();
+    buffer.destroy();
+  }, `${testName}`);
+};
+
+/**
+ * WebNN create buffer test.
+ * @param {String} testName - The name of the test operation.
+ * @param {Number} bufferSize - Size of the buffer to create, in bytes.
+ * @param {String} deviceType - The execution device type for this test.
+ */
+const testCreateWebNNBuffer = (testName, bufferSize, deviceType = 'cpu') => {
+  let context;
+  promise_setup(async () => {
+      context = await navigator.ml.createContext({deviceType});
+  });
+  promise_test(async () => {
+    createBuffer(context, bufferSize);
+  }, `${testName} / ${bufferSize}`);
 };

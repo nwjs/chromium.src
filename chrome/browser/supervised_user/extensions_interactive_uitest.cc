@@ -87,7 +87,7 @@ InteractiveBrowserTestApi::StateChange PageWithMatchingTitle(
 class SupervisedUserExtensionsParentalControlsUiTest
     : public InteractiveBrowserTestT<FamilyLiveTest>,
       public testing::WithParamInterface<std::tuple<
-          supervised_user::FamilyIdentifier,
+          FamilyIdentifier,
           /*permissions_switch_state=*/FamilyLinkSwitchState,
           /*extensions_switch_state=*/FamilyLinkSwitchState,
           // Depending on the ExtensionHandlingMode only one switch
@@ -105,18 +105,15 @@ class SupervisedUserExtensionsParentalControlsUiTest
     if (GetExtensionHandlingMode() ==
         ExtensionHandlingMode::kExtensionsGovernedByExtensionsSwitch) {
       enabled_features.push_back(
-          supervised_user::
               kEnableSupervisedUserSkipParentApprovalToInstallExtensions);
     } else {
       disabled_features.push_back(
-          supervised_user::
               kEnableSupervisedUserSkipParentApprovalToInstallExtensions);
     }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
     // Enable extensions parental controls.
     enabled_features.push_back(
-        supervised_user::
             kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
 #endif
     feature_list_.InitWithFeatures(enabled_features, disabled_features);
@@ -386,18 +383,21 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     SupervisedUserExtensionsParentalControlsUiTest,
     testing::Combine(
-        testing::Values(supervised_user::FamilyIdentifier("FAMILY_DMA_ALL")),
+        testing::Values(FamilyIdentifier("FAMILY_DMA_ELIGIBILE_NO_CONSENT"),
+                        FamilyIdentifier("FAMILY_DMA_ELIGIBLE_WITH_CONSENT"),
+                        FamilyIdentifier("FAMILY_DMA_INELIGIBLE")),
         /*permissions_switch_target_value=*/
         testing::Values(FamilyLinkSwitchState::kEnabled,
                         FamilyLinkSwitchState::kDisabled),
         /*extensions_switch_target_value==*/
-        testing::Values(FamilyLinkSwitchState::kEnabled,
-                        FamilyLinkSwitchState::kDisabled),
+        testing::Values(
+            // TODO(b/321239324): Parametrize with Extensions switch ON once the
+            // handling of extensions on switch flipping is added.
+            FamilyLinkSwitchState::kDisabled),
         /*extensions_handling_mode=*/
         testing::Values(
-            // TODO(b/321239324): Parametrize with Extensions switch once the
-            // flow is added.
-            ExtensionHandlingMode::kExtensionsGovernedByPermissionsSwitch)),
+            ExtensionHandlingMode::kExtensionsGovernedByPermissionsSwitch,
+            ExtensionHandlingMode::kExtensionsGovernedByExtensionsSwitch)),
     [](const auto& info) {
       return std::string(std::get<0>(info.param)->data()) +
              std::string(

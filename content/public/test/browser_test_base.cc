@@ -1209,6 +1209,7 @@ void BrowserTestBase::InitializeNetworkProcess() {
 void BrowserTestBase::CreatedBrowserMainPartsImpl(
     BrowserMainParts* browser_main_parts) {
   browser_main_parts_ = browser_main_parts;
+  GetCurrentTestLauncherDelegate()->CreatedBrowserMainParts(browser_main_parts);
   CreatedBrowserMainParts(browser_main_parts);
 }
 

@@ -11,6 +11,7 @@ import androidx.annotation.VisibleForTesting;
 import org.jni_zero.CalledByNative;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.device_lock.DeviceLockActivityLauncherImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
@@ -22,9 +23,12 @@ import org.chromium.chrome.browser.sync.settings.AccountManagementFragment;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
+import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerDelegate;
+import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerLaunchMode;
 import org.chromium.chrome.browser.ui.signin.account_picker.WebSigninAccountPickerDelegate;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
+import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.GAIAServiceType;
@@ -37,6 +41,28 @@ import java.util.List;
 
 /** The bridge regroups methods invoked by native code to interact with Android Signin UI. */
 final class SigninBridge {
+    /** Used for dependency injection in unit tests. */
+    @VisibleForTesting
+    static class AccountPickerBottomSheetCoordinatorFactory {
+        AccountPickerBottomSheetCoordinator create(
+                WindowAndroid windowAndroid,
+                BottomSheetController bottomSheetController,
+                AccountPickerDelegate accountPickerDelegate,
+                AccountPickerBottomSheetStrings accountPickerBottomSheetStrings,
+                DeviceLockActivityLauncher deviceLockActivityLauncher,
+                @AccountPickerLaunchMode int accountPickerLaunchMode) {
+            return new AccountPickerBottomSheetCoordinator(
+                    windowAndroid,
+                    bottomSheetController,
+                    accountPickerDelegate,
+                    accountPickerBottomSheetStrings,
+                    deviceLockActivityLauncher,
+                    accountPickerLaunchMode,
+                    /* isWebSignin= */ true,
+                    SigninAccessPoint.WEB_SIGNIN);
+        }
+    }
+
     @VisibleForTesting static final int ACCOUNT_PICKER_BOTTOM_SHEET_DISMISS_LIMIT = 3;
 
     /**
@@ -65,10 +91,23 @@ final class SigninBridge {
     }
 
     /** Opens account picker bottom sheet. */
-    @VisibleForTesting
     @CalledByNative
-    static void openAccountPickerBottomSheet(Tab tab, String continueUrl) {
+    private static void openAccountPickerBottomSheet(Tab tab, String continueUrl) {
+        openAccountPickerBottomSheet(
+                tab, continueUrl, new AccountPickerBottomSheetCoordinatorFactory());
+    }
+
+    /** Opens account picker bottom sheet. */
+    @VisibleForTesting
+    static void openAccountPickerBottomSheet(
+            Tab tab, String continueUrl, AccountPickerBottomSheetCoordinatorFactory factory) {
         ThreadUtils.assertOnUiThread();
+        WindowAndroid windowAndroid = tab.getWindowAndroid();
+        if (windowAndroid == null || !tab.isUserInteractable()) {
+            // The page is opened in the background, ignore the header. See
+            // https://crbug.com/1145031#c5 and https://crbug.com/323424409 for details.
+            return;
+        }
         Profile profile = tab.getProfile();
         SigninManager signinManager =
                 IdentityServicesProvider.get().getSigninManager(profile.getOriginalProfile());
@@ -94,12 +133,6 @@ final class SigninBridge {
                     SigninAccessPoint.WEB_SIGNIN);
             return;
         }
-        WindowAndroid windowAndroid = tab.getWindowAndroid();
-        if (windowAndroid == null) {
-            // The page is prefetched in the background, ignore the header. See
-            // https://crbug.com/1145031#c5 for details.
-            return;
-        }
         BottomSheetController bottomSheetController =
                 BottomSheetControllerProvider.from(windowAndroid);
         if (bottomSheetController == null) {
@@ -108,13 +141,19 @@ final class SigninBridge {
             // bottom sheet.
             return;
         }
+        AccountPickerBottomSheetStrings strings =
+                new AccountPickerBottomSheetStrings(
+                        R.string.signin_account_picker_dialog_title,
+                        R.string.signin_account_picker_bottom_sheet_subtitle,
+                        R.string.signin_account_picker_dismiss_button);
 
-        new AccountPickerBottomSheetCoordinator(
+        factory.create(
                 windowAndroid,
                 bottomSheetController,
                 new WebSigninAccountPickerDelegate(tab, new WebSigninBridge.Factory(), continueUrl),
-                new AccountPickerBottomSheetStrings() {},
-                DeviceLockActivityLauncherImpl.get());
+                strings,
+                DeviceLockActivityLauncherImpl.get(),
+                AccountPickerLaunchMode.DEFAULT);
     }
 
     private SigninBridge() {}

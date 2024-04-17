@@ -57,15 +57,6 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, DISABLED_LensUploadDialog) {
   RunTest("new_tab_page/lens_upload_dialog_test.js", "mocha.run()");
 }
 
-// TODO(crbug.com/1431290): Test is flaky across platforms.
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, DISABLED_Realbox) {
-  RunTest("new_tab_page/realbox/realbox_test.js", "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, RealboxLens) {
-  RunTest("new_tab_page/realbox/lens_test.js", "mocha.run()");
-}
-
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, Logo) {
   RunTest("new_tab_page/logo_test.js", "mocha.run()");
 }

@@ -20,11 +20,6 @@ const base::Feature kNWNewWin{
 
 // All features in alphabetical order.
 
-// Enables FLEDGE and Attribution Reporting API integration.
-BASE_FEATURE(kAttributionFencedFrameReportingBeacon,
-             "AttributionFencedFrameReportingBeacon",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Launches the audio service on the browser startup.
 BASE_FEATURE(kAudioServiceLaunchOnStartup,
              "AudioServiceLaunchOnStartup",
@@ -101,6 +96,18 @@ BASE_FEATURE(kBackForwardCacheMemoryControls,
 #endif
 );
 
+// When enabled, attempts to navigate an iframe by an initiator that isn't
+// same-origin to the iframe's parent are blocked. Exceptions are: (i) same-
+// document navigations when the frame is already about:srcdoc, and (ii) when
+// an about:srcdoc frame reloads itself.
+// This feature is enabled by default, and is intended to be used as a
+// kill-switch if the new behaviour causes problems.
+// TODO(https://crbug.com/328279696): remove this when the blocking feature is
+// fully launched.
+BASE_FEATURE(kBlockCrossOriginInitiatedAboutSrcdocNavigations,
+             "BlockCrossOriginInitiatedAboutSrcdocNavigations",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When this feature is enabled, private network requests initiated from
 // non-secure contexts in the `public` address space  are blocked.
 //
@@ -128,11 +135,6 @@ BASE_FEATURE(kBlockInsecurePrivateNetworkRequestsFromPrivate,
 BASE_FEATURE(kBlockInsecurePrivateNetworkRequestsDeprecationTrial,
              "BlockInsecurePrivateNetworkRequestsDeprecationTrial",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables disallowing MIDI permission by default.
-BASE_FEATURE(kBlockMidiByDefault,
-             "BlockMidiByDefault",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Broker file operations on disk cache in the Network Service.
 // This is no-op if the network service is hosted in the browser process.
@@ -309,6 +311,16 @@ const base::FeatureParam<base::TimeDelta> kDIPSClientBounceDetectionTimeout{
 BASE_FEATURE(kDIPSPreservePSData,
              "DIPSPreservePSData",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables HW decode acceleration for WebRTC.
+BASE_FEATURE(kWebRtcHWDecoding,
+             "webrtc-hw-decoding",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables HW encode acceleration for WebRTC.
+BASE_FEATURE(kWebRtcHWEncoding,
+             "webrtc-hw-encoding",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables disconnecting the `ExtensionMessagePort` when the page using the port
 // enters BFCache.
@@ -540,12 +552,6 @@ BASE_FEATURE(kLazyInitializeMediaControls,
 // Enables reporting of Cookie Issues for Legacy Technology Report.
 BASE_FEATURE(kLegacyTechReportEnableCookieIssueReports,
              "LegacyTechReportEnableCookieIssueReports",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Using top-level document URL when create an enterprise report for legacy
-// technologies usage
-BASE_FEATURE(kLegacyTechReportTopLevelUrl,
-             "LegacyTechReportTopLevelUrl",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Configures whether Blink on Windows 8.0 and below should use out of process
@@ -673,6 +679,11 @@ BASE_FEATURE(kPermissionElement,
              "PermissionElement",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables different positioning of the permission dialog, so that it's placed
+// near the permission element, if possible.
+constexpr base::FeatureParam<bool> kPermissionElementDialogPositioning{
+    &kPermissionElement, "PermissionElementDialogPositioning", false};
+
 // Enables Persistent Origin Trials. It causes tokens for an origin to be stored
 // and persisted for the next navigation. This way, an origin trial can affect
 // things before receiving the response, for instance it can affect the next
@@ -690,7 +701,12 @@ BASE_FEATURE(kPrefetchNewLimits,
 // If enabled, then redirects will be followed when prefetching.
 BASE_FEATURE(kPrefetchRedirects,
              "PrefetchRedirects",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 // Enables exposure of ads APIs in the renderer: Attribution Reporting,
 // FLEDGE, Topics, along with a number of other features actively in development
@@ -738,6 +754,17 @@ BASE_FEATURE(kPrivateNetworkAccessForNavigations,
              "PrivateNetworkAccessForNavigations",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables Private Network Access checks in warning mode for navigations.
+//
+// Does nothing if `kPrivateNetworkAccessForNavigations` is disabled.
+//
+// If both this and `kPrivateNetworkAccessForNavigations` are enabled, then PNA
+// preflight requests for navigations are not required to succeed. If
+// one fails, a warning is simply displayed in DevTools.
+BASE_FEATURE(kPrivateNetworkAccessForNavigationsWarningOnly,
+             "PrivateNetworkAccessForNavigationsWarningOnly",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Requires that CORS preflight requests succeed before sending private network
 // requests. This flag implies `kPrivateNetworkAccessSendPreflights`.
 // See: https://wicg.github.io/private-network-access/#cors-preflight
@@ -769,16 +796,9 @@ BASE_FEATURE(kPushSubscriptionChangeEvent,
 // When enabled, queues navigations instead of cancelling the previous
 // navigation if the previous navigation is already waiting for commit.
 // See https://crbug.com/838348 and https://crbug.com/1220337.
-// Disable by default on Android for now because we haven't experimented
-// on Android WebView stable yet.
 BASE_FEATURE(kQueueNavigationsWhileWaitingForCommit,
              "QueueNavigationsWhileWaitingForCommit",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, sends SubresourceResponseStarted IPC only when the user has
 // allowed any HTTPS-related warning exceptions. From field data, (see
@@ -939,7 +959,7 @@ constexpr base::FeatureParam<int>
     };
 
 // Enables ServiceWorker static routing API.
-// https://github.com/yoshisatoyanagisawa/service-worker-static-routing-api
+// https://github.com/WICG/service-worker-static-routing-api
 BASE_FEATURE(kServiceWorkerStaticRouter,
              "ServiceWorkerStaticRouter",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1142,7 +1162,7 @@ BASE_FEATURE(kUserActivationSameOriginVisibility,
 // RenderFrameHostImpl::VerifyThatBrowserAndRendererCalculatedDidCommitParamsMatch.
 BASE_FEATURE(kVerifyDidCommitParams,
              "VerifyDidCommitParams",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable the viewport segments API.
 // Tracking bug for enabling viewport segments API: https://crbug.com/1039050.
@@ -1156,7 +1176,7 @@ BASE_FEATURE(kV8VmFuture, "V8VmFuture", base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables per PWA System Media Controls on Windows
 BASE_FEATURE(kWebAppSystemMediaControlsWin,
              "WebAppSystemMediaControlsWin",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable WebAssembly baseline compilation (Liftoff).
 BASE_FEATURE(kWebAssemblyBaseline,
@@ -1236,13 +1256,6 @@ BASE_FEATURE(kAccessibilityIncludeLongClickAction,
              "AccessibilityIncludeLongClickAction",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, the Android accessibility code will use an experimental code
-// path that is an alternative to the existing JNI path to see if the path
-// can be made more performant.
-BASE_FEATURE(kAccessibilityJNIOptimizations,
-             "AccessibilityJNIOptimizations",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Allows the use of page zoom in place of accessibility text autosizing, and
 // updated UI to replace existing Chrome Accessibility Settings.
 BASE_FEATURE(kAccessibilityPageZoom,
@@ -1288,7 +1301,7 @@ BASE_FEATURE(kReduceGpuPriorityOnBackground,
 // clicks (i.e. right click) with respect to text selection.
 BASE_FEATURE(kMouseAndTrackpadDropdownMenu,
              "MouseAndTrackpadDropdownMenu",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Request Desktop Site based on window width for Android.
 BASE_FEATURE(kRequestDesktopSiteWindowSetting,

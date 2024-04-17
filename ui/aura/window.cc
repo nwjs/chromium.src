@@ -610,6 +610,33 @@ void Window::ConvertPointToTarget(const Window* source,
     if (target_client)
       target_client->ConvertPointFromScreen(target, point);
   } else {
+#if BUILDFLAG(IS_CHROMEOS)
+    // TODO(b/319939913): Remove this log when the issue is fixed.
+    auto get_root = [](const ui::Layer* layer) {
+      const ui::Layer* root = layer;
+      while (root->parent()) {
+        root = root->parent();
+      }
+      return root;
+    };
+    auto chain_name = [](const aura::Window* window) {
+      std::ostringstream out;
+      out << "[";
+      out << window->GetName();
+      while (window->parent()) {
+        out << "]-[" << window->GetName();
+        window = window->parent();
+      }
+      out << "]";
+      return out.str();
+    };
+    if (get_root(source->layer()) != get_root(target->layer())) {
+      LOG(ERROR) << "Root layer in source and target window are different. "
+                    "source chain="
+                 << chain_name(source)
+                 << ", target chain=" << chain_name(target);
+    }
+#endif
     ui::Layer::ConvertPointToLayer(source->layer(), target->layer(),
                                    /*use_target_transform=*/true, point);
   }
@@ -1439,7 +1466,8 @@ void Window::SetOpaqueRegionsForOcclusion(
   // Opaque regions for occlusion do not apply to opaque windows, so only
   // allow opaque regions for occlusion to be set for them if they are the
   // same as the window bounds size.
-  DCHECK(GetTransparent() || opaque_regions_for_occlusion.empty() ||
+  DCHECK(GetTransparent() || layer()->type() == ui::LAYER_NOT_DRAWN ||
+         opaque_regions_for_occlusion.empty() ||
          (opaque_regions_for_occlusion.size() == 1 &&
           opaque_regions_for_occlusion[0] == gfx::Rect(bounds().size())));
   if (opaque_regions_for_occlusion == opaque_regions_for_occlusion_)
@@ -1514,8 +1542,11 @@ void Window::OnLayerFillsBoundsOpaquelyChanged(
   WindowOcclusionTracker::ScopedPause pause_occlusion_tracking;
 
   // Non-transparent windows should not have opaque regions for occlusion set.
-  if (!GetTransparent())
+#if DCHECK_IS_ON()
+  if (!GetTransparent() && layer()->type() != ui::LAYER_NOT_DRAWN) {
     DCHECK(opaque_regions_for_occlusion_.empty());
+  }
+#endif
 
   for (WindowObserver& observer : observers_)
     observer.OnWindowTransparentChanged(this, reason);

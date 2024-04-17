@@ -30,6 +30,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/containers/adapters.h"
 #include "base/notreached.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/core/css/basic_shape_functions.h"
@@ -378,63 +379,70 @@ FontDescription::FamilyDescription StyleBuilderConverterBase::ConvertFontFamily(
 
   if (const auto* system_font =
           DynamicTo<cssvalue::CSSPendingSystemFontValue>(value)) {
-    desc.family.SetFamily(system_font->ResolveFontFamily(),
-                          FontFamily::Type::kFamilyName);
+    desc.family = FontFamily(system_font->ResolveFontFamily(),
+                             FontFamily::Type::kFamilyName);
     return desc;
   }
 
-  FontFamily* curr_family = nullptr;
-
 #if BUILDFLAG(IS_MAC)
-  bool has_seen_system_ui = false;
+  bool count_blink_mac_system_font = false;
 #endif
 
-  for (auto& family : To<CSSValueList>(value)) {
+  AtomicString family_name;
+  FontFamily::Type family_type = FontFamily::Type::kFamilyName;
+  scoped_refptr<SharedFontFamily> next;
+  bool has_value = false;
+
+  for (auto& family : base::Reversed(To<CSSValueList>(value))) {
+    AtomicString next_family_name;
     FontDescription::GenericFamilyType generic_family =
         FontDescription::kNoFamily;
-    AtomicString family_name;
 
-    if (!ConvertFontFamilyName(*family, generic_family, family_name,
+    if (!ConvertFontFamilyName(*family, generic_family, next_family_name,
                                font_builder, document_for_count)) {
       continue;
     }
 
-    if (!curr_family) {
-      curr_family = &desc.family;
-    } else {
-      scoped_refptr<SharedFontFamily> new_family = SharedFontFamily::Create();
-      curr_family->AppendFamily(new_family);
-      curr_family = new_family.get();
-    }
-
     // TODO(crbug.com/1065468): Get rid of GenericFamilyType.
-    bool is_generic = generic_family != FontDescription::kNoFamily ||
-                      IsA<CSSIdentifierValue>(*family);
+    const bool is_generic = generic_family != FontDescription::kNoFamily ||
+                            IsA<CSSIdentifierValue>(*family);
+
+    // Take the previous value and wrap it in a `SharedFontFamily` adding to
+    // the linked list.
+    if (has_value) {
+      next =
+          SharedFontFamily::Create(family_name, family_type, std::move(next));
+    }
+    family_name = next_family_name;
+    family_type = is_generic ? FontFamily::Type::kGenericFamily
+                             : FontFamily::Type::kFamilyName;
+    has_value = true;
+
 #if BUILDFLAG(IS_MAC)
     // TODO(https://crbug.com/554590): Remove this counter when it's no longer
     // necessary.
-    if (!has_seen_system_ui) {
-      has_seen_system_ui =
-          is_generic && family_name == font_family_names::kSystemUi;
-    }
     if (IsA<CSSFontFamilyValue>(*family) &&
         family_name == FontCache::LegacySystemFontFamily()) {
+      count_blink_mac_system_font = true;
       family_name = font_family_names::kSystemUi;
-      if (document_for_count && !has_seen_system_ui) {
-        document_for_count->CountUse(WebFeature::kBlinkMacSystemFont);
-      }
+    } else if (is_generic && family_name == font_family_names::kSystemUi) {
+      // If system-ui comes before BlinkMacSystemFont don't use-count.
+      count_blink_mac_system_font = false;
     }
 #endif
 
-    curr_family->SetFamily(family_name, is_generic
-                                            ? FontFamily::Type::kGenericFamily
-                                            : FontFamily::Type::kFamilyName);
-
-    if (is_generic) {
+    if (desc.generic_family == FontDescription::GenericFamilyType::kNoFamily) {
       desc.generic_family = generic_family;
     }
   }
 
+#if BUILDFLAG(IS_MAC)
+  if (document_for_count && count_blink_mac_system_font) {
+    document_for_count->CountUse(WebFeature::kBlinkMacSystemFont);
+  }
+#endif
+
+  desc.family = FontFamily(family_name, family_type, std::move(next));
   return desc;
 }
 
@@ -933,9 +941,6 @@ FontSelectionValue StyleBuilderConverterBase::ConvertFontStyle(
     }
   } else if (const auto* system_font =
                  DynamicTo<cssvalue::CSSPendingSystemFontValue>(value)) {
-    if (system_font->ResolveFontStyle() == kItalicSlopeValue) {
-      return kItalicSlopeValue;
-    }
     return kNormalSlopeValue;
   } else if (const auto* style_range_value =
                  DynamicTo<cssvalue::CSSFontStyleRangeValue>(value)) {
@@ -977,7 +982,7 @@ FontSelectionValue StyleBuilderConverterBase::ConvertFontWeight(
 
   if (const auto* system_font =
           DynamicTo<cssvalue::CSSPendingSystemFontValue>(value)) {
-    return system_font->ResolveFontWeight();
+    return kNormalWeightValue;
   }
 
   if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
@@ -1942,7 +1947,7 @@ ScopedCSSName* StyleBuilderConverter::ConvertCustomIdent(
                                              custom_ident.GetTreeScope());
 }
 
-ScopedCSSName* StyleBuilderConverter::ConvertAnchorDefault(
+ScopedCSSName* StyleBuilderConverter::ConvertPositionAnchor(
     StyleResolverState& state,
     const CSSValue& value) {
   DCHECK(value.IsScopedValue());
@@ -2433,11 +2438,37 @@ SVGPaint StyleBuilderConverter::ConvertSVGPaint(StyleResolverState& state,
     paint.resource = ConvertElementReference(state, *local_value);
   } else {
     auto* local_identifier_value = DynamicTo<CSSIdentifierValue>(local_value);
-    if (local_identifier_value &&
-        local_identifier_value->GetValueID() == CSSValueID::kNone) {
-      paint.type =
-          !paint.resource ? SVGPaintType::kNone : SVGPaintType::kUriNone;
-    } else {
+    if (local_identifier_value) {
+      switch (local_identifier_value->GetValueID()) {
+        case CSSValueID::kNone:
+          paint.type =
+              !paint.resource ? SVGPaintType::kNone : SVGPaintType::kUriNone;
+          break;
+        case CSSValueID::kContextFill:
+          // context-fill cannot be use as a uri fallback
+          DCHECK(!paint.resource);
+          if (RuntimeEnabledFeatures::SvgContextPaintEnabled()) {
+            paint.type = SVGPaintType::kContextFill;
+          } else {
+            local_identifier_value = nullptr;
+          }
+          break;
+        case CSSValueID::kContextStroke:
+          // context-stroke cannot be use as a uri fallback
+          DCHECK(!paint.resource);
+          if (RuntimeEnabledFeatures::SvgContextPaintEnabled()) {
+            paint.type = SVGPaintType::kContextStroke;
+          } else {
+            local_identifier_value = nullptr;
+          }
+          break;
+        default:
+          // For all other keywords, try to parse as a color.
+          local_identifier_value = nullptr;
+          break;
+      }
+    }
+    if (!local_identifier_value) {
       // TODO(fs): Pass along |for_visited_link|.
       paint.color = ConvertStyleColor(state, *local_value);
       paint.type =
@@ -2445,6 +2476,22 @@ SVGPaint StyleBuilderConverter::ConvertSVGPaint(StyleResolverState& state,
     }
   }
   return paint;
+}
+
+// static
+TextBoxEdge StyleBuilderConverter::ConvertTextBoxEdge(
+    StyleResolverState& status,
+    const CSSValue& value) {
+  if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
+    return TextBoxEdge(
+        identifier_value->ConvertTo<TextBoxEdge::TextBoxEdgeType>());
+  }
+  const auto* const list = DynamicTo<CSSValueList>(&value);
+  DCHECK_EQ(list->length(), 2u);
+  const CSSIdentifierValue& over = To<CSSIdentifierValue>(list->Item(0));
+  const CSSIdentifierValue& under = To<CSSIdentifierValue>(list->Item(1));
+  return TextBoxEdge(over.ConvertTo<TextBoxEdge::TextBoxEdgeType>(),
+                     under.ConvertTo<TextBoxEdge::TextBoxEdgeType>());
 }
 
 TextDecorationThickness StyleBuilderConverter::ConvertTextDecorationThickness(
@@ -2615,9 +2662,9 @@ cc::ScrollSnapAlign StyleBuilderConverter::ConvertSnapAlign(
   return snapAlign;
 }
 
-scoped_refptr<TranslateTransformOperation>
-StyleBuilderConverter::ConvertTranslate(StyleResolverState& state,
-                                        const CSSValue& value) {
+TranslateTransformOperation* StyleBuilderConverter::ConvertTranslate(
+    StyleResolverState& state,
+    const CSSValue& value) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
     return nullptr;
@@ -2635,11 +2682,13 @@ StyleBuilderConverter::ConvertTranslate(StyleResolverState& state,
              .ComputeLength<double>(state.CssToLengthConversionData());
   }
 
-  return TranslateTransformOperation::Create(tx, ty, tz,
-                                             TransformOperation::kTranslate3D);
+  return MakeGarbageCollected<TranslateTransformOperation>(
+      tx, ty, tz, TransformOperation::kTranslate3D);
 }
 
-Rotation StyleBuilderConverter::ConvertRotation(const CSSValue& value) {
+Rotation StyleBuilderConverter::ConvertRotation(
+    const CSSLengthResolver& length_resolver,
+    const CSSValue& value) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
     return Rotation(gfx::Vector3dF(0, 0, 1), 0);
@@ -2658,12 +2707,13 @@ Rotation StyleBuilderConverter::ConvertRotation(const CSSValue& value) {
     y = axis.Y();
     z = axis.Z();
   }
-  double angle =
-      To<CSSPrimitiveValue>(list.Item(list.length() - 1)).ComputeDegrees();
-  return Rotation(gfx::Vector3dF(x, y, z), angle);
+  const CSSPrimitiveValue& angle =
+      To<CSSPrimitiveValue>(list.Item(list.length() - 1));
+  return Rotation(gfx::Vector3dF(x, y, z),
+                  angle.ComputeDegrees(length_resolver));
 }
 
-scoped_refptr<RotateTransformOperation> StyleBuilderConverter::ConvertRotate(
+RotateTransformOperation* StyleBuilderConverter::ConvertRotate(
     StyleResolverState& state,
     const CSSValue& value) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
@@ -2671,11 +2721,12 @@ scoped_refptr<RotateTransformOperation> StyleBuilderConverter::ConvertRotate(
     return nullptr;
   }
 
-  return RotateTransformOperation::Create(ConvertRotation(value),
-                                          TransformOperation::kRotate3D);
+  return MakeGarbageCollected<RotateTransformOperation>(
+      ConvertRotation(state.CssToLengthConversionData(), value),
+      TransformOperation::kRotate3D);
 }
 
-scoped_refptr<ScaleTransformOperation> StyleBuilderConverter::ConvertScale(
+ScaleTransformOperation* StyleBuilderConverter::ConvertScale(
     StyleResolverState& state,
     const CSSValue& value) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
@@ -2698,8 +2749,8 @@ scoped_refptr<ScaleTransformOperation> StyleBuilderConverter::ConvertScale(
              .ComputeNumber(state.CssToLengthConversionData());
   }
 
-  return ScaleTransformOperation::Create(sx, sy, sz,
-                                         TransformOperation::kScale3D);
+  return MakeGarbageCollected<ScaleTransformOperation>(
+      sx, sy, sz, TransformOperation::kScale3D);
 }
 
 RespectImageOrientationEnum StyleBuilderConverter::ConvertImageOrientation(

@@ -21,7 +21,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "content/services/auction_worklet/auction_v8_helper.h"
 #include "content/services/auction_worklet/public/cpp/auction_network_events_delegate.h"
@@ -256,7 +255,7 @@ void TrustedSignalsRequestManager::StartBatchedTrustedSignalsRequest() {
         continue;
       }
 
-      // If the current request would result in an oversized URL, update
+      // If the current request would not result in an oversized URL, update
       // merged_requests for the next round of checks.
       merged_requests = std::move(putative_merged_requests);
       length_limit = putative_length_limit;
@@ -378,8 +377,8 @@ void TrustedSignalsRequestManager::OnRequestDestroyed(RequestImpl* request) {
   // Otherwise, it should not be in `queued_requests_`.
   DCHECK_EQ(queued_requests_.count(request), 0u);
 
-  // But it should be in the `requests` set of the
-  // BatchedTrustedSignalsRequest it's pointing to.
+  // But it should be in the `requests` set of the BatchedTrustedSignalsRequest
+  // it's pointing to.
   size_t removed = request->batched_request_->requests.erase(request);
   DCHECK_EQ(removed, 1u);
 
@@ -393,8 +392,8 @@ void TrustedSignalsRequestManager::OnRequestDestroyed(RequestImpl* request) {
 }
 
 void TrustedSignalsRequestManager::QueueRequest(RequestImpl* request) {
-  // If the timer is not running, then either `automatically_send_requests_`
-  // is false, or no requests should be in `queued_requests_`.
+  // If the timer is not running, then either `automatically_send_requests_` is
+  // false, or no requests should be in `queued_requests_`.
   DCHECK_EQ(timer_.IsRunning(),
             automatically_send_requests_ && !queued_requests_.empty());
 

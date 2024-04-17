@@ -7,8 +7,10 @@
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/ui/autofill/manual_fill/fallback_view_controller.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -24,12 +26,16 @@ constexpr CGFloat kCloseButtonSize = 30;
 // Size of the data type icons representing the different segments
 // of the segmented control.
 constexpr CGFloat kDataTypeIconSize = 18;
+// Bottom padding for the header view.
+constexpr CGFloat kHeaderViewBottomPadding = 12;
 // Leading and trailing padding for the header view.
 constexpr CGFloat kHeaderViewHorizontalPadding = 20;
 // Top padding for the header view.
 constexpr CGFloat kHeaderViewTopPadding = 8;
 // Height of the segmented control.
 constexpr CGFloat kSegmentedControlHeight = 32;
+// Multiplier used to constraint the view's height.
+constexpr CGFloat kViewHeightMultiplier = 0.6;
 
 // Height of the header's top view. Used for the narrow layout only.
 constexpr CGFloat kHeaderTopViewHeightNarrowLayout = 44;
@@ -61,6 +67,10 @@ int GetSegmentIndexForDataType(ManualFillDataType data_type) {
 }  // namespace
 
 @interface ExpandedManualFillViewController ()
+
+// Delegate to handle user interactions.
+@property(nonatomic, weak) id<ExpandedManualFillViewControllerDelegate>
+    delegate;
 
 // Control allowing switching between the different data types. Not an ivar so
 // that it can be used in tests.
@@ -96,9 +106,12 @@ int GetSegmentIndexForDataType(ManualFillDataType data_type) {
   ManualFillDataType _initialDataType;
 }
 
-- (instancetype)initForDataType:(ManualFillDataType)dataType {
+- (instancetype)initWithDelegate:
+                    (id<ExpandedManualFillViewControllerDelegate>)delegate
+                     forDataType:(ManualFillDataType)dataType {
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
+    _delegate = delegate;
     _initialDataType = dataType;
   }
   return self;
@@ -112,6 +125,13 @@ int GetSegmentIndexForDataType(ManualFillDataType data_type) {
   self.view.accessibilityIdentifier = manual_fill::kExpandedManualFillViewID;
   self.view.backgroundColor =
       [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
+
+  // Set the view's frame to get the right height initially. Once the view's
+  // window is loaded in `viewDidAppear`, the view's height will be dynamically
+  // constraint to its window's height instead.
+  self.view.autoresizingMask = UIViewAutoresizingNone;
+  self.view.frame = CGRectMake(
+      0, 0, 0, UIScreen.mainScreen.bounds.size.height * kViewHeightMultiplier);
 
   _headerView = [self createHeaderView];
   _headerTopView = [self createHeaderTopView];
@@ -145,6 +165,16 @@ int GetSegmentIndexForDataType(ManualFillDataType data_type) {
 
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
+
+  // Anchor the view's height to its window's height so that the view's height
+  // resizes dynamically when switching between portrait and landscape modes.
+  self.view.autoresizingMask = UIViewAutoresizingFlexibleHeight;
+  [NSLayoutConstraint activateConstraints:@[
+    [self.view.heightAnchor
+        constraintEqualToAnchor:self.view.window.heightAnchor
+                     multiplier:kViewHeightMultiplier],
+  ]];
+
   UIAccessibilityPostNotification(
       UIAccessibilityAnnouncementNotification,
       l10n_util::GetNSString(
@@ -166,6 +196,35 @@ int GetSegmentIndexForDataType(ManualFillDataType data_type) {
                   segmentedControl:_segmentedControl
                      headerTopView:_headerTopView];
   }
+}
+
+#pragma mark - Setters
+
+- (void)setChildViewController:(FallbackViewController*)childViewController {
+  if (_childViewController == childViewController) {
+    return;
+  }
+
+  // Remove the previous child view controller.
+  [_childViewController willMoveToParentViewController:nil];
+  [_childViewController.view removeFromSuperview];
+  [_childViewController removeFromParentViewController];
+
+  _childViewController = childViewController;
+  _childViewController.view.translatesAutoresizingMaskIntoConstraints = NO;
+  [_childViewController willMoveToParentViewController:self];
+  [self addChildViewController:_childViewController];
+  [self.view addSubview:self.childViewController.view];
+  [_childViewController didMoveToParentViewController:self];
+
+  // `_childViewController.view` constraints.
+  [_childViewController.view.topAnchor
+      constraintEqualToAnchor:_headerView.bottomAnchor
+                     constant:kHeaderViewBottomPadding]
+      .active = YES;
+  AddSameConstraintsToSides(
+      _childViewController.view, self.view,
+      LayoutSides::kBottom | LayoutSides::kTrailing | LayoutSides::kLeading);
 }
 
 #pragma mark - Private
@@ -215,22 +274,15 @@ int GetSegmentIndexForDataType(ManualFillDataType data_type) {
   closeButton.accessibilityLabel = l10n_util::GetNSString(
       IDS_IOS_EXPANDED_MANUAL_FILL_CLOSE_BUTTON_ACCESSIBILITY_LABEL);
 
-  UIImageSymbolConfiguration* symbolConfiguration = [UIImageSymbolConfiguration
-      configurationWithPointSize:kCloseButtonSize
-                          weight:UIImageSymbolWeightSemibold
-                           scale:UIImageSymbolScaleMedium];
-
-  UIImage* buttonImage =
-      SymbolWithPalette(DefaultSymbolWithConfiguration(kXMarkCircleFillSymbol,
-                                                       symbolConfiguration),
-                        @[
-                          [UIColor colorNamed:kGrey600Color],
-                          [UIColor colorNamed:kUpdatedTertiaryBackgroundColor]
-                        ]);
+  UIImage* buttonImage = SymbolWithPalette(
+      DefaultSymbolWithPointSize(kXMarkCircleFillSymbol, kCloseButtonSize), @[
+        [[UIColor secondaryLabelColor] colorWithAlphaComponent:0.6],
+        [UIColor tertiarySystemFillColor]
+      ]);
   [closeButton setImage:buttonImage forState:UIControlStateNormal];
 
   [closeButton addTarget:self
-                  action:@selector(onCloseButtonPressed)
+                  action:@selector(onCloseButtonPressed:)
         forControlEvents:UIControlEventTouchUpInside];
 
   return closeButton;
@@ -392,13 +444,17 @@ int GetSegmentIndexForDataType(ManualFillDataType data_type) {
 }
 
 // Handles taps on the close button.
-- (void)onCloseButtonPressed {
-  //  TODO(b/40942168): Implement logic.
+- (void)onCloseButtonPressed:(id)sender {
+  [self.delegate expandedManualFillViewController:self
+                              didPressCloseButton:sender];
 }
 
-// Handles the selection of a data type from the segmented control.
+// Handles the selection of a different data type from the segmented control.
 - (void)onSegmentSelected:(UISegmentedControl*)segmentedControl {
-  //  TODO(b/40942168): Implement logic.
+  ManualFillDataType selectedType =
+      static_cast<ManualFillDataType>(segmentedControl.selectedSegmentIndex);
+  [self.delegate expandedManualFillViewController:self
+                           didSelectSegmentOfType:selectedType];
 }
 
 @end

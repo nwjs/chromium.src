@@ -4,7 +4,8 @@
 
 #include "chrome/browser/password_manager/android/all_passwords_bottom_sheet_controller.h"
 
-#include "base/containers/cxx20_erase.h"
+#include <vector>
+
 #include "chrome/browser/password_manager/android/local_passwords_migration_warning_util.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/profiles/profile.h"
@@ -17,7 +18,6 @@
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
-#include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "content/public/browser/web_contents.h"
@@ -114,7 +114,7 @@ void AllPasswordsBottomSheetController::Show() {
 void AllPasswordsBottomSheetController::OnGetPasswordStoreResults(
     std::vector<std::unique_ptr<password_manager::PasswordForm>> results) {
   CHECK(on_password_forms_received_barrier_callback_);
-  base::EraseIf(results,
+  std::erase_if(results,
                 [](const auto& form_ptr) { return form_ptr->blocked_by_user; });
   on_password_forms_received_barrier_callback_.Run(std::move(results));
 }
@@ -142,8 +142,7 @@ void AllPasswordsBottomSheetController::OnCredentialSelected(
     DCHECK(client_);
     std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator =
         client_->GetDeviceAuthenticator();
-    if (password_manager_util::CanUseBiometricAuth(authenticator.get(),
-                                                   client_)) {
+    if (client_->CanUseBiometricAuthForFilling(authenticator.get())) {
       authenticator_ = std::move(authenticator);
       authenticator_->AuthenticateWithMessage(
           u"",

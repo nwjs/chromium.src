@@ -596,6 +596,11 @@ ImageBitmap::ImageBitmap(ImageElementBase* image,
                       .set_image(std::move(skia_image),
                                  paint_image.GetContentIdForFrame(0u))
                       .TakePaintImage();
+
+    // Update source alpha states after redecoding.
+    parsed_options.source_is_unpremul =
+        paint_image.GetAlphaType() == kUnpremul_SkAlphaType;
+
   } else if (paint_image.IsLazyGenerated()) {
     // Other Image types can still produce lazy generated images (for example
     // SVGs).
@@ -921,7 +926,7 @@ ImageBitmap::~ImageBitmap() {
 }
 
 void ImageBitmap::ResolvePromiseOnOriginalThread(
-    ScriptPromiseResolver* resolver,
+    ScriptPromiseResolverTyped<ImageBitmap>* resolver,
     bool origin_clean,
     std::unique_ptr<ParsedOptions> parsed_options,
     sk_sp<SkImage> skia_image,
@@ -974,7 +979,7 @@ void ImageBitmap::RasterizeImageOnBackgroundThread(
                           ImageOrientationEnum::kDefault));
 }
 
-ScriptPromise ImageBitmap::CreateAsync(
+ScriptPromiseTyped<ImageBitmap> ImageBitmap::CreateAsync(
     ImageElementBase* image,
     std::optional<gfx::Rect> crop_rect,
     ScriptState* script_state,
@@ -988,7 +993,7 @@ ScriptPromise ImageBitmap::CreateAsync(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "The ImageBitmap could not be allocated.");
-    return ScriptPromise();
+    return ScriptPromiseTyped<ImageBitmap>();
   }
 
   scoped_refptr<Image> input = image->CachedImage()->GetImage();
@@ -1003,13 +1008,12 @@ ScriptPromise ImageBitmap::CreateAsync(
         MakeGarbageCollected<ImageBitmap>(MakeBlankImage(parsed_options));
     if (bitmap->BitmapImage()) {
       bitmap->BitmapImage()->SetOriginClean(!image->WouldTaintOrigin());
-      return ScriptPromise::Cast(
-          script_state, ToV8Traits<ImageBitmap>::ToV8(script_state, bitmap));
+      return ToResolvedPromise<ImageBitmap>(script_state, bitmap);
     } else {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kInvalidStateError,
           "The ImageBitmap could not be allocated.");
-      return ScriptPromise();
+      return ScriptPromiseTyped<ImageBitmap>();
     }
   }
 
@@ -1045,9 +1049,10 @@ ScriptPromise ImageBitmap::CreateAsync(
 
   std::unique_ptr<ParsedOptions> passed_parsed_options =
       std::make_unique<ParsedOptions>(parsed_options);
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
-      script_state, exception_state.GetContext());
-  ScriptPromise promise = resolver->Promise();
+  auto* resolver =
+      MakeGarbageCollected<ScriptPromiseResolverTyped<ImageBitmap>>(
+          script_state, exception_state.GetContext());
+  auto promise = resolver->Promise();
 
   worker_pool::PostTask(
       FROM_HERE,
@@ -1112,10 +1117,11 @@ gfx::Size ImageBitmap::Size() const {
   return image_->PreferredDisplaySize();
 }
 
-ScriptPromise ImageBitmap::CreateImageBitmap(ScriptState* script_state,
-                                             std::optional<gfx::Rect> crop_rect,
-                                             const ImageBitmapOptions* options,
-                                             ExceptionState& exception_state) {
+ScriptPromiseTyped<ImageBitmap> ImageBitmap::CreateImageBitmap(
+    ScriptState* script_state,
+    std::optional<gfx::Rect> crop_rect,
+    const ImageBitmapOptions* options,
+    ExceptionState& exception_state) {
   return ImageBitmapSource::FulfillImageBitmap(
       script_state, MakeGarbageCollected<ImageBitmap>(this, crop_rect, options),
       options, exception_state);

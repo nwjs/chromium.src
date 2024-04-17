@@ -68,9 +68,9 @@ CSSAtRuleID CssAtRuleID(StringView name) {
   if (EqualIgnoringASCIICase(name, "page")) {
     return CSSAtRuleID::kCSSAtRulePage;
   }
-  if (EqualIgnoringASCIICase(name, "position-fallback")) {
+  if (EqualIgnoringASCIICase(name, "position-try")) {
     if (RuntimeEnabledFeatures::CSSAnchorPositioningEnabled()) {
-      return CSSAtRuleID::kCSSAtRulePositionFallback;
+      return CSSAtRuleID::kCSSAtRulePositionTry;
     }
     return CSSAtRuleID::kCSSAtRuleInvalid;
   }
@@ -91,12 +91,6 @@ CSSAtRuleID CssAtRuleID(StringView name) {
   }
   if (EqualIgnoringASCIICase(name, "supports")) {
     return CSSAtRuleID::kCSSAtRuleSupports;
-  }
-  if (EqualIgnoringASCIICase(name, "try")) {
-    if (RuntimeEnabledFeatures::CSSAnchorPositioningEnabled()) {
-      return CSSAtRuleID::kCSSAtRuleTry;
-    }
-    return CSSAtRuleID::kCSSAtRuleInvalid;
   }
   if (EqualIgnoringASCIICase(name, "starting-style")) {
     return CSSAtRuleID::kCSSAtRuleStartingStyle;
@@ -183,8 +177,8 @@ StringView CssAtRuleIDToString(CSSAtRuleID id) {
       return "@namespace";
     case CSSAtRuleID::kCSSAtRulePage:
       return "@page";
-    case CSSAtRuleID::kCSSAtRulePositionFallback:
-      return "@position-fallback";
+    case CSSAtRuleID::kCSSAtRulePositionTry:
+      return "@position-try";
     case CSSAtRuleID::kCSSAtRuleProperty:
       return "@property";
     case CSSAtRuleID::kCSSAtRuleContainer:
@@ -197,8 +191,6 @@ StringView CssAtRuleIDToString(CSSAtRuleID id) {
       return "@starting-style";
     case CSSAtRuleID::kCSSAtRuleSupports:
       return "@supports";
-    case CSSAtRuleID::kCSSAtRuleTry:
-      return "@try";
     case CSSAtRuleID::kCSSAtRuleWebkitKeyframes:
       return "@-webkit-keyframes";
     case CSSAtRuleID::kCSSAtRuleAnnotation:
@@ -322,8 +314,7 @@ std::optional<WebFeature> AtRuleFeature(CSSAtRuleID rule_id) {
       return WebFeature::kCSSAtRuleSwash;
     case CSSAtRuleID::kCSSAtRuleSupports:
       return WebFeature::kCSSAtRuleSupports;
-    case CSSAtRuleID::kCSSAtRulePositionFallback:
-    case CSSAtRuleID::kCSSAtRuleTry:
+    case CSSAtRuleID::kCSSAtRulePositionTry:
       return WebFeature::kCSSAnchorPositioning;
     case CSSAtRuleID::kCSSAtRuleWebkitKeyframes:
       return WebFeature::kCSSAtRuleWebkitKeyframes;

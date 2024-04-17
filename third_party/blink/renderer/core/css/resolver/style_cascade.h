@@ -46,6 +46,7 @@ class StyleResolverState;
 namespace cssvalue {
 
 class CSSPendingSubstitutionValue;
+class CSSFlipRevertValue;
 
 }  // namespace cssvalue
 
@@ -66,6 +67,7 @@ class CORE_EXPORT StyleCascade {
   STACK_ALLOCATED();
 
   using CSSPendingSubstitutionValue = cssvalue::CSSPendingSubstitutionValue;
+  using CSSFlipRevertValue = cssvalue::CSSFlipRevertValue;
   using Signal = CSSSelector::Signal;
 
  public:
@@ -178,6 +180,7 @@ class CORE_EXPORT StyleCascade {
   void AnalyzeIfNeeded();
   void AnalyzeMatchResult();
   void AnalyzeInterpolations();
+  void AddExplicitDefaults();
 
   // Clears the CascadeMap and other state, and analyzes the MatchResult/
   // interpolations again.
@@ -358,10 +361,13 @@ class CORE_EXPORT StyleCascade {
                                 CascadeOrigin&,
                                 CascadeResolver&);
   const CSSValue* ResolveRevertLayer(const CSSProperty&,
-                                     const CSSValue&,
                                      CascadePriority,
                                      CascadeOrigin&,
                                      CascadeResolver&);
+  const CSSValue* ResolveFlipRevert(const CSSFlipRevertValue&,
+                                    CascadePriority,
+                                    CascadeOrigin&,
+                                    CascadeResolver&);
 
   scoped_refptr<CSSVariableData> ResolveVariableData(CSSVariableData*,
                                                      const CSSParserContext&,
@@ -459,10 +465,10 @@ class CORE_EXPORT StyleCascade {
   // disable the matched property cache in some cases.
   void MarkHasVariableReference(const CSSProperty&);
 
-  // Declarations originating from @try rules are treated as revert-layer
-  // if we're not out-of-flow positioned. Since such declarations exist
-  // in a separate layer, this has the effect of @try-originating rules
-  // applying *conditionally* based on the positioning.
+  // Declarations originating from @position-try rules are treated as
+  // revert-layer if we're not out-of-flow positioned. Since such declarations
+  // exist in a separate layer, this has the effect of @position-try-originating
+  // rules applying *conditionally* based on the positioning.
   //
   // This behavior is needed because we speculatively add the the try set
   // to the cascade, and rely on out-of-flow layout to correct us later.
@@ -541,6 +547,8 @@ class CORE_EXPORT StyleCascade {
   // computed value of the property affects how e.g. margin-inline-start
   // (and other css-logical properties) cascade.
   bool depends_on_cascade_affecting_property_ = false;
+  // See comment in StyleCascade::AddExplicitDefaults (.cc file).
+  bool effective_zoom_changed_ = false;
   // If true, invisible rules will be added to the cascade, setting
   // `has_invisible_rules_` to true whenever such rules are actually seen.
   // Otherwise, invisible rules are silently ignored.

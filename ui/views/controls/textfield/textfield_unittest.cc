@@ -183,6 +183,7 @@ class MockInputMethod : public ui::InputMethodBase {
   }
   void OnInputLocaleChanged() override {}
   bool IsInputLocaleCJK() const override { return false; }
+  void OnUrlChanged() override {}
 #endif
 
   bool untranslated_ime_message_called() const {
@@ -2084,13 +2085,12 @@ TEST_F(TextfieldTest, DragAndDrop_InitiateDrag) {
   textfield_->SetText(u"hello string world");
 
   // Ensure the textfield will provide selected text for drag data.
-  std::u16string string;
   ui::OSExchangeData data;
   const gfx::Range kStringRange(6, 12);
   textfield_->SetSelectedRange(kStringRange);
   const gfx::Point kStringPoint(GetCursorPositionX(9), GetCursorYForTesting());
   textfield_->WriteDragDataForView(nullptr, kStringPoint, &data);
-  EXPECT_TRUE(data.GetString(&string));
+  std::optional<std::u16string> string = data.GetString();
   EXPECT_EQ(textfield_->GetSelectedText(), string);
 
   // Ensure that disabled textfields do not support drag operations.
@@ -2129,7 +2129,6 @@ TEST_F(TextfieldTest, DragAndDrop_ToTheRight) {
   textfield_->SetText(u"hello world");
   const int cursor_y = GetCursorYForTesting();
 
-  std::u16string string;
   ui::OSExchangeData data;
   int formats = 0;
   int operations = 0;
@@ -2145,7 +2144,7 @@ TEST_F(TextfieldTest, DragAndDrop_ToTheRight) {
   EXPECT_EQ(ui::DragDropTypes::DRAG_MOVE | ui::DragDropTypes::DRAG_COPY,
             operations);
   textfield_->WriteDragDataForView(nullptr, point, &data);
-  EXPECT_TRUE(data.GetString(&string));
+  std::optional<std::u16string> string = data.GetString();
   EXPECT_EQ(textfield_->GetSelectedText(), string);
   EXPECT_TRUE(textfield_->GetDropFormats(&formats, &format_types));
   EXPECT_EQ(ui::OSExchangeData::STRING, formats);
@@ -2183,7 +2182,6 @@ TEST_F(TextfieldTest, DragAndDrop_ToTheLeft) {
   textfield_->SetText(u"hello world");
   const int cursor_y = GetCursorYForTesting();
 
-  std::u16string string;
   ui::OSExchangeData data;
   int formats = 0;
   int operations = 0;
@@ -2199,7 +2197,7 @@ TEST_F(TextfieldTest, DragAndDrop_ToTheLeft) {
   EXPECT_EQ(ui::DragDropTypes::DRAG_MOVE | ui::DragDropTypes::DRAG_COPY,
             operations);
   textfield_->WriteDragDataForView(nullptr, point, &data);
-  EXPECT_TRUE(data.GetString(&string));
+  std::optional<std::u16string> string = data.GetString();
   EXPECT_EQ(textfield_->GetSelectedText(), string);
   EXPECT_TRUE(textfield_->GetDropFormats(&formats, &format_types));
   EXPECT_EQ(ui::OSExchangeData::STRING, formats);
@@ -2237,7 +2235,6 @@ TEST_F(TextfieldTest, DropCallbackCancelled) {
   textfield_->SetText(u"hello world");
   const int cursor_y = GetCursorYForTesting();
 
-  std::u16string string;
   ui::OSExchangeData data;
   int formats = 0;
   int operations = 0;
@@ -2253,7 +2250,7 @@ TEST_F(TextfieldTest, DropCallbackCancelled) {
   EXPECT_EQ(ui::DragDropTypes::DRAG_MOVE | ui::DragDropTypes::DRAG_COPY,
             operations);
   textfield_->WriteDragDataForView(nullptr, point, &data);
-  EXPECT_TRUE(data.GetString(&string));
+  std::optional<std::u16string> string = data.GetString();
   EXPECT_EQ(textfield_->GetSelectedText(), string);
   EXPECT_TRUE(textfield_->GetDropFormats(&formats, &format_types));
   EXPECT_EQ(ui::OSExchangeData::STRING, formats);

@@ -4,7 +4,7 @@
 
 module mahi.mojom;
 
-import "components/services/screen_ai/public/mojom/screen_ai_service.mojom";
+import "services/screen_ai/public/mojom/screen_ai_service.mojom";
 import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "sandbox/policy/mojom/sandbox.mojom";
@@ -49,15 +49,11 @@ struct ExtractionResponse {
 
 // The struct of the content size response.
 struct ContentSizeResponse {
-  // Unique id corresponding to a page. It is used to check if the page is
-  // outdated.
-  mojo_base.mojom.UnguessableToken page_id@0;
-
   // The word count of the contents of the page.
-  int32 word_count@1;
+  int32 word_count@0;
 
   // The operation status of this response.
-  ResponseStatus status@2;
+  ResponseStatus status@1;
 };
 
 // Provides a way to extract contents from in a sandboxed utility process, since

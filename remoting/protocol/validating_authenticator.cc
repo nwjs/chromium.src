@@ -34,6 +34,15 @@ ValidatingAuthenticator::ValidatingAuthenticator(
 
 ValidatingAuthenticator::~ValidatingAuthenticator() = default;
 
+CredentialsType ValidatingAuthenticator::credentials_type() const {
+  return current_authenticator_->credentials_type();
+}
+
+const Authenticator& ValidatingAuthenticator::implementing_authenticator()
+    const {
+  return current_authenticator_->implementing_authenticator();
+}
+
 Authenticator::State ValidatingAuthenticator::state() const {
   return pending_auth_message_ ? MESSAGE_READY : state_;
 }
@@ -145,6 +154,14 @@ void ValidatingAuthenticator::UpdateState(base::OnceClosure resume_callback) {
   } else {
     std::move(resume_callback).Run();
   }
+}
+
+void ValidatingAuthenticator::NotifyStateChangeAfterAccepted() {
+  state_ = current_authenticator_->state();
+  if (state_ == REJECTED) {
+    rejection_reason_ = current_authenticator_->rejection_reason();
+  }
+  Authenticator::NotifyStateChangeAfterAccepted();
 }
 
 }  // namespace remoting::protocol

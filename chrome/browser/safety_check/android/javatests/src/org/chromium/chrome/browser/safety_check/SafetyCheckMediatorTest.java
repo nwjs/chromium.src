@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.safety_check;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -41,7 +42,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.CollectionUtil;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.metrics.UmaRecorderHolder;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRule;
@@ -56,6 +56,7 @@ import org.chromium.chrome.browser.password_manager.PasswordCheckupClientHelper;
 import org.chromium.chrome.browser.password_manager.PasswordCheckupClientHelper.PasswordCheckBackendException;
 import org.chromium.chrome.browser.password_manager.PasswordCheckupClientHelperFactory;
 import org.chromium.chrome.browser.password_manager.PasswordManagerBackendSupportHelper;
+import org.chromium.chrome.browser.password_manager.PasswordManagerHelper;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridgeJni;
 import org.chromium.chrome.browser.password_manager.PasswordStoreBridge;
@@ -63,7 +64,6 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.pwd_check_wrapper.FakePasswordCheckControllerFactory;
 import org.chromium.chrome.browser.pwd_check_wrapper.PasswordCheckController.PasswordCheckResult;
 import org.chromium.chrome.browser.pwd_check_wrapper.PasswordCheckController.PasswordStorageType;
@@ -216,6 +216,7 @@ public class SafetyCheckMediatorTest {
         MockitoAnnotations.initMocks(this);
         mJniMocker.mock(
                 PasswordManagerUtilBridgeJni.TEST_HOOKS, mPasswordManagerUtilBridgeNativeMock);
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
         configureMockSyncService();
 
         PasswordManagerBackendSupportHelper.setInstanceForTesting(mBackendSupportHelperMock);
@@ -230,7 +231,6 @@ public class SafetyCheckMediatorTest {
                 .thenReturn(mUseGmsApi);
 
         mJniMocker.mock(SafetyCheckBridgeJni.TEST_HOOKS, mSafetyCheckBridge);
-        ProfileManager.setLastUsedProfileForTesting(mProfile);
 
         mJniMocker.mock(UserPrefsJni.TEST_HOOKS, mUserPrefsJniMock);
         when(mUserPrefsJniMock.get(mProfile)).thenReturn(mPrefService);
@@ -260,6 +260,7 @@ public class SafetyCheckMediatorTest {
                             mPrefService,
                             mPasswordStoreBridge,
                             mPasswordCheckControllerFactory,
+                            PasswordManagerHelper.getForProfile(mProfile),
                             mHandler,
                             mModalDialogManagerSupplier);
         } else {
@@ -277,6 +278,7 @@ public class SafetyCheckMediatorTest {
                             mPrefService,
                             mPasswordStoreBridge,
                             mPasswordCheckControllerFactory,
+                            PasswordManagerHelper.getForProfile(mProfile),
                             mHandler,
                             mModalDialogManagerSupplier);
         }
@@ -293,7 +295,6 @@ public class SafetyCheckMediatorTest {
         // User is always signed in unless the test specifies otherwise.
         doReturn(true).when(mSafetyCheckBridge).userSignedIn(any(BrowserContextHandle.class));
         // Reset the histogram count.
-        UmaRecorderHolder.resetForTesting();
 
         mModalDialogManager =
                 new ModalDialogManager(
@@ -768,6 +769,26 @@ public class SafetyCheckMediatorTest {
     }
 
     @Test
+    public void testClickListenerDontLeadToPasswordCheckupIfThereWasError() {
+        // Order: initial state -> safety check triggered -> check done -> load completed.
+        mMediator.setInitialState();
+        assertEquals(PasswordsState.CHECKING, mPasswordCheckModel.get(PASSWORDS_STATE));
+
+        mMediator.performSafetyCheck();
+        setUpPasswordCheckToReturnError(
+                PasswordStorageType.ACCOUNT_STORAGE, new Exception("Test exception"));
+
+        assertEquals(PasswordsState.ERROR, mPasswordCheckModel.get(PASSWORDS_STATE));
+
+        Preference.OnPreferenceClickListener listener =
+                (Preference.OnPreferenceClickListener)
+                        mPasswordCheckModel.get(
+                                PasswordsCheckPreferenceProperties.PASSWORDS_CLICK_LISTENER);
+
+        assertNull(listener);
+    }
+
+    @Test
     public void testClickListenerLeadsToUPMLocalPasswordCheckup() {
         // TODO(crbug.com/1511255): Parametrize the tests in SafetyCheckMediatorTest for local and
         // account storage.
@@ -788,6 +809,7 @@ public class SafetyCheckMediatorTest {
                         mPrefService,
                         mPasswordStoreBridge,
                         mPasswordCheckControllerFactory,
+                        PasswordManagerHelper.getForProfile(mProfile),
                         mHandler,
                         mModalDialogManagerSupplier);
 
@@ -839,6 +861,7 @@ public class SafetyCheckMediatorTest {
                         mPrefService,
                         mPasswordStoreBridge,
                         mPasswordCheckControllerFactory,
+                        PasswordManagerHelper.getForProfile(mProfile),
                         mHandler,
                         mModalDialogManagerSupplier);
 

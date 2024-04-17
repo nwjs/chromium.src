@@ -5,6 +5,7 @@
 #include "ash/events/peripheral_customization_event_rewriter.h"
 
 #include <linux/input.h>
+
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -19,6 +20,7 @@
 #include "ash/public/mojom/input_device_settings.mojom.h"
 #include "ash/shell.h"
 #include "ash/system/input_device_settings/input_device_settings_controller_impl.h"
+#include "ash/system/input_device_settings/input_device_settings_logging.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/fixed_flat_map.h"
@@ -171,12 +173,15 @@ int ConvertModifierKeyToFlags(ui::mojom::ModifierKey modifier_key) {
       return ui::EF_CONTROL_DOWN;
     case ui::mojom::ModifierKey::kAlt:
       return ui::EF_ALT_DOWN;
+    case ui::mojom::ModifierKey::kFunction:
+      return ui::EF_FUNCTION_DOWN;
     case ui::mojom::ModifierKey::kEscape:
     case ui::mojom::ModifierKey::kBackspace:
     case ui::mojom::ModifierKey::kAssistant:
     case ui::mojom::ModifierKey::kCapsLock:
     case ui::mojom::ModifierKey::kVoid:
     case ui::mojom::ModifierKey::kIsoLevel5ShiftMod3:
+    case ui::mojom::ModifierKey::kRightAlt:
       return ui::EF_NONE;
   }
 }
@@ -370,7 +375,7 @@ std::vector<std::unique_ptr<ui::Event>> RewriteEventToMouseButtonEvents(
 
   std::vector<std::unique_ptr<ui::Event>> rewritten_events;
 
-  auto* flag_iter = kStaticActionToMouseButtonFlag.find(action);
+  auto flag_iter = kStaticActionToMouseButtonFlag.find(action);
   CHECK(flag_iter != kStaticActionToMouseButtonFlag.end());
   const int characteristic_flag = flag_iter->second;
 
@@ -895,7 +900,7 @@ bool PeripheralCustomizationEventRewriter::RewriteEventFromButton(
     const ui::Event& event,
     const mojom::Button& button,
     std::vector<std::unique_ptr<ui::Event>>& rewritten_events) {
-  absl::optional<RemappingActionResult> remapping_action_result =
+  std::optional<RemappingActionResult> remapping_action_result =
       GetRemappingAction(event.source_device_id(), button);
   if (!remapping_action_result) {
     return false;
@@ -907,6 +912,25 @@ bool PeripheralCustomizationEventRewriter::RewriteEventFromButton(
     metrics_manager_->RecordRemappingActionWhenButtonPressed(
         *remapping_action,
         ToMetricsString(remapping_action_result->peripheral_kind).data());
+  }
+
+  auto id = event.source_device_id();
+  switch (remapping_action_result->peripheral_kind) {
+    case PeripheralCustomizationMetricsType::kMouse:
+      PR_LOG(INFO, Feature::IDS) << GetMouseSettingsLog(
+          "Mouse button is pressed",
+          *(input_device_settings_controller_->GetMouse(id)));
+      break;
+    case PeripheralCustomizationMetricsType::kGraphicsTablet:
+      PR_LOG(INFO, Feature::IDS) << GetGraphicsTabletSettingsLog(
+          "Graphics tablet button is pressed",
+          *(input_device_settings_controller_->GetGraphicsTablet(id)));
+      break;
+    case PeripheralCustomizationMetricsType::kGraphicsTabletPen:
+      PR_LOG(INFO, Feature::IDS) << GetGraphicsTabletSettingsLog(
+          "Graphics tablet pen button is pressed",
+          *(input_device_settings_controller_->GetGraphicsTablet(id)));
+      break;
   }
 
   if (remapping_action->is_accelerator_action()) {
@@ -1313,7 +1337,7 @@ PeripheralCustomizationEventRewriter::GetRemappingAction(
         button, *graphics_tablet_settings);
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void PeripheralCustomizationEventRewriter::RemoveRemappedModifiers(

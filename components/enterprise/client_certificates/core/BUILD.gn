@@ -16,6 +16,7 @@ source_set("core") {
     "dm_server_client.h",
     "ec_private_key.h",
     "ec_private_key_factory.h",
+    "features.h",
     "key_upload_client.h",
     "prefs.h",
     "private_key.h",
@@ -34,6 +35,7 @@ source_set("core") {
     "constants.cc",
     "ec_private_key.cc",
     "ec_private_key_factory.cc",
+    "features.cc",
     "key_upload_client.cc",
     "prefs.cc",
     "private_key.cc",
@@ -96,6 +98,8 @@ source_set("unit_tests") {
     "ec_private_key_unittest.cc",
     "key_upload_client_unittest.cc",
     "private_key_factory_unittest.cc",
+    "unexportable_private_key_factory_unittest.cc",
+    "unexportable_private_key_unittest.cc",
   ]
 
   deps = [
@@ -112,15 +116,8 @@ source_set("unit_tests") {
     "//testing/gtest",
   ]
 
-  if (is_win) {
-    sources += [
-      "unexportable_private_key_factory_unittest.cc",
-      "unexportable_private_key_unittest.cc",
-    ]
-
-    deps += [
-      "//crypto",
-      "//crypto:test_support",
-    ]
-  }
+  deps += [
+    "//crypto",
+    "//crypto:test_support",
+  ]
 }

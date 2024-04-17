@@ -100,6 +100,7 @@
 <translation id="2586657967955657006">Iškarpinė</translation>
 <translation id="2597457036804169544">Netaikyti tamsiosios temos svetainėms</translation>
 <translation id="2606760465469169465">Automatinis patvirtinimas</translation>
+<translation id="2613007545732217283"><ph name="HOST_NAME" /> <ph name="SEPARATOR" /> <ph name="RECENCY" /></translation>
 <translation id="2621115761605608342">Leisti „JavaScript“ konkrečioje svetainėje.</translation>
 <translation id="2653659639078652383">Pateikti</translation>
 <translation id="2677748264148917807">Išeiti</translation>
@@ -122,7 +123,6 @@
 <translation id="2979365474350987274">Trečiųjų šalių slapukai ribojami</translation>
 <translation id="3008272652534848354">Iš naujo nustatyti leidimus</translation>
 <translation id="301521992641321250">Automatiškai užblokuota</translation>
-<translation id="3025010840409371499"><ph name="RECENCY" /> <ph name="SEPARATOR" /> <ph name="HOST_NAME" /></translation>
 <translation id="3069226013421428034">Leisti trečiajai šaliai prisijungti prie konkrečios svetainės.</translation>
 <translation id="3082992102194421695">{COUNT,plural, =1{Galiojimo laikas baigsis rytoj}one{Galiojimo laikas baigsis po # dienos}few{Galiojimo laikas baigsis po # dienų}many{Galiojimo laikas baigsis po # dienos}other{Galiojimo laikas baigsis po # dienų}}</translation>
 <translation id="310297983047869047">Ankstesnė skaidrė</translation>
@@ -345,6 +345,7 @@
 <translation id="6612358246767739896">Apsaugotas turinys</translation>
 <translation id="662080504995468778">Likti</translation>
 <translation id="6653342741369270081">Paspauskite mygtuką „Atgal“, kad išeitumėte iš viso ekrano režimo.</translation>
+<translation id="6670377348676659110">{TILE_COUNT,plural, =1{Slėpti parinktį „Tęsti naudojant šį skirtuką“}one{Slėpti parinktį „Tęsti naudojant šiuos skirtukus“}few{Slėpti parinktį „Tęsti naudojant šiuos skirtukus“}many{Slėpti parinktį „Tęsti naudojant šiuos skirtukus“}other{Slėpti parinktį „Tęsti naudojant šiuos skirtukus“}}</translation>
 <translation id="6689172468748959065">Profilio nuotraukos</translation>
 <translation id="6697925417670533197">Aktyvūs atsisiuntimai</translation>
 <translation id="6722828510648505498">Blokuoti raginimus prisijungti iš tapatybės nustatymo paslaugų.</translation>
@@ -367,6 +368,7 @@
 <translation id="702275896380648118">Ši svetainė nustato, kas jums patinka, ir siūlo skelbimus, nukreipiančius į kitas svetaines. Ši svetainė taip pat gauna informaciją apie skelbimų temas iš „Chrome“, kad galėtų rodyti jums aktualesnius skelbimus.</translation>
 <translation id="7053983685419859001">Blokuoti</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{Pasirinktas 1 elementas}one{Pasirinktas # elementas}few{Pasirinkti # elementai}many{Pasirinkta # elemento}other{Pasirinkta # elementų}}</translation>
+<translation id="708014373017851679">„<ph name="APP_NAME" />“ pasenusi. Atnaujinkite programą.</translation>
 <translation id="7087918508125750058">Pasirinkta: <ph name="ITEM_COUNT" />. Parinktys pasiekiamos netoli ekrano viršaus</translation>
 <translation id="7141896414559753902">Blokuoti, kad svetainėse nebūtų rodomi iššokantieji langai ir peradresavimai (rekomenduojama)</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> KB</translation>
@@ -483,7 +485,6 @@
 <translation id="8803526663383843427">Kada įjungta</translation>
 <translation id="8805385115381080995">Naršymo procesas greitesnis, nes mažiau tikėtina, kad bus prašoma patvirtinti, jos esate realus asmuo</translation>
 <translation id="8816026460808729765">Svetainės blokuojamos, kad nepasiektų jutiklių</translation>
-<translation id="8843699287283948910">Slėpti skirtukus kituose įrenginiuose</translation>
 <translation id="8847988622838149491">USB</translation>
 <translation id="8874790741333031443">Pabandykite laikinai leisti trečiųjų šalių slapukus: tai reiškia, kad naršydami būsite mažiau apsaugoti, bet labiau tikėtina, kad svetainės funkcijos tinkamai veiks.</translation>
 <translation id="8889294078294184559">Jums naršant toliau, svetainės gali tikrinti sistemoje „Chrome“ ir iš ankstesnės svetainės, kurioje lankėtės, patvirtinti, kad tikriausiai esate realus asmuo</translation>

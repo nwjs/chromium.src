@@ -88,7 +88,7 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "services/video_capture/public/mojom/video_effects_manager.mojom.h"
+#include "media/capture/mojom/video_effects_manager.mojom.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace net {
@@ -130,7 +130,7 @@ class URLLoaderThrottle;
 }  // namespace blink
 
 namespace device {
-class GeolocationManager;
+class GeolocationSystemPermissionManager;
 class LocationProvider;
 }  // namespace device
 
@@ -224,6 +224,7 @@ class BrowserURLHandler;
 class ClientCertificateDelegate;
 class ControllerPresentationServiceDelegate;
 class DevToolsManagerDelegate;
+class DipsDelegate;
 class DirectSocketsDelegate;
 class FeatureObserverClient;
 class FontAccessDelegate;
@@ -301,7 +302,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // expected to be copied. Otherwise, `replacement_data` should be written in
   // plaintext to the clipboard.
   using IsClipboardCopyAllowedCallback =
-      base::OnceCallback<void(const std::u16string& data,
+      base::OnceCallback<void(const ClipboardPasteData& data,
                               std::optional<std::u16string> replacement_data)>;
 
   virtual ~ContentBrowserClient() = default;
@@ -419,17 +420,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // policy (e.g. because of --site-per-process).
   virtual bool DoesSiteRequireDedicatedProcess(BrowserContext* browser_context,
                                                const GURL& effective_site_url);
-
-  // Returns true if sandboxed documents with `precursor` as the opaque origin's
-  // precursor are allowed to be put into a separate process, if the
-  // IsolateSandboxedIframes feature is enabled. Defaults to true, but allows
-  // embedders to skip isolated sandboxed frames for certain cases.
-  // TODO(https://crbug.com/1501910): Remove this once we have an implementation
-  // that allows sandboxed iframes access to extension resources without giving
-  // them access to extension APIs.
-  virtual bool ShouldAllowCrossProcessSandboxedFrameForPrecursor(
-      BrowserContext* browser_context,
-      const GURL& precursor);
 
   // Returns true unless the effective URL is part of a site that cannot live in
   // a process restricted to just that site.  This is only called if site
@@ -599,9 +589,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   // specific cases -- then the default non-isolated permissions policy will be
   // applied.
   virtual std::optional<blink::ParsedPermissionsPolicy>
-  GetPermissionsPolicyForIsolatedWebApp(
-      content::BrowserContext* browser_context,
-      const url::Origin& app_origin);
+  GetPermissionsPolicyForIsolatedWebApp(WebContents* web_contents,
+                                        const url::Origin& app_origin);
 
   // Returns whether a new process should be created or an existing one should
   // be reused based on the URL we want to load. This should return false,
@@ -955,7 +944,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Web, Os, both or none
   virtual network::mojom::AttributionSupport GetAttributionSupport(
       AttributionReportingOsApiState state,
-      content::WebContents* web_contents);
+      bool client_os_disabled);
 
   enum class AttributionReportingOperation {
     kSource,
@@ -1005,15 +994,43 @@ class CONTENT_EXPORT ContentBrowserClient {
       const url::Origin* reporting_origin,
       bool* can_bypass);
 
-  // Allows the embedder to control if an OS source event should register as
-  // a Web OS or OS (App) source.
-  virtual bool ShouldUseOsWebSourceAttributionReporting(
-      content::RenderFrameHost* rfh);
+  // Specifies whether an OS attribution event should be logged
+  // against the top level origin (web) or the app (OS) or if
+  // OS attribution is disabled.
+  enum class AttributionReportingOsReportType {
+    kWeb,
+    kOs,
+    kDisabled,
+  };
 
-  // Allows the embedder to control if an OS trigger event should register as
-  // a Web OS or OS (App) trigger.
-  virtual bool ShouldUseOsWebTriggerAttributionReporting(
-      content::RenderFrameHost* rfh);
+  // Attribution reporting generates source and trigger events.
+  // An embedder can specify whether OS attribution source/trigger events
+  // should register against the top level origin (web) or the app (OS) or if
+  // OS attribution is disabled. The behaviour can be the same or different
+  // for source and trigger events so this struct is used to hold the behaviour
+  // for the different event types.
+  struct AttributionReportingOsReportTypes {
+    AttributionReportingOsReportType source_report_type;
+    AttributionReportingOsReportType trigger_report_type;
+
+    auto operator<=>(const AttributionReportingOsReportTypes&) const = default;
+  };
+
+  // Allows the embedder to control if OS attribution source/trigger events
+  // should register against the top level origin (web) or the app (OS) or if
+  // OS attribution is disabled.
+  virtual AttributionReportingOsReportTypes
+  GetAttributionReportingOsReportTypes(WebContents* web_contents);
+
+  // Allows the embedder to control if Attribution Reporting API is allowed in a
+  // given context. This method checks the API-level permission.
+  // `IsAttributionReportingOperationAllowed()` should be called to check the
+  // operation-level permission.
+  virtual bool IsAttributionReportingAllowedForContext(
+      content::BrowserContext* browser_context,
+      content::RenderFrameHost* rfh,
+      const url::Origin& context_origin,
+      const url::Origin& reporting_origin);
 
   // Allows the embedder to control if Shared Storage API operations can happen
   // in a given context.
@@ -1110,11 +1127,13 @@ class CONTENT_EXPORT ContentBrowserClient {
   // * Default implementation returns empty string, meaning send no API key.
   virtual std::string GetGeolocationApiKey();
 
-  // Returns the global BrowserProcessPlatformParts' GeolocationManager on
-  // macOS and returns nullptr otherwise. For tests this should return a
-  // FakeGeolocationManager with the LocationSystemPermissionStatus set to
-  // allow.
-  virtual device::GeolocationManager* GetGeolocationManager();
+  // Returns the global BrowserProcessPlatformParts'
+  // GeolocationSystemPermissionManager on supported operating systems and
+  // returns nullptr otherwise. For tests this should return a
+  // FakeGeolocationSystemPermissionManager with the
+  // LocationSystemPermissionStatus set to allow.
+  virtual device::GeolocationSystemPermissionManager*
+  GetGeolocationSystemPermissionManager();
 
 #if BUILDFLAG(IS_ANDROID)
   // Allows an embedder to decide whether to use the GmsCoreLocationProvider.
@@ -1704,18 +1723,20 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Allows the embedder to register per-scheme URLLoaderFactory implementations
   // to handle navigation URL requests for schemes not handled by the Network
   // Service.
+  // When a non-null PendingRemote is returned, requests for the given `scheme`
+  // are to be handled by the ContentBrowserClient-supplied factory.
+  // Otherwise (returning null), falling back to a default content//-supplied
+  // factory if any.
   //
   // Note that a RenderFrameHost or RenderProcessHost aren't passed in because
   // these can change during a navigation (e.g. depending on redirects).
-  //
-  // |ukm_source_id| can be used to record UKM events associated with the
-  // navigation.
+  virtual mojo::PendingRemote<network::mojom::URLLoaderFactory>
+  CreateNonNetworkNavigationURLLoaderFactory(const std::string& scheme,
+                                             int frame_tree_node_id);
+
   using NonNetworkURLLoaderFactoryMap =
       std::map<std::string,
                mojo::PendingRemote<network::mojom::URLLoaderFactory>>;
-  virtual void RegisterNonNetworkNavigationURLLoaderFactories(
-      int frame_tree_node_id,
-      NonNetworkURLLoaderFactoryMap* factories);
 
   // Allows the embedder to register per-scheme URLLoaderFactory
   // implementations to handle dedicated/shared worker main script requests
@@ -2065,6 +2086,7 @@ class CONTENT_EXPORT ContentBrowserClient {
                                         bool has_user_gesture,
                                         bool is_redirect,
                                         bool is_outermost_main_frame,
+                                        bool is_prerendering,
                                         ui::PageTransition transition,
                                         bool* ignore_navigation);
 #endif
@@ -2486,7 +2508,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void IsClipboardCopyAllowedByPolicy(
       const ClipboardEndpoint& source,
       const ClipboardMetadata& metadata,
-      const std::u16string& data,
+      const ClipboardPasteData& data,
       IsClipboardCopyAllowedCallback callback);
 
 #if BUILDFLAG(ENABLE_VR)
@@ -2775,7 +2797,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void BindVideoEffectsManager(
       const std::string& device_id,
       content::BrowserContext* browser_context,
-      mojo::PendingReceiver<video_capture::mojom::VideoEffectsManager>
+      mojo::PendingReceiver<media::mojom::VideoEffectsManager>
           video_effects_manager);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -2813,6 +2835,18 @@ class CONTENT_EXPORT ContentBrowserClient {
       GlobalRenderFrameHostId capturer_rfh_id,
       const std::string& label,
       MultiCaptureChanged state);
+
+  // Allows the embedder to return a delegate for DIPS (Bounce Tracking
+  // Mitigations). The default implementation returns nullptr, resulting in
+  // default behavior.
+  virtual std::unique_ptr<DipsDelegate> CreateDipsDelegate();
+
+  // Allows the embedder to suppress the firing of the AXLoadComplete event.
+  // Currently, this is only respected on Mac. Since VoiceOver on Mac will
+  // move the focus to web content if the AXLoadComplete event is fired,
+  // this is used to not move VoiceOver's focus on navigation. This is used
+  // today to suppress the event when the user navigates to the new tab page.
+  virtual bool ShouldSuppressAXLoadComplete(RenderFrameHost* rfh);
 };
 
 }  // namespace content

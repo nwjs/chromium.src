@@ -34,6 +34,10 @@ BASE_FEATURE(kClientSideDetectionKillswitch,
              "ClientSideDetectionKillswitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kClientSideDetectionKeyboardPointerLockRequest,
+             "ClientSideDetectionKeyboardPointerLockRequest",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kClientSideDetectionNotificationPrompt,
              "ClientSideDetectionNotificationPrompt",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -46,9 +50,9 @@ BASE_FEATURE(kCreateWarningShownClientSafeBrowsingReports,
              "CreateWarningShownClientSafeBrowsingReports",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDeepScanningEncryptedArchives,
-             "SafeBrowsingDeepScanningEncryptedArchives",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kDeepScanningPromptRemoval,
+             "SafeBrowsingDeepScanningPromptRemoval",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDelayedWarnings,
              "SafeBrowsingDelayedWarnings",
@@ -206,6 +210,10 @@ BASE_FEATURE(kSafeBrowsingAsyncRealTimeCheck,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kSafeBrowsingCallNewGmsApiOnStartup,
+             "SafeBrowsingCallNewGmsApiOnStartup",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSafeBrowsingNewGmsApiForBrowseUrlDatabaseCheck,
              "SafeBrowsingNewGmsApiForBrowseUrlDatabaseCheck",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -233,19 +241,9 @@ BASE_FEATURE(kSafeBrowsingRemoveCookiesInAuthRequests,
              "SafeBrowsingRemoveCookiesInAuthRequests",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSafeBrowsingSkipSubresources,
-             "SafeBrowsingSkipSubResources",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSafeBrowsingSkipSubresources2,
              "SafeBrowsingSkipSubResources2",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSevenZipEvaluationEnabled,
              "SafeBrowsingSevenZipEvaluationEnabled",
@@ -311,7 +309,7 @@ BASE_FEATURE(kSafeBrowsingDailyPhishingReportsLimit,
 
 BASE_FEATURE(kClientSideDetectionImagesCache,
              "ClientSideDetectionImagesCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<int> kSafeBrowsingDailyPhishingReportsLimitESB{
     &kSafeBrowsingDailyPhishingReportsLimit,
@@ -331,6 +329,7 @@ constexpr struct {
     {&kAdSamplerTriggerFeature, false},
     {&kAddWarningShownTSToClientSafeBrowsingReport, false},
     {&kClientSideDetectionKillswitch, true},
+    {&kClientSideDetectionKeyboardPointerLockRequest, true},
     {&kClientSideDetectionNotificationPrompt, true},
     {&kCreateNotificationsAcceptedClientSafeBrowsingReports, true},
     {&kCreateWarningShownClientSafeBrowsingReports, false},
@@ -353,7 +352,6 @@ constexpr struct {
     {&kRedInterstitialFacelift, false},
     {&kSafeBrowsingAsyncRealTimeCheck, true},
     {&kSafeBrowsingRemoveCookiesInAuthRequests, true},
-    {&kSafeBrowsingSkipSubresources, true},
     {&kSafeBrowsingSkipSubresources2, true},
     {&kSevenZipEvaluationEnabled, true},
     {&kSimplifiedUrlDisplay, true},

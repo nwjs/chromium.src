@@ -37,6 +37,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "net/base/features.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -1331,6 +1332,11 @@ IN_PROC_BROWSER_TEST_F(ThirdPartyCookieDeprecationObserverCookieReadBrowserTest,
     histogram_tester.ExpectBucketCount(
         "PageLoad.Clients.TPCD.TPCAccess.CookieReadStatus",
         test_case.expected_status, 1);
+
+    bool is_read_blocked_by_ad_heuristics = test_case.expected_status == 20;
+    histogram_tester.ExpectBucketCount(
+        kWebFeatureHistogram, WebFeature::kTpcdCookieReadBlockedByAdHeuristics,
+        is_read_blocked_by_ad_heuristics);
   }
 }
 

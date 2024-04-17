@@ -2091,16 +2091,16 @@ AutotestPrivateGetLacrosInfoFunction::ToLacrosState(
       return api::autotest_private::LacrosState::kStopped;
     case crosapi::BrowserManager::State::PREPARING_FOR_LAUNCH:
       return api::autotest_private::LacrosState::kPreparingForLaunch;
-    case crosapi::BrowserManager::State::WAITING_OWNER_FETCH:
-      return api::autotest_private::LacrosState::kWaitingOwnerFetch;
     case crosapi::BrowserManager::State::PRE_LAUNCHED:
       return api::autotest_private::LacrosState::kPreLaunched;
     case crosapi::BrowserManager::State::STARTING:
       return api::autotest_private::LacrosState::kStarting;
     case crosapi::BrowserManager::State::RUNNING:
       return api::autotest_private::LacrosState::kRunning;
-    case crosapi::BrowserManager::State::TERMINATING:
-      return api::autotest_private::LacrosState::kTerminating;
+    case crosapi::BrowserManager::State::WAITING_FOR_MOJO_DISCONNECTED:
+      return api::autotest_private::LacrosState::kWaitingForMojoDisconnected;
+    case crosapi::BrowserManager::State::WAITING_FOR_PROCESS_TERMINATED:
+      return api::autotest_private::LacrosState::kWaitingForProcessTerminated;
   }
 }
 

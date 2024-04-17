@@ -206,6 +206,8 @@ using UkmEntry = ukm::TestUkmRecorder::HumanReadableUkmEntry;
 using ukm::builders::Preloading_Attempt;
 using ukm::builders::Preloading_Attempt_PreviousPrimaryPage;
 using ukm::builders::Preloading_Prediction;
+using ukm::builders::Preloading_Prediction_PreviousPrimaryPage;
+
 static const auto kMockElapsedTime =
     base::ScopedMockElapsedTimersForTest::kMockElapsedTime;
 
@@ -258,6 +260,32 @@ class PreloadingAttemptPreviousPrimaryPageUkmEntryBuilder {
       metrics.insert({Preloading_Attempt::kSpeculationEagernessName,
                       static_cast<int64_t>(eagerness.value())});
     }
+    return UkmEntry{source_id, std::move(metrics)};
+  }
+
+ private:
+  PreloadingPredictor predictor_;
+};
+
+// Utility class to make building expected
+// TestUkmRecorder::HumanReadableUkmEntry for EXPECT_EQ for
+// PreloadingPredictionPreviousPrimaryPage.
+class PreloadingPredictionPreviousPrimaryPageUkmEntryBuilder {
+ public:
+  explicit PreloadingPredictionPreviousPrimaryPageUkmEntryBuilder(
+      PreloadingPredictor predictor)
+      : predictor_(predictor) {}
+
+  // Unlike PreloadingPredictionUkmEntryBuilder, this method assumes a
+  // navigation has not occurred thus `TimeToNextNavigation` is not set.
+  ukm::TestUkmRecorder::HumanReadableUkmEntry
+  BuildEntry(ukm::SourceId source_id, int confidence, bool accurate) const {
+    std::map<std::string, int64_t> metrics = {
+        {Preloading_Prediction::kConfidenceName,
+         static_cast<int64_t>(confidence)},
+        {Preloading_Attempt::kPreloadingPredictorName,
+         static_cast<int64_t>(predictor_.ukm_value())},
+        {Preloading_Prediction::kAccuratePredictionName, accurate ? 1 : 0}};
     return UkmEntry{source_id, std::move(metrics)};
   }
 
@@ -336,6 +364,9 @@ class PrerenderBrowserTest : public ContentBrowserTest,
     prediction_ukm_entry_builder_ =
         std::make_unique<test::PreloadingPredictionUkmEntryBuilder>(
             PredictorToExpectInUkm());
+    prediction_previous_ukm_entry_builder_ = std::make_unique<
+        PreloadingPredictionPreviousPrimaryPageUkmEntryBuilder>(
+        PredictorToExpectInUkm());
     ssl_server_.AddDefaultHandlers(GetTestDataFilePath());
     ssl_server_.SetSSLConfig(
         net::test_server::EmbeddedTestServer::CERT_TEST_NAMES);
@@ -542,6 +573,11 @@ class PrerenderBrowserTest : public ContentBrowserTest,
     return *prediction_ukm_entry_builder_;
   }
 
+  const PreloadingPredictionPreviousPrimaryPageUkmEntryBuilder&
+  prediction_previous_ukm_entry_builder() {
+    return *prediction_previous_ukm_entry_builder_;
+  }
+
   void ExpectPreloadingAttemptUkm(
       const std::vector<UkmEntry>& expected_attempt_entries) {
     test::ExpectPreloadingAttemptUkm(*test_ukm_recorder(),
@@ -563,6 +599,17 @@ class PrerenderBrowserTest : public ContentBrowserTest,
       const std::vector<UkmEntry>& expected_prediction_entries) {
     test::ExpectPreloadingPredictionUkm(*test_ukm_recorder(),
                                         expected_prediction_entries);
+  }
+
+  void ExpectPreloadingPredictioPreviousPrimaryPageUkm(
+      const UkmEntry& expected_prediction_entry) {
+    auto prediction_entries = test_ukm_recorder()->GetEntries(
+        Preloading_Prediction_PreviousPrimaryPage::kEntryName,
+        test::kPreloadingPredictionUkmMetrics);
+    ASSERT_EQ(prediction_entries.size(), 1u);
+    EXPECT_EQ(prediction_entries[0], expected_prediction_entry)
+        << test::ActualVsExpectedUkmEntryToString(prediction_entries[0],
+                                                  expected_prediction_entry);
   }
 
   void TestHostPrerenderingState(const GURL& prerender_url) {
@@ -769,6 +816,8 @@ class PrerenderBrowserTest : public ContentBrowserTest,
       attempt_previous_ukm_entry_builder_;
   std::unique_ptr<test::PreloadingPredictionUkmEntryBuilder>
       prediction_ukm_entry_builder_;
+  std::unique_ptr<PreloadingPredictionPreviousPrimaryPageUkmEntryBuilder>
+      prediction_previous_ukm_entry_builder_;
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<base::ScopedMockElapsedTimersForTest> scoped_test_timer_;
   // Disable sampling of UKM preloading logs.
@@ -1086,20 +1135,16 @@ IN_PROC_BROWSER_TEST_F(AutoSpeculationRulesPrerenderBrowserTestWithHoldback,
 
 enum class PrerenderingResult { kSuccess, kFailed };
 enum class BodySize { kSmall, kLarge };
-enum class PrefetchHTTPCache { kEnabled, kDisabled };
 
 class PrerenderAndPrefetchBrowserTest
     : public PrerenderBrowserTest,
-      public testing::WithParamInterface<std::tuple<PrerenderingResult,
-                                                    BodySize,
-                                                    PrefetchReusableForTests,
-                                                    PrefetchHTTPCache>> {
+      public testing::WithParamInterface<
+          std::tuple<PrerenderingResult, BodySize, PrefetchReusableForTests>> {
  public:
   // Provides meaningful param names instead of /0, /1, ...
   static std::string DescribeParams(
       const testing::TestParamInfo<ParamType>& info) {
-    auto [prerendering_result, body_size, prefetch_reusable,
-          prefetch_uses_http_cache] = info.param;
+    auto [prerendering_result, body_size, prefetch_reusable] = info.param;
     std::stringstream params_description;
     switch (prerendering_result) {
       case PrerenderingResult::kSuccess:
@@ -1125,14 +1170,6 @@ class PrerenderAndPrefetchBrowserTest
         params_description << "_PrefetchReusableDisabled";
         break;
     }
-    switch (prefetch_uses_http_cache) {
-      case PrefetchHTTPCache::kEnabled:
-        params_description << "_SameSitePrefetchUsesHTTPCacheEnabled";
-        break;
-      case PrefetchHTTPCache::kDisabled:
-        params_description << "_SameSitePrefetchUsesHTTPCacheDisabled";
-        break;
-    }
     return params_description.str();
   }
 
@@ -1151,15 +1188,6 @@ class PrerenderAndPrefetchBrowserTest
         enabled_features.push_back(
             {features::kPrefetchReusable,
              {{features::kPrefetchReusableBodySizeLimit.name, "112262"}}});
-        break;
-    }
-
-    switch (std::get<PrefetchHTTPCache>(GetParam())) {
-      case PrefetchHTTPCache::kEnabled:
-        enabled_features.push_back({features::kPrefetchUsesHTTPCache, {}});
-        break;
-      case PrefetchHTTPCache::kDisabled:
-        disabled_features.push_back(features::kPrefetchUsesHTTPCache);
         break;
     }
 
@@ -1255,16 +1283,10 @@ IN_PROC_BROWSER_TEST_P(PrerenderAndPrefetchBrowserTest,
         EXPECT_EQ(delivery_type, "navigational-prefetch");
       } else {
         // The prefetched result can't be used for navigation for large body
-        // due to PrefetchDataPipeTee buffer limit.
-        if (std::get<3>(GetParam()) == PrefetchHTTPCache::kEnabled) {
-          // A cached response from the HTTP cache is used instead, we still
-          // should not see another request.
-          EXPECT_EQ(GetRequestCount(kPrerenderingUrl), 1);
-          EXPECT_EQ(delivery_type, "cache");
-        } else {
-          EXPECT_EQ(GetRequestCount(kPrerenderingUrl), 2);
-          EXPECT_EQ(delivery_type, "");
-        }
+        // due to PrefetchDataPipeTee buffer limit. A cached response from the
+        // HTTP cache is used instead, we still should not see another request.
+        EXPECT_EQ(GetRequestCount(kPrerenderingUrl), 1);
+        EXPECT_EQ(delivery_type, "cache");
       }
       break;
   }
@@ -1288,9 +1310,7 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(testing::Values(PrerenderingResult::kSuccess,
                                      PrerenderingResult::kFailed),
                      testing::Values(BodySize::kSmall, BodySize::kLarge),
-                     testing::ValuesIn(PrefetchReusableValuesForTests()),
-                     testing::Values(PrefetchHTTPCache::kEnabled,
-                                     PrefetchHTTPCache::kDisabled)),
+                     testing::ValuesIn(PrefetchReusableValuesForTests())),
     PrerenderAndPrefetchBrowserTest::DescribeParams);
 
 // Tests that the speculationrules-triggered prerender would be destroyed after
@@ -1437,6 +1457,11 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
       /*ready_time=*/kMockElapsedTime,
       blink::mojom::SpeculationEagerness::kEager)});
 
+  ExpectPreloadingPredictionUkm({prediction_ukm_entry_builder().BuildEntry(
+      ukm_source_id,
+      /*confidence=*/100,
+      /*accurate_prediction=*/true)});
+
   // The navigation occurred in a new WebContents, so the original WebContents
   // should still be showing the initial trigger page.
   EXPECT_EQ(web_contents()->GetLastCommittedURL(), kInitialUrl);
@@ -1529,6 +1554,11 @@ IN_PROC_BROWSER_TEST_F(
       /*accurate=*/true,
       /*ready_time=*/kMockElapsedTime,
       blink::mojom::SpeculationEagerness::kEager)});
+
+  ExpectPreloadingPredictionUkm({prediction_ukm_entry_builder().BuildEntry(
+      ukm_source_id,
+      /*confidence=*/100,
+      /*accurate_prediction=*/true)});
 
   // The navigation occurred in a new WebContents, so the original WebContents
   // should still be showing the initial trigger page.
@@ -1649,6 +1679,11 @@ IN_PROC_BROWSER_TEST_F(
           /*accurate=*/false,
           /*ready_time=*/kMockElapsedTime,
           blink::mojom::SpeculationEagerness::kEager));
+  ExpectPreloadingPredictioPreviousPrimaryPageUkm(
+      {prediction_previous_ukm_entry_builder().BuildEntry(
+          triggering_primary_page_source_id,
+          /*confidence=*/100,
+          /*accurate=*/false)});
 }
 
 // Tests that window.open() annotated with "_blank" and "noopener" can activate
@@ -8929,7 +8964,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderWithBackForwardCacheBrowserTest,
 
   // Navigate to an initial page.
   ASSERT_TRUE(NavigateToURL(shell(), kInitialUrl));
-  RenderFrameHostImpl* initial_frame_host = current_frame_host();
+  RenderFrameHostImplWrapper initial_frame_host(current_frame_host());
 
   // Make a prerendered page from the initial page.
   int host_id = AddPrerender(kPrerenderingUrl);
@@ -8943,7 +8978,11 @@ IN_PROC_BROWSER_TEST_P(PrerenderWithBackForwardCacheBrowserTest,
     case BackForwardCacheType::kDisabled:
       // The BFCache is disabled, so the initial page is not in the
       // back/forward cache.
-      ASSERT_FALSE(initial_frame_host->IsInBackForwardCache());
+      if (ShouldCreateNewHostForAllFrames()) {
+        ASSERT_TRUE(initial_frame_host.WaitUntilRenderFrameDeleted());
+      } else {
+        ASSERT_FALSE(initial_frame_host->IsInBackForwardCache());
+      }
       break;
     case BackForwardCacheType::kEnabled:
       // The back/forward cache is enabled, so the initial page is in the
@@ -8973,7 +9012,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderWithBackForwardCacheBrowserTest,
 
   // Navigate to a next page.
   ASSERT_TRUE(NavigateToURL(shell(), kNextUrl));
-  RenderFrameHostImpl* next_frame_host = current_frame_host();
+  RenderFrameHostImplWrapper next_frame_host(current_frame_host());
 
   // Make a prerendered page from the next page.
   int host_id = AddPrerender(kPrerenderingUrl);
@@ -8990,7 +9029,11 @@ IN_PROC_BROWSER_TEST_P(PrerenderWithBackForwardCacheBrowserTest,
     case BackForwardCacheType::kDisabled:
       // The back/forward cache is disabled, so the next page is not in the
       // back/forward cache.
-      ASSERT_FALSE(next_frame_host->IsInBackForwardCache());
+      if (ShouldCreateNewHostForAllFrames()) {
+        ASSERT_TRUE(next_frame_host.WaitUntilRenderFrameDeleted());
+      } else {
+        ASSERT_FALSE(next_frame_host->IsInBackForwardCache());
+      }
       break;
     case BackForwardCacheType::kEnabled:
       // The back/forward cache is enabled, so the next page is in the
@@ -11097,16 +11140,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
                   ->has_received_user_gesture_before_nav());
 }
 
-// TODO(https://crbug.com/1408911): This test is flaky on Mac bots.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_CancelPrerenderWhenIsOverridingUserAgentDiffers \
-  DISABLED_CancelPrerenderWhenIsOverridingUserAgentDiffers
-#else
-#define MAYBE_CancelPrerenderWhenIsOverridingUserAgentDiffers \
-  CancelPrerenderWhenIsOverridingUserAgentDiffers
-#endif
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
-                       MAYBE_CancelPrerenderWhenIsOverridingUserAgentDiffers) {
+                       CancelPrerenderWhenIsOverridingUserAgentDiffers) {
   const std::string user_agent_override = "foo";
 
   // Navigate to an initial page.

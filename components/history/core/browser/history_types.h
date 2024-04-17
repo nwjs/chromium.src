@@ -70,7 +70,7 @@ constexpr VisitedLinkID kInvalidVisitedLinkID = 0;
 typedef std::map<VisitID, VisitSource> VisitSourceMap;
 
 // Constant used to represent that no app_id is used for matching.
-inline constexpr std::optional<std::string> kNoAppIdFilter = absl::nullopt;
+inline constexpr std::optional<std::string> kNoAppIdFilter = std::nullopt;
 
 // VisitRow -------------------------------------------------------------------
 
@@ -1064,11 +1064,7 @@ struct ClusterKeywordData {
   };
 
   ClusterKeywordData();
-  explicit ClusterKeywordData(
-      const std::vector<std::string>& entity_collections);
-  ClusterKeywordData(ClusterKeywordType type,
-                     float score,
-                     const std::vector<std::string>& entity_collections);
+  ClusterKeywordData(ClusterKeywordType type, float score);
   ClusterKeywordData(const ClusterKeywordData&);
   ClusterKeywordData(ClusterKeywordData&&);
   ClusterKeywordData& operator=(const ClusterKeywordData&);
@@ -1093,9 +1089,6 @@ struct ClusterKeywordData {
   // A floating point score describing how important this keyword is to the
   // containing cluster.
   float score = 0;
-
-  // Entity collections associated with the keyword this is attached to.
-  std::vector<std::string> entity_collections;
 
   friend std::ostream& operator<<(std::ostream& out,
                                   const ClusterKeywordData& data);

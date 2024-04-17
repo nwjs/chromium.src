@@ -94,7 +94,7 @@ class PasswordStoreAndroidAccountBackend : public PasswordStoreBackend,
   void OnCallToGMSCoreSucceeded() override;
   std::string GetAccountToRetryOperation() override;
   PasswordStoreBackendMetricsRecorder::PasswordStoreAndroidBackendType
-  GetStoreType() override;
+  GetStorageType() override;
 
   // If |forms_or_error| contains forms, it retrieves and fills in affiliation
   // and branding information for Android credentials in the forms and invokes
@@ -120,7 +120,7 @@ class PasswordStoreAndroidAccountBackend : public PasswordStoreBackend,
   raw_ptr<AffiliatedMatchHelper> affiliated_match_helper_ = nullptr;
   raw_ptr<syncer::SyncService> sync_service_ = nullptr;
 
-  // Delegate to handle sync events.
+  // Legacy delegate to handle sync events.
   std::unique_ptr<PasswordSyncControllerDelegateAndroid>
       sync_controller_delegate_;
 

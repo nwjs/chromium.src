@@ -22,6 +22,7 @@ Selle seade muutmiseks <ph name="BEGIN_LINK" />kustutage oma kontol Chrome'i and
 <translation id="1436059927646026729">Ava Chrome'is minu viimane vaheleht</translation>
 <translation id="1449241544691504574">Järjehoidjate lisamine Chrome'i</translation>
 <translation id="1462727070346936664">Chrome'i parimal moel kasutamiseks logige sisse.</translation>
+<translation id="1462833127986525564">Linkige Chrome ja muud Google'i teenused, kui soovite, et need isikupärastaksid teie kasutuskogemust üksteise andmete abil</translation>
 <translation id="1491435845014430217">Lülitage sisse valik „Lukusta Chrome'i sulgemisel inkognito vahelehed“.</translation>
 <translation id="1493827051843127077">Määrake Chrome vaikebrauseriks, et sünkroonida kõikides oma seadetes vahelehti, paroole ja makseteavet</translation>
 <translation id="1504372625950710826">Chrome ei saanud värskendusi otsida. Kontrollige internetiühendust.</translation>
@@ -142,6 +143,7 @@ Teie krüpteeritud andmeid saab lugeda ainult isik, kes teab teie parooli. Paroo
 <translation id="4834499902900503484">Kui olete Chrome’i sisse logitud, salvestatakse paroolid teie Google’i kontole. Selle väljalülitamiseks <ph name="BEGIN_LINK" />avage seaded<ph name="END_LINK" />.</translation>
 <translation id="484033449593719797">Ei toetata Chrome'i beetaversioonis</translation>
 <translation id="4840404732697892756">Google'i paroolihaldur saab teie paroole kontrollida siis, kui logite sisse oma Google'i kontoga.</translation>
+<translation id="4856636171409137183">Kõige isikupärastatud kasutuskogemuse saamiseks lisage Chrome funktsioonidesse <ph name="FEATURE_NAME_1" /> ja <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4860330141789125848">{COUNT,plural, =1{Chrome aitab teil seda saadetist uuel vahelehel jälgida.}other{Chrome aitab teil neid saadetisi uuel vahelehel jälgida.}}</translation>
 <translation id="4903674399067644695">Sellel kaardil kuvatakse soovitusi selle kohta, kuidas Chrome'i parimal moel kasutada.</translation>
 <translation id="49200511069271369">Teie organisatsioon <ph name="DOMAIN" /> haldab kontot, millele sisse logite, ja Chrome'i kasutamist. Teie administraator saab teatud funktsioone seadistada või piirata.</translation>
@@ -198,7 +200,6 @@ Teie krüpteeritud andmeid saab lugeda ainult isik, kes teab teie parooli. Paroo
 Teie andmed on krüpteeritud teie parooliga. Chrome’i andmete kasutamiseks ja salvestamiseks oma Google’i kontole sisestage parool.</translation>
 <translation id="6540120577248033958">Külastage saiti ja klõpsake Chrome'i menüüs nupul Jälgi</translation>
 <translation id="6545449117344801102">Chrome tuvastab aadressid ning annab teile Google Mapsi abil juhiseid ja kohalikku teavet.</translation>
-<translation id="6600954340915313787">Chrome'i kopeeritud</translation>
 <translation id="6634107063912726160">Väljalogimisel ei sünkrooni Chrome teie Google'i kontoga uusi andmeid. Varem sünkroonitud andmed jäävad kontole.</translation>
 <translation id="6646696210740573446">Saadab privaatse serveri kaudu Google'ile URL-i hägustatud osa, mis peidab teie IP-aadressi. Kui sait üritab teie parooli varastada või laadite alla kahjuliku faili, võib Chrome saata Google'ile ka URL-e, sh lehe sisu.</translation>
 <translation id="6648150602980899529">Logite sisse kontoga, mida haldab <ph name="DOMAIN" />, ja annate selle administraatorile üle Chrome'i andmete juhtimise. Teie andmed seotakse jäädavalt selle kontoga. Chrome'ist väljalogimisel kustutatakse teie andmed sellest seadmest, kuid need jäävad alles teie Google'i kontole.</translation>

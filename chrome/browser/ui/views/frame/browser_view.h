@@ -43,6 +43,7 @@
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/user_education/browser_feature_promo_controller.h"
 #include "chrome/common/buildflags.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "components/infobars/core/infobar_container.h"
 #include "components/segmentation_platform/public/result.h"
 #include "components/user_education/common/feature_promo_controller.h"
@@ -63,6 +64,10 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/widget/widget_observer.h"
 #include "ui/views/window/client_view.h"
+
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+#include "chrome/browser/enterprise/watermark/watermark_view.h"
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ui/compositor/throughput_tracker.h"
@@ -445,6 +450,12 @@ class BrowserView : public BrowserWindow,
 
   void UpdateWebAppStatusIconsVisiblity();
 
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+  // Sets the watermark string to the value specified in text if the view is
+  // not null.
+  void SetWatermarkString(const std::string& text);
+#endif
+
   // Getter for the `window.setResizable(bool)` state.
   std::optional<bool> GetCanResizeFromWebAPI() const;
 
@@ -662,7 +673,8 @@ class BrowserView : public BrowserWindow,
   user_education::FeaturePromoHandle CloseFeaturePromoAndContinue(
       const base::Feature& iph_feature) override;
   void NotifyFeatureEngagementEvent(const char* event_name) override;
-  void NotifyPromoFeatureUsed(const base::Feature& iph_feature) override;
+  void NotifyPromoFeatureUsed(const base::Feature& feature) override;
+  bool MaybeShowNewBadgeFor(const base::Feature& feature) override;
 
   void ShowIncognitoClearBrowsingDataDialog() override;
 
@@ -732,6 +744,10 @@ class BrowserView : public BrowserWindow,
 
   // content::WebContentsObserver:
   void DidFirstVisuallyNonEmptyPaint() override;
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+  void DidStartNavigation(
+      content::NavigationHandle* navigation_handle) override;
+#endif
 
   // views::ClientView:
   views::CloseRequestResult OnWindowCloseRequested() override;
@@ -1072,6 +1088,10 @@ private:
   // when it should not be able to.
   void UpdateFullscreenAllowedFromPolicy(bool allowed_without_policy);
 
+  // Apply data protection settings based on the verdict received by
+  // safe-browsing's realtime lookup service.
+  void ApplyDataProtectionSettings(const std::string& watermark_text);
+
   // The BrowserFrame that hosts this view.
   raw_ptr<BrowserFrame, DanglingUntriaged> frame_ = nullptr;
 
@@ -1194,6 +1214,9 @@ private:
   // The view that contains devtools window for the selected WebContents.
   raw_ptr<views::WebView, AcrossTasksDanglingUntriaged> devtools_web_view_ =
       nullptr;
+
+  // The view that overlays a watermark on the contents container.
+  raw_ptr<enterprise_watermark::WatermarkView> watermark_view_ = nullptr;
 
   // The view managing the devtools and contents positions.
   // Handled by ContentsLayoutManager.

@@ -40,8 +40,7 @@ void LoadMaskedDomainListComponent(ComponentLoaderPolicyVector& policies) {
   policies.push_back(std::make_unique<
                      component_updater::MaskedDomainListComponentLoaderPolicy>(
       /* on_list_ready=*/base::BindRepeating(
-          [](base::Version version,
-             const absl::optional<std::string>& raw_mdl) {
+          [](base::Version version, const std::optional<std::string>& raw_mdl) {
             if (raw_mdl.has_value()) {
               base::ThreadPool::PostTaskAndReplyWithResult(
                   FROM_HERE,

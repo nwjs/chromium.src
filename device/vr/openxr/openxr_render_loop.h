@@ -83,7 +83,9 @@ class OpenXrRenderLoop : public XRThread,
                          public viz::ContextLostObserver {
  public:
   using RequestSessionCallback =
-      base::OnceCallback<void(bool result, mojom::XRSessionPtr)>;
+      base::OnceCallback<void(bool result,
+                              mojom::XRSessionPtr,
+                              mojo::PendingRemote<mojom::ImmersiveOverlay>)>;
 
   OpenXrRenderLoop(
       VizContextProviderFactoryAsync context_provider_factory_async,
@@ -103,8 +105,6 @@ class OpenXrRenderLoop : public XRThread,
   void GetFrameData(
       mojom::XRFrameDataRequestOptionsPtr options,
       XRFrameDataProvider::GetFrameDataCallback callback) override;
-
-  void RequestOverlay(mojo::PendingReceiver<mojom::ImmersiveOverlay> receiver);
 
   void RequestSession(base::RepeatingCallback<void(mojom::XRVisibilityState)>
                           on_visibility_state_changed,
@@ -162,7 +162,7 @@ class OpenXrRenderLoop : public XRThread,
 
   // ImmersiveOverlay:
   void SubmitOverlayTexture(int16_t frame_id,
-                            mojo::PlatformHandle texture,
+                            gfx::GpuMemoryBufferHandle texture,
                             const gpu::SyncToken& sync_token,
                             const gfx::RectF& left_bounds,
                             const gfx::RectF& right_bounds,

@@ -38,6 +38,30 @@ luci.bucket(
     ],
 )
 
+# Define the shadow bucket of `build`.
+# See also http://go/luci-how-to-led#configure-a-shadow-bucket
+luci.bucket(
+    name = "build.shadow",
+    shadows = "build",
+    constraints = luci.bucket_constraints(
+        pools = [ci.DEFAULT_POOL],
+        service_accounts = [
+            "chromium-build-perf-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
+        ],
+    ),
+    bindings = [
+        # for led permissions.
+        luci.binding(
+            roles = "role/buildbucket.creator",
+            groups = [
+                "mdb/chrome-troopers",
+                "mdb/foundry-x-team",
+            ],
+        ),
+    ],
+    dynamic = True,
+)
+
 luci.gitiles_poller(
     name = "chrome-build-gitiles-trigger",
     bucket = "build",
@@ -56,7 +80,6 @@ ci.defaults.set(
     build_numbers = True,
     contact_team_email = "chrome-build-team@google.com",
     execution_timeout = 10 * time.hour,
-    notifies = ["chrome-build-perf"],
     priority = ci.DEFAULT_FYI_PRIORITY,
     service_account = "chromium-build-perf-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
     siso_configs = [],
@@ -156,7 +179,7 @@ The build configs and the bot specs should be in sync with <a href="https://ci.c
         category = "android",
         short_name = "siso",
     ),
-    reclient_rewrapper_env = {"RBE_exec_strategy": "remote"},
+    siso_experiments = ["no-fallback"],
 )
 
 cq_build_perf_builder(
@@ -218,6 +241,7 @@ The build configs and the bot specs should be in sync with <a href="https://ci.c
         category = "linux",
         short_name = "siso",
     ),
+    siso_experiments = ["no-fallback"],
 )
 
 cq_build_perf_builder(

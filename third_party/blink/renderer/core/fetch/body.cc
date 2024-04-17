@@ -72,11 +72,11 @@ class BodyConsumerBase : public GarbageCollected<BodyConsumerBase>,
   // Resource Timing event is not yet added, so delay the resolution timing
   // a bit. See https://crbug.com/507169.
   // TODO(yhirano): Fix this problem in a more sophisticated way.
-  template <typename T>
+  template <typename IDLType, typename T>
   void ResolveLater(const T& object) {
-    task_runner_->PostTask(FROM_HERE,
-                           WTF::BindOnce(&BodyConsumerBase::ResolveNow<T>,
-                                         WrapPersistent(this), object));
+    task_runner_->PostTask(
+        FROM_HERE, WTF::BindOnce(&BodyConsumerBase::ResolveNow<IDLType, T>,
+                                 WrapPersistent(this), object));
   }
 
   void Trace(Visitor* visitor) const override {
@@ -85,21 +85,22 @@ class BodyConsumerBase : public GarbageCollected<BodyConsumerBase>,
   }
 
  private:
-  template <typename T>
+  template <typename IDLType, typename T>
+    requires(
+        !std::is_same<T, Persistent<DisallowNewWrapper<ScriptValue>>>::value)
   void ResolveNow(const T& object) {
-    resolver_->Resolve(object);
+    resolver_->DowncastTo<IDLType>()->Resolve(object);
+  }
+
+  template <typename IDLType, typename T>
+    requires std::is_same<T, Persistent<DisallowNewWrapper<ScriptValue>>>::value
+  void ResolveNow(const Persistent<DisallowNewWrapper<ScriptValue>>& object) {
+    resolver_->DowncastTo<IDLType>()->Resolve(object->Value());
   }
 
   const Member<ScriptPromiseResolver> resolver_;
   const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 };
-
-template <>
-void BodyConsumerBase::ResolveNow(
-    const Persistent<DisallowNewWrapper<ScriptValue>>& object) {
-  resolver_->DowncastTo<IDLAny>()->Resolve(object->Value());
-}
-
 class BodyBlobConsumer final : public BodyConsumerBase {
  public:
   using BodyConsumerBase::BodyConsumerBase;
@@ -107,7 +108,7 @@ class BodyBlobConsumer final : public BodyConsumerBase {
 
   void DidFetchDataLoadedBlobHandle(
       scoped_refptr<BlobDataHandle> blob_data_handle) override {
-    ResolveLater(WrapPersistent(
+    ResolveLater<ResolveType>(WrapPersistent(
         MakeGarbageCollected<Blob>(std::move(blob_data_handle))));
   }
 };
@@ -118,7 +119,7 @@ class BodyArrayBufferConsumer final : public BodyConsumerBase {
   using ResolveType = DOMArrayBuffer;
 
   void DidFetchDataLoadedArrayBuffer(DOMArrayBuffer* array_buffer) override {
-    ResolveLater(WrapPersistent(array_buffer));
+    ResolveLater<ResolveType>(WrapPersistent(array_buffer));
   }
 };
 
@@ -128,7 +129,7 @@ class BodyFormDataConsumer final : public BodyConsumerBase {
   using ResolveType = FormData;
 
   void DidFetchDataLoadedFormData(FormData* form_data) override {
-    ResolveLater(WrapPersistent(form_data));
+    ResolveLater<ResolveType>(WrapPersistent(form_data));
   }
 
   void DidFetchDataLoadedString(const String& string) override {
@@ -150,7 +151,7 @@ class BodyTextConsumer final : public BodyConsumerBase {
   using ResolveType = IDLUSVString;
 
   void DidFetchDataLoadedString(const String& string) override {
-    ResolveLater(string);
+    ResolveLater<ResolveType>(string);
   }
 };
 
@@ -171,7 +172,7 @@ class BodyJsonConsumer final : public BodyConsumerBase {
     if (v8::JSON::Parse(Resolver()->GetScriptState()->GetContext(),
                         input_string)
             .ToLocal(&parsed)) {
-      ResolveLater(WrapPersistent(WrapDisallowNew(
+      ResolveLater<ResolveType>(WrapPersistent(WrapDisallowNew(
           ScriptValue(Resolver()->GetScriptState()->GetIsolate(), parsed))));
     } else
       Resolver()->Reject(trycatch.Exception());
@@ -238,7 +239,7 @@ ScriptPromiseTyped<typename Consumer::ResolveType> Body::LoadAndConvertBody(
 ScriptPromiseTyped<DOMArrayBuffer> Body::arrayBuffer(
     ScriptState* script_state,
     ExceptionState& exception_state) {
-  auto on_no_body = [](ScriptPromiseResolver* resolver) {
+  auto on_no_body = [](ScriptPromiseResolverTyped<DOMArrayBuffer>* resolver) {
     resolver->Resolve(DOMArrayBuffer::Create(size_t{0}, size_t{0}));
   };
 
@@ -254,7 +255,7 @@ ScriptPromiseTyped<Blob> Body::blob(ScriptState* script_state,
     return FetchDataLoader::CreateLoaderAsBlobHandle(
         MimeType(), context->GetTaskRunner(TaskType::kNetworking));
   };
-  auto on_no_body = [this](ScriptPromiseResolver* resolver) {
+  auto on_no_body = [this](ScriptPromiseResolverTyped<Blob>* resolver) {
     auto blob_data = std::make_unique<BlobData>();
     blob_data->SetContentType(MimeType());
     resolver->Resolve(MakeGarbageCollected<Blob>(
@@ -293,9 +294,10 @@ ScriptPromiseTyped<FormData> Body::formData(ScriptState* script_state,
     on_no_body_reject(resolver);
     return promise;
   } else if (parsed_type == "application/x-www-form-urlencoded") {
-    auto on_no_body_resolve = [](ScriptPromiseResolver* resolver) {
-      resolver->Resolve(MakeGarbageCollected<FormData>());
-    };
+    auto on_no_body_resolve =
+        [](ScriptPromiseResolverTyped<FormData>* resolver) {
+          resolver->Resolve(MakeGarbageCollected<FormData>());
+        };
     // According to https://fetch.spec.whatwg.org/#concept-body-package-data
     // application/x-www-form-urlencoded FormData bytes are parsed using
     // https://url.spec.whatwg.org/#concept-urlencoded-parser
@@ -326,7 +328,7 @@ ScriptPromiseTyped<IDLAny> Body::json(ScriptState* script_state,
 
 ScriptPromiseTyped<IDLUSVString> Body::text(ScriptState* script_state,
                                             ExceptionState& exception_state) {
-  auto on_no_body = [](ScriptPromiseResolver* resolver) {
+  auto on_no_body = [](ScriptPromiseResolverTyped<IDLUSVString>* resolver) {
     resolver->Resolve(String());
   };
   return LoadAndConvertBody<BodyTextConsumer>(

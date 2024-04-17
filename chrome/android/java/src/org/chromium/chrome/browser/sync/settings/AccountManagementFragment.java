@@ -29,14 +29,12 @@ import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
 import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
-import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.signin.services.SigninManager.SignInStateObserver;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.sync.TrustedVaultClient;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils.SyncError;
 import org.chromium.chrome.browser.sync.ui.PassphraseDialogFragment;
 import org.chromium.chrome.browser.ui.signin.SignOutDialogCoordinator;
-import org.chromium.chrome.browser.ui.signin.SignOutDialogCoordinator.Listener;
 import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.browser_ui.settings.CustomDividerFragment;
@@ -46,6 +44,8 @@ import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.GAIAServiceType;
+import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.Tribool;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
@@ -67,13 +67,11 @@ import java.util.List;
  * <p>Note: This can be triggered from a web page, e.g. a GAIA sign-in page.
  */
 public class AccountManagementFragment extends ChromeBaseSettingsFragment
-        implements Listener,
-                SignInStateObserver,
+        implements SignInStateObserver,
                 ProfileDataCache.Observer,
                 CustomDividerFragment,
                 IdentityErrorCardPreference.Listener,
                 PassphraseDialogFragment.Delegate {
-    private static final String CLEAR_DATA_PROGRESS_DIALOG_TAG = "clear_data_progress";
     private static final int REQUEST_CODE_TRUSTED_VAULT_KEY_RETRIEVAL = 1;
     private static final int REQUEST_CODE_TRUSTED_VAULT_RECOVERABILITY_DEGRADED = 2;
 
@@ -193,7 +191,7 @@ public class AccountManagementFragment extends ChromeBaseSettingsFragment
         // TODO(crbug.com/1503649): Figure out the behaviour for child accounts.
         mIdentityErrorCardPreference =
                 (IdentityErrorCardPreference) findPreference(PREF_IDENTITY_ERROR_CARD_PREFERENCE);
-        mIdentityErrorCardPreference.initialize(mSyncService, this);
+        mIdentityErrorCardPreference.initialize(getProfile(), this);
     }
 
     /**
@@ -238,11 +236,11 @@ public class AccountManagementFragment extends ChromeBaseSettingsFragment
                             SignOutDialogCoordinator.show(
                                     requireContext(),
                                     getProfile(),
+                                    getChildFragmentManager(),
                                     ((ModalDialogManagerHolder) getActivity())
                                             .getModalDialogManager(),
-                                    this,
-                                    SignOutDialogCoordinator.ActionType.CLEAR_PRIMARY_ACCOUNT,
-                                    mGaiaServiceType);
+                                    SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS,
+                                    /* onSignOut= */ null);
                         } else {
                             IdentityServicesProvider.get()
                                     .getSigninManager(getProfile())
@@ -428,40 +426,7 @@ public class AccountManagementFragment extends ChromeBaseSettingsFragment
                 .then(this::updateAccountsList);
     }
 
-    // SignOutDialogListener implementation:
-    @Override
-    public void onSignOutClicked(boolean forceWipeUserData) {
-        // In case the user reached this fragment without being signed in, we guard the sign out so
-        // we do not hit a native crash.
-        if (!IdentityServicesProvider.get()
-                .getIdentityManager(getProfile())
-                .hasPrimaryAccount(ConsentLevel.SIGNIN)) {
-            return;
-        }
-        final DialogFragment clearDataProgressDialog = new ClearDataProgressDialog();
-        IdentityServicesProvider.get()
-                .getSigninManager(getProfile())
-                .signOut(
-                        SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS,
-                        new SigninManager.SignOutCallback() {
-                            @Override
-                            public void preWipeData() {
-                                clearDataProgressDialog.show(
-                                        getFragmentManager(), CLEAR_DATA_PROGRESS_DIALOG_TAG);
-                            }
-
-                            @Override
-                            public void signOutComplete() {
-                                if (clearDataProgressDialog.isAdded()) {
-                                    clearDataProgressDialog.dismissAllowingStateLoss();
-                                }
-                            }
-                        },
-                        forceWipeUserData);
-    }
-
     // SignInStateObserver implementation:
-
     @Override
     public void onSignedIn() {
         update();
@@ -592,8 +557,11 @@ public class AccountManagementFragment extends ChromeBaseSettingsFragment
     }
 
     private boolean isSupervisedUser() {
+        // SEED_ACCOUNTS_REVAMP is needed for using capabilities, otherwise
+        // findExtendedAccountInfoByEmailAddress is not guaranteed to have the needed account
         if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.MIGRATE_ACCOUNT_MANAGEMENT_SETTINGS_TO_CAPABILITIES)) {
+                        ChromeFeatureList.MIGRATE_ACCOUNT_MANAGEMENT_SETTINGS_TO_CAPABILITIES)
+                && SigninFeatureMap.isEnabled(SigninFeatures.SEED_ACCOUNTS_REVAMP)) {
             assert mSignedInCoreAccountInfo != null;
             AccountInfo accountinfo =
                     IdentityServicesProvider.get()

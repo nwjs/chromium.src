@@ -989,6 +989,31 @@ std::pair<String, TextOffsetMap> LayoutText::SecureText(const String& plain,
   return std::make_pair(masked, TextOffsetMap());
 }
 
+void LayoutText::SetVariableLengthTransformResult(
+    wtf_size_t original_length,
+    const TextOffsetMap& offset_map) {
+  if (offset_map.IsEmpty()) {
+    ClearHasVariableLengthTransform();
+    return;
+  }
+  has_variable_length_transform_ = true;
+  View()->RegisterVariableLengthTransformResult(*this,
+                                                {original_length, offset_map});
+}
+
+VariableLengthTransformResult LayoutText::GetVariableLengthTransformResult()
+    const {
+  return View()->GetVariableLengthTransformResult(*this);
+}
+
+void LayoutText::ClearHasVariableLengthTransform() {
+  NOT_DESTROYED();
+  if (has_variable_length_transform_) {
+    View()->UnregisterVariableLengthTransformResult(*this);
+  }
+  has_variable_length_transform_ = false;
+}
+
 void LayoutText::SetTextIfNeeded(String text) {
   NOT_DESTROYED();
   DCHECK(text);
@@ -1037,8 +1062,9 @@ void LayoutText::TextDidChange() {
 void LayoutText::TextDidChangeWithoutInvalidation() {
   NOT_DESTROYED();
   TextOffsetMap offset_map;
+  wtf_size_t original_length = text_.length();
   text_ = TransformAndSecureText(text_, offset_map);
-  has_variable_length_transform_ = !offset_map.IsEmpty();
+  SetVariableLengthTransformResult(original_length, offset_map);
   if (auto* secure_text_timer = SecureTextTimer::ActiveInstanceFor(this)) {
     // text_ may be updated later before timer fires. We invalidate the
     // last_typed_character_offset_ to avoid inconsistency.
@@ -1288,15 +1314,26 @@ bool LayoutText::ContainsCaretOffset(int text_offset) const {
       return false;
     }
     const Position position = PositionForCaretOffset(text_offset);
-    if (position.IsNull())
+    if (position.IsNull()) {
       return false;
+    }
+    // Return `true` if the position is not collapsed.
     if (text_offset < text_length &&
         mapping->IsBeforeNonCollapsedContent(position)) {
       return true;
     }
-    if (!text_offset || !mapping->IsAfterNonCollapsedContent(position))
+    // The position is collapsed. Return `false` if this is the first character,
+    // or the previous character is also collapsed.
+    if (!text_offset || !mapping->IsAfterNonCollapsedContent(position)) {
       return false;
-    return *mapping->GetCharacterBefore(position) != kNewlineCharacter;
+    }
+    // The previous character isn't collapsed. Return `false` if it's a newline,
+    // otherwise `true`.
+    if (std::optional<UChar> ch = mapping->GetCharacterBefore(position)) {
+      return *ch != kNewlineCharacter;
+    }
+    // TODO(crbug.com/326745564): It's not clear when the code reaches here, and
+    // thus it's not clear whether it should return `true` or `false`.
   }
 
   return false;

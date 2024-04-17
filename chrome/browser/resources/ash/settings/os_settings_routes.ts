@@ -38,7 +38,15 @@ export class Route {
    * The document title that should be displayed for this route.
    */
   title: string|undefined;
+
+  /**
+   * The parent route, or null if this is a root route.
+   */
   parent: Route|null;
+
+  /**
+   * The URL path starting with a forward slash. e.g. `/internet`.
+   */
   path: string;
 
   constructor(path: string, title?: string) {
@@ -94,6 +102,23 @@ export class Route {
   isSubpage(): boolean {
     return !this.isNavigableDialog && !!this.parent && this.section !== null &&
         this.parent.section === this.section;
+  }
+
+  /**
+   * Returns the top-most ancestor Route for this route's `section`. If this
+   * route has no `section` then returns null.
+   */
+  getSectionAncestor(): Route|null {
+    if (this.section === null) {
+      return null;
+    }
+
+    let curr: Route = this;
+    while (curr.parent && curr.parent.section !== null) {
+      curr = curr.parent;
+    }
+
+    return curr;
   }
 }
 
@@ -211,6 +236,7 @@ export interface OsSettingsRoutes extends MinimumRoutes {
   PRIVACY_HUB: Route;
   PRIVACY_HUB_CAMERA: Route;
   PRIVACY_HUB_GEOLOCATION: Route;
+  PRIVACY_HUB_GEOLOCATION_ADVANCED: Route;
   PRIVACY_HUB_MICROPHONE: Route;
   SEARCH: Route;
   SEARCH_SUBPAGE: Route;
@@ -320,10 +346,11 @@ export function createRoutes(): OsSettingsRoutes {
   if (!isGuest()) {
     r.OS_PEOPLE = createSection(
         r.BASIC, routesMojom.PEOPLE_SECTION_PATH, Section.kPeople);
-    r.ACCOUNT_MANAGER = createSubpage(
-        r.OS_PEOPLE, routesMojom.MY_ACCOUNTS_SUBPAGE_PATH, Subpage.kMyAccounts);
 
     if (!isRevampWayfindingEnabled()) {
+      r.ACCOUNT_MANAGER = createSubpage(
+          r.OS_PEOPLE, routesMojom.MY_ACCOUNTS_SUBPAGE_PATH,
+          Subpage.kMyAccounts);
       // TODO(b/305747266) : Disambiguate the names for OS_SYNC and SYNC.
       r.OS_SYNC = createSubpage(
           r.OS_PEOPLE, routesMojom.SYNC_SUBPAGE_PATH, Subpage.kSync);
@@ -504,6 +531,10 @@ export function createRoutes(): OsSettingsRoutes {
   r.PRIVACY_HUB_GEOLOCATION = createSubpage(
       r.OS_PRIVACY, routesMojom.PRIVACY_HUB_GEOLOCATION_SUBPAGE_PATH,
       Subpage.kPrivacyHubGeolocation);
+  r.PRIVACY_HUB_GEOLOCATION_ADVANCED = createSubpage(
+      r.PRIVACY_HUB_GEOLOCATION,
+      routesMojom.PRIVACY_HUB_GEOLOCATION_ADVANCED_SUBPAGE_PATH,
+      Subpage.kPrivacyHubGeolocationAdvanced);
   r.PRIVACY_HUB_CAMERA = createSubpage(
       r.OS_PRIVACY, routesMojom.PRIVACY_HUB_CAMERA_SUBPAGE_PATH,
       Subpage.kPrivacyHubCamera);
@@ -760,3 +791,34 @@ export function createRoutes(): OsSettingsRoutes {
 
   return r as OsSettingsRoutes;
 }
+
+const PATH_REDIRECT_PAIRS: Array<[string, string]> = [
+  [
+    routesMojom.MY_ACCOUNTS_SUBPAGE_PATH,
+    routesMojom.PEOPLE_SECTION_PATH,
+  ],
+  [
+    routesMojom.DATE_AND_TIME_SECTION_PATH,
+    routesMojom.SYSTEM_PREFERENCES_SECTION_PATH,
+  ],
+  [
+    routesMojom.FILES_SECTION_PATH,
+    routesMojom.SYSTEM_PREFERENCES_SECTION_PATH,
+  ],
+  // TODO(b/309808834) Remove this pair once the Bluetooth L1 page is revamped
+  // with up-leveled content.
+  [
+    routesMojom.BLUETOOTH_SECTION_PATH,
+    routesMojom.BLUETOOTH_DEVICES_SUBPAGE_PATH,
+  ],
+];
+
+/**
+ * An object of path redirects. The key represents a given path and the value
+ * represents the resulting path that should be redirected to. Path strings
+ * always include a leading slash.
+ */
+export const PATH_REDIRECTS =
+    Object.fromEntries(PATH_REDIRECT_PAIRS.map(([path, redirectPath]) => {
+      return [`/${path}`, `/${redirectPath}`];
+    }));

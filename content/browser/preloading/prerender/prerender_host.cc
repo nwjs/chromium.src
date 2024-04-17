@@ -16,7 +16,9 @@
 #include "base/trace_event/typed_macros.h"
 #include "content/browser/client_hints/client_hints.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
+#include "content/browser/preloading/prefetch/no_vary_search_helper.h"
 #include "content/browser/preloading/prerender/devtools_prerender_attempt.h"
+#include "content/browser/preloading/prerender/prerender_features.h"
 #include "content/browser/preloading/prerender/prerender_final_status.h"
 #include "content/browser/preloading/prerender/prerender_host_registry.h"
 #include "content/browser/preloading/prerender/prerender_metrics.h"
@@ -386,7 +388,7 @@ bool PrerenderHost::StartPrerendering() {
     return false;
 
   if (attributes_.prerender_navigation_handle_callback) {
-    attributes_.prerender_navigation_handle_callback.value().Run(
+    attributes_.prerender_navigation_handle_callback.Run(
         *created_navigation_handle);
   }
 
@@ -443,7 +445,7 @@ void PrerenderHost::DidStartNavigation(NavigationHandle* navigation_handle) {
   CHECK(navigation_request->IsInPrerenderedMainFrame());
 
   // Do nothing for the initial navigation.
-  if (GetInitialNavigationId() == navigation_request->GetNavigationId()) {
+  if (IsInitialNavigation(*navigation_request)) {
     return;
   }
 
@@ -452,6 +454,29 @@ void PrerenderHost::DidStartNavigation(NavigationHandle* navigation_handle) {
   // prerendered page and PrerenderHost::DidFinishNavigation is called multiple
   // times.
   is_ready_for_activation_ = false;
+}
+
+void PrerenderHost::ReadyToCommitNavigation(
+    NavigationHandle* navigation_handle) {
+  CHECK(navigation_handle);
+  // For the initial navigation, set No-Vary-Search if there is a
+  // No-Vary-Search header.
+  auto* navigation_request = NavigationRequest::From(navigation_handle);
+  CHECK(navigation_request->IsInPrerenderedMainFrame());
+  if (base::FeatureList::IsEnabled(features::kPrerender2NoVarySearch) &&
+      IsInitialNavigation(*navigation_request) &&
+      navigation_request->response() &&
+      navigation_request->response()->parsed_headers &&
+      navigation_request->response()
+          ->parsed_headers->no_vary_search_with_parse_error &&
+      navigation_request->response()
+          ->parsed_headers->no_vary_search_with_parse_error
+          ->is_no_vary_search()) {
+    SetNoVarySearch(no_vary_search::ParseHttpNoVarySearchDataFromMojom(
+        navigation_request->response()
+            ->parsed_headers->no_vary_search_with_parse_error
+            ->get_no_vary_search()));
+  }
 }
 
 void PrerenderHost::DidFinishNavigation(NavigationHandle* navigation_handle) {
@@ -820,8 +845,7 @@ PrerenderHost::AreCommonNavigationParamsCompatibleWithNavigation(
   // here to be safe.
   CHECK(common_params_);
   if (attributes_.url_match_predicate) {
-    CHECK(
-        attributes_.url_match_predicate.value().Run(potential_activation.url));
+    CHECK(attributes_.url_match_predicate.Run(potential_activation.url));
   } else {
     CHECK_EQ(potential_activation.url, common_params_->url);
   }
@@ -1126,15 +1150,17 @@ void PrerenderHost::SetFailureReason(
 }
 
 bool PrerenderHost::IsUrlMatch(const GURL& url) const {
-  // If the trigger defines its predicate, respect it.
-  if (attributes_.url_match_predicate) {
-    // Triggers are not allowed to treat a cross-origin url as a matched url. It
-    // would cause security risks.
-    if (!url::IsSameOriginWith(attributes_.prerendering_url, url))
-      return false;
-    return attributes_.url_match_predicate.value().Run(url);
+  if (!attributes_.url_match_predicate) {
+    return GetInitialUrl() == url;
   }
-  return GetInitialUrl() == url;
+
+  // Triggers are not allowed to treat a cross-origin url as a matched url. It
+  // would cause security risks.
+  if (!url::IsSameOriginWith(attributes_.prerendering_url, url)) {
+    return false;
+  }
+
+  return attributes_.url_match_predicate.Run(url);
 }
 
 void PrerenderHost::OnAcceptClientHintChanged(
@@ -1165,6 +1191,16 @@ void PrerenderHost::Cancel(PrerenderFinalStatus status) {
       host->delegate()->GetPrerenderHostRegistry();
   CHECK(registry);
   registry->CancelHost(frame_tree_node_id_, status);
+}
+
+void PrerenderHost::SetNoVarySearch(net::HttpNoVarySearchData no_vary_search) {
+  CHECK(!no_vary_search_);
+  no_vary_search_ = std::move(no_vary_search);
+}
+
+bool PrerenderHost::IsInitialNavigation(
+    const NavigationRequest& navigation_request) const {
+  return GetInitialNavigationId() == navigation_request.GetNavigationId();
 }
 
 }  // namespace content

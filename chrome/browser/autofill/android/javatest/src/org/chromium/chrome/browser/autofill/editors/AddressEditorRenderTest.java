@@ -44,6 +44,7 @@ import org.chromium.chrome.browser.autofill.AutofillProfileBridge;
 import org.chromium.chrome.browser.autofill.AutofillProfileBridge.AutofillAddressUiComponent;
 import org.chromium.chrome.browser.autofill.AutofillProfileBridgeJni;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
+import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.autofill.PhoneNumberUtil;
 import org.chromium.chrome.browser.autofill.PhoneNumberUtilJni;
 import org.chromium.chrome.browser.autofill.editors.AddressEditorCoordinator.Delegate;
@@ -186,7 +187,7 @@ public class AddressEditorRenderTest extends BlankUiTestActivityTestCase {
                             .thenReturn("US");
                     when(mPersonalDataManager.isCountryEligibleForAccountStorage(anyString()))
                             .thenReturn(true);
-                    PersonalDataManager.setInstanceForTesting(mPersonalDataManager);
+                    PersonalDataManagerFactory.setInstanceForTesting(mPersonalDataManager);
 
                     ProfileManager.setLastUsedProfileForTesting(mProfile);
                     IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
@@ -310,7 +311,10 @@ public class AddressEditorRenderTest extends BlankUiTestActivityTestCase {
                                             mLauncher,
                                             mDelegate,
                                             mProfile,
-                                            new AutofillAddress(getActivity(), sLocalProfile),
+                                            new AutofillAddress(
+                                                    getActivity(),
+                                                    sLocalProfile,
+                                                    mPersonalDataManager),
                                             UPDATE_EXISTING_ADDRESS_PROFILE,
                                             /* saveToDisk= */ false);
                             mAddressEditor.showEditorDialog();
@@ -336,7 +340,10 @@ public class AddressEditorRenderTest extends BlankUiTestActivityTestCase {
                                             mLauncher,
                                             mDelegate,
                                             mProfile,
-                                            new AutofillAddress(getActivity(), sAccountProfile),
+                                            new AutofillAddress(
+                                                    getActivity(),
+                                                    sAccountProfile,
+                                                    mPersonalDataManager),
                                             SAVE_NEW_ADDRESS_PROFILE,
                                             /* saveToDisk= */ false);
                             mAddressEditor.showEditorDialog();
@@ -362,7 +369,10 @@ public class AddressEditorRenderTest extends BlankUiTestActivityTestCase {
                                             mLauncher,
                                             mDelegate,
                                             mProfile,
-                                            new AutofillAddress(getActivity(), sLocalProfile),
+                                            new AutofillAddress(
+                                                    getActivity(),
+                                                    sLocalProfile,
+                                                    mPersonalDataManager),
                                             MIGRATE_EXISTING_ADDRESS_PROFILE,
                                             /* saveToDisk= */ false);
                             mAddressEditor.showEditorDialog();

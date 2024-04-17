@@ -289,7 +289,7 @@ std::optional<base::Value::Dict> LoadManifest(
   if (!base::PathExists(manifest_path))
     return LoadManifest(extension_path, kManifestFilename, error);
 
-  absl::optional<base::Value::Dict> manifest =
+  std::optional<base::Value::Dict> manifest =
     LoadManifest(extension_path, kNWJSManifestFilename, error);
   content::GetContentClient()->LoadNWAppAsExtension(&manifest.value(), extension_path, error);
 

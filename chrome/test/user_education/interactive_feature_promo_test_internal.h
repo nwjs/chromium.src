@@ -46,7 +46,7 @@ class InteractiveFeaturePromoTestPrivate
 
   // Implementation for `InteractiveFeaturePromoTestApi` methods.
   void AdvanceTime(NewTime new_time);
-  void UpdateIdleState(NewTime time, bool screen_locked);
+  void SetLastActive(NewTime time);
 
   // Waits for the tracker to be initialized if the appropriate tracker mode is
   // set.

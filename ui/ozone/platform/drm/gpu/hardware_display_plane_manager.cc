@@ -87,6 +87,11 @@ bool HardwareDisplayPlaneManager::Initialize() {
   has_universal_planes_ =
       drm_->GetCapability(DRM_CLIENT_CAP_UNIVERSAL_PLANES, &value) && value;
 
+  // Mediatek drivers produce broken results when given negative values. It
+  // is suspected that this is due to incorrect parsing of the CTM blob.
+  // TODO(b/324594144): Address clamping in the driver/kernel
+  ctm_negative_values_broken_ = drm_->GetDriverName() == "mediatek";
+
   // This is to test whether or not it is safe to remove non-universal planes
   // supporting code in a following CL. See crbug.com/1129546 for more details.
   CHECK(has_universal_planes_);
@@ -291,6 +296,11 @@ HardwareDisplayPlaneManager::ResetConnectorsCacheAndGetValidIds(
     DCHECK(!drm_->is_atomic() || state_props.crtc_id.id);
     GetDrmPropertyForName(drm_, props.get(), "link-status",
                           &state_props.link_status);
+
+    const std::vector<uint32_t> possible_encoder_ids(
+        connector->encoders, connector->encoders + connector->count_encoders);
+    state_props.possible_crtcs_bitmask =
+        GetPossibleCrtcsBitmaskFromEncoders(*drm_, possible_encoder_ids);
 
     connectors_props_.emplace_back(std::move(state_props));
     valid_ids.emplace(connector_id);
@@ -510,6 +520,22 @@ HardwareCapabilities HardwareDisplayPlaneManager::GetHardwareCapabilities(
   return hc;
 }
 
+uint32_t HardwareDisplayPlaneManager::GetPossibleCrtcsBitmaskForConnector(
+    uint32_t connector_id) const {
+  const auto& connector_prop =
+      std::find_if(connectors_props_.begin(), connectors_props_.end(),
+                   [connector_id](const ConnectorProperties& prop) {
+                     return prop.id == connector_id;
+                   });
+  if (connector_prop == connectors_props_.end()) {
+    LOG(WARNING) << __func__
+                 << ": Failed to retrieve connector property for id "
+                 << connector_id;
+    return {};
+  }
+  return connector_prop->possible_crtcs_bitmask;
+}
+
 void HardwareDisplayPlaneManager::UpdateAndCommitCrtcState(
     uint32_t crtc_id,
     CrtcState* crtc_state) {
@@ -523,7 +549,8 @@ void HardwareDisplayPlaneManager::UpdateAndCommitCrtcState(
       &crtc_state->color_calibration.srgb_to_device_matrix,
       &crtc_state->color_temperature_adjustment.srgb_matrix);
   if (crtc_state->properties.ctm.id) {
-    ScopedDrmColorCtmPtr ctm_blob_data = CreateCTMBlob(ctm);
+    ScopedDrmColorCtmPtr ctm_blob_data =
+        CreateCTMBlob(ctm, ctm_negative_values_broken_);
     crtc_state->pending_ctm_blob =
         drm_->CreatePropertyBlob(ctm_blob_data.get(), sizeof(drm_color_ctm));
   }

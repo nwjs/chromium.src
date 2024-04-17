@@ -104,6 +104,19 @@ class CORE_EXPORT DOMSelection final : public ScriptWrappable,
   void Trace(Visitor*) const override;
 
  private:
+  class TemporaryRange {
+    STACK_ALLOCATED();
+
+   public:
+    TemporaryRange(const DOMSelection*, Range*);
+    ~TemporaryRange();
+    Range* GetRange();
+
+   private:
+    Range* range_ = nullptr;
+    const DOMSelection* owner_dom_selection_ = nullptr;
+  };
+
   FrameSelection& Selection() const;
   bool IsAvailable() const;
 
@@ -113,7 +126,6 @@ class CORE_EXPORT DOMSelection final : public ScriptWrappable,
   // Convenience methods for accessors, does not check owner Frame presence.
   VisibleSelection GetVisibleSelection() const;
   bool IsAnchorFirstInSelection() const;
-  const Position& AnchorPosition() const;
 
   Node* ShadowAdjustedNode(const Position&) const;
   unsigned ShadowAdjustedOffset(const Position&) const;

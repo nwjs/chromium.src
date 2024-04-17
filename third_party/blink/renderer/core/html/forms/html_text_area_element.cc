@@ -453,18 +453,16 @@ String HTMLTextAreaElement::Value() const {
 }
 
 void HTMLTextAreaElement::setValueForBinding(const String& value) {
-  if (!IsAutofilled()) {
-    SetValue(value);
-  } else {
-    String old_value = this->Value();
-    SetValue(value, TextFieldEventBehavior::kDispatchNoEvent,
-             TextControlSetValueSelection::kSetSelectionToEnd,
-             value != old_value ? WebAutofillState::kNotFilled
-                                : WebAutofillState::kAutofilled);
-    if (Page* page = GetDocument().GetPage()) {
-      page->GetChromeClient().JavaScriptChangedAutofilledValue(*this,
-                                                               old_value);
-    }
+  String old_value = this->Value();
+  bool was_autofilled = IsAutofilled();
+  bool value_changed = old_value != value;
+  SetValue(value, TextFieldEventBehavior::kDispatchNoEvent,
+           TextControlSetValueSelection::kSetSelectionToEnd,
+           was_autofilled && !value_changed ? WebAutofillState::kAutofilled
+                                            : WebAutofillState::kNotFilled);
+  if (Page* page = GetDocument().GetPage(); page && value_changed) {
+    page->GetChromeClient().JavaScriptChangedValue(*this, old_value,
+                                                   was_autofilled);
   }
 }
 
@@ -699,6 +697,10 @@ void HTMLTextAreaElement::CreateInnerEditorElementIfNecessary() const {
   // HTMLTextArea immediately creates the inner-editor, so this function should
   // never be called.
   NOTREACHED();
+}
+
+bool HTMLTextAreaElement::IsInnerEditorValueEmpty() const {
+  return InnerEditorValue().empty();
 }
 
 HTMLElement* HTMLTextAreaElement::UpdatePlaceholderText() {

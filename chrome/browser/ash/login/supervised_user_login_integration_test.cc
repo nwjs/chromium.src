@@ -73,7 +73,7 @@ class SupervisedUserLoginIntegrationTest
   }
 };
 
-// Flaky tests disabled crbug.com/318616623.
+// Flaky tests disabled b/325519819.
 IN_PROC_BROWSER_TEST_F(SupervisedUserLoginIntegrationTest,
                        DISABLED_TestUnicornLogin) {
   SetupContextWidget();
@@ -85,7 +85,7 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserLoginIntegrationTest,
   VerifyPolicies();
 }
 
-// Flaky tests disabled crbug.com/318616623.
+// Flaky tests disabled b/325519819.
 IN_PROC_BROWSER_TEST_F(SupervisedUserLoginIntegrationTest,
                        DISABLED_TestGellerLogin) {
   SetupContextWidget();
@@ -99,7 +99,7 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserLoginIntegrationTest,
   VerifyPolicies();
 }
 
-// Flaky tests disabled crbug.com/318616623.
+// Flaky tests disabled b/325519819.
 IN_PROC_BROWSER_TEST_F(SupervisedUserLoginIntegrationTest,
                        DISABLED_TestGriffinLogin) {
   SetupContextWidget();

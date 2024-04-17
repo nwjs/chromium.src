@@ -129,7 +129,7 @@ class NameSource {
   bool superseded = false;
   bool invalid = false;
   ax::mojom::blink::NameFrom type = ax::mojom::blink::NameFrom::kNone;
-  const raw_ref<const QualifiedName, ExperimentalRenderer> attribute;
+  const raw_ref<const QualifiedName> attribute;
   AtomicString attribute_value;
   AXTextSource native_source = kAXTextFromNativeSourceUninitialized;
   AXRelatedObjectVector related_objects;
@@ -152,7 +152,7 @@ class DescriptionSource {
   bool invalid = false;
   ax::mojom::blink::DescriptionFrom type =
       ax::mojom::blink::DescriptionFrom::kNone;
-  const raw_ref<const QualifiedName, ExperimentalRenderer> attribute;
+  const raw_ref<const QualifiedName> attribute;
   AtomicString attribute_value;
   AXTextSource native_source = kAXTextFromNativeSourceUninitialized;
   AXRelatedObjectVector related_objects;
@@ -812,6 +812,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // For range controls, such as sliders and scroll bars, the value of
   // aria-valuetext takes priority over the value of aria-valuenow.
   virtual String GetValueForControl() const;
+  virtual String GetValueForControl(AXObjectSet& visited) const;
 
   // Similar to `AXObject::GetValueForControl()` above, but also computes the
   // value of a content editable from its inner text. Sending this value to the
@@ -819,6 +820,8 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // So, we should prefer computing the value of a content editable on the
   // browser side.
   virtual String SlowGetValueForControlIncludingContentEditable() const;
+  virtual String SlowGetValueForControlIncludingContentEditable(
+      AXObjectSet& visited) const;
 
   virtual AXRestriction Restriction() const;
 
@@ -1508,6 +1511,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   // Serialization implemented in specific subclasses.
   virtual void SerializeMarkerAttributes(ui::AXNodeData* node_data) const;
+
+  void SerializeImageDataAttributes(ui::AXNodeData* node_data) const;
+  void SerializeTextInsertionDeletionOffsetAttributes(
+      ui::AXNodeData* node_data) const;
 
  private:
   bool ComputeCanSetFocusAttribute() const;

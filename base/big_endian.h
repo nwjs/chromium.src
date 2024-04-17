@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
 #include <optional>
 #include <type_traits>
 
@@ -20,84 +21,6 @@
 #include "build/build_config.h"
 
 namespace base {
-
-namespace internal {
-
-// ByteSwapIfLittleEndian performs ByteSwap if this platform is little-endian,
-// otherwise it is a no-op.
-
-#if defined(ARCH_CPU_LITTLE_ENDIAN)
-
-template <typename T>
-inline auto ByteSwapIfLittleEndian(T val) -> decltype(ByteSwap(val)) {
-  return ByteSwap(val);
-}
-
-#else
-
-// The use of decltype ensures this is only enabled for types for which
-// ByteSwap() is defined, so the same set of overloads will work on both
-// little-endian and big-endian platforms.
-
-template <typename T>
-inline auto ByteSwapIfLittleEndian(T val) -> decltype(ByteSwap(val)) {
-  return val;
-}
-
-#endif
-
-// We never need to byte-swap a single-byte value, but it's convenient to have
-// this overload to avoid a special case.
-inline uint8_t ByteSwapIfLittleEndian(uint8_t val) {
-  return val;
-}
-
-}  // namespace internal
-
-// Read an integer (signed or unsigned) from |buf| in Big Endian order.
-// Note: this loop is unrolled with -O1 and above.
-// NOTE(szym): glibc dns-canon.c use ntohs(*(uint16_t*)ptr) which is
-// potentially unaligned.
-// This would cause SIGBUS on ARMv5 or earlier and ARMv6-M.
-//
-// DEPRECATED: Use base::numerics::*FromBigEndian to convert big-endian byte
-// encoding to primitives.
-template <typename T>
-inline void ReadBigEndian(span<const uint8_t, sizeof(T)> buffer, T* out) {
-  static_assert(std::is_integral_v<T>, "T has to be an integral type.");
-  // Make an unsigned version of the output type to make shift possible
-  // without UB.
-  std::make_unsigned_t<T> raw;
-  byte_span_from_ref(raw).copy_from(buffer);
-  *out = static_cast<T>(internal::ByteSwapIfLittleEndian(raw));
-}
-
-// TODO(crbug.com/40284755): Remove this function when there are no callers.
-template <typename T>
-inline void ReadBigEndian(const uint8_t buf[], T* out) {
-  ReadBigEndian(span<const uint8_t, sizeof(T)>(buf, sizeof(T)), out);
-}
-
-// Write an integer (signed or unsigned) `val` to `buffer` in Big Endian order.
-// The `buffer` must be the same size (in bytes) as the integer `val`.
-//
-// DEPRECATED: Use base::numerics::*ToBigEndian to convert primitives to big-
-// endian byte encoding.
-template <typename T>
-  requires(std::is_integral_v<T>)
-inline void WriteBigEndian(span<uint8_t, sizeof(T)> buffer, T val) {
-  const auto unsigned_val = static_cast<std::make_unsigned_t<T>>(val);
-  const auto raw = internal::ByteSwapIfLittleEndian(unsigned_val);
-  buffer.copy_from(byte_span_from_ref(raw));
-}
-
-// TODO(crbug.com/40284755): Remove this function when there are no callers.
-template <typename T>
-  requires(std::is_integral_v<T>)
-inline void WriteBigEndian(char buf[], T val) {
-  return WriteBigEndian(
-      as_writable_bytes(span<char, sizeof(T)>(buf, sizeof(T))), val);
-}
 
 // Allows reading integers in network order (big endian) while iterating over
 // an underlying buffer. All the reading functions advance the internal pointer.
@@ -120,8 +43,29 @@ class BASE_EXPORT BigEndianReader {
   // TODO(crbug.com/40284755): Remove this method.
   size_t remaining() const { return buffer_.size(); }
 
+  // Moves the internal state forward `len` bytes, or returns false if there is
+  // not enough bytes left to read from.
   bool Skip(size_t len);
-  bool ReadBytes(void* out, size_t len);
+
+  // Reads an 8-bit integer and advances past it. Returns false if there is not
+  // enough bytes to read from.
+  bool ReadU8(uint8_t* value);
+  // Reads a 16-bit integer and advances past it. Returns false if there is not
+  // enough bytes to read from.
+  bool ReadU16(uint16_t* value);
+  // Reads a 32-bit integer and advances past it. Returns false if there is not
+  // enough bytes to read from.
+  bool ReadU32(uint32_t* value);
+  // Reads a 64-bit integer and advances past it. Returns false if there is not
+  // enough bytes to read from.
+  bool ReadU64(uint64_t* value);
+
+  // An alias for `ReadU8` that works with a `char` pointer instead of
+  // `uint8_t`.
+  bool ReadChar(char* value) {
+    return ReadU8(reinterpret_cast<uint8_t*>(value));
+  }
+
   // Creates a StringPiece in |out| that points to the underlying buffer.
   bool ReadPiece(base::StringPiece* out, size_t len);
 
@@ -134,7 +78,7 @@ class BASE_EXPORT BigEndianReader {
   // past those bytes, or returns nullopt and if there are not `N` bytes
   // remaining in the buffer.
   template <size_t N>
-  std::optional<span<const uint8_t, N>> ReadFixedSpan() {
+  std::optional<span<const uint8_t, N>> ReadSpan() {
     if (remaining() < N) {
       return std::nullopt;
     }
@@ -143,10 +87,24 @@ class BASE_EXPORT BigEndianReader {
     return {consume};
   }
 
-  bool ReadU8(uint8_t* value);
-  bool ReadU16(uint16_t* value);
-  bool ReadU32(uint32_t* value);
-  bool ReadU64(uint64_t* value);
+  // Copies into a span (writing to the whole span) from the buffer and moves
+  // the internal state past the copied bytes, or returns false and if there are
+  // not enough bytes remaining in the buffer to fill the span and leaves the
+  // internal state unchanged.
+  bool ReadBytes(span<uint8_t> out);
+
+  // Copies into a span of `N` bytes from the buffer and moves the internal
+  // state past the copied bytes, or returns false and if there are not `N`
+  // bytes remaining in the buffer and leaves the internal state unchanged.
+  template <size_t N>
+  bool ReadBytes(span<uint8_t, N> out) {
+    std::optional<span<const uint8_t, N>> span = ReadSpan<N>();
+    if (!span.has_value()) {
+      return false;
+    }
+    out.copy_from(*span);
+    return true;
+  }
 
   // Reads a length-prefixed region:
   // 1. reads a big-endian length L from the buffer;
@@ -163,8 +121,7 @@ class BASE_EXPORT BigEndianReader {
   bool ReadU16LengthPrefixed(base::StringPiece* out);
 
  private:
-  // TODO(danakj): Switch to raw_span in its own CL.
-  span<const uint8_t> buffer_;
+  raw_span<const uint8_t> buffer_;
 };
 
 // Allows writing integers in network order (big endian) while iterating over
@@ -212,7 +169,7 @@ class BASE_EXPORT BigEndianWriter {
   }
 
  private:
-  raw_span<uint8_t, DanglingUntriaged> buffer_;
+  raw_span<uint8_t> buffer_;
 };
 
 }  // namespace base
