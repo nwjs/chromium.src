@@ -481,8 +481,8 @@ std::string ConnectorsService::GetRealTimeUrlCheckIdentifier() const {
   if (!identity_manager) {
     return std::string();
   }
-
-  return safe_browsing::GetProfileEmail(identity_manager);
+  return std::string();
+  //return safe_browsing::GetProfileEmail(identity_manager);
 }
 
 ConnectorsManager* ConnectorsService::ConnectorsManagerForTesting() {

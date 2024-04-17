@@ -695,6 +695,8 @@ void DownloadsDOMHandler::OpenEsbSettings() {
 
 void DownloadsDOMHandler::IsEligibleForEsbPromo(
     IsEligibleForEsbPromoCallback callback) {
+  std::move(callback).Run(false);
+#if 0
   content::DownloadManager* manager = GetMainNotifierManager();
   if (manager) {
     std::move(callback).Run(
@@ -703,6 +705,7 @@ void DownloadsDOMHandler::IsEligibleForEsbPromo(
   } else {
     std::move(callback).Run(false);
   }
+#endif
 }
 
 // DownloadsDOMHandler, private: --------------------------------------------
