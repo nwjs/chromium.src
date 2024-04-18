@@ -179,7 +179,7 @@ class OptionalAutoreleasePool {
   OptionalAutoreleasePool& operator=(const OptionalAutoreleasePool&) = delete;
 
  private:
-  absl::optional<base::apple::ScopedNSAutoreleasePool> pool_;
+  std::optional<base::apple::ScopedNSAutoreleasePool> pool_;
 };
 
 bool MessagePumpUVNSRunLoop::RunWork() {
@@ -323,7 +323,7 @@ void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {
 
   base::MessagePumpUVNSRunLoop* message_pump = static_cast<base::MessagePumpUVNSRunLoop*>(arg);
 
-  absl::optional<base::apple::ScopedNSAutoreleasePool> pool;
+  std::optional<base::apple::ScopedNSAutoreleasePool> pool;
   pool.emplace();
 
   while (true) {
