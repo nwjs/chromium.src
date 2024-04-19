@@ -239,7 +239,27 @@ CommandLine::CommandLine(const StringVector& argv)
   InitFromArgv(argv);
 }
 
-CommandLine::CommandLine(const CommandLine& other) = default;
+CommandLine::CommandLine(const CommandLine& other)
+    : argv_(other.argv_),
+      original_argv_(other.original_argv_),
+      switches_(other.switches_),
+      begin_args_(other.begin_args_),
+      argc0_(other.argc0_), argv0_(nullptr) {
+
+#if defined(OS_WIN)
+  if (other.argv0_) {
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+#else
+  argv0_ = other.argv0_;
+#endif
+}
+
 CommandLine::CommandLine(CommandLine&& other) noexcept
     :
 #if BUILDFLAG(IS_WIN)
@@ -270,7 +290,28 @@ CommandLine::CommandLine(CommandLine&& other) noexcept
   argv0_ = other.argv0_;
 #endif
 }
-CommandLine& CommandLine::operator=(const CommandLine& other) = default;
+
+CommandLine& CommandLine::operator=(const CommandLine& other) {
+  argv_ = other.argv_;
+  original_argv_ = other.original_argv_;
+  switches_ = other.switches_;
+  begin_args_ = other.begin_args_;
+#if defined(OS_WIN)
+  if (other.argv0_) {
+    argc0_ = other.argc0_;
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+#else
+  argv0_ = other.argv0_;
+#endif
+  return *this;
+}
+
 CommandLine& CommandLine::operator=(CommandLine&& other) noexcept {
 #if BUILDFLAG(IS_WIN)
   raw_command_line_string_ =
