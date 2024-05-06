@@ -65,6 +65,7 @@
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/on_device_head_provider.h"
 #include "components/omnibox/browser/open_tab_provider.h"
+#include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/query_tile_provider.h"
 #include "components/omnibox/browser/search_provider.h"
 #include "components/omnibox/browser/shortcuts_provider.h"
@@ -110,6 +111,15 @@ namespace {
 using ScoringSignals = ::metrics::OmniboxEventProto::Suggestion::ScoringSignals;
 
 constexpr bool is_android = !!BUILDFLAG(IS_ANDROID);
+
+void RecordMlScoreCoverage(size_t matches_with_non_null_scores,
+                           size_t total_scored_matches) {
+  int percent_score_coverage =
+      matches_with_non_null_scores * 100 / total_scored_matches;
+  base::UmaHistogramPercentage(
+      "Omnibox.URLScoringModelExecuted.MLScoreCoverage",
+      percent_score_coverage);
+}
 
 // Appends available autocompletion of the given type, subtype, and number to
 // the existing available autocompletions string, encoding according to the
@@ -784,7 +794,7 @@ void AutocompleteController::
   const std::string experiment_stats = base::StringPrintf(
       "%" PRId64 "j%dj%d", query_formulation_time.InMilliseconds(),
       search_feature_triggered, input_.current_page_classification());
-  // TODO(crbug.com/1247846): experiment_stats is a deprecated field. We should
+  // TODO(crbug.com/40197024): experiment_stats is a deprecated field. We should
   // however continue to report it for the downstream consumers that expect this
   // field. Eventually Chrome should start logging the substitute fields and
   // the downstream consumers should migrate to using those fields before we
@@ -1317,6 +1327,7 @@ void AutocompleteController::UpdateAssociatedKeywords(
       // it along with a keyword hint. Prefer the keyword hint, and revert
       // to a typical search.
       match.answer.reset();
+      match.answer_template.reset();
       match.associated_keyword = std::make_unique<AutocompleteMatch>(
           keyword_provider_->CreateVerbatimMatch(exact_keyword, exact_keyword,
                                                  input_));
@@ -1719,6 +1730,12 @@ bool AutocompleteController::ShouldRunProvider(
     return false;
   }
 
+  // Only a subset of providers are run for the Lens searchboxes.
+  if (omnibox::IsLensSearchbox(input_.current_page_classification())) {
+    return provider->type() == AutocompleteProvider::TYPE_SEARCH ||
+           provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST;
+  }
+
   if (input_.InKeywordMode()) {
     // Only a subset of providers are run when we're in a starter pack keyword
     // mode. Try to grab the TemplateURL to determine if we're in starter pack
@@ -1863,6 +1880,7 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
   std::priority_queue<int> relevance_heap;
   std::priority_queue<std::tuple<float, int, AutocompleteResult::iterator>>
       prediction_and_match_itr_heap;
+  size_t score_coverage_count = 0;
   // Likewise, keep the same number of shortcut boosted suggestions but reassign
   // them to the highest scoring suggestions.
   size_t boosted_shortcut_count = 0;
@@ -1871,6 +1889,7 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
     if (!prediction.has_value()) {
       continue;
     }
+    score_coverage_count++;
 
     auto match_itr = eligible_match_itrs[index];
     relevance_heap.emplace(match_itr->relevance);
@@ -1879,6 +1898,10 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
     if (match_itr->shortcut_boosted)
       boosted_shortcut_count++;
   }
+
+  // Record the percentage of matches that were assigned non-null scores by
+  // the ML scoring model.
+  RecordMlScoreCoverage(score_coverage_count, results.size());
 
   if (!relevance_heap.empty()) {
     // Record whether the model was executed for at least one eligible match.
@@ -2094,13 +2117,23 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   const int grouping_threshold = OmniboxFieldTrial::GetMLConfig()
                                      .mapped_search_blending_grouping_threshold;
 
+  int score_coverage_count = 0;
   for (size_t i = 0; i < results.size(); ++i) {
+    const auto& prediction = results[i];
+    float p_value = prediction.value_or(0);
+    if (prediction.has_value()) {
+      score_coverage_count++;
+    }
     auto& match = internal_result_.matches_[scored_positions[i]];
     match.RecordAdditionalInfo("ml legacy relevance", match.relevance);
-    match.RecordAdditionalInfo("ml model output", *results[i]);
-    match.relevance = min + *results[i] * (max - min);
+    match.RecordAdditionalInfo("ml model output", p_value);
+    match.relevance = min + p_value * (max - min);
     match.shortcut_boosted = match.relevance > grouping_threshold;
   }
+
+  // Record the percentage of matches that were assigned non-null scores by
+  // the ML scoring model.
+  RecordMlScoreCoverage(score_coverage_count, results.size());
 
   // Following the initial relevance assignment, build a sorted list of
   // values which will contain the finalized set of relevance scores for URL
@@ -2125,7 +2158,9 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
 
   std::vector<std::pair<float, size_t>> prediction_and_position_heap;
   for (size_t i = 0; i < results.size(); ++i) {
-    prediction_and_position_heap.push_back({*results[i], scored_positions[i]});
+    const auto& prediction = results[i];
+    prediction_and_position_heap.push_back(
+        {prediction.value_or(0), scored_positions[i]});
   }
   base::ranges::stable_sort(prediction_and_position_heap, std::greater<>(),
                             [](const auto& pair) { return pair.first; });
@@ -2239,23 +2274,10 @@ void AutocompleteController::MaybeCleanSuggestionsForKeywordMode(
       }
     }
 
-    // Clear help text that is repeated across consecutive instant keyword
-    // matches. During this pass, also eliminate tab switch on instant
-    // keyword matches for an extra clean appearance.
-    PrefService* prefs = provider_client_->GetPrefs();
-    const bool instant_keyword_used =
-        prefs ? prefs->GetBoolean(omnibox::kOmniboxInstantKeywordUsed) : false;
-    size_t instant_counter = 0;
+    // Eliminate tab switch on instant keyword matches for clean appearance.
     for (size_t i = 0; i < result->size(); i++) {
       if (result->match_at(i)->HasInstantKeyword(template_url_service_)) {
         result->match_at(i)->actions.clear();
-        instant_counter++;
-        if (instant_counter > 1 || instant_keyword_used) {
-          result->match_at(i)->contents.clear();
-          result->match_at(i)->contents_class = {{}};
-        }
-      } else {
-        instant_counter = 0;
       }
     }
   }

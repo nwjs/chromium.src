@@ -190,9 +190,9 @@ namespace extensions::autofill_util {
 AddressEntryList GenerateAddressList(
     const autofill::PersonalDataManager& personal_data) {
   const std::vector<autofill::AutofillProfile*>& profiles =
-      personal_data.GetProfilesForSettings();
+      personal_data.address_data_manager().GetProfilesForSettings();
   std::vector<std::u16string> labels;
-  // TODO(crbug.com/1487119): Replace by `profiles` when
+  // TODO(crbug.com/40283168): Replace by `profiles` when
   // `GetProfilesForSettings` starts returning a list of const AutofillProfile*.
   autofill::AutofillProfile::CreateDifferentiatingLabels(
       std::vector<raw_ptr<const autofill::AutofillProfile, VectorExperimental>>(
@@ -241,7 +241,8 @@ CreditCardEntryList GenerateCreditCardList(
 IbanEntryList GenerateIbanList(
     const autofill::PersonalDataManager& personal_data) {
   IbanEntryList list;
-  for (const autofill::Iban* iban : personal_data.GetLocalIbans()) {
+  for (const autofill::Iban* iban :
+       personal_data.payments_data_manager().GetLocalIbans()) {
     list.push_back(IbanToIbanEntry(*iban, personal_data));
   }
 
@@ -259,14 +260,14 @@ std::optional<api::autofill_private::AccountInfo> GetAccountInfo(
   api::autofill_private::AccountInfo api_account;
   api_account.email = account->email;
   api_account.is_sync_enabled_for_autofill_profiles =
-      personal_data.IsSyncFeatureEnabledForAutofill();
+      personal_data.address_data_manager().IsSyncFeatureEnabledForAutofill();
   api_account.is_eligible_for_address_account_storage =
-      personal_data.IsEligibleForAddressAccountStorage();
+      personal_data.address_data_manager().IsEligibleForAddressAccountStorage();
   api_account.is_autofill_sync_toggle_enabled =
-      personal_data.IsUserSelectableTypeEnabled(
-          syncer::UserSelectableType::kAutofill);
+      personal_data.address_data_manager()
+          .IsAutofillUserSelectableTypeEnabled();
   api_account.is_autofill_sync_toggle_available =
-      personal_data.IsAutofillSyncToggleAvailable();
+      personal_data.address_data_manager().IsAutofillSyncToggleAvailable();
   return std::move(api_account);
 }
 
@@ -331,7 +332,8 @@ autofill_private::CreditCardEntry CreditCardToCreditCardEntry(
   // IsServerCard() checks whether there is a duplicated server card in
   // |personal_data|.
   card.metadata->is_migratable =
-      credit_card.IsValid() && !personal_data.IsServerCard(&credit_card);
+      credit_card.IsValid() &&
+      !personal_data.payments_data_manager().IsServerCard(&credit_card);
   card.metadata->is_virtual_card_enrollment_eligible =
       credit_card.virtual_card_enrollment_state() ==
           autofill::CreditCard::VirtualCardEnrollmentState::kEnrolled ||

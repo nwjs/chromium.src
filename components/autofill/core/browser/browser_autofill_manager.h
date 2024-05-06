@@ -418,7 +418,6 @@ class BrowserAutofillManager : public AutofillManager {
   void OnBeforeProcessParsedForms() override;
   void OnFormProcessed(const FormData& form,
                        const FormStructure& form_structure) override;
-  void OnAfterProcessParsedForms(const DenseSet<FormType>& form_types) override;
 
  private:
   friend class BrowserAutofillManagerTestApi;
@@ -594,15 +593,9 @@ class BrowserAutofillManager : public AutofillManager {
 
   // Have we logged whether Autofill is enabled for this page load?
   bool has_logged_autofill_enabled_ = false;
-  // Have we shown Autofill suggestions at least once?
-  bool did_show_suggestions_ = false;
   // Has the user manually edited at least one form field among the autofillable
   // ones?
   bool user_did_type_ = false;
-  // Has the user autofilled a form on this page?
-  bool user_did_autofill_ = false;
-  // Has the user edited a field that was previously autofilled?
-  bool user_did_edit_autofilled_field_ = false;
 
   // Does |this| have any parsed forms?
   bool has_parsed_forms_ = false;

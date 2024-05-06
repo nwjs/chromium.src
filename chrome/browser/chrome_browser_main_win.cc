@@ -39,7 +39,6 @@
 #include "base/trace_event/base_tracing.h"
 #include "base/version.h"
 #include "base/win/pe_image.h"
-#include "base/win/registry.h"
 #include "base/win/win_util.h"
 #include "base/win/wrapped_window_proc.h"
 #include "build/branding_buildflags.h"
@@ -71,6 +70,7 @@
 #include "chrome/browser/win/conflicts/enumerate_shell_extensions.h"
 #include "chrome/browser/win/conflicts/module_database.h"
 #include "chrome/browser/win/conflicts/module_event_sink_impl.h"
+#include "chrome/browser/win/remove_app_compat_entries.h"
 #include "chrome/browser/win/util_win_service.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
@@ -104,6 +104,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/base/ui_base_switches.h"
@@ -484,6 +485,19 @@ int ChromeBrowserMainPartsWin::PreCreateThreads() {
         &DumpHungRendererProcessImpl);
   }
 
+  // Pass the value of the UiAutomationProviderEnabled enterprise policy, if
+  // set, down to the accessibility platform after the platform is initialized
+  // in BrowserMainLoop::PostCreateMainMessageLoop() but before any UI is
+  // created.
+  if (auto* local_state = g_browser_process->local_state(); local_state) {
+    if (auto* pref =
+            local_state->FindPreference(prefs::kUiAutomationProviderEnabled);
+        pref && pref->IsManaged()) {
+      ui::AXPlatform::GetInstance().SetUiaProviderEnabled(
+          pref->GetValue()->GetBool());
+    }
+  }
+
   return ChromeBrowserMainParts::PreCreateThreads();
 }
 
@@ -553,7 +567,13 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
 #endif
 
   if (base::FeatureList::IsEnabled(features::kAppBoundEncryptionMetrics)) {
-    os_crypt::MeasureAppBoundEncryptionStatus(g_browser_process->local_state());
+    // Only record full metrics if the App-Bound provider is not registered. The
+    // App-Bound provider records these itself, and only one place should record
+    // them to accurately reflect the final production environment.
+    os_crypt::MeasureAppBoundEncryptionStatus(
+        g_browser_process->local_state(),
+        /*record_full_metrics=*/!base::FeatureList::IsEnabled(
+            features::kRegisterAppBoundEncryptionProvider));
   }
 
   // Record Processor Metrics. This is very low priority, hence posting as
@@ -588,6 +608,17 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
           switches::kFromInstaller)) {
     AnnounceInActiveBrowser(l10n_util::GetStringUTF16(IDS_WELCOME_TO_CHROME));
   }
+
+  // Some users are getting stuck in compatibility mode. Try to help them
+  // escape; see http://crbug.com/581499.
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
+      base::BindOnce([]() {
+        base::FilePath current_exe;
+        if (base::PathService::Get(base::FILE_EXE, &current_exe)) {
+          RemoveAppCompatEntries(current_exe);
+        }
+      }));
 
   base::ImportantFileWriterCleaner::GetInstance().Start();
 }

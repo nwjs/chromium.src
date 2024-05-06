@@ -60,6 +60,7 @@ class ASH_EXPORT AppsCollectionSectionView : public AppListModelObserver,
   AppCollection collection() { return collection_; }
 
  private:
+  friend class AppListBubbleAppsCollectionsPageTest;
   friend class AppsCollectionSectionViewTest;
 
   // Calculates how much padding is assigned to the AppListItemView.
@@ -69,6 +70,10 @@ class ASH_EXPORT AppsCollectionSectionView : public AppListModelObserver,
   // corresponds to the `item_id`. If the `item_id` does not appear on
   // `item_views_`, the return value will be null.
   std::optional<size_t> GetViewIndexForItem(const std::string& item_id);
+
+  // Create an AppListItemView from the `item` provided and add it to the
+  // collection view at the end.
+  void CreateAndAddAppItemView(AppListItem* item);
 
   const AppCollection collection_ = AppCollection::kUnknown;
   const raw_ptr<AppListViewDelegate> view_delegate_;

@@ -13,16 +13,16 @@ import '//resources/ash/common/cr_elements/cr_input/cr_input.js';
 import './base_page.js';
 import './cellular_setup_icons.html.js';
 
-import {assert} from 'chrome://resources/js/assert.js';
-import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
-import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {MojoInterfaceProviderImpl} from 'chrome://resources/ash/common/network/mojo_interface_provider.js';
+import type {CrButtonElement} from '//resources/ash/common/cr_elements/cr_button/cr_button.js';
+import {CrInputElement} from '//resources/ash/common/cr_elements/cr_input/cr_input.js';
+import {I18nMixin} from '//resources/ash/common/cr_elements/i18n_mixin.js';
+import {MojoInterfaceProviderImpl} from '//resources/ash/common/network/mojo_interface_provider.js';
+import {assert} from '//resources/js/assert.js';
+import {focusWithoutInk} from '//resources/js/focus_without_ink.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import {CrosNetworkConfigInterface} from '//resources/mojo/chromeos/services/network_config/public/mojom/cros_network_config.mojom-webui.js';
+import {NetworkType} from '//resources/mojo/chromeos/services/network_config/public/mojom/network_types.mojom-webui.js';
 import {afterNextRender, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {CrosNetworkConfigInterface} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/cros_network_config.mojom-webui.js';
-import {NetworkType} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/network_types.mojom-webui.js';
-
-import {CrInputElement} from 'chrome://resources/ash/common/cr_elements/cr_input/cr_input.js';
 
 import {getTemplate} from './activation_code_page.html.js';
 
@@ -335,8 +335,32 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
     return this.qrCodeDetectorTimer_;
   }
 
+  attemptToFocusOnPageContent(): boolean {
+    // Prioritize focusing the camera button if scanning is available.
+    // TODO(b/332925540): Add interactive test for button focus.
+    if (this.isScanningAvailable_()) {
+      const useCameraBtn = this.shadowRoot!.querySelector<CrButtonElement>(
+          '#startScanningButton');
+
+      if (useCameraBtn) {
+        useCameraBtn.focus();
+        return true;
+      }
+    }
+
+    // Fallback: Focus on the activation code input
+    const activationCodeInput =
+        this.shadowRoot!.querySelector<CrInputElement>('#activationCode');
+    if (activationCodeInput) {
+      activationCodeInput.focus();
+      return true;
+    }
+
+    return false;
+  }
+
   private computeActivationCodeClass_(): string {
-    return this.isScanningAvailable_() ? 'relative' : 'center width-92';
+    return this.isScanningAvailable_() ? 'relative' : 'center';
   }
 
   private updateCameraCount_(): void {

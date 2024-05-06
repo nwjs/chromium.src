@@ -5,6 +5,8 @@
 #include "media/cast/test/receiver/video_decoder.h"
 
 #include <stdint.h>
+
+#include <string_view>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -57,8 +59,8 @@ class VideoDecoder::ImplBase
     last_frame_id_ = encoded_frame->frame_id;
 
     const scoped_refptr<VideoFrame> decoded_frame =
-        Decode(encoded_frame->mutable_bytes(),
-               static_cast<int>(encoded_frame->data.size()));
+        Decode(encoded_frame->mutable_bytes().data(),
+               base::checked_cast<int>(encoded_frame->mutable_bytes().size()));
     if (!decoded_frame) {
       VLOG(2) << "Decoding of frame " << encoded_frame->frame_id << " failed.";
       cast_environment_->PostTask(
@@ -197,7 +199,7 @@ class VideoDecoder::FakeImpl final : public VideoDecoder::ImplBase {
     if (!len || data[0] != '{')
       return nullptr;
     std::optional<base::Value> values = base::JSONReader::Read(
-        base::StringPiece(reinterpret_cast<char*>(data), len));
+        std::string_view(reinterpret_cast<char*>(data), len));
     if (!values || !values->is_dict())
       return nullptr;
 

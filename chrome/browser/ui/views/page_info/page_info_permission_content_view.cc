@@ -47,10 +47,10 @@ PageInfoPermissionContentView::PageInfoPermissionContentView(
     ChromePageInfoUiDelegate* ui_delegate,
     ContentSettingsType type,
     content::WebContents* web_contents)
-    : presenter_(presenter),
-      type_(type),
-      ui_delegate_(ui_delegate),
-      web_contents_(web_contents) {
+    : presenter_(presenter), type_(type), ui_delegate_(ui_delegate) {
+  CHECK(web_contents);
+  web_contents_ = web_contents->GetWeakPtr();
+
   ChromeLayoutProvider* layout_provider = ChromeLayoutProvider::Get();
 
   // Use the same insets as buttons and permission rows in the main page for
@@ -128,7 +128,8 @@ PageInfoPermissionContentView::PageInfoPermissionContentView(
   remember_setting_->SetProperty(views::kMarginsKey,
                                  gfx::Insets::TLBR(controls_spacing, 0, 0, 0));
 
-  const int title_height = title_->GetPreferredSize().height();
+  const int title_height =
+      title_->GetPreferredSize(views::SizeBounds(title_->width(), {})).height();
   toggle_button_ = permission_info_container->AddChildView(
       std::make_unique<views::ToggleButton>(base::BindRepeating(
           &PageInfoPermissionContentView::OnToggleButtonPressed,
@@ -152,7 +153,7 @@ PageInfoPermissionContentView::PageInfoPermissionContentView(
 
   MaybeAddMediaPreview(web_contents, *separator);
 
-  // TODO(crbug.com/1225563): Consider to use permission specific text.
+  // TODO(crbug.com/40775890): Consider to use permission specific text.
   auto* subpage_manage_button = AddChildView(std::make_unique<RichHoverButton>(
       base::BindRepeating(
           [](PageInfoPermissionContentView* view) {
@@ -173,8 +174,8 @@ PageInfoPermissionContentView::PageInfoPermissionContentView(
 
 PageInfoPermissionContentView::~PageInfoPermissionContentView() {
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-  if (active_devices_media_preview_coordinator_) {
-    active_devices_media_preview_coordinator_->UpdateDevicePreferenceRanking();
+  if (previews_coordinator_) {
+    previews_coordinator_->UpdateDevicePreferenceRanking();
   }
 #endif
 }
@@ -208,18 +209,27 @@ void PageInfoPermissionContentView::SetPermissionInfo(
     }
   }
 
-  toggle_button_->SetIsOn(PageInfoUI::IsToggleOn(permission_));
+  bool is_toggle_on = PageInfoUI::IsToggleOn(permission_);
+  toggle_button_->SetIsOn(is_toggle_on);
+
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+  if (previews_coordinator_) {
+    previews_coordinator_->OnPermissionChange(is_toggle_on);
+  }
+#endif
 
   if (type_ == ContentSettingsType::FILE_SYSTEM_WRITE_GUARD &&
       UseUpdatedFileSystemPersistentPermissionUI()) {
-    auto* context =
-        FileSystemAccessPermissionContextFactory::GetForProfileIfExists(
-            web_contents_->GetBrowserContext());
-    remember_setting_->SetVisible(context &&
-                                  permission_.setting != CONTENT_SETTING_BLOCK);
-    remember_setting_->SetChecked(
-        context && context->OriginHasExtendedPermission(url::Origin::Create(
-                       web_contents_->GetLastCommittedURL())));
+    if (web_contents_.MaybeValid()) {
+      auto* context =
+          FileSystemAccessPermissionContextFactory::GetForProfileIfExists(
+              web_contents_->GetBrowserContext());
+      remember_setting_->SetVisible(context && permission_.setting !=
+                                                   CONTENT_SETTING_BLOCK);
+      remember_setting_->SetChecked(
+          context && context->OriginHasExtendedPermission(url::Origin::Create(
+                         web_contents_->GetLastCommittedURL())));
+    }
   } else {
     remember_setting_->SetChecked(!permission_.is_one_time &&
                                   permission_.setting !=
@@ -298,6 +308,9 @@ void PageInfoPermissionContentView::SetTitleTextAndTooltip(
 #endif
 
 void PageInfoPermissionContentView::ToggleFileSystemExtendedPermissions() {
+  if (!web_contents_.MaybeValid()) {
+    return;
+  }
   auto* context =
       FileSystemAccessPermissionContextFactory::GetForProfileIfExists(
           web_contents_->GetBrowserContext());
@@ -353,11 +366,8 @@ void PageInfoPermissionContentView::MaybeAddMediaPreview(
 
   preceding_separator.GetProperty(views::kMarginsKey)->set_bottom(0);
 
-  auto view_type = type_ == ContentSettingsType::MEDIASTREAM_CAMERA
-                       ? MediaCoordinator::ViewType::kCameraOnly
-                       : MediaCoordinator::ViewType::kMicOnly;
-  active_devices_media_preview_coordinator_.emplace(web_contents, view_type,
-                                                    /*parent_view=*/this);
+  previews_coordinator_.emplace(web_contents, type_,
+                                /*parent_view=*/this);
 
   AddChildView(PageInfoViewFactory::CreateSeparator(
                    ChromeLayoutProvider::Get()->GetDistanceMetric(

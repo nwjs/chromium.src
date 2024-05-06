@@ -23,16 +23,18 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.data_sharing.SharedImageTilesCoordinator;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ColorPickerCoordinator.ColorPickerLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabGroupColorChangeActionType;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -120,6 +122,23 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
 
                 mDialogView = containerView.findViewById(R.id.dialog_parent_view);
                 mDialogView.setupScrimCoordinator(scrimCoordinator);
+
+                if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_ANDROID)) {
+                    LayoutInflater.from(activity)
+                            .inflate(
+                                    R.layout.data_sharing_group_bar,
+                                    mDialogView.findViewById(R.id.dialog_container_view),
+                                    /* attachToRoot= */ true);
+                    ViewGroup manageBar = mDialogView.findViewById(R.id.dialog_data_sharing_manage);
+                    mSharedImageTilesCoordinator =
+                            new SharedImageTilesCoordinator(mDialogView.getContext());
+                    manageBar.addView(mSharedImageTilesCoordinator.getView(), 0);
+
+                    mShareBottomSheetContent =
+                            new TabGridDialogShareBottomSheetContent(
+                                    LayoutInflater.from(activity)
+                                            .inflate(R.layout.data_sharing_bottom_sheet, null));
+                }
             }
 
             if (!activity.isDestroyed() && !activity.isFinishing()) {
@@ -127,25 +146,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                         new SnackbarManager(activity, mDialogView.getSnackBarContainer(), null);
             } else {
                 mSnackbarManager = null;
-            }
-
-            View shareBar = null;
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_ANDROID)) {
-                shareBar =
-                        LayoutInflater.from(activity)
-                                .inflate(
-                                        R.layout.data_sharing_group_bar,
-                                        mDialogView.findViewById(R.id.dialog_container_view),
-                                        false);
-                ViewGroup manageBar = shareBar.findViewById(R.id.dialog_data_sharing_manage);
-                mSharedImageTilesCoordinator =
-                        new SharedImageTilesCoordinator(mDialogView.getContext());
-                manageBar.addView(mSharedImageTilesCoordinator.getView(), 0);
-
-                mShareBottomSheetContent =
-                        new TabGridDialogShareBottomSheetContent(
-                                LayoutInflater.from(activity)
-                                        .inflate(R.layout.data_sharing_bottom_sheet, null));
             }
 
             Runnable showShareBottomSheetRunnable =
@@ -215,6 +215,8 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             LayoutInflater.from(activity)
                                     .inflate(R.layout.tab_group_ui_toolbar, recyclerView, false);
             toolbarView.setupDialogToolbarLayout();
+
+            View shareBar = mDialogView.findViewById(R.id.dialog_data_sharing_group_bar);
             mModelChangeProcessor =
                     PropertyModelChangeProcessor.create(
                             mModel,
@@ -268,9 +270,11 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
     }
 
     private View.OnClickListener getColorIconClickListener() {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)) {
+        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
             return (view) -> {
                 showColorPickerPopup(view);
+                TabUiMetricsHelper.recordTabGroupColorChangeActionMetrics(
+                        TabGroupColorChangeActionType.VIA_COLOR_ICON);
             };
         }
         return null;

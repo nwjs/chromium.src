@@ -12,6 +12,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -1463,13 +1464,12 @@ NextProto MockSSLClientSocket::GetNegotiatedProtocol() const {
   return data_->next_proto;
 }
 
-std::optional<base::StringPiece>
+std::optional<std::string_view>
 MockSSLClientSocket::GetPeerApplicationSettings() const {
   return data_->peer_application_settings;
 }
 
 bool MockSSLClientSocket::GetSSLInfo(SSLInfo* requested_ssl_info) {
-  requested_ssl_info->Reset();
   *requested_ssl_info = data_->ssl_info;
   return true;
 }
@@ -1515,9 +1515,9 @@ void MockSSLClientSocket::GetSSLCertRequestInfo(
   }
 }
 
-int MockSSLClientSocket::ExportKeyingMaterial(base::StringPiece label,
+int MockSSLClientSocket::ExportKeyingMaterial(std::string_view label,
                                               bool has_context,
-                                              base::StringPiece context,
+                                              std::string_view context,
                                               unsigned char* out,
                                               unsigned int outlen) {
   memset(out, 'A', outlen);

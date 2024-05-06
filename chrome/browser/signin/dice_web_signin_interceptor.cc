@@ -66,7 +66,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/search_engines/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/signin/public/base/consent_level.h"
@@ -689,7 +689,8 @@ bool DiceWebSigninInterceptor::ShouldShowEnterpriseBubble(
 bool DiceWebSigninInterceptor::ShouldShowMultiUserBubble(
     const AccountInfo& intercepted_account_info) const {
   DCHECK(IsRequiredExtendedAccountInfoAvailable(intercepted_account_info));
-  if (identity_manager_->GetAccountsWithRefreshTokens().size() <= 1u) {
+  if (identity_manager_->GetAccountsWithRefreshTokens().size() <= 1u ||
+      !identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     return false;
   }
   // Check if the account has the same name as another account in the profile.
@@ -948,6 +949,9 @@ void DiceWebSigninInterceptor::OnInterceptionReadyToBeProcessed(
     case WebSigninInterceptor::SigninInterceptionType::kChromeSignin:
       callback = base::BindOnce(&DiceWebSigninInterceptor::OnChromeSigninChoice,
                                 base::Unretained(this), info);
+      break;
+    case WebSigninInterceptor::SigninInterceptionType::kEnterpriseOIDC:
+      NOTREACHED() << "This interception type should not happen in DICE";
       break;
   }
   ShowSigninInterceptionBubble(bubble_parameters, std::move(callback));

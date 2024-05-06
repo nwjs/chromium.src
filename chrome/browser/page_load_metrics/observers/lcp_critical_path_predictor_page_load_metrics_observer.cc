@@ -5,6 +5,7 @@
 #include "chrome/browser/page_load_metrics/observers/lcp_critical_path_predictor_page_load_metrics_observer.h"
 
 #include "base/trace_event/base_tracing.h"
+#include "chrome/browser/predictors/lcp_critical_path_predictor/lcp_critical_path_predictor_util.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/predictors_features.h"
@@ -87,7 +88,7 @@ LcpCriticalPathPredictorPageLoadMetricsObserver::OnCommit(
   }
 
   commit_url_ = navigation_handle->GetURL();
-  if (!predictors::ResourcePrefetchPredictor::IsURLValidForLcpp(*commit_url_)) {
+  if (!predictors::IsURLValidForLcpp(*commit_url_)) {
     return STOP_OBSERVING;
   }
   LcpCriticalPathPredictorPageLoadMetricsObserver::PageData::GetOrCreateForPage(
@@ -211,14 +212,21 @@ void LcpCriticalPathPredictorPageLoadMetricsObserver::SetLcpElementLocator(
 }
 
 void LcpCriticalPathPredictorPageLoadMetricsObserver::AppendFetchedFontUrl(
-    const GURL& font_url) {
+    const GURL& font_url,
+    bool hit) {
   if (!lcpp_data_inputs_) {
     lcpp_data_inputs_.emplace();
   }
   ++lcpp_data_inputs_->font_url_count;
+  if (hit) {
+    ++lcpp_data_inputs_->font_url_hit_count;
+  }
   if (lcpp_data_inputs_->font_urls.size() >=
       GetLCPPFontURLPredictorMaxUrlCountPerOrigin()) {
     return;
+  }
+  if (hit) {
+    ++lcpp_data_inputs_->font_url_reenter_count;
   }
   lcpp_data_inputs_->font_urls.push_back(font_url);
 }
@@ -265,6 +273,14 @@ void LcpCriticalPathPredictorPageLoadMetricsObserver::SetPreconnectOrigins(
     lcpp_data_inputs_.emplace();
   }
   lcpp_data_inputs_->preconnect_origins = origins;
+}
+
+void LcpCriticalPathPredictorPageLoadMetricsObserver::SetUnusedPreloads(
+    const std::vector<GURL>& unused_preloads) {
+  if (!lcpp_data_inputs_) {
+    lcpp_data_inputs_.emplace();
+  }
+  lcpp_data_inputs_->unused_preload_resources = unused_preloads;
 }
 
 void LcpCriticalPathPredictorPageLoadMetricsObserver::

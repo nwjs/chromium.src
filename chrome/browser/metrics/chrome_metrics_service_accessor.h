@@ -7,8 +7,9 @@
 
 #include <stdint.h>
 
+#include <string_view>
+
 #include "base/gtest_prod_util.h"
-#include "base/strings/string_piece.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/metrics/metrics_reporting_state.h"
 #include "chrome/common/metrics.mojom.h"
@@ -178,8 +179,8 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   friend class CampaignsManagerClientImpl;
   friend class tpcd::experiment::ExperimentManagerImpl;
   friend class readaloud::SyntheticTrial;
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_ASH)
-  friend class DefaultBrowserPromptManager;
+#if !BUILDFLAG(IS_ANDROID)
+  friend class DefaultBrowserPromptTrial;
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -238,8 +239,8 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   // data from when this trial and group were not active. Returns true on
   // success.
   static bool RegisterSyntheticFieldTrial(
-      base::StringPiece trial_name,
-      base::StringPiece group_name,
+      std::string_view trial_name,
+      std::string_view group_name,
       variations::SyntheticTrialAnnotationMode annotation_mode =
           variations::SyntheticTrialAnnotationMode::kNextLog);
 

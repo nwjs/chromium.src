@@ -21,7 +21,6 @@ import org.chromium.chrome.browser.lens.LensQueryParams;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.LocationBarLayout;
-import org.chromium.chrome.browser.omnibox.OmniboxFeatures;
 import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
@@ -30,6 +29,7 @@ import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.toolbar.top.ToolbarPhone;
+import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient.IntentOrigin;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient.SearchType;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityPreferencesManager;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -63,20 +63,13 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
 
         GradientDrawable backgroundDrawable =
                 ToolbarPhone.createModernLocationBarBackground(getContext());
-        if (OmniboxFeatures.shouldShowModernizeVisualUpdate(getContext())) {
-            backgroundDrawable.setTint(
-                    ChromeColors.getSurfaceColor(
-                            getContext(), R.dimen.omnibox_suggestion_bg_elevation));
-            backgroundDrawable.setCornerRadius(
-                    getResources()
-                            .getDimensionPixelSize(
-                                    R.dimen.omnibox_suggestion_bg_round_corner_radius));
-            setPaddingRelative(
-                    getResources().getDimensionPixelSize(R.dimen.location_bar_start_padding_modern),
-                    getPaddingTop(),
-                    getPaddingEnd(),
-                    getPaddingBottom());
-        }
+        backgroundDrawable.setTint(
+                ChromeColors.getSurfaceColor(
+                        getContext(), R.dimen.omnibox_suggestion_bg_elevation));
+        backgroundDrawable.setCornerRadius(
+                getResources()
+                        .getDimensionPixelSize(R.dimen.omnibox_suggestion_bg_round_corner_radius));
+
         setBackground(backgroundDrawable);
 
         // Expand status view's left and right space, and expand the vertical padding of the
@@ -114,6 +107,7 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
     /**
      * Begins a new query.
      *
+     * @param origin The SearchActivity requestor.
      * @param searchType The type of search to invoke.
      * @param optionalText Prepopulate with a query, this may be null.
      * @param voiceRecognitionHandler Handler responsible for managing voice searches.
@@ -121,10 +115,17 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
      */
     @VisibleForTesting
     public void beginQuery(
+            @IntentOrigin int origin,
             @SearchType int searchType,
             @Nullable String optionalText,
             @NonNull VoiceRecognitionHandler voiceRecognitionHandler,
             @NonNull WindowAndroid windowAndroid) {
+
+        if (origin == IntentOrigin.CUSTOM_TAB) {
+            mUrlBar.setHint(R.string.omnibox_on_cct_empty_hint);
+        } else {
+            mUrlBar.setHint(R.string.omnibox_empty_hint);
+        }
         // Clear the text regardless of the promo decision.  This allows the user to enter text
         // before native has been initialized and have it not be cleared one the delayed beginQuery
         // logic is performed.
@@ -242,7 +243,6 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
 
                     mUrlBar.requestFocus();
                     mUrlCoordinator.setKeyboardVisibility(true, false);
-                    mAutocompleteCoordinator.startCachedZeroSuggest();
                 });
     }
 

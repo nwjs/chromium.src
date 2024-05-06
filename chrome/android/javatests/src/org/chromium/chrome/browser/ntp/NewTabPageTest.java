@@ -157,7 +157,7 @@ public class NewTabPageTest {
 
     private static final int ARTICLE_SECTION_HEADER_POSITION = 1;
 
-    private static final int RENDER_TEST_REVISION = 5;
+    private static final int RENDER_TEST_REVISION = 6;
 
     private static final String HISTOGRAM_NTP_MODULE_CLICK = "NewTabPage.Module.Click";
     private static final String HISTOGRAM_NTP_MODULE_LONGCLICK = "NewTabPage.Module.LongClick";
@@ -260,6 +260,7 @@ public class NewTabPageTest {
     @Test
     @MediumTest
     @Feature({"NewTabPage", "FeedNewTabPage", "RenderTest"})
+    @DisableFeatures({ChromeFeatureList.LOGO_POLISH})
     @ParameterAnnotations.UseMethodParameter(MVTParams.class)
     // Disable sign-in to suppress sync promo, as it's unrelated to this render test.
     @Policies.Add(@Policies.Item(key = "BrowserSignin", string = "0"))
@@ -748,7 +749,7 @@ public class NewTabPageTest {
                 () -> {
                     ChromeTabbedActivity activity =
                             (ChromeTabbedActivity) mActivityTestRule.getActivity();
-                    activity.handleBackPressed();
+                    activity.getOnBackPressedDispatcher().onBackPressed();
                     verify(mFeedReliabilityLogger).onNavigateBack();
                 });
     }

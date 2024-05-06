@@ -12,6 +12,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -20,7 +21,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -71,7 +71,7 @@ namespace {
 // now we want the logic of which variations of names are considered to be the
 // same to exactly match the logic applied on the Payments server.
 std::u16string RemoveMiddleInitial(const std::u16string& name) {
-  std::vector<base::StringPiece16> parts =
+  std::vector<std::u16string_view> parts =
       base::SplitStringPiece(name, base::kWhitespaceUTF16,
                              base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
   if (parts.size() == 3 &&
@@ -134,7 +134,8 @@ bool CreditCardSaveManager::ShouldOfferCvcSave(
     FormDataImporter::CreditCardImportType credit_card_import_type,
     bool is_credit_card_upstream_enabled) {
   // Only offer CVC save if CVC storage is enabled.
-  if (!personal_data_manager_->IsPaymentCvcStorageEnabled()) {
+  if (!personal_data_manager_->payments_data_manager()
+           .IsPaymentCvcStorageEnabled()) {
     return false;
   }
 
@@ -181,7 +182,8 @@ bool CreditCardSaveManager::ProceedWithSavingIfApplicable(
 
   // If card upload is not allowed, we check if CVC save should be offer and
   // attempt to offer CVC save.
-  if (personal_data_manager_->IsPaymentCvcStorageEnabled() &&
+  if (personal_data_manager_->payments_data_manager()
+          .IsPaymentCvcStorageEnabled() &&
       !card.cvc().empty()) {
     // We will only offer CVC-only save if the card is known to Autofill.
     CreditCard* existing_credit_card = nullptr;
@@ -248,13 +250,14 @@ void CreditCardSaveManager::AttemptToOfferCardUploadSave(
 
   for (const auto& field : submitted_form) {
     const bool is_valid_cvc = IsValidCreditCardSecurityCode(
-        field->value, upload_request_.card.network());
+        field->value(), upload_request_.card.network());
     if (field->Type().GetStorableType() == CREDIT_CARD_VERIFICATION_CODE) {
       found_cvc_field_ = true;
-      if (!field->value.empty())
+      if (!field->value().empty()) {
         found_value_in_cvc_field_ = true;
+      }
       if (is_valid_cvc) {
-        upload_request_.cvc = field->value;
+        upload_request_.cvc = field->value();
         break;
       }
     } else if (is_valid_cvc &&
@@ -323,7 +326,8 @@ void CreditCardSaveManager::AttemptToOfferCardUploadSave(
   if ((should_request_name_from_user_ &&
        should_request_expiration_date_from_user_) ||
       (should_request_expiration_date_from_user_ &&
-       personal_data_manager_->IsPaymentsWalletSyncTransportEnabled())) {
+       personal_data_manager_->payments_data_manager()
+           .IsPaymentsWalletSyncTransportEnabled())) {
     LogCardUploadDecisions(upload_decision_metrics_);
     pending_upload_request_origin_ = url::Origin();
     return;
@@ -362,7 +366,8 @@ void CreditCardSaveManager::AttemptToOfferCardUploadSave(
   // Check if the CVC is being uploaded and CVC storage is enabled on the
   // client.
   if (!upload_request_.card.cvc().empty() &&
-      personal_data_manager_->IsPaymentCvcStorageEnabled()) {
+      personal_data_manager_->payments_data_manager()
+          .IsPaymentCvcStorageEnabled()) {
     upload_request_.client_behavior_signals.push_back(
         ClientBehaviorConstants::kOfferingToSaveCvc);
   }
@@ -384,7 +389,7 @@ void CreditCardSaveManager::AttemptToOfferCvcUploadSave(
   show_save_prompt_.reset();
 
   show_save_prompt_ = !DetermineAndLogCvcSaveStrikeDatabaseBlockDecision();
-  // TODO(crbug.com/1481933): Refactor ConfirmSaveCreditCardToCloud to change
+  // TODO(crbug.com/40931101): Refactor ConfirmSaveCreditCardToCloud to change
   // legal_message_lines_ to optional.
   client_->ConfirmSaveCreditCardToCloud(
       card_save_candidate_, legal_message_lines_,
@@ -399,16 +404,21 @@ bool CreditCardSaveManager::IsCreditCardUploadEnabled() {
 #if BUILDFLAG(IS_IOS)
   // If observer_for_testing_ is set, assume we are in a browsertest and
   // credit card upload should be enabled by default.
-  // TODO(crbug.com/859761): Remove dependency from iOS tests on this behavior.
+  // TODO(crbug.com/40583419): Remove dependency from iOS tests on this
+  // behavior.
   if (observer_for_testing_) {
     return true;
   }
 #endif  // BUILDFLAG(IS_IOS)
   return ::autofill::IsCreditCardUploadEnabled(
       client_->GetSyncService(),
-      personal_data_manager_->GetAccountInfoForPaymentsServer().email,
-      personal_data_manager_->GetCountryCodeForExperimentGroup(),
-      personal_data_manager_->GetPaymentsSigninStateForMetrics(),
+      personal_data_manager_->payments_data_manager()
+          .GetAccountInfoForPaymentsServer()
+          .email,
+      personal_data_manager_->payments_data_manager()
+          .GetCountryCodeForExperimentGroup(),
+      personal_data_manager_->payments_data_manager()
+          .GetPaymentsSigninStateForMetrics(),
       client_->GetLogManager());
 }
 
@@ -432,20 +442,16 @@ void CreditCardSaveManager::OnDidUploadCard(
     GetCreditCardSaveStrikeDatabase()->ClearStrikes(
         base::UTF16ToUTF8(upload_request_.card.LastFourDigits()));
 
-    if (personal_data_manager_->IsPaymentCvcStorageEnabled() &&
+    if (personal_data_manager_->payments_data_manager()
+            .IsPaymentCvcStorageEnabled() &&
         !upload_request_.card.cvc().empty() &&
         upload_card_response_details.instrument_id.has_value()) {
       // After a card is successfully saved to server, if CVC storage is
       // enabled, save server CVC to PaymentsAutofillTable if it exists.
-      personal_data_manager_->AddServerCvc(
+      personal_data_manager_->payments_data_manager().AddServerCvc(
           upload_card_response_details.instrument_id.value(),
           upload_request_.card.cvc());
     }
-
-    // After a card is successfully saved to server, notifies the
-    // |personal_data_manager_|. PDM uses this information to update the avatar
-    // button UI.
-    personal_data_manager_->OnCreditCardSaved(/*is_local_card=*/false);
   } else {
     // If the upload failed, fallback to a local card save.
     // Do not save if card does not have the expiration month or the year
@@ -460,8 +466,9 @@ void CreditCardSaveManager::OnDidUploadCard(
              .GetInfo(AutofillType(CREDIT_CARD_EXP_4_DIGIT_YEAR), app_locale_)
              .empty()) {
       autofill_metrics::LogCreditCardUploadRanLocalSaveFallbackMetric(
-          /*new_local_card_added=*/personal_data_manager_->SaveCardLocallyIfNew(
-              upload_request_.card));
+          /*new_local_card_added=*/personal_data_manager_
+              ->payments_data_manager()
+              .SaveCardLocallyIfNew(upload_request_.card));
     }
 
     // If the upload failed and the bubble was actually shown (NOT just the
@@ -696,13 +703,14 @@ void CreditCardSaveManager::OfferCardLocalSave() {
         AutofillClient::CardSaveType::kCardSaveOnly;
     // Show `kCardSaveWithCvc` prompt if flag is on and CVC is not empty.
     if (!card_save_candidate_.cvc().empty() &&
-        personal_data_manager_->IsPaymentCvcStorageEnabled()) {
+        personal_data_manager_->payments_data_manager()
+            .IsPaymentCvcStorageEnabled()) {
       card_save_type = AutofillClient::CardSaveType::kCardSaveWithCvc;
     }
     client_->ConfirmSaveCreditCardLocally(
         card_save_candidate_,
         AutofillClient::SaveCreditCardOptions()
-            // TODO(crbug.com/1479239): Refactor SaveCreditCardOptions.
+            // TODO(crbug.com/40280819): Refactor SaveCreditCardOptions.
             .with_show_prompt(show_save_prompt_.value_or(true))
             .with_card_save_type(card_save_type),
         base::BindOnce(&CreditCardSaveManager::OnUserDidDecideOnLocalSave,
@@ -752,7 +760,8 @@ void CreditCardSaveManager::OfferCardUploadSave() {
         AutofillClient::CardSaveType::kCardSaveOnly;
     // Show `kCardSaveWithCvc` prompt if flag is on and CVC is not empty.
     if (!upload_request_.card.cvc().empty() &&
-        personal_data_manager_->IsPaymentCvcStorageEnabled()) {
+        personal_data_manager_->payments_data_manager()
+            .IsPaymentCvcStorageEnabled()) {
       card_save_type = AutofillClient::CardSaveType::kCardSaveWithCvc;
     }
     client_->ConfirmSaveCreditCardToCloud(
@@ -812,8 +821,8 @@ void CreditCardSaveManager::OnUserDidDecideOnLocalSave(
       GetLocalCardMigrationStrikeDatabase()->RemoveStrikes(
           LocalCardMigrationStrikeDatabase::kStrikesToRemoveWhenLocalCardAdded);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-      personal_data_manager_->OnAcceptedLocalCreditCardSave(
-          card_save_candidate_);
+      personal_data_manager_->payments_data_manager()
+          .OnAcceptedLocalCreditCardSave(card_save_candidate_);
       break;
     case AutofillClient::SaveCardOfferUserDecision::kDeclined:
     case AutofillClient::SaveCardOfferUserDecision::kIgnored:
@@ -832,8 +841,8 @@ void CreditCardSaveManager::OnUserDidDecideOnCvcLocalSave(
       if (auto* cvc_storage_strike_db = GetCvcStorageStrikeDatabase()) {
         cvc_storage_strike_db->ClearStrikes(card_save_candidate_.guid());
       }
-      personal_data_manager_->UpdateLocalCvc(card_save_candidate_.guid(),
-                                             card_save_candidate_.cvc());
+      personal_data_manager_->payments_data_manager().UpdateLocalCvc(
+          card_save_candidate_.guid(), card_save_candidate_.cvc());
       break;
     case AutofillClient::SaveCardOfferUserDecision::kDeclined:
       // If the user rejected save and the offer-to-save bubble, treat
@@ -1122,7 +1131,7 @@ void CreditCardSaveManager::OnUserDidDecideOnUploadSave(
       break;
   }
 
-  personal_data_manager_->OnUserAcceptedUpstreamOffer();
+  personal_data_manager_->payments_data_manager().OnUserAcceptedUpstreamOffer();
 }
 
 void CreditCardSaveManager::OnUserDidDecideOnCvcUploadSave(
@@ -1146,10 +1155,10 @@ void CreditCardSaveManager::OnUserDidDecideOnCvcUploadSave(
         // `kServerStoredCvcTable` table. If the existing card does have CVC, we
         // update CVC for `kServerStoredCvcTable` table.
         if (old_credit_card->cvc().empty()) {
-          personal_data_manager_->AddServerCvc(
+          personal_data_manager_->payments_data_manager().AddServerCvc(
               card_save_candidate_.instrument_id(), card_save_candidate_.cvc());
         } else {
-          personal_data_manager_->UpdateServerCvc(
+          personal_data_manager_->payments_data_manager().UpdateServerCvc(
               card_save_candidate_.instrument_id(), card_save_candidate_.cvc());
         }
       }

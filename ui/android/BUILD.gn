@@ -398,7 +398,6 @@ android_library("ui_no_recycler_view_java") {
     "java/src/org/chromium/ui/resources/dynamics/DynamicResourceLoader.java",
     "java/src/org/chromium/ui/resources/dynamics/DynamicResourceReadyOnceCallback.java",
     "java/src/org/chromium/ui/resources/dynamics/DynamicResourceSnapshot.java",
-    "java/src/org/chromium/ui/resources/dynamics/HardwareDraw.java",
     "java/src/org/chromium/ui/resources/dynamics/SoftwareDraw.java",
     "java/src/org/chromium/ui/resources/dynamics/ViewResourceAdapter.java",
     "java/src/org/chromium/ui/resources/dynamics/ViewResourceInflater.java",
@@ -414,6 +413,7 @@ android_library("ui_no_recycler_view_java") {
     "java/src/org/chromium/ui/util/ColorUtils.java",
     "java/src/org/chromium/ui/util/TokenHolder.java",
     "java/src/org/chromium/ui/util/ValueUtils.java",
+    "java/src/org/chromium/ui/util/WindowInsetsUtils.java",
     "java/src/org/chromium/ui/widget/AnchoredPopupWindow.java",
     "java/src/org/chromium/ui/widget/ButtonCompat.java",
     "java/src/org/chromium/ui/widget/CheckableImageView.java",
@@ -597,6 +597,7 @@ robolectric_library("ui_android_junit_tests") {
     "junit/src/org/chromium/ui/text/SpanApplierTest.java",
     "junit/src/org/chromium/ui/util/ColorUtilsTest.java",
     "junit/src/org/chromium/ui/util/TokenHolderTest.java",
+    "junit/src/org/chromium/ui/util/WindowInsetsUtilsUnitTest.java",
     "junit/src/org/chromium/ui/widget/AnchoredPopupWindowTest.java",
     "junit/src/org/chromium/ui/widget/LoadingViewTest.java",
     "junit/src/org/chromium/ui/widget/ToastManagerTest.java",
@@ -616,6 +617,7 @@ robolectric_library("ui_android_junit_tests") {
     "//base:base_junit_test_support",
     "//base/test:test_support_java",
     "//build/android:build_java",
+    "//third_party/androidx:androidx_activity_activity_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_appcompat_appcompat_resources_java",
     "//third_party/androidx:androidx_asynclayoutinflater_asynclayoutinflater_java",
@@ -703,9 +705,9 @@ android_library("ui_unit_device_javatests") {
 
   sources = [
     "java/src/org/chromium/ui/listmenu/ListMenuButtonTest.java",
-    "java/src/org/chromium/ui/resources/dynamics/HardwareDrawTest.java",
     "java/src/org/chromium/ui/widget/TextViewWithTightWrapTest.java",
     "javatests/src/org/chromium/ui/base/ClipboardAndroidTest.java",
+    "javatests/src/org/chromium/ui/util/WindowInsetsUtilsJavaUnitTest.java",
     "junit/src/org/chromium/ui/widget/TextViewWithLeadingTest.java",
   ]
 

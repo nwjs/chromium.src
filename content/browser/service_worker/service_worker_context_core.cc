@@ -716,6 +716,22 @@ void ServiceWorkerContextCore::AddWarmUpRequest(
   const size_t kRequestQueueLength =
       blink::features::kSpeculativeServiceWorkerWarmUpRequestQueueLength.Get();
 
+  // Erase redundant warm-up requests.
+  std::vector<ServiceWorkerContext::WarmUpServiceWorkerCallback>
+      callback_for_redundant_requests;
+  std::erase_if(warm_up_requests_, [&](auto& it) {
+    auto& [queued_url, _, queued_callback] = it;
+    if (document_url == queued_url) {
+      callback_for_redundant_requests.push_back(std::move(queued_callback));
+      return true;
+    } else {
+      return false;
+    }
+  });
+  for (auto& cb : callback_for_redundant_requests) {
+    std::move(cb).Run();
+  }
+
   // TODO(crbug.com/1431792): Move `kFifo` to the caller.
   const bool kFifo =
       blink::features::kSpeculativeServiceWorkerWarmUpOnInsertedIntoDom.Get();
@@ -922,6 +938,7 @@ void ServiceWorkerContextCore::AddLiveVersion(ServiceWorkerVersion* version) {
 }
 
 void ServiceWorkerContextCore::RemoveLiveVersion(int64_t id) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
   auto it = live_versions_.find(id);
   DCHECK(it != live_versions_.end());
   ServiceWorkerVersion* version = it->second;
@@ -1174,6 +1191,7 @@ void ServiceWorkerContextCore::OnControlleeNavigationCommitted(
 
 void ServiceWorkerContextCore::OnRunningStateChanged(
     ServiceWorkerVersion* version) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK_EQ(this, version->context().get());
   switch (version->running_status()) {
     case blink::EmbeddedWorkerStatus::kStopped:

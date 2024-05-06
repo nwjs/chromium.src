@@ -44,6 +44,14 @@ constexpr char kMahiHashKey[] =
 // Whether checking the mahi secret key is ignored.
 bool g_ignore_mahi_secret_key = false;
 
+// The hash value for the secret key of the mahi feature.
+constexpr char kModifierSplitHashKey[] =
+    "\xFC\xEF\x09\x7D\x01\x39\x86\x6A\x57\x08\x7C\x22\x5F\x1C\xEF\x8A\x3B\x7E"
+    "\x10\x99";
+
+// Whether checking the mahi secret key is ignored.
+bool g_ignore_modifier_split_secret_key = false;
+
 }  // namespace
 
 // Please keep the order of these switches synchronized with the header file
@@ -205,11 +213,6 @@ const char kArcVmUreadaheadMode[] = "arcvm-ureadahead-mode";
 
 // Madvises the kernel to use Huge Pages for guest memory.
 const char kArcVmUseHugePages[] = "arcvm-use-hugepages";
-
-// Allows bypassing the GlanceablesEnabled pref. This requires that the
-// kGlanceablesV2 feature is enabled as well. Intended to force enable
-// glanceables for testing.
-const char kAshBypassGlanceablesPref[] = "ash-bypass-glanceables-pref";
 
 // Clear the fast ink buffer upon creation. This is needed on some devices that
 // do not zero out new buffers.
@@ -646,6 +649,10 @@ const char kFirstExecAfterBoot[] = "first-exec-after-boot";
 // Forces a fetch of Birch data whenever a Pine session starts.
 const char kForceBirchFetch[] = "force-birch-fetch";
 
+// If set, skips the logic in birch release notes provider and always sets
+// release notes item.
+const char kForceBirchReleaseNotes[] = "force-birch-release-notes";
+
 // Forces fetching tokens for Cryptohome Recovery.
 const char kForceCryptohomeRecoveryForTesting[] =
     "force-cryptohome-recovery-for-testing";
@@ -699,6 +706,9 @@ const char kGlanceablesKeyExpectedHash[] =
     "\x52\xde\x04\xda\xef\x3a\xde\xe2\x90\x68\xa1\x5c\x36\xd5\x6b\x1d\xb8\x11"
     "\xe2\xcb";
 const char kGlanceablesKeySwitch[] = "glanceables-key";
+
+// Specifies campaigns to override for testing.
+const char kGrowthCampaigns[] = "growth-campaigns";
 
 // Path for which to load growth campaigns file for testing (instead of
 // downloading from Omaha).
@@ -1156,10 +1166,6 @@ const char kWebUiDataSourcePathForTesting[] =
 // the internal OAuth client ID.
 const char kGetAccessTokenForTest[] = "get-access-token-for-test";
 
-// Indicates whether camera effects use flag is set in ChromeOS.
-const char kCameraEffectsSupportedByHardware[] =
-    "camera-effects-supported-by-hardware";
-
 // Prevent kiosk autolaunch for testing.
 const char kPreventKioskAutolaunchForTesting[] =
     "prevent-kiosk-autolaunch-for-testing";
@@ -1337,11 +1343,6 @@ bool IsStabilizeTimeDependentViewForTestsEnabled() {
       kStabilizeTimeDependentViewForTests);
 }
 
-bool IsCameraEffectsSupportedByHardware() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      kCameraEffectsSupportedByHardware);
-}
-
 bool UseFakeCrasAudioClientForDBus() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       kUseFakeCrasAudioClientForDBus);
@@ -1416,6 +1417,32 @@ bool IsMahiSecretKeyMatched() {
 
 base::AutoReset<bool> SetIgnoreMahiSecretKeyForTest() {
   return {&g_ignore_mahi_secret_key, true};
+}
+
+bool IsModifierSplitSecretKeyMatched() {
+  if (g_ignore_modifier_split_secret_key) {
+    return true;
+  }
+
+  // Commandline looks like:
+  //  out/Default/chrome --user-data-dir=/tmp/tmp123
+  //  --modifier-split-feature-key="INSERT KEY HERE"
+  //  --enable-features=ModifierSplit
+  const std::string provided_key_hash = base::SHA1HashString(
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          kModifierSplitFeatureKey));
+
+  bool modifier_split_key_matched =
+      (provided_key_hash == kModifierSplitHashKey);
+  if (!modifier_split_key_matched) {
+    LOG(ERROR) << "Provided secret key does not match with the expected one.";
+  }
+
+  return modifier_split_key_matched;
+}
+
+base::AutoReset<bool> SetIgnoreModifierSplitSecretKeyForTest() {
+  return {&g_ignore_modifier_split_secret_key, true};
 }
 
 }  // namespace ash::switches

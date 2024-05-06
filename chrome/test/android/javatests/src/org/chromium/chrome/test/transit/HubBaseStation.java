@@ -23,6 +23,7 @@ import androidx.test.espresso.Espresso;
 import androidx.test.espresso.NoMatchingViewException;
 
 import org.chromium.base.test.transit.Condition;
+import org.chromium.base.test.transit.ConditionStatus;
 import org.chromium.base.test.transit.Elements;
 import org.chromium.base.test.transit.TransitStation;
 import org.chromium.base.test.transit.TravelException;
@@ -83,8 +84,11 @@ public abstract class HubBaseStation extends TransitStation {
         Condition incognitoTabsExist =
                 new UiThreadCondition() {
                     @Override
-                    public boolean check() {
-                        return mChromeTabbedActivityTestRule.tabsCount(/* incognito= */ true) > 0;
+                    public ConditionStatus check() {
+                        int incognitoTabCount =
+                                mChromeTabbedActivityTestRule.tabsCount(/* incognito= */ true);
+                        return whether(
+                                incognitoTabCount > 0, "%d incognito tabs", incognitoTabCount);
                     }
 
                     @Override
@@ -118,12 +122,12 @@ public abstract class HubBaseStation extends TransitStation {
         // additional back state e.g. in-pane navigations, between pane navigations, etc. Figure out
         // a solution that better handles the complexity.
         PageStation destination =
-                new PageStation(
-                        mChromeTabbedActivityTestRule,
-                        /* incognito= */ false,
-                        /* isOpeningTab= */ false,
-                        /* isSelectingTab= */ true);
-        return Trip.travelSync(this, destination, (t) -> Espresso.pressBack());
+                PageStation.newPageStationBuilder()
+                        .withActivityTestRule(mChromeTabbedActivityTestRule)
+                        .withIsOpeningTab(false)
+                        .withIsSelectingTab(true)
+                        .build();
+        return Trip.travelSync(this, destination, () -> Espresso.pressBack());
     }
 
     /**
@@ -131,8 +135,8 @@ public abstract class HubBaseStation extends TransitStation {
      *
      * @return the corresponding subclass of {@link HubBaseStation}.
      */
-    public <T extends HubBaseStation> T selectPane(@PaneId int paneId,
-        Class<T> expectedDestination) {
+    public <T extends HubBaseStation> T selectPane(
+            @PaneId int paneId, Class<T> expectedDestination) {
         recheckActiveConditions();
 
         if (getPaneId() == paneId) {
@@ -150,10 +154,12 @@ public abstract class HubBaseStation extends TransitStation {
             throw TravelException.newTripException(this, destinationStation, throwable);
         }
 
-        @StringRes int contentDescriptionId =
-            HubStationUtils.getContentDescriptionForIdPaneSelection(paneId);
-        return Trip.travelSync(this, destinationStation,
-                (t) -> {
+        @StringRes
+        int contentDescriptionId = HubStationUtils.getContentDescriptionForIdPaneSelection(paneId);
+        return Trip.travelSync(
+                this,
+                destinationStation,
+                () -> {
                     clickPaneSwitcherForPaneWithContentDescription(contentDescriptionId);
                 });
     }

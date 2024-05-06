@@ -4,6 +4,8 @@
 
 #include "components/performance_manager/graph/process_node_impl.h"
 
+#include <optional>
+
 #include "base/containers/contains.h"
 #include "base/memory/raw_ptr.h"
 #include "base/process/process.h"
@@ -15,7 +17,6 @@
 #include "components/performance_manager/test_support/graph_test_harness.h"
 #include "components/performance_manager/test_support/mock_graphs.h"
 #include "content/public/browser/background_tracing_config.h"
-#include "content/public/browser/background_tracing_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -246,71 +247,33 @@ TEST_F(ProcessNodeImplTest, PublicInterface) {
 
 namespace {
 
-class LenientFakeBackgroundTracingManager
-    : public content::BackgroundTracingManager,
-      public base::trace_event::NamedTriggerManager {
+class LenientFakeNamedTriggerManager
+    : public base::trace_event::NamedTriggerManager {
  public:
-  LenientFakeBackgroundTracingManager() {
-    BackgroundTracingManager::SetInstance(this);
-    NamedTriggerManager::SetInstance(this);
-  }
-  ~LenientFakeBackgroundTracingManager() override {
-    BackgroundTracingManager::SetInstance(nullptr);
+  LenientFakeNamedTriggerManager() { NamedTriggerManager::SetInstance(this); }
+  ~LenientFakeNamedTriggerManager() {
     NamedTriggerManager::SetInstance(nullptr);
   }
 
   // Functions we want to intercept.
-  MOCK_METHOD(bool, HasActiveScenario, (), (override));
   MOCK_METHOD(bool,
               DoEmitNamedTrigger,
-              (const std::string& trigger_name),
+              (const std::string& trigger_name, std::optional<int32_t> value),
               (override));
-
-  // Functions we don't care about.
-  void SetReceiveCallback(ReceiveCallback receive_callback) override {}
-  bool InitializeScenarios(
-      const perfetto::protos::gen::ChromeFieldTracingConfig& config,
-      DataFiltering data_filtering) override {
-    return true;
-  }
-
-  bool SetActiveScenario(
-      std::unique_ptr<content::BackgroundTracingConfig> config,
-      DataFiltering data_filtering) override {
-    return true;
-  }
-
-  bool HasTraceToUpload() override { return false; }
-  void GetTraceToUpload(
-      base::OnceCallback<void(std::optional<std::string>,
-                              std::optional<std::string>)> callback) override {}
-  std::unique_ptr<content::BackgroundTracingConfig> GetBackgroundTracingConfig(
-      const std::string& trial_name) override {
-    return nullptr;
-  }
-  void SetSystemProfileRecorder(
-      base::RepeatingCallback<std::string()> recorder) override {}
-  void AbortScenarioForTesting() override {}
-  void SaveTraceForTesting(std::string&& trace_data,
-                           const std::string& scenario_name,
-                           const std::string& rule_name,
-                           const base::Token& uuid) override {}
-
-  void DeleteTracesInDateRange(base::Time start, base::Time end) override {}
 };
 
 using FakeBackgroundTracingManager =
-    ::testing::StrictMock<LenientFakeBackgroundTracingManager>;
+    ::testing::StrictMock<LenientFakeNamedTriggerManager>;
 
 }  // namespace
 
 TEST_F(ProcessNodeImplTest, FireBackgroundTracingTriggerOnUI) {
   const std::string kTrigger1("trigger1");
 
-  FakeBackgroundTracingManager manager;
+  LenientFakeNamedTriggerManager manager;
 
   // Expect a new trigger to be registered and triggered.
-  EXPECT_CALL(manager, DoEmitNamedTrigger(_));
+  EXPECT_CALL(manager, DoEmitNamedTrigger(_, _));
   ProcessNodeImpl::FireBackgroundTracingTriggerOnUIForTesting(kTrigger1);
   testing::Mock::VerifyAndClear(&manager);
 }

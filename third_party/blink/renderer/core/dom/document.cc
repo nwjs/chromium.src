@@ -75,7 +75,6 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
-#include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/public/web/web_link_preview_triggerer.h"
 #include "third_party/blink/public/web/web_print_page_description.h"
 #include "third_party/blink/renderer/bindings/core/v8/frozen_array.h"
@@ -366,7 +365,6 @@
 #include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
-#include "third_party/blink/renderer/platform/theme/web_theme_engine_helper.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
 #include "third_party/blink/renderer/platform/weborigin/origin_access_entry.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
@@ -876,8 +874,8 @@ Document::Document(const DocumentInit& initializer,
       viewport_unit_flags_(0),
       design_mode_(false),
       is_running_exec_command_(false),
-      has_annotated_regions_(false),
-      annotated_regions_dirty_(false),
+      has_draggable_regions_(false),
+      draggable_regions_dirty_(false),
       document_classes_(document_classes),
       is_view_source_(false),
       saw_elements_in_known_namespaces_(false),
@@ -979,6 +977,9 @@ Document::Document(const DocumentInit& initializer,
     // fallback base URL.
     UpdateBaseURL();
   }
+  should_record_sandboxed_srcdoc_baseurl_metrics_ =
+      urlForBinding().IsAboutSrcdocURL() && !fallback_base_url_.IsNull() &&
+      dom_window_->IsSandboxed(network::mojom::blink::WebSandboxFlags::kOrigin);
 
   is_vertical_scroll_enforced_ =
       GetFrame() && !GetFrame()->IsOutermostMainFrame() &&
@@ -1699,6 +1700,11 @@ void Document::SetContentFromDOMParser(const String& content) {
     if (declarative_shadow_root_allow_state_ == AllowState::kAllow) {
       parser_behavior.Put(HTMLFragmentParsingBehavior::kIncludeShadowRoots);
     }
+    // The default for html parsing is quirks mode. This is normally set during
+    // parsing, but not for the fast path, so it needs to be set here. If the
+    // fast-path parser fails, the full parser will adjust the mode
+    // appropriately.
+    SetCompatibilityMode(kQuirksMode);
     const bool success = TryParsingHTMLFragment(content, *this, *body, *body,
                                                 kAllowScriptingContent,
                                                 parser_behavior, nullptr);
@@ -2798,6 +2804,7 @@ void Document::UpdateStyleAndLayout(DocumentUpdateReason reason) {
   if (Lifecycle().LifecyclePostponed()) {
     return;
   }
+  TRACE_EVENT("blink", "Document::UpdateStyleAndLayout");
   LocalFrameView* frame_view = View();
 
   if (reason != DocumentUpdateReason::kBeginMainFrame && frame_view)
@@ -2957,23 +2964,21 @@ WebPrintPageDescription Document::GetPageDescriptionNoLifecycleUpdate(
       NOTREACHED();
   }
 
-  if (!print_params.ignore_css_margins) {
-    if (!style.MarginTop().IsAuto()) {
-      description.margin_top =
-          IntValueForLength(style.MarginTop(), description.size.height());
-    }
-    if (!style.MarginRight().IsAuto()) {
-      description.margin_right =
-          IntValueForLength(style.MarginRight(), description.size.width());
-    }
-    if (!style.MarginBottom().IsAuto()) {
-      description.margin_bottom =
-          IntValueForLength(style.MarginBottom(), description.size.height());
-    }
-    if (!style.MarginLeft().IsAuto()) {
-      description.margin_left =
-          IntValueForLength(style.MarginLeft(), description.size.width());
-    }
+  if (!style.MarginTop().IsAuto()) {
+    description.margin_top =
+        FloatValueForLength(style.MarginTop(), description.size.height());
+  }
+  if (!style.MarginRight().IsAuto()) {
+    description.margin_right =
+        FloatValueForLength(style.MarginRight(), description.size.width());
+  }
+  if (!style.MarginBottom().IsAuto()) {
+    description.margin_bottom =
+        FloatValueForLength(style.MarginBottom(), description.size.height());
+  }
+  if (!style.MarginLeft().IsAuto()) {
+    description.margin_left =
+        FloatValueForLength(style.MarginLeft(), description.size.width());
   }
 
   float page_area_width = description.size.width() -
@@ -3560,8 +3565,7 @@ void Document::open(LocalDOMWindow* entered_window,
   // for this document with the entered window's url.
   if (dom_window_ && entered_window) {
     KURL new_url = entered_window->Url();
-    if (new_url.IsAboutBlankURL() &&
-        blink::features::IsNewBaseUrlInheritanceBehaviorEnabled()) {
+    if (new_url.IsAboutBlankURL()) {
       // When updating the URL to about:blank due to a document.open() call,
       // the opened document should also end up with the same base URL as the
       // opener about:blank document. Propagate the fallback information here
@@ -4161,8 +4165,9 @@ bool Document::CheckCompletedInternal() {
   }
 
   DCHECK(fetcher_);
-  fetcher_->ScheduleWarnUnusedPreloads();
-  fetcher_->RecordLCPPSubresourceMetrics();
+
+  fetcher_->ScheduleWarnUnusedPreloads(
+      WTF::BindOnce(&Document::OnWarnUnusedPreloads, WrapWeakPersistent(this)));
 
   // The readystatechanged or load event may have disconnected this frame.
   if (!GetFrame() || !GetFrame()->IsAttached())
@@ -4219,6 +4224,7 @@ bool Document::CheckCompletedInternal() {
   if (load_event_needed) {
     if (LCPCriticalPathPredictor* lcpp = GetFrame()->GetLCPP()) {
       lcpp->OnOutermostMainFrameDocumentLoad();
+      fetcher_->MaybeRecordLCPPSubresourceMetrics(Url());
     }
   }
 
@@ -4745,21 +4751,12 @@ KURL Document::FallbackBaseURL() const {
     // the srcdoc's initiator origin does not match the parent origin, which
     // should be removed in https://crbug.com/1169736).
     //
-    // In these cases, use the parent frame's base URL, because the srcdoc value
-    // and origin both come from the parent frame.
-    // In NewBaseUrlInheritanceBehavior mode, make this stricter by only using
-    // the parent frame if it is same-origin.
+    // In these cases, only use the parent frame's base URL if it is
+    // same-origin.
     // TODO(https://crbug.com/1169736): Enforce that the parent is same-origin,
     // which should already be true.
-    if (blink::features::IsNewBaseUrlInheritanceBehaviorEnabled()) {
-      if (same_origin_parent) {
-        return same_origin_parent->BaseURL();
-      }
-    } else if (ParentDocument()) {
-      // In legacy mode, use the parent without checking the origin.
-      // TODO(https://crbug.com/751329, https://crbug.com/1336904): Referring to
-      // ParentDocument() is not correct.
-      return ParentDocument()->BaseURL();
+    if (same_origin_parent) {
+      return same_origin_parent->BaseURL();
     }
   }
 
@@ -4771,19 +4768,12 @@ KURL Document::FallbackBaseURL() const {
       return execution_context_->BaseURL();
     }
 
-    if (!fallback_base_url_.IsEmpty() &&
-        blink::features::IsNewBaseUrlInheritanceBehaviorEnabled()) {
+    if (!fallback_base_url_.IsEmpty()) {
       // Note: if we get here, it's not worth worrying if
       // same_origin_parent->BaseURL() exists and matches fallback_base_url_,
       // since if the latter exists it's based on the initiator, which won't
       // always be the parent.
       return fallback_base_url_;
-    }
-
-    if (same_origin_parent &&
-        !blink::features::IsNewBaseUrlInheritanceBehaviorEnabled()) {
-      // Only allow access to the parent in legacy mode.
-      return same_origin_parent->BaseURL();
     }
   }
 
@@ -5392,7 +5382,9 @@ void Document::RemoveFocusedElementOfSubtree(Node& node,
   const auto& focused_element = *node.GetTreeScope().AdjustedFocusedElement();
   if (focused_element.IsDescendantOf(&node) ||
       (!among_children_only && node == focused_element)) {
-    ClearFocusedElement();
+    bool omit_blur_events =
+        RuntimeEnabledFeatures::OmitBlurEventOnElementRemovalEnabled();
+    ClearFocusedElement(omit_blur_events);
   }
 }
 
@@ -5444,14 +5436,14 @@ void Document::ActiveChainNodeDetached(Element& element) {
   }
 }
 
-const Vector<AnnotatedRegionValue>& Document::AnnotatedRegions() const {
-  return annotated_regions_;
+const Vector<DraggableRegionValue>& Document::DraggableRegions() const {
+  return draggable_regions_;
 }
 
-void Document::SetAnnotatedRegions(
-    const Vector<AnnotatedRegionValue>& regions) {
-  annotated_regions_ = regions;
-  SetAnnotatedRegionsDirty(false);
+void Document::SetDraggableRegions(
+    const Vector<DraggableRegionValue>& regions) {
+  draggable_regions_ = regions;
+  SetDraggableRegionsDirty(false);
 }
 
 void Document::SetLastFocusType(mojom::blink::FocusType last_focus_type) {
@@ -5638,10 +5630,11 @@ bool Document::SetFocusedElement(Element* new_focused_element,
   return !focus_change_blocked;
 }
 
-void Document::ClearFocusedElement() {
-  SetFocusedElement(nullptr,
-                    FocusParams(SelectionBehaviorOnFocus::kNone,
-                                mojom::blink::FocusType::kNone, nullptr));
+void Document::ClearFocusedElement(bool omit_blur_events) {
+  FocusParams params(SelectionBehaviorOnFocus::kNone,
+                     mojom::blink::FocusType::kNone, nullptr);
+  params.omit_blur_events = omit_blur_events;
+  SetFocusedElement(nullptr, params);
 }
 
 void Document::SendFocusNotification(Element* new_focused_element,
@@ -6635,7 +6628,7 @@ void Document::PermissionServiceConnectionError() {
   data_->permission_service_.reset();
 }
 
-ScriptPromiseTyped<IDLBoolean> Document::hasStorageAccess(
+ScriptPromise<IDLBoolean> Document::hasStorageAccess(
     ScriptState* script_state) {
   // See
   // https://privacycg.github.io/storage-access/#dom-document-hasstorageaccess
@@ -6645,15 +6638,15 @@ ScriptPromiseTyped<IDLBoolean> Document::hasStorageAccess(
   // return p.
   if (!GetFrame()) {
     // Note that in detached frames, resolvers are not able to return a promise.
-    return ScriptPromiseTyped<IDLBoolean>::RejectWithDOMException(
+    return ScriptPromise<IDLBoolean>::RejectWithDOMException(
         script_state, MakeGarbageCollected<DOMException>(
                           DOMExceptionCode::kInvalidStateError,
                           "hasStorageAccess: Cannot be used unless the "
                           "document is fully active."));
   }
 
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolverTyped<IDLBoolean>>(
-      script_state);
+  auto* resolver =
+      MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(script_state);
   auto promise = resolver->Promise();
   resolver->Resolve([&]() -> bool {
     // #3: if doc's origin is opaque, return false.
@@ -6684,14 +6677,14 @@ ScriptPromiseTyped<IDLBoolean> Document::hasStorageAccess(
   return promise;
 }
 
-ScriptPromiseTyped<IDLUndefined> Document::requestStorageAccessFor(
+ScriptPromise<IDLUndefined> Document::requestStorageAccessFor(
     ScriptState* script_state,
     const AtomicString& origin) {
   if (!GetFrame()) {
     FireRequestStorageAccessForHistogram(
         RequestStorageResult::REJECTED_NO_ORIGIN);
     // Note that in detached frames, resolvers are not able to return a promise.
-    return ScriptPromiseTyped<IDLUndefined>::RejectWithDOMException(
+    return ScriptPromise<IDLUndefined>::RejectWithDOMException(
         script_state, MakeGarbageCollected<DOMException>(
                           DOMExceptionCode::kInvalidStateError,
                           "requestStorageAccessFor: Cannot be used unless "
@@ -6699,8 +6692,7 @@ ScriptPromiseTyped<IDLUndefined> Document::requestStorageAccessFor(
   }
 
   auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolverTyped<IDLUndefined>>(
-          script_state);
+      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
 
   // Access the promise first to ensure it is created so that the proper state
   // can be changed when it is resolved or rejected.
@@ -6803,7 +6795,7 @@ ScriptPromiseTyped<IDLUndefined> Document::requestStorageAccessFor(
   return promise;
 }
 
-ScriptPromiseTyped<IDLUndefined> Document::requestStorageAccess(
+ScriptPromise<IDLUndefined> Document::requestStorageAccess(
     ScriptState* script_state) {
   // Requesting storage access via `requestStorageAccess()` idl always requests
   // unpartitioned cookie access.
@@ -6811,14 +6803,14 @@ ScriptPromiseTyped<IDLUndefined> Document::requestStorageAccess(
                                   /*request_unpartitioned_cookie_access=*/true);
 }
 
-ScriptPromiseTyped<IDLUndefined> Document::RequestStorageAccessImpl(
+ScriptPromise<IDLUndefined> Document::RequestStorageAccessImpl(
     ScriptState* script_state,
     bool request_unpartitioned_cookie_access) {
   if (!GetFrame()) {
     FireRequestStorageAccessHistogram(RequestStorageResult::REJECTED_NO_ORIGIN);
 
     // Note that in detached frames, resolvers are not able to return a promise.
-    return ScriptPromiseTyped<IDLUndefined>::RejectWithDOMException(
+    return ScriptPromise<IDLUndefined>::RejectWithDOMException(
         script_state, MakeGarbageCollected<DOMException>(
                           DOMExceptionCode::kInvalidStateError,
                           "requestStorageAccess: Cannot be used unless the "
@@ -6833,8 +6825,7 @@ ScriptPromiseTyped<IDLUndefined> Document::RequestStorageAccessImpl(
   }
 
   auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolverTyped<IDLUndefined>>(
-          script_state);
+      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
 
   // Access the promise first to ensure it is created so that the proper state
   // can be changed when it is resolved or rejected.
@@ -6926,7 +6917,7 @@ ScriptPromiseTyped<IDLUndefined> Document::RequestStorageAccessImpl(
 }
 
 void Document::ProcessStorageAccessPermissionState(
-    ScriptPromiseResolverTyped<IDLUndefined>* resolver,
+    ScriptPromiseResolver<IDLUndefined>* resolver,
     bool request_unpartitioned_cookie_access,
     mojom::blink::PermissionStatus status) {
   DCHECK(resolver);
@@ -6964,7 +6955,7 @@ void Document::ProcessStorageAccessPermissionState(
 }
 
 void Document::ProcessTopLevelStorageAccessPermissionState(
-    ScriptPromiseResolverTyped<IDLUndefined>* resolver,
+    ScriptPromiseResolver<IDLUndefined>* resolver,
     mojom::blink::PermissionStatus status) {
   DCHECK(resolver);
   DCHECK(GetFrame());
@@ -6993,14 +6984,10 @@ FragmentDirective& Document::fragmentDirective() const {
   return *fragment_directive_;
 }
 
-ScriptPromiseTyped<IDLBoolean> Document::hasPrivateToken(
+ScriptPromise<IDLBoolean> Document::hasPrivateToken(
     ScriptState* script_state,
     const String& issuer,
     ExceptionState& exception_state) {
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolverTyped<IDLBoolean>>(
-      script_state, exception_state.GetContext());
-  auto promise = resolver->Promise();
-
   // Private State Tokens state is keyed by issuer and top-frame origins that
   // are both (1) HTTP or HTTPS and (2) potentially trustworthy. Consequently,
   // we can return early if either the issuer or the top-frame origin fails to
@@ -7012,22 +6999,15 @@ ScriptPromiseTyped<IDLBoolean> Document::hasPrivateToken(
     exception_state.ThrowTypeError(
         "hasPrivateToken: Private Token issuer origins must be both HTTP(S) "
         "and secure (\"potentially trustworthy\").");
-    resolver->Reject(exception_state);
-    return promise;
+    return ScriptPromise<IDLBoolean>();
   }
 
   scoped_refptr<const SecurityOrigin> top_frame_origin = TopFrameOrigin();
   if (!top_frame_origin) {
-    // Note: One case where there might be no top frame origin is if this
-    // document is destroyed. In this case, this function will return
-    // `undefined`. Still bother adding the exception and rejecting, just in
-    // case there are other situations in which the top frame origin might be
-    // absent.
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "hasPrivateToken: Cannot execute in "
                                       "documents lacking top-frame origins.");
-    resolver->Reject(exception_state);
-    return promise;
+    return ScriptPromise<IDLBoolean>();
   }
 
   DCHECK(top_frame_origin->IsPotentiallyTrustworthy());
@@ -7037,8 +7017,7 @@ ScriptPromiseTyped<IDLBoolean> Document::hasPrivateToken(
         DOMExceptionCode::kNotAllowedError,
         "hasPrivateToken: Cannot execute in "
         "documents without secure, HTTP(S), top-frame origins.");
-    resolver->Reject(exception_state);
-    return promise;
+    return ScriptPromise<IDLBoolean>();
   }
 
   if (!data_->trust_token_query_answerer_.is_bound()) {
@@ -7049,13 +7028,14 @@ ScriptPromiseTyped<IDLBoolean> Document::hasPrivateToken(
         WTF::BindOnce(&Document::TrustTokenQueryAnswererConnectionError,
                       WrapWeakPersistent(this)));
   }
-
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(
+      script_state, exception_state.GetContext());
   data_->pending_trust_token_query_resolvers_.insert(resolver);
 
   data_->trust_token_query_answerer_->HasTrustTokens(
       issuer_origin,
       WTF::BindOnce(
-          [](WeakPersistent<ScriptPromiseResolverTyped<IDLBoolean>> resolver,
+          [](WeakPersistent<ScriptPromiseResolver<IDLBoolean>> resolver,
              WeakPersistent<Document> document,
              network::mojom::blink::HasTrustTokensResultPtr result) {
             // If there was a Mojo connection error, the promise was already
@@ -7105,14 +7085,14 @@ ScriptPromiseTyped<IDLBoolean> Document::hasPrivateToken(
           },
           WrapWeakPersistent(resolver), WrapWeakPersistent(this)));
 
-  return promise;
+  return resolver->Promise();
 }
 
-ScriptPromiseTyped<IDLBoolean> Document::hasRedemptionRecord(
+ScriptPromise<IDLBoolean> Document::hasRedemptionRecord(
     ScriptState* script_state,
     const String& issuer,
     ExceptionState& exception_state) {
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolverTyped<IDLBoolean>>(
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(
       script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
 
@@ -7170,7 +7150,7 @@ ScriptPromiseTyped<IDLBoolean> Document::hasRedemptionRecord(
   data_->trust_token_query_answerer_->HasRedemptionRecord(
       issuer_origin,
       WTF::BindOnce(
-          [](WeakPersistent<ScriptPromiseResolverTyped<IDLBoolean>> resolver,
+          [](WeakPersistent<ScriptPromiseResolver<IDLBoolean>> resolver,
              WeakPersistent<Document> document,
              network::mojom::blink::HasRedemptionRecordResultPtr result) {
             // If there was a Mojo connection error, the promise was already
@@ -7450,12 +7430,16 @@ void Document::SetEncodingData(const DocumentEncodingData& new_data) {
   }
 }
 
-KURL Document::CompleteURL(const String& url) const {
-  return CompleteURLWithOverride(url, base_url_);
+KURL Document::CompleteURL(
+    const String& url,
+    const CompleteURLPreloadStatus preload_status) const {
+  return CompleteURLWithOverride(url, base_url_, preload_status);
 }
 
-KURL Document::CompleteURLWithOverride(const String& url,
-                                       const KURL& base_url_override) const {
+KURL Document::CompleteURLWithOverride(
+    const String& url,
+    const KURL& base_url_override,
+    CompleteURLPreloadStatus preload_status) const {
   DCHECK(base_url_override.IsEmpty() || base_url_override.IsValid());
 
   // Always return a null URL when passed a null string.
@@ -7463,9 +7447,34 @@ KURL Document::CompleteURLWithOverride(const String& url,
   // See also [CSS]StyleSheet::completeURL(const String&)
   if (url.IsNull())
     return KURL();
-  if (!Encoding().IsValid())
-    return KURL(base_url_override, url);
-  return KURL(base_url_override, url, Encoding());
+
+  KURL result = Encoding().IsValid() ? KURL(base_url_override, url, Encoding())
+                                     : KURL(base_url_override, url);
+  // If the conditions are met for
+  // `should_record_sandboxed_srcdoc_baseurl_metrics_` to be set, we should
+  // only record the metric if there's no `base_element_url_` set via a base
+  // element. We must also check the preload status below, since a
+  // PreloadRequest could call this function before `base_element_url_` is set.
+  if (should_record_sandboxed_srcdoc_baseurl_metrics_ &&
+      base_element_url_.IsEmpty() && preload_status != kIsPreload) {
+    // Compute the same thing assuming an empty base url, to see if it changes.
+    // This will allow us to ignore trivial changes, such as 'https://foo.com'
+    // resolving as 'https://foo.com/', which happens whether the base url is
+    // specified or not.
+    // While the following computation is non-trivial overhead, it's not
+    // expected to be needed often enough to be problematic, and it will be
+    // removed once we've collected data for https://crbug.com/330744612.
+    KURL empty_baseurl_result = Encoding().IsValid()
+                                    ? KURL(KURL(), url, Encoding())
+                                    : KURL(KURL(), url);
+    if (result != empty_baseurl_result) {
+      CountUse(WebFeature::kSandboxedSrcdocFrameResolvesRelativeURL);
+      // Let's not repeat the parallel computation again now we've found a
+      // instance to record.
+      should_record_sandboxed_srcdoc_baseurl_metrics_ = false;
+    }
+  }
+  return result;
 }
 
 // static
@@ -7908,6 +7917,9 @@ void Document::ElementDataCacheClearTimerFired(TimerBase*) {
 }
 
 void Document::BeginLifecycleUpdatesIfRenderingReady() {
+  TRACE_EVENT2("blink", "Document::BeginLifecycleUpdatesIfRenderingReady",
+               "is_active", IsActive(), "have_render_blocking_resources_loaded",
+               HaveRenderBlockingResourcesLoaded());
   if (!IsActive())
     return;
   if (!HaveRenderBlockingResourcesLoaded())
@@ -9311,8 +9323,7 @@ bool Document::IsFocusAllowed() const {
 
 LazyLoadImageObserver& Document::EnsureLazyLoadImageObserver() {
   if (!lazy_load_image_observer_) {
-    lazy_load_image_observer_ =
-        MakeGarbageCollected<LazyLoadImageObserver>(*this);
+    lazy_load_image_observer_ = MakeGarbageCollected<LazyLoadImageObserver>();
   }
   return *lazy_load_image_observer_;
 }
@@ -9419,11 +9430,10 @@ void Document::VisionDeficiencyChanged() {
 }
 
 void Document::UpdateForcedColors() {
-  ForcedColors forced_colors =
-      RuntimeEnabledFeatures::ForcedColorsEnabled()
-          ? WebThemeEngineHelper::GetNativeThemeEngine()->GetForcedColors()
-          : ForcedColors::kNone;
-  in_forced_colors_mode_ = forced_colors != ForcedColors::kNone;
+  Settings* settings = GetSettings();
+  if (RuntimeEnabledFeatures::ForcedColorsEnabled() && settings) {
+    in_forced_colors_mode_ = settings->GetInForcedColors();
+  }
   if (in_forced_colors_mode_)
     GetStyleEngine().EnsureUAStyleForForcedColors();
 }
@@ -9444,17 +9454,14 @@ const ui::ColorProvider* Document::GetColorProviderForPainting(
     return nullptr;
   }
 
-  // TODO(crbug.com/1516529): This should be changed to use
-  // `in_forced_colors_mode_` once forced colors becomes a web setting in Blink.
-  return GetPage()->GetColorProviderForPainting(
-      color_scheme,
-      WebThemeEngineHelper::GetNativeThemeEngine()->GetForcedColors() !=
-          ForcedColors::kNone);
+  return GetPage()->GetColorProviderForPainting(color_scheme,
+                                                in_forced_colors_mode_);
 }
 
 void Document::CountUse(mojom::WebFeature feature) const {
-  if (execution_context_)
+  if (execution_context_) {
     execution_context_->CountUse(feature);
+  }
 }
 
 void Document::CountUse(mojom::WebFeature feature) {
@@ -9756,6 +9763,16 @@ void Document::SetOverrideSiteForCookiesForCSPMedia(bool value) {
     return;
   }
   override_site_for_cookies_for_csp_media_ = value;
+}
+
+void Document::OnWarnUnusedPreloads(Vector<KURL> unused_preloads) {
+  if (!GetFrame() || !GetFrame()->GetLCPP()) {
+    return;
+  }
+
+  if (LCPCriticalPathPredictor* lcpp = GetFrame()->GetLCPP()) {
+    lcpp->OnWarnedUnusedPreloads(unused_preloads);
+  }
 }
 
 template class CORE_TEMPLATE_EXPORT Supplement<Document>;

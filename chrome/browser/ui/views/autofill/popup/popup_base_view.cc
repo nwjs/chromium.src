@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
@@ -50,7 +51,6 @@
 
 #if DCHECK_IS_ON()
 #include "base/containers/fixed_flat_set.h"
-#include "base/strings/string_piece.h"
 #endif
 
 namespace autofill {
@@ -107,7 +107,7 @@ int PopupBaseView::GetHorizontalMargin() {
 
 // static
 int PopupBaseView::GetHorizontalPadding() {
-  // TODO(crbug.com/1411172): Combine with `GetHorizontalMargin`.
+  // TODO(crbug.com/40254722): Combine with `GetHorizontalMargin`.
   return GetHorizontalMargin();
 }
 
@@ -244,7 +244,7 @@ bool PopupBaseView::DoShow() {
   if (initialize_widget) {
     // On Mac Cocoa browser, |parent_widget_| is null (the parent is not a
     // views::Widget).
-    // TODO(crbug.com/826862): Remove |parent_widget_|.
+    // TODO(crbug.com/41379554): Remove |parent_widget_|.
     if (parent_widget_) {
       parent_widget_->AddObserver(this);
     }
@@ -262,7 +262,7 @@ bool PopupBaseView::DoShow() {
     return false;
   }
 
-  if (content::WebContents* web_contents = GetWebContents()) {
+  if (GetWebContents()) {
     custom_cursor_suppressor_.Start(
         /*max_dimension_dips=*/kMaximumAllowedCustomCursorDimension + 1);
   } else {
@@ -335,7 +335,7 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
   }
   selected_view.GetViewAccessibility().SetPopupFocusOverride();
 #if DCHECK_IS_ON()
-  constexpr auto kDerivedClasses = base::MakeFixedFlatSet<base::StringPiece>(
+  constexpr auto kDerivedClasses = base::MakeFixedFlatSet<std::string_view>(
       {"PopupSuggestionView", "PopupPasswordSuggestionView", "PopupFooterView",
        "PopupSeparatorView", "PopupWarningView", "PopupBaseView",
        "PasswordGenerationPopupViewViews::GeneratedPasswordBox", "PopupRowView",

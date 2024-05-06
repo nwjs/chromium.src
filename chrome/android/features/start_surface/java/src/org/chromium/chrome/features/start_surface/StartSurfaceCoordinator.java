@@ -34,7 +34,6 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.back_press.BackPressManager;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.feed.FeedSwipeRefreshLayout;
 import org.chromium.chrome.browser.feed.ScrollListener;
 import org.chromium.chrome.browser.feed.ScrollableContainerDelegate;
@@ -52,27 +51,26 @@ import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
+import org.chromium.chrome.browser.single_tab.SingleTabSwitcherCoordinator;
 import org.chromium.chrome.browser.suggestions.tile.MostVisitedTilesCoordinator;
 import org.chromium.chrome.browser.suggestions.tile.TileGroupDelegateImpl;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher.TabSwitcherType;
+import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
-import org.chromium.chrome.browser.tasks.tab_management.TabManagementDelegate.TabSwitcherType;
-import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
-import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherCustomViewManager;
-import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.features.tasks.MostVisitedTileNavigationDelegate;
-import org.chromium.chrome.features.tasks.SingleTabSwitcherCoordinator;
 import org.chromium.chrome.features.tasks.TasksSurfaceProperties;
 import org.chromium.chrome.features.tasks.TasksView;
 import org.chromium.chrome.features.tasks.TasksViewBinder;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -273,7 +271,6 @@ public class StartSurfaceCoordinator implements StartSurface {
         createStartSurface();
         Runnable initializeMVTilesRunnable = this::initializeMVTiles;
         View logoContainerView = mView.findViewById(R.id.logo_container);
-        ViewGroup feedPlaceholderParentView = mView.findViewById(R.id.tasks_surface_body);
 
         mStartSurfaceMediator =
                 new StartSurfaceMediator(
@@ -298,7 +295,6 @@ public class StartSurfaceCoordinator implements StartSurface {
                         mParentTabSupplier,
                         logoContainerView,
                         backPressManager,
-                        feedPlaceholderParentView,
                         mActivityLifecycleDispatcher,
                         mProfileSupplier);
 
@@ -353,9 +349,6 @@ public class StartSurfaceCoordinator implements StartSurface {
 
     @Override
     public void show(boolean animate) {
-        if (!mUseMagicSpace) {
-            getSingleTabListDelegate().prepareTabSwitcherView();
-        }
         mStartSurfaceMediator.show(animate);
     }
 
@@ -380,16 +373,6 @@ public class StartSurfaceCoordinator implements StartSurface {
         if (mView != null) {
             mView.removeHeaderOffsetChangeListener(onOffsetChangedListener);
         }
-    }
-
-    @Override
-    public void addStateChangeObserver(StateObserver observer) {
-        mStartSurfaceMediator.addStateChangeObserver(observer);
-    }
-
-    @Override
-    public void removeStateChangeObserver(StateObserver observer) {
-        mStartSurfaceMediator.removeStateChangeObserver(observer);
     }
 
     @Override
@@ -462,11 +445,6 @@ public class StartSurfaceCoordinator implements StartSurface {
     @Override
     public boolean isHomepageShown() {
         return mStartSurfaceMediator.isHomepageShown();
-    }
-
-    @Override
-    public TabSwitcher.TabListDelegate getSingleTabListDelegate() {
-        return mIsStartSurfaceEnabled ? mTabSwitcherModule.getTabListDelegate() : null;
     }
 
     @Override
@@ -578,9 +556,6 @@ public class StartSurfaceCoordinator implements StartSurface {
                         mActivityLifecycleDispatcher,
                         mvTilesContainer,
                         mWindowAndroid,
-                        TabUiFeatureUtilities.supportInstantStart(
-                                DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity),
-                                mActivity),
                         /* isScrollableMVTEnabled= */ true,
                         Integer.MAX_VALUE,
                         /* snapshotTileGridChangedRunnable= */ null,
@@ -861,7 +836,7 @@ public class StartSurfaceCoordinator implements StartSurface {
                         BrowserUiUtils.HostSurface.START_SURFACE);
 
         mMostVisitedCoordinator.initWithNative(
-                mSuggestionsUiDelegate, mTileGroupDelegate, enabled -> {});
+                profile, mSuggestionsUiDelegate, mTileGroupDelegate, enabled -> {});
         mIsMVTilesInitialized = true;
     }
 

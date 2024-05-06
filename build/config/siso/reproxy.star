@@ -173,13 +173,13 @@ def __rewrite_rewrapper(ctx, cmd, use_large = False):
             return
     if not rwcfg:
         fail("couldn't find rewrapper cfg file in %s" % str(cmd.args))
-    if cmd.outputs[0] == ctx.fs.canonpath("./obj/third_party/abseil-cpp/absl/functional/any_invocable_test/any_invocable_test.o"):
-        # need longer timeout for any_invocable_test.o crbug.com/1484474
-        rwcfg.update({
-            "exec_timeout": "4m",
-        })
     if use_large:
-        if "platform" in rwcfg:
+        platform = rwcfg.get("platform", {})
+        if platform.get("OSFamily") == "Windows":
+            # Since there is no large Windows workers, it needs to run locally.
+            ctx.actions.fix(args = args)
+            return
+        if platform:
             action_key = None
             for key in rwcfg["platform"]:
                 if key.startswith("label:action_"):
@@ -192,6 +192,10 @@ def __rewrite_rewrapper(ctx, cmd, use_large = False):
         rwcfg["platform"].update({
             "label:action_large": "1",
         })
+
+        # Some large compiles take longer than the default timeout 2m.
+        rwcfg["exec_timeout"] = "4m"
+        rwcfg["reclient_timeout"] = "4m"
     ctx.actions.fix(
         args = args,
         reproxy_config = json.encode(rwcfg),
@@ -226,22 +230,7 @@ def __use_remoteexec(ctx):
 
 def __step_config(ctx, step_config):
     # New rules to convert commands calling rewrapper to use reproxy instead.
-    new_rules = [
-        # Disabling remote should always come first.
-        {
-            # TODO(b/281663988): missing headers.
-            "name": "b281663988/missing-headers",
-            "action_outs": [
-                "./obj/ui/qt/qt5_shim/qt_shim.o",
-                "./obj/ui/qt/qt6_shim/qt_shim.o",
-                "./obj/ui/qt/qt5_shim/qt5_shim_moc.o",
-                "./obj/ui/qt/qt6_shim/qt6_shim_moc.o",
-                "./obj/ui/qt/qt_interface/qt_interface.o",
-            ],
-            "remote": False,
-            "handler": "strip_rewrapper",
-        },
-    ]
+    new_rules = []
 
     # Disable racing on builders since bots don't have many CPU cores.
     # TODO: b/297807325 - Siso wants to handle local execution.

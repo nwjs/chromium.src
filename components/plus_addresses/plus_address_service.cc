@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/check_op.h"
-#include "base/rand_util.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
@@ -23,6 +22,7 @@
 #include "components/plus_addresses/plus_address_metrics.h"
 #include "components/plus_addresses/plus_address_prefs.h"
 #include "components/plus_addresses/plus_address_types.h"
+#include "components/plus_addresses/webdata/plus_address_sync_util.h"
 #include "components/plus_addresses/webdata/plus_address_webdata_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/consent_level.h"
@@ -61,16 +61,25 @@ PlusAddressService::PlusAddressService(
     : identity_manager_(identity_manager),
       pref_service_(pref_service),
       plus_address_http_client_(std::move(plus_address_http_client)),
-      webdata_service_(webdata_service),
+      webdata_service_(std::move(webdata_service)),
       plus_address_allocator_(std::make_unique<PlusAddressJitAllocator>(
           plus_address_http_client_.get())),
       excluded_sites_(GetAndParseExcludedSites()) {
-  CreateAndStartTimer();
-  if (identity_manager) {
-    identity_manager_observation_.Observe(identity_manager);
-  }
-  if (webdata_service_ && is_enabled()) {
-    webdata_service_->GetPlusProfiles(this);
+  if (IsSyncingPlusAddresses()) {
+    if (webdata_service_) {
+      webdata_service_observation_.Observe(webdata_service_.get());
+      if (is_enabled()) {
+        webdata_service_->GetPlusProfiles(this);
+      }
+    }
+  } else {
+    CreateAndStartTimer();
+    // Observing the identity manager is only necessary to clear data on
+    // sign-out and start polling plus addresses for newly signed in accounts.
+    // When plus addresses arrive via sync, this becomes unnecessary.
+    if (identity_manager) {
+      identity_manager_observation_.Observe(identity_manager);
+    }
   }
 }
 
@@ -107,37 +116,42 @@ std::optional<std::string> PlusAddressService::GetPlusAddress(
 
 std::vector<PlusProfile> PlusAddressService::GetPlusProfiles() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::vector<PlusProfile> profiles;
-  profiles.reserve(plus_address_by_site_.size());
-  for (const auto& [facet, plus_address] : plus_address_by_site_) {
-    profiles.push_back(PlusProfile(
-        {.facet = facet, .plus_address = plus_address, .is_confirmed = true}));
-  }
-  return profiles;
+  return std::vector<PlusProfile>(plus_profiles_.begin(), plus_profiles_.end());
 }
 
 std::optional<PlusProfile> PlusAddressService::GetPlusProfile(
     const url::Origin& origin) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   std::string etld_plus_one = GetEtldPlusOne(origin);
-  auto it = plus_address_by_site_.find(etld_plus_one);
-  if (it == plus_address_by_site_.end()) {
+  // `facet` is used as the comparator, so the other fields don't matter.
+  auto it = plus_profiles_.find({.facet = etld_plus_one});
+  if (it == plus_profiles_.end()) {
     return std::nullopt;
   }
-  // Assume that 'is_confirmed` = TRUE since this service only has a saved plus
-  // address if it was successfully confirmed via the dialog or retrieved via
-  // polling (which only returns confirmed plus addresses).
-  return PlusProfile({.facet = etld_plus_one,
-                      .plus_address = it->second,
-                      .is_confirmed = true});
+  return *it;
 }
 
-void PlusAddressService::SavePlusAddress(url::Origin origin,
-                                         std::string plus_address) {
+void PlusAddressService::SavePlusProfile(url::Origin origin,
+                                         const PlusProfile& profile) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::string etld_plus_one = GetEtldPlusOne(origin);
-  plus_address_by_site_[etld_plus_one] = plus_address;
-  plus_addresses_.insert(plus_address);
+  const PlusProfile profile_to_save = {.profile_id = profile.profile_id,
+                                       .facet = GetEtldPlusOne(origin),
+                                       .plus_address = profile.plus_address,
+                                       .is_confirmed = true};
+  // New plus addresses are requested directly from the PlusAddress backend. If
+  // `IsSyncingPlusAddresses()`, these addresses become later available through
+  // sync. Until the address shows up in sync, it should still be available
+  // through `PlusAddressService`, even after reloading the data. This requires
+  // adding the address to the database.
+  if (webdata_service_ && IsSyncingPlusAddresses()) {
+    webdata_service_->AddOrUpdatePlusProfile(profile_to_save);
+  }
+  // Update the in-memory `plus_profiles_` cache.
+  plus_profiles_.insert(profile_to_save);
+  plus_addresses_.insert(profile_to_save.plus_address);
+  for (Observer& o : observers_) {
+    o.OnPlusAddressesChanged();
+  }
 }
 
 bool PlusAddressService::IsPlusAddress(
@@ -227,7 +241,7 @@ void PlusAddressService::HandleCreateOrConfirmResponse(
   if (maybe_profile.has_value()) {
     account_is_forbidden_ = false;
     if (maybe_profile->is_confirmed) {
-      SavePlusAddress(origin, maybe_profile->plus_address);
+      SavePlusProfile(origin, *maybe_profile);
     }
   } else {
     HandlePlusAddressRequestError(maybe_profile.error());
@@ -253,7 +267,7 @@ bool PlusAddressService::is_enabled() const {
       account_is_forbidden_.has_value() && account_is_forbidden_.value()) {
     return false;
   }
-  return base::FeatureList::IsEnabled(features::kFeature) &&
+  return base::FeatureList::IsEnabled(features::kPlusAddressesEnabled) &&
          (features::kEnterprisePlusAddressServerUrl.Get() != "") &&
          identity_manager_ != nullptr &&
          // Note that having a primary account implies that account's email will
@@ -307,49 +321,62 @@ void PlusAddressService::SyncPlusAddressMapping() {
 
 void PlusAddressService::UpdatePlusAddressMap(const PlusAddressMap& map) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!webdata_service_) {
-    // Tests might not have a database. In this case, update the local cache
-    // directly.
-    plus_address_by_site_ = map;
-    plus_addresses_.clear();
-    for (const auto& [_, value] : map) {
-      plus_addresses_.insert(value);
+  plus_profiles_.clear();
+  plus_addresses_.clear();
+  for (const auto& [facet, address] : map) {
+    // `UpdatePlusAddressMap()` is only called when sync support is disabled.
+    // In this case, profile_ids don't matter.
+    plus_profiles_.insert(
+        {.facet = facet, .plus_address = address, .is_confirmed = true});
+    plus_addresses_.insert(address);
+  }
+  for (Observer& o : observers_) {
+    o.OnPlusAddressesChanged();
+  }
+}
+
+void PlusAddressService::OnWebDataChangedBySync(
+    const PlusAddressSyncDataChange& change) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  switch (change.type()) {
+    case PlusAddressSyncDataChange::Type::kAdd: {
+      plus_profiles_.insert(change.profile());
+      plus_addresses_.insert(change.profile().plus_address);
+      break;
     }
-    return;
+    case PlusAddressSyncDataChange::Type::kRemove: {
+      plus_profiles_.erase(change.profile());
+      plus_addresses_.erase(change.profile().plus_address);
+      break;
+    }
   }
-  // Update the database.
-  webdata_service_->ClearPlusProfiles();
-  for (const auto& [facet, plus_address] : map) {
-    // TODO(b/322147254): Receive profile_ids from the PlusAddress backend. For
-    // now, just assign any random identifier.
-    webdata_service_->AddPlusProfile(
-        {.profile_id = static_cast<int64_t>(base::RandUint64() >> 1),
-         .facet = facet,
-         .plus_address = plus_address,
-         .is_confirmed = true});
+
+  for (Observer& o : observers_) {
+    o.OnPlusAddressesChanged();
   }
-  // TODO(b/322147254): Re-reading the data we just wrote is unnecessary and the
-  // local cache could be updated right away. This simply exists as a "sanity
-  // check" that the round trip to the database works. Once the sync integration
-  // has finished, `UpdatePlusAddressMap()` and the surrounding polling logic
-  // will be removed.
-  webdata_service_->GetPlusProfiles(this);
 }
 
 void PlusAddressService::OnWebDataServiceRequestDone(
     WebDataServiceBase::Handle handle,
     std::unique_ptr<WDTypedResult> result) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK_EQ(result->GetType(), PLUS_ADDRESS_RESULT);
-  std::vector<PlusProfile> plus_profiles =
+  ReplacePlusProfiles(
       static_cast<WDResult<std::vector<PlusProfile>>*>(result.get())
-          ->GetValue();
-  plus_address_by_site_.clear();
+          ->GetValue());
+}
+
+void PlusAddressService::ReplacePlusProfiles(
+    const std::vector<PlusProfile>& profiles) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  plus_profiles_.clear();
   plus_addresses_.clear();
-  for (const PlusProfile& plus_profile : plus_profiles) {
-    plus_address_by_site_.insert(
-        {plus_profile.facet, plus_profile.plus_address});
+  for (const PlusProfile& plus_profile : profiles) {
+    plus_profiles_.insert(plus_profile);
     plus_addresses_.insert(plus_profile.plus_address);
+  }
+  for (Observer& o : observers_) {
+    o.OnPlusAddressesChanged();
   }
 }
 
@@ -380,7 +407,8 @@ void PlusAddressService::OnPrimaryAccountChanged(
 
 void PlusAddressService::OnErrorStateOfRefreshTokenUpdatedForAccount(
     const CoreAccountInfo& account_info,
-    const GoogleServiceAuthError& error) {
+    const GoogleServiceAuthError& error,
+    signin_metrics::SourceForRefreshTokenOperation token_operation_source) {
   if (auto primary_account = identity_manager_->GetPrimaryAccountInfo(
           signin::ConsentLevel::kSignin);
       primary_account.IsEmpty() ||
@@ -397,12 +425,12 @@ void PlusAddressService::OnErrorStateOfRefreshTokenUpdatedForAccount(
 
 void PlusAddressService::HandleSignout() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  plus_address_by_site_.clear();
+  plus_profiles_.clear();
   plus_addresses_.clear();
   polling_timer_.Stop();
   plus_address_http_client_->Reset();
-  if (webdata_service_) {
-    webdata_service_->ClearPlusProfiles();
+  for (Observer& o : observers_) {
+    o.OnPlusAddressesChanged();
   }
 }
 

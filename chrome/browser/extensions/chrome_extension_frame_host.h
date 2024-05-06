@@ -27,7 +27,6 @@ class ChromeExtensionFrameHost : public ExtensionFrameHost {
   ~ChromeExtensionFrameHost() override;
 
   // mojom::LocalFrameHost:
-  void UpdateDraggableRegions(std::vector<mojom::DraggableRegionPtr> regions) override;
   void RequestScriptInjectionPermission(
       const ExtensionId& extension_id,
       mojom::InjectionType script_type,

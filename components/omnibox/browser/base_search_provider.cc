@@ -20,6 +20,7 @@
 #include "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
 #include "components/omnibox/browser/autocomplete_provider_listener.h"
+#include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
@@ -36,6 +37,8 @@
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
+#include "third_party/omnibox_proto/navigational_intent.pb.h"
+#include "third_party/omnibox_proto/rich_answer_template.pb.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -122,8 +125,18 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
 
   match.contents = suggestion.match_contents();
   match.contents_class = suggestion.match_contents_class();
-  match.suggestion_group_id = suggestion.suggestion_group_id();
+  if (OmniboxFieldTrial::kAnswerActionsShowRichCard.Get() &&
+      suggestion.answer()) {
+    match.suggestion_group_id = omnibox::GROUP_MOBILE_RICH_ANSWER;
+  } else {
+    match.suggestion_group_id = suggestion.suggestion_group_id();
+  }
   match.answer = suggestion.answer();
+  // Ensure RichAnswerTemplate has an answer.
+  if (suggestion.answer_template().has_value() &&
+      suggestion.answer_template()->answers_size() > 0) {
+    match.answer_template = suggestion.answer_template();
+  }
   match.suggest_type = suggestion.suggest_type();
   for (const int subtype : suggestion.subtypes()) {
     match.subtypes.insert(SuggestSubtypeForNumber(subtype));
@@ -181,6 +194,7 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
   match.fill_into_edit = GetFillIntoEdit(suggestion, template_url);
   match.search_terms_args =
       std::make_unique<TemplateURLRef::SearchTermsArgs>(query);
+  match.search_terms_args->request_source = input.request_source();
   match.search_terms_args->original_query = original_query;
   match.search_terms_args->accepted_suggestion = accepted_suggestion;
   match.search_terms_args->additional_query_params =
@@ -207,6 +221,8 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
                                                        search_terms_data));
     }
   }
+
+  match.navigational_intent = suggestion.navigational_intent();
 
   return match;
 }
@@ -252,6 +268,7 @@ AutocompleteMatch BaseSearchProvider::CreateShortcutSearchSuggestion(
   SearchSuggestionParser::SuggestResult suggest_result(
       suggestion, type, /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, from_keyword,
+      /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/0, /*relevance_from_server=*/false,
       /*input_text=*/std::u16string());
   suggest_result.set_received_after_last_keystroke(false);
@@ -298,7 +315,8 @@ AutocompleteMatch BaseSearchProvider::CreateOnDeviceSearchSuggestion(
       /*annotation=*/std::u16string(),
       /*entity_info=*/omnibox::EntityInfo(),
       /*deletion_url=*/"",
-      /*from_keyword=*/false, relevance,
+      /*from_keyword=*/false,
+      /*navigational_intent=*/omnibox::NAV_INTENT_NONE, relevance,
       /*relevance_from_server=*/false,
       /*should_prefetch=*/false,
       /*should_prerender=*/false,
@@ -569,6 +587,20 @@ void BaseSearchProvider::AddMatchToMap(
         existing_match.duplicate_matches.back();
     if (less_relevant_duplicate_match.answer && !existing_match.answer) {
       existing_match.answer = less_relevant_duplicate_match.answer;
+      if (OmniboxFieldTrial::kAnswerActionsShowRichCard.Get()) {
+        existing_match.suggestion_group_id =
+            less_relevant_duplicate_match.suggestion_group_id;
+      }
+    }
+    if (omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled &&
+        less_relevant_duplicate_match.answer_template &&
+        !existing_match.answer_template) {
+      existing_match.answer_template =
+          less_relevant_duplicate_match.answer_template;
+      if (OmniboxFieldTrial::kAnswerActionsShowRichCard.Get()) {
+        existing_match.suggestion_group_id =
+            less_relevant_duplicate_match.suggestion_group_id;
+      }
     }
     // This is to avoid having shopping categorical queries lose their images to
     // higher-relevance local history and verbatim matches. This works for the
@@ -583,7 +615,7 @@ void BaseSearchProvider::AddMatchToMap(
     // contents. Ideally `entity_info` should also be kept on the match in its
     // entirety so it can be carried over when deduplicating the matches here or
     // later in the Autocomplete process.
-    // TODO(crbug.com/1467002): rework how `entity_info` is used in the match.
+    // TODO(crbug.com/40276602): rework how `entity_info` is used in the match.
     if (base::FeatureList::IsEnabled(omnibox::kCategoricalSuggestions)) {
       if (!less_relevant_duplicate_match.image_url.is_empty() &&
           existing_match.image_url.is_empty()) {

@@ -4,25 +4,25 @@
 
 import './cluster.js';
 import './history_clusters_shared_style.css.js';
-import 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
-import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
-import 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
-import 'chrome://resources/polymer/v3_0/iron-scroll-threshold/iron-scroll-threshold.js';
+import '//resources/cr_elements/cr_button/cr_button.js';
+import '//resources/cr_elements/cr_dialog/cr_dialog.js';
+import '//resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
+import '//resources/cr_elements/cr_toast/cr_toast.js';
+import '//resources/polymer/v3_0/iron-list/iron-list.js';
+import '//resources/polymer/v3_0/iron-scroll-threshold/iron-scroll-threshold.js';
 
-import type {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import type {CrLazyRenderElement} from 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
-import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
-import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
-import {assert} from 'chrome://resources/js/assert.js';
-import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import type {Time} from 'chrome://resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
-import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
-import type {IronListElement} from 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
-import type {IronScrollThresholdElement} from 'chrome://resources/polymer/v3_0/iron-scroll-threshold/iron-scroll-threshold.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import type {CrDialogElement} from '//resources/cr_elements/cr_dialog/cr_dialog.js';
+import type {CrLazyRenderElement} from '//resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
+import type {CrToastElement} from '//resources/cr_elements/cr_toast/cr_toast.js';
+import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
+import {assert} from '//resources/js/assert.js';
+import {FocusOutlineManager} from '//resources/js/focus_outline_manager.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import type {Time} from '//resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
+import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
+import type {IronListElement} from '//resources/polymer/v3_0/iron-list/iron-list.js';
+import type {IronScrollThresholdElement} from '//resources/polymer/v3_0/iron-scroll-threshold/iron-scroll-threshold.js';
+import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
 import {getTemplate} from './clusters.html.js';
@@ -111,6 +111,11 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
         type: Object,
         value: () => [],
       },
+
+      scrollTarget: {
+        type: Object,
+        observer: 'onScrollTargetChanged_',
+      },
     };
   }
 
@@ -119,6 +124,7 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
   //============================================================================
 
   query: string;
+  scrollTarget: HTMLElement = document.documentElement;
   private callbackRouter_: PageCallbackRouter;
   private headerText_: string;
   private inSidePanel_: boolean;
@@ -149,10 +155,6 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
     // Register a per-document singleton focus outline manager. Some of our
     // child elements depend on the CSS classes set by this singleton.
     FocusOutlineManager.forDocument(document);
-
-    this.$.clusters.notifyResize();
-    this.$.clusters.scrollTarget = this;
-    this.$.scrollThreshold.scrollTarget = this;
 
     this.onClustersQueryResultListenerId_ =
         this.callbackRouter_.onClustersQueryResult.addListener(
@@ -422,6 +424,10 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
       composed: true,
       detail: query,
     }));
+  }
+
+  private onScrollTargetChanged_() {
+    this.$.clusters.notifyResize();
   }
 }
 

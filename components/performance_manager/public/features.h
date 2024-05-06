@@ -15,16 +15,16 @@
 
 namespace performance_manager::features {
 
-// If enabled the PM runs on the main (UI) thread. Incompatible with
-// kRunOnDedicatedThreadPoolThread.
+// If enabled the PM runs on the main (UI) thread. Cannot be enabled
+// simultaneously with `kRunOnMainThreadSync`.
 BASE_DECLARE_FEATURE(kRunOnMainThread);
 
-// If enabled the PM runs on a single ThreadPool thread that isn't shared with
-// any other task runners. It will be named "Performance Manager" in traces.
-// This makes it easy to identify tasks running on the PM sequence, but may not
-// perform as well as a shared sequence, which is the default. Incompatible with
-// kRunOnMainThread.
-BASE_DECLARE_FEATURE(kRunOnDedicatedThreadPoolThread);
+// If enabled, the PM runs on the main (UI) thread *and* tasks posted to the PM
+// TaskRunner from the main (UI) thread run synchronously. Cannot be enabled
+// simultaneously with `kRunOnMainThread`. This is a standalone feature rather
+// than a param on `kRunOnMainThreadSync` because accessing the state of a
+// `base::Feature` is faster than accessing the state of a `base::FeatureParam`.
+BASE_DECLARE_FEATURE(kRunOnMainThreadSync);
 
 #if !BUILDFLAG(IS_ANDROID)
 
@@ -76,6 +76,8 @@ BASE_DECLARE_FEATURE(kMemorySaverMultistateMode);
 // saver option.
 extern const base::FeatureParam<bool> kMemorySaverShowRecommendedBadge;
 
+// Round 3 Performance Controls features
+
 // This enables the performance controls side panel for learning about and
 // configuring performance settings.
 BASE_DECLARE_FEATURE(kPerformanceControlsSidePanel);
@@ -90,23 +92,33 @@ BASE_DECLARE_FEATURE(kPrefetchVirtualMemoryPolicy);
 #endif
 
 // This represents the duration that CPU must be over the threshold before
-// an intervention is triggered.
+// a notification is triggered.
 extern const base::FeatureParam<base::TimeDelta> kCPUTimeOverThreshold;
 
-// If Chrome CPU utilization and System CPU utilization are both over the
-// specified percent thresholds then we will trigger an intervention.
-extern const base::FeatureParam<int> kCPUSystemPercentThreshold;
-extern const base::FeatureParam<int> kCPUChromePercentThreshold;
+// Frequency to sample for cpu usage to ensure that the user is experiencing
+// consistent cpu issues before surfacing a notification
+extern const base::FeatureParam<base::TimeDelta> kCPUSampleFrequency;
+
+// If the system CPU consistently exceeds these percent thresholds, then
+// the CPU health will be classified as the threshold it is exceeding
+extern const base::FeatureParam<int> kCPUDegradedHealthPercentageThreshold;
+extern const base::FeatureParam<int> kCPUUnhealthyPercentageThreshold;
+
+// Maximum number of tabs to be actionable
+extern const base::FeatureParam<int> kCPUMaxActionableTabs;
+
+// Minimum percentage to improve CPU health for a tab to be actionable
+extern const base::FeatureParam<int> kMinimumActionableTabCPUPercentage;
 
 // This enables the Memory performance interventions within the side panel.
 BASE_DECLARE_FEATURE(kPerformanceMemoryIntervention);
 
 // This represents the duration that Memory must be over the threshold before
-// an intervention is triggered.
+// a notification is triggered.
 extern const base::FeatureParam<base::TimeDelta> kMemoryTimeOverThreshold;
 
 // If available Memory percent and bytes are both under the specified thresholds
-// then we will trigger an intervention.
+// then we will trigger a notification.
 extern const base::FeatureParam<int> kMemoryFreePercentThreshold;
 extern const base::FeatureParam<int> kMemoryFreeBytesThreshold;
 

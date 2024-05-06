@@ -43,7 +43,7 @@
 #include "components/search_engines/enterprise_site_search_manager.h"
 #include "components/search_engines/keyword_web_data_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
-#include "components/search_engines/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/search_terms_data.h"
@@ -485,6 +485,13 @@ void TemplateURLService::RegisterProfilePrefs(
     registry->RegisterStringPref(
         prefs::kDefaultSearchProviderChoiceScreenCompletionVersion,
         std::string());
+    registry->RegisterDictionaryPref(
+        prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
+
+#if BUILDFLAG(IS_IOS)
+    registry->RegisterIntegerPref(
+        prefs::kDefaultSearchProviderChoiceScreenSkippedCount, 0);
+#endif
   }
 }
 
@@ -795,9 +802,10 @@ TemplateURLService::TemplateURLVector TemplateURLService::GetTemplateURLs() {
   return result;
 }
 
-TemplateURLService::OwnedTemplateURLVector
-TemplateURLService::GetTemplateURLsForChoiceScreen() {
-  OwnedTemplateURLVector result;
+std::unique_ptr<search_engines::ChoiceScreenData>
+TemplateURLService::GetChoiceScreenData() {
+  OwnedTemplateURLVector owned_template_urls;
+  bool was_current_default_inserted = false;
 
   // We call `GetPrepopulatedEngines` instead of
   // `GetSearchProvidersUsingLoadedEngines` because the latter will return the
@@ -809,11 +817,17 @@ TemplateURLService::GetTemplateURLsForChoiceScreen() {
       TemplateURLPrepopulateData::GetPrepopulatedEngines(
           prefs_, search_engine_choice_service_,
           /*default_search_provider_index=*/nullptr,
-          /*include_current_default=*/true, /*template_url_service=*/this);
+          /*include_current_default=*/true, /*template_url_service=*/this,
+          /*was_current_default_inserted=*/&was_current_default_inserted);
   for (const auto& engine : engines) {
-    result.push_back(std::make_unique<TemplateURL>(*engine));
+    owned_template_urls.push_back(std::make_unique<TemplateURL>(*engine));
   }
-  return result;
+
+  return std::make_unique<search_engines::ChoiceScreenData>(
+      std::move(owned_template_urls),
+      search_engine_choice_service_->GetCountryId(),
+      /*list_is_modified_by_current_default=*/was_current_default_inserted,
+      search_terms_data());
 }
 
 #if BUILDFLAG(IS_ANDROID)

@@ -52,12 +52,12 @@ import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager;
 import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchObserver;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchSelection;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchSelectionObserver;
 import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
+import org.chromium.chrome.browser.desktop_windowing.AppHeaderCoordinator;
 import org.chromium.chrome.browser.device_lock.DeviceLockActivityLauncherImpl;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeToolbarButtonController;
@@ -124,12 +124,16 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabLoadIfNeededCaller;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabObscuringHandlerSupplier;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncController;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
+import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_management.RecyclerViewPosition;
-import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ButtonDataProvider;
+import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarIntentMetadata;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.VoiceToolbarButtonController;
@@ -338,6 +342,9 @@ public class RootUiCoordinator
     private @Nullable BoardingPassController mBoardingPassController;
     private @Nullable ObservableSupplier<Integer> mOverviewColorSupplier;
     private @Nullable View mBaseChromeLayout;
+    protected OneshotSupplierImpl<AppHeaderCoordinator> mAppHeaderCoordinatorSupplier =
+            new OneshotSupplierImpl<>();
+    private TabGroupSyncController mTabGroupSyncController;
 
     /**
      * Create a new {@link RootUiCoordinator} for the given activity.
@@ -522,14 +529,22 @@ public class RootUiCoordinator
 
         mStartSurfaceParentTabSupplier = startSurfaceParentTabSupplier;
 
+        boolean isTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity);
         mTopUiThemeColorProvider =
                 new TopUiThemeColorProvider(
                         mActivity,
                         mActivityTabProvider,
                         activityThemeColorSupplier,
-                        DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity),
+                        isTablet,
                         shouldAllowThemingInNightMode(),
-                        shouldAllowBrightThemeColors());
+                        shouldAllowBrightThemeColors(),
+                        ToolbarFeatures.isTabStripWindowLayoutOptimizationEnabled(isTablet)
+                                ? mActivityLifecycleDispatcher
+                                : null);
+        mAppHeaderCoordinatorSupplier.onAvailable(
+                appHeaderCoordinator ->
+                        mTopUiThemeColorProvider.setDesktopWindowModeSupplier(
+                                appHeaderCoordinator));
 
         mStatusBarColorController =
                 new StatusBarColorController(
@@ -596,6 +611,14 @@ public class RootUiCoordinator
         return null;
     }
 
+    /**
+     * @return Supplier for the {@link AppHeaderCoordinator} instance associated with the current
+     *     activity.
+     */
+    public OneshotSupplier<AppHeaderCoordinator> getAppHeaderCoordinatorSupplier() {
+        return mAppHeaderCoordinatorSupplier;
+    }
+
     public void onAttachFragment(Fragment fragment) {
         if (fragment instanceof QrCodeDialog) {
             QrCodeDialog qrCodeDialog = (QrCodeDialog) fragment;
@@ -612,6 +635,11 @@ public class RootUiCoordinator
 
         destroyUnownedUserDataSuppliers();
         mActivityLifecycleDispatcher.unregister(this);
+
+        if (mTabGroupSyncController != null) {
+            mTabGroupSyncController.destroy();
+            mTabGroupSyncController = null;
+        }
 
         if (mMessageDispatcher != null) {
             mMessageDispatcher.dismissAllMessages(DismissReason.ACTIVITY_DESTROYED);
@@ -871,6 +899,14 @@ public class RootUiCoordinator
         // Setup IncognitoReauthController as early as possible, to show the re-auth screen.
         if (IncognitoReauthManager.isIncognitoReauthFeatureAvailable()) {
             initIncognitoReauthController();
+        }
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUP_SYNC_ANDROID)) {
+            mTabGroupSyncController =
+                    new TabGroupSyncController(
+                            mTabModelSelectorSupplier.get(),
+                            mTabCreatorManagerSupplier.get(),
+                            TabGroupSyncServiceFactory.getForProfile(mProfileSupplier.get()));
         }
 
         initMessagesInfra();
@@ -1458,7 +1494,8 @@ public class RootUiCoordinator
                             mBackPressManager,
                             mOverviewColorSupplier,
                             mBaseChromeLayout,
-                            mReadAloudControllerSupplier);
+                            mReadAloudControllerSupplier,
+                            mAppHeaderCoordinatorSupplier);
             if (!mSupportsAppMenuSupplier.getAsBoolean()) {
                 mToolbarManager.getToolbar().disableMenuButton();
             }

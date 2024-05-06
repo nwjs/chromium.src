@@ -1973,6 +1973,10 @@ bool HTMLInputElement::IsSteppable() const {
   return input_type_->IsSteppable();
 }
 
+bool HTMLInputElement::IsButton() const {
+  return input_type_->IsButton();
+}
+
 bool HTMLInputElement::IsTextButton() const {
   return input_type_->IsTextButton();
 }
@@ -2430,20 +2434,29 @@ void HTMLInputElement::showPicker(ExceptionState& exception_state) {
   input_type_view_->OpenPopupView();
 }
 
+bool HTMLInputElement::IsValidInvokeAction(HTMLElement& invoker,
+                                           InvokeAction action) {
+  bool parent_is_valid = HTMLElement::IsValidInvokeAction(invoker, action);
+  if (!RuntimeEnabledFeatures::HTMLInvokeActionsV2Enabled() ||
+      parent_is_valid) {
+    return parent_is_valid;
+  }
+
+  if (input_type_->IsNumberInputType()) {
+    if (action == InvokeAction::kStepUp || action == InvokeAction::kStepDown) {
+      return true;
+    }
+  }
+
+  return action == InvokeAction::kShowPicker;
+}
+
 bool HTMLInputElement::HandleInvokeInternal(HTMLElement& invoker,
-                                            AtomicString& action) {
+                                            InvokeAction action) {
+  CHECK(IsValidInvokeAction(invoker, action));
+
   if (HTMLElement::HandleInvokeInternal(invoker, action)) {
     return true;
-  }
-
-  if (!RuntimeEnabledFeatures::HTMLInvokeActionsV2Enabled()) {
-    return false;
-  }
-
-  // Step 3. If action is an ASCII case-insensitive match for showPicker ...
-  // Early return instead of doing this in step 3.
-  if (!EqualIgnoringASCIICase(action, keywords::kShowPicker)) {
-    return false;
   }
 
   // Step 1. If this is not mutable, then return.
@@ -2451,32 +2464,48 @@ bool HTMLInputElement::HandleInvokeInternal(HTMLElement& invoker,
     return false;
   }
 
-  // Step 2. If this's relevant settings object's origin is not same origin with
-  // this's relevant settings object's top-level origin, [...], then return.
-  Document& document = GetDocument();
-  LocalFrame* frame = document.GetFrame();
-  if (frame && !frame->IsSameOrigin()) {
-    String message = "Input cannot be invoked from cross-origin iframe.";
-    document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::ConsoleMessageSource::kJavaScript,
-        mojom::ConsoleMessageLevel::kWarning, message));
-    return false;
+  if (action == InvokeAction::kShowPicker) {
+    // Step 2. If this's relevant settings object's origin is not same origin
+    // with this's relevant settings object's top-level origin, [...], then
+    // return.
+    Document& document = GetDocument();
+    LocalFrame* frame = document.GetFrame();
+    if (frame && !frame->IsSameOrigin()) {
+      String message = "Input cannot be invoked from cross-origin iframe.";
+      document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+          mojom::ConsoleMessageSource::kJavaScript,
+          mojom::ConsoleMessageLevel::kWarning, message));
+      return false;
+    }
+
+    // If this's relevant global object does not have transient
+    // activation, then return.
+    if (!LocalFrame::HasTransientUserActivation(frame)) {
+      String message = "Input cannot be invoked without a user gesture.";
+      document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+          mojom::ConsoleMessageSource::kJavaScript,
+          mojom::ConsoleMessageLevel::kWarning, message));
+      return false;
+    }
+
+    // Step 3. ... show the picker, if applicable, for this.
+    input_type_view_->OpenPopupView();
+    return true;
   }
 
-  // If this's relevant global object does not have transient
-  // activation, then return.
-  if (!LocalFrame::HasTransientUserActivation(frame)) {
-    String message = "Input cannot be invoked without a user gesture.";
-    document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::ConsoleMessageSource::kJavaScript,
-        mojom::ConsoleMessageLevel::kWarning, message));
-    return false;
+  if (input_type_->IsNumberInputType()) {
+    if (action == InvokeAction::kStepUp) {
+      input_type_->StepUp(1.0, ASSERT_NO_EXCEPTION);
+      return true;
+    }
+
+    if (action == InvokeAction::kStepDown) {
+      input_type_->StepUp(-1.0, ASSERT_NO_EXCEPTION);
+      return true;
+    }
   }
 
-  // Step 3. ... show the picker, if applicable, for this.
-  input_type_view_->OpenPopupView();
-
-  return true;
+  return false;
 }
 
 }  // namespace blink

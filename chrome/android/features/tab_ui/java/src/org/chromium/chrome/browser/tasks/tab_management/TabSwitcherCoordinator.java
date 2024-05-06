@@ -29,7 +29,6 @@ import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
@@ -41,12 +40,15 @@ import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingUtilities;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
+import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
-import org.chromium.chrome.browser.tasks.pseudotab.TabAttributeCache;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.suggestions.TabSuggestionsOrchestrator;
@@ -95,7 +97,6 @@ public class TabSwitcherCoordinator
     private final TabSwitcherMessageManager mMessageManager;
     private final TabListEditorManager mTabListEditorManager;
     private TabSuggestionsOrchestrator mTabSuggestionsOrchestrator;
-    private TabAttributeCache mTabAttributeCache;
     private ViewGroup mContainer;
     private TabCreatorManager mTabCreatorManager;
     private boolean mIsInitialized;
@@ -316,10 +317,6 @@ public class TabSwitcherCoordinator
             mMenuOrKeyboardActionController.registerMenuOrKeyboardActionHandler(
                     mTabSwitcherMenuActionHandler);
 
-            if (ChromeFeatureList.sInstantStart.isEnabled()) {
-                mTabAttributeCache = new TabAttributeCache(mTabModelSelector);
-            }
-
             mLifecycleDispatcher = lifecycleDispatcher;
             mLifecycleDispatcher.register(this);
         }
@@ -452,6 +449,11 @@ public class TabSwitcherCoordinator
     @Override
     public void setTabSwitcherRecyclerViewPosition(RecyclerViewPosition recyclerViewPosition) {
         mTabListCoordinator.setRecyclerViewPosition(recyclerViewPosition);
+    }
+
+    @Override
+    public void refreshTabList() {
+        mMediator.refreshTabList();
     }
 
     @Override
@@ -597,9 +599,6 @@ public class TabSwitcherCoordinator
         mMediator.destroy();
         mMessageManager.destroy();
         mLifecycleDispatcher.unregister(this);
-        if (mTabAttributeCache != null) {
-            mTabAttributeCache.destroy();
-        }
         if (mPriceAnnotationsPrefListener != null) {
             ContextUtils.getAppSharedPreferences()
                     .unregisterOnSharedPreferenceChangeListener(mPriceAnnotationsPrefListener);
@@ -618,5 +617,10 @@ public class TabSwitcherCoordinator
 
     private TabSwitcherMessageManager getMessageManager() {
         return mMessageManager;
+    }
+
+    @Override
+    public void openInvitationModal(String invitationId) {
+        return;
     }
 }

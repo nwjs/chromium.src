@@ -64,9 +64,8 @@ declare namespace chrome {
     // Whether the Read Aloud feature flag is enabled.
     let isReadAloudEnabled: boolean;
 
-    // Indicates if select-to-distill works on the web page. Used to
-    // determine which empty state to display.
-    let isSelectable: boolean;
+    // Indicates if this page is a Google doc.
+    let isGoogleDocs: boolean;
 
     // Fonts supported by the browser's preferred language.
     let supportedFonts: string[];
@@ -115,9 +114,6 @@ declare namespace chrome {
 
     // Returns true if the element is a leaf node.
     function isLeafNode(nodeId: number): boolean;
-
-    // Returns true if the webpage corresponds to a Google Doc.
-    function isGoogleDocs(): boolean;
 
     // Connects to the browser process. Called by ts when the read anything
     // element is added to the document.
@@ -215,7 +211,7 @@ declare namespace chrome {
         foregroundColor: number, backgroundColor: number, lineSpacing: number,
         letterSpacing: number): void;
 
-    // Sets the default language. Used by tests only.
+    // Sets the page language. Used by tests only.
     function setLanguageForTesting(code: string): void;
 
     // Called when the side panel has finished loading and it's safe to call
@@ -302,5 +298,8 @@ declare namespace chrome {
     // Gets the readable name for a locale code
     function getDisplayNameForLocale(locale: string, displayLocale: string):
         string;
+
+    // Log UmaHistogramLong
+    function logMetric(time: number, metricName: string): void;
   }
 }

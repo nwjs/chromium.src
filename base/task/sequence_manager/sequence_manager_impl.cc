@@ -1057,7 +1057,7 @@ void SequenceManagerImpl::ReclaimMemory() {
   LazyNow lazy_now(main_thread_clock());
   for (auto it = main_thread_only().active_queues.begin();
        it != main_thread_only().active_queues.end();) {
-    auto* const queue = (*it++).get();
+    auto* const queue = *it++;
     ReclaimMemoryFromQueue(queue, &lazy_now);
   }
 }
@@ -1097,11 +1097,12 @@ SequenceManagerImpl::GetMetricRecordingSettings() const {
   return metric_recording_settings_;
 }
 
-void SequenceManagerImpl::SetTaskExecutionAllowed(bool allowed) {
-  controller_->SetTaskExecutionAllowed(allowed);
+void SequenceManagerImpl::SetTaskExecutionAllowedInNativeNestedLoop(
+    bool allowed) {
+  controller_->SetTaskExecutionAllowedInNativeNestedLoop(allowed);
 }
 
-bool SequenceManagerImpl::IsTaskExecutionAllowed() const {
+bool SequenceManagerImpl::IsTaskExecutionAllowedInNativeNestedLoop() const {
   return controller_->IsTaskExecutionAllowed();
 }
 

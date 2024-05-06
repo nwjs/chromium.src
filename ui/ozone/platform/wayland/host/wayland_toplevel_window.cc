@@ -5,6 +5,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_toplevel_window.h"
 
 #include <aura-shell-client-protocol.h>
+
 #include <string>
 
 #include "base/nix/xdg_util.h"
@@ -26,6 +27,7 @@
 #include "ui/ozone/platform/wayland/host/gtk_surface1.h"
 #include "ui/ozone/platform/wayland/host/shell_object_factory.h"
 #include "ui/ozone/platform/wayland/host/shell_toplevel_wrapper.h"
+#include "ui/ozone/platform/wayland/host/wayland_bubble.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
 #include "ui/ozone/platform/wayland/host/wayland_event_source.h"
@@ -179,6 +181,9 @@ void WaylandToplevelWindow::Hide() {
     child_window()->Hide();
     set_child_window(nullptr);
   }
+  for (auto bubble : child_bubbles()) {
+    bubble->Hide();
+  }
   WaylandWindow::Hide();
 
   // Request the compositor to cease any possible ongoing snapping
@@ -322,12 +327,15 @@ void WaylandToplevelWindow::Activate() {
   } else if (gtk_surface1_) {
     gtk_surface1_->RequestFocus();
   }
+
   // This is required as the high level activation might not get a flush for
   // a while. Example: Ash calls OpenURL in Lacros, which activates a window
   // but nothing more happens (until the user moves the mouse over a Lacros
   // window in which case events will start and the activation will come
   // through).
   connection()->Flush();
+
+  WaylandWindow::Activate();
 }
 
 void WaylandToplevelWindow::Deactivate() {
@@ -335,6 +343,7 @@ void WaylandToplevelWindow::Deactivate() {
     shell_toplevel_->Deactivate();
     connection()->Flush();
   }
+  WaylandWindow::Deactivate();
 }
 
 void WaylandToplevelWindow::SizeConstraintsChanged() {
@@ -644,18 +653,30 @@ void WaylandToplevelWindow::HandleAuraToplevelConfigure(
   pending_configure_state_.size_px =
       delegate()->ConvertRectToPixels(bounds_dip).size();
 
-  // Store the restored bounds if current state differs from the normal state.
-  // It can be client or compositor side change from normal to something else.
-  // Thus, we must store previous bounds to restore later.
-  SetOrResetRestoredBounds();
+  // Update `restored_bounds_dip_` which is used when the window gets back to
+  // normal state after it went maximized or fullscreen. It can be client or
+  // compositor side change, so we must store previous bounds to restore later.
+  // We reset `restored_bounds_dip_` if the window is normal, snapped or floated
+  // state, or update it to the applied bounds if we don't have any meaningful
+  // value stored.
+  if (ShouldSetBounds(state_)) {
+    SetRestoredBoundsInDIP({});
+  } else if (GetRestoredBoundsInDIP().IsEmpty()) {
+    SetRestoredBoundsInDIP(GetBoundsInDIP());
+  }
 
   if (old_state != state_ && !skip_window_state_changed_notification) {
     previous_state_ = old_state;
     delegate()->OnWindowStateChanged(previous_state_, state_);
   }
 
-  if (did_active_change)
-    delegate()->OnActivationChanged(is_active_);
+  if (did_active_change) {
+    if (active_bubble()) {
+      ActivateBubble(is_active_ ? active_bubble() : nullptr);
+    } else {
+      delegate()->OnActivationChanged(is_active_);
+    }
+  }
 }
 
 void WaylandToplevelWindow::SetBoundsInPixels(const gfx::Rect& bounds) {
@@ -858,22 +879,6 @@ void WaylandToplevelWindow::SetImmersiveFullscreenStatus(bool status) {
 
   if (shell_toplevel_) {
     shell_toplevel_->SetUseImmersiveMode(status);
-  } else {
-    // TODO(elkurin): Investigate whether we can deprecate this clause. This
-    // pass is used by some tests which do not set shell properly and ideally we
-    // would like to fix those tests. After those fixes, remove this clause or
-    // replace it by CHECK.
-    NOTIMPLEMENTED_LOG_ONCE();
-    // TODO(https://crbug.com/1113900): With Lacros, the state change gets
-    // completed asynchronously (see removal of notification call in
-    // `BrowserView::ProcessFullscreen`). As such we need to release any waiting
-    // application now. This needs also be properly addressed with the
-    // immersive mode change inside the immersive mode handling by calling
-    // this delegate - or `BrowserView::FullscreenStateChanged()` directly.
-    auto new_type = status ? PlatformFullscreenType::kImmersive
-                           : PlatformFullscreenType::kPlain;
-    delegate()->OnFullscreenTypeChanged(fullscreen_type_, new_type);
-    fullscreen_type_ = new_type;
   }
 }
 
@@ -897,12 +902,27 @@ void WaylandToplevelWindow::SetShadowCornersRadii(
 
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
-PlatformWindowDelegate::State WaylandToplevelWindow::GetLatchedState() const {
-  return latched_state();
-}
-
 void WaylandToplevelWindow::RoundTripQueue() {
   connection()->RoundTripQueue();
+}
+
+bool WaylandToplevelWindow::HasInFlightRequestsForState() const {
+  CHECK(UseTestConfigForPlatformWindows());
+  return WaylandWindow::HasInFlightRequestsForStateForTesting();
+}
+
+int64_t WaylandToplevelWindow::GetVizSequenceIdForAppliedState() const {
+  CHECK(UseTestConfigForPlatformWindows());
+  return latest_applied_viz_seq_for_testing_;
+}
+
+int64_t WaylandToplevelWindow::GetVizSequenceIdForLatchedState() const {
+  CHECK(UseTestConfigForPlatformWindows());
+  return latest_latched_viz_seq_for_testing_;
+}
+
+void WaylandToplevelWindow::SetLatchImmediately(bool latch_immediately) {
+  latch_immediately_for_testing_ = latch_immediately;
 }
 
 void WaylandToplevelWindow::ShowSnapPreview(
@@ -1219,19 +1239,6 @@ void WaylandToplevelWindow::SetSizeConstraints() {
   shell_toplevel_->SetCanFullscreen(delegate()->CanFullscreen());
 
   connection()->Flush();
-}
-
-void WaylandToplevelWindow::SetOrResetRestoredBounds() {
-  // The |restored_size_in_dp_| are used when the window gets back to normal
-  // state after it went maximized or fullscreen.  So we reset these if the
-  // window has just become normal and store the current bounds if it is
-  // either going out of normal state or simply changes the state and we don't
-  // have any meaningful value stored.
-  if (ShouldSetBounds(GetPlatformWindowState())) {
-    SetRestoredBoundsInDIP({});
-  } else if (GetRestoredBoundsInDIP().IsEmpty()) {
-    SetRestoredBoundsInDIP(GetBoundsInDIP());
-  }
 }
 
 void WaylandToplevelWindow::SetUpShellIntegration() {

@@ -5,11 +5,13 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition.h"
 #include <vector>
 
+#include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_sync_iterator_view_transition_type_set.h"
 #include "third_party/blink/renderer/core/css/css_rule.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -30,6 +32,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/clip_paint_property_node.h"
 #include "third_party/blink/renderer/platform/heap/cross_thread_handle.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
@@ -42,24 +45,6 @@ namespace {
 uint32_t NextDocumentTag() {
   static uint32_t next_document_tag = 1u;
   return next_document_tag++;
-}
-
-std::optional<Vector<String>> FilterTypes(
-    const std::optional<Vector<String>>& types) {
-  std::optional<Vector<String>> result;
-  if (!types) {
-    return result;
-  }
-
-  result.emplace();
-  for (const auto& type : *types) {
-    String lower = type.LowerASCII();
-    if (lower == "none" || lower.StartsWith("-ua-")) {
-      continue;
-    }
-    result->push_back(type);
-  }
-  return result;
 }
 
 }  // namespace
@@ -159,12 +144,11 @@ ViewTransition::ViewTransition(PassKey,
       script_delegate_(MakeGarbageCollected<DOMViewTransition>(
           *document->GetExecutionContext(),
           *this,
-          update_dom_callback)),
-      types_(FilterTypes(types)) {
-  CHECK(RuntimeEnabledFeatures::ViewTransitionTypesEnabled() || !types_);
+          update_dom_callback)) {
+  InitTypes(types.value_or(Vector<String>()));
   if (auto* originating_element = document_->documentElement()) {
     originating_element->ActiveViewTransitionStateChanged();
-    if (types_ && !types_->empty()) {
+    if (types_ && !types_->IsEmpty()) {
       originating_element->ActiveViewTransitionTypeStateChanged();
     }
   }
@@ -190,15 +174,17 @@ ViewTransition* ViewTransition::CreateForSnapshotForNavigation(
     Document* document,
     const viz::NavigationId& navigation_id,
     ViewTransitionStateCallback callback,
+    const Vector<String>& types,
     Delegate* delegate) {
   return MakeGarbageCollected<ViewTransition>(
-      PassKey(), document, navigation_id, std::move(callback), delegate);
+      PassKey(), document, navigation_id, std::move(callback), types, delegate);
 }
 
 ViewTransition::ViewTransition(PassKey,
                                Document* document,
                                const viz::NavigationId& navigation_id,
                                ViewTransitionStateCallback callback,
+                               const Vector<String>& types,
                                Delegate* delegate)
     : ExecutionContextLifecycleObserver(document->GetExecutionContext()),
       creation_type_(CreationType::kForSnapshot),
@@ -215,6 +201,7 @@ ViewTransition::ViewTransition(PassKey,
           *this)) {
   TRACE_EVENT0("blink", "ViewTransition::ViewTransition - CreatedForSnapshot");
   DCHECK(transition_state_callback_);
+  InitTypes(types);
   ProcessCurrentState();
 }
 
@@ -309,7 +296,7 @@ bool ViewTransition::AdvanceTo(State state) {
   if (!was_initial && IsTerminalState(state_)) {
     if (auto* originating_element = document_->documentElement()) {
       originating_element->ActiveViewTransitionStateChanged();
-      if (types_ && !types_->empty()) {
+      if (types_ && !types_->IsEmpty()) {
         originating_element->ActiveViewTransitionTypeStateChanged();
       }
     }
@@ -457,8 +444,14 @@ void ViewTransition::ProcessCurrentState() {
         break;
 
       // Capture request pending -- create the request
-      case State::kCaptureRequestPending:
-        if (!style_tracker_->Capture()) {
+      case State::kCaptureRequestPending: {
+        // If we're capturing during a navigation, browser controls will be
+        // forced to show via animation. Ensure they're fully showing when
+        // performing the capture.
+        bool snap_browser_controls =
+            document_->GetFrame()->IsOutermostMainFrame() &&
+            creation_type_ == CreationType::kForSnapshot;
+        if (!style_tracker_->Capture(snap_browser_controls)) {
           SkipTransition(PromiseResponse::kRejectInvalidState);
           break;
         }
@@ -485,7 +478,7 @@ void ViewTransition::ProcessCurrentState() {
         process_next_state = AdvanceTo(State::kCapturing);
         DCHECK(!process_next_state);
         break;
-
+      }
       case State::kCapturing:
         DCHECK(WaitsForNotification(state_));
         break;
@@ -505,7 +498,6 @@ void ViewTransition::ProcessCurrentState() {
 
           std::move(transition_state_callback_)
               .Run(std::move(view_transition_state));
-          SkipTransition(PromiseResponse::kRejectAbort);
           break;
         }
 
@@ -635,10 +627,22 @@ void ViewTransition::ProcessCurrentState() {
   }
 }
 
+ViewTransitionTypeSet* ViewTransition::Types() {
+  CHECK(types_);
+  return types_;
+}
+
+void ViewTransition::InitTypes(const Vector<String>& types) {
+  if (RuntimeEnabledFeatures::ViewTransitionTypesEnabled()) {
+    types_ = MakeGarbageCollected<ViewTransitionTypeSet>(this, types);
+  }
+}
+
 void ViewTransition::Trace(Visitor* visitor) const {
   visitor->Trace(document_);
   visitor->Trace(style_tracker_);
   visitor->Trace(script_delegate_);
+  visitor->Trace(types_);
 
   ExecutionContextLifecycleObserver::Trace(visitor);
 }
@@ -666,17 +670,15 @@ bool ViewTransition::MatchForActiveViewTransitionType(
   CHECK(!pseudo_types.empty());
 
   // If types are not specified, then there is no match.
-  if (!types_ || types_->empty()) {
+  if (!types_ || types_->IsEmpty()) {
     return false;
   }
 
   // At least one pseudo type has to match at least one of the transition types.
-  for (auto& pseudo_type : pseudo_types) {
-    if (types_->Contains(pseudo_type)) {
-      return true;
-    }
-  }
-  return false;
+  return base::ranges::any_of(pseudo_types, [&](const String& pseudo_type) {
+    return ViewTransitionTypeSet::IsValidType(pseudo_type) &&
+           types_->Contains(pseudo_type);
+  });
 }
 
 void ViewTransition::ContextDestroyed() {

@@ -71,6 +71,7 @@
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/caption_button_layout_constants.h"
 #include "ui/wm/core/shadow_controller.h"
 #include "ui/wm/core/shadow_types.h"
 #include "ui/wm/core/window_properties.h"
@@ -597,7 +598,7 @@ TEST_F(ShellSurfaceTest, HostWindowIncludesAllSubSurfaces) {
 
   constexpr gfx::Size kChildBufferSize(32, 32);
 
-  // Add child buffer at the upper-right corner of the root surface.
+  // Add child buffer at the upper-left corner of the root surface.
   auto child_buffer1 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface1 = std::make_unique<Surface>();
   child_surface1->Attach(child_buffer1.get());
@@ -606,7 +607,7 @@ TEST_F(ShellSurfaceTest, HostWindowIncludesAllSubSurfaces) {
   subsurface1->SetPosition(gfx::PointF(-10, -10));
   child_surface1->Commit();
 
-  // Add child buffer at the bottom-left corner of the root surface.
+  // Add child buffer at the bottom-right corner of the root surface.
   auto child_buffer2 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface2 = std::make_unique<Surface>();
   child_surface2->Attach(child_buffer2.get());
@@ -642,7 +643,7 @@ TEST_F(ShellSurfaceTest, HostWindowIncludesAllSubSurfacesWithScaleFactor) {
 
   constexpr gfx::Size kChildBufferSize(32, 32);
 
-  // Add child buffer at the upper-right corner of the root surface.
+  // Add child buffer at the upper-left corner of the root surface.
   auto child_buffer1 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface1 = std::make_unique<Surface>();
   child_surface1->Attach(child_buffer1.get());
@@ -651,7 +652,7 @@ TEST_F(ShellSurfaceTest, HostWindowIncludesAllSubSurfacesWithScaleFactor) {
   subsurface1->SetPosition(gfx::PointF(-10, -10));
   child_surface1->Commit();
 
-  // Add child buffer at the bottom-left corner of the root surface.
+  // Add child buffer at the bottom-right corner of the root surface.
   auto child_buffer2 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface2 = std::make_unique<Surface>();
   child_surface2->Attach(child_buffer2.get());
@@ -673,7 +674,7 @@ TEST_F(ShellSurfaceTest, HostWindowIncludesAllSubSurfacesWithScaleFactor) {
   EXPECT_EQ(gfx::Point(10, 10), shell_surface->root_surface_origin_pixel());
 }
 
-TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedArea) {
+TEST_F(ShellSurfaceTest, HostWindowNotIncludeAugmentedChild) {
   constexpr gfx::Point kOrigin(20, 20);
   std::unique_ptr<ShellSurface> shell_surface =
       test::ShellSurfaceBuilder({256, 256})
@@ -686,6 +687,7 @@ TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedArea) {
   auto child_buffer1 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface1 = std::make_unique<Surface>();
   child_surface1->Attach(child_buffer1.get());
+  child_surface1->set_is_augmented(true);
   child_surface1->SetClipRect(std::make_optional(gfx::RectF(5, 5, 32, 32)));
   auto subsurface1 = std::make_unique<SubSurface>(
       child_surface1.get(), shell_surface->root_surface());
@@ -696,10 +698,9 @@ TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedArea) {
   auto child_buffer2 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface2 = std::make_unique<Surface>();
   child_surface2->Attach(child_buffer2.get());
-  child_surface2->SetClipRect(std::make_optional(gfx::RectF(0, 0, 10, 10)));
   auto subsurface2 = std::make_unique<SubSurface>(
       child_surface2.get(), shell_surface->root_surface());
-  subsurface2->SetPosition(gfx::PointF(250, 250));
+  subsurface2->SetPosition(gfx::PointF(-10, 250));
   child_surface2->Commit();
 
   shell_surface->root_surface()->Commit();
@@ -710,13 +711,13 @@ TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedArea) {
 
   // Host window must be set to include all children subsurfaces, but not the
   // clipped area.
-  EXPECT_EQ(gfx::Rect(-5, -5, 265, 265),
+  EXPECT_EQ(gfx::Rect(-10, 0, 266, 282),
             shell_surface->host_window()->bounds());
   // Root surface origin must be adjusted relative to host window.
-  EXPECT_EQ(gfx::Point(5, 5), shell_surface->root_surface_origin_pixel());
+  EXPECT_EQ(gfx::Point(10, 0), shell_surface->root_surface_origin_pixel());
 }
 
-TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedAreaWithScaleFactor) {
+TEST_F(ShellSurfaceTest, HostWindowNotIncludeAugmentedChildWithScaleFactor) {
   constexpr gfx::Point kOrigin(20, 20);
   std::unique_ptr<ShellSurface> shell_surface =
       test::ShellSurfaceBuilder({256, 256})
@@ -734,6 +735,7 @@ TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedAreaWithScaleFactor) {
   auto child_buffer1 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface1 = std::make_unique<Surface>();
   child_surface1->Attach(child_buffer1.get());
+  child_surface1->set_is_augmented(true);
   child_surface1->SetClipRect(std::make_optional(gfx::RectF(5, 5, 32, 32)));
   auto subsurface1 = std::make_unique<SubSurface>(
       child_surface1.get(), shell_surface->root_surface());
@@ -744,10 +746,9 @@ TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedAreaWithScaleFactor) {
   auto child_buffer2 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
   auto child_surface2 = std::make_unique<Surface>();
   child_surface2->Attach(child_buffer2.get());
-  child_surface2->SetClipRect(std::make_optional(gfx::RectF(10, 10)));
   auto subsurface2 = std::make_unique<SubSurface>(
       child_surface2.get(), shell_surface->root_surface());
-  subsurface2->SetPosition(gfx::PointF(250, 250));
+  subsurface2->SetPosition(gfx::PointF(-10, 250));
   child_surface2->Commit();
 
   shell_surface->root_surface()->Commit();
@@ -758,10 +759,9 @@ TEST_F(ShellSurfaceTest, HostWindowNotIncludeClippedAreaWithScaleFactor) {
 
   // Host window must be set to include all children subsurfaces, but not the
   // clipped area.
-  EXPECT_EQ(gfx::Rect(-2, -2, 133, 133),
-            shell_surface->host_window()->bounds());
+  EXPECT_EQ(gfx::Rect(-5, 0, 133, 141), shell_surface->host_window()->bounds());
   // Root surface origin must be adjusted relative to host window.
-  EXPECT_EQ(gfx::Point(5, 5), shell_surface->root_surface_origin_pixel());
+  EXPECT_EQ(gfx::Point(10, 0), shell_surface->root_surface_origin_pixel());
 }
 
 TEST_F(ShellSurfaceTest, LocalSurfaceIdUpdatedOnHostWindowOriginChanged) {
@@ -872,6 +872,7 @@ TEST_F(ShellSurfaceTest,
   auto child_buffer = test::ExoTestHelper::CreateBuffer(gfx::Size(200, 200));
   auto child_surface = std::make_unique<Surface>();
   child_surface->Attach(child_buffer.get());
+  child_surface->set_is_augmented(true);
   child_surface->SetClipRect(std::make_optional(gfx::RectF(50, 50, 100, 100)));
   auto subsurface =
       std::make_unique<SubSurface>(child_surface.get(), root_surface);
@@ -1638,6 +1639,35 @@ TEST_F(ShellSurfaceTest, SetMinimumSize) {
     }
     shell_surface->set_configure_callback(base::NullCallback());
   }
+}
+
+TEST_F(ShellSurfaceTest, SetMinimumSizeTooLargeAndTranform) {
+  auto* screen = display::Screen::GetScreen();
+  auto fullscreen_bounds = screen->GetPrimaryDisplay().bounds();
+  auto work_area_bounds = screen->GetPrimaryDisplay().work_area();
+
+  auto shell_surface = test::ShellSurfaceBuilder({64, 64})
+                           .SetMinimumSize(fullscreen_bounds.size())
+                           .SetMaximumSize(fullscreen_bounds.size())
+                           .SetBounds(work_area_bounds)
+                           .BuildShellSurface();
+
+  auto* surface = shell_surface->root_surface();
+  auto* widget = shell_surface->GetWidget();
+
+  EXPECT_EQ(work_area_bounds, widget->GetWindowBoundsInScreen());
+
+  widget->GetNativeWindow()->SetTransform(
+      gfx::Transform::Affine(1, 1, 1, 1, 10, 10));
+
+  // Updating the buffer with expected (work area) size should not
+  // update the widget's bounds even when the transform is applied.
+  auto buffer = test::ExoTestHelper::CreateBuffer(work_area_bounds.size());
+  surface->Attach(buffer.get());
+  surface->Commit();
+  widget->GetNativeWindow()->SetTransform(gfx::Transform());
+
+  EXPECT_EQ(work_area_bounds, widget->GetWindowBoundsInScreen());
 }
 
 TEST_F(ShellSurfaceTest, SetMaximumSize) {
@@ -4922,7 +4952,7 @@ TEST_F(ShellSurfaceTest, ConfigureOcclusionSentAfterShellSurfaceIsReady) {
             config_vec[0].occlusion_state);
 
   constexpr gfx::Size kBufferSize(256, 256);
-  auto buffer = exo_test_helper()->CreateBuffer(kBufferSize);
+  auto buffer = test::ExoTestHelper::CreateBuffer(kBufferSize);
   root_surface->Attach(buffer.get());
   root_surface->Commit();
 

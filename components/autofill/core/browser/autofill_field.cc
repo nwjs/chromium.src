@@ -186,8 +186,8 @@ AutofillField::AutofillField(FieldSignature field_signature) : AutofillField() {
 AutofillField::AutofillField(const FormFieldData& field)
     : FormFieldData(field),
       field_signature_(
-          CalculateFieldSignatureByNameAndType(name, form_control_type)),
-      parseable_name_(name),
+          CalculateFieldSignatureByNameAndType(name(), form_control_type())),
+      parseable_name_(name()),
       parseable_label_(label) {
   local_type_predictions_.fill(NO_SERVER_DATA);
 }
@@ -271,9 +271,9 @@ void AutofillField::set_server_predictions(
         experimental_server_predictions_.push_back(std::move(prediction));
       }
     } else {
-      // TODO(crbug.com/1376045): captured tests store old autofill api response
-      // recordings without `source` field. We need to maintain the old behavior
-      // until these recordings will be migrated.
+      // TODO(crbug.com/40243028): captured tests store old autofill api
+      // response recordings without `source` field. We need to maintain the old
+      // behavior until these recordings will be migrated.
       server_predictions_.push_back(std::move(prediction));
     }
   }
@@ -410,13 +410,13 @@ AutofillType AutofillField::Type() const {
 }
 
 bool AutofillField::IsEmpty() const {
-  return value.empty();
+  return value().empty();
 }
 
 FieldSignature AutofillField::GetFieldSignature() const {
-  return field_signature_
-             ? *field_signature_
-             : CalculateFieldSignatureByNameAndType(name, form_control_type);
+  return field_signature_ ? *field_signature_
+                          : CalculateFieldSignatureByNameAndType(
+                                name(), form_control_type());
 }
 
 std::string AutofillField::FieldSignatureAsStr() const {

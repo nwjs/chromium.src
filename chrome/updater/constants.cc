@@ -37,7 +37,7 @@ const char kCrashHandlerSwitch[] = "crash-handler";
 const char kUpdateSwitch[] = "update";
 const char kInstallSwitch[] = "install";
 const char kEulaRequiredSwitch[] = "eularequired";
-const char kRuntimeSwitch[] = "runtime";
+const char kOemSwitch[] = "oem";
 const char kUninstallSwitch[] = "uninstall";
 const char kUninstallSelfSwitch[] = "uninstall-self";
 const char kUninstallIfUnusedSwitch[] = "uninstall-if-unused";
@@ -56,7 +56,6 @@ const char kAppIdSwitch[] = "app-id";
 const char kAppVersionSwitch[] = "app-version";
 const char kWakeSwitch[] = "wake";
 const char kWakeAllSwitch[] = "wake-all";
-const char kTagSwitch[] = "tag";
 const char kInstallerDataSwitch[] = "installerdata";
 
 const char kServerServiceSwitch[] = "service";

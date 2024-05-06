@@ -9,6 +9,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <tuple>
 
 #include "base/allocator/partition_alloc_support.h"
@@ -27,6 +28,7 @@
 #include "components/gwp_asan/client/guarded_page_allocator.h"
 #include "components/gwp_asan/client/gwp_asan_features.h"
 #include "components/gwp_asan/client/lightweight_detector/poison_metadata_recorder.h"
+#include "components/gwp_asan/client/sampling_helpers.h"
 #include "components/gwp_asan/common/crash_key_name.h"
 
 #if BUILDFLAG(USE_ALLOCATOR_SHIM)
@@ -240,8 +242,7 @@ bool IsMutuallyExclusiveFeatureAllowed(const base::Feature& feature) {
 // Exported for testing.
 GWP_ASAN_EXPORT std::optional<AllocatorSettings> GetAllocatorSettings(
     const base::Feature& feature,
-    bool boost_sampling,
-    const char* process_type) {
+    bool boost_sampling) {
   if (!base::FeatureList::IsEnabled(feature))
     return std::nullopt;
 
@@ -443,17 +444,21 @@ bool MaybeEnableLightweightDetectorInternal(bool boost_sampling,
 
 }  // namespace internal
 
-void EnableForMalloc(bool boost_sampling, const char* process_type) {
+void EnableForMalloc(bool boost_sampling, std::string_view process_type) {
 #if BUILDFLAG(USE_ALLOCATOR_SHIM)
   static bool init_once = [&]() -> bool {
-    auto settings = internal::GetAllocatorSettings(
-        internal::kGwpAsanMalloc, boost_sampling, process_type);
+    auto settings = internal::GetAllocatorSettings(internal::kGwpAsanMalloc,
+                                                   boost_sampling);
+    internal::ReportGwpAsanActivated("Malloc", process_type,
+                                     settings.has_value());
     if (!settings)
       return false;
 
     internal::InstallMallocHooks(
         settings->max_allocated_pages, settings->num_metadata,
-        settings->total_pages, settings->sampling_frequency, base::DoNothing());
+        settings->total_pages, settings->sampling_frequency,
+        internal::CreateOomCallback("Malloc", process_type,
+                                    settings->sampling_frequency));
     return true;
   }();
   std::ignore = init_once;
@@ -463,17 +468,22 @@ void EnableForMalloc(bool boost_sampling, const char* process_type) {
 #endif  // BUILDFLAG(USE_ALLOCATOR_SHIM)
 }
 
-void EnableForPartitionAlloc(bool boost_sampling, const char* process_type) {
+void EnableForPartitionAlloc(bool boost_sampling,
+                             std::string_view process_type) {
 #if BUILDFLAG(USE_PARTITION_ALLOC)
   static bool init_once = [&]() -> bool {
     auto settings = internal::GetAllocatorSettings(
-        internal::kGwpAsanPartitionAlloc, boost_sampling, process_type);
+        internal::kGwpAsanPartitionAlloc, boost_sampling);
+    internal::ReportGwpAsanActivated("PartitionAlloc", process_type,
+                                     settings.has_value());
     if (!settings)
       return false;
 
     internal::InstallPartitionAllocHooks(
         settings->max_allocated_pages, settings->num_metadata,
-        settings->total_pages, settings->sampling_frequency, base::DoNothing());
+        settings->total_pages, settings->sampling_frequency,
+        internal::CreateOomCallback("PartitionAlloc", process_type,
+                                    settings->sampling_frequency));
     return true;
   }();
   std::ignore = init_once;
@@ -493,12 +503,22 @@ void MaybeEnableLightweightDetector(bool boost_sampling,
 void MaybeEnableExtremeLightweightDetector(bool boost_sampling,
                                            const char* process_type) {
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-  [[maybe_unused]] static bool init_once = [&]() -> bool {
-    if (!base::FeatureList::IsEnabled(
-            internal::kExtremeLightweightUAFDetector)) {
-      return false;
-    }
+  if (!base::FeatureList::IsEnabled(internal::kExtremeLightweightUAFDetector)) {
+    return;
+  }
 
+  using enum internal::ExtremeLightweightUAFDetectorTargetProcesses;
+  switch (internal::kExtremeLightweightUAFDetectorTargetProcesses.Get()) {
+    case kAllProcesses:
+      break;
+    case kBrowserProcessOnly:
+      if (*process_type != '\0') {
+        return;  // Non-empty process_type means a non-browser process.
+      }
+      break;
+  }
+
+  [[maybe_unused]] static bool init_once = [&]() -> bool {
     size_t sampling_frequency = static_cast<size_t>(
         internal::kExtremeLightweightUAFDetectorSamplingFrequency.Get());
     size_t quarantine_capacity_in_bytes = static_cast<size_t>(

@@ -13,6 +13,8 @@
 #include <optional>
 #include <utility>
 
+#include "base/auto_reset.h"
+#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
@@ -41,6 +43,7 @@
 #include "ui/ozone/common/bitmap_cursor.h"
 #include "ui/ozone/platform/wayland/common/wayland_overlay_config.h"
 #include "ui/ozone/platform/wayland/host/dump_util.h"
+#include "ui/ozone/platform/wayland/host/wayland_bubble.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
 #include "ui/ozone/platform/wayland/host/wayland_cursor_shape.h"
 #include "ui/ozone/platform/wayland/host/wayland_data_drag_controller.h"
@@ -101,6 +104,8 @@ WaylandWindow::~WaylandWindow() {
 
   PlatformEventSource::GetInstance()->RemovePlatformEventDispatcher(this);
 
+  ReleaseCapture();
+
   if (wayland_overlay_delegation_enabled_) {
     connection_->window_manager()->RemoveSubsurface(GetWidget(),
                                                     primary_subsurface_.get());
@@ -123,6 +128,10 @@ WaylandWindow::~WaylandWindow() {
 
   if (child_window_) {
     child_window_->set_parent_window(nullptr);
+  }
+
+  for (auto bubble : child_bubbles_) {
+    bubble->set_parent_window(nullptr);
   }
 }
 
@@ -161,6 +170,11 @@ void WaylandWindow::UpdateWindowScale(bool update_bounds) {
   if (child_window_) {
     child_window_->UpdateWindowScale(update_bounds);
   }
+
+  // Propagate update to the bubble windows
+  for (auto bubble : child_bubbles_) {
+    bubble->UpdateWindowScale(update_bounds);
+  }
 }
 
 WaylandZAuraSurface* WaylandWindow::GetZAuraSurface() {
@@ -169,6 +183,41 @@ WaylandZAuraSurface* WaylandWindow::GetZAuraSurface() {
 
 gfx::AcceleratedWidget WaylandWindow::GetWidget() const {
   return accelerated_widget_;
+}
+
+void WaylandWindow::AddBubble(WaylandBubble* window) {
+  child_bubbles_.push_back(window);
+}
+
+void WaylandWindow::RemoveBubble(WaylandBubble* window) {
+  if (active_bubble_ == window) {
+    active_bubble_ = nullptr;
+    if (IsActive()) {
+      delegate()->OnActivationChanged(true);
+    }
+  }
+  child_bubbles_.erase(
+      std::find(child_bubbles_.begin(), child_bubbles_.end(), window));
+}
+
+void WaylandWindow::ActivateBubble(WaylandBubble* window) {
+  CHECK(!window || base::Contains(child_bubbles_, window));
+  CHECK(!window || (window->AsWaylandBubble() &&
+                    window->AsWaylandBubble()->activatable()));
+  if (active_bubble_ == window) {
+    return;
+  }
+  if (active_bubble_) {
+    active_bubble_->delegate()->OnActivationChanged(false);
+  }
+  active_bubble_ = window;
+
+  if (active_bubble_) {
+    delegate()->OnActivationChanged(false);
+    active_bubble_->delegate()->OnActivationChanged(true);
+  } else {
+    delegate()->OnActivationChanged(IsActive());
+  }
 }
 
 void WaylandWindow::SetWindowScale(float new_scale) {
@@ -308,10 +357,7 @@ void WaylandWindow::UpdateDragImage(const gfx::ImageSkia& image,
 }
 
 void WaylandWindow::CancelDrag() {
-  if (drag_loop_quit_closure_.is_null()) {
-    return;
-  }
-  std::move(drag_loop_quit_closure_).Run();
+  connection_->data_drag_controller()->CancelSession();
 }
 
 void WaylandWindow::Show(bool inactive) {
@@ -486,10 +532,12 @@ PlatformWindowState WaylandWindow::GetPlatformWindowState() const {
   return PlatformWindowState::kNormal;
 }
 
-void WaylandWindow::Activate() {}
+void WaylandWindow::Activate() {
+  ActivateBubble(nullptr);
+}
 
 void WaylandWindow::Deactivate() {
-  NOTIMPLEMENTED_LOG_ONCE();
+  ActivateBubble(nullptr);
 }
 
 void WaylandWindow::SetUseNativeFrame(bool use_native_frame) {
@@ -620,9 +668,21 @@ uint32_t WaylandWindow::DispatchEvent(const PlatformEvent& native_event) {
     }
   }
 
-  // Dispatch all keyboard events to the root window.
   if (event->IsKeyEvent()) {
-    return GetRootParentWindow()->DispatchEventToDelegate(event);
+    if (active_bubble()) {
+      // Typically wl_keyboard.enter and leave are not called for
+      // wl_subsurfaces. So automatically dispatch to active_bubble() as they
+      // need it to traverse menu options, or type in text boxes.
+      auto* bubble = active_bubble();
+      while (bubble->active_bubble()) {
+        bubble = active_bubble();
+      }
+      return bubble->DispatchEventToDelegate(event);
+    } else {
+      // When no active_bubble present, dispatch all keyboard events to the root
+      // window.
+      return GetRootParentWindow()->DispatchEventToDelegate(event);
+    }
   }
 
   return DispatchEventToDelegate(event);
@@ -943,6 +1003,15 @@ WaylandWindow* WaylandWindow::GetTopMostChildWindow() {
   return child_window_ ? child_window_->GetTopMostChildWindow() : this;
 }
 
+WaylandWindow* WaylandWindow::GetXdgParentWindow() {
+  auto* xdg_parent_window = parent_window();
+  while (xdg_parent_window && !xdg_parent_window->AsWaylandToplevelWindow() &&
+         !xdg_parent_window->AsWaylandPopup()) {
+    xdg_parent_window = xdg_parent_window->parent_window();
+  }
+  return xdg_parent_window;
+}
+
 bool WaylandWindow::IsOpaqueWindow() const {
   return opacity_ == ui::PlatformWindowOpacity::kOpaqueWindow;
 }
@@ -950,6 +1019,10 @@ bool WaylandWindow::IsOpaqueWindow() const {
 bool WaylandWindow::IsActive() const {
   // Please read the comment where the IsActive method is declared.
   return false;
+}
+
+WaylandBubble* WaylandWindow::AsWaylandBubble() {
+  return nullptr;
 }
 
 WaylandPopup* WaylandWindow::AsWaylandPopup() {
@@ -1262,6 +1335,10 @@ void WaylandWindow::RequestStateFromClient(
 void WaylandWindow::RequestState(PlatformWindowDelegate::State state,
                                  int64_t serial,
                                  bool force) {
+  // State should NOT be requested during the ongoing request handling.
+  CHECK(!requesting_state_) << "Detected re-enterancy of state request.";
+  base::AutoReset<bool> setter(&requesting_state_, true);
+
   LOG_IF(WARNING, in_flight_requests_.size() > 100u)
       << "The queue of configures is longer than 100!";
 
@@ -1275,8 +1352,14 @@ void WaylandWindow::RequestState(PlatformWindowDelegate::State state,
   // Adjust state values if necessary.
   state.bounds_dip = AdjustBoundsToConstraintsDIP(state.bounds_dip);
 
-  state.size_px = gfx::ScaleToEnclosingRectIgnoringError(state.bounds_dip,
-                                                         state.window_scale)
+  // Upper layers (eg //cc) convert the window size from DIP to pixels
+  // independently from the window origin. For example, for a window whose
+  // bounds are arbitrary `x,y w x h` in DIP, //cc translates its origin (x,y)
+  // and size (w x h) to pixels independently from each other. Translating the
+  // whole rect from DIPs to pixels might generate a 1px difference that cause
+  // render artifacts - see https://issues.chromium.org/40876438 for details.
+  state.size_px = gfx::ScaleToEnclosingRectIgnoringError(
+                      gfx::Rect(state.bounds_dip.size()), state.window_scale)
                       .size();
   // This will ensure that if insets at the time of the request changed, a new
   // frame is produced when the state is applied.
@@ -1326,6 +1409,7 @@ void WaylandWindow::ProcessSequencePoint(int64_t viz_seq) {
     if (i->viz_seq > viz_seq && i->viz_seq != -1) {
       break;
     }
+
     if (i->applied) {
       iter = i;
     }
@@ -1333,6 +1417,15 @@ void WaylandWindow::ProcessSequencePoint(int64_t viz_seq) {
 
   if (iter == in_flight_requests_.end()) {
     return;
+  }
+
+  if (UseTestConfigForPlatformWindows()) {
+    for (auto i = in_flight_requests_.begin(); i != iter; ++i) {
+      // We need to set `latest_latched_viz_seq_for_testing_` to the highest viz
+      // seq for all requests at or before the last request we latch.
+      latest_latched_viz_seq_for_testing_ =
+          std::max(i->viz_seq, latest_latched_viz_seq_for_testing_);
+    }
   }
 
   // Latch the latest state which was actually applied.
@@ -1453,6 +1546,14 @@ void WaylandWindow::MaybeApplyLatestStateRequest(bool force) {
   }
   latest.applied = true;
 
+  if (UseTestConfigForPlatformWindows()) {
+    latest_applied_viz_seq_for_testing_ = std::max(
+        latest_applied_viz_seq_for_testing_,
+        base::ranges::max(in_flight_requests_, {}, [](const StateRequest& req) {
+          return req.viz_seq;
+        }).viz_seq);
+  }
+
   // Set the applied state here so it can be used by e.g. OnBoundsChanged to
   // pick up the new bounds.
   auto old = applied_state_;
@@ -1474,7 +1575,7 @@ void WaylandWindow::MaybeApplyLatestStateRequest(bool force) {
 
   // Latch in tests immediately if the test config is set.
   // Otherwise, such tests as interactive_ui_tests fail.
-  if (UseTestConfigForPlatformWindows()) {
+  if (UseTestConfigForPlatformWindows() && latch_immediately_for_testing_) {
     ProcessSequencePoint(INT64_MAX);
   }
 }

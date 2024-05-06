@@ -53,6 +53,11 @@ BASE_DECLARE_FEATURE(kDelayedWarnings);
 // warnings feature is enabled.
 extern const base::FeatureParam<bool> kDelayedWarningsEnableMouseClicks;
 
+// Sends download report without explicit user decision. This can be either the
+// download is automatically discarded 1 hour after the warning is shown, or
+// the profile is closed while the warning is still showing.
+BASE_DECLARE_FEATURE(kDownloadReportWithoutUserDecision);
+
 // The kill switch for download tailored warnings. The main control is on the
 // server-side.
 BASE_DECLARE_FEATURE(kDownloadTailoredWarnings);
@@ -144,9 +149,6 @@ BASE_DECLARE_FEATURE(kNestedArchives);
 // Controls whether custom messages from admin are shown for warn and block
 // enterprise interstitials.
 BASE_DECLARE_FEATURE(kRealTimeUrlFilteringCustomMessage);
-
-// Controls whether we are using red interstitial facelift updates.
-BASE_DECLARE_FEATURE(kRedInterstitialFacelift);
 
 // Enables modifying key parameters on the navigation event collection used to
 // populate referrer chains.
@@ -273,6 +275,8 @@ extern const base::FeatureParam<std::string> kRedWarningSurveyReportTypeFilter;
 extern const base::FeatureParam<std::string> kRedWarningSurveyDidProceedFilter;
 
 BASE_DECLARE_FEATURE(kClientSideDetectionImagesCache);
+
+BASE_DECLARE_FEATURE(kClientSideDetectionDebuggingMetadataCache);
 
 }  // namespace safe_browsing
 #endif  // COMPONENTS_SAFE_BROWSING_CORE_COMMON_FEATURES_H_

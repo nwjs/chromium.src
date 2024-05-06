@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "base/containers/flat_tree.h"
@@ -18,7 +19,6 @@
 #include "components/user_education/common/help_bubble_params.h"
 #include "components/user_education/common/tutorial_identifier.h"
 #include "components/user_education/common/user_education_metadata.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
@@ -43,7 +43,7 @@ class FeaturePromoSpecification {
     ~AdditionalConditions();
 
     // Provides constraints on when the promo can show based on some other
-    // Feautre Engagement event.
+    // Feature Engagement event.
     enum class Constraint { kAtMost, kAtLeast, kExactly };
 
     // Represents an additional condition for the promo to show.
@@ -101,7 +101,7 @@ class FeaturePromoSpecification {
   // Provide different ways to specify parameters for title or body text.
   struct NoSubstitution {};
   using StringSubstitutions = std::vector<std::u16string>;
-  using FormatParameters = absl::variant<
+  using FormatParameters = std::variant<
       // No substitutions; use the string as-is (default).
       NoSubstitution,
       // Use the following substitutions for the various substitution fields.
@@ -162,9 +162,10 @@ class FeaturePromoSpecification {
   enum class PromoSubtype {
     // A normal promo. Follows the default rules for when it can show.
     kNormal = 0,
-    // A promo designed to be shown in multiple apps (or webapps). Can show once
-    // per app.
-    kPerApp = 1,
+    // A promo designed to be shown per app or account, keyed to a unique
+    // identifier. This type requires being on an allowlist.
+    // (Previously known as "kPerApp".)
+    kKeyedNotice = 1,
     // A promo that must be able to be shown until explicitly acknowledged and
     // dismissed by the user. This type requires being on an allowlist.
     kLegalNotice = 2,
@@ -181,7 +182,7 @@ class FeaturePromoSpecification {
    public:
     // You can assign either an int (command ID) or a ui::Accelerator to an
     // AcceleratorInfo object.
-    using ValueType = absl::variant<int, ui::Accelerator>;
+    using ValueType = std::variant<int, ui::Accelerator>;
 
     AcceleratorInfo();
     AcceleratorInfo(const AcceleratorInfo& other);

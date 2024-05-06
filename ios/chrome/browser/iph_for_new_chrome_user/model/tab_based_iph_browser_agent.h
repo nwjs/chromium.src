@@ -35,7 +35,8 @@ class TabBasedIPHBrowserAgent : public BrowserUserData<TabBasedIPHBrowserAgent>,
 #pragma mark - Public methods
 
   // Notifies the browser agent that the user has performed a multi-gesture tab
-  // refresh, so that the related in-product help would be attempted.
+  // refresh. If the page happened to be scrolled to the top when it happened, a
+  // in-product help for pull-to-refresh would be attempted.
   void NotifyMultiGestureRefreshEvent();
 
   // Notifies that the user has tapped the back/forward button in the toolbar,
@@ -55,6 +56,8 @@ class TabBasedIPHBrowserAgent : public BrowserUserData<TabBasedIPHBrowserAgent>,
   // WebStateObserver
   void DidStartNavigation(web::WebState* web_state,
                           web::NavigationContext* navigation_context) override;
+  void DidFinishNavigation(web::WebState* web_state,
+                           web::NavigationContext* navigation_context) override;
   void DidStopLoading(web::WebState* web_state) override;
   void WasHidden(web::WebState* web_state) override;
   void WebStateDestroyed(web::WebState* web_state) override;

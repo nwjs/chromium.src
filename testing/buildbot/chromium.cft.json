@@ -1948,11 +1948,6 @@
       },
       {
         "isolate_profile_data": true,
-        "name": "headless_python_unittests",
-        "script": "headless_python_unittests.py"
-      },
-      {
-        "isolate_profile_data": true,
         "name": "metrics_python_tests",
         "script": "metrics_python_tests.py"
       },
@@ -3788,11 +3783,6 @@
         "isolate_profile_data": true,
         "name": "checkperms",
         "script": "checkperms.py"
-      },
-      {
-        "isolate_profile_data": true,
-        "name": "headless_python_unittests",
-        "script": "headless_python_unittests.py"
       },
       {
         "isolate_profile_data": true,
@@ -6465,33 +6455,6 @@
         "test_id_prefix": "ninja://third_party/perfetto:perfetto_unittests/"
       },
       {
-        "args": [
-          "--browser-ui-tests-verify-pixels",
-          "--enable-pixel-output-in-tests",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/pixel_tests.filter",
-          "--git-revision=${got_revision}"
-        ],
-        "isolate_profile_data": true,
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "pixel_interactive_ui_tests",
-        "precommit_args": [
-          "--gerrit-issue=${patch_issue}",
-          "--gerrit-patchset=${patch_set}",
-          "--buildbucket-id=${buildbucket_build_id}"
-        ],
-        "swarming": {
-          "dimensions": {
-            "cpu": "x86-64",
-            "os": "Windows-10-19045"
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "interactive_ui_tests",
-        "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
-      },
-      {
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -7008,8 +6971,6 @@
         "args": [
           "--num-retries=3",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json",
-          "--target",
-          "Release_x64",
           "--test-launcher-filter-file=../../testing/buildbot/filters/cft.blink_web_tests.filter"
         ],
         "isolate_profile_data": true,

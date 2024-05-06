@@ -388,7 +388,7 @@ class StyleCascadeTest : public PageTestBase {
         MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLStandardMode);
     set->SetProperty(PropertyName(from_property).Id(),
                      *MakeGarbageCollected<cssvalue::CSSFlipRevertValue>(
-                         PropertyName(to_property).Id()));
+                         PropertyName(to_property).Id(), TryTacticTransform()));
     return set;
   }
 
@@ -4039,6 +4039,72 @@ TEST_F(StyleCascadeTest, TryTacticsStyleRevertTo) {
   cascade.Apply();
   EXPECT_EQ("3px", cascade.ComputedValue("top"));
   EXPECT_EQ("2px", cascade.ComputedValue("bottom"));
+}
+
+TEST_F(StyleCascadeTest, RevertToAnchor) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("top:anchor(top, 10px)", {.origin = CascadeOrigin::kUser});
+  cascade.Add("top:revert");
+  cascade.Apply();
+  EXPECT_EQ("10px", cascade.ComputedValue("top"));
+}
+
+TEST_F(StyleCascadeTest, RevertToAnchorInvalid) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("top:anchor(top)", {.origin = CascadeOrigin::kUser});
+  cascade.Add("top:revert");
+  cascade.Apply();
+  EXPECT_EQ("auto", cascade.ComputedValue("top"));
+}
+
+TEST_F(StyleCascadeTest, RevertLayerToAnchor) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("top:anchor(top, 10px)", {.layer_order = 1});
+  cascade.Add("top:revert-layer", {.layer_order = 2});
+  cascade.Apply();
+  EXPECT_EQ("10px", cascade.ComputedValue("top"));
+}
+
+TEST_F(StyleCascadeTest, RevertLayerToAnchorInvalid) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("top:anchor(top)", {.layer_order = 1});
+  cascade.Add("top:revert-layer", {.layer_order = 2});
+  cascade.Apply();
+  EXPECT_EQ("auto", cascade.ComputedValue("top"));
+}
+
+TEST_F(StyleCascadeTest, VarInAnchor) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("--x:top");
+  cascade.Add("top:anchor(var(--x), 10px)");
+  cascade.Apply();
+  EXPECT_EQ("10px", cascade.ComputedValue("top"));
+}
+
+TEST_F(StyleCascadeTest, VarInAnchorInvalid) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("--x:top");
+  cascade.Add("top:anchor(var(--x))");
+  cascade.Apply();
+  EXPECT_EQ("auto", cascade.ComputedValue("top"));
+}
+
+TEST_F(StyleCascadeTest, RevertToVarAnchor) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("--x:top", {.origin = CascadeOrigin::kUser});
+  cascade.Add("top:anchor(var(--x), 10px)", {.origin = CascadeOrigin::kUser});
+  cascade.Add("top:revert");
+  cascade.Apply();
+  EXPECT_EQ("10px", cascade.ComputedValue("top"));
+}
+
+TEST_F(StyleCascadeTest, RevertToVarAnchorInvalid) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("--x:top", {.origin = CascadeOrigin::kUser});
+  cascade.Add("top:anchor(var(--x))", {.origin = CascadeOrigin::kUser});
+  cascade.Add("top:revert");
+  cascade.Apply();
+  EXPECT_EQ("auto", cascade.ComputedValue("top"));
 }
 
 TEST_F(StyleCascadeTest, LhUnitCycle) {

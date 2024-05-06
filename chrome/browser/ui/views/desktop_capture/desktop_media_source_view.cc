@@ -19,9 +19,14 @@
 #include "ui/gfx/canvas.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/focus_ring.h"
+#include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/view_utils.h"
+
+namespace {
+constexpr int kCornerRadius = 8;
+}
 
 using content::DesktopMediaID;
 
@@ -34,15 +39,13 @@ DesktopMediaSourceViewStyle::DesktopMediaSourceViewStyle(
     const gfx::Rect& icon_rect,
     const gfx::Rect& label_rect,
     gfx::HorizontalAlignment text_alignment,
-    const gfx::Rect& image_rect,
-    int focus_rectangle_inset)
+    const gfx::Rect& image_rect)
     : columns(columns),
       item_size(item_size),
       icon_rect(icon_rect),
       label_rect(label_rect),
       text_alignment(text_alignment),
-      image_rect(image_rect),
-      focus_rectangle_inset(focus_rectangle_inset) {}
+      image_rect(image_rect) {}
 
 DesktopMediaSourceView::DesktopMediaSourceView(
     DesktopMediaListView* parent,
@@ -63,6 +66,11 @@ DesktopMediaSourceView::DesktopMediaSourceView(
   SetFocusBehavior(FocusBehavior::ALWAYS);
   SetStyle(style);
   views::FocusRing::Install(this);
+  if (base::FeatureList::IsEnabled(kDisplayMediaPickerRedesign) &&
+      features::IsChromeRefresh2023()) {
+    views::InstallRoundRectHighlightPathGenerator(this, gfx::Insets(),
+                                                  kCornerRadius);
+  }
 }
 
 DesktopMediaSourceView::~DesktopMediaSourceView() {}
@@ -100,7 +108,8 @@ void DesktopMediaSourceView::SetSelected(bool selected) {
     if (base::FeatureList::IsEnabled(kDisplayMediaPickerRedesign) &&
         features::IsChromeRefresh2023()) {
       SetBackground(views::CreateRoundedRectBackground(
-          GetColorProvider()->GetColor(ui::kColorSysTonalContainer), 8));
+          GetColorProvider()->GetColor(ui::kColorSysTonalContainer),
+          kCornerRadius));
     } else {
       image_view_->SetBackground(views::CreateSolidBackground(
           GetColorProvider()->GetColor(ui::kColorMenuItemBackgroundSelected)));

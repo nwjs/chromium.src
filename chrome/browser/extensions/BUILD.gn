@@ -14,17 +14,17 @@ import("//mojo/public/tools/bindings/mojom.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
 import("//rlz/buildflags/buildflags.gni")
+import("//services/screen_ai/buildflags/features.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//third_party/protobuf/proto_library.gni")
 
 assert(enable_extensions)
+assert(enable_supervised_users)
 
 static_library("extensions") {
   sources = [
     "active_install_data.cc",
     "active_install_data.h",
-    "active_tab_permission_granter.cc",
-    "active_tab_permission_granter.h",
     "activity_log/activity_action_constants.cc",
     "activity_log/activity_action_constants.h",
     "activity_log/activity_actions.cc",
@@ -43,6 +43,8 @@ static_library("extensions") {
     "activity_log/database_string_table.h",
     "activity_log/fullstream_ui_policy.cc",
     "activity_log/fullstream_ui_policy.h",
+    "permissions/active_tab_permission_granter.cc",
+    "permissions/active_tab_permission_granter.h",
 
     # TODO(crbug.com/1381603): Ideally, no API implementations would be included
     # here.
@@ -663,10 +665,14 @@ static_library("extensions") {
     "pending_extension_info.h",
     "pending_extension_manager.cc",
     "pending_extension_manager.h",
+    "permissions/permissions_updater.cc",
+    "permissions/permissions_updater.h",
+    "permissions/scripting_permissions_modifier.cc",
+    "permissions/scripting_permissions_modifier.h",
+    "permissions/site_permissions_helper.cc",
+    "permissions/site_permissions_helper.h",
     "permissions_based_management_policy_provider.cc",
     "permissions_based_management_policy_provider.h",
-    "permissions_updater.cc",
-    "permissions_updater.h",
     "policy_handlers.cc",
     "policy_handlers.h",
     "pref_mapping.cc",
@@ -678,14 +684,10 @@ static_library("extensions") {
     "safe_browsing_verdict_handler.h",
     "scoped_active_install.cc",
     "scoped_active_install.h",
-    "scripting_permissions_modifier.cc",
-    "scripting_permissions_modifier.h",
     "settings_api_helpers.cc",
     "settings_api_helpers.h",
     "shared_module_service.cc",
     "shared_module_service.h",
-    "site_permissions_helper.cc",
-    "site_permissions_helper.h",
     "standard_management_policy_provider.cc",
     "standard_management_policy_provider.h",
     "startup_helper.cc",
@@ -753,7 +755,7 @@ static_library("extensions") {
   defines = []
 
   allow_circular_includes_from = [
-    # TODO(crbug.com/1158905): Remove this circular dependency.
+    # TODO(crbug.com/40161499): Remove this circular dependency.
     "//chrome/browser/devtools",
 
     # Lots of APIs use headers from the list above.
@@ -762,7 +764,7 @@ static_library("extensions") {
     # TODO(crbug.com/1065748): Remove this circular dependency.
     "//chrome/browser/web_applications/extensions",
 
-    # TODO(crbug/925153): Remove this circular dependency.
+    # TODO(crbug.com/41437292): Remove this circular dependency.
     #"//chrome/browser/safe_browsing",
   ]
 
@@ -829,7 +831,7 @@ static_library("extensions") {
     "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
     "//components/security_interstitials/content:security_interstitial_page",
     "//components/site_engagement/core/mojom:mojo_bindings",
-    "//components/supervised_user/core/common:buildflags",
+    "//components/supervised_user/core/browser",
     "//components/supervised_user/core/common:common",
     "//components/webapps/browser",
     "//components/webapps/common",
@@ -851,6 +853,7 @@ static_library("extensions") {
     "//components/browsing_data/content",
     "//components/browsing_data/core",
     "//components/content_settings/core/browser",
+    "//components/content_settings/core/browser:cookie_settings",
     "//components/cookie_config:cookie_config",
     "//components/crx_file",
     "//components/device_signals/core/browser",
@@ -993,10 +996,6 @@ static_library("extensions") {
     "//ui/strings",
     "//url",
   ]
-
-  if (enable_supervised_users) {
-    deps += [ "//components/supervised_user/core/browser" ]
-  }
 
   if (is_linux || is_mac || is_win) {
     sources += [
@@ -1364,13 +1363,6 @@ static_library("extensions") {
     ]
   }
 
-  if (is_fuchsia) {
-    sources += [
-      "api/image_writer_private/removable_storage_provider_fuchsia.cc",
-      "api/messaging/native_process_launcher_fuchsia.cc",
-    ]
-  }
-
   if (enable_plugins) {
     sources += [
       "plugin_manager.cc",
@@ -1379,7 +1371,7 @@ static_library("extensions") {
   }
 
   if (enable_printing && (is_win || is_mac || is_linux || is_chromeos)) {
-    # TODO(crbug.com/1213762)  Replace this with more accurate dependency
+    # TODO(crbug.com/40183776)  Replace this with more accurate dependency
     # once //chrome/browser/printing build is able to be cleanly targeted.
     deps += [ "//chrome/services/printing/public/mojom" ]
   }
@@ -1391,19 +1383,19 @@ static_library("extensions") {
     ]
   }
 
-  if (enable_pdf && enable_screen_ai_service) {
-    sources += [
-      "api/pdf_viewer_private/pdf_viewer_private_event_router.cc",
-      "api/pdf_viewer_private/pdf_viewer_private_event_router.h",
-      "api/pdf_viewer_private/pdf_viewer_private_event_router_factory.cc",
-      "api/pdf_viewer_private/pdf_viewer_private_event_router_factory.h",
-    ]
+  if (enable_pdf) {
     deps += [
       "//chrome/browser/pdf",
       "//components/pdf/browser",
+      "//components/pdf/common:util",
       "//pdf:buildflags",
       "//pdf:features",
     ]
+
+    if (enable_screen_ai_service) {
+      deps +=
+          [ "//chrome/browser/extensions/api/pdf_viewer_private:event_router" ]
+    }
   }
 
   if (enable_rlz_support) {

@@ -12,13 +12,23 @@
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/autofill/core/browser/country_type.h"
+#include "components/autofill/core/browser/geo/autofill_country.h"
 #include "components/autofill/core/browser/geo/country_data.h"
+#include "components/autofill/core/browser/metrics/profile_deduplication_metrics.h"
 #include "components/autofill/core/browser/metrics/profile_token_quality_metrics.h"
 #include "components/autofill/core/browser/metrics/stored_profile_metrics.h"
+#include "components/autofill/core/browser/webdata/addresses/contact_info_precondition_checker.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
+#include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
+#include "components/sync/base/user_selectable_type.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
 #include "components/webdata/common/web_data_results.h"
 
 namespace autofill {
@@ -55,11 +65,16 @@ void OrderProfiles(std::vector<AutofillProfile*>& profiles,
 AddressDataManager::AddressDataManager(
     scoped_refptr<AutofillWebDataService> webdata_service,
     PrefService* pref_service,
+    syncer::SyncService* sync_service,
+    signin::IdentityManager* identity_manager,
     StrikeDatabaseBase* strike_database,
     base::RepeatingClosure notify_pdm_observers,
+    GeoIpCountryCode variation_country_code,
     const std::string& app_locale)
     : notify_pdm_observers_(notify_pdm_observers),
+      variation_country_code_(std::move(variation_country_code)),
       webdata_service_(webdata_service),
+      sync_service_(sync_service),
       app_locale_(app_locale) {
   if (webdata_service_) {
     // The `webdata_service_` is null when the TestPDM is used.
@@ -68,8 +83,22 @@ AddressDataManager::AddressDataManager(
                             weak_factory_.GetWeakPtr()));
     webdata_service_observer_.Observe(webdata_service_.get());
   }
+
+  if (sync_service_ && identity_manager) {
+    contact_info_precondition_checker_ =
+        std::make_unique<ContactInfoPreconditionChecker>(
+            sync_service_, identity_manager,
+            /*on_precondition_changed=*/base::DoNothing());
+  }
+
   SetPrefService(pref_service);
   SetStrikeDatabase(strike_database);
+  // `IsAutofillProfileEnabled()` relies on the `pref_service_`, which is only
+  // null when the `TestAddressDataManager` is used.
+  if (pref_service_) {
+    AutofillMetrics::LogIsAutofillProfileEnabledAtStartup(
+        IsAutofillProfileEnabled());
+  }
 }
 
 AddressDataManager::~AddressDataManager() {
@@ -145,6 +174,17 @@ std::vector<AutofillProfile*> AddressDataManager::GetProfilesFromSource(
   }
   OrderProfiles(result, order);
   return result;
+}
+
+std::vector<AutofillProfile*> AddressDataManager::GetProfilesToSuggest() const {
+  return IsAutofillProfileEnabled()
+             ? GetProfiles(ProfileOrder::kHighestFrecencyDesc)
+             : std::vector<AutofillProfile*>{};
+}
+
+std::vector<AutofillProfile*> AddressDataManager::GetProfilesForSettings()
+    const {
+  return GetProfiles(ProfileOrder::kMostRecentlyModifiedDesc);
 }
 
 AutofillProfile* AddressDataManager::GetProfileByGUID(
@@ -235,6 +275,33 @@ void AddressDataManager::RemoveProfile(const std::string& guid) {
   HandleNextProfileChange(guid);
 }
 
+bool AddressDataManager::IsEligibleForAddressAccountStorage() const {
+  if (!sync_service_) {
+    return false;
+  }
+
+  if (::switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
+          ::switches::ExplicitBrowserSigninPhase::kFull)) {
+    return contact_info_precondition_checker_ &&
+           contact_info_precondition_checker_->GetPreconditionState() ==
+               syncer::ModelTypeController::PreconditionState::
+                   kPreconditionsMet &&
+           sync_service_->GetUserSettings()->GetSelectedTypes().Has(
+               syncer::UserSelectableType::kAutofill);
+  }
+
+  // The CONTACT_INFO data type is only running for eligible users. See
+  // ContactInfoModelTypeController.
+  return sync_service_->GetActiveDataTypes().Has(syncer::CONTACT_INFO);
+}
+
+bool AddressDataManager::IsCountryEligibleForAccountStorage(
+    std::string_view country_code) const {
+  constexpr char const* kUnsupportedCountries[] = {"CU", "IR", "KP", "SD",
+                                                   "SY"};
+  return !base::Contains(kUnsupportedCountries, country_code);
+}
+
 void AddressDataManager::MigrateProfileToAccount(
     const AutofillProfile& profile) {
   CHECK_EQ(profile.source(), AutofillProfile::Source::kLocalOrSyncable);
@@ -266,6 +333,14 @@ void AddressDataManager::RecordUseOf(const AutofillProfile& profile) {
   AutofillProfile updated_profile = *adm_profile;
   updated_profile.RecordAndLogUse();
   UpdateProfile(updated_profile);
+}
+
+AddressCountryCode AddressDataManager::GetDefaultCountryCodeForNewAddress()
+    const {
+  std::string country = variation_country_code_->empty()
+                            ? AutofillCountry::CountryCodeForLocale(app_locale_)
+                            : variation_country_code_.value();
+  return AddressCountryCode(country);
 }
 
 bool AddressDataManager::IsProfileMigrationBlocked(
@@ -387,19 +462,26 @@ void AddressDataManager::ClearStrikesToBlockAddressSuggestions(
                                              gurl));
 }
 
+void AddressDataManager::OnHistoryDeletions(
+    const history::DeletionInfo& deletion_info) {
+  if (profile_save_strike_database_) {
+    profile_save_strike_database_->ClearStrikesWithHistory(deletion_info);
+  }
+  if (address_suggestion_strike_database_) {
+    address_suggestion_strike_database_->ClearStrikesWithHistory(deletion_info);
+  }
+}
+
 void AddressDataManager::SetPrefService(PrefService* pref_service) {
   pref_service_ = pref_service;
   profile_enabled_pref_ = std::make_unique<BooleanPrefMember>();
   // `pref_service_` can be nullptr in tests. Using base::Unretained(this) is
   // safe because observer instances are destroyed once `this` is destroyed.
   if (pref_service_) {
-    profile_enabled_pref_->Init(prefs::kAutofillProfileEnabled, pref_service_,
-                                base::BindRepeating(
-                                    [](AddressDataManager* self) {
-                                      self->most_common_country_code_.clear();
-                                      self->LoadProfiles();
-                                    },
-                                    this));
+    profile_enabled_pref_->Init(
+        prefs::kAutofillProfileEnabled, pref_service_,
+        base::BindRepeating(&AddressDataManager::LoadProfiles,
+                            base::Unretained(this)));
   }
 }
 
@@ -464,6 +546,43 @@ AddressDataManager::GetAddressSuggestionStrikeDatabase() const {
 
 bool AddressDataManager::IsAutofillProfileEnabled() const {
   return prefs::IsAutofillProfileEnabled(pref_service_);
+}
+
+bool AddressDataManager::IsSyncFeatureEnabledForAutofill() const {
+  // TODO(crbug.com/40066949): Remove this method in favor of
+  // `IsUserSelectableTypeEnabled` once ConsentLevel::kSync and
+  // SyncService::IsSyncFeatureEnabled() are deleted from the codebase.
+  return sync_service_ != nullptr && sync_service_->IsSyncFeatureEnabled() &&
+         IsAutofillUserSelectableTypeEnabled();
+}
+
+bool AddressDataManager::IsAutofillUserSelectableTypeEnabled() const {
+  return sync_service_ != nullptr &&
+         sync_service_->GetUserSettings()->GetSelectedTypes().Has(
+             syncer::UserSelectableType::kAutofill);
+}
+
+bool AddressDataManager::IsAutofillSyncToggleAvailable() const {
+  return sync_service_ && !sync_service_->GetAccountInfo().IsEmpty() &&
+         !sync_service_->HasSyncConsent() &&
+         !sync_service_->GetUserSettings()->IsTypeManagedByPolicy(
+             syncer::UserSelectableType::kAutofill) &&
+         contact_info_precondition_checker_ &&
+         contact_info_precondition_checker_->GetPreconditionState() ==
+             syncer::ModelTypeController::PreconditionState::
+                 kPreconditionsMet &&
+         base::FeatureList::IsEnabled(
+             syncer::kSyncEnableContactInfoDataTypeInTransportMode) &&
+         ::switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
+             ::switches::ExplicitBrowserSigninPhase::kFull) &&
+         pref_service_->GetBoolean(::prefs::kExplicitBrowserSignin);
+}
+
+void AddressDataManager::SetAutofillSelectableTypeEnabled(bool enabled) {
+  if (sync_service_ != nullptr) {
+    sync_service_->GetUserSettings()->SetSelectedType(
+        syncer::UserSelectableType::kAutofill, enabled);
+  }
 }
 
 void AddressDataManager::CancelPendingQuery(
@@ -624,41 +743,14 @@ void AddressDataManager::OnProfileChangeDone(const std::string& guid) {
   HandleNextProfileChange(guid);
 }
 
-const std::string& AddressDataManager::MostCommonCountryCodeFromProfiles()
-    const {
-  // When `!IsAutofillProfileEnabled()`, `most_common_country_code_` is empty,
-  // since it is reset by a pref observer. See `SetPrefService()`.
-  if (!most_common_country_code_.empty() || !IsAutofillProfileEnabled()) {
-    return most_common_country_code_;
-  }
-  // Count up country codes from existing profiles.
-  std::map<std::string, int> votes;
-  const std::vector<AutofillProfile*>& profiles = GetProfiles();
-  const std::vector<std::string>& country_codes =
-      CountryDataMap::GetInstance()->country_codes();
-  for (const AutofillProfile* profile : profiles) {
-    std::string country_code = base::ToUpperASCII(
-        base::UTF16ToASCII(profile->GetRawInfo(ADDRESS_HOME_COUNTRY)));
-    if (base::Contains(country_codes, country_code)) {
-      votes[country_code]++;
-    }
-  }
-
-  // Take the most common country code.
-  if (!votes.empty()) {
-    most_common_country_code_ =
-        base::ranges::max_element(votes, [](auto& a, auto& b) {
-          return a.second < b.second;
-        })->first;
-  }
-
-  return most_common_country_code_;
-}
-
 void AddressDataManager::LogStoredDataMetrics() const {
   const std::vector<AutofillProfile*> profiles = GetProfiles();
   autofill_metrics::LogStoredProfileMetrics(profiles);
   autofill_metrics::LogStoredProfileTokenQualityMetrics(profiles);
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillLogDeduplicationMetrics)) {
+    autofill_metrics::LogDeduplicationStartupMetrics(profiles, app_locale_);
+  }
   autofill_metrics::LogLocalProfileSupersetMetrics(std::move(profiles),
                                                    app_locale_);
 }

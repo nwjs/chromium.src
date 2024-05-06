@@ -53,6 +53,7 @@
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/ax_tree_data.h"
 #include "ui/accessibility/platform/ax_fragment_root_win.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/accessibility/platform/ax_platform_node_delegate.h"
 #include "ui/accessibility/platform/ax_platform_node_delegate_utils_win.h"
 #include "ui/accessibility/platform/ax_platform_node_textchildprovider_win.h"
@@ -660,6 +661,13 @@ void AXPlatformNodeWin::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
     }
   }
 
+  // TODO(benjamin.beaudry): Uncomment DCHECK once https://crbug.com/331840469
+  // is fixed.
+  // DCHECK(event_type != ax::mojom::Event::kLiveRegionChanged ||
+  //        GetDelegate()->IsWebContent() || IsUIAControl())
+  //     << "For views, the LiveRegionChanged event should only be fired on
+  //     nodes that are UIA controls.";
+
   if (event_type == ax::mojom::Event::kValueChanged ||
       event_type == ax::mojom::Event::kLiveRegionCreated ||
       event_type == ax::mojom::Event::kLiveRegionChanged) {
@@ -728,7 +736,7 @@ void AXPlatformNodeWin::FireUiaTextEditTextChangedEvent(
     const gfx::Range& range,
     const std::wstring& active_composition_text,
     bool is_composition_committed) {
-  if (!::features::IsUiaProviderEnabled()) {
+  if (!AXPlatform::GetInstance().IsUiaProviderEnabled()) {
     return;
   }
 
@@ -5251,12 +5259,17 @@ HRESULT AXPlatformNodeWin::GetPropertyValueImpl(PROPERTYID property_id,
       result->bstrVal = SysAllocString(GetUIARoleProperties().aria_role);
       break;
 
-    case UIA_AutomationIdPropertyId:
+    case UIA_AutomationIdPropertyId: {
+      // The kRootWebArea is the only element in a web page that cannot have
+      // an author provided id. In this case, we return a constant string
+      // that needs to be the same for all locales.
+      std::u16string automation_id = GetRole() == ax::mojom::Role::kRootWebArea
+                                         ? u"RootWebArea"
+                                         : GetDelegate()->GetAuthorUniqueId();
       V_VT(result) = VT_BSTR;
-      V_BSTR(result) =
-          SysAllocString(base::as_wcstr(GetDelegate()->GetAuthorUniqueId()));
+      V_BSTR(result) = SysAllocString(base::as_wcstr(automation_id));
       break;
-
+    }
     case UIA_ClassNamePropertyId:
       result->vt = VT_BSTR;
       GetStringAttributeAsBstr(ax::mojom::StringAttribute::kClassName,
@@ -7561,12 +7574,14 @@ bool AXPlatformNodeWin::IsUIAControl() const {
 
   // TODO(accessibility): This condition is very wide - it returns true for most
   // elements, except the ones that are explicitly invisible/ignored and not
-  // focusable. We might want to revisit this implementation to match the specs:
+  // focusable, and the ones that are expected to fire live region events. We
+  // might want to revisit this implementation to match the specs:
   // https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-treeoverview#control-view.
   //
   // Also, should we really have a different implementation for Views than for
   // web content?
-  return !(IsInvisibleOrIgnored() && !IsFocusable());
+  return !(IsInvisibleOrIgnored() && !IsFocusable()) ||
+         GetRole() == ax::mojom::Role::kStatus;
 }
 
 std::optional<LONG> AXPlatformNodeWin::ComputeUIALandmarkType() const {
@@ -7661,12 +7676,12 @@ bool AXPlatformNodeWin::ShouldHideChildrenForUIA() const {
 
 ULONG AXPlatformNodeWin::InternalAddRef() {
   // Instances of AXPlatformNodeWin hold a reference to themselves (acquired in
-  // `Create`; released in `Dispose`). When the refcount rises from 1 to 2,
-  // infer that the instance is being used for some COM-ish purpose; for
-  // example, being handed to an accessibility tool via a WM_GETOBJECT message
-  // handler.
+  // `Create`; released in `Dispose`). When the refcount rises from 1 to 2
+  // before the node has been disposed, infer that the instance is being used
+  // for some COM-ish purpose; for example, being handed to an accessibility
+  // tool via a WM_GETOBJECT message handler.
   const auto ref_count = SequenceAffineComObjectRoot::InternalAddRef();
-  if (ref_count == 2) {
+  if (delegate_ && ref_count == 2) {
     OnReferenced();
   }
   return ref_count;
@@ -7674,9 +7689,10 @@ ULONG AXPlatformNodeWin::InternalAddRef() {
 
 ULONG AXPlatformNodeWin::InternalRelease() {
   // As above, infer that the instance is no longer being used for some COM-ish
-  // purpose when the refcount drops back down from 2 to 1.
+  // purpose when the refcount drops back down to 1 (if it has yet to be
+  // disposed) or 0 (if it has been).
   const auto ref_count = SequenceAffineComObjectRoot::InternalRelease();
-  if (ref_count == 1) {
+  if (ref_count == (delegate_ ? 1 : 0)) {
     OnDereferenced();
   }
   return ref_count;
@@ -7924,7 +7940,7 @@ std::optional<DWORD> AXPlatformNodeWin::MojoEventToMSAAEvent(
 // static
 std::optional<EVENTID> AXPlatformNodeWin::MojoEventToUIAEvent(
     ax::mojom::Event event) {
-  if (!::features::IsUiaProviderEnabled()) {
+  if (!AXPlatform::GetInstance().IsUiaProviderEnabled()) {
     return std::nullopt;
   }
 
@@ -7957,7 +7973,7 @@ std::optional<EVENTID> AXPlatformNodeWin::MojoEventToUIAEvent(
 // static
 std::optional<PROPERTYID> AXPlatformNodeWin::MojoEventToUIAProperty(
     ax::mojom::Event event) {
-  if (!::features::IsUiaProviderEnabled()) {
+  if (!AXPlatform::GetInstance().IsUiaProviderEnabled()) {
     return std::nullopt;
   }
 

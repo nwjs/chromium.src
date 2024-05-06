@@ -86,11 +86,11 @@ extern NSString* const kChartBarXAxisSymbol;
 extern NSString* const kCircleSymbol;
 extern NSString* const kCircleFillSymbol;
 extern NSString* const kSyncEnabledSymbol;
-extern NSString* const kSyncCircleSymbol;
 extern NSString* const kDefaultBrowserSymbol;
 extern NSString* const kDefaultBrowseriOS14Symbol;
 extern NSString* const kDiscoverSymbol;
 extern NSString* const kBellSymbol;
+extern NSString* const kBellSlashSymbol;
 extern NSString* const kBellBadgeSymbol;
 extern NSString* const kCachedDataSymbol;
 extern NSString* const kAutofillDataSymbol;
@@ -100,7 +100,7 @@ extern NSString* const kRefineQuerySymbol;
 extern NSString* const kLinkActionSymbol;
 extern NSString* const kQRCodeFinderActionSymbol;
 extern NSString* const kNewTabActionSymbol;
-extern NSString* const kNewTabCircleActionSymbol;
+extern NSString* const kPlusInCircleSymbol;
 extern NSString* const kClipboardActionSymbol;
 extern NSString* const kDeleteActionSymbol;
 extern NSString* const kEditActionSymbol;
@@ -211,6 +211,7 @@ extern NSString* const kMoveTabToGroupActionSymbol;
 extern NSString* const kClockSymbol;
 extern NSString* const kUngroupTabGroupSymbol;
 extern NSString* const kPlusInSquareSymbol;
+extern NSString* const kMinusInCircleSymbol;
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

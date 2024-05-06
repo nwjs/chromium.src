@@ -34,7 +34,6 @@ import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntent
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchObserver;
 import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
@@ -44,7 +43,6 @@ import org.chromium.chrome.browser.customtabs.features.branding.BrandingControll
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.MinimizedFeatureUtils;
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.CustomTabHeightStrategy;
-import org.chromium.chrome.browser.customtabs.features.partialcustomtab.PartialCustomTabBottomSheetStrategy;
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.PartialCustomTabDisplayManager;
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.PartialCustomTabTabObserver;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabHistoryIPHController;
@@ -58,6 +56,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.gsa.GSAContextDisplaySelection;
+import org.chromium.chrome.browser.history.HistoryManager;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthCoordinatorFactory;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -74,6 +73,7 @@ import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.RequestDesktopUtils;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
@@ -295,16 +295,8 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
             toolbar.setMinimizeButtonEnabled(false);
         }
         if (mIntentDataProvider.get().isPartialCustomTab()) {
-            Callback<Runnable> softInputCallback;
-            if (ChromeFeatureList.sCctResizableSideSheet.isEnabled()) {
-                softInputCallback =
-                        ((PartialCustomTabDisplayManager) mCustomTabHeightStrategy)
-                                ::onShowSoftInput;
-            } else {
-                softInputCallback =
-                        ((PartialCustomTabBottomSheetStrategy) mCustomTabHeightStrategy)
-                                ::onShowSoftInput;
-            }
+            Callback<Runnable> softInputCallback =
+                    ((PartialCustomTabDisplayManager) mCustomTabHeightStrategy)::onShowSoftInput;
 
             var tabController = mTabController.get();
             tabController.registerTabObserver(new PartialCustomTabTabObserver(softInputCallback));
@@ -458,7 +450,11 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
             return null;
         }
 
-        return new GoogleBottomBarCoordinator(mActivity);
+        return new GoogleBottomBarCoordinator(
+                mActivity,
+                CustomTabsConnection.getInstance()
+                        .getGoogleBottomBarIntentParams(intentDataProvider),
+                intentDataProvider.getCustomButtonsOnGoogleBottomBar());
     }
 
     public @Nullable GoogleBottomBarCoordinator getGoogleBottomBarCoordinator() {
@@ -532,7 +528,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     public void onPostInflationStartup() {
         super.onPostInflationStartup();
         mCustomTabHeightStrategy.onPostInflationStartup();
-        if (ChromeFeatureList.sAppSpecificHistory.isEnabled() && mAppMenuCoordinator != null) {
+        if (HistoryManager.isAppSpecificHistoryEnabled() && mAppMenuCoordinator != null) {
             mCustomTabHistoryIPHController =
                     new CustomTabHistoryIPHController(
                             mActivity,

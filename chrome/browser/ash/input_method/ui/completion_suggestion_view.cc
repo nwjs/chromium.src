@@ -144,7 +144,10 @@ CompletionSuggestionView::CreateTabAnnotationLabel() {
 
 void CompletionSuggestionView::SetView(const SuggestionDetails& details) {
   SetSuggestionText(details.text, details.confirmed_length);
-  suggestion_width_ = suggestion_label_->GetPreferredSize().width();
+  suggestion_width_ =
+      suggestion_label_
+          ->GetPreferredSize(views::SizeBounds(suggestion_label_->width(), {}))
+          .width();
   down_and_enter_annotation_label_->SetVisible(details.show_accept_annotation);
   tab_annotation_label_->SetVisible(details.show_quick_accept_annotation);
   annotation_container_->SetVisible(details.show_accept_annotation ||
@@ -166,8 +169,9 @@ void CompletionSuggestionView::SetSuggestionText(
 }
 
 void CompletionSuggestionView::SetHighlighted(bool highlighted) {
-  if (highlighted_ == highlighted)
+  if (highlighted_ == highlighted) {
     return;
+  }
 
   highlighted_ = highlighted;
   if (highlighted) {
@@ -182,13 +186,10 @@ void CompletionSuggestionView::SetHighlighted(bool highlighted) {
 }
 
 void CompletionSuggestionView::OnThemeChanged() {
-  const auto* color_provider = GetColorProvider();
-  down_icon_->SetImage(
-      gfx::CreateVectorIcon(kKeyboardArrowDownIcon, kDownIconSize,
-                            color_provider->GetColor(ui::kColorIcon)));
-  arrow_icon_->SetImage(
-      gfx::CreateVectorIcon(kKeyboardArrowRightIcon, kArrowIconSize,
-                            color_provider->GetColor(ui::kColorIcon)));
+  down_icon_->SetImage(ui::ImageModel::FromVectorIcon(
+      kKeyboardArrowDownIcon, ui::kColorIcon, kDownIconSize));
+  arrow_icon_->SetImage(ui::ImageModel::FromVectorIcon(
+      kKeyboardArrowRightIcon, ui::kColorIcon, kArrowIconSize));
   views::View::OnThemeChanged();
 }
 
@@ -209,7 +210,8 @@ void CompletionSuggestionView::Layout(PassKey) {
 
 gfx::Size CompletionSuggestionView::CalculatePreferredSize() const {
   gfx::Size size;
-  gfx::Size suggestion_size = suggestion_label_->GetPreferredSize();
+  gfx::Size suggestion_size = suggestion_label_->GetPreferredSize(
+      views::SizeBounds(suggestion_label_->width(), {}));
   suggestion_size.SetToMax(gfx::Size(suggestion_width_, 0));
   size.Enlarge(suggestion_size.width() + 2 * kPadding, 0);
   size.SetToMax(suggestion_size);
@@ -217,8 +219,9 @@ gfx::Size CompletionSuggestionView::CalculatePreferredSize() const {
     gfx::Size annotation_size = annotation_container_->GetPreferredSize();
     size.Enlarge(annotation_size.width(), 0);
   }
-  if (min_width_ > size.width())
+  if (min_width_ > size.width()) {
     size.Enlarge(min_width_ - size.width(), 0);
+  }
   return size;
 }
 

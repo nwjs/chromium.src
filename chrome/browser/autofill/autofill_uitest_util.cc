@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/autofill/autofill_uitest_util.h"
-#include "base/memory/raw_ptr.h"
 
+#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -13,11 +13,16 @@
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/browser_autofill_manager.h"
 #include "components/autofill/core/browser/browser_autofill_manager_test_api.h"
+#include "components/autofill/core/browser/data_model/autofill_i18n_api.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/payments_data_manager_test_api.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager_observer.h"
+#include "components/autofill/core/browser/personal_data_manager_test_utils.h"
 #include "components/autofill/core/browser/test_autofill_manager_waiter.h"
+#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/form_field_data.h"
 #include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -27,66 +32,36 @@ static PersonalDataManager* GetPersonalDataManager(Profile* profile) {
   return PersonalDataManagerFactory::GetForProfile(profile);
 }
 
-PdmChangeWaiter::PdmChangeWaiter(Profile* base_profile)
-    : base_profile_(base_profile) {
-  obs_.Observe(GetPersonalDataManager(base_profile_));
-}
-
-PdmChangeWaiter::~PdmChangeWaiter() = default;
-
-void PdmChangeWaiter::OnPersonalDataChanged() {
-  if (run_loop_.running()) {
-    run_loop_.Quit();
-  }
-  alerted_ = true;
-}
-
-void PdmChangeWaiter::Wait() {
-  if (!alerted_) {
-    run_loop_.Run();
-  }
-  obs_.Reset();
-}
-
 void AddTestProfile(Profile* base_profile, const AutofillProfile& profile) {
-  PdmChangeWaiter observer(base_profile);
-  GetPersonalDataManager(base_profile)->AddProfile(profile);
-
-  // AddProfile is asynchronous. Wait for it to finish before continuing the
-  // tests.
-  observer.Wait();
+  PersonalDataManager* pdm = GetPersonalDataManager(base_profile);
+  PersonalDataChangedWaiter waiter(*pdm);
+  pdm->address_data_manager().AddProfile(profile);
+  std::move(waiter).Wait();
 }
 
 void AddTestCreditCard(Profile* base_profile, const CreditCard& card) {
-  PdmChangeWaiter observer(base_profile);
-  GetPersonalDataManager(base_profile)->AddCreditCard(card);
-
-  // AddCreditCard is asynchronous. Wait for it to finish before continuing the
-  // tests.
-  observer.Wait();
+  PersonalDataManager* pdm = GetPersonalDataManager(base_profile);
+  PersonalDataChangedWaiter waiter(*pdm);
+  pdm->payments_data_manager().AddCreditCard(card);
+  std::move(waiter).Wait();
 }
 
 void AddTestServerCreditCard(Profile* base_profile, const CreditCard& card) {
-  PdmChangeWaiter observer(base_profile);
-  GetPersonalDataManager(base_profile)->AddFullServerCreditCardForTesting(card);
-
-  // AddFullServerCreditCardForTesting is asynchronous. Wait for it to finish
-  // before continuing the tests.
-  observer.Wait();
+  PersonalDataManager* pdm = GetPersonalDataManager(base_profile);
+  PersonalDataChangedWaiter waiter(*pdm);
+  test_api(pdm->payments_data_manager()).AddServerCreditCard(card);
+  std::move(waiter).Wait();
 }
 
 void AddTestAutofillData(Profile* base_profile,
                          const AutofillProfile& profile,
                          const CreditCard& card) {
   AddTestProfile(base_profile, profile);
-  PdmChangeWaiter observer(base_profile);
-  GetPersonalDataManager(base_profile)->AddCreditCard(card);
-  observer.Wait();
+  AddTestCreditCard(base_profile, card);
 }
 
 void WaitForPersonalDataChange(Profile* base_profile) {
-  PdmChangeWaiter observer(base_profile);
-  observer.Wait();
+  PersonalDataChangedWaiter(*GetPersonalDataManager(base_profile)).Wait();
 }
 
 void WaitForPersonalDataManagerToBeLoaded(Profile* base_profile) {
@@ -97,12 +72,26 @@ void WaitForPersonalDataManagerToBeLoaded(Profile* base_profile) {
 }
 
 void GenerateTestAutofillPopup(ContentAutofillDriver& driver,
+                               Profile* profile,
                                gfx::RectF element_bounds) {
   FormData form;
   form.url = GURL("https://foo.com/bar");
-  form.fields.emplace_back();
+  form.fields = {test::CreateTestFormField(
+      "Full name", "name", "", FormControlType::kInputText, "name")};
   form.fields.front().is_focusable = true;
   form.fields.front().should_autocomplete = true;
+
+  // Not adding a profile would result in `AskForValuesToFill()` not finding any
+  // suggestions and hiding the Autofill Popup.
+  // Note: The popup is only shown later in this function. But, without an
+  // Autofill Profile, a sequence of nested asynchronous tasks posted on both
+  // database and UI threads would result (sometimes) in `AskForValuesToFill()`
+  // triggering the hiding of the Autofill Popup when
+  // `base::RunLoop().RunUntilIdle()` is called at the end of this function.
+  AutofillProfile autofill_profile(
+      i18n_model_definition::kLegacyHierarchyCountryCode);
+  autofill_profile.SetRawInfo(NAME_FULL, u"John Doe");
+  AddTestProfile(profile, autofill_profile);
 
   TestAutofillManagerWaiter waiter(driver.GetAutofillManager(),
                                    {AutofillManagerEvent::kAskForValuesToFill});
@@ -118,10 +107,13 @@ void GenerateTestAutofillPopup(ContentAutofillDriver& driver,
              .begin()
              ->second->ToFormData();
 
-  std::vector<Suggestion> suggestions = {Suggestion(u"Test suggestion")};
+  std::vector<Suggestion> suggestions = {Suggestion(u"John Doe")};
   test_api(static_cast<BrowserAutofillManager&>(driver.GetAutofillManager()))
       .external_delegate()
       ->OnSuggestionsReturned(form.fields.front().global_id(), suggestions);
+
+  // Showing the Autofill Popup is an asynchronous task.
+  base::RunLoop().RunUntilIdle();
 }
 
 }  // namespace autofill

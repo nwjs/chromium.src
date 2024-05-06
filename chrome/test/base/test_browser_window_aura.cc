@@ -52,7 +52,7 @@ gfx::NativeWindow TestBrowserWindowAura::GetNativeWindow() const {
 }
 
 void TestBrowserWindowAura::UpdateDraggableRegions(
-   const std::vector<extensions::mojom::DraggableRegionPtr>& regions) {
+   const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
 }
 
 SkRegion* TestBrowserWindowAura::GetDraggableRegion() {

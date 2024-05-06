@@ -29,6 +29,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/sequence_checker.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/current_thread.h"
 #include "base/task/sequenced_task_runner.h"
@@ -189,6 +190,10 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/application_status_listener.h"
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+#include "net/device_bound_sessions/device_bound_session_service.h"
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
 namespace network {
 
@@ -441,13 +446,12 @@ void TestVerifyCertCallback(
 }
 
 std::string HashesToBase64String(const net::HashValueVector& hashes) {
-  std::string str;
-  for (size_t i = 0; i != hashes.size(); ++i) {
-    if (i != 0)
-      str += ",";
-    str += hashes[i].ToString();
+  std::vector<std::string> strings;
+  strings.reserve(hashes.size());
+  for (const auto& hash : hashes) {
+    strings.push_back(hash.ToString());
   }
-  return str;
+  return base::JoinString(strings, ",");
 }
 
 #if BUILDFLAG(IS_CT_SUPPORTED)
@@ -640,13 +644,15 @@ NetworkContext::NetworkContext(
   url_request_context_owner_ = MakeURLRequestContext(
       std::move(url_loader_factory_for_cert_net_fetcher),
       session_cleanup_cookie_store,
-      std::move(on_url_request_context_builder_configured));
+      std::move(on_url_request_context_builder_configured),
+      params_->bound_network);
   url_request_context_ = url_request_context_owner_.url_request_context.get();
 
   cookie_manager_ = std::make_unique<CookieManager>(
       url_request_context_, &first_party_sets_access_delegate_,
       std::move(session_cleanup_cookie_store),
-      std::move(params_->cookie_manager_params));
+      std::move(params_->cookie_manager_params),
+      network_service_->tpcd_metadata_manager());
 
   cookie_manager_->AddSettingsWillChangeCallback(
       base::BindRepeating(&NetworkContext::OnCookieManagerSettingsChanged,
@@ -735,7 +741,8 @@ NetworkContext::NetworkContext(
           url_request_context,
           nullptr,
           /*first_party_sets_access_delegate=*/nullptr,
-          nullptr)),
+          /*params=*/nullptr,
+          /*tpcd_metadata_manager=*/nullptr)),
       socket_factory_(
           std::make_unique<SocketFactory>(url_request_context_->net_log(),
                                           url_request_context)),
@@ -2307,10 +2314,16 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
         url_loader_factory_for_cert_net_fetcher,
     scoped_refptr<SessionCleanupCookieStore> session_cleanup_cookie_store,
     OnURLRequestContextBuilderConfiguredCallback
-        on_url_request_context_builder_configured) {
+        on_url_request_context_builder_configured,
+    net::handles::NetworkHandle bound_network) {
   URLRequestContextBuilderMojo builder;
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
+
+  bool is_network_bound = bound_network != net::handles::kInvalidNetworkHandle;
+  if (is_network_bound) {
+    builder.BindToNetwork(bound_network);
+  }
 
   std::unique_ptr<net::CertVerifier> cert_verifier;
   if (g_cert_verifier_for_testing) {
@@ -2400,10 +2413,15 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
   if (network_service_) {
     net_log = network_service_->net_log();
     builder.set_net_log(net_log);
-    builder.set_host_resolver_manager(
-        network_service_->host_resolver_manager());
-    builder.set_host_resolver_factory(
-        network_service_->host_resolver_factory());
+    if (!is_network_bound) {
+      // Network bound URLRequestContexts build and configure their own special
+      // HostResolverManager and HostResolver. So, don't inject the
+      // NetworkService one even if NetworkService is enabled.
+      builder.set_host_resolver_manager(
+          network_service_->host_resolver_manager());
+      builder.set_host_resolver_factory(
+          network_service_->host_resolver_factory());
+    }
     builder.SetHttpAuthHandlerFactory(
         network_service_->CreateHttpAuthHandlerFactory(this));
     builder.set_network_quality_estimator(
@@ -2485,6 +2503,8 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
       cache_params.type =
           net::URLRequestContextBuilder::HttpCacheParams::IN_MEMORY;
     } else {
+      // Network-bound NetworkContexts should not persist state on disk.
+      CHECK(!is_network_bound);
       cache_params.path = params_->file_paths->http_cache_directory->path();
       cache_params.type = network_session_configurator::ChooseCacheType();
       if (params_->http_cache_file_operations_factory) {
@@ -2530,6 +2550,8 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
                           &network::mojom::NetworkContextFilePaths::
                               http_server_properties_file_name,
                           http_server_properties_file_name)) {
+    // Network-bound NetworkContexts should not persist state on disk.
+    CHECK(!is_network_bound);
     scoped_refptr<JsonPrefStore> json_pref_store(new JsonPrefStore(
         http_server_properties_file_name, nullptr,
         base::ThreadPool::CreateSequencedTaskRunner(
@@ -2557,6 +2579,8 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
                           &network::mojom::NetworkContextFilePaths::
                               transport_security_persister_file_name,
                           transport_security_persister_file_name)) {
+    // Network-bound NetworkContexts should not persist state on disk.
+    CHECK(!is_network_bound);
     builder.set_transport_security_persister_file_path(
         transport_security_persister_file_name);
   }
@@ -2587,6 +2611,8 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
                               reporting_and_nel_store_database_name,
                           reporting_and_nel_store_database_name) &&
       (reporting_enabled || nel_enabled)) {
+    // Network-bound NetworkContexts should not persist state on disk.
+    CHECK(!is_network_bound);
     scoped_refptr<base::SequencedTaskRunner> client_task_runner =
         base::SingleThreadTaskRunner::GetCurrentDefault();
     scoped_refptr<base::SequencedTaskRunner> background_task_runner =
@@ -2684,6 +2710,13 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
   if (params_->cookie_deprecation_label.has_value()) {
     builder.set_cookie_deprecation_label(*params_->cookie_deprecation_label);
   }
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  if (params_->device_bound_sessions_enabled) {
+    builder.set_device_bound_session_service(
+        net::DeviceBoundSessionService::Create());
+  }
+#endif
 
   if (on_url_request_context_builder_configured) {
     std::move(on_url_request_context_builder_configured).Run(&builder);
@@ -3028,17 +3061,40 @@ void NetworkContext::FlushCachedClientCertIfNeeded(
   }
 }
 
+void NetworkContext::FlushMatchingCachedClientCert(
+    const scoped_refptr<net::X509Certificate>& certificate) {
+  net::HttpNetworkSession* http_session =
+      url_request_context_->http_transaction_factory()->GetSession();
+  DCHECK(http_session);
+  if (http_session->ssl_client_context()) {
+    http_session->ssl_client_context()->ClearMatchingClientCertificate(
+        certificate);
+  }
+}
+
 void NetworkContext::SetCookieDeprecationLabel(
     const std::optional<std::string>& label) {
   CHECK(url_request_context_);
   url_request_context_->set_cookie_deprecation_label(label);
 }
 
-void NetworkContext::RevokeNetworkForNonce(
-    const base::UnguessableToken& nonce,
-    RevokeNetworkForNonceCallback callback) {
-  network_revocation_nonces_.insert(nonce);
-  // TODO(crbug.com/41488151): Cancel requests in progress.
+void NetworkContext::RevokeNetworkForNonces(
+    const std::vector<base::UnguessableToken>& nonces,
+    RevokeNetworkForNoncesCallback callback) {
+  for (const auto& nonce : nonces) {
+    network_revocation_nonces_.insert(nonce);
+    const std::set<GURL>& exemptions = network_revocation_exemptions_[nonce];
+    for (const auto& factory : url_loader_factories_) {
+      for (const auto& loader : factory->url_loaders()) {
+        loader->CancelRequestIfNonceMatchesAndUrlNotExempted(nonce, exemptions);
+      }
+    }
+#if BUILDFLAG(ENABLE_WEBSOCKETS)
+    if (websocket_factory_) {
+      websocket_factory_->RemoveIfNonceMatches(nonce);
+    }
+#endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
+  }
   std::move(callback).Run();
 }
 
@@ -3047,12 +3103,7 @@ void NetworkContext::ExemptUrlFromNetworkRevocationForNonce(
     const base::UnguessableToken& nonce,
     ExemptUrlFromNetworkRevocationForNonceCallback callback) {
   GURL url_without_filename = exempted_url.GetWithoutFilename();
-  if (network_revocation_exemptions_.contains(nonce)) {
-    network_revocation_exemptions_.find(nonce)->second.insert(
-        url_without_filename);
-  } else {
-    network_revocation_exemptions_.insert({nonce, {url_without_filename}});
-  }
+  network_revocation_exemptions_[nonce].insert(url_without_filename);
   std::move(callback).Run();
 }
 

@@ -110,7 +110,7 @@ constexpr auto kLacrosSelectionPolicyMap =
 
 // Returns primary user's User instance.
 const user_manager::User* GetPrimaryUser() {
-  // TODO(crbug.com/1185813): TaskManagerImplTest is not ready to run with
+  // TODO(crbug.com/40753373): TaskManagerImplTest is not ready to run with
   // Lacros enabled.
   // UserManager is not initialized for unit tests by default, unless a fake
   // user manager is constructed.
@@ -132,7 +132,7 @@ const user_manager::User* GetPrimaryUser() {
 //    kLacrosGooglePolicyRollout trial and they did not have the
 //    kLacrosDisallowed policy.
 LacrosAvailability GetCachedLacrosAvailability() {
-  // TODO(crbug.com/1286340): add DCHECK for production use to avoid the
+  // TODO(crbug.com/40210811): add DCHECK for production use to avoid the
   // same inconsistency for the future.
   if (g_lacros_availability_cache.has_value())
     return g_lacros_availability_cache.value();
@@ -190,50 +190,6 @@ std::optional<LacrosAvailability> GetLacrosAvailability(
   }
 }
 
-// Returns whether the lacros is enabled currently.
-bool IsLacrosEnabledInternal(const User* user,
-                             LacrosAvailability lacros_availability,
-                             bool check_migration_status) {
-  if (!ash::standalone_browser::BrowserSupport::IsAllowedInternal(
-          user, lacros_availability)) {
-    return false;
-  }
-
-  DCHECK(user);
-
-  // If profile migration is enabled, the completion of it is necessary for
-  // Lacros to be enabled.
-  if (check_migration_status &&
-      !base::FeatureList::IsEnabled(
-          ash::standalone_browser::features::kLacrosProfileMigrationForceOff)) {
-    PrefService* local_state = g_browser_process->local_state();
-    // Note that local_state can be nullptr in tests.
-    if (local_state && !ash::standalone_browser::migrator_util::
-                           IsProfileMigrationCompletedForUser(
-                               local_state, user->username_hash())) {
-      // If migration has not been completed, do not enable lacros.
-      return false;
-    }
-  }
-
-  switch (lacros_availability) {
-    case LacrosAvailability::kUserChoice:
-      break;
-    case LacrosAvailability::kLacrosDisallowed:
-      NOTREACHED();  // Guarded by IsLacrosAllowedInternal.
-      return false;
-    case LacrosAvailability::kLacrosOnly:
-      return true;
-  }
-
-  if (base::FeatureList::IsEnabled(
-          ash::standalone_browser::features::kLacrosOnly)) {
-    return true;
-  }
-
-  return false;
-}
-
 }  // namespace
 
 constexpr char kLacrosStabilitySwitch[] = "lacros-stability";
@@ -287,8 +243,6 @@ const char kLacrosSelectionRootfs[] = "rootfs";
 const char kLacrosSelectionStateful[] = "stateful";
 
 const char kLaunchOnLoginPref[] = "lacros.launch_on_login";
-// Marks the Chrome version at which profile migration was completed.
-const char kDataVerPref[] = "lacros.data_version";
 const char kProfileDataBackwardMigrationCompletedForUserPref[] =
     "lacros.profile_data_backward_migration_completed_for_user";
 // This pref is to record whether the user clicks "Go to files" button
@@ -302,7 +256,6 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
 }
 
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
-  registry->RegisterDictionaryPref(kDataVerPref);
   registry->RegisterDictionaryPref(
       kProfileDataBackwardMigrationCompletedForUserPref);
   registry->RegisterListPref(kGotoFilesPref);
@@ -335,9 +288,9 @@ bool IsLacrosAllowedToBeEnabled() {
 }
 
 bool IsLacrosEnabled() {
-  return IsLacrosEnabledInternal(GetPrimaryUser(),
-                                 GetCachedLacrosAvailability(),
-                                 /*check_migration_status=*/true);
+  return ash::standalone_browser::BrowserSupport::IsEnabledInternal(
+      GetPrimaryUser(), GetCachedLacrosAvailability(),
+      /*check_migration_status=*/true);
 }
 
 bool IsLacrosEnabledForMigration(const User* user,
@@ -347,8 +300,8 @@ bool IsLacrosEnabledForMigration(const User* user,
   if (!lacros_availability.has_value()) {
     return false;
   }
-  return IsLacrosEnabledInternal(user, *lacros_availability,
-                                 /*check_migration_status=*/false);
+  return ash::standalone_browser::BrowserSupport::IsEnabledInternal(
+      user, *lacros_availability, /*check_migration_status=*/false);
 }
 
 bool IsProfileMigrationEnabled(const user_manager::User* user,
@@ -455,29 +408,16 @@ bool DoesMetadataSupportNewAccountManager(base::Value* metadata) {
   if (!base::StringToInt(versions_str[2], &minor_version))
     return false;
 
-  // TODO(https://crbug.com/1197220): Come up with more appropriate major/minor
+  // TODO(crbug.com/40176822): Come up with more appropriate major/minor
   // version numbers.
   return major_version >= 1000 && minor_version >= 0;
-}
-
-base::Version GetDataVer(PrefService* local_state,
-                         const std::string& user_id_hash) {
-  const base::Value::Dict& data_versions = local_state->GetDict(kDataVerPref);
-  const std::string* data_version_str = data_versions.FindString(user_id_hash);
-
-  if (!data_version_str)
-    return base::Version();
-
-  return base::Version(*data_version_str);
 }
 
 void RecordDataVer(PrefService* local_state,
                    const std::string& user_id_hash,
                    const base::Version& version) {
-  DCHECK(version.IsValid());
-  ScopedDictPrefUpdate update(local_state, kDataVerPref);
-  base::Value::Dict& dict = update.Get();
-  dict.Set(user_id_hash, version.GetString());
+  ash::standalone_browser::migrator_util::RecordDataVer(local_state,
+                                                        user_id_hash, version);
 }
 
 base::Version GetRootfsLacrosVersionMayBlock(

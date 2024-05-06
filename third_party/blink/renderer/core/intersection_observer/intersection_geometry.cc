@@ -223,7 +223,8 @@ static const unsigned kConstructorFlagsMask =
     IntersectionGeometry::kForFrameViewportIntersection |
     IntersectionGeometry::kShouldConvertToCSSPixels |
     IntersectionGeometry::kUseOverflowClipEdge |
-    IntersectionGeometry::kRespectFilters;
+    IntersectionGeometry::kRespectFilters |
+    IntersectionGeometry::kScrollAndVisibilityOnly;
 
 }  // namespace
 
@@ -258,11 +259,12 @@ String IntersectionGeometry::CachedRects::ToString() const {
                                          : t.ToString();
   };
   return String::Format(
-      "target_rect: %s %s root_rect: %s %s intersection: %s %s %s "
+      "%d target_rect: %s %s root_rect: %s %s intersection: %s %s %s "
       "min_to_update %s %s target_t: %s root_t: %s intersect: %d "
-      "rel: %d r_scrolls_t: %d",
-      local_target_rect.ToString().c_str(), target_rect.ToString().c_str(),
-      local_root_rect.ToString().c_str(), root_rect.ToString().c_str(),
+      "rel: %d r_scrolls_t: %d\n%s\n%s\n%s",
+      valid, local_target_rect.ToString().c_str(),
+      target_rect.ToString().c_str(), local_root_rect.ToString().c_str(),
+      root_rect.ToString().c_str(),
       unscrolled_unclipped_intersection_rect.ToString().c_str(),
       unclipped_intersection_rect.ToString().c_str(),
       intersection_rect.ToString().c_str(),
@@ -270,7 +272,8 @@ String IntersectionGeometry::CachedRects::ToString() const {
       min_scroll_delta_to_update.ToString().c_str(),
       transform_to_string(target_to_view_transform).c_str(),
       transform_to_string(root_to_view_transform).c_str(), does_intersect,
-      relationship, root_scrolls_target);
+      relationship, root_scrolls_target, root_clip_tree.Utf8().c_str(),
+      target_clip_tree.Utf8().c_str(), target_transform_tree.Utf8().c_str());
 }
 #endif
 
@@ -530,11 +533,6 @@ void IntersectionGeometry::UpdateShouldUseCachedRects(
 
   cached_rects->valid = false;
 
-  if (RuntimeEnabledFeatures::IntersectionOptimizationEnabled()) {
-    // TODO(crbug.com/40883761): Evaluate performance.
-    return;
-  }
-
   if (root_and_target.relationship == RootAndTarget::kInvalid) {
     return;
   }
@@ -546,21 +544,37 @@ void IntersectionGeometry::UpdateShouldUseCachedRects(
     return;
   }
 
-  if (RootIsImplicit()) {
-    return;
-  }
-  // Cached rects can only be used if there are no scrollable objects in the
-  // hierarchy between target and root (a scrollable root is ok). The reason
-  // is that a scroll change in an intermediate scroller would change the
-  // intersection geometry, but it would not properly trigger an invalidation
-  // of the cached rects.
-  PaintLayer* root_layer = root_and_target.target->View()->Layer();
-  if (!root_layer) {
-    return;
-  }
-  if (root_and_target.target->DeprecatedEnclosingScrollableBox() !=
-      root_and_target.root) {
-    return;
+  if (RuntimeEnabledFeatures::IntersectionOptimizationEnabled()) {
+    if (!(flags_ & kScrollAndVisibilityOnly)) {
+      return;
+    }
+    // Cached rects can only be used if there are no scrollable objects in the
+    // hierarchy between target and root (a scrollable root is ok). The reason
+    // is that a scroll change in an intermediate scroller would change the
+    // intersection geometry, but we intentionally don't invalidate cached
+    // rects and schedule intersection update to enable the minimul-scroll-
+    // delta-to-update optimization.
+    if (root_and_target.relationship != RootAndTarget::kNotScrollable &&
+        root_and_target.relationship != RootAndTarget::kScrollableByRootOnly) {
+      return;
+    }
+  } else {
+    if (RootIsImplicit()) {
+      return;
+    }
+    // Cached rects can only be used if there are no scrollable objects in the
+    // hierarchy between target and root (a scrollable root is ok). The reason
+    // is that a scroll change in an intermediate scroller would change the
+    // intersection geometry, but it would not properly trigger an invalidation
+    // of the cached rects.
+    PaintLayer* root_layer = root_and_target.target->View()->Layer();
+    if (!root_layer) {
+      return;
+    }
+    if (root_and_target.target->DeprecatedEnclosingScrollableBox() !=
+        root_and_target.root) {
+      return;
+    }
   }
 
   flags_ |= kShouldUseCachedRects;
@@ -726,29 +740,21 @@ void IntersectionGeometry::ComputeGeometry(const RootGeometry& root_geometry,
 #if CHECK_SKIPPED_UPDATE_ON_SCROLL()
     // TODO(wangxianzhu): Remove or clean up this code after fixing
     // crbug.com/41492283.
-    if (!cached_rects->min_scroll_delta_to_update.IsZero() &&
-        root_and_target.relationship == RootAndTarget::kScrollableByRootOnly &&
-        CanUseGeometryMapper(*root_and_target.target) &&
-        cached_rects->local_target_rect.size() !=
-            cached_rects->unscrolled_unclipped_intersection_rect.size()) {
-      // There are no intermediate clippers, no non-2d-translation transforms.
-      // Why is unscrolled_unclipped_intersection_rect.size() different?
-      PropertyTreeStateOrAlias container_properties =
-          PropertyTreeState::Uninitialized();
-      root_and_target.target->GetPropertyContainer(nullptr,
-                                                   &container_properties);
-      auto root_state =
-          root_and_target.root->FirstFragment().ContentsProperties();
-      StringBuilder sb;
-      for (const auto* clip = &container_properties.Clip();
-           clip != &root_state.Clip(); clip = clip->Parent()) {
-        sb.Append('\n');
-        sb.Append(clip->ToString());
-      }
-      NOTREACHED()
-          << cached_rects->local_target_rect.ToString() << " "
-          << cached_rects->unscrolled_unclipped_intersection_rect.ToString()
-          << sb.ToString().Utf8();
+    auto& root_fragment = root_and_target.root->FirstFragment();
+    cached_rects->root_clip_tree =
+        root_fragment.HasLocalBorderBoxProperties()
+            ? root_fragment.ContentsClip().ToTreeString()
+            : "No properties";
+    PropertyTreeStateOrAlias target_properties =
+        PropertyTreeState::Uninitialized();
+    if (root_and_target.target->GetPropertyContainer(nullptr,
+                                                     &target_properties)) {
+      cached_rects->target_clip_tree = target_properties.Clip().ToTreeString();
+      cached_rects->target_transform_tree =
+          target_properties.Transform().ToTreeString();
+    } else {
+      cached_rects->target_clip_tree = cached_rects->target_transform_tree =
+          "No properties";
     }
     cached_rects->computed_min_scroll_delta_to_update =
         cached_rects->min_scroll_delta_to_update;

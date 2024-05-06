@@ -74,39 +74,6 @@ class AutofillPopupControllerImpl
   AutofillPopupControllerImpl& operator=(const AutofillPopupControllerImpl&) =
       delete;
 
-  // Creates a new `AutofillPopupControllerImpl`, or reuses `previous` if the
-  // construction arguments are the same. `previous` may be invalidated by this
-  // call. The controller will listen for keyboard input routed to
-  // `web_contents` while the popup is showing, unless `web_contents` is NULL.
-  static base::WeakPtr<AutofillPopupControllerImpl> GetOrCreate(
-      base::WeakPtr<AutofillPopupControllerImpl> previous,
-      base::WeakPtr<AutofillPopupDelegate> delegate,
-      content::WebContents* web_contents,
-      gfx::NativeView container_view,
-      const gfx::RectF& element_bounds,
-      base::i18n::TextDirection text_direction,
-      int32_t form_control_ax_id);
-
-  // Shows the popup, or updates the existing popup with the given values.
-  virtual void Show(std::vector<Suggestion> suggestions,
-                    AutofillSuggestionTriggerSource trigger_source,
-                    AutoselectFirstSuggestion autoselect_first_suggestion);
-
-  // Updates the data list values currently shown with the popup.
-  virtual void UpdateDataListValues(base::span<const SelectOption> options);
-
-  // Informs the controller that the popup may not be hidden by stale data or
-  // interactions with native Chrome UI. This state remains active until the
-  // view is destroyed.
-  void PinView();
-
-  // Hides the popup and destroys the controller. This also invalidates
-  // `delegate_`.
-  void Hide(PopupHidingReason reason) override;
-
-  // Invoked when the view was destroyed by by someone other than this class.
-  void ViewDestroyed() override;
-
   // Handles a key press event and returns whether the event should be swallowed
   // (meaning that no other handler, in not particular the default handler, can
   // process it).
@@ -140,28 +107,26 @@ class AutofillPopupControllerImpl
   std::optional<AutofillClient::PopupScreenLocation> GetPopupScreenLocation()
       const override;
   void HideSubPopup() override;
-
-  void KeepPopupOpenForTesting() { keep_popup_open_for_testing_ = true; }
-
-  // Disables show thresholds. See the documentation of the member for details.
-  void DisableThresholdForTesting(bool disable_threshold) {
-    disable_threshold_for_testing_ = disable_threshold;
-  }
+  void Hide(PopupHidingReason reason) override;
+  void ViewDestroyed() override;
+  void Show(std::vector<Suggestion> suggestions,
+            AutofillSuggestionTriggerSource trigger_source,
+            AutoselectFirstSuggestion autoselect_first_suggestion) override;
+  void DisableThresholdForTesting(bool disable_threshold) override;
+  void KeepPopupOpenForTesting() override;
+  void UpdateDataListValues(base::span<const SelectOption> options) override;
+  void PinView() override;
 
   void SetViewForTesting(base::WeakPtr<AutofillPopupView> view) {
     view_ = std::move(view);
     time_view_shown_ = NextIdleTimeTicks::CaptureNextIdleTimeTicks();
   }
 
-  int GetLineCountForTesting() const { return GetLineCount(); }
-
  protected:
   AutofillPopupControllerImpl(
       base::WeakPtr<AutofillPopupDelegate> delegate,
       content::WebContents* web_contents,
-      gfx::NativeView container_view,
-      const gfx::RectF& element_bounds,
-      base::i18n::TextDirection text_direction,
+      PopupControllerCommon controller_common,
       int32_t form_control_ax_id,
       base::RepeatingCallback<void(
           gfx::NativeWindow,
@@ -198,6 +163,8 @@ class AutofillPopupControllerImpl
   virtual void HideViewAndDie();
 
  private:
+  friend class AutofillPopupController;
+
   // Clear the internal state of the controller. This is needed to ensure that
   // when the popup is reused it doesn't leak values between uses.
   void ClearState();
@@ -266,7 +233,7 @@ class AutofillPopupControllerImpl
 
   // Callback invoked to try to show the password migration warning on Android.
   // Used to facilitate testing.
-  // TODO(crbug.com/1454469): Remove when the warning isn't needed anymore.
+  // TODO(crbug.com/40272324): Remove when the warning isn't needed anymore.
   base::RepeatingCallback<void(
       gfx::NativeWindow,
       Profile*,

@@ -117,7 +117,8 @@ static_assert(FirstUserModifiableProviderIsHighestPrecedence(),
 bool SchemeCanBeAllowlisted(const std::string& scheme) {
   return scheme == content_settings::kChromeDevToolsScheme ||
          scheme == content_settings::kExtensionScheme ||
-         scheme == content_settings::kChromeUIScheme;
+         scheme == content_settings::kChromeUIScheme ||
+         scheme == content_settings::kChromeUIUntrustedScheme;
 }
 
 // Handles inheritance of settings from the regular profile into the incognito
@@ -146,6 +147,10 @@ base::Value ProcessIncognitoInheritanceBehavior(
     switch (behaviour) {
       case ContentSettingsInfo::INHERIT_IN_INCOGNITO:
         return value;
+      case ContentSettingsInfo::DONT_INHERIT_IN_INCOGNITO:
+        return content_settings_info->website_settings_info()
+            ->initial_default_value()
+            .Clone();
       case ContentSettingsInfo::INHERIT_IF_LESS_PERMISSIVE:
         ContentSetting setting = content_settings::ValueToContentSetting(value);
         const base::Value& initial_value =
@@ -153,8 +158,9 @@ base::Value ProcessIncognitoInheritanceBehavior(
                 ->initial_default_value();
         ContentSetting initial_setting =
             content_settings::ValueToContentSetting(initial_value);
-        if (content_settings::IsMorePermissive(setting, initial_setting))
+        if (content_settings::IsMorePermissive(setting, initial_setting)) {
           return content_settings::ContentSettingToValue(initial_setting);
+        }
         return value;
     }
   }
@@ -507,7 +513,7 @@ void HostContentSettingsMap::SetWebsiteSettingCustomScope(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(IsSecondaryPatternAllowed(primary_pattern, secondary_pattern,
                                    content_type, value));
-  // TODO(crbug.com/731126): Verify that assumptions for notification content
+  // TODO(crbug.com/40524796): Verify that assumptions for notification content
   // settings are met.
   UsedContentSettingsProviders();
 

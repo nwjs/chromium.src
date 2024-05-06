@@ -22,6 +22,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
 #include "cc/base/math_util.h"
+#include "cc/paint/element_id.h"
 #include "cc/paint/node_id.h"
 #include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_export.h"
@@ -50,6 +51,7 @@ class Slug;
 
 namespace cc {
 
+class DisplayItemList;
 class PaintOpWriter;
 class PaintOpReader;
 
@@ -81,6 +83,7 @@ enum class PaintOpType : uint8_t {
   kClipRRect,
   kConcat,
   kCustomData,
+  kDrawArc,
   kDrawColor,
   kDrawDRRect,
   kDrawImage,
@@ -92,6 +95,7 @@ enum class PaintOpType : uint8_t {
   kDrawRecord,
   kDrawRect,
   kDrawRRect,
+  kDrawScrollingContents,
   kDrawSkottie,
   kDrawSlug,
   kDrawTextBlob,
@@ -607,6 +611,36 @@ class CC_PAINT_EXPORT DrawLineOp final : public PaintOpWithFlags {
   DrawLineOp() : PaintOpWithFlags(kType) {}
 };
 
+class CC_PAINT_EXPORT DrawArcOp final : public PaintOpWithFlags {
+ public:
+  static constexpr PaintOpType kType = PaintOpType::kDrawArc;
+  static constexpr bool kIsDrawOp = true;
+  DrawArcOp(const SkRect& oval,
+            SkScalar start_angle_degrees,
+            SkScalar sweep_angle_degrees,
+            const PaintFlags& flags)
+      : PaintOpWithFlags(kType, flags),
+        oval(oval),
+        start_angle_degrees(start_angle_degrees),
+        sweep_angle_degrees(sweep_angle_degrees) {}
+  static void RasterWithFlags(const DrawArcOp* op,
+                              const PaintFlags* flags,
+                              SkCanvas* canvas,
+                              const PlaybackParams& params);
+  // Actual implementation for rastering.
+  void RasterWithFlagsImpl(const PaintFlags* flags, SkCanvas* canvas) const;
+  bool IsValid() const { return flags.IsValid(); }
+  bool EqualsForTesting(const DrawArcOp& other) const;
+  HAS_SERIALIZATION_FUNCTIONS();
+
+  SkRect oval;
+  SkScalar start_angle_degrees;
+  SkScalar sweep_angle_degrees;
+
+ private:
+  DrawArcOp() : PaintOpWithFlags(kType) {}
+};
+
 class CC_PAINT_EXPORT DrawOvalOp final : public PaintOpWithFlags {
  public:
   static constexpr PaintOpType kType = PaintOpType::kDrawOval;
@@ -736,6 +770,44 @@ class CC_PAINT_EXPORT DrawRRectOp final : public PaintOpWithFlags {
 
  private:
   DrawRRectOp() : PaintOpWithFlags(kType) {}
+};
+
+// This is used to draw non-composited scrolling contents. The display item
+// list should contain painted results beyond the current scroll port like
+// composited scrolling contents. During rasterization or serialization, the
+// current clip of the canvas and the current scroll offset and will be applied
+// to the display item list. This PaintOp doesn't apply the overflow clip of
+// the scroller, but the client should emit ClipRectOp.
+class CC_PAINT_EXPORT DrawScrollingContentsOp final : public PaintOp {
+ public:
+  static constexpr PaintOpType kType = PaintOpType::kDrawScrollingContents;
+  static constexpr bool kIsDrawOp = true;
+  DrawScrollingContentsOp(ElementId scroll_element_id,
+                          scoped_refptr<DisplayItemList> display_item_list,
+                          gfx::PointF main_scroll_offset);
+  ~DrawScrollingContentsOp();
+  static void Raster(const DrawScrollingContentsOp* op,
+                     SkCanvas* canvas,
+                     const PlaybackParams& params);
+  bool IsValid() const { return scroll_element_id && display_item_list; }
+  bool EqualsForTesting(const DrawScrollingContentsOp& other) const;
+  size_t AdditionalBytesUsed() const;
+  size_t AdditionalOpCount() const;
+  bool HasDiscardableImages() const;
+  int CountSlowPaths() const;
+  bool HasNonAAPaint() const;
+  bool HasDrawTextOps() const;
+  bool HasSaveLayerOps() const;
+  bool HasSaveLayerAlphaOps() const;
+  bool HasEffectsPreventingLCDTextForSaveLayerAlpha() const;
+  HAS_SERIALIZATION_FUNCTIONS();
+
+  gfx::PointF GetScrollOffset(const PlaybackParams& params) const;
+
+  ElementId scroll_element_id;
+  scoped_refptr<DisplayItemList> display_item_list;
+  // The scroll offset from the main thread.
+  gfx::PointF main_scroll_offset;
 };
 
 class CC_PAINT_EXPORT DrawVerticesOp final : public PaintOpWithFlags {

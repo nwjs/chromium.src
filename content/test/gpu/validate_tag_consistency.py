@@ -176,7 +176,7 @@ TAG_HEADER = """\
 # Devices
 # tags: [ android-nexus-5x android-pixel-2 android-pixel-4
 #             android-pixel-6 android-shield-android-tv android-sm-a135m
-#             android-sm-a235m
+#             android-sm-a235m android-sm-s911u1
 #         chromeos-board-amd64-generic chromeos-board-eve chromeos-board-jacuzzi
 #             chromeos-board-octopus chromeos-board-volteer
 #         fuchsia-board-astro fuchsia-board-nelson fuchsia-board-sherlock
@@ -208,6 +208,7 @@ TAG_HEADER = """\
 # Driver
 # tags: [ mesa_lt_19.1
 #         mesa_ge_21.0
+#         mesa_ge_23.2
 #         nvidia_ge_31.0.15.4601 nvidia_lt_31.0.15.4601 ]
 # ASan
 # tags: [ asan no-asan ]
@@ -223,6 +224,11 @@ TAG_HEADER = """\
 # tags: [ webgpu-compat webgpu-not-compat ]
 # WebGPU DXC
 # tags: [ webgpu-dxc-enabled webgpu-dxc-disabled ]
+# WebGPU worker usage
+# tags: [ webgpu-no-worker
+#         webgpu-service-worker
+#         webgpu-dedicated-worker
+#         webgpu-shared-worker ]
 # Clang coverage
 # tags: [ clang-coverage no-clang-coverage ]
 # Skia Graphite

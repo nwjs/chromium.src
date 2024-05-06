@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -15,6 +16,7 @@
 #include "base/containers/queue.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_forward.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
@@ -22,7 +24,6 @@
 #include "base/process/process.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
-#include "base/strings/string_piece.h"
 #include "base/template_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/types/strong_alias.h"
@@ -61,6 +62,8 @@
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-test-utils.h"
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
+#include "third_party/blink/public/mojom/keyboard_lock/keyboard_lock.mojom-shared.h"
+#include "third_party/blink/public/mojom/navigation/navigation_params.mojom-shared.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_tree_update.h"
@@ -74,7 +77,6 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/win/scoped_handle.h"
 #endif
-
 
 namespace gfx {
 class Point;
@@ -254,18 +256,18 @@ void NavigateToURLBlockUntilNavigationsComplete(
 // necessary, a user activation can be triggered right before calling this
 // method, e.g. by calling |ExecJs(frame_tree_node, "")|.
 bool NavigateIframeToURL(WebContents* web_contents,
-                         base::StringPiece iframe_id,
+                         std::string_view iframe_id,
                          const GURL& url);
 
 // Similar to |NavigateIframeToURL()| but returns as soon as the navigation is
 // initiated.
 bool BeginNavigateIframeToURL(WebContents* web_contents,
-                              base::StringPiece iframe_id,
+                              std::string_view iframe_id,
                               const GURL& url);
 
 // Generate a URL for a file path including a query string.
 GURL GetFileUrlWithQuery(const base::FilePath& path,
-                         base::StringPiece query_string);
+                         std::string_view query_string);
 
 // Checks whether the page type of the last committed navigation entry matches
 // |page_type|.
@@ -318,6 +320,11 @@ void PwnCommitIPC(WebContents* web_contents,
                   const GURL& new_url,
                   const url::Origin& new_origin);
 
+// Test helper to check the content-internal CanCommitURL() method on
+// ChildProcessSecurityPolicy, determining whether a particular process is
+// allowed to commit a navigation to `url`.
+bool CanCommitURLForTesting(int child_id, const GURL& url);
+
 // Causes the specified web_contents to issue an OnUnresponsiveRenderer event
 // to its observers.
 void SimulateUnresponsiveRenderer(WebContents* web_contents,
@@ -352,12 +359,12 @@ void SimulateMouseClickAt(WebContents* web_contents,
 // friendly by taking zooming into account.
 gfx::PointF GetCenterCoordinatesOfElementWithId(
     const ToRenderFrameHost& adapter,
-    base::StringPiece id);
+    std::string_view id);
 
 // Retrieves the center coordinates of the element with id |id| and simulates a
 // mouse click there using SimulateMouseClickAt().
 void SimulateMouseClickOrTapElementWithId(content::WebContents* web_contents,
-                                          base::StringPiece id);
+                                          std::string_view id);
 
 // Simulates asynchronously a mouse enter/move/leave event. The mouse event is
 // routed through RenderWidgetHostInputEventRouter and thus can target OOPIFs.
@@ -536,6 +543,10 @@ BindFakeFrameWidgetInterfaces(RenderFrameHost* frame);
 // RenderFrameHost
 void SimulateActiveStateForWidget(RenderFrameHost* frame, bool active);
 
+// Return the value set for VisitedLinkSalt in the navigation's commit_params.
+std::optional<uint64_t> GetVisitedLinkSaltForNavigation(
+    NavigationHandle* navigation_handle);
+
 // Holds down modifier keys for the duration of its lifetime and releases them
 // upon destruction. This allows simulating multiple input events without
 // simulating modifier key releases in between.
@@ -611,12 +622,12 @@ RenderFrameHost* ConvertToRenderFrameHost(WebContents* web_contents);
 // - EvalJs (if you want to retrieve a value)
 // - DOMMessageQueue (to manually wait for domAutomationController.send(...))
 void ExecuteScriptAsync(const ToRenderFrameHost& adapter,
-                        base::StringPiece script);
+                        std::string_view script);
 
 // Same as `content::ExecuteScriptAsync()`, but doesn't send a user gesture to
 // the renderer.
 void ExecuteScriptAsyncWithoutUserGesture(const ToRenderFrameHost& adapter,
-                                          base::StringPiece script);
+                                          std::string_view script);
 
 // JsLiteralHelper is a helper class that determines what types are legal to
 // pass to StringifyJsLiteral. Legal types include int, string, StringPiece,
@@ -694,7 +705,7 @@ base::Value ListValueOf(Args&&... args) {
 // This becomes "window.location.reload(true);" -- because bool values are
 // supported by base::Value. Numbers, lists, and dicts also work.
 template <typename... Args>
-std::string JsReplace(base::StringPiece script_template, Args&&... args) {
+std::string JsReplace(std::string_view script_template, Args&&... args) {
   base::Value::List values =
       ListValueOf(std::forward<Args>(args)...).TakeList();
   std::vector<std::string> replacements(values.size());
@@ -733,7 +744,7 @@ struct EvalJsResult {
 
   // Creates an EvalJs result. If |error| is non-empty, |value| will be
   // ignored.
-  EvalJsResult(base::Value value, base::StringPiece error);
+  EvalJsResult(base::Value value, std::string_view error);
 
   // Copy ctor.
   EvalJsResult(const EvalJsResult& value);
@@ -895,7 +906,7 @@ enum EvalJsOptions {
 // It is guaranteed that EvalJs works even when the target frame is frozen.
 [[nodiscard]] EvalJsResult EvalJs(
     const ToRenderFrameHost& execution_target,
-    base::StringPiece script,
+    std::string_view script,
     int options = EXECUTE_SCRIPT_DEFAULT_OPTIONS,
     int32_t world_id = ISOLATED_WORLD_ID_GLOBAL,
     base::OnceClosure after_script_invoke = base::DoNothing());
@@ -907,8 +918,8 @@ enum EvalJsOptions {
 // processed by the browser.
 [[nodiscard]] EvalJsResult EvalJsAfterLifecycleUpdate(
     const ToRenderFrameHost& execution_target,
-    base::StringPiece raf_script,
-    base::StringPiece script,
+    std::string_view raf_script,
+    std::string_view script,
     int options = EXECUTE_SCRIPT_DEFAULT_OPTIONS,
     int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
 
@@ -922,7 +933,7 @@ enum EvalJsOptions {
 // until it resolves (by default).
 [[nodiscard]] ::testing::AssertionResult ExecJs(
     const ToRenderFrameHost& execution_target,
-    base::StringPiece script,
+    std::string_view script,
     int options = EXECUTE_SCRIPT_DEFAULT_OPTIONS,
     int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
 
@@ -941,7 +952,7 @@ RenderFrameHost* FrameMatchingPredicate(
     base::RepeatingCallback<bool(RenderFrameHost*)> predicate);
 
 // Predicates for use with FrameMatchingPredicate[OrNullPtr]().
-bool FrameMatchesName(base::StringPiece name, RenderFrameHost* frame);
+bool FrameMatchesName(std::string_view name, RenderFrameHost* frame);
 bool FrameIsChildOfMainFrame(RenderFrameHost* frame);
 bool FrameHasSourceUrl(const GURL& url, RenderFrameHost* frame);
 
@@ -1066,16 +1077,7 @@ void WaitForAccessibilityTreeToChange(WebContents* web_contents);
 // WaitForAccessibilityTreeToChange, above, and then checks again.
 // Keeps looping until the text is found (or the test times out).
 void WaitForAccessibilityTreeToContainNodeWithName(WebContents* web_contents,
-                                                   base::StringPiece name);
-
-// Waits for a document selection changed event then checks to see if the
-// accessibility tree has a selection start and end with the given name(s).
-// Keeps looping until the text is found (or the
-// test times out).
-void WaitForAccessibilityTreeToContainSelection(
-    WebContents* web_contents,
-    base::StringPiece selection_start_name,
-    base::StringPiece selection_end_name);
+                                                   std::string_view name);
 
 // Get a snapshot of a web page's accessibility tree.
 ui::AXTreeUpdate GetAccessibilityTreeSnapshot(WebContents* web_contents);
@@ -1128,8 +1130,10 @@ RenderWidgetHost* GetMouseLockWidget(WebContents* web_contents);
 // |codes| represents the set of keys to lock.  If |codes| has no value, then
 // all keys will be considered locked.  If |codes| has a value, then at least
 // one key must be specified.
-bool RequestKeyboardLock(WebContents* web_contents,
-                         std::optional<base::flat_set<ui::DomCode>> codes);
+void RequestKeyboardLock(
+    WebContents* web_contents,
+    std::optional<base::flat_set<ui::DomCode>> codes,
+    base::OnceCallback<void(blink::mojom::KeyboardLockRequestResult)> callback);
 void CancelKeyboardLock(WebContents* web_contents);
 
 // Returns the screen orientation provider that's been set via
@@ -1245,7 +1249,7 @@ class RenderProcessHostKillWaiter {
   // |uma_name| is the name of the histogram from which the |bad_message_reason|
   // can be extracted.
   RenderProcessHostKillWaiter(RenderProcessHost* render_process_host,
-                              base::StringPiece uma_name);
+                              std::string_view uma_name);
 
   RenderProcessHostKillWaiter(const RenderProcessHostKillWaiter&) = delete;
   RenderProcessHostKillWaiter& operator=(const RenderProcessHostKillWaiter&) =
@@ -1902,14 +1906,19 @@ class NavigationHandleCommitObserver : public content::WebContentsObserver {
   bool has_committed() const { return has_committed_; }
   bool was_same_document() const { return was_same_document_; }
   bool was_renderer_initiated() const { return was_renderer_initiated_; }
+  blink::mojom::NavigationType navigation_type() const {
+    return navigation_type_;
+  }
 
  private:
   void DidFinishNavigation(content::NavigationHandle* handle) override;
 
   const GURL url_;
-  bool has_committed_;
-  bool was_same_document_;
-  bool was_renderer_initiated_;
+  bool has_committed_ = false;
+  bool was_same_document_ = false;
+  bool was_renderer_initiated_ = false;
+  blink::mojom::NavigationType navigation_type_ =
+      blink::mojom::NavigationType::RELOAD;
 };
 
 // A test utility that monitors console messages sent to a WebContents. This

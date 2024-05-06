@@ -14,6 +14,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/time/time.h"
 #include "base/token.h"
+#include "base/uuid.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/sessions/core/live_tab_context.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
@@ -48,6 +49,10 @@ class TabRestoreServiceObserver;
 // add an observer.
 class SESSIONS_EXPORT TabRestoreService : public KeyedService {
  public:
+  struct Tab;
+  struct Window;
+  struct Group;
+
   // Interface used to allow the test to provide a custom time.
   class SESSIONS_EXPORT TimeFactory {
    public:
@@ -103,6 +108,15 @@ class SESSIONS_EXPORT TabRestoreService : public KeyedService {
     // Entry:
     size_t EstimateMemoryUsage() const override;
 
+    // Since the current_navigation_index can be larger than the index for
+    // number of navigations in the current sessions (chrome://newtab is not
+    // stored), we must perform bounds checking. Returns a normalized
+    // bounds-checked navigation_index.
+    int normalized_navigation_index() const {
+      return std::max(0, std::min(current_navigation_index,
+                                  static_cast<int>(navigations.size() - 1)));
+    }
+
     // The navigations.
     std::vector<SerializedNavigationEntry> navigations;
 
@@ -131,6 +145,9 @@ class SESSIONS_EXPORT TabRestoreService : public KeyedService {
     // The group the tab belonged to, if any.
     std::optional<tab_groups::TabGroupId> group;
 
+    // The saved group id the tab belong to, if any.
+    std::optional<base::Uuid> saved_group_id = std::nullopt;
+
     // The group metadata for the tab, if any.
     std::optional<tab_groups::TabGroupVisualData> group_visual_data;
   };
@@ -148,8 +165,15 @@ class SESSIONS_EXPORT TabRestoreService : public KeyedService {
     // Type of window.
     SessionWindow::WindowType type;
 
+    // TODO(crbug.com/333425400): `tabs`, `groups`, and `tab_groups` contain
+    // duplicated data. To prevent duplication of data consider changing `tabs`
+    // to std::vector<std::unique_ptr<Entries>> so all data can be stored
+    // together in one object. This should prevent data duplication.
     // The tabs that comprised the window, in order.
     std::vector<std::unique_ptr<Tab>> tabs;
+
+    // Tab groups in this window including their tabs.
+    std::map<tab_groups::TabGroupId, std::unique_ptr<Group>> groups;
 
     // Tab group data.
     std::map<tab_groups::TabGroupId, tab_groups::TabGroupVisualData> tab_groups;
@@ -185,6 +209,9 @@ class SESSIONS_EXPORT TabRestoreService : public KeyedService {
     // Group metadata.
     tab_groups::TabGroupId group_id = tab_groups::TabGroupId::CreateEmpty();
     tab_groups::TabGroupVisualData visual_data;
+
+    // The saved group id of this group, if any.
+    std::optional<base::Uuid> saved_group_id = std::nullopt;
 
     // The ID of the browser to which this group belonged, so it can be restored
     // there.
@@ -248,8 +275,8 @@ class SESSIONS_EXPORT TabRestoreService : public KeyedService {
   virtual std::vector<LiveTab*> RestoreMostRecentEntry(
       LiveTabContext* context) = 0;
 
-  // Removes the Entry with id |id| if it is a Tab entry.
-  virtual void RemoveTabEntryById(SessionID id) = 0;
+  // Removes the Entry with id |id|. The entry could be a Tab, Group, or Window.
+  virtual void RemoveEntryById(SessionID id) = 0;
 
   // Restores an entry by id. If there is no entry with an id matching |id|,
   // this does nothing. If |context| is NULL, this creates a new window for the

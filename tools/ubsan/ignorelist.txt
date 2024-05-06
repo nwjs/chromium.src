@@ -51,5 +51,5 @@ src:*/third_party/icu/source/common/ucmndata.c
 fun:*re2*RegexpD*
 
 #############################################################################
-# Harmless float division by zero.
-fun:*RendererFrameManager*CullUnlockedFrames*
+# https://crbug.com/40943968
+fun:*OT*Layout*propagate_attachment_offsets*

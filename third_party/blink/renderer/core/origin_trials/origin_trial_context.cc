@@ -13,6 +13,7 @@
 #include "services/network/public/cpp/attribution_reporting_runtime_features.h"
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/origin_trials/origin_trials.h"
 #include "third_party/blink/public/common/origin_trials/trial_token.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_result.h"
@@ -534,10 +535,6 @@ bool OriginTrialContext::CanEnableTrialFromName(const StringView& trial_name) {
         features::kSpeculationRulesPrefetchFuture);
   }
 
-  if (trial_name == "PendingBeaconAPI") {
-    return base::FeatureList::IsEnabled(features::kPendingBeaconAPI);
-  }
-
   if (trial_name == "BackForwardCacheSendNotRestoredReasons") {
     return base::FeatureList::IsEnabled(
         features::kBackForwardCacheSendNotRestoredReasons);
@@ -555,12 +552,13 @@ bool OriginTrialContext::CanEnableTrialFromName(const StringView& trial_name) {
                network::features::kAttributionReportingCrossAppWeb);
   }
 
-  if (trial_name == "ComputePressure_v2") {
-    return base::FeatureList::IsEnabled(features::kComputePressure);
-  }
-
   if (trial_name == "SoftNavigationHeuristics") {
     return base::FeatureList::IsEnabled(features::kSoftNavigationDetection);
+  }
+
+  if (trial_name == "FoldableAPIs") {
+    return base::FeatureList::IsEnabled(features::kViewportSegments) &&
+           base::FeatureList::IsEnabled(features::kDevicePosture);
   }
 
   return true;

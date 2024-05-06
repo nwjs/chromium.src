@@ -136,6 +136,7 @@
 #define IDC_SHOW_PAYMENT_METHODS        35042
 #define IDC_SHOW_ADDRESSES              35043
 #define IDC_ORGANIZE_TABS               35044
+#define IDC_CREATE_NEW_TAB_GROUP        35045
 
 // Page-manipulation commands that target a specified tab, which may not be the
 // active one.
@@ -536,6 +537,9 @@
 // Device API system tray icon
 #define IDC_DEVICE_SYSTEM_TRAY_ICON_FIRST 53260
 #define IDC_DEVICE_SYSTEM_TRAY_ICON_LAST 53299
+
+// Default browser prompt
+#define IDC_SET_BROWSER_AS_DEFAULT 53300
 
 // NOTE: The last valid command value is 57343 (0xDFFF)
 // See http://msdn.microsoft.com/en-us/library/t2zechd4(VS.71).aspx

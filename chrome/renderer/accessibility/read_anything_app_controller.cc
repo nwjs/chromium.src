@@ -19,6 +19,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/renderer/accessibility/ax_tree_distiller.h"
 #include "components/language/core/common/locale_util.h"
+#include "components/translate/core/common/translate_constants.h"
 #include "content/public/renderer/chrome_object_extensions_utils.h"
 #include "content/public/renderer/render_frame.h"
 #include "gin/converter.h"
@@ -335,36 +336,6 @@ ui::AXTreeUpdate GetSnapshotFromV8SnapshotLite(
   return snapshot;
 }
 
-bool GetSelectable(const GURL& url) {
-  std::string full_url = url.spec();
-  for (std::string non_selectable_url :
-       string_constants::GetNonSelectableUrls()) {
-    if (re2::RE2::PartialMatch(full_url, non_selectable_url)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool GetIsGoogleDocs(const GURL& url) {
-  // A Google Docs URL is in the form of "https://docs.google.com/document*" or
-  // "https://docs.sandbox.google.com/document*".
-  constexpr const char* kDocsURLDomain[] = {"docs.google.com",
-                                            "docs.sandbox.google.com"};
-  if (url.SchemeIsHTTPOrHTTPS()) {
-    for (const std::string& google_docs_url : kDocsURLDomain) {
-      if (url.DomainIs(google_docs_url) && url.has_path() &&
-          url.path().starts_with("/document") &&
-          !url.ExtractFileName().empty()) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 }  // namespace
 
 // static
@@ -427,6 +398,9 @@ void ReadAnythingAppController::AccessibilityEventReceived(
 
   if (model_.requires_distillation()) {
     Distill();
+    if (model_.is_empty() && IsGoogleDocs() && model_.page_finished_loading()) {
+      ExecuteJavaScript("chrome.readingMode.showEmpty();");
+    }
   }
 
   if (model_.image_to_update_node_id() != ui::kInvalidAXNodeID) {
@@ -442,7 +416,7 @@ void ReadAnythingAppController::AccessibilityEventReceived(
   }
 }
 
-void ReadAnythingAppController::ExecuteJavaScript(std::string script) {
+void ReadAnythingAppController::ExecuteJavaScript(const std::string& script) {
   content::RenderFrame* render_frame = GetRenderFrame();
   if (!render_frame) {
     return;
@@ -455,21 +429,19 @@ void ReadAnythingAppController::ExecuteJavaScript(std::string script) {
 void ReadAnythingAppController::OnActiveAXTreeIDChanged(
     const ui::AXTreeID& tree_id,
     ukm::SourceId ukm_source_id,
-    const GURL& url,
     bool is_pdf) {
   if (tree_id == model_.active_tree_id() && !is_pdf) {
     return;
   }
   model_.set_active_tree_id(tree_id);
   model_.SetActiveUkmSourceId(ukm_source_id);
-  model_.SetActiveTreeSelectable(GetSelectable(url));
   model_.set_is_pdf(is_pdf);
-  model_.set_is_google_docs(GetIsGoogleDocs(url));
   // Delete all pending updates on the formerly active AXTree.
   // TODO(crbug.com/1266555): If distillation is in progress, cancel the
   // distillation request.
   model_.ClearPendingUpdates();
   model_.set_requires_distillation(false);
+  model_.set_page_finished_loading(false);
 
   ExecuteJavaScript("chrome.readingMode.showLoading();");
 
@@ -507,9 +479,11 @@ void ReadAnythingAppController::Distill() {
   model_.set_requires_distillation(false);
 
   ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.active_tree_id());
-  std::unique_ptr<ui::AXTreeSource<const ui::AXNode*>> tree_source(
-      tree->CreateTreeSource());
-  ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>>
+  std::unique_ptr<
+      ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>>
+      tree_source(tree->CreateTreeSource());
+  ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>,
+                       ui::AXTreeUpdate*, ui::AXTreeData*, ui::AXNodeData>
       serializer(tree_source.get());
   ui::AXTreeUpdate snapshot;
   if (!tree->root()) {
@@ -556,8 +530,13 @@ void ReadAnythingAppController::OnAXTreeDistilled(
   }
 
   if (model_.is_empty()) {
-    ExecuteJavaScript("chrome.readingMode.showEmpty();");
-    if (IsSelectable()) {
+    // For Google Docs, the initial AXTree may be empty while the document is
+    // loading. Therefore, to avoid displaying an empty side panel, wait for
+    // Google Docs to finish loading.
+    if (!IsGoogleDocs() || model_.page_finished_loading()) {
+      ExecuteJavaScript("chrome.readingMode.showEmpty();");
+    }
+    if (IsGoogleDocs()) {
       base::UmaHistogramEnumeration(string_constants::kEmptyStateHistogramName,
                                     ReadAnythingEmptyState::kEmptyStateShown);
     }
@@ -693,9 +672,9 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetProperty("speechRate", &ReadAnythingAppController::SpeechRate)
       .SetProperty("isWebUIToolbarVisible",
                    &ReadAnythingAppController::IsWebUIToolbarEnabled)
+      .SetProperty("isGoogleDocs", &ReadAnythingAppController::IsGoogleDocs)
       .SetProperty("isReadAloudEnabled",
                    &ReadAnythingAppController::IsReadAloudEnabled)
-      .SetProperty("isSelectable", &ReadAnythingAppController::IsSelectable)
       .SetProperty("speechSynthesisLanguageCode",
                    &ReadAnythingAppController::GetLanguageCodeForSpeech)
       .SetMethod("getChildren", &ReadAnythingAppController::GetChildren)
@@ -710,7 +689,6 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("shouldBold", &ReadAnythingAppController::ShouldBold)
       .SetMethod("isOverline", &ReadAnythingAppController::IsOverline)
       .SetMethod("isLeafNode", &ReadAnythingAppController::IsLeafNode)
-      .SetMethod("isGoogleDocs", &ReadAnythingAppController::IsGoogleDocs)
       .SetMethod("onConnected", &ReadAnythingAppController::OnConnected)
       .SetMethod("onCopy", &ReadAnythingAppController::OnCopy)
       .SetMethod("onFontSizeChanged",
@@ -780,7 +758,9 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                  &ReadAnythingAppController::RequestImageDataUrl)
       .SetMethod("getImageDataUrl", &ReadAnythingAppController::GetImageDataUrl)
       .SetMethod("getDisplayNameForLocale",
-                 &ReadAnythingAppController::GetDisplayNameForLocale);
+                 &ReadAnythingAppController::GetDisplayNameForLocale)
+      .SetMethod("logMetric",
+                 &ReadAnythingAppController::LogUmaHistogramLongTimes);
 }
 
 ui::AXNodeID ReadAnythingAppController::RootId() const {
@@ -967,11 +947,31 @@ std::string ReadAnythingAppController::GetTextContent(
     ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
-  if ((ax_node->GetTextContentUTF8()).empty() && IsGoogleDocs()) {
-    // For Google Docs, we distill text from the aria-labels of annotated
-    // canvas's rect elements. Therefore, we need to explicitly read the name
-    // attribute to get the text.
-    return GetNameAttributeText(ax_node);
+  // For Google Docs, because the content is rendered in canvas, we distill
+  // text from the "Annotated Canvas"
+  // (https://sites.google.com/corp/google.com/docs-canvas-migration/home)
+  // instead of the HTML.
+  if (IsGoogleDocs()) {
+    // With 'Annotated Canvas', text is stored within the aria-labels of SVG
+    // elements. To retrieve this text, we need to access the 'name' attribute
+    // of these elements.
+    if ((ax_node->GetTextContentUTF8()).empty()) {
+      std::string nodeText = GetNameAttributeText(ax_node);
+      if (!nodeText.empty()) {
+        // Add a space between the text of two annotated canvas elements.
+        // Otherwise, there is no space separating two lines of text.
+        return nodeText + " ";
+      }
+    } else {
+      // We ignore all text in the HTML. These text are either from comments or
+      // from off-screen divs that contain hidden information information that
+      // only is intended for screen readers and braille support. These are not
+      // actual text in the doc.
+      // TODO(b/324143642): Reading Mode handles Doc comments.
+      if (ax_node->GetRole() == ax::mojom::Role::kStaticText) {
+        return "";
+      }
+    }
   }
   return ax_node->GetTextContentUTF8();
 }
@@ -1007,8 +1007,8 @@ std::string ReadAnythingAppController::GetUrl(ui::AXNodeID ax_node_id) const {
   const char* url =
       ax_node->GetStringAttribute(ax::mojom::StringAttribute::kUrl).c_str();
 
-  // Prevent XSS from href attribute, which could be set to a script instead of
-  // a valid website.
+  // Prevent XSS from href attribute, which could be set to a script instead
+  // of a valid website.
   if (url::FindAndCompareScheme(url, static_cast<int>(strlen(url)), "http",
                                 nullptr) ||
       url::FindAndCompareScheme(url, static_cast<int>(strlen(url)), "https",
@@ -1044,10 +1044,6 @@ bool ReadAnythingAppController::IsLeafNode(ui::AXNodeID ax_node_id) const {
   return ax_node->IsLeaf();
 }
 
-bool ReadAnythingAppController::IsSelectable() const {
-  return model_.active_tree_selectable();
-}
-
 bool ReadAnythingAppController::IsWebUIToolbarEnabled() const {
   return features::IsReadAnythingWebUIToolbarEnabled();
 }
@@ -1057,7 +1053,7 @@ bool ReadAnythingAppController::IsReadAloudEnabled() const {
 }
 
 bool ReadAnythingAppController::IsGoogleDocs() const {
-  return model_.is_docs();
+  return model_.IsDocs();
 }
 
 std::vector<std::string> ReadAnythingAppController::GetSupportedFonts() const {
@@ -1104,9 +1100,7 @@ const std::string ReadAnythingAppController::GetDisplayNameForLocale(
 }
 
 const std::string& ReadAnythingAppController::GetLanguageCodeForSpeech() const {
-  // TODO(crbug.com/1474951): Instead of returning the default browser language
-  // we should use the page language.
-  return model_.default_language_code();
+  return model_.language_code();
 }
 
 void ReadAnythingAppController::OnConnected() {
@@ -1158,10 +1152,10 @@ void ReadAnythingAppController::OnScroll(bool on_selection) const {
 
 void ReadAnythingAppController::OnLinkClicked(ui::AXNodeID ax_node_id) const {
   DCHECK_NE(model_.active_tree_id(), ui::AXTreeIDUnknown());
-  // Prevent link clicks while distillation is in progress, as it means that the
-  // tree may have changed in an unexpected way.
-  // TODO(crbug.com/1266555): Consider how to show this in a more user-friendly
-  // way.
+  // Prevent link clicks while distillation is in progress, as it means that
+  // the tree may have changed in an unexpected way.
+  // TODO(crbug.com/1266555): Consider how to show this in a more
+  // user-friendly way.
   if (model_.distillation_in_progress()) {
     return;
   }
@@ -1268,10 +1262,10 @@ void ReadAnythingAppController::OnSelectionChange(ui::AXNodeID anchor_node_id,
                                                   ui::AXNodeID focus_node_id,
                                                   int focus_offset) const {
   DCHECK_NE(model_.active_tree_id(), ui::AXTreeIDUnknown());
-  // Prevent link clicks while distillation is in progress, as it means that the
-  // tree may have changed in an unexpected way.
-  // TODO(crbug.com/1266555): Consider how to show this in a more user-friendly
-  // way.
+  // Prevent link clicks while distillation is in progress, as it means that
+  // the tree may have changed in an unexpected way.
+  // TODO(crbug.com/1266555): Consider how to show this in a more
+  // user-friendly way.
   if (model_.distillation_in_progress()) {
     return;
   }
@@ -1298,9 +1292,9 @@ void ReadAnythingAppController::OnSelectionChange(ui::AXNodeID anchor_node_id,
   // range of text to be selected, including non-text nodes. This can cause
   // inconsistencies in how the selection is handled. e.g. the focus node can
   // be before the anchor node and set to a non-text node, which can cause
-  // page_handler_->OnSelectionChange to be incorrectly triggered, resulting in
-  // a failing DCHECK. Therefore, return early if this happens.
-  // This check does not apply to pdfs.
+  // page_handler_->OnSelectionChange to be incorrectly triggered, resulting
+  // in a failing DCHECK. Therefore, return early if this happens. This check
+  // does not apply to pdfs.
   if (!model_.is_pdf() && (!focus_node->IsText() || !anchor_node->IsText())) {
     return;
   }
@@ -1324,7 +1318,7 @@ void ReadAnythingAppController::OnCollapseSelection() const {
   page_handler_->OnCollapseSelection();
 }
 void ReadAnythingAppController::InitAXPositionWithNode(
-    const ui::AXNodeID starting_node_id) {
+    const ui::AXNodeID& starting_node_id) {
   model_.InitAXPositionWithNode(starting_node_id);
 }
 
@@ -1368,12 +1362,11 @@ void ReadAnythingAppController::SetThemeForTesting(const std::string& font_name,
 
 void ReadAnythingAppController::SetLanguageForTesting(
     const std::string& language_code) {
-  SetDefaultLanguageCode(language_code);
+  SetLanguageCode(language_code);
 }
 
-void ReadAnythingAppController::SetDefaultLanguageCode(
-    const std::string& code) {
-  model_.set_default_language_code(code);
+void ReadAnythingAppController::SetLanguageCode(const std::string& code) {
+  model_.set_language_code(code);
 
   // Signal to the WebUI that the supported fonts may have changed.
   ExecuteJavaScript("chrome.readingMode.updateFonts();");
@@ -1395,7 +1388,7 @@ void ReadAnythingAppController::SetContentForTesting(
   selection_event.event_from = ax::mojom::EventFrom::kUser;
   AccessibilityEventReceived(snapshot.tree_data.tree_id, {snapshot}, {});
   OnActiveAXTreeIDChanged(snapshot.tree_data.tree_id, ukm::kInvalidSourceId,
-                          GURL(), false);
+                          false);
   OnAXTreeDistilled(snapshot.tree_data.tree_id, content_node_ids);
 
   // Trigger a selection event (for testing selections).
@@ -1449,4 +1442,9 @@ int ReadAnythingAppController::GetAccessibleBoundary(const std::u16string& text,
       shorter_string.length() - 1, ax::mojom::MoveDirection::kBackward,
       ax::mojom::TextAffinity::kDefaultValue);
   return word_ends;
+}
+
+void ReadAnythingAppController::LogUmaHistogramLongTimes(int64_t time,
+                                                         std::string metric) {
+  base::UmaHistogramTimes(metric, base::Milliseconds(time));
 }

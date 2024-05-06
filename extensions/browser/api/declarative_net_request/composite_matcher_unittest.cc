@@ -89,7 +89,8 @@ TEST_F(CompositeMatcherTest, SamePrioritySpace) {
   matchers.push_back(std::move(allow_matcher));
   matchers.push_back(std::move(block_matcher));
   auto composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kFalse);
 
   GURL google_url("http://google.com");
   RequestParams params;
@@ -113,7 +114,8 @@ TEST_F(CompositeMatcherTest, SamePrioritySpace) {
   matchers.push_back(std::move(allow_matcher));
   matchers.push_back(std::move(block_matcher));
   composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kFalse);
 
   // The allow rule should now have higher priority.
   action_info = composite_matcher->GetAction(
@@ -157,7 +159,8 @@ TEST_F(CompositeMatcherTest, GetModifyHeadersActions) {
   matchers.push_back(std::move(matcher_1));
   matchers.push_back(std::move(matcher_2));
   auto composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kFalse);
 
   GURL google_url = GURL("http://google.com/path");
   RequestParams google_params;
@@ -214,7 +217,8 @@ TEST_F(CompositeMatcherTest, GetModifyHeadersActions) {
   matchers.push_back(std::move(matcher_1));
   matchers.push_back(std::move(matcher_2));
   composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kFalse);
 
   // Call GetBeforeRequestAction first to ensure that test and production code
   // paths are consistent.
@@ -317,7 +321,8 @@ TEST_F(CompositeMatcherTest, GetModifyHeadersActions_Priority) {
   matchers.push_back(std::move(matcher_1));
   matchers.push_back(std::move(matcher_2));
   auto composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kFalse);
 
   // Make a request to "http://google.com/1" which matches with all
   // modifyHeaders rules and |allow_rule|.
@@ -365,6 +370,9 @@ TEST_F(CompositeMatcherTest, GetModifyHeadersActions_Priority) {
   // modifyHeaders rules but not |allow_rule|.
   google_url = GURL("http://google.com/2");
   google_params.url = &google_url;
+
+  // Reset the max allow rule priority cache since a new request is being made.
+  google_params.allow_rule_max_priority.clear();
 
   // Call GetBeforeRequestAction first to ensure that test and production code
   // paths are consistent.
@@ -423,7 +431,8 @@ TEST_F(CompositeMatcherTest, NotifyWithholdFromPageAccess) {
   std::vector<std::unique_ptr<RulesetMatcher>> matchers;
   matchers.push_back(std::move(matcher_1));
   auto composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kFalse);
 
   GURL google_url = GURL("http://google.com");
   GURL example_url = GURL("http://example.com");
@@ -509,7 +518,8 @@ TEST_F(CompositeMatcherTest, HostPermissionsAlwaysRequired) {
   CompositeMatcher::MatcherList matchers;
   matchers.push_back(std::move(matcher));
   auto composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kTrue);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kTrue);
 
   struct TestCases {
     const char* url;
@@ -583,7 +593,8 @@ TEST_F(CompositeMatcherTest, GetRedirectUrlFromPriority) {
   std::vector<std::unique_ptr<RulesetMatcher>> matchers;
   matchers.push_back(std::move(matcher_1));
   auto composite_matcher = std::make_unique<CompositeMatcher>(
-      std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+      std::move(matchers), /*extension_id=*/"",
+      HostPermissionsAlwaysRequired::kFalse);
 
   struct {
     GURL request_url;
@@ -650,7 +661,8 @@ TEST_F(CompositeMatcherTest, RulePlacement) {
 
   auto test_matchers = [](CompositeMatcher::MatcherList matchers) {
     auto composite_matcher = std::make_unique<CompositeMatcher>(
-        std::move(matchers), HostPermissionsAlwaysRequired::kFalse);
+        std::move(matchers), /*extension_id=*/"",
+        HostPermissionsAlwaysRequired::kFalse);
 
     GURL url("http://example.com");
     RequestParams params;

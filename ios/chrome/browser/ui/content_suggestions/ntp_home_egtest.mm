@@ -165,6 +165,7 @@ id<GREYMatcher> mostlyNotVisible() {
   config.features_disabled.push_back(kEnableFeedAblation);
   // TODO(crbug.com/1403077): Scrolling issues when promo is enabled.
   config.features_disabled.push_back(kEnableDiscoverFeedTopSyncPromo);
+  config.features_disabled.push_back(kSafetyCheckMagicStack);
 
   if ([self isRunningTest:@selector(testLargeFakeboxFocus)]) {
     config.features_enabled.push_back(kIOSLargeFakebox);
@@ -269,15 +270,7 @@ id<GREYMatcher> mostlyNotVisible() {
 }
 
 // Tests that the collections shortcut are displayed and working.
-// TODO(crbug.com/1487974): Test fails on official builds.
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#define MAYBE_testCollectionShortcutsWithWhatsNew \
-  DISABLED_testCollectionShortcutsWithWhatsNew
-#else
-#define MAYBE_testCollectionShortcutsWithWhatsNew \
-  testCollectionShortcutsWithWhatsNew
-#endif
-- (void)MAYBE_testCollectionShortcutsWithWhatsNew {
+- (void)testCollectionShortcutsWithWhatsNew {
   AppLaunchConfiguration config = self.appConfigurationForTestCase;
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   // This ensures that the test will not fail when What's New has already been
@@ -676,15 +669,6 @@ id<GREYMatcher> mostlyNotVisible() {
 // and moved up, the scroll position restored is the position before the omnibox
 // is selected.
 - (void)testPositionRestoredWithShiftingOffset {
-  // With Magic Stack and Segmentation enabled, the Magic Stack is added later
-  // to the View Hierarchy. Thus, -heightAboveFeed is inaccurate and is greater
-  // than the saved scrollState, so the scroll offset is just set to the top of
-  // the surface.
-  AppLaunchConfiguration config = self.appConfigurationForTestCase;
-  config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_disabled.push_back(kMagicStack);
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-
   // Scroll a bit to have a position to restore.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
       performAction:grey_scrollInDirection(kGREYDirectionDown, 20)];
@@ -720,17 +704,6 @@ id<GREYMatcher> mostlyNotVisible() {
     EARL_GREY_TEST_SKIPPED(
         @"Pinning Fake Omnibox to top of surface is only on iphone");
   }
-
-  // With Magic Stack and Segmentation enabled, the Magic Stack is added later
-  // to the View Hierarchy. Thus, -heightAboveFeed is inaccurate and is greater
-  // than the saved scrollState, so the scroll offset is just set to the top of
-  // the surface.
-  AppLaunchConfiguration config = self.appConfigurationForTestCase;
-  config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_disabled.push_back(kMagicStack);
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-  [[self class] closeAllTabs];
-  [ChromeEarlGrey openNewTab];
 
   // Scroll enough to naturally pin the omnibox to the top.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
@@ -825,9 +798,17 @@ id<GREYMatcher> mostlyNotVisible() {
       @"The collection is not scrolled back to its previous position");
 }
 
+#if !TARGET_IPHONE_SIMULATOR
+#define MAYBE_testTapFakeOmniboxAndScrollDefocuses \
+  FLAKY_testTapFakeOmniboxAndScrollDefocuses
+#else
+#define MAYBE_testTapFakeOmniboxAndScrollDefocuses \
+  testTapFakeOmniboxAndScrollDefocuses
+#endif
+// TODO(crbug.com/331647110): Re-enable on device when fixed.
 // Tests that tapping the fake omnibox and then scrolling defocuses the the
 // omnibox.
-- (void)testTapFakeOmniboxAndScrollDefocuses {
+- (void)MAYBE_testTapFakeOmniboxAndScrollDefocuses {
   // Clear pasteboard so that omnibox doesn't cover the NTP on focus.
   [ChromeEarlGrey clearPasteboard];
   // Get the collection and its layout.
@@ -933,19 +914,6 @@ id<GREYMatcher> mostlyNotVisible() {
                     kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix,
                     index])] assertWithMatcher:grey_sufficientlyVisible()];
   }
-  // Scroll down if the shortcuts may not be completely in view due to Trending
-  // Queries.
-  [[[EarlGrey
-      selectElementWithMatcher:
-          grey_allOf(
-              grey_accessibilityID([NSString
-                  stringWithFormat:
-                      @"%@0",
-                      kContentSuggestionsShortcutsAccessibilityIdentifierPrefix]),
-              grey_sufficientlyVisible(), nil)]
-         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 100.0f)
-      onElementWithMatcher:chrome_test_util::NTPCollectionView()]
-      assertWithMatcher:grey_notNil()];
   for (NSInteger index = 0; index < 4; index++) {
     [[EarlGrey
         selectElementWithMatcher:
@@ -1042,9 +1010,9 @@ id<GREYMatcher> mostlyNotVisible() {
   // Just check for Magic Stack interactibility since the top module shown may
   // vary.
   [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(
-                                   kMagicStackViewAccessibilityIdentifier)]
-      assertWithMatcher:grey_interactable()];
+      selectElementWithMatcher:
+          grey_accessibilityID(kMagicStackScrollViewAccessibilityIdentifier)]
+      assertWithMatcher:grey_sufficientlyVisible()];
 
   // Ensures that fake omnibox visibility is correct.
   // On iPads, fake omnibox disappears and becomes real omnibox. On other
@@ -1193,17 +1161,14 @@ id<GREYMatcher> mostlyNotVisible() {
 // kMagicStackMostVisitedModuleParam param is true. Most Visited Tiles and
 // Shortcuts should be visible.
 - (void)testMagicStack {
+  [[self class] closeAllTabs];
+  [ChromeEarlGrey openNewTab];
   AppLaunchConfiguration config = self.appConfigurationForTestCase;
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.additional_args.push_back(
-      "--enable-features=" + std::string(kMagicStack.name) + "<" +
-      std::string(kMagicStack.name));
-  config.additional_args.push_back(
-      "--force-fieldtrials=" + std::string(kMagicStack.name) + "/Test");
-  config.additional_args.push_back(
-      "--force-fieldtrial-params=" + std::string(kMagicStack.name) +
-      ".Test:" + std::string(kMagicStackMostVisitedModuleParam) + "/" + "true");
-
+  std::string enable_mvt_arg = std::string(kMagicStack.name) + ":" +
+                               kMagicStackMostVisitedModuleParam + "/true";
+  config.additional_args.push_back("--enable-features=" + enable_mvt_arg);
+  config.additional_args.push_back("--test-ios-module-ranker=mvt");
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   id<GREYMatcher> magicStackScrollView =
@@ -1424,7 +1389,7 @@ id<GREYMatcher> mostlyNotVisible() {
   }
 
   // Sign in to enable Following.
-  [self signInThroughSettingsMenu];
+  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
 
   // Scrolls down a bit, not fully into the feed.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
@@ -1461,7 +1426,7 @@ id<GREYMatcher> mostlyNotVisible() {
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Sign in to enable Following feed.
-  [self signInThroughSettingsMenu];
+  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
 
   // Check that Following header is now visible, and not regular feed header.
   [[EarlGrey
@@ -1726,7 +1691,7 @@ id<GREYMatcher> mostlyNotVisible() {
 
   // The feed header button may be offscreen, so scroll to find it if needed.
   id<GREYMatcher> headerButton =
-      grey_allOf(grey_accessibilityID(kNTPFeedHeaderMenuButtonIdentifier),
+      grey_allOf(grey_accessibilityID(kNTPFeedHeaderManagementButtonIdentifier),
                  grey_sufficientlyVisible(), nil);
   [[[EarlGrey selectElementWithMatcher:headerButton]
          usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 100.0f)
@@ -1751,7 +1716,7 @@ id<GREYMatcher> mostlyNotVisible() {
 
   // The feed header button may be offscreen, so scroll to find it if needed.
   id<GREYMatcher> headerButton =
-      grey_allOf(grey_accessibilityID(kNTPFeedHeaderMenuButtonIdentifier),
+      grey_allOf(grey_accessibilityID(kNTPFeedHeaderManagementButtonIdentifier),
                  grey_sufficientlyVisible(), nil);
   [[[EarlGrey selectElementWithMatcher:headerButton]
          usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 100.0f)
@@ -1767,21 +1732,6 @@ id<GREYMatcher> mostlyNotVisible() {
   feed_visible =
       [ChromeEarlGrey userBooleanPref:feed::prefs::kArticlesListVisible];
   GREYAssertFalse(feed_visible, @"Expect feed to be hidden!");
-}
-
-// Opens the settings menu, signs in using a fake identity, and closes the menu.
-- (void)signInThroughSettingsMenu {
-  FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
-  [ChromeEarlGreyUI openSettingsMenu];
-  [[[EarlGrey selectElementWithMatcher:chrome_test_util::PrimarySignInButton()]
-         usingSearchAction:grey_scrollInDirection(kGREYDirectionUp, 150)
-      onElementWithMatcher:chrome_test_util::SettingsCollectionView()]
-      performAction:grey_tap()];
-  [SigninEarlGreyUI tapSigninConfirmationDialog];
-  [ChromeEarlGrey waitForMatcher:chrome_test_util::SettingsAccountButton()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsDoneButton()]
-      performAction:grey_tap()];
 }
 
 #pragma mark - Matchers

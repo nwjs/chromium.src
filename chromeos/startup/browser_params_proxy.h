@@ -174,6 +174,12 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
 
   bool IsMahiEnabled() const;
 
+  bool IsContainerAppPreinstallEnabled() const;
+
+  bool IsOrcaUseL10nStringsEnabled() const;
+
+  bool IsMahiSupportedWithCorrectFeatureKey() const;
+
  private:
   friend base::NoDestructor<BrowserParamsProxy>;
 

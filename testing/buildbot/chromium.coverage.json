@@ -31,16 +31,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "chrome_public_smoke_test",
@@ -80,16 +70,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 19
         },
@@ -124,16 +104,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 2
         },
@@ -174,16 +144,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 2
         },
@@ -218,16 +178,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
@@ -262,16 +212,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "mojo_test_apk",
@@ -305,16 +245,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "vr_android_unittests",
@@ -348,16 +278,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 7
         },
@@ -392,16 +312,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "webview_ui_test_app_test_apk",
@@ -947,16 +857,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "absl_hardening_tests",
@@ -990,16 +890,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
@@ -1035,16 +925,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 2
         },
@@ -1079,16 +959,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "android_webview_unittests",
@@ -1149,16 +1019,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "base_unittests",
@@ -1192,16 +1052,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "blink_common_unittests",
@@ -1235,16 +1085,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "blink_heap_unittests",
@@ -1284,16 +1124,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "blink_platform_unittests",
@@ -1327,16 +1157,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_crypto_tests",
@@ -1370,16 +1190,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_ssl_tests",
@@ -1414,16 +1224,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "capture_unittests",
@@ -1457,16 +1257,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "cast_unittests",
@@ -1500,16 +1290,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "cc_unittests",
@@ -1543,16 +1323,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "components_browsertests",
@@ -1586,16 +1356,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 6
         },
@@ -1630,16 +1390,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 25
         },
@@ -1674,16 +1424,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
@@ -1718,16 +1458,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crashpad_tests",
@@ -1761,16 +1491,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crypto_unittests",
@@ -1804,16 +1524,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "device_unittests",
@@ -1847,16 +1557,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "display_unittests",
@@ -1891,16 +1591,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "env_chromium_unittests",
@@ -1934,16 +1624,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "events_unittests",
@@ -1977,16 +1657,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gcm_unit_tests",
@@ -2020,16 +1690,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gfx_unittests",
@@ -2064,16 +1724,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gin_unittests",
@@ -2109,16 +1759,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
@@ -2152,16 +1792,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
@@ -2195,16 +1825,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "google_apis_unittests",
@@ -2238,16 +1858,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gpu_unittests",
@@ -2281,16 +1891,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gwp_asan_unittests",
@@ -2324,16 +1924,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ipc_tests",
@@ -2367,16 +1957,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "latency_unittests",
@@ -2411,16 +1991,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "leveldb_unittests",
@@ -2454,16 +2024,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "libjingle_xmpp_unittests",
@@ -2497,16 +2057,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "liburlpattern_unittests",
@@ -2540,16 +2090,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "media_unittests",
@@ -2583,16 +2123,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "midi_unittests",
@@ -2626,16 +2156,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "mojo_unittests",
@@ -2669,16 +2189,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
@@ -2713,16 +2223,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "sandbox_linux_unittests",
@@ -2756,16 +2256,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "services_unittests",
@@ -2799,16 +2289,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "shell_dialogs_unittests",
@@ -2842,16 +2322,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "skia_unittests",
@@ -2885,16 +2355,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "sql_unittests",
@@ -2928,16 +2388,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "storage_unittests",
@@ -2971,16 +2421,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_android_unittests",
@@ -3014,16 +2454,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_base_unittests",
@@ -3057,16 +2487,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_touch_selection_unittests",
@@ -3100,16 +2520,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 2
         },
@@ -3144,16 +2554,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "url_unittests",
@@ -3187,16 +2587,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "viz_unittests",
@@ -3230,16 +2620,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "vr_android_unittests",
@@ -3273,16 +2653,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "vr_common_unittests",
@@ -3316,16 +2686,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 6
         },
@@ -3361,16 +2721,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 36
         },
@@ -3405,16 +2755,6 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "wtf_unittests",
@@ -3448,16 +2788,531 @@
             "device_type": "walleye",
             "os": "Android"
           },
-          "output_links": [
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "zlib_unittests",
+        "test_id_prefix": "ninja://third_party/zlib:zlib_unittests/"
+      }
+    ]
+  },
+  "android-cronet-code-coverage-native": {
+    "gtest_tests": [
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "absl_hardening_tests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "absl_hardening_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
             {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
             }
           ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "absl_hardening_tests",
+        "test_id_prefix": "ninja://third_party/abseil-cpp:absl_hardening_tests/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "cronet_sample_test_apk"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "cronet_sample_test_apk",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cronet_sample_test_apk",
+        "test_id_prefix": "ninja://components/cronet/android:cronet_sample_test_apk/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "cronet_smoketests_apk"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "cronet_smoketests_apk",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cronet_smoketests_apk",
+        "test_id_prefix": "ninja://components/cronet/android:cronet_smoketests_apk/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "cronet_smoketests_missing_native_library_instrumentation_apk"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "cronet_smoketests_missing_native_library_instrumentation_apk",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cronet_smoketests_missing_native_library_instrumentation_apk",
+        "test_id_prefix": "ninja://components/cronet/android:cronet_smoketests_missing_native_library_instrumentation_apk/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "cronet_smoketests_platform_only_instrumentation_apk"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "cronet_smoketests_platform_only_instrumentation_apk",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cronet_smoketests_platform_only_instrumentation_apk",
+        "test_id_prefix": "ninja://components/cronet/android:cronet_smoketests_platform_only_instrumentation_apk/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb",
+          "--emulator-enable-network"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "cronet_test_instrumentation_apk"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "cronet_test_instrumentation_apk",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "idempotent": false,
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
+        },
+        "test": "cronet_test_instrumentation_apk",
+        "test_id_prefix": "ninja://components/cronet/android:cronet_test_instrumentation_apk/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "cronet_tests_android"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "cronet_tests_android",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cronet_tests_android",
+        "test_id_prefix": "ninja://components/cronet/android:cronet_tests_android/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "cronet_unittests_android"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "cronet_unittests_android",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cronet_unittests_android",
+        "test_id_prefix": "ninja://components/cronet/android:cronet_unittests_android/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "crypto_unittests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "crypto_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "crypto_unittests",
+        "test_id_prefix": "ninja://crypto:crypto_unittests/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "net_unittests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "net_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 4
+        },
+        "test": "net_unittests",
+        "test_id_prefix": "ninja://net:net_unittests/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices",
+          "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb"
+        ],
+        "description": "Run with android_34_google_apis_x64",
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "zlib_unittests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "zlib_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "8",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "android_34_google_apis_x64",
+              "path": ".android_emulator/android_34_google_apis_x64"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "android_34_google_apis_x64"
+            }
+          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "zlib_unittests",
@@ -3512,16 +3367,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "absl_hardening_tests",
@@ -3570,16 +3415,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 9
         },
@@ -3630,16 +3465,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 2
         },
@@ -3688,16 +3513,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "android_webview_unittests",
@@ -3786,16 +3601,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "base_unittests",
@@ -3843,16 +3648,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "blink_common_unittests",
@@ -3900,16 +3695,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "blink_heap_unittests",
@@ -3963,16 +3748,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "blink_platform_unittests",
@@ -4020,16 +3795,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_crypto_tests",
@@ -4077,16 +3842,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_ssl_tests",
@@ -4135,16 +3890,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "capture_unittests",
@@ -4192,16 +3937,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "cast_unittests",
@@ -4249,16 +3984,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "cc_unittests",
@@ -4312,16 +4037,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "chrome_java_test_wpr_tests",
@@ -4369,16 +4084,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "chrome_public_smoke_test",
@@ -4433,16 +4138,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 75
         },
@@ -4498,16 +4193,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 4
         },
@@ -4556,16 +4241,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 4
         },
@@ -4614,16 +4289,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 6
         },
@@ -4673,16 +4338,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 75
         },
@@ -4734,16 +4389,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "content_browsertests",
@@ -4791,16 +4436,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 6
         },
@@ -4849,16 +4484,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
@@ -4907,16 +4532,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crashpad_tests",
@@ -4964,16 +4579,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crypto_unittests",
@@ -5021,16 +4626,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "device_unittests",
@@ -5078,16 +4673,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "display_unittests",
@@ -5136,16 +4721,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "env_chromium_unittests",
@@ -5193,16 +4768,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "events_unittests",
@@ -5250,16 +4815,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gcm_unit_tests",
@@ -5307,16 +4862,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gfx_unittests",
@@ -5364,16 +4909,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gin_unittests",
@@ -5423,16 +4958,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
@@ -5480,16 +5005,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
@@ -5537,16 +5052,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "google_apis_unittests",
@@ -5594,16 +5099,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gpu_unittests",
@@ -5651,16 +5146,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gwp_asan_unittests",
@@ -5708,16 +5193,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ipc_tests",
@@ -5765,16 +5240,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "latency_unittests",
@@ -5823,16 +5288,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "leveldb_unittests",
@@ -5880,16 +5335,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "libjingle_xmpp_unittests",
@@ -5937,16 +5382,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "liburlpattern_unittests",
@@ -5994,16 +5429,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "media_unittests",
@@ -6051,16 +5476,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "midi_unittests",
@@ -6108,16 +5523,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "mojo_test_apk",
@@ -6165,16 +5570,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "mojo_unittests",
@@ -6222,16 +5617,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "monochrome_public_bundle_smoke_test",
@@ -6279,16 +5664,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "monochrome_public_smoke_test",
@@ -6336,16 +5711,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
@@ -6395,16 +5760,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "perfetto_unittests",
@@ -6452,16 +5807,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "sandbox_linux_unittests",
@@ -6510,16 +5855,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
@@ -6568,16 +5903,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "shell_dialogs_unittests",
@@ -6625,16 +5950,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "skia_unittests",
@@ -6682,16 +5997,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "sql_unittests",
@@ -6739,16 +6044,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "storage_unittests",
@@ -6796,16 +6091,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "system_webview_shell_layout_test_apk",
@@ -6853,16 +6138,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_android_unittests",
@@ -6910,16 +6185,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_base_unittests",
@@ -6967,16 +6232,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_touch_selection_unittests",
@@ -7024,16 +6279,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 2
         },
@@ -7082,16 +6327,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "url_unittests",
@@ -7139,16 +6374,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "viz_unittests",
@@ -7196,16 +6421,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 6
         },
@@ -7261,16 +6476,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 2
         },
@@ -7320,16 +6525,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 27
         },
@@ -7378,16 +6573,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "webview_ui_test_app_test_apk",
@@ -7435,16 +6620,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "wtf_unittests",
@@ -7492,16 +6667,6 @@
               "caches": "generic_android26"
             }
           },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "zlib_unittests",
@@ -9676,7 +8841,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -9688,7 +8853,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "absl_hardening_tests iPhone 14 17.2",
+        "name": "absl_hardening_tests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -9711,15 +8876,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "absl_hardening_tests",
         "test_id_prefix": "ninja://third_party/abseil-cpp:absl_hardening_tests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -9776,7 +8941,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -9788,7 +8953,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "absl_hardening_tests iPhone 14 Plus 17.2",
+        "name": "absl_hardening_tests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -9811,15 +8976,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "absl_hardening_tests",
         "test_id_prefix": "ninja://third_party/abseil-cpp:absl_hardening_tests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -9876,7 +9041,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -9888,7 +9053,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "base_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "base_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -9911,15 +9076,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "base_unittests",
         "test_id_prefix": "ninja://base:base_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -9976,7 +9141,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -9988,7 +9153,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "base_unittests iPhone 14 17.2",
+        "name": "base_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10011,15 +9176,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "base_unittests",
         "test_id_prefix": "ninja://base:base_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -10076,7 +9241,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10088,7 +9253,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_crypto_tests iPhone 14 17.2",
+        "name": "boringssl_crypto_tests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10111,15 +9276,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_crypto_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_crypto_tests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -10176,7 +9341,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10188,7 +9353,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_crypto_tests iPhone 14 Plus 17.2",
+        "name": "boringssl_crypto_tests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10211,15 +9376,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_crypto_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_crypto_tests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -10276,7 +9441,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10288,7 +9453,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_ssl_tests iPhone 14 17.2",
+        "name": "boringssl_ssl_tests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10311,15 +9476,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -10376,7 +9541,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10388,7 +9553,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_ssl_tests iPhone 14 Plus 17.2",
+        "name": "boringssl_ssl_tests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10411,15 +9576,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -10476,7 +9641,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10488,7 +9653,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "components_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "components_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10511,15 +9676,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -10576,7 +9741,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10588,7 +9753,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "components_unittests iPhone 14 17.2",
+        "name": "components_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10611,15 +9776,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -10676,7 +9841,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10688,7 +9853,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crashpad_tests iPhone 14 17.2",
+        "name": "crashpad_tests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10711,15 +9876,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crashpad_tests",
         "test_id_prefix": "ninja://third_party/crashpad/crashpad:crashpad_tests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -10776,7 +9941,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10788,7 +9953,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crashpad_tests iPhone 14 Plus 17.2",
+        "name": "crashpad_tests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10811,15 +9976,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crashpad_tests",
         "test_id_prefix": "ninja://third_party/crashpad/crashpad:crashpad_tests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -10876,7 +10041,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10888,7 +10053,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crypto_unittests iPhone 14 17.2",
+        "name": "crypto_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -10911,15 +10076,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crypto_unittests",
         "test_id_prefix": "ninja://crypto:crypto_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -10976,7 +10141,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -10988,7 +10153,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crypto_unittests iPhone 14 Plus 17.2",
+        "name": "crypto_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11011,15 +10176,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "crypto_unittests",
         "test_id_prefix": "ninja://crypto:crypto_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -11076,7 +10241,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11088,7 +10253,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "gfx_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "gfx_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11111,15 +10276,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gfx_unittests",
         "test_id_prefix": "ninja://ui/gfx:gfx_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -11176,7 +10341,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11188,7 +10353,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "gfx_unittests iPhone 14 17.2",
+        "name": "gfx_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11211,15 +10376,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gfx_unittests",
         "test_id_prefix": "ninja://ui/gfx:gfx_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -11276,7 +10441,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11288,7 +10453,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "google_apis_unittests iPhone 14 17.2",
+        "name": "google_apis_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11311,15 +10476,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "google_apis_unittests",
         "test_id_prefix": "ninja://google_apis:google_apis_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -11376,7 +10541,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11388,7 +10553,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "google_apis_unittests iPhone 14 Plus 17.2",
+        "name": "google_apis_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11411,15 +10576,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "google_apis_unittests",
         "test_id_prefix": "ninja://google_apis:google_apis_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -11477,7 +10642,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11490,7 +10655,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_bookmarks_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_bookmarks_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11513,15 +10678,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_chrome_bookmarks_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_bookmarks_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -11579,7 +10744,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11592,7 +10757,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_bookmarks_eg2tests_module iPhone 14 17.2",
+        "name": "ios_chrome_bookmarks_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11615,15 +10780,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_chrome_bookmarks_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_bookmarks_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -11684,7 +10849,7 @@
           "--platform",
           "iPad Air (5th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11699,7 +10864,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_integration_eg2tests_module iPad Air (5th generation) 17.2",
+        "name": "ios_chrome_integration_eg2tests_module iPad Air (5th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11722,8 +10887,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -11731,7 +10896,7 @@
         },
         "test": "ios_chrome_integration_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_integration_eg2tests_module/",
-        "variant_id": "iPad Air (5th generation) 17.2"
+        "variant_id": "iPad Air (5th generation) 17.4"
       },
       {
         "args": [
@@ -11792,7 +10957,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11807,7 +10972,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_integration_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_integration_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11830,8 +10995,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -11839,7 +11004,7 @@
         },
         "test": "ios_chrome_integration_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_integration_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -11900,7 +11065,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -11915,7 +11080,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_integration_eg2tests_module iPhone 14 17.2",
+        "name": "ios_chrome_integration_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -11938,8 +11103,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -11947,7 +11112,7 @@
         },
         "test": "ios_chrome_integration_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_integration_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -12008,7 +11173,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12023,7 +11188,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_settings_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_settings_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12046,8 +11211,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -12055,7 +11220,7 @@
         },
         "test": "ios_chrome_settings_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_settings_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -12116,7 +11281,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12131,7 +11296,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_settings_eg2tests_module iPhone 14 17.2",
+        "name": "ios_chrome_settings_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12154,8 +11319,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -12163,7 +11328,7 @@
         },
         "test": "ios_chrome_settings_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_settings_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -12222,7 +11387,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12235,7 +11400,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_signin_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_signin_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12258,8 +11423,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -12267,7 +11432,7 @@
         },
         "test": "ios_chrome_signin_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_signin_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -12326,7 +11491,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12339,7 +11504,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_signin_eg2tests_module iPhone 14 17.2",
+        "name": "ios_chrome_signin_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12362,8 +11527,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -12371,7 +11536,7 @@
         },
         "test": "ios_chrome_signin_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_signin_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -12429,7 +11594,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12442,7 +11607,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_smoke_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_smoke_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12465,15 +11630,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_chrome_smoke_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_smoke_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -12531,7 +11696,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12544,7 +11709,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_smoke_eg2tests_module iPhone 14 17.2",
+        "name": "ios_chrome_smoke_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12567,15 +11732,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_chrome_smoke_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_smoke_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -12636,7 +11801,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12651,7 +11816,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_ui_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_ui_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12674,8 +11839,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -12683,7 +11848,7 @@
         },
         "test": "ios_chrome_ui_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_ui_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -12744,7 +11909,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12759,7 +11924,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_ui_eg2tests_module iPhone 14 17.2",
+        "name": "ios_chrome_ui_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12782,8 +11947,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -12791,7 +11956,7 @@
         },
         "test": "ios_chrome_ui_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_ui_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -12848,7 +12013,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12860,7 +12025,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12883,15 +12048,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_chrome_unittests",
         "test_id_prefix": "ninja://ios/chrome/test:ios_chrome_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -12948,7 +12113,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -12960,7 +12125,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_unittests iPhone 14 17.2",
+        "name": "ios_chrome_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12983,15 +12148,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_chrome_unittests",
         "test_id_prefix": "ninja://ios/chrome/test:ios_chrome_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -13050,7 +12215,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13063,7 +12228,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_web_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_chrome_web_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13086,8 +12251,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -13095,7 +12260,7 @@
         },
         "test": "ios_chrome_web_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_web_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -13154,7 +12319,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13167,7 +12332,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_web_eg2tests_module iPhone 14 17.2",
+        "name": "ios_chrome_web_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13190,8 +12355,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -13199,7 +12364,7 @@
         },
         "test": "ios_chrome_web_eg2tests_module",
         "test_id_prefix": "ninja://ios/chrome/test/earl_grey2:ios_chrome_web_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -13256,7 +12421,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13268,7 +12433,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_components_unittests iPhone 14 17.2",
+        "name": "ios_components_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13291,15 +12456,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_components_unittests",
         "test_id_prefix": "ninja://ios/components:ios_components_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -13356,7 +12521,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13368,7 +12533,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_components_unittests iPhone 14 Plus 17.2",
+        "name": "ios_components_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13391,15 +12556,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_components_unittests",
         "test_id_prefix": "ninja://ios/components:ios_components_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -13457,7 +12622,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13469,7 +12634,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_net_unittests iPhone 14 17.2",
+        "name": "ios_net_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13492,8 +12657,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -13501,7 +12666,7 @@
         },
         "test": "ios_net_unittests",
         "test_id_prefix": "ninja://ios/net:ios_net_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -13559,7 +12724,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13571,7 +12736,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_net_unittests iPhone 14 Plus 17.2",
+        "name": "ios_net_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13594,8 +12759,8 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -13603,7 +12768,7 @@
         },
         "test": "ios_net_unittests",
         "test_id_prefix": "ninja://ios/net:ios_net_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -13660,7 +12825,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13672,7 +12837,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_remoting_unittests iPhone 14 17.2",
+        "name": "ios_remoting_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13695,15 +12860,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_remoting_unittests",
         "test_id_prefix": "ninja://remoting/ios:ios_remoting_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -13760,7 +12925,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13772,7 +12937,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_remoting_unittests iPhone 14 Plus 17.2",
+        "name": "ios_remoting_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13795,15 +12960,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_remoting_unittests",
         "test_id_prefix": "ninja://remoting/ios:ios_remoting_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -13860,7 +13025,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13872,7 +13037,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_testing_unittests iPhone 14 17.2",
+        "name": "ios_testing_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13895,15 +13060,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_testing_unittests",
         "test_id_prefix": "ninja://ios/testing:ios_testing_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -13960,7 +13125,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -13972,7 +13137,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_testing_unittests iPhone 14 Plus 17.2",
+        "name": "ios_testing_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13995,15 +13160,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_testing_unittests",
         "test_id_prefix": "ninja://ios/testing:ios_testing_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -14060,7 +13225,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14072,7 +13237,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_inttests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_web_inttests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14095,15 +13260,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_inttests",
         "test_id_prefix": "ninja://ios/web:ios_web_inttests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -14160,7 +13325,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14172,7 +13337,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_inttests iPhone 14 17.2",
+        "name": "ios_web_inttests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14195,15 +13360,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_inttests",
         "test_id_prefix": "ninja://ios/web:ios_web_inttests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -14261,7 +13426,7 @@
           "--platform",
           "iPad Air (5th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14274,7 +13439,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_shell_eg2tests_module iPad Air (5th generation) 17.2",
+        "name": "ios_web_shell_eg2tests_module iPad Air (5th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14297,15 +13462,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_shell_eg2tests_module",
         "test_id_prefix": "ninja://ios/web/shell/test:ios_web_shell_eg2tests_module/",
-        "variant_id": "iPad Air (5th generation) 17.2"
+        "variant_id": "iPad Air (5th generation) 17.4"
       },
       {
         "args": [
@@ -14363,7 +13528,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14376,7 +13541,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_shell_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_web_shell_eg2tests_module iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14399,15 +13564,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_shell_eg2tests_module",
         "test_id_prefix": "ninja://ios/web/shell/test:ios_web_shell_eg2tests_module/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -14465,7 +13630,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14478,7 +13643,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_shell_eg2tests_module iPhone 14 17.2",
+        "name": "ios_web_shell_eg2tests_module iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14501,15 +13666,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_shell_eg2tests_module",
         "test_id_prefix": "ninja://ios/web/shell/test:ios_web_shell_eg2tests_module/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -14566,7 +13731,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14578,7 +13743,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_web_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14601,15 +13766,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_unittests",
         "test_id_prefix": "ninja://ios/web:ios_web_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -14666,7 +13831,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14678,7 +13843,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_unittests iPhone 14 17.2",
+        "name": "ios_web_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14701,15 +13866,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_unittests",
         "test_id_prefix": "ninja://ios/web:ios_web_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -14766,7 +13931,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14778,7 +13943,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_inttests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_web_view_inttests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14801,15 +13966,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_view_inttests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_inttests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -14866,7 +14031,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14878,7 +14043,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_inttests iPhone 14 17.2",
+        "name": "ios_web_view_inttests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14901,15 +14066,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_view_inttests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_inttests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -14966,7 +14131,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -14978,7 +14143,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ios_web_view_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15001,15 +14166,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_view_unittests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -15066,7 +14231,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15078,7 +14243,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_unittests iPhone 14 17.2",
+        "name": "ios_web_view_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15101,15 +14266,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ios_web_view_unittests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -15166,7 +14331,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15178,7 +14343,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "net_unittests iPhone 14 17.2",
+        "name": "net_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15201,15 +14366,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "net_unittests",
         "test_id_prefix": "ninja://net:net_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -15266,7 +14431,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15278,7 +14443,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "net_unittests iPhone 14 Plus 17.2",
+        "name": "net_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15301,15 +14466,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "net_unittests",
         "test_id_prefix": "ninja://net:net_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -15366,7 +14531,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15378,7 +14543,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "services_unittests iPhone 14 17.2",
+        "name": "services_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15401,15 +14566,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "services_unittests",
         "test_id_prefix": "ninja://services:services_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -15466,7 +14631,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15478,7 +14643,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "services_unittests iPhone 14 Plus 17.2",
+        "name": "services_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15501,15 +14666,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "services_unittests",
         "test_id_prefix": "ninja://services:services_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -15566,7 +14731,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15578,7 +14743,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "skia_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "skia_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15601,15 +14766,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "skia_unittests",
         "test_id_prefix": "ninja://skia:skia_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -15666,7 +14831,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15678,7 +14843,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "skia_unittests iPhone 14 17.2",
+        "name": "skia_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15701,15 +14866,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "skia_unittests",
         "test_id_prefix": "ninja://skia:skia_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -15766,7 +14931,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15778,7 +14943,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "sql_unittests iPhone 14 17.2",
+        "name": "sql_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15801,15 +14966,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "sql_unittests",
         "test_id_prefix": "ninja://sql:sql_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -15866,7 +15031,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15878,7 +15043,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "sql_unittests iPhone 14 Plus 17.2",
+        "name": "sql_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -15901,15 +15066,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "sql_unittests",
         "test_id_prefix": "ninja://sql:sql_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       },
       {
         "args": [
@@ -15966,7 +15131,7 @@
           "--platform",
           "iPad Pro (12.9-inch) (6th generation)",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -15978,7 +15143,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ui_base_unittests iPad Pro (12.9-inch) (6th generation) 17.2",
+        "name": "ui_base_unittests iPad Pro (12.9-inch) (6th generation) 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -16001,15 +15166,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_base_unittests",
         "test_id_prefix": "ninja://ui/base:ui_base_unittests/",
-        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.2"
+        "variant_id": "iPad Pro (12.9-inch) (6th generation) 17.4"
       },
       {
         "args": [
@@ -16066,7 +15231,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -16078,7 +15243,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ui_base_unittests iPhone 14 17.2",
+        "name": "ui_base_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -16101,15 +15266,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "ui_base_unittests",
         "test_id_prefix": "ninja://ui/base:ui_base_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -16166,7 +15331,7 @@
           "--platform",
           "iPhone 14",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -16178,7 +15343,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "url_unittests iPhone 14 17.2",
+        "name": "url_unittests iPhone 14 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -16201,15 +15366,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "url_unittests",
         "test_id_prefix": "ninja://url:url_unittests/",
-        "variant_id": "iPhone 14 17.2"
+        "variant_id": "iPhone 14 17.4"
       },
       {
         "args": [
@@ -16266,7 +15431,7 @@
           "--platform",
           "iPhone 14 Plus",
           "--version",
-          "17.2",
+          "17.4",
           "--output-disabled-tests",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
@@ -16278,7 +15443,7 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "url_unittests iPhone 14 Plus 17.2",
+        "name": "url_unittests iPhone 14 Plus 17.4",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -16301,15 +15466,15 @@
               "path": "Xcode.app"
             },
             {
-              "name": "runtime_ios_17_2",
-              "path": "Runtime-ios-17.2"
+              "name": "runtime_ios_17_4",
+              "path": "Runtime-ios-17.4"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "url_unittests",
         "test_id_prefix": "ninja://url:url_unittests/",
-        "variant_id": "iPhone 14 Plus 17.2"
+        "variant_id": "iPhone 14 Plus 17.4"
       }
     ]
   },
@@ -16411,6 +15576,7 @@
         "test_id_prefix": "ninja://chrome/test:ash_crosapi_tests/"
       },
       {
+        "ci_only": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19571,6 +18737,105 @@
           "--stable-jobs",
           "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --enable-features=Vulkan",
           "--enforce-browser-version",
+          "--use-worker=dedicated",
+          "--use-webgpu-power-preference=default-high-performance",
+          "--jobs=4"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "webgpu_cts_dedicated_worker_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "idempotent": false,
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "telemetry_gpu_integration_test",
+        "test_id_prefix": "ninja://chrome/test:telemetry_gpu_integration_test/"
+      },
+      {
+        "args": [
+          "webgpu_cts",
+          "--show-stdout",
+          "--browser=release",
+          "--passthrough",
+          "-v",
+          "--stable-jobs",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --enable-features=Vulkan",
+          "--enforce-browser-version",
+          "--use-worker=service",
+          "--use-webgpu-power-preference=default-high-performance",
+          "--jobs=4"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "webgpu_cts_service_worker_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "idempotent": false,
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "telemetry_gpu_integration_test",
+        "test_id_prefix": "ninja://chrome/test:telemetry_gpu_integration_test/"
+      },
+      {
+        "args": [
+          "webgpu_cts",
+          "--show-stdout",
+          "--browser=release",
+          "--passthrough",
+          "-v",
+          "--stable-jobs",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --enable-features=Vulkan",
+          "--enforce-browser-version",
+          "--use-worker=shared",
+          "--use-webgpu-power-preference=default-high-performance",
+          "--jobs=4"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "webgpu_cts_shared_worker_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "idempotent": false,
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "telemetry_gpu_integration_test",
+        "test_id_prefix": "ninja://chrome/test:telemetry_gpu_integration_test/"
+      },
+      {
+        "args": [
+          "webgpu_cts",
+          "--show-stdout",
+          "--browser=release",
+          "--passthrough",
+          "-v",
+          "--stable-jobs",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --enable-features=Vulkan",
+          "--enforce-browser-version",
           "--use-webgpu-power-preference=default-high-performance",
           "--jobs=4"
         ],
@@ -19617,11 +18882,6 @@
         "isolate_profile_data": true,
         "name": "checkperms",
         "script": "checkperms.py"
-      },
-      {
-        "isolate_profile_data": true,
-        "name": "headless_python_unittests",
-        "script": "headless_python_unittests.py"
       },
       {
         "isolate_profile_data": true,
@@ -20284,9 +19544,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v124.0.6367.34/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6422.19/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 124.0.6367.34",
+        "description": "Run with ash-chrome version 125.0.6422.19",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20296,8 +19556,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v124.0.6367.34",
-              "revision": "version:124.0.6367.34"
+              "location": "lacros_version_skew_tests_v125.0.6422.19",
+              "revision": "version:125.0.6422.19"
             }
           ],
           "dimensions": {
@@ -20313,9 +19573,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6413.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6452.0/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 125.0.6413.0",
+        "description": "Run with ash-chrome version 126.0.6452.0",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20325,8 +19585,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v125.0.6413.0",
-              "revision": "version:125.0.6413.0"
+              "location": "lacros_version_skew_tests_v126.0.6452.0",
+              "revision": "version:126.0.6452.0"
             }
           ],
           "dimensions": {
@@ -20342,9 +19602,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6398.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6422.10/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 125.0.6398.0",
+        "description": "Run with ash-chrome version 125.0.6422.10",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20354,8 +19614,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v125.0.6398.0",
-              "revision": "version:125.0.6398.0"
+              "location": "lacros_version_skew_tests_v125.0.6422.10",
+              "revision": "version:125.0.6422.10"
             }
           ],
           "dimensions": {
@@ -20371,9 +19631,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v123.0.6312.112/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v124.0.6367.95/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 123.0.6312.112",
+        "description": "Run with ash-chrome version 124.0.6367.95",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20383,8 +19643,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v123.0.6312.112",
-              "revision": "version:123.0.6312.112"
+              "location": "lacros_version_skew_tests_v124.0.6367.95",
+              "revision": "version:124.0.6367.95"
             }
           ],
           "dimensions": {
@@ -20434,9 +19694,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v124.0.6367.34/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6422.19/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 124.0.6367.34",
+        "description": "Run with ash-chrome version 125.0.6422.19",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20446,8 +19706,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v124.0.6367.34",
-              "revision": "version:124.0.6367.34"
+              "location": "lacros_version_skew_tests_v125.0.6422.19",
+              "revision": "version:125.0.6422.19"
             }
           ],
           "dimensions": {
@@ -20463,9 +19723,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6413.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6452.0/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 125.0.6413.0",
+        "description": "Run with ash-chrome version 126.0.6452.0",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20475,8 +19735,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v125.0.6413.0",
-              "revision": "version:125.0.6413.0"
+              "location": "lacros_version_skew_tests_v126.0.6452.0",
+              "revision": "version:126.0.6452.0"
             }
           ],
           "dimensions": {
@@ -20492,9 +19752,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6398.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6422.10/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 125.0.6398.0",
+        "description": "Run with ash-chrome version 125.0.6422.10",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20504,8 +19764,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v125.0.6398.0",
-              "revision": "version:125.0.6398.0"
+              "location": "lacros_version_skew_tests_v125.0.6422.10",
+              "revision": "version:125.0.6422.10"
             }
           ],
           "dimensions": {
@@ -20521,9 +19781,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v123.0.6312.112/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v124.0.6367.95/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 123.0.6312.112",
+        "description": "Run with ash-chrome version 124.0.6367.95",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -20533,8 +19793,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v123.0.6312.112",
-              "revision": "version:123.0.6312.112"
+              "location": "lacros_version_skew_tests_v124.0.6367.95",
+              "revision": "version:124.0.6367.95"
             }
           ],
           "dimensions": {
@@ -23836,6 +23096,105 @@
         },
         "test": "webgpu_blink_web_tests",
         "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "webgpu_cts",
+          "--show-stdout",
+          "--browser=release_x64",
+          "--passthrough",
+          "-v",
+          "--stable-jobs",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
+          "--enforce-browser-version",
+          "--use-worker=dedicated",
+          "--use-webgpu-power-preference=default-high-performance",
+          "--jobs=4"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "webgpu_cts_dedicated_worker_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Windows-10-19045"
+          },
+          "idempotent": false,
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "telemetry_gpu_integration_test",
+        "test_id_prefix": "ninja://chrome/test:telemetry_gpu_integration_test/"
+      },
+      {
+        "args": [
+          "webgpu_cts",
+          "--show-stdout",
+          "--browser=release_x64",
+          "--passthrough",
+          "-v",
+          "--stable-jobs",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
+          "--enforce-browser-version",
+          "--use-worker=service",
+          "--use-webgpu-power-preference=default-high-performance",
+          "--jobs=4"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "webgpu_cts_service_worker_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Windows-10-19045"
+          },
+          "idempotent": false,
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "telemetry_gpu_integration_test",
+        "test_id_prefix": "ninja://chrome/test:telemetry_gpu_integration_test/"
+      },
+      {
+        "args": [
+          "webgpu_cts",
+          "--show-stdout",
+          "--browser=release_x64",
+          "--passthrough",
+          "-v",
+          "--stable-jobs",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
+          "--enforce-browser-version",
+          "--use-worker=shared",
+          "--use-webgpu-power-preference=default-high-performance",
+          "--jobs=4"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "webgpu_cts_shared_worker_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Windows-10-19045"
+          },
+          "idempotent": false,
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "telemetry_gpu_integration_test",
+        "test_id_prefix": "ninja://chrome/test:telemetry_gpu_integration_test/"
       },
       {
         "args": [

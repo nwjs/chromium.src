@@ -101,14 +101,14 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
 
   const Entries& entries() const;
   std::vector<LiveTab*> RestoreMostRecentEntry(LiveTabContext* context);
-  void RemoveTabEntryById(SessionID id);
+  void RemoveEntryById(SessionID id);
   std::vector<LiveTab*> RestoreEntryById(LiveTabContext* context,
                                          SessionID id,
                                          WindowOpenDisposition disposition);
   bool IsRestoring() const;
 
-  // Notifies observers the tabs have changed.
-  void NotifyTabsChanged();
+  // Notifies observers the entries have changed.
+  void NotifyEntriesChanged();
 
   // Notifies observers the service has loaded.
   void NotifyLoaded();
@@ -157,6 +157,12 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
                              LiveTabContext* context,
                              WindowOpenDisposition disposition,
                              LiveTab** live_tab);
+
+  // Helper function for CreateHistoricalGroup. Returns a Group populated with
+  // metadta for the tab group `id`.
+  std::unique_ptr<Group> CreateHistoricalGroupImpl(
+      LiveTabContext* context,
+      const tab_groups::TabGroupId& id);
 
   // Returns true if |tab| has at least one navigation and
   // |tab->current_navigation_index| is in bounds.

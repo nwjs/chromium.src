@@ -21,9 +21,10 @@
 #include "components/country_codes/country_codes.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/eea_countries_ids.h"
 #include "components/search_engines/prepopulated_engines.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
-#include "components/search_engines/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_data_util.h"
@@ -94,6 +95,19 @@ std::vector<std::unique_ptr<TemplateURLData>> GetPrepopulatedTemplateURLData(
       search_engines::IsChoiceScreenFlagEnabled(
           search_engines::ChoicePromo::kAny)) {
     CHECK(prefs);
+
+    if (search_engines::HasSearchEngineCountryListOverride()) {
+      auto country_override =
+          absl::get<search_engines::SearchEngineCountryListOverride>(
+              search_engines::GetSearchEngineCountryOverride().value());
+
+      switch (country_override) {
+        case search_engines::SearchEngineCountryListOverride::kEeaAll:
+          return GetAllEeaRegionPrepopulatedEngines();
+        case search_engines::SearchEngineCountryListOverride::kEeaDefault:
+          return GetDefaultPrepopulatedEngines();
+      }
+    }
     return GetPrepopulatedEnginesForEeaRegionCountries(country_id, prefs);
   }
 
@@ -183,7 +197,8 @@ std::vector<std::unique_ptr<TemplateURLData>> GetPrepopulatedEngines(
     search_engines::SearchEngineChoiceService* search_engine_choice_service,
     size_t* default_search_provider_index,
     bool include_current_default,
-    TemplateURLService* template_url_service) {
+    TemplateURLService* template_url_service,
+    bool* was_current_default_inserted) {
   // If there is a set of search engines in the preferences file, it overrides
   // the built-in set.
   std::vector<std::unique_ptr<TemplateURLData>> t_urls =
@@ -214,6 +229,11 @@ std::vector<std::unique_ptr<TemplateURLData>> GetPrepopulatedEngines(
                                           default_search_engine->data()));
         inserted_default = true;
       }
+      if (was_current_default_inserted != nullptr) {
+        *was_current_default_inserted = inserted_default;
+      }
+      // TODO(b/325015554): Pull this higher in the stack, where recording some
+      // histograms would be more expected.
       search_engines::RecordIsDefaultProviderAddedToChoices(inserted_default);
     }
   }
@@ -259,7 +279,7 @@ std::unique_ptr<TemplateURLData> GetPrepopulatedEngineFromFullList(
     PrefService* prefs,
     search_engines::SearchEngineChoiceService* search_engine_choice_service,
     int prepopulated_id) {
-  // TODO(crbug.com/1500526): Refactor to better share code with
+  // TODO(crbug.com/40940777): Refactor to better share code with
   // `GetPrepopulatedEngine()`.
 
   // If there is a set of search engines in the preferences file, we look for
@@ -319,13 +339,42 @@ std::unique_ptr<TemplateURLData> GetPrepopulatedDefaultSearch(
              : nullptr;
 }
 
-// Test Utilities -------------------------------------------------------------
-
 std::vector<const PrepopulatedEngine*> GetAllPrepopulatedEngines() {
-  CHECK_IS_TEST();
   return std::vector<const PrepopulatedEngine*>(
       &kAllEngines[0], &kAllEngines[0] + kAllEnginesLength);
 }
+
+std::vector<std::unique_ptr<TemplateURLData>>
+GetAllEeaRegionPrepopulatedEngines() {
+  std::vector<std::unique_ptr<TemplateURLData>> result;
+
+  // We use a `flat_set` to filter out engines that have the same prepopulated
+  // id. For example, `yahoo_fr` and `yahoo_de` have the same prepopulated id
+  // because they point to the same search engine so we only want to record one
+  // instance.
+  base::flat_set<int> used_engines;
+  for (int eea_country_id : search_engines::kEeaChoiceCountriesIds) {
+    std::vector<EngineAndTier> country_engines =
+        GetPrepopulationSetFromCountryID(eea_country_id);
+    for (const EngineAndTier& engine : country_engines) {
+      raw_ptr<const PrepopulatedEngine> search_engine = engine.search_engine;
+      if (!base::Contains(used_engines, search_engine->id)) {
+        result.push_back(TemplateURLDataFromPrepopulatedEngine(*search_engine));
+        used_engines.emplace(search_engine->id);
+      }
+    }
+  }
+
+  return result;
+}
+
+std::vector<std::unique_ptr<TemplateURLData>> GetDefaultPrepopulatedEngines() {
+  return base::ToVector(engines_default, [](const EngineAndTier& entry) {
+    return TemplateURLDataFromPrepopulatedEngine(*entry.search_engine);
+  });
+}
+
+// Test Utilities -------------------------------------------------------------
 
 const std::vector<raw_ptr<const PrepopulatedEngine>>
 GetPrepopulationSetFromCountryIDForTesting(int country_id) {

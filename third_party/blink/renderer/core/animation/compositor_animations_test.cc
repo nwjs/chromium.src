@@ -112,6 +112,7 @@ CSSPaintImageGenerator* ProvideOverrideGenerator(
     CSSPaintImageGenerator::Observer*) {
   return g_override_generator;
 }
+
 }  // namespace
 
 using css_test_helpers::RegisterProperty;
@@ -400,6 +401,16 @@ class AnimationCompositorAnimationsTest : public PaintTestConfigurations,
     EXPECT_TRUE(element_->style()->getPropertyValue(name));
   }
 
+  bool IsUseCounted(mojom::WebFeature feature) {
+    return GetDocument().IsUseCounted(feature);
+  }
+
+  void ClearUseCounters() {
+    GetDocument().ClearUseCounterForTesting(
+        WebFeature::kStaticPropertyInAnimation);
+    // If other use counters are test, be sure the clear them here.
+  }
+
   // This class exists to dodge the interlock between creating compositor
   // keyframe values iff we can animate them on the compositor, and hence can
   // start their animations on it. i.e. two far away switch statements have
@@ -625,7 +636,6 @@ class LayoutObjectProxy : public LayoutObject {
   static void Dispose(LayoutObjectProxy* proxy) { proxy->Destroy(); }
 
   const char* GetName() const override { return nullptr; }
-  void UpdateLayout() override {}
   gfx::RectF LocalBoundingBoxRectForAccessibility() const override {
     return gfx::RectF();
   }
@@ -2717,6 +2727,7 @@ TEST_P(AnimationCompositorAnimationsTest,
 }
 
 TEST_P(AnimationCompositorAnimationsTest, BackgroundShorthand) {
+  ClearUseCounters();
   SetBodyInnerHTML(R"HTML(
     <style>
       @keyframes colorize {
@@ -2741,9 +2752,12 @@ TEST_P(AnimationCompositorAnimationsTest, BackgroundShorthand) {
   EXPECT_TRUE(CompositorAnimations::kUnsupportedCSSProperty &
               animation->CheckCanStartAnimationOnCompositor(
                   GetDocument().View()->GetPaintArtifactCompositor()));
+
+  EXPECT_TRUE(IsUseCounted(WebFeature::kStaticPropertyInAnimation));
 }
 
 TEST_P(AnimationCompositorAnimationsTest, StaticNonCompositableProperty) {
+  ClearUseCounters();
   SetBodyInnerHTML(R"HTML(
     <style>
       @keyframes fade-in {
@@ -2765,9 +2779,11 @@ TEST_P(AnimationCompositorAnimationsTest, StaticNonCompositableProperty) {
   EXPECT_EQ(CompositorAnimations::kNoFailure,
             animation->CheckCanStartAnimationOnCompositor(
                 GetDocument().View()->GetPaintArtifactCompositor()));
+  EXPECT_TRUE(IsUseCounted(WebFeature::kStaticPropertyInAnimation));
 }
 
 TEST_P(AnimationCompositorAnimationsTest, StaticCompositableProperty) {
+  ClearUseCounters();
   SetBodyInnerHTML(R"HTML(
     <style>
       @keyframes static {
@@ -2789,9 +2805,11 @@ TEST_P(AnimationCompositorAnimationsTest, StaticCompositableProperty) {
   EXPECT_TRUE(CompositorAnimations::kAnimationHasNoVisibleChange &
               animation->CheckCanStartAnimationOnCompositor(
                   GetDocument().View()->GetPaintArtifactCompositor()));
+  EXPECT_TRUE(IsUseCounted(WebFeature::kStaticPropertyInAnimation));
 }
 
 TEST_P(AnimationCompositorAnimationsTest, EmptyKeyframes) {
+  ClearUseCounters();
   SetBodyInnerHTML(R"HTML(
     <style>
       @keyframes no-op {
@@ -2804,13 +2822,13 @@ TEST_P(AnimationCompositorAnimationsTest, EmptyKeyframes) {
     </style>
     <div id="target"></div>
   )HTML");
-
   Element* target = GetDocument().getElementById(AtomicString("target"));
   Animation* animation =
       target->GetElementAnimations()->Animations().begin()->key;
   EXPECT_TRUE(CompositorAnimations::kAnimationHasNoVisibleChange &
               animation->CheckCanStartAnimationOnCompositor(
                   GetDocument().View()->GetPaintArtifactCompositor()));
+  EXPECT_FALSE(IsUseCounted(WebFeature::kStaticPropertyInAnimation));
 }
 
 }  // namespace blink

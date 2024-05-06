@@ -1331,9 +1331,6 @@ _NAMED_TYPE_INFO = {
       'GL_RGBA4',
       'GL_RGB10_A2',
       'GL_RGBA16F',
-      'GL_RGB_YCRCB_420_CHROMIUM',
-      'GL_RGB_YCBCR_420V_CHROMIUM',
-      'GL_RGB_YCBCR_P010_CHROMIUM',
       'GL_R16_EXT',
     ],
   },
@@ -1418,9 +1415,6 @@ _NAMED_TYPE_INFO = {
     'type': 'GLenum',
     'valid': [
       'GL_RGB',
-      'GL_RGB_YCRCB_420_CHROMIUM',
-      'GL_RGB_YCBCR_420V_CHROMIUM',
-      'GL_RGB_YCBCR_P010_CHROMIUM',
       'GL_RGBA',
     ],
   },
@@ -3078,16 +3072,6 @@ _FUNCTION_INFO = {
   'PixelStorei': {
     'type': 'Custom',
     'impl_func': False,
-  },
-  'ProduceTextureDirectCHROMIUM': {
-    'decoder_func': 'DoProduceTextureDirectCHROMIUM',
-    'impl_func': False,
-    'type': 'PUT',
-    'count': 16,  # GL_MAILBOX_SIZE_CHROMIUM
-    'unit_test': False,
-    'client_test': False,
-    'extension': "CHROMIUM_texture_mailbox",
-    'trace_level': 1,
   },
   'ProvokingVertexANGLE': {
     'extension_flag': 'angle_provoking_vertex',

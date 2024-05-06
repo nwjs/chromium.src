@@ -58,8 +58,13 @@
     font-size: 13px;
   }
   .check-mark {
-    visibility: hidden;
     margin: 0;
+  }
+  .check-mark-hidden-true {
+    visibility: hidden;
+  }
+  .check-mark-hidden-false {
+    visibility: visible;
   }
   .toolbar-container {
     padding: 6px 8px;
@@ -96,7 +101,7 @@
     margin: 8px 6px;
   }
 </style>
-<div id="toolbar-container" class="toolbar-container"
+<div id="toolbarContainer" class="toolbar-container"
      role="toolbar" aria-label="$i18n{readingModeToolbarLabel}"
      on-keydown="onToolbarKeyDown_">
   <template id="read-aloud-container" is="dom-if" if="[[isReadAloudEnabled_]]">
@@ -144,6 +149,16 @@
       iron-icon="voice-rate:1"
       on-click="onShowRateMenuClick_">
     </cr-icon-button>
+    <cr-icon-button
+      class="toolbar-button"
+      id="voice-selection"
+      tabindex="-1"
+      aria-label="$i18n{voiceSelectionLabel}"
+      title="$i18n{voiceSelectionLabel}"
+      aria-haspopup="menu"
+      iron-icon="read-anything:voice-selection"
+      on-click="onVoiceSelectionMenuClick_">
+    </cr-icon-button>
     <voice-selection-menu
       id="voiceSelectionMenu"
       selected-voice="[[selectedVoice]]"
@@ -168,8 +183,9 @@
             on-keydown="onFontSelectKeyDown_"
             aria-label="$i18n{fontNameTitle}"
             title="$i18n{fontNameTitle}">
-      <template id="fontTemplate" is="dom-repeat" items="[[fontOptions_]]">
-        <option value="[[item]]">[[item]]</option>
+      <template is="dom-repeat" items="[[fontOptions_]]" initial-count="8">
+        <option value="[[item]]">
+          [[getFontItemLabel_(item, areFontsLoaded_)]]</option>
       </template>
     </select>
     <hr class="separator" aria-hidden="true">
@@ -195,7 +211,7 @@
 
   <hr class="separator" aria-hidden="true">
 
-  <template is="dom-repeat" items="[[textStyleToggles_]]">
+  <template is="dom-repeat" items="[[textStyleToggles_]]" initial-count="1">
     <cr-icon-button
     tabindex="-1"
     class="toolbar-button"
@@ -208,7 +224,7 @@
     </cr-icon-button>
   </template>
 
-  <template is="dom-repeat" items="[[textStyleOptions_]]">
+  <template is="dom-repeat" items="[[textStyleOptions_]]" initial-count="2">
     <cr-icon-button
       class="toolbar-button"
       id="[[item.id]]"
@@ -227,11 +243,24 @@
       title="$i18n{moreOptionsLabel}"
       aria-haspopup="menu"
       iron-icon="cr:more-vert"
+      hidden
       on-click="onMoreOptionsClick_">
   </cr-icon-button>
 
-  <cr-action-menu id="moreOptionsMenu" on-keydown="onToolbarKeyDown_">
-    <template is="dom-repeat" items="[[moreOptionsButtons_]]">
+   <!-- The more options menu is a menu of cr-icon-buttons that should be
+       hidden behind a separate menu if the Read Anything toolbar overflows.
+       All Reading Mode menu items should be wrapped with a cr-lazy-render for
+       efficiency, but given that we must first render all the menu items
+       in the more options menu to handle menu positioning, it doesn't
+       make sense to lazily render the more options menu. Therefore, this
+       menu should just stay as a cr-action-menu, rendered on load.
+       TODO(b/329676284): Investigate refactor to handle the menu item
+       positioning via data binding, so that styling can happen without
+       rendering the menu.
+       -->
+  <cr-action-menu id="moreOptionsMenu" on-keydown="onToolbarKeyDown_"
+        hidden>
+    <template is="dom-repeat" items="[[moreOptionsButtons_]]" inital-count="3">
       <cr-icon-button
         id="[[item.id]]"
         class="more-options-icon"
@@ -243,76 +272,114 @@
       </cr-icon-button>
     </template>
   </cr-action-menu>
-  <cr-action-menu id="rateMenu">
-    <template is="dom-repeat" items="[[rateOptions_]]">
-      <button class="dropdown-item" on-click="onRateClick_">
-        <iron-icon class="button-image check-mark"
-            icon="read-anything-20:check-mark"></iron-icon>
-        [[item]]x
-      </button>
+  <cr-lazy-render id="rateMenu">
+    <template>
+      <cr-action-menu>
+        <template is="dom-repeat" items="[[rateOptions_]]" index-as="index"
+                  initial-count="8">
+          <button class="dropdown-item" on-click="onRateClick_">
+            <iron-icon class$="button-image check-mark
+              check-mark-hidden-[[isRateItemSelected_(index)]]"
+                icon="read-anything-20:check-mark"></iron-icon>
+            [[item]]x
+          </button>
+        </template>
+      </cr-action-menu>
     </template>
-  </cr-action-menu>
-  <cr-action-menu id="fontSizeMenu" on-keydown="onFontSizeMenuKeyDown_">
-    <cr-icon-button
-        class="font-size"
-        id="font-size-decrease"
-        aria-label="$i18n{decreaseFontSizeLabel}"
-        title="$i18n{decreaseFontSizeLabel}"
-        iron-icon="read-anything:font-size-decrease"
-        on-click="onFontSizeDecreaseClick_">
-    </cr-icon-button>
-    <cr-icon-button
-        class="font-size"
-        id="font-size-increase"
-        aria-label="$i18n{increaseFontSizeLabel}"
-        title="$i18n{increaseFontSizeLabel}"
-        iron-icon="cr:add"
-        on-click="onFontSizeIncreaseClick_">
-    </cr-icon-button>
-    <cr-button
-        class="text-button"
-        id="font-size-reset"
-        on-click="onFontResetClick_">
-      $i18n{fontResetTitle}
-    </cr-button>
-  </cr-action-menu>
-  <cr-action-menu id="colorMenu">
-    <template is="dom-repeat" items="[[colorOptions_]]">
-      <button class="dropdown-item" on-click="onColorClick_">
-        <iron-icon class="button-image check-mark"
-            icon="read-anything-20:check-mark"></iron-icon>
-        <iron-icon class="button-image" icon="[[item.icon]]"></iron-icon>
-        [[item.title]]
-      </button>
+  </cr-lazy-render>
+  <cr-lazy-render id="fontSizeMenu">
+    <template>
+      <cr-action-menu on-keydown="onFontSizeMenuKeyDown_">
+        <cr-icon-button
+            class="font-size"
+            id="font-size-decrease"
+            aria-label="$i18n{decreaseFontSizeLabel}"
+            title="$i18n{decreaseFontSizeLabel}"
+            iron-icon="read-anything:font-size-decrease"
+            on-click="onFontSizeDecreaseClick_">
+        </cr-icon-button>
+        <cr-icon-button
+            class="font-size"
+            id="font-size-increase"
+            aria-label="$i18n{increaseFontSizeLabel}"
+            title="$i18n{increaseFontSizeLabel}"
+            iron-icon="cr:add"
+            on-click="onFontSizeIncreaseClick_">
+        </cr-icon-button>
+        <cr-button
+            class="text-button"
+            id="font-size-reset"
+            on-click="onFontResetClick_">
+          $i18n{fontResetTitle}
+        </cr-button>
+      </cr-action-menu>
     </template>
-  </cr-action-menu>
-  <cr-action-menu id="lineSpacingMenu">
-    <template is="dom-repeat" items="[[lineSpacingOptions_]]">
-      <button class="dropdown-item" on-click="onLineSpacingClick_">
-        <iron-icon class="button-image check-mark"
-            icon="read-anything-20:check-mark"></iron-icon>
-        <iron-icon class="button-image" icon="[[item.icon]]"></iron-icon>
-        [[item.title]]
-      </button>
+  </cr-lazy-render>
+  <cr-lazy-render id="colorMenu">
+    <template>
+      <cr-action-menu>
+        <template is="dom-repeat" items="[[colorOptions_]]" index-as="index"
+                  initial-count="5">
+          <button class="dropdown-item" on-click="onColorClick_">
+            <iron-icon class$="button-image check-mark
+                              check-mark-hidden-[[isColorItemSelected_(index)]]"
+                icon="read-anything-20:check-mark"></iron-icon>
+            <iron-icon class="button-image" icon="[[item.icon]]"></iron-icon>
+            [[item.title]]
+          </button>
+        </template>
+      </cr-action-menu>
     </template>
-  </cr-action-menu>
-  <cr-action-menu id="letterSpacingMenu">
-    <template is="dom-repeat" items="[[letterSpacingOptions_]]">
-      <button class="dropdown-item" on-click="onLetterSpacingClick_">
-        <iron-icon class="button-image check-mark"
-            icon="read-anything-20:check-mark"></iron-icon>
-        <iron-icon class="button-image" icon="[[item.icon]]"></iron-icon>
-        [[item.title]]
-      </button>
+  </cr-lazy-render>
+  <cr-lazy-render id="lineSpacingMenu">
+    <template>
+      <cr-action-menu>
+        <template is="dom-repeat"
+                  items="[[lineSpacingOptions_]]" index-as="index"
+                  initial-count="3">
+          <button class="dropdown-item" on-click="onLineSpacingClick_">
+            <iron-icon class$="button-image check-mark
+                        check-mark-hidden-[[isLineSpacingItemSelected_(index)]]"
+                icon="read-anything-20:check-mark"></iron-icon>
+            <iron-icon class="button-image" icon="[[item.icon]]"></iron-icon>
+            [[item.title]]
+          </button>
+        </template>
+      </cr-action-menu>
     </template>
-  </cr-action-menu>
-  <cr-action-menu id="fontMenu">
-  <template id="fontTemplate" is="dom-repeat" items="[[fontOptions_]]">
-    <button class="dropdown-item" on-click="onFontClick_">
-      <iron-icon class="button-image check-mark"
-          icon="read-anything-20:check-mark"></iron-icon>
-      [[item]]
-    </button>
-  </template>
-  </cr-action-menu>
+  </cr-lazy-render>
+  <cr-lazy-render id="letterSpacingMenu">
+    <template>
+      <cr-action-menu>
+        <template is="dom-repeat"
+                  items="[[letterSpacingOptions_]]" index-as="index"
+                  initial-count="3">
+          <button class="dropdown-item" on-click="onLetterSpacingClick_">
+            <iron-icon class$="button-image check-mark
+                      check-mark-hidden-[[isLetterSpacingItemSelected_(index)]]"
+                icon="read-anything-20:check-mark"></iron-icon>
+            <iron-icon class="button-image" icon="[[item.icon]]"></iron-icon>
+            [[item.title]]
+          </button>
+        </template>
+      </cr-action-menu>
+    </template>
+  </cr-lazy-render>
+  <cr-lazy-render id="fontMenu">
+    <template>
+      <cr-action-menu>
+        <template is="dom-repeat" items="[[fontOptions_]]" index-as="index"
+                  initial-count="8">
+          <button class="dropdown-item" on-click="onFontClick_"
+              style$="font-family:[[item]]">
+            <iron-icon
+              class$="button-image check-mark
+              check-mark-hidden-[[isFontItemSelected_(index)]]"
+              icon="read-anything-20:check-mark"></iron-icon>
+            [[getFontItemLabel_(item, areFontsLoaded_)]]
+          </button>
+        </template>
+      </cr-action-menu>
+    </template>
+  </cr-lazy-render>
 </div>

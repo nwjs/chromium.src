@@ -4,9 +4,10 @@
 
 #include "chrome/updater/app/server/win/com_classes_legacy.h"
 
+#include <windows.h>
+
 #include <oleauto.h>
 #include <shellapi.h>
-#include <windows.h>
 #include <wrl/client.h>
 
 #include <optional>
@@ -35,6 +36,7 @@
 #include "base/types/expected_macros.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_handle.h"
+#include "base/win/scoped_variant.h"
 #include "chrome/updater/activity.h"
 #include "chrome/updater/app/app_server_win.h"
 #include "chrome/updater/constants.h"
@@ -994,10 +996,6 @@ STDMETHODIMP LegacyProcessLauncherImpl::LaunchCmdElevated(
     const WCHAR* command_id,
     DWORD caller_proc_id,
     ULONG_PTR* proc_handle) {
-  ASSIGN_OR_RETURN(auto app_command_runner,
-                   AppCommandRunner::LoadAppCommand(UpdaterScope::kSystem,
-                                                    app_id, command_id));
-
   base::win::ScopedHandle caller_proc_handle;
   if (HRESULT hr = OpenCallerProcessHandle(caller_proc_id, caller_proc_handle);
       FAILED(hr)) {
@@ -1005,14 +1003,31 @@ STDMETHODIMP LegacyProcessLauncherImpl::LaunchCmdElevated(
     return hr;
   }
 
-  base::Process process;
-  if (HRESULT hr = app_command_runner.Run({}, process); FAILED(hr)) {
+  Microsoft::WRL::ComPtr<LegacyAppCommandWebImpl> app_command_web;
+  if (HRESULT hr = MakeAndInitializeComObject<LegacyAppCommandWebImpl>(
+          app_command_web, UpdaterScope::kSystem, app_id, command_id);
+      FAILED(hr)) {
+    return hr;
+  }
+
+  if (HRESULT hr =
+          app_command_web->execute(base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant,
+                                   base::win::ScopedVariant::kEmptyVariant);
+      FAILED(hr)) {
     return hr;
   }
 
   ScopedKernelHANDLE duplicate_proc_handle;
   if (!::DuplicateHandle(
-          ::GetCurrentProcess(), process.Handle(), caller_proc_handle.Get(),
+          ::GetCurrentProcess(), app_command_web->process().Handle(),
+          caller_proc_handle.Get(),
           ScopedKernelHANDLE::Receiver(duplicate_proc_handle).get(),
           PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, 0)) {
     HRESULT hr = HRESULTFromLastError();
@@ -1178,17 +1193,19 @@ void LegacyAppCommandWebImpl::SendPing(UpdaterScope scope,
         app_command_data.ap = persisted_data->GetAP(app_id);
         app_command_data.app_id = app_id;
         app_command_data.brand = persisted_data->GetBrandCode(app_id);
-        app_command_data.name = command_id;
         app_command_data.requires_network_encryption = false;
         app_command_data.version = persisted_data->GetProductVersion(app_id);
 
         update_client::UpdateClientFactory(config)->SendPing(
             app_command_data,
-            {.event_type =
-                 update_client::protocol_request::kEventAppCommandComplete,
-             .result = SUCCEEDED(error_params.error_code),
-             .error_code = error_params.error_code,
-             .extra_code1 = error_params.extra_code1},
+            {
+                .event_type =
+                    update_client::protocol_request::kEventAppCommandComplete,
+                .result = SUCCEEDED(error_params.error_code),
+                .error_code = error_params.error_code,
+                .extra_code1 = error_params.extra_code1,
+                .app_command_id = command_id,
+            },
             base::BindOnce([](update_client::Error error) {
               VLOG(1) << "App command ping completed: " << error;
             }));

@@ -35,6 +35,7 @@ ts_modules = [
   "commands.ts",
   "focus_ring_manager.ts",
   "history.ts",
+  "item_scan_manager.ts",
   "menu_manager.ts",
   "metrics.ts",
   "navigator.ts",
@@ -47,13 +48,13 @@ ts_modules = [
   "switch_access.ts",
   "switch_access_constants.ts",
   "switch_access_loader.ts",
+  "switch_access_predicate.ts",
   "text_navigation_manager.ts",
 ]
 
 # JS files needed to compile TS.
 js_modules = [
   "action_manager.js",
-  "item_scan_manager.js",
   "nodes/combo_box_node.js",
   "nodes/desktop_node.js",
   "nodes/editable_text_node.js",
@@ -63,7 +64,6 @@ js_modules = [
   "nodes/slider_node.js",
   "nodes/tab_node.js",
   "nodes/window_node.js",
-  "switch_access_predicate.js",
 ]
 
 # Root dir must be the parent directory so it can reach common.

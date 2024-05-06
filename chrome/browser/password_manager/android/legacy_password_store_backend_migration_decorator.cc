@@ -46,8 +46,7 @@ LegacyPasswordStoreBackendMigrationDecorator::
   CHECK(built_in_backend_);
   CHECK(android_backend_);
   active_backend_ = std::make_unique<PasswordStoreProxyBackend>(
-      std::move(built_in_backend), std::move(android_backend), prefs_,
-      password_manager::kProfileStore);
+      std::move(built_in_backend), std::move(android_backend), prefs_);
 }
 
 LegacyPasswordStoreBackendMigrationDecorator::
@@ -245,16 +244,8 @@ LegacyPasswordStoreBackendMigrationDecorator::GetSmartBubbleStatsStore() {
   return active_backend_->GetSmartBubbleStatsStore();
 }
 
-std::unique_ptr<syncer::ProxyModelTypeControllerDelegate>
+std::unique_ptr<syncer::ModelTypeControllerDelegate>
 LegacyPasswordStoreBackendMigrationDecorator::CreateSyncControllerDelegate() {
-  if (base::FeatureList::IsEnabled(
-          features::kUnifiedPasswordManagerSyncUsingAndroidBackendOnly)) {
-    // The android backend (PasswordStoreAndroidBackend) creates a controller
-    // delegate that prevents sync from actually communicating with the sync
-    // server using the built in SyncEngine.
-    return android_backend_->CreateSyncControllerDelegate();
-  }
-
   return built_in_backend_->CreateSyncControllerDelegate();
 }
 

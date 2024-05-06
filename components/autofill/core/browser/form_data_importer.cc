@@ -249,15 +249,22 @@ void FormDataImporter::ImportAndProcessFormData(
       !cc_prompt_potentially_shown && !iban_prompt_potentially_shown);
 }
 
-bool FormDataImporter::ComplementCountry(
-    AutofillProfile& profile,
-    const std::string& predicted_country_code) {
-  bool should_complement_country = !profile.HasRawInfo(ADDRESS_HOME_COUNTRY);
-  return should_complement_country &&
-         profile.SetInfoWithVerificationStatus(
-             AutofillType(ADDRESS_HOME_COUNTRY),
-             base::ASCIIToUTF16(predicted_country_code), app_locale_,
-             VerificationStatus::kObserved);
+bool FormDataImporter::ComplementCountry(AutofillProfile& profile,
+                                         LogBuffer* import_log_buffer) {
+  if (profile.HasRawInfo(ADDRESS_HOME_COUNTRY)) {
+    return false;
+  }
+  const std::string fallback = personal_data_manager_->address_data_manager()
+                                   .GetDefaultCountryCodeForNewAddress()
+                                   .value();
+  if (import_log_buffer) {
+    *import_log_buffer
+        << LogMessage::kImportAddressProfileComplementedCountryCode << fallback
+        << CTag{};
+  }
+  return profile.SetInfoWithVerificationStatus(
+      AutofillType(ADDRESS_HOME_COUNTRY), base::ASCIIToUTF16(fallback),
+      app_locale_, VerificationStatus::kObserved);
 }
 
 bool FormDataImporter::SetPhoneNumber(
@@ -434,11 +441,8 @@ AutofillProfile FormDataImporter::ConstructProfileFromObservedValues(
   // country or the app locale. For the variation country code to take
   // precedence over the app locale, country code complemention needs to happen
   // before `SetPhoneNumber()`.
-  const std::string predicted_country_code = GetPredictedCountryCode(
-      candidate_profile, client_->GetVariationConfigCountryCode(), app_locale_,
-      import_log_buffer);
   import_metadata.did_complement_country =
-      ComplementCountry(candidate_profile, predicted_country_code);
+      ComplementCountry(candidate_profile, import_log_buffer);
 
   // We only set complete phone, so aggregate phone parts in these vars and set
   // complete at the end.
@@ -494,7 +498,7 @@ FormDataImporter::GetAddressObservedFieldValues(
   // Go through each |form| field and attempt to constitute a valid profile.
   for (const AutofillField* const field : section_fields) {
     std::u16string value;
-    base::TrimWhitespace(field->value, base::TRIM_ALL, &value);
+    base::TrimWhitespace(field->value(), base::TRIM_ALL, &value);
 
     // If we don't know the type of the field, or the user hasn't entered any
     // information into the field, then skip it.
@@ -1005,7 +1009,7 @@ FormDataImporter::ExtractCreditCardFromForm(const FormStructure& form) {
 
     FieldType field_type = autofill_type.GetStorableType();
 
-    std::u16string value_view = field->value;
+    std::u16string value_view = field->value();
     std::u16string_view user_input_view =
         base::TrimWhitespace(field->user_input, base::TRIM_ALL);
     if (base::FeatureList::IsEnabled(
@@ -1028,7 +1032,7 @@ FormDataImporter::ExtractCreditCardFromForm(const FormStructure& form) {
     types_seen.insert(field_type);
 
     // If |field| is an HTML5 month input, handle it as a special case.
-    if (field->form_control_type == FormControlType::kInputMonth) {
+    if (field->form_control_type() == FormControlType::kInputMonth) {
       DCHECK_EQ(CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR, field_type);
       result.card.SetInfoForMonthInputType(value);
       continue;
@@ -1065,7 +1069,7 @@ FormDataImporter::ExtractCreditCardFromFormRelaxed(const FormStructure& form) {
                                           const AutofillField& field) {
     // The value of interest is `field->value` or `field->user_input`.
     std::u16string_view value_view =
-        base::TrimWhitespace(field.value, base::TRIM_ALL);
+        base::TrimWhitespace(field.value(), base::TRIM_ALL);
     std::u16string_view user_input_view =
         base::TrimWhitespace(field.user_input, base::TRIM_ALL);
     if (!user_input_view.empty() &&
@@ -1083,7 +1087,7 @@ FormDataImporter::ExtractCreditCardFromFormRelaxed(const FormStructure& form) {
       return;
     }
     std::u16string old_value = result.card.GetInfo(field.Type(), app_locale);
-    if (field.form_control_type == FormControlType::kInputMonth) {
+    if (field.form_control_type() == FormControlType::kInputMonth) {
       // If |field| is an HTML5 month input, handle it as a special case.
       DCHECK_EQ(CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR,
                 field.Type().GetStorableType());
@@ -1151,14 +1155,14 @@ Iban FormDataImporter::ExtractIbanFromForm(const FormStructure& form) {
   Iban candidate_iban;
 
   for (const auto& field : form) {
-    if (!field->IsFieldFillable() || field->value.empty()) {
+    if (!field->IsFieldFillable() || field->value().empty()) {
       continue;
     }
 
     AutofillType autofill_type = field->Type();
     if (autofill_type.GetStorableType() == IBAN_VALUE &&
-        Iban::IsValid(field->value)) {
-      candidate_iban.SetInfo(autofill_type, field->value, app_locale_);
+        Iban::IsValid(field->value())) {
+      candidate_iban.SetInfo(autofill_type, field->value(), app_locale_);
       break;
     }
   }
@@ -1211,7 +1215,7 @@ void FormDataImporter::OnPersonalDataChanged() {
   multistep_importer_.OnPersonalDataChanged(*personal_data_manager_);
 }
 
-void FormDataImporter::OnURLsDeleted(
+void FormDataImporter::OnHistoryDeletions(
     history::HistoryService* history_service,
     const history::DeletionInfo& deletion_info) {
   multistep_importer_.OnBrowsingHistoryCleared(deletion_info);

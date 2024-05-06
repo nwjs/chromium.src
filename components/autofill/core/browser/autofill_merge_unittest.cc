@@ -199,9 +199,9 @@ void AutofillMergeTest::MergeProfiles(const std::string& profiles,
 
       FormFieldData field;
       field.label = field_type;
-      field.name = field_type;
-      field.value = value;
-      field.form_control_type = FormControlType::kInputText;
+      field.set_name(field_type);
+      field.set_value(value);
+      field.set_form_control_type(FormControlType::kInputText);
       field.is_focusable = true;
       form.fields.push_back(field);
     }
@@ -216,7 +216,7 @@ void AutofillMergeTest::MergeProfiles(const std::string& profiles,
         // into the field's name.
         AutofillField* field =
             const_cast<AutofillField*>(form_structure.field(j));
-        FieldType type = TypeNameToFieldType(base::UTF16ToUTF8(field->name));
+        FieldType type = TypeNameToFieldType(base::UTF16ToUTF8(field->name()));
         field->set_heuristic_type(GetActiveHeuristicSource(), type);
       }
 

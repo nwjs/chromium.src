@@ -5,14 +5,20 @@
 #ifndef COMPONENTS_SUBRESOURCE_FILTER_CONTENT_BROWSER_CHILD_FRAME_NAVIGATION_FILTERING_THROTTLE_H_
 #define COMPONENTS_SUBRESOURCE_FILTER_CONTENT_BROWSER_CHILD_FRAME_NAVIGATION_FILTERING_THROTTLE_H_
 
+#include <optional>
+#include <string>
+
 #include "base/feature_list.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
-#include "components/subresource_filter/content/browser/async_document_subresource_filter.h"
+#include "components/subresource_filter/core/browser/async_document_subresource_filter.h"
 #include "components/subresource_filter/core/common/load_policy.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "third_party/blink/public/common/frame/frame_ad_evidence.h"
+
+class GURL;
 
 namespace features {
 BASE_DECLARE_FEATURE(kSendCnameAliasesToSubresourceFilterFromBrowser);
@@ -35,7 +41,7 @@ class AsyncDocumentSubresourceFilter;
 // frames owned by documents which already have filtering activated, and
 // therefore an associated (Async)DocumentSubresourceFilter.
 //
-// TODO(https://crbug.com/984562): With AdTagging enabled, this throttle delays
+// TODO(crbug.com/41471110): With AdTagging enabled, this throttle delays
 // almost all child frame navigations. This delay is necessary in blocking mode
 // due to logic related to BLOCK_REQUEST_AND_COLLAPSE. However, there may be
 // room for optimization during AdTagging, or migrating
@@ -46,7 +52,10 @@ class ChildFrameNavigationFilteringThrottle
   ChildFrameNavigationFilteringThrottle(
       content::NavigationHandle* handle,
       AsyncDocumentSubresourceFilter* parent_frame_filter,
-      blink::FrameAdEvidence ad_evidence);
+      bool bypass_alias_check,
+      base::RepeatingCallback<std::string(const GURL& url)>
+          disallow_message_callback,
+      std::optional<blink::FrameAdEvidence> ad_evidence);
 
   ChildFrameNavigationFilteringThrottle(
       const ChildFrameNavigationFilteringThrottle&) = delete;
@@ -99,7 +108,12 @@ class ChildFrameNavigationFilteringThrottle
   // Set to the least restrictive load policy by default.
   LoadPolicy load_policy_ = LoadPolicy::EXPLICITLY_ALLOW;
 
-  blink::FrameAdEvidence ad_evidence_;
+  // Callback to construct a console message based on a disallowed resource URL
+  // without storing a copy of the message string.
+  base::RepeatingCallback<std::string(const GURL& gurl)>
+      disallow_message_callback_;
+
+  std::optional<blink::FrameAdEvidence> ad_evidence_;
 
   base::WeakPtrFactory<ChildFrameNavigationFilteringThrottle> weak_ptr_factory_{
       this};

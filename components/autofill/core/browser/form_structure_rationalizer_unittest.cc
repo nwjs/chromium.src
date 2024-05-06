@@ -94,12 +94,12 @@ std::pair<FormData, std::string> CreateFormAndServerClassification(
   for (const auto& field_template : fields) {
     FormFieldData field;
     field.label = base::UTF8ToUTF16(field_template.label);
-    field.name = base::UTF8ToUTF16(field_template.name);
+    field.set_name(base::UTF8ToUTF16(field_template.name));
     if (!field_template.section.empty()) {
       field.section = Section::FromAutocomplete(
           {.section = std::string(field_template.section)});
     }
-    field.form_control_type = field_template.form_control_type;
+    field.set_form_control_type(field_template.form_control_type);
     field.is_focusable = field_template.is_focusable;
     field.max_length = field_template.max_length;
     field.parsed_autocomplete = field_template.parsed_autocomplete;
@@ -110,7 +110,7 @@ std::pair<FormData, std::string> CreateFormAndServerClassification(
         field_template.host_form.value_or(form.global_id()).frame_token;
     field.host_form_id =
         field_template.host_form.value_or(form.global_id()).renderer_id;
-    field.renderer_id = test::MakeFieldRendererId();
+    field.set_renderer_id(test::MakeFieldRendererId());
     form.fields.push_back(std::move(field));
   }
 

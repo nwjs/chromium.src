@@ -130,6 +130,16 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       disabledLabel: 'siteSettingsCameraBlocked',
     },
     {
+      route: routes.SITE_SETTINGS_CAPTURED_SURFACE_CONTROL,
+      id: Id.CAPTURED_SURFACE_CONTROL,
+      label: 'siteSettingsCapturedSurfaceControl',
+      icon: 'settings:touchpad-mouse',
+      enabledLabel: 'siteSettingsCapturedSurfaceControlAllowed',
+      disabledLabel: 'siteSettingsCapturedSurfaceControlBlocked',
+      shouldShow: () =>
+          loadTimeData.getBoolean('capturedSurfaceControlEnabled'),
+    },
+    {
       route: routes.SITE_SETTINGS_CLIPBOARD,
       id: Id.CLIPBOARD,
       label: 'siteSettingsClipboard',
@@ -241,9 +251,19 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       id: Id.AUTOMATIC_FULLSCREEN,
       label: 'siteSettingsAutomaticFullscreen',
       icon: 'cr:fullscreen',
-      disabledLabel: 'siteSettingsAutomaticFullscreenBlock',
       shouldShow: () =>
           loadTimeData.getBoolean('enableAutomaticFullscreenContentSetting'),
+    },
+    {
+      route: routes.SITE_SETTINGS_KEYBOARD_LOCK,
+      id: Id.KEYBOARD_LOCK,
+      label: 'siteSettingsKeyboardLock',
+      // TODO: crbug.com/324147495 - Replace with the actual icon.
+      icon: 'settings:usb',
+      enabledLabel: 'siteSettingsKeyboardLockAllowed',
+      disabledLabel: 'siteSettingsKeyboardLockBlocked',
+      shouldShow: () =>
+          loadTimeData.getBoolean('enableKeyboardAndPointerLockPrompt'),
     },
     {
       route: routes.SITE_SETTINGS_LOCAL_FONTS,
@@ -276,6 +296,17 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       icon: 'settings:pdf',
       enabledLabel: 'siteSettingsPdfsAllowed',
       disabledLabel: 'siteSettingsPdfsBlocked',
+    },
+    {
+      route: routes.SITE_SETTINGS_POINTER_LOCK,
+      id: Id.POINTER_LOCK,
+      label: 'siteSettingsPointerLock',
+      // TODO: crbug.com/324147495 - Replace with the actual icon.
+      icon: 'settings:usb',
+      enabledLabel: 'siteSettingsPointerLockAllowed',
+      disabledLabel: 'siteSettingsPointerLockBlocked',
+      shouldShow: () =>
+          loadTimeData.getBoolean('enableKeyboardAndPointerLockPrompt'),
     },
     {
       route: routes.SITE_SETTINGS_POPUPS,
@@ -476,6 +507,9 @@ export class SettingsSiteSettingsPageElement extends
               Id.WINDOW_MANAGEMENT,
               Id.LOCAL_FONTS,
               Id.AUTO_PICTURE_IN_PICTURE,
+              Id.CAPTURED_SURFACE_CONTROL,
+              Id.KEYBOARD_LOCK,
+              Id.POINTER_LOCK,
 
             ]),
             contentBasic: buildItemListFromIds([

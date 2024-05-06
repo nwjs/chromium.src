@@ -82,6 +82,7 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
       {"bookmarked", IDS_HISTORY_ENTRY_BOOKMARKED},
       {"cancel", IDS_CANCEL},
       {"clearBrowsingData", IDS_CLEAR_BROWSING_DATA_TITLE},
+      {"clearBrowsingDataLinkTooltip", IDS_SETTINGS_OPENS_IN_NEW_TAB},
       {"clearSearch", IDS_CLEAR_SEARCH},
       {"collapseSessionButton", IDS_HISTORY_OTHER_SESSIONS_COLLAPSE_SESSION},
       {"delete", IDS_HISTORY_DELETE},
@@ -166,14 +167,26 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   bool enable_history_embeddings =
       base::FeatureList::IsEnabled(history_embeddings::kHistoryEmbeddings);
   source->AddBoolean("enableHistoryEmbeddings", enable_history_embeddings);
-  if (enable_history_embeddings) {
-    static constexpr webui::LocalizedString kHistoryEmbeddingsStrings[] = {
-        {"historyEmbeddingsSuggestion1", IDS_HISTORY_EMBEDDINGS_SUGGESTION_1},
-        {"historyEmbeddingsSuggestion2", IDS_HISTORY_EMBEDDINGS_SUGGESTION_2},
-        {"historyEmbeddingsSuggestion3", IDS_HISTORY_EMBEDDINGS_SUGGESTION_3},
-    };
-    source->AddLocalizedStrings(kHistoryEmbeddingsStrings);
-  }
+  static constexpr webui::LocalizedString kHistoryEmbeddingsStrings[] = {
+      {"historyEmbeddingsDisclaimer", IDS_HISTORY_EMBEDDINGS_DISCLAIMER},
+      {"historyEmbeddingsPromoHeading", IDS_HISTORY_EMBEDDINGS_PROMO_HEADING},
+      {"historyEmbeddingsPromoBody", IDS_HISTORY_EMBEDDINGS_PROMO_BODY},
+      {"historyEmbeddingsSuggestion1", IDS_HISTORY_EMBEDDINGS_SUGGESTION_1},
+      {"historyEmbeddingsSuggestion2", IDS_HISTORY_EMBEDDINGS_SUGGESTION_2},
+      {"historyEmbeddingsSuggestion3", IDS_HISTORY_EMBEDDINGS_SUGGESTION_3},
+      {"historyEmbeddingsHeading", IDS_HISTORY_EMBEDDINGS_HEADING},
+      {"historyEmbeddingsHeadingLoading",
+       IDS_HISTORY_EMBEDDINGS_HEADING_LOADING},
+      {"historyEmbeddingsFooter", IDS_HISTORY_EMBEDDINGS_FOOTER},
+      {"learnMore", IDS_LEARN_MORE},
+      {"thumbsUp", IDS_HISTORY_EMBEDDINGS_THUMBS_UP},
+      {"thumbsDown", IDS_HISTORY_EMBEDDINGS_THUMBS_DOWN},
+  };
+  source->AddLocalizedStrings(kHistoryEmbeddingsStrings);
+  source->AddString("historyEmbeddingsPromoBody",
+                    l10n_util::GetStringFUTF16(
+                        IDS_HISTORY_EMBEDDINGS_PROMO_BODY,
+                        base::UTF8ToUTF16(chrome::kChromeUISettingsURL)));
 
   // History clusters
   HistoryClustersUtil::PopulateSource(source, profile, /*in_side_panel=*/false);
@@ -254,7 +267,8 @@ void HistoryUI::BindInterface(
     mojo::PendingReceiver<history_embeddings::mojom::PageHandler>
         pending_page_handler) {
   history_embeddings_handler_ = std::make_unique<HistoryEmbeddingsHandler>(
-      std::move(pending_page_handler));
+      std::move(pending_page_handler),
+      Profile::FromWebUI(web_ui())->GetWeakPtr());
 }
 
 void HistoryUI::BindInterface(

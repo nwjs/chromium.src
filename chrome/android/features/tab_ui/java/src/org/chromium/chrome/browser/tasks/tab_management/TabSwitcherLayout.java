@@ -23,11 +23,13 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 
+import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.version_info.VersionInfo;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -35,7 +37,6 @@ import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.scene_layer.SolidColorSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.StaticTabSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.TabListSceneLayer;
@@ -53,10 +54,12 @@ import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabLoadIfNeededCaller;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabUtils;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher.TabListDelegate;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher.TabSwitcherViewObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher.TabListDelegate;
-import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher.TabSwitcherViewObserver;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
@@ -164,6 +167,8 @@ public class TabSwitcherLayout extends Layout {
     @Nullable private final ScrimCoordinator mScrimCoordinator;
     private final TabSwitcher.TabListDelegate mGridTabListDelegate;
     private final LayoutStateProvider mLayoutStateProvider;
+    private final ObservableSupplier<Float> mAppHeaderHeightSupplier;
+    private Callback<Float> mAppHeaderHeightSupplierCallback;
 
     private boolean mIsInitialized;
 
@@ -257,7 +262,8 @@ public class TabSwitcherLayout extends Layout {
             BrowserControlsStateProvider browserControlsStateProvider,
             TabSwitcher tabSwitcher,
             @Nullable ViewGroup tabSwitcherScrimAnchor,
-            @Nullable ScrimCoordinator scrimCoordinator) {
+            @Nullable ScrimCoordinator scrimCoordinator,
+            @Nullable ObservableSupplier<Float> appHeaderHeightSupplier) {
         super(context, updateHost, renderHost);
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mTabSwitcher = tabSwitcher;
@@ -284,6 +290,19 @@ public class TabSwitcherLayout extends Layout {
                                 Math.round(getWidth()), Math.round(getHeight())));
 
         mController.addTabSwitcherViewObserver(mTabSwitcherObserver);
+        mAppHeaderHeightSupplier = appHeaderHeightSupplier;
+        if (mAppHeaderHeightSupplier != null) {
+            mAppHeaderHeightSupplierCallback =
+                    newHeight -> {
+                        // If the app header height changes while the tab switcher is active, adjust
+                        // the tab switcher container's y-offset immediately.
+                        if (isActive()) {
+                            // TODO (crbug/334156232): Update the container height.
+                            mController.getTabSwitcherContainer().setY(newHeight);
+                        }
+                    };
+            mAppHeaderHeightSupplier.addObserver(mAppHeaderHeightSupplierCallback);
+        }
     }
 
     @Override
@@ -331,6 +350,9 @@ public class TabSwitcherLayout extends Layout {
         if (mTabListSceneLayer != null) {
             mTabListSceneLayer.destroy();
             mTabListSceneLayer = null;
+        }
+        if (mAppHeaderHeightSupplier != null) {
+            mAppHeaderHeightSupplier.removeObserver(mAppHeaderHeightSupplierCallback);
         }
     }
 
@@ -1209,7 +1231,7 @@ public class TabSwitcherLayout extends Layout {
                         mController.getTabSwitcherContainer(),
                         View.TRANSLATION_Y,
                         mController.getTabSwitcherContainer().getHeight(),
-                        0f);
+                        getAppHeaderHeight());
         translateUp.setInterpolator(Interpolators.EMPHASIZED_DECELERATE);
         translateUp.setDuration(TRANSLATE_DURATION_MS);
 
@@ -1228,7 +1250,7 @@ public class TabSwitcherLayout extends Layout {
                     @Override
                     public void onAnimationEnd(Animator animation) {
                         mTabToSwitcherAnimation = null;
-                        mController.getTabSwitcherContainer().setY(0);
+                        mController.getTabSwitcherContainer().setY(getAppHeaderHeight());
                         doneShowing();
 
                         reportTabletAnimationPerf(true);
@@ -1246,7 +1268,7 @@ public class TabSwitcherLayout extends Layout {
                 ObjectAnimator.ofFloat(
                         mController.getTabSwitcherContainer(),
                         View.TRANSLATION_Y,
-                        0f,
+                        getAppHeaderHeight(),
                         mController.getTabSwitcherContainer().getHeight());
         translateDown.setInterpolator(Interpolators.EMPHASIZED_ACCELERATE);
         translateDown.setDuration(TRANSLATE_DURATION_MS);
@@ -1497,5 +1519,10 @@ public class TabSwitcherLayout extends Layout {
     private void onTabSelecting(int tabId) {
         TabModelUtils.selectTabById(mTabModelSelector, tabId, TabSelectionType.FROM_USER, false);
         startHiding();
+    }
+
+    private float getAppHeaderHeight() {
+        if (mAppHeaderHeightSupplier == null || mAppHeaderHeightSupplier.get() == null) return 0f;
+        return mAppHeaderHeightSupplier.get();
     }
 }

@@ -37,7 +37,7 @@
 #include "components/permissions/permissions_client.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/prefs/pref_service.h"
-#include "components/subresource_filter/content/browser/ruleset_service.h"
+#include "components/subresource_filter/content/shared/browser/ruleset_service.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/notification_service.h"
 #include "extensions/buildflags/buildflags.h"
@@ -355,6 +355,11 @@ WebRtcLogUploader* TestingBrowserProcess::webrtc_log_uploader() {
 subresource_filter::RulesetService*
 TestingBrowserProcess::subresource_filter_ruleset_service() {
   return subresource_filter_ruleset_service_.get();
+}
+
+subresource_filter::RulesetService*
+TestingBrowserProcess::fingerprinting_protection_ruleset_service() {
+  return fingerprinting_protection_ruleset_service_.get();
 }
 
 BrowserProcessPlatformPart* TestingBrowserProcess::platform_part() {

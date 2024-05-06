@@ -259,7 +259,7 @@ crbug.com/402379 [ Mac12 ] storage/indexeddb/mozilla/indexes.html [ Slow ]
 crbug.com/402379 [ Release Win ] storage/indexeddb/mozilla/indexes.html [ Slow ]
 
 crbug.com/504703 inspector-protocol/debugger/debugger-step-into-dedicated-worker.js [ Slow ]
-
+crbug.com/330365759 inspector-protocol/heap-profiler/heap-objects-tracking.js [ Slow ]
 
 crbug.com/372424 [ Linux ] fast/dom/DOMImplementation/createDocument-with-used-doctype.html [ Slow ]
 crbug.com/372424 [ Mac11 Release ] fast/dom/DOMImplementation/createDocument-with-used-doctype.html [ Slow ]
@@ -987,7 +987,6 @@ crbug.com/990900 external/wpt/cookie-store/idlharness.tentative.https.any.servic
 crbug.com/1014327 [ Mac Release ] external/wpt/preload/onerror-event.html [ Slow ]
 crbug.com/1017626 [ Linux ] external/wpt/compat/idlharness.window.html [ Slow ]
 crbug.com/1019662 external/wpt/html/dom/idlharness.worker.html [ Slow ]
-crbug.com/1032451 virtual/threaded-no-composited-antialiasing/animations/stability/animation-iteration-event-destroy-renderer.html [ Slow ]
 crbug.com/1026712 [ Mac11 Release ] fast/forms/time-multiple-fields/time-multiple-fields-stepup-stepdown-from-renderer-hour.html [ Slow ]
 crbug.com/1026712 [ Mac12 ] fast/forms/time-multiple-fields/time-multiple-fields-stepup-stepdown-from-renderer-hour.html [ Slow ]
 crbug.com/1026712 [ Mac11 Release ] fast/forms/time-multiple-fields/time-multiple-fields-stepup-stepdown-from-renderer.html [ Slow ]
@@ -1226,6 +1225,7 @@ crbug.com/1046784 [ Mac12 ] http/tests/devtools/a11y-axe-core/sources/scope-pane
 crbug.com/1046784 [ Release Win ] http/tests/devtools/a11y-axe-core/sources/scope-pane-a11y-test.js [ Slow ]
 crbug.com/1401050 http/tests/devtools/a11y-axe-core/application-panel/service-worker-view-a11y-test.js [ Slow ]
 crbug.com/1046784 http/tests/inspector-protocol/network/navigate-iframe-out2in.js [ Slow ]
+crbug.com/40928142 inspector-protocol/page/set-font-families-generic-names.js [ Slow ]
 crbug.com/1048597 [ Linux ] virtual/android/fullscreen/video-scrolled-iframe.html [ Slow ]
 crbug.com/1057807 http/tests/misc/destroy-middle-click-locked-target-crash.html [ Slow ]
 crbug.com/1042694 [ Debug Mac ] fast/forms/form-control-with-state-eager-tracing-crashTest.html [ Slow ]
@@ -1463,6 +1463,7 @@ crbug.com/1462683 virtual/threaded/external/wpt/long-animation-frame/tentative/l
 crbug.com/1517319 virtual/speculation-rules-prerender-target-hint/external/wpt/speculation-rules/prerender/prerender-while-prerender.html [ Slow ]
 
 crbug.com/326619067 [ Mac ] external/wpt/css/css-scroll-snap-2/snapchanging/snapchanging-on-user-root-scroll.tentative.html [ Slow ]
+crbug.com/332903033 [ Mac ] external/wpt/css/css-scroll-snap-2/snapchanging/snapchanging-on-user-scroll.tentative.html [ Slow ]
 crbug.com/327390559 [ Win11-arm64 ] virtual/keepalive-in-browser-migration/external/wpt/* [ Slow ]
 
 crbug.com/328860404 virtual/disable-intersection-optimization/external/wpt/html/semantics/embedded-content/the-iframe-element/sandbox-top-navigation-escalate-privileges.tentative.sub.window.html [ Slow ]

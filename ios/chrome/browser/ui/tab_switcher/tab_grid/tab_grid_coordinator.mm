@@ -61,7 +61,6 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/synced_sessions/model/distant_session.h"
 #import "ios/chrome/browser/synced_sessions/model/synced_sessions_util.h"
-#import "ios/chrome/browser/tabs/model/features.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
 #import "ios/chrome/browser/ui/authentication/history_sync/history_sync_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/history_sync/history_sync_popup_coordinator.h"
@@ -88,6 +87,7 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_mediator_delegate.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/incognito/incognito_grid_coordinator.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/incognito/incognito_grid_mediator.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/incognito/incognito_grid_view_controller.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/regular/regular_grid_coordinator.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/regular/regular_grid_mediator.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/regular/regular_grid_view_controller.h"
@@ -405,6 +405,26 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     }
   }
 
+  const TabGroup* tabGroup = nullptr;
+
+  if (currentActivePage == TabGridPageRegularTabs) {
+    WebStateList* webStateList = self.regularBrowser->GetWebStateList();
+    int activeWebStateIndex =
+        webStateList->GetIndexOfWebState(webStateList->GetActiveWebState());
+    if (activeWebStateIndex != WebStateList::kInvalidIndex) {
+      tabGroup = webStateList->GetGroupOfWebStateAt(activeWebStateIndex);
+    }
+  } else if (currentActivePage == TabGridPageIncognitoTabs) {
+    WebStateList* webStateList = self.incognitoBrowser->GetWebStateList();
+    int activeWebStateIndex =
+        webStateList->GetIndexOfWebState(webStateList->GetActiveWebState());
+    if (activeWebStateIndex != WebStateList::kInvalidIndex) {
+      tabGroup = webStateList->GetGroupOfWebStateAt(activeWebStateIndex);
+    }
+  }
+
+  BOOL toTabGroup = tabGroup != nullptr;
+
   __weak __typeof(self) weakSelf = self;
   __weak UIWindow* sceneWindow = sceneState.window;
 
@@ -442,6 +462,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
           performLegacyBrowserToTabGridTransitionWithActivePage:
               currentActivePage
                                                animationEnabled:animated
+                                                     toTabGroup:toTabGroup
                                                      completion:
                                                          transitionCompletionBlock];
     }
@@ -457,6 +478,14 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     dispatch_async(dispatch_get_main_queue(), transitionBlock);
   } else if (shouldDisplayBringAndroidTabsPrompt) {
     [self displayBringAndroidTabsPrompt];
+  }
+
+  if (tabGroup) {
+    if (currentActivePage == TabGridPageRegularTabs) {
+      [_regularGridCoordinator showTabGroupForTabGridOpening:tabGroup];
+    } else if (currentActivePage == TabGridPageIncognitoTabs) {
+      [_incognitoGridCoordinator showTabGroupForTabGridOpening:tabGroup];
+    }
   }
 
   // Record when the tab switcher is presented.
@@ -514,6 +543,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   // that the animated "tab switcher dismissal" (that is, presenting something
   // on top of the tab switcher) transition has completed.
   // Finally, the launch mask view should be removed.
+  __weak TabGridCoordinator* weakSelf = self;
   ProceduralBlock extendedCompletion = ^{
     [self.delegate tabGridDismissTransitionDidEnd:self];
     if (self.baseViewController.tabGridMode == TabGridModeSearch) {
@@ -535,6 +565,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       completion();
     }
     self.firstPresentation = NO;
+    [weakSelf hideTabGroupsViews];
   };
 
   self.baseViewController.childViewControllerForStatusBarStyle =
@@ -556,6 +587,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 }
 
 #pragma mark - Private
+
+// Hides tab group views.
+- (void)hideTabGroupsViews {
+  [_incognitoGridCoordinator hideTabGroup];
+  [_regularGridCoordinator hideTabGroup];
+}
 
 // Lazily creates the bookmarks coordinator.
 - (BookmarksCoordinator*)bookmarksCoordinator {
@@ -620,11 +657,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self.transitionHandler performTransitionWithCompletion:completionHandler];
 }
 
-// Performs the legacy Browser to Tab Grid transition.
+// Performs the legacy Browser to Tab Grid transition, `toTabGroup` or not.
 - (void)
     performLegacyBrowserToTabGridTransitionWithActivePage:
         (TabGridPage)activePage
                                          animationEnabled:(BOOL)animationEnabled
+                                               toTabGroup:(BOOL)toTabGroup
                                                completion:
                                                    (ProceduralBlock)completion {
   if (!self.bvcContainer) {
@@ -638,6 +676,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       [self createTransitionHanlderWithAnimationEnabled:animationEnabled];
   [self.legacyTransitionHandler transitionFromBrowser:self.bvcContainer
                                             toTabGrid:self.baseViewController
+                                           toTabGroup:toTabGroup
                                            activePage:activePage
                                        withCompletion:completion];
 }
@@ -835,7 +874,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                      browserList:browserList
                       sceneState:currentSceneState
                 disabledByPolicy:_pageConfiguration ==
-                                 TabGridPageConfiguration::kIncognitoPageOnly];
+                                 TabGridPageConfiguration::kIncognitoPageOnly
+               engagementTracker:feature_engagement::TrackerFactory::
+                                     GetForBrowserState(regularBrowserState)];
   self.remoteTabsMediator.consumer = baseViewController.remoteTabsConsumer;
   self.remoteTabsMediator.toolbarTabGridDelegate = self.baseViewController;
   baseViewController.remoteTabsViewController.imageDataSource =
@@ -978,10 +1019,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   switch (page) {
     case TabGridPageIncognitoTabs:
       DCHECK_GT(self.incognitoBrowser->GetWebStateList()->count(), 0);
+      self.activePage = page;
       activeBrowser = self.incognitoBrowser;
       break;
     case TabGridPageRegularTabs:
       DCHECK_GT(self.regularBrowser->GetWebStateList()->count(), 0);
+      self.activePage = page;
       activeBrowser = self.regularBrowser;
       break;
     case TabGridPageRemoteTabs:
@@ -1090,19 +1133,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self dismissActionSheetCoordinator];
   [self.sharingCoordinator stop];
   self.sharingCoordinator = nil;
-}
-
-- (void)showTabGroupCreationWithWithIdentifiers:
-            (const std::set<web::WebStateID>&)identifiers
-                                      incognito:(BOOL)incognito {
-  CHECK(IsTabGroupInGridEnabled())
-      << "You should not be able to create a new tab group outside the Tab "
-         "Groups experiment.";
-  if (incognito) {
-    [_incognitoGridCoordinator showTabGroupCreationForTabs:identifiers];
-  } else {
-    [_regularGridCoordinator showTabGroupCreationForTabs:identifiers];
-  }
 }
 
 #pragma mark - GridCoordinatorAudience
@@ -1344,13 +1374,26 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   CHECK(IsTabGroupInGridEnabled())
       << "You should not be able to create a new tab group outside the Tab "
          "Groups experiment.";
-  // TODO(crbug.com/1501837): Display the tab group creation view.
   std::set<web::WebStateID> webStateIDSet = {identifier};
   if (incognito) {
     [_incognitoGridCoordinator showTabGroupCreationForTabs:webStateIDSet];
   } else {
     [_regularGridCoordinator showTabGroupCreationForTabs:webStateIDSet];
   }
+}
+
+- (void)editTabGroup:(const TabGroup*)group incognito:(BOOL)incognito {
+  CHECK(IsTabGroupInGridEnabled())
+      << "You should not be able to edit a tab group outside the Tab Groups "
+         "experiment.";
+
+  BaseGridCoordinator* coordinator;
+  if (incognito) {
+    coordinator = _incognitoGridCoordinator;
+  } else {
+    coordinator = _regularGridCoordinator;
+  }
+  [coordinator showTabGroupEditionForGroup:group];
 }
 
 - (void)closeTabWithIdentifier:(web::WebStateID)identifier
@@ -1361,6 +1404,40 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   }
 
   [self.regularTabsMediator closeItemWithID:identifier];
+}
+
+- (void)closeTabGroup:(const TabGroup*)group incognito:(BOOL)incognito {
+  CHECK(IsTabGroupInGridEnabled())
+      << "You should not be able to close a tab group outside the Tab Groups "
+         "experiment.";
+  if (incognito) {
+    [self.incognitoTabsMediator closeTabGroup:group];
+    return;
+  }
+
+  [self.regularTabsMediator closeTabGroup:group];
+}
+
+- (void)ungroupTabGroup:(const TabGroup*)group incognito:(BOOL)incognito {
+  CHECK(IsTabGroupInGridEnabled())
+      << "You should not be able to ungroup a tab group outside the Tab Groups "
+         "experiment.";
+  if (incognito) {
+    [self.incognitoTabsMediator ungroupTabGroup:group];
+    return;
+  }
+
+  [self.regularTabsMediator ungroupTabGroup:group];
+}
+
+- (void)addTabToGroup:(const TabGroup*)group incognito:(BOOL)incognito {
+  CHECK(IsTabGroupInGridEnabled());
+  if (incognito) {
+    [self.incognitoTabsMediator addTabToGroup:group];
+    return;
+  }
+
+  [self.regularTabsMediator addTabToGroup:group];
 }
 
 - (void)selectTabs {

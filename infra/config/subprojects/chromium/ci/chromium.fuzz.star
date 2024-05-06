@@ -6,7 +6,7 @@
 load("//lib/args.star", "args")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
-load("//lib/builders.star", "builders", "os", "reclient", "sheriff_rotations")
+load("//lib/builders.star", "builders", "os", "reclient", "sheriff_rotations", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -26,6 +26,12 @@ ci.defaults.set(
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
+    siso_configs = ["builder"],
+    siso_enable_cloud_profiler = True,
+    siso_enable_cloud_trace = True,
+    siso_enabled = True,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = reclient.jobs.DEFAULT,
 )
 
 consoles.console_view(
@@ -240,8 +246,9 @@ ci.builder(
         ),
         clusterfuzz_archive = builder_config.clusterfuzz_archive(
             archive_name_prefix = "asan",
+            archive_subdir = "media",
             gs_acl = "public-read",
-            gs_bucket = "chrome-test-builds/media",
+            gs_bucket = "chromium-browser-asan",
         ),
     ),
     gn_args = gn_args.config(
@@ -278,6 +285,7 @@ ci.builder(
             "release",
             "reclient",
             "disable_seed_corpus",
+            "mojo_fuzzer",
         ],
     ),
     sheriff_rotations = args.ignore_default(None),
@@ -307,9 +315,9 @@ ci.builder(
         ),
         clusterfuzz_archive = builder_config.clusterfuzz_archive(
             archive_name_prefix = "asan-v8-arm",
-            archive_subdir = "v8-arm",
+            archive_subdir = "v8-arm-media",
             gs_acl = "public-read",
-            gs_bucket = "chrome-test-builds/media",
+            gs_bucket = "chromium-browser-asan",
         ),
     ),
     gn_args = gn_args.config(
@@ -521,8 +529,9 @@ ci.builder(
         ),
         clusterfuzz_archive = builder_config.clusterfuzz_archive(
             archive_name_prefix = "asan",
+            archive_subdir = "media",
             gs_acl = "public-read",
-            gs_bucket = "chrome-test-builds/media",
+            gs_bucket = "chromium-browser-asan",
         ),
     ),
     gn_args = gn_args.config(
@@ -756,8 +765,9 @@ ci.builder(
         ),
         clusterfuzz_archive = builder_config.clusterfuzz_archive(
             archive_name_prefix = "asan",
+            archive_subdir = "media",
             gs_acl = "public-read",
-            gs_bucket = "chrome-test-builds/media",
+            gs_bucket = "chromium-browser-asan",
         ),
     ),
     gn_args = gn_args.config(

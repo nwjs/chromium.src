@@ -91,11 +91,6 @@ void SendTabToSelfBubbleController::ShowBubble(bool show_back_button) {
               &GetWebContents(), /*show_signin_button=*/false);
       break;
   }
-
-  if (sharing_hub::SharingHubOmniboxEnabled(
-          GetWebContents().GetBrowserContext())) {
-    UpdateIcon();
-  }
 }
 
 SendTabToSelfBubbleView*
@@ -137,7 +132,7 @@ void SendTabToSelfBubbleController::OnDeviceSelected(
   // instead the 2 codepaths should share code.
   const GURL& shared_url = GetWebContents().GetLastCommittedURL();
   if (!model->IsReady()) {
-    // TODO(https://crbug.com/1280681): Is this legit? In STTSv2, there may not
+    // TODO(crbug.com/40811626): Is this legit? In STTSv2, there may not
     // *be* a DesktopNotificationHandler for profile, and we're violating the
     // lifetime rules of DesktopNotificationHandler here I think.
     DesktopNotificationHandler(GetProfile()).DisplayFailureMessage(shared_url);
@@ -148,7 +143,6 @@ void SendTabToSelfBubbleController::OnDeviceSelected(
                   target_device_guid);
   // Show confirmation message.
   show_message_ = true;
-  UpdateIcon();
 }
 
 void SendTabToSelfBubbleController::OnManageDevicesClicked(
@@ -186,20 +180,6 @@ bool SendTabToSelfBubbleController::InitialSendAnimationShown() {
 void SendTabToSelfBubbleController::SetInitialSendAnimationShown(bool shown) {
   GetProfile()->GetPrefs()->SetBoolean(prefs::kInitialSendAnimationShown,
                                        shown);
-}
-
-void SendTabToSelfBubbleController::UpdateIcon() {
-  Browser* browser = chrome::FindBrowserWithTab(&GetWebContents());
-  // UpdateIcon() can be called during browser teardown.
-  if (!browser)
-    return;
-
-  if (sharing_hub::SharingHubOmniboxEnabled(
-          GetWebContents().GetBrowserContext())) {
-    browser->window()->UpdatePageActionIcon(PageActionIconType::kSharingHub);
-  } else {
-    browser->window()->UpdatePageActionIcon(PageActionIconType::kSendTabToSelf);
-  }
 }
 
 // Static:

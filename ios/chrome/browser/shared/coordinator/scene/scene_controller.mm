@@ -31,7 +31,7 @@
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
-#import "components/supervised_user/core/browser/proto/kidschromemanagement_messages.pb.h"
+#import "components/supervised_user/core/browser/proto/kidsmanagement_messages.pb.h"
 #import "components/supervised_user/core/browser/proto_fetcher.h"
 #import "components/supervised_user/core/browser/supervised_user_utils.h"
 #import "components/url_formatter/url_formatter.h"
@@ -52,6 +52,7 @@
 #import "ios/chrome/browser/crash_report/model/crash_keys_helper.h"
 #import "ios/chrome/browser/crash_report/model/crash_loop_detection_util.h"
 #import "ios/chrome/browser/crash_report/model/crash_report_helper.h"
+#import "ios/chrome/browser/default_browser/model/default_browser_interest_signals.h"
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service.h"
@@ -299,8 +300,11 @@ void InjectNTP(Browser* browser) {
   item->SetURL(GURL(kChromeUINewTabURL));
   items.push_back(std::move(item));
   web_state->GetNavigationManager()->Restore(0, std::move(items));
-  NewTabPageTabHelper::CreateForWebState(web_state.get());
-  NewTabPageTabHelper::FromWebState(web_state.get())->SetShowStartSurface(true);
+  if (!browser->GetBrowserState()->IsOffTheRecord()) {
+    NewTabPageTabHelper::CreateForWebState(web_state.get());
+    NewTabPageTabHelper::FromWebState(web_state.get())
+        ->SetShowStartSurface(true);
+  }
   browser->GetWebStateList()->InsertWebState(
       std::move(web_state),
       WebStateList::InsertionParams::Automatic().Activate());
@@ -312,13 +316,11 @@ void OnListFamilyMembersResponse(
     const std::string& primary_account_gaia,
     UserFeedbackData* data,
     const supervised_user::ProtoFetcherStatus& status,
-    std::unique_ptr<kids_chrome_management::ListMembersResponse>
-        response) {
+    std::unique_ptr<kidsmanagement::ListMembersResponse> response) {
   if (!status.IsOk()) {
     return;
   }
-  for (const kids_chrome_management::FamilyMember& member :
-       response->members()) {
+  for (const kidsmanagement::FamilyMember& member : response->members()) {
     if (member.user_id() == primary_account_gaia) {
       data.familyMemberRole = base::SysUTF8ToNSString(
           supervised_user::FamilyRoleToString(member.role()));
@@ -362,8 +364,8 @@ void OnListFamilyMembersResponse(
   std::map<WebStateList*, int> _tabCountBeforeBatchOperation;
 
   // Fetches the Family Link member role asynchronously from KidsManagement API.
-  std::unique_ptr<supervised_user::ProtoFetcher<
-      kids_chrome_management::ListMembersResponse>>
+  std::unique_ptr<
+      supervised_user::ProtoFetcher<kidsmanagement::ListMembersResponse>>
       _family_members_fetcher;
 }
 
@@ -533,6 +535,28 @@ void OnListFamilyMembersResponse(
     [[NonModalDefaultBrowserPromoSchedulerSceneAgent
         agentFromScene:self.sceneState] logUserEnteredAppViaFirstPartyScheme];
     [self notifyFETAppOpenedViaFirstParty];
+  }
+
+  ChromeBrowserState* browserState =
+      self.sceneState.browserProviderInterface.mainBrowserProvider.browser
+          ->GetBrowserState();
+  if (!browserState) {
+    return;
+  }
+
+  if (parameters.openedViaWidgetScheme) {
+    // Notify Default Browser promo that user opened Chrome with widget.
+    default_browser::NotifyStartWithWidget(
+        feature_engagement::TrackerFactory::GetForBrowserState(browserState));
+  }
+  if (parameters.openedWithURL) {
+    // An HTTP(S) URL open that opened Chrome (e.g. default browser open or
+    // explictly opened from first party apps) should be logged as significant
+    // activity for a potential user that would want Chrome as their default
+    // browser in case the user changes away from Chrome. This will leave a
+    // trace of this activity for re-prompting.
+    default_browser::NotifyStartWithURL(
+        feature_engagement::TrackerFactory::GetForBrowserState(browserState));
   }
 }
 
@@ -1055,7 +1079,7 @@ void OnListFamilyMembersResponse(
   // events.
   [GeolocationLogger sharedInstance];
 
-  if (ShouldDisplayPromos()) {
+  if (ShouldPromoManagerDisplayPromos()) {
     [sceneState addAgent:[[PromosManagerSceneAgent alloc]
                              initWithCommandDispatcher:mainCommandDispatcher]];
   }
@@ -1532,20 +1556,17 @@ void OnListFamilyMembersResponse(
   }
 }
 
-- (void)displayRegularTabSwitcherInGridLayout {
-  [self displayTabSwitcherForcingRegularTabs:YES];
-}
+- (void)displayTabGridInMode:(TabGridOpeningMode)mode {
+  if (self.mainCoordinator.isTabGridActive) {
+    return;
+  }
 
-- (void)displayTabSwitcherInGridLayout {
-  [self displayTabSwitcherForcingRegularTabs:NO];
-}
-
-- (void)displayTabSwitcherForcingRegularTabs:(BOOL)forcing {
-  DCHECK(!self.mainCoordinator.isTabGridActive);
   if (!self.isProcessingVoiceSearchCommand) {
-
-    if (forcing && self.currentInterface.incognito) {
+    BOOL incognito = self.currentInterface.incognito;
+    if (mode == TabGridOpeningMode::kRegular && incognito) {
       [self setCurrentInterfaceForMode:ApplicationMode::NORMAL];
+    } else if (mode == TabGridOpeningMode::kIncognito && !incognito) {
+      [self setCurrentInterfaceForMode:ApplicationMode::INCOGNITO];
     }
 
     [self showTabSwitcher];
@@ -1826,14 +1847,6 @@ using UserFeedbackDataCallback =
                                                    promoAction:
                                                        command.promoAction];
       break;
-    case AuthenticationOperation::kSigninAndSync:
-      self.signinCoordinator = [SigninCoordinator
-          userSigninCoordinatorWithBaseViewController:baseViewController
-                                              browser:mainBrowser
-                                             identity:command.identity
-                                          accessPoint:command.accessPoint
-                                          promoAction:command.promoAction];
-      break;
     case AuthenticationOperation::kSigninOnly:
       self.signinCoordinator = [SigninCoordinator
           consistencyPromoSigninCoordinatorWithBaseViewController:
@@ -1853,14 +1866,6 @@ using UserFeedbackDataCallback =
           forcedSigninCoordinatorWithBaseViewController:baseViewController
                                                 browser:mainBrowser
                                             accessPoint:command.accessPoint];
-      break;
-    case AuthenticationOperation::kSigninAndSyncWithTwoScreens:
-      self.signinCoordinator = [SigninCoordinator
-          twoScreensSigninCoordinatorWithBaseViewController:baseViewController
-                                                    browser:mainBrowser
-                                                accessPoint:command.accessPoint
-                                                promoAction:command
-                                                                .promoAction];
       break;
     case AuthenticationOperation::kInstantSignin:
       self.signinCoordinator = [SigninCoordinator
@@ -3629,6 +3634,18 @@ using UserFeedbackDataCallback =
       break;
     case WebStateListChange::Type::kInsert:
       // Do nothing when a WebState is inserted.
+      break;
+    case WebStateListChange::Type::kGroupCreate:
+      // Do nothing when a group is created.
+      break;
+    case WebStateListChange::Type::kGroupVisualDataUpdate:
+      // Do nothing when a tab group's visual data are updated.
+      break;
+    case WebStateListChange::Type::kGroupMove:
+      // Do nothing when a tab group is moved.
+      break;
+    case WebStateListChange::Type::kGroupDelete:
+      // Do nothing when a group is deleted.
       break;
   }
 }

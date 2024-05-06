@@ -160,6 +160,7 @@ class ServiceWorkerTaskQueue : public KeyedService,
                               const GURL& scope,
                               const content::ConsoleMessage& message) override;
   void OnDestruct(content::ServiceWorkerContext* context) override;
+  void OnVersionStoppedRunning(int64_t version_id) override;
 
   class TestObserver {
    public:
@@ -193,11 +194,18 @@ class ServiceWorkerTaskQueue : public KeyedService,
     // associated `extension_id`.
     virtual void DidInitializeServiceWorkerContext(
         const ExtensionId& extension_id) {}
+
+    // Called when a service worker is fully started (DidStartWorkerForScope()
+    // and DidStartServiceWorkerContext() were called) for the extension with
+    // the associated `extension_id`.
+    virtual void DidStartWorker(const ExtensionId& extension_id) {}
   };
 
   static void SetObserverForTest(TestObserver* observer);
 
   size_t GetNumPendingTasksForTest(const LazyContextId& lazy_context_id);
+
+  static base::AutoReset<bool> AllowMultipleWorkersPerExtensionForTesting();
 
  private:
   struct SequencedContextId {

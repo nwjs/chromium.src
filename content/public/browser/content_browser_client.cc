@@ -5,6 +5,7 @@
 #include "content/public/browser/content_browser_client.h"
 
 #include <optional>
+#include <string_view>
 #include "content/nw/src/browser/nw_content_browser_hooks.h"
 
 #include <utility>
@@ -15,13 +16,13 @@
 #include "base/functional/callback_helpers.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
-#include "base/strings/string_piece.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "build/chromeos_buildflags.h"
+#include "content/browser/model_execution/mock_model_manager.h"
 #include "content/public/browser/anchor_element_preconnect_delegate.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/browser_context.h"
@@ -45,6 +46,7 @@
 #include "content/public/browser/responsiveness_calculator_delegate.h"
 #include "content/public/browser/sms_fetcher.h"
 #include "content/public/browser/speculation_host_delegate.h"
+#include "content/public/browser/tracing_delegate.h"
 #include "content/public/browser/url_loader_request_interceptor.h"
 #include "content/public/browser/vpn_service_proxy.h"
 #include "content/public/browser/web_contents.h"
@@ -56,6 +58,7 @@
 #include "media/capture/content/screen_enumerator.h"
 #include "media/mojo/mojom/media_service.mojom.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "net/base/isolation_info.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/ssl/client_cert_identity.h"
 #include "net/ssl/client_cert_store.h"
@@ -87,10 +90,12 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "content/public/browser/tts_environment_android.h"
+#else
+#include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
 #endif
 
 using AttributionReportType =
-    content::ContentBrowserClient::AttributionReportingOsReportType;
+    content::ContentBrowserClient::AttributionReportingOsRegistrar;
 
 namespace content {
 
@@ -187,14 +192,14 @@ bool ContentBrowserClient::DoesWebUIUrlRequireProcessLock(const GURL& url) {
 }
 
 bool ContentBrowserClient::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
-    base::StringPiece scheme,
+    std::string_view scheme,
     bool is_embedded_origin_secure) {
   return false;
 }
 
 
 bool ContentBrowserClient::ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
-    base::StringPiece scheme,
+    std::string_view scheme,
     bool is_embedded_origin_secure) {
   return false;
 }
@@ -355,10 +360,10 @@ bool ContentBrowserClient::IsIsolatedContextAllowedForUrl(
   return false;
 }
 
-bool ContentBrowserClient::IsGetAllScreensMediaAllowed(
-    content::BrowserContext* context,
-    const url::Origin& origin) {
-  return false;
+void ContentBrowserClient::CheckGetAllScreensMediaAllowed(
+    content::RenderFrameHost* render_frame_host,
+    base::OnceCallback<void(bool)> callback) {
+  std::move(callback).Run(false);
 }
 
 size_t ContentBrowserClient::GetMaxRendererProcessCountOverride() {
@@ -572,8 +577,8 @@ bool ContentBrowserClient::IsAttributionReportingOperationAllowed(
   return true;
 }
 
-ContentBrowserClient::AttributionReportingOsReportTypes
-ContentBrowserClient::GetAttributionReportingOsReportTypes(
+ContentBrowserClient::AttributionReportingOsRegistrars
+ContentBrowserClient::GetAttributionReportingOsRegistrars(
     WebContents* web_contents) {
   return {AttributionReportType::kWeb, AttributionReportType::kWeb};
 }
@@ -839,8 +844,12 @@ ContentBrowserClient::GetDevToolsBackgroundServiceExpirations(
   return {};
 }
 
-TracingDelegate* ContentBrowserClient::GetTracingDelegate() {
+std::unique_ptr<TracingDelegate> ContentBrowserClient::CreateTracingDelegate() {
   return nullptr;
+}
+
+bool ContentBrowserClient::IsSystemWideTracingEnabled() {
+  return false;
 }
 
 bool ContentBrowserClient::IsPluginAllowedToCallRequestOSFileHandle(
@@ -1019,6 +1028,7 @@ void ContentBrowserClient::WillCreateURLLoaderFactory(
     int render_process_id,
     URLLoaderFactoryType type,
     const url::Origin& request_initiator,
+    const net::IsolationInfo& isolation_info,
     std::optional<int64_t> navigation_id,
     ukm::SourceIdObj ukm_source_id,
     network::URLLoaderFactoryBuilder& factory_builder,
@@ -1195,7 +1205,7 @@ bool ContentBrowserClient::ShowPaymentHandlerWindow(
   return false;
 }
 
-bool ContentBrowserClient::CreateThreadPool(base::StringPiece name) {
+bool ContentBrowserClient::CreateThreadPool(std::string_view name) {
   base::ThreadPoolInstance::Create(name);
   return true;
 }
@@ -1443,7 +1453,7 @@ void ContentBrowserClient::IsClipboardCopyAllowedByPolicy(
     const ClipboardMetadata& metadata,
     const ClipboardPasteData& data,
     IsClipboardCopyAllowedCallback callback) {
-  std::move(callback).Run(data, std::nullopt);
+  std::move(callback).Run(metadata.format_type, data, std::nullopt);
 }
 
 #if BUILDFLAG(ENABLE_VR)
@@ -1509,6 +1519,14 @@ std::unique_ptr<IdentityRequestDialogController>
 ContentBrowserClient::CreateIdentityRequestDialogController(
     WebContents* web_contents) {
   return std::make_unique<IdentityRequestDialogController>();
+}
+
+void ContentBrowserClient::ShowDigitalIdentityInterstitialIfNeeded(
+    WebContents& web_contents,
+    const url::Origin& origin,
+    DigitalIdentityInterstitialCallback callback) {
+  std::move(callback).Run(
+      DigitalIdentityProvider::RequestStatusForMetrics::kErrorOther);
 }
 
 std::unique_ptr<DigitalIdentityProvider>
@@ -1675,8 +1693,14 @@ bool ContentBrowserClient::UseOutermostMainFrameOrEmbedderForSubCaptureTargets()
 #if !BUILDFLAG(IS_ANDROID)
 void ContentBrowserClient::BindVideoEffectsManager(
     const std::string& device_id,
-    content::BrowserContext* browser_context,
+    BrowserContext* browser_context,
     mojo::PendingReceiver<media::mojom::VideoEffectsManager>
+        video_effects_manager) {}
+
+void ContentBrowserClient::BindVideoEffectsProcessor(
+    const std::string& device_id,
+    BrowserContext* browser_context,
+    mojo::PendingReceiver<video_effects::mojom::VideoEffectsProcessor>
         video_effects_manager) {}
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -1707,6 +1731,12 @@ std::unique_ptr<DipsDelegate> ContentBrowserClient::CreateDipsDelegate() {
 
 bool ContentBrowserClient::ShouldSuppressAXLoadComplete(RenderFrameHost* rfh) {
   return false;
+}
+
+void ContentBrowserClient::BindModelManager(
+    RenderFrameHost* rfh,
+    mojo::PendingReceiver<blink::mojom::ModelManager> receiver) {
+  MockModelManager::Create(rfh, std::move(receiver));
 }
 
 }  // namespace content

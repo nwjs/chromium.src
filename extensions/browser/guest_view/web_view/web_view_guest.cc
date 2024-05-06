@@ -469,7 +469,9 @@ void WebViewGuest::MaybeRecreateGuestContents(
   recreate_initial_nav_ = base::BindOnce(
       &WebViewGuest::LoadURLWithParams, weak_ptr_factory_.GetWeakPtr(),
       new_web_contents_create_params.initial_popup_url, content::Referrer(),
-      ui::PAGE_TRANSITION_AUTO_TOPLEVEL, /*force_navigation=*/true);
+      ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
+      base::OnceCallback<void(content::NavigationHandle&)>(),
+      /*force_navigation=*/true);
 }
 
 void WebViewGuest::ClearCodeCache(base::Time remove_since,
@@ -1186,8 +1188,11 @@ content::JavaScriptDialogManager* WebViewGuest::GetJavaScriptDialogManager(
   return &javascript_dialog_helper_;
 }
 
-void WebViewGuest::NavigateGuest(const std::string& src,
-                                 bool force_navigation) {
+void WebViewGuest::NavigateGuest(
+    const std::string& src,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback,
+    bool force_navigation) {
   if (src.empty())
     return;
 
@@ -1197,14 +1202,14 @@ void WebViewGuest::NavigateGuest(const std::string& src,
   // if the navigation is embedder-initiated. For browser-initiated navigations,
   // content scripts will be ready.
   if (force_navigation) {
-    SignalWhenReady(
-        base::BindOnce(&WebViewGuest::LoadURLWithParams,
-                       weak_ptr_factory_.GetWeakPtr(), url, content::Referrer(),
-                       ui::PAGE_TRANSITION_AUTO_TOPLEVEL, force_navigation));
+    SignalWhenReady(base::BindOnce(
+        &WebViewGuest::LoadURLWithParams, weak_ptr_factory_.GetWeakPtr(), url,
+        content::Referrer(), ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
+        std::move(navigation_handle_callback), force_navigation));
     return;
   }
   LoadURLWithParams(url, content::Referrer(), ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
-                    force_navigation);
+                    std::move(navigation_handle_callback), force_navigation);
 }
 
 bool WebViewGuest::HandleKeyboardShortcuts(
@@ -1304,7 +1309,9 @@ void WebViewGuest::ApplyAttributes(const base::Value::Dict& params) {
       if (!new_window_info.did_start_navigating_away_from_initial_url &&
           (new_window_info.url_changed_via_open_url ||
            !web_contents()->HasOpener())) {
-        NavigateGuest(new_window_info.url.spec(), false /* force_navigation */);
+        NavigateGuest(new_window_info.url.spec(),
+                      /*navigation_handle_callback=*/{},
+                      false /* force_navigation */);
       }
 
       // Once a new guest is attached to the DOM of the embedder page, then the
@@ -1318,7 +1325,8 @@ void WebViewGuest::ApplyAttributes(const base::Value::Dict& params) {
   // Only read the src attribute if this is not a New Window API flow.
   if (!is_pending_new_window) {
     if (const std::string* src = params.FindString(kAttributeSrc)) {
-      NavigateGuest(*src, true /* force_navigation */);
+      NavigateGuest(*src, /*navigation_handle_callback=*/{},
+                    true /* force_navigation */);
     }
   }
 }
@@ -1449,7 +1457,9 @@ void WebViewGuest::AddNewContents(
 
 WebContents* WebViewGuest::OpenURLFromTab(
     WebContents* source,
-    const content::OpenURLParams& params) {
+    const content::OpenURLParams& params,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
   // Most navigations should be handled by WebViewGuest::LoadURLWithParams,
   // which takes care of blocking chrome:// URLs and other web-unsafe schemes.
   // (NavigateGuest and CreateNewGuestWebViewWindow also go through
@@ -1467,7 +1477,7 @@ WebContents* WebViewGuest::OpenURLFromTab(
     if (!owner_web_contents()->GetDelegate())
       return nullptr;
     return owner_web_contents()->GetDelegate()->OpenURLFromTab(
-        owner_web_contents(), params);
+        owner_web_contents(), params, std::move(navigation_handle_callback));
   }
 
   if (!attached()) {
@@ -1483,6 +1493,8 @@ WebContents* WebViewGuest::OpenURLFromTab(
       if (it == opener->pending_new_windows_.end())
         return nullptr;
       const NewWindowInfo& info = it->second;
+      // TODO(https://crbug.com/40275094): Consider plumbing
+      // `navigation_handle_callback`.
       NewWindowInfo new_window_info(params.url, info.name);
       new_window_info.url_changed_via_open_url =
           new_window_info.url != info.url;
@@ -1501,6 +1513,7 @@ WebContents* WebViewGuest::OpenURLFromTab(
   // embedder, and the guest will be navigated to about:blank.
   if (params.disposition == WindowOpenDisposition::CURRENT_TAB) {
     LoadURLWithParams(params.url, params.referrer, params.transition,
+                      std::move(navigation_handle_callback),
                       true /* force_navigation */);
     return web_contents();
   }
@@ -1508,6 +1521,8 @@ WebContents* WebViewGuest::OpenURLFromTab(
   // This code path is taken if Ctrl+Click, middle click or any of the
   // keyboard/mouse combinations are used to open a link in a new tab/window.
   // This code path is also taken on client-side redirects from about:blank.
+  // TODO(https://crbug.com/40275094): Consider plumbing
+  // `navigation_handle_callback`.
   CreateNewGuestWebViewWindow(params);
   return nullptr;
 }
@@ -1581,13 +1596,17 @@ bool WebViewGuest::CanLoadFileSubresource(const GURL& url) {
   return false;
 }
 
-void WebViewGuest::LoadURLWithParams(const GURL& url,
-                                     const content::Referrer& referrer,
-                                     ui::PageTransition transition_type,
-                                     bool force_navigation) {
+void WebViewGuest::LoadURLWithParams(
+    const GURL& url,
+    const content::Referrer& referrer,
+    ui::PageTransition transition_type,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback,
+    bool force_navigation) {
   if (!url.is_valid()) {
     LoadAbort(true /* is_top_level */, url, net::ERR_INVALID_URL);
-    NavigateGuest(url::kAboutBlankURL, false /* force_navigation */);
+    NavigateGuest(url::kAboutBlankURL, std::move(navigation_handle_callback),
+                  false /* force_navigation */);
     return;
   }
 
@@ -1612,7 +1631,8 @@ void WebViewGuest::LoadURLWithParams(const GURL& url,
   // chrome://.
   if (scheme_is_blocked) {
     LoadAbort(true /* is_top_level */, url, net::ERR_DISALLOWED_URL_SCHEME);
-    NavigateGuest(url::kAboutBlankURL, false /* force_navigation */);
+    NavigateGuest(url::kAboutBlankURL, std::move(navigation_handle_callback),
+                  false /* force_navigation */);
     return;
   }
 
@@ -1640,8 +1660,12 @@ void WebViewGuest::LoadURLWithParams(const GURL& url,
         content::NavigationController::UA_OVERRIDE_TRUE;
   }
   nw::SetInWebViewApplyAttr(true, allow_nw_);
-  GetController().LoadURLWithParams(load_url_params);
+  base::WeakPtr<content::NavigationHandle> navigation =
+      GetController().LoadURLWithParams(load_url_params);
   nw::SetInWebViewApplyAttr(false, allow_nw_);
+  if (navigation_handle_callback && navigation) {
+    std::move(navigation_handle_callback).Run(*navigation);
+  }
 }
 
 void WebViewGuest::RequestNewWindowPermission(

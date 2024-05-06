@@ -44,6 +44,7 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "extensions/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -62,6 +63,7 @@ class BrowserSyncedWindowDelegate;
 class BrowserLocationBarModelDelegate;
 class BrowserLiveTabContext;
 class BrowserWindow;
+class BrowserWindowFeatures;
 class ExclusiveAccessManager;
 class FindBarController;
 class LocationBarModel;
@@ -73,6 +75,10 @@ class StatusBubble;
 class TabStripModel;
 class TabStripModelDelegate;
 class TabMenuModelDelegate;
+
+namespace tab_groups {
+class DeletionDialogController;
+}
 
 namespace extensions {
 class Extension;
@@ -125,6 +131,10 @@ enum class BrowserClosingStatus {
   kDeniedUnloadHandlersNeedTime
 };
 
+// An instance of this class represents a single browser window on Desktop. All
+// features that are scoped to a browser window should have lifetime semantics
+// scoped to an instance of this class, usually via direct or indirect ownership
+// of a std::unique_ptr. See BrowserWindowFeatures and TabFeatures.
 class Browser : public TabStripModelObserver,
                 public WebContentsCollection::Observer,
                 public content::WebContentsDelegate,
@@ -147,6 +157,9 @@ class Browser : public TabStripModelObserver,
   // SessionService::WindowType mirrors these values.  If you add to this
   // enum, look at SessionService::WindowType to see if it needs to be
   // updated.
+  // TODO(https://crbug.com/331031753): Several of these existing Window Types
+  // likely should not have been using Browser as a base to begin with and
+  // should be migrated. Please refrain from adding new types.
   enum Type {
     // Normal tabbed non-app browser (previously TYPE_TABBED).
     TYPE_NORMAL,
@@ -275,6 +288,11 @@ class Browser : public TabStripModelObserver,
                                           const gfx::Rect& window_bounds,
                                           Profile* profile,
                                           bool user_gesture);
+
+    static CreateParams CreateForPictureInPicture(const std::string& app_name,
+                                                  bool trusted_source,
+                                                  Profile* profile,
+                                                  bool user_gesture);
 
     static CreateParams CreateForDevTools(Profile* profile);
 
@@ -510,6 +528,16 @@ class Browser : public TabStripModelObserver,
 #endif
 
   // Never nullptr.
+  //
+  // When the last tab is removed, the browser attempts to close, see
+  // TabStripEmpty().
+  // TODO(https://crbug.com/331031753): Several existing Browser::Types never
+  // show a tab strip, yet are forced to work with the tab strip API to deal
+  // with the previous condition. This creates confusing control flow both for
+  // the tab strip and this class. One or both of the following should happen:
+  //  (1) tab_strip_model_ should become an optional member.
+  //  (2) Variations of Browser::Type that never show a tab strip should not use
+  //      this class.
   TabStripModel* tab_strip_model() const { return tab_strip_model_.get(); }
 
   // Never nullptr.
@@ -525,6 +553,12 @@ class Browser : public TabStripModelObserver,
   chrome::BrowserCommandController* command_controller() {
     return command_controller_.get();
   }
+
+  tab_groups::DeletionDialogController* tab_group_deletion_dialog_controller()
+      const {
+    return tab_group_deletion_dialog_controller_.get();
+  }
+
   SessionID session_id() const { return session_id_; }
   bool omit_from_session_restore() const { return omit_from_session_restore_; }
   bool should_trigger_session_restore() const {
@@ -757,7 +791,10 @@ class Browser : public TabStripModelObserver,
   // Interface implementations ////////////////////////////////////////////////
 
   // Overridden from content::PageNavigator:
-  content::WebContents* OpenURL(const content::OpenURLParams& params) override;
+  content::WebContents* OpenURL(
+      const content::OpenURLParams& params,
+      base::OnceCallback<void(content::NavigationHandle&)>
+          navigation_handle_callback) override;
 
   // Overridden from TabStripModelObserver:
   void OnTabStripModelChanged(
@@ -829,6 +866,9 @@ class Browser : public TabStripModelObserver,
   void InitiatePreview(content::WebContents& web_contents,
                        const GURL& url) override;
   bool ShouldUseInstancedSystemMediaControls() const override;
+  void DraggableRegionsChanged(
+      const std::vector<blink::mojom::DraggableRegionPtr>& regions,
+      content::WebContents* contents) override;
 
   bool is_type_normal() const { return type_ == TYPE_NORMAL; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }
@@ -901,9 +941,6 @@ class Browser : public TabStripModelObserver,
   FRIEND_TEST_ALL_PREFIXES(ExclusiveAccessTest,
                            TabEntersPresentationModeFromWindowed);
   FRIEND_TEST_ALL_PREFIXES(BrowserCloseTest, LastGuest);
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  FRIEND_TEST_ALL_PREFIXES(BrowserTest, URLElisionExtensionSetsPref);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   // Used to describe why a tab is being detached. This is used by
   // TabDetachedAtImpl.
@@ -948,7 +985,9 @@ class Browser : public TabStripModelObserver,
   // Overridden from content::WebContentsDelegate:
   content::WebContents* OpenURLFromTab(
       content::WebContents* source,
-      const content::OpenURLParams& params) override;
+      const content::OpenURLParams& params,
+      base::OnceCallback<void(content::NavigationHandle&)>
+          navigation_handle_callback) override;
   void NavigationStateChanged(content::WebContents* source,
                               content::InvalidateTypes changed_flags) override;
   void VisibleSecurityStateChanged(content::WebContents* source) override;
@@ -1288,8 +1327,6 @@ class Browser : public TabStripModelObserver,
       const content::StoragePartitionConfig& partition_config,
       content::SessionStorageNamespace* session_storage_namespace);
 
-  void SetURLElisionExtensionIDForTesting(const char* extension_id);
-
   // Data members /////////////////////////////////////////////////////////////
 
   PrefChangeRegistrar profile_pref_registrar_;
@@ -1430,6 +1467,10 @@ class Browser : public TabStripModelObserver,
 
   std::unique_ptr<chrome::BrowserCommandController> command_controller_;
 
+  // Dialog controller that handles the showing of the deletion dialog.
+  std::unique_ptr<tab_groups::DeletionDialogController>
+      tab_group_deletion_dialog_controller_;
+
   // True if the browser window has been shown at least once.
   bool window_has_shown_;
 
@@ -1475,13 +1516,7 @@ class Browser : public TabStripModelObserver,
 
   int force_show_bookmark_bar_flags_ = ForceShowBookmarkBarFlag::kNone;
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  // ID of an extension that historically was used to prevent URL elision in the
-  // omnibox, and now is being deprecated by migration to a pref. Only set by
-  // tests.
-  // TODO(crbug/324934130): remove after ~M125 or so.
-  static const char* url_elision_extension_id_;
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+  std::unique_ptr<BrowserWindowFeatures> features_;
 
   // The following factory is used for chrome update coalescing.
   base::WeakPtrFactory<Browser> chrome_updater_factory_{this};

@@ -503,25 +503,6 @@ void ServiceWorkerVersion::set_fetch_handler_type(
   fetch_handler_type_ = fetch_handler_type;
 }
 
-ServiceWorkerVersion::FetchHandlerType
-ServiceWorkerVersion::EffectiveFetchHandlerType() const {
-  switch (fetch_handler_type()) {
-    case FetchHandlerType::kNoHandler:
-      return FetchHandlerType::kNoHandler;
-    case FetchHandlerType::kNotSkippable:
-      return FetchHandlerType::kNotSkippable;
-    case FetchHandlerType::kEmptyFetchHandler: {
-      if (base::FeatureList::IsEnabled(
-              features::kServiceWorkerSkipIgnorableFetchHandler) &&
-          features::kSkipEmptyFetchHandler.Get()) {
-        return FetchHandlerType::kEmptyFetchHandler;
-      } else {
-        return FetchHandlerType::kNotSkippable;
-      }
-    }
-  }
-}
-
 void ServiceWorkerVersion::set_has_hid_event_handlers(
     bool has_hid_event_handlers) {
   has_hid_event_handlers_ = has_hid_event_handlers;
@@ -1522,10 +1503,12 @@ void ServiceWorkerVersion::OnStopping() {
 }
 
 void ServiceWorkerVersion::OnStopped(blink::EmbeddedWorkerStatus old_status) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
   OnStoppedInternal(old_status);
 }
 
 void ServiceWorkerVersion::OnDetached(blink::EmbeddedWorkerStatus old_status) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
   OnStoppedInternal(old_status);
 }
 
@@ -1740,6 +1723,8 @@ void ServiceWorkerVersion::PostMessageToClient(
     receiver_.reset();
     return;
   }
+  base::UmaHistogramBoolean("ServiceWorker.PostMessage.IsExecutionReady",
+                            container_host->is_execution_ready());
   if (!container_host->is_execution_ready()) {
     // It's subtle why this ReportBadMessage is correct. Consider the
     // sequence:
@@ -1908,60 +1893,14 @@ void ServiceWorkerVersion::SkipWaiting(SkipWaitingCallback callback) {
     registration->ActivateWaitingVersionWhenReady();
 }
 
-void ServiceWorkerVersion::RegisterRouter(
-    const blink::ServiceWorkerRouterRules& rules,
-    RegisterRouterCallback callback) {
-  if (!IsStaticRouterEnabled()) {
-    // This renderer should have called this only when the feature is enabled.
-    associated_interface_receiver_.ReportBadMessage(
-        "Unexpected router registration call during the feature is disabled.");
-    return;
-  }
-  switch (router_registration_method_) {
-    case RouterRegistrationMethod::Uninitialized:
-      break;
-    case RouterRegistrationMethod::RegisterRouter:
-      // The renderer should have denied calling this twice.
-    case RouterRegistrationMethod::AddRoutes:
-      // The renderer should have denied calling both RegisterRouter() and
-      // AddRoutes().
-      CHECK(router_evaluator());
-      associated_interface_receiver_.ReportBadMessage(
-          "The ServiceWorker router rules are set twice.");
-      return;
-  }
-  if (!SetupRouterEvaluator(rules)) {
-    // The renderer should have denied calling this method while the setup
-    // fails.
-    // TODO(crbug.com/1371756): revisit this to confirm no case for this error.
-    associated_interface_receiver_.ReportBadMessage(
-        "Failed to configure a router. Possibly a syntax error");
-    return;
-  }
-  router_registration_method_ = RouterRegistrationMethod::RegisterRouter;
-  std::move(callback).Run();
-}
-
 void ServiceWorkerVersion::AddRoutes(
     const blink::ServiceWorkerRouterRules& rules,
-    RegisterRouterCallback callback) {
+    AddRoutesCallback callback) {
   if (!IsStaticRouterEnabled()) {
     // This renderer should have called this only when the feature is enabled.
     associated_interface_receiver_.ReportBadMessage(
         "Unexpected router registration call during the feature is disabled.");
     return;
-  }
-  switch (router_registration_method_) {
-    case RouterRegistrationMethod::Uninitialized:
-    case RouterRegistrationMethod::AddRoutes:
-      break;
-    case RouterRegistrationMethod::RegisterRouter:
-      // The renderer should have denied calling both RegisterRouter() and
-      // AddRoutes().
-      CHECK(router_evaluator());
-      associated_interface_receiver_.ReportBadMessage(
-          "The ServiceWorker router rules are set twice.");
-      return;
   }
   if (!SetupRouterEvaluator(rules)) {
     // The renderer should have denied calling this method while the setup
@@ -1971,7 +1910,6 @@ void ServiceWorkerVersion::AddRoutes(
         "Failed to configure a router. Possibly a syntax error");
     return;
   }
-  router_registration_method_ = RouterRegistrationMethod::AddRoutes;
   std::move(callback).Run();
 }
 
@@ -3152,6 +3090,11 @@ void ServiceWorkerVersion::GetAssociatedInterface(
 
   mojo::ScopedInterfaceEndpointHandle handle = receiver.PassHandle();
   associated_registry_->TryBindInterface(name, &handle);
+}
+
+bool ServiceWorkerVersion::BFCacheContainsControllee(
+    const std::string& uuid) const {
+  return base::Contains(bfcached_controllee_map_, uuid);
 }
 
 base::WeakPtr<ServiceWorkerVersion> ServiceWorkerVersion::GetWeakPtr() {

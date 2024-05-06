@@ -219,6 +219,8 @@ void DedicatedWorkerHost::StartScriptLoad(
     mojo::PendingRemote<blink::mojom::BlobURLToken> blob_url_token,
     mojo::Remote<blink::mojom::DedicatedWorkerHostFactoryClient> client,
     bool has_storage_access) {
+  TRACE_EVENT("loading", "DedicatedWorkerHost::StartScriptLoad", "script_url",
+              script_url);
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker));
 
@@ -320,6 +322,8 @@ void DedicatedWorkerHost::StartScriptLoad(
       nearest_ancestor_render_frame_host->GetSiteInstance()->GetPartitionDomain(
           storage_partition_impl);
 
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(
+      "loading", "WorkerScriptFetcher CreateAndStart", TRACE_ID_LOCAL(this));
   WorkerScriptFetcher::CreateAndStart(
       worker_process_host_->GetID(), token_, script_url,
       nearest_ancestor_render_frame_host, creator_render_frame_host,
@@ -354,6 +358,10 @@ void DedicatedWorkerHost::DidStartScriptLoad(
     const GURL& final_response_url) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker));
+  TRACE_EVENT_NESTABLE_ASYNC_END0(
+      "loading", "WorkerScriptFetcher CreateAndStart", TRACE_ID_LOCAL(this));
+  TRACE_EVENT("loading", "DedicatedWorkerHost::DidStartScriptLoad",
+              "final_response_url", final_response_url);
 
   if (!main_script_load_params) {
     ScriptLoadStartFailed(final_response_url,
@@ -489,6 +497,9 @@ void DedicatedWorkerHost::DidStartScriptLoad(
       subresource_loader_updater_.BindNewPipeAndPassReceiver(),
       std::move(controller),
       BindAndPassRemoteForBackForwardCacheControllerHost());
+  if (service_worker_handle_->container_host()) {
+    service_worker_handle_->container_host()->SetContainerReady();
+  }
 
   // |service_worker_remote_object| is an associated remote, so calls can't be
   // made on it until its receiver is sent. Now that the receiver was sent, it
@@ -562,7 +573,7 @@ DedicatedWorkerHost::CreateNetworkFactoryForSubresources(
       url_loader_factory::ContentClientParams(
           worker_process_host_->GetBrowserContext(),
           /*frame=*/nullptr, worker_process_host_->GetID(),
-          GetStorageKey().origin(),
+          GetStorageKey().origin(), isolation_info_,
           ukm::SourceIdObj::FromInt64(
               ancestor_render_frame_host->GetPageUkmSourceId()),
           bypass_redirect_checks),

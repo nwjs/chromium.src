@@ -681,6 +681,10 @@ class WebContents : public PageNavigator,
   // main resource of the page.
   virtual bool IsWaitingForResponse() = 0;
 
+  // Returns whether this WebContents's primary frame tree node is navigating,
+  // i.e. it has an associated NavigationRequest.
+  virtual bool HasUncommittedNavigationInPrimaryMainFrame() = 0;
+
   // Returns the current load state and the URL associated with it.
   // The load state is only updated while IsLoading() is true.
   virtual const net::LoadStateWithParam& GetLoadState() = 0;
@@ -1490,9 +1494,9 @@ class WebContents : public PageNavigator,
       ui::PageTransition page_transition,
       PreloadingHoldbackStatus holdback_status_override,
       PreloadingAttempt* preloading_attempt,
-      base::RepeatingCallback<bool(const GURL&)> url_match_predicate = {},
+      base::RepeatingCallback<bool(const GURL&)> url_match_predicate,
       base::RepeatingCallback<void(NavigationHandle&)>
-          prerender_navigation_handle_callback = {}) = 0;
+          prerender_navigation_handle_callback) = 0;
 
   // May be called when the embedder believes that it is likely that the user
   // will perform a back navigation due to the trigger indicated by `predictor`

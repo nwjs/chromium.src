@@ -22,7 +22,6 @@
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/sync/base/features.h"
-#include "components/sync/model/proxy_model_type_controller_delegate.h"
 
 namespace password_manager {
 
@@ -193,14 +192,9 @@ void PasswordStoreAndroidAccountBackend::InitBackend(
     base::RepeatingClosure sync_enabled_or_disabled_cb,
     base::OnceCallback<void(bool)> completion) {
   Init(std::move(remote_form_changes_received));
-  // The android backend doesn't currently support notifying the store of
-  // sync changes. This currently only wired via the built-in backend being
-  // notified by the `PasswordSyncBridge` and generally
-  // applies to the account store. Support needs to be specifically implemented
-  // if desired. See crbug.com/1004777.
-  CHECK(!sync_enabled_or_disabled_cb);
   CHECK(completion);
   affiliated_match_helper_ = affiliated_match_helper;
+  sync_enabled_or_disabled_cb_ = std::move(sync_enabled_or_disabled_cb);
   std::move(completion).Run(/*success*/ true);
 }
 
@@ -357,17 +351,9 @@ void PasswordStoreAndroidAccountBackend::DisableAutoSignInForOriginsAsync(
                                       origin_filter, std::move(completion));
 }
 
-std::unique_ptr<syncer::ProxyModelTypeControllerDelegate>
+std::unique_ptr<syncer::ModelTypeControllerDelegate>
 PasswordStoreAndroidAccountBackend::CreateSyncControllerDelegate() {
-  // TODO: crbug.com/321220529 - Return
-  // PasswordModelTypeConrollerDelegateAndroid directly.
-  std::unique_ptr<PasswordModelTypeConrollerDelegateAndroid> delegate =
-      std::make_unique<PasswordModelTypeConrollerDelegateAndroid>();
-  return std::make_unique<syncer::ProxyModelTypeControllerDelegate>(
-      base::SequencedTaskRunner::GetCurrentDefault(),
-      base::BindRepeating(
-          &PasswordModelTypeConrollerDelegateAndroid::GetWeakPtrToBaseClass,
-          std::move(delegate)));
+  return std::make_unique<PasswordModelTypeConrollerDelegateAndroid>();
 }
 
 SmartBubbleStatsStore*
@@ -476,6 +462,15 @@ void PasswordStoreAndroidAccountBackend::
 }
 
 void PasswordStoreAndroidAccountBackend::OnPasswordsSyncStateChanged() {
+  // Invoke `sync_enabled_or_disabled_cb_` only if M4 feature flag is enabled
+  // since Chrome no longer actively syncs passwords post M4.
+  if (sync_enabled_or_disabled_cb_ &&
+      base::FeatureList::IsEnabled(
+          features::kUnifiedPasswordManagerSyncOnlyInGMSCore)) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, sync_enabled_or_disabled_cb_);
+  }
+
   // Reply with a recoverable error, because this isn't a persistent issue,
   // only a transient state
   ClearAllTasksAndReplyWithReason(

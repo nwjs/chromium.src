@@ -20,7 +20,6 @@
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/sys_byteorder.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/timer/mock_timer.h"
@@ -248,7 +247,7 @@ class MockTestCastSocket : public TestCastSocketBase {
       nullptr;
 };
 
-// TODO(https://crbug.com/928467):  Remove this class.
+// TODO(crbug.com/41439190):  Remove this class.
 class TestSocketFactory : public net::ClientSocketFactory {
  public:
   explicit TestSocketFactory(net::IPEndPoint ip) : ip_(ip) {}

@@ -291,6 +291,10 @@ class NetworkHandler : public DevToolsDomainHandler,
       network::mojom::IPAddressSpace resource_address_space,
       int32_t http_status_code,
       const std::optional<net::CookiePartitionKey>& cookie_partition_key);
+  void OnResponseReceivedEarlyHints(
+      const std::string& devtools_request_id,
+      const std::vector<network::mojom::HttpRawHeaderPairPtr>&
+          response_headers);
   void OnTrustTokenOperationDone(
       const std::string& devtools_request_id,
       const network::mojom::TrustTokenOperationResult& result);
@@ -316,7 +320,9 @@ class NetworkHandler : public DevToolsDomainHandler,
   static std::string ExtractFragment(const GURL& url, std::string* fragment);
   static std::unique_ptr<Network::Request> CreateRequestFromResourceRequest(
       const network::ResourceRequest& request,
-      const std::string& cookie_line);
+      const std::string& cookie_line,
+      std::vector<base::expected<std::vector<uint8_t>, std::string>>
+          request_bodies);
 
   void LoadNetworkResource(
       Maybe<content::protocol::String> frameId,
@@ -358,14 +364,14 @@ class NetworkHandler : public DevToolsDomainHandler,
   const std::string host_id_;
 
   const base::UnguessableToken devtools_token_;
-  DevToolsIOContext* const io_context_;
+  const raw_ptr<DevToolsIOContext> io_context_;
   const bool allow_file_access_;
   const bool client_is_trusted_;
 
   std::unique_ptr<Network::Frontend> frontend_;
   raw_ptr<BrowserContext> browser_context_;
-  StoragePartition* storage_partition_;
-  RenderFrameHostImpl* host_;
+  raw_ptr<StoragePartition> storage_partition_;
+  raw_ptr<RenderFrameHostImpl> host_;
   bool enabled_;
 #if BUILDFLAG(ENABLE_REPORTING)
   mojo::Receiver<network::mojom::ReportingApiObserver> reporting_receiver_;

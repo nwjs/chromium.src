@@ -422,8 +422,8 @@ void ServiceWorkerRaceNetworkRequestURLLoaderClient::Read(
                          "ServiceWorkerRaceNetworkRequestURLLoaderClient::Read",
                          TRACE_ID_LOCAL(this),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
-                         "url", request_.url, "read_data_result", result);
-  RecordMojoResultForDataTransfer(result, "Read");
+                         "url", request_.url, "read_data_result", read_result);
+  RecordMojoResultForDataTransfer(read_result, "Read");
   switch (read_result) {
     case MOJO_RESULT_OK:
       write_buffer_manager_for_race_network_request_.ArmOrNotify();
@@ -436,7 +436,8 @@ void ServiceWorkerRaceNetworkRequestURLLoaderClient::Read(
     case MOJO_RESULT_SHOULD_WAIT:
       return;
     default:
-      NOTREACHED() << "ReadData result:" << result;
+      SCOPED_CRASH_KEY_NUMBER("SWRace", "read_result", read_result);
+      NOTREACHED() << "ReadData result:" << read_result;
       return;
   }
 }
@@ -873,8 +874,9 @@ ServiceWorkerRaceNetworkRequestURLLoaderClient::NetworkTrafficAnnotationTag() {
         "This request is issued by a navigation to fetch the content of the "
         "page that is being navigated to, or by a renderer to fetch "
         "subresources in the case where a service worker has been registered "
-        "for the page and the ServiceWorkerBypassFetchHandler feature and the "
-        "RaceNetworkRequest param are enabled."
+        "for the page and the ServiceWorkerAutoPreload feature is enabled, or "
+        "`race-network-and-fetch-handler` source in the Service Worker Static "
+        "Routing API is specified."
       trigger:
         "Navigating Chrome (by clicking on a link, bookmark, history item, "
         "using session restore, etc) and subsequent resource loading."

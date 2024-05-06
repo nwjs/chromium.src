@@ -52,7 +52,6 @@ namespace {
 struct FinalizeInstallResult {
   webapps::AppId installed_app_id;
   webapps::InstallResultCode code;
-  OsHooksErrors os_hooks_errors;
 };
 
 }  // namespace
@@ -116,11 +115,9 @@ class WebAppInstallFinalizerUnitTest : public WebAppTest {
     finalizer().FinalizeInstall(
         info, options,
         base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id,
-                                       webapps::InstallResultCode code,
-                                       OsHooksErrors os_hooks_errors) {
+                                       webapps::InstallResultCode code) {
           result.installed_app_id = installed_app_id;
           result.code = code;
-          result.os_hooks_errors = os_hooks_errors;
           run_loop.Quit();
         }));
     run_loop.Run();
@@ -145,9 +142,6 @@ class WebAppInstallFinalizerUnitTest : public WebAppTest {
 
  protected:
   std::unique_ptr<TestInstallManagerObserver> install_manager_observer_;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(WebAppInstallFinalizerUnitTest, BasicInstallSucceeds) {
@@ -185,13 +179,11 @@ TEST_F(WebAppInstallFinalizerUnitTest, ConcurrentInstallSucceeds) {
     finalizer().FinalizeInstall(
         *info1, options,
         base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id,
-                                       webapps::InstallResultCode code,
-                                       OsHooksErrors os_hooks_errors) {
+                                       webapps::InstallResultCode code) {
           EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall, code);
           EXPECT_EQ(
               installed_app_id,
               GenerateAppId(/*manifest_id=*/std::nullopt, info1->start_url));
-          EXPECT_TRUE(os_hooks_errors.none());
           callback1_called = true;
           if (callback2_called)
             run_loop.Quit();
@@ -203,13 +195,11 @@ TEST_F(WebAppInstallFinalizerUnitTest, ConcurrentInstallSucceeds) {
     finalizer().FinalizeInstall(
         *info2, options,
         base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id,
-                                       webapps::InstallResultCode code,
-                                       OsHooksErrors os_hooks_errors) {
+                                       webapps::InstallResultCode code) {
           EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall, code);
           EXPECT_EQ(
               installed_app_id,
               GenerateAppId(/*manifest_id=*/std::nullopt, info2->start_url));
-          EXPECT_TRUE(os_hooks_errors.none());
           callback2_called = true;
           if (callback1_called)
             run_loop.Quit();
@@ -243,8 +233,7 @@ TEST_F(WebAppInstallFinalizerUnitTest, OnWebAppManifestUpdatedTriggered) {
       webapps::WebappInstallSource::EXTERNAL_POLICY);
 
   FinalizeInstallResult result = AwaitFinalizeInstall(*info, options);
-  base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode,
-                         OsHooksErrors>
+  base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
       update_future;
   finalizer().FinalizeUpdate(*info, update_future.GetCallback());
   ASSERT_TRUE(update_future.Wait());
@@ -397,7 +386,6 @@ TEST_F(WebAppInstallFinalizerUnitTest, InstallNoCreateOsShorcuts) {
       webapps::WebappInstallSource::OMNIBOX_INSTALL_ICON);
   options.add_to_desktop = false;
   options.add_to_quick_launch_bar = false;
-
   FinalizeInstallResult result = AwaitFinalizeInstall(*info, options);
 
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall, result.code);
@@ -439,13 +427,11 @@ TEST_F(WebAppInstallFinalizerUnitTest, InstallOsHooksDisabledForDefaultApps) {
   PopulateFileHandlerInfoFromManifest(file_handlers, info->start_url,
                                       info.get());
 
-  base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode,
-                         OsHooksErrors>
+  base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
       update_future;
   finalizer().FinalizeUpdate(*info, update_future.GetCallback());
-  auto [app_id, code, os_hooks_errors] = update_future.Take();
+  auto [app_id, code] = update_future.Take();
   EXPECT_EQ(webapps::InstallResultCode::kSuccessAlreadyInstalled, code);
-  EXPECT_TRUE(os_hooks_errors.none());
 }
 
 TEST_F(WebAppInstallFinalizerUnitTest, InstallUrlSetInWebAppDB) {

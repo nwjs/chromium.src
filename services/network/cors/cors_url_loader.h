@@ -63,7 +63,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
       int32_t request_id,
       uint32_t options,
       DeleteCallback delete_callback,
-      const ResourceRequest& resource_request,
+      ResourceRequest resource_request,
       bool ignore_isolated_world_origin,
       bool skip_cors_enabled_scheme_check,
       mojo::PendingRemote<mojom::URLLoaderClient> client,
@@ -215,6 +215,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   static std::optional<std::string> GetHeaderString(
       const mojom::URLResponseHead& response,
       const std::string& header_name);
+
+  // Parses the "Shared-Storage-Cross-Origin-Worklet-Allowed" response header
+  // into a Structured Fields Boolean, and returns the result. Returns false if
+  // the header does not exist or if the parsing fails.
+  static bool CheckSharedStorageCrossOriginWorkletAllowedResponseHeader(
+      const mojom::URLResponseHead& response);
 
   void OnSharedDictionaryWritten(bool success);
 

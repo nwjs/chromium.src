@@ -20,7 +20,12 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/trusted_vault/trusted_vault_connection.h"
 #include "device/fido/enclave/types.h"
+#include "device/fido/network_context_factory.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "crypto/scoped_lacontext.h"
+#endif  // BUILDFLAG(IS_MAC)
 
 namespace crypto {
 class RefCountedUserVerifyingSigningKey;
@@ -44,6 +49,12 @@ class EnclaveLocalState;
 class EnclaveLocalState_User;
 class EnclaveLocalState_WrappedPIN;
 }  // namespace webauthn_pb
+
+namespace trusted_vault {
+struct GpmPinMetadata;
+class RecoveryKeyStoreConnection;
+class TrustedVaultAccessTokenFetcherFrontend;
+}
 
 // EnclaveManager stores and manages the passkey enclave state. One instance
 // exists per-profile, owned by `EnclaveManagerFactory`.
@@ -74,10 +85,24 @@ class EnclaveManager : public KeyedService {
     virtual void OnKeysStored() = 0;
   };
 
+  struct UVKeyOptions {
+    UVKeyOptions();
+    UVKeyOptions(const UVKeyOptions&) = delete;
+    UVKeyOptions& operator=(const UVKeyOptions&) = delete;
+    UVKeyOptions(UVKeyOptions&&);
+    UVKeyOptions& operator=(UVKeyOptions&&);
+    ~UVKeyOptions();
+
+#if BUILDFLAG(IS_MAC)
+    // An optional LAcontext to pass to apple keychain operations.
+    std::optional<crypto::ScopedLAContext> lacontext;
+#endif  // BUILDFLAG(IS_MAC)
+  };
+
   EnclaveManager(
       const base::FilePath& base_dir,
       signin::IdentityManager* identity_manager,
-      raw_ptr<network::mojom::NetworkContext> network_context,
+      device::NetworkContextFactory network_context_factory,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
   ~EnclaveManager() override;
   EnclaveManager(const EnclaveManager&) = delete;
@@ -108,34 +133,42 @@ class EnclaveManager : public KeyedService {
   void SetupWithPIN(std::string pin, Callback callback);
   // Adds the current device to the security domain. Only valid to call after
   // `StoreKeys` has been called and thus `has_pending_keys` returns true. If
-  // `serialized_wrapped_pin` has a value then it is taken to be the contents
-  // of a WrappedPIN protobuf for the current GPM PIN. If you want to add a
-  // new PIN to the account, see `AddDeviceAndPINToAccount`.
+  // `pin_metadata` has a value then it is taken to be the current GPM PIN.
+  // If you want to add a new PIN to the account, see
+  // `AddDeviceAndPINToAccount`.
   //
   // Returns false if `serialized_wrapped_pin` fails to parse and true
   // otherwise.
-  bool AddDeviceToAccount(std::optional<std::string> serialized_wrapped_pin,
-                          Callback callback);
+  bool AddDeviceToAccount(
+      std::optional<trusted_vault::GpmPinMetadata> pin_metadata,
+      Callback callback);
   // Adds the current device, and a GPM PIN, to the security domain. Only valid
   // to call after `StoreKeys` has been called and thus `has_pending_keys`
   // returns true.
   void AddDeviceAndPINToAccount(std::string pin, Callback callback);
+  // Change the GPM PIN on the account. If a RAPT (Reauthentication Proof Token)
+  // is given then it will be used, otherwise the UV key will be used, causing
+  // system UI to appear to verify the user.
+  void ChangePIN(std::string updated_pin,
+                 std::optional<std::string> rapt,
+                 Callback callback);
 
   // Get a callback to sign with the registered "hw" key. Only valid to call if
   // `is_ready`.
   device::enclave::SigningCallback HardwareKeySigningCallback();
   // Get a callback to sign with the registered "uv" key. Only valid to call if
   // `is_ready`.
-  device::enclave::SigningCallback UserVerifyingKeySigningCallback();
+  device::enclave::SigningCallback UserVerifyingKeySigningCallback(
+      UVKeyOptions options);
   // Fetch a wrapped security domain secret for the given epoch. Only valid to
   // call if `is_ready`.
   std::optional<std::vector<uint8_t>> GetWrappedSecret(int32_t version);
-  // Fetch all wrapped security domain secrets, for when it's unknown which one
-  // a WebauthnCredentialSpecifics will need. Only valid to call if `is_ready`.
-  std::vector<std::vector<uint8_t>> GetWrappedSecrets();
   // Get the version and value of the current wrapped secret. Only valid to call
   // if `is_ready`.
   std::pair<int32_t, std::vector<uint8_t>> GetCurrentWrappedSecret();
+  // Take the security domain secret. Only possible immediately after the device
+  // has been added to the account.
+  std::optional<std::pair<int32_t, std::vector<uint8_t>>> TakeSecret();
   // Returns true if a wrapped PIN is available for the current user. Requires
   // `is_ready`.
   bool has_wrapped_pin() const;
@@ -189,11 +222,11 @@ class EnclaveManager : public KeyedService {
   // Release the cached HW and UV key references.
   void ClearCachedKeysForTesting();
 
-  // These methods get internal URLs so that tests can reply when they're
-  // fetched.
-  static std::string_view recovery_key_store_url_for_testing();
-  static std::string_view recovery_key_store_cert_url_for_testing();
-  static std::string_view recovery_key_store_sig_url_for_testing();
+  // Create a wrapped PIN, suitable for putting into a simulated security domain
+  // member.
+  static std::string MakeWrappedPINForTesting(
+      base::span<const uint8_t> security_domain_secret,
+      std::string_view pin);
 
  private:
   class StateMachine;
@@ -238,6 +271,7 @@ class EnclaveManager : public KeyedService {
           scoped_refptr<unexportable_keys::RefCountedUnexportableSigningKey>)>
           callback);
   void GetUserVerifyingKeyForSignature(
+      UVKeyOptions options,
       base::OnceCallback<void(
           scoped_refptr<crypto::RefCountedUserVerifyingSigningKey>)> callback);
 
@@ -246,12 +280,19 @@ class EnclaveManager : public KeyedService {
   // reset, and can be initiated from scratch.
   void ClearRegistration();
 
+  // Store the secret that `TakeSecret` will make available.
+  void SetSecret(int32_t key_version, base::span<const uint8_t> secret);
+
   const base::FilePath file_path_;
   const raw_ptr<signin::IdentityManager> identity_manager_;
-  const raw_ptr<network::mojom::NetworkContext> network_context_;
+  device::NetworkContextFactory network_context_factory_;
   const scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   const std::unique_ptr<trusted_vault::TrustedVaultConnection>
       trusted_vault_conn_;
+  const std::unique_ptr<trusted_vault::TrustedVaultAccessTokenFetcherFrontend>
+      trusted_vault_access_token_fetcher_frontend_;
+  const std::unique_ptr<trusted_vault::RecoveryKeyStoreConnection>
+      recovery_key_store_conn_;
 
   std::unique_ptr<webauthn_pb::EnclaveLocalState> local_state_;
   bool loading_ = false;
@@ -267,6 +308,11 @@ class EnclaveManager : public KeyedService {
   std::unique_ptr<StateMachine> state_machine_;
   std::vector<base::OnceClosure> load_callbacks_;
   std::deque<std::unique_ptr<PendingAction>> pending_actions_;
+
+  // These fields store the security domain secret immediately after a
+  // device has been added to the security domain.
+  int32_t secret_version_ = -1;
+  std::vector<uint8_t> secret_;
 
   // Allow keys to persist across sequences because loading them is slow.
   scoped_refptr<crypto::RefCountedUserVerifyingSigningKey> user_verifying_key_;

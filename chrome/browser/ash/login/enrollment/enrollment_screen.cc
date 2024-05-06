@@ -144,6 +144,12 @@ EnrollmentScreen::EnrollmentScreen(base::WeakPtr<EnrollmentScreenView> view,
       view_(std::move(view)),
       error_screen_(error_screen),
       exit_callback_(exit_callback),
+      tpm_updater_(base::BindRepeating([]() {
+        g_browser_process->platform_part()
+            ->browser_policy_connector_ash()
+            ->GetTPMAutoUpdateModePolicyHandler()
+            ->UpdateOnEnrollmentIfNeeded();
+      })),
       histogram_helper_(
           ErrorScreensHistogramHelper::ErrorParentScreen::kEnrollment) {
   retry_policy_.num_errors_to_ignore = 0;
@@ -210,10 +216,7 @@ void EnrollmentScreen::SetConfig() {
   }
   // TODO(crbug.com/1271134): Logging as "WARNING" to make sure it's preserved
   // in the logs.
-  LOG(WARNING) << "EnrollmentScreen::SetConfig()"
-               << " config_.mode = " << static_cast<int>(config_.mode)
-               << ", config_.auth_mechanism = "
-               << static_cast<int>(config_.auth_mechanism);
+  LOG(WARNING) << "EnrollmentScreen::SetConfig() == " << config_;
   if (view_) {
     view_->SetEnrollmentConfig(config_);
   }
@@ -648,12 +651,7 @@ void EnrollmentScreen::OnDeviceEnrolled() {
 
   enrollment_launcher_->GetDeviceAttributeUpdatePermission();
 
-  // Evaluates device policy TPMFirmwareUpdateSettings and updates the TPM if
-  // the policy is set to auto-update vulnerable TPM firmware at enrollment.
-  g_browser_process->platform_part()
-      ->browser_policy_connector_ash()
-      ->GetTPMAutoUpdateModePolicyHandler()
-      ->UpdateOnEnrollmentIfNeeded();
+  tpm_updater_.Run();
 }
 
 void EnrollmentScreen::OnIdentifierEntered(const std::string& email) {
@@ -814,7 +812,7 @@ void EnrollmentScreen::ShowSigninScreen() {
 
 void EnrollmentScreen::RecordEnrollmentErrorMetrics() {
   enrollment_failed_once_ = true;
-  //  TODO(crbug.com/896793): Have other metrics for each auth mechanism.
+  //  TODO(crbug.com/40598749): Have other metrics for each auth mechanism.
   if (elapsed_timer_ && current_auth_ == next_auth_) {
     UMA_ENROLLMENT_TIME(kMetricEnrollmentTimeFailure, elapsed_timer_);
   }

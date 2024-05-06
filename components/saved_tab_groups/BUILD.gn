@@ -2,8 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+  import("//third_party/jni_zero/jni_zero.gni")
+}
+
 source_set("core") {
   sources = [
+    "features.cc",
+    "features.h",
     "saved_tab_group.cc",
     "saved_tab_group.h",
     "saved_tab_group_model.cc",
@@ -13,15 +21,101 @@ source_set("core") {
     "saved_tab_group_sync_bridge.h",
     "saved_tab_group_tab.cc",
     "saved_tab_group_tab.h",
+    "stats.cc",
+    "stats.h",
+    "tab_group_sync_service.h",
+    "tab_group_sync_service_impl.cc",
+    "tab_group_sync_service_impl.h",
+    "types.h",
   ]
   deps = [
     "//base",
+    "//components/keyed_service/core",
     "//components/sync",
     "//components/tab_groups",
     "//ui/gfx",
     "//url",
   ]
+
+  if (is_android) {
+    sources += [
+      "android/tab_group_sync_conversions_bridge.cc",
+      "android/tab_group_sync_conversions_bridge.h",
+      "android/tab_group_sync_conversions_utils.cc",
+      "android/tab_group_sync_conversions_utils.h",
+      "android/tab_group_sync_service_android.cc",
+      "android/tab_group_sync_service_android.h",
+    ]
+
+    deps += [ ":jni_headers" ]
+  }
+
   public_deps = []
+}
+
+if (is_android) {
+  android_library("java") {
+    sources = [
+      "android/java/src/org/chromium/components/tab_group_sync/SavedTabGroup.java",
+      "android/java/src/org/chromium/components/tab_group_sync/SavedTabGroupTab.java",
+      "android/java/src/org/chromium/components/tab_group_sync/TabGroupSyncConversionsBridge.java",
+      "android/java/src/org/chromium/components/tab_group_sync/TabGroupSyncService.java",
+      "android/java/src/org/chromium/components/tab_group_sync/TabGroupSyncServiceImpl.java",
+    ]
+
+    deps = [
+      "//base:base_java",
+      "//components/tab_groups:tab_groups_java",
+      "//net/android:net_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+      "//url:gurl_java",
+    ]
+
+    srcjar_deps = [
+      ":jni_headers",
+      ":tab_group_sync_enums_java",
+    ]
+  }
+
+  generate_jni("jni_headers") {
+    visibility = [
+      ":*",
+      "//chrome/browser",
+    ]
+
+    sources = [
+      "android/java/src/org/chromium/components/tab_group_sync/TabGroupSyncConversionsBridge.java",
+      "android/java/src/org/chromium/components/tab_group_sync/TabGroupSyncServiceImpl.java",
+    ]
+  }
+
+  java_cpp_enum("tab_group_sync_enums_java") {
+    visibility = [ ":*" ]
+    sources = [ "tab_group_sync_service.h" ]
+  }
+
+  android_library("native_java_unittests_java") {
+    testonly = true
+    deps = [
+      ":java",
+      "//base:base_java",
+      "//base:base_java_test_support",
+      "//components/tab_groups:tab_groups_java",
+      "//third_party/jni_zero:jni_zero_java",
+      "//third_party/junit",
+      "//third_party/mockito:mockito_java",
+      "//url:url_java",
+    ]
+
+    srcjar_deps = [ ":native_j_unittests_jni_headers" ]
+    sources = [ "android/java/src/org/chromium/components/tab_group_sync/TabGroupSyncServiceAndroidUnitTest.java" ]
+  }
+
+  generate_jni("native_j_unittests_jni_headers") {
+    testonly = true
+    sources = [ "android/java/src/org/chromium/components/tab_group_sync/TabGroupSyncServiceAndroidUnitTest.java" ]
+  }
 }
 
 source_set("unit_tests") {
@@ -30,7 +124,10 @@ source_set("unit_tests") {
     "saved_tab_group_model_unittest.cc",
     "saved_tab_group_proto_conversion_unittest.cc",
     "saved_tab_group_sync_bridge_unittest.cc",
+    "saved_tab_group_test_utils.cc",
+    "saved_tab_group_test_utils.h",
     "saved_tab_group_unittest.cc",
+    "tab_group_sync_service_unittest.cc",
   ]
   deps = [
     ":core",
@@ -42,4 +139,12 @@ source_set("unit_tests") {
     "//testing/gtest",
     "//url",
   ]
+
+  if (is_android) {
+    sources += [ "android/tab_group_sync_service_android_unittest.cc" ]
+    deps += [
+      ":native_j_unittests_jni_headers",
+      ":native_java_unittests_java",
+    ]
+  }
 }

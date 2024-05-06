@@ -58,12 +58,8 @@
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/strings/grit/components_locale_settings.h"
-#import "components/supervised_user/core/browser/child_account_service.h"
 #import "components/supervised_user/core/browser/supervised_user_metrics_service.h"
 #import "components/supervised_user/core/browser/supervised_user_preferences.h"
-#import "components/supervised_user/core/browser/supervised_user_service.h"
-#import "components/supervised_user/core/common/buildflags.h"
-#import "components/supervised_user/core/common/pref_names.h"
 #import "components/sync/service/glue/sync_transport_data_prefs.h"
 #import "components/sync/service/sync_prefs.h"
 #import "components/sync_device_info/device_info_prefs.h"
@@ -175,6 +171,18 @@ const char kAppStoreRatingLastShownPromoDayKey[] =
 
 // Deprecated 02/24.
 const char kIosPromosManagerImpressions[] = "ios.promos_manager.impressions";
+
+// Deprecated 03/2024.
+const char kObsoleteAccountStorageNewFeatureIconImpressions[] =
+    "password_manager.account_storage_new_feature_icon_impressions";
+
+// Deprecated 03/2024.
+const char kObsoleteAccountStorageNoticeShown[] =
+    "password_manager.account_storage_notice_shown";
+
+// Deprecated 03/2024.
+constexpr char kPreferencesMigratedToBasic[] =
+    "browser.clear_data.preferences_migrated_to_basic";
 
 // Helper function migrating the preference `pref_name` of type "double" from
 // `defaults` to `pref_service`.
@@ -497,6 +505,10 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   // refactored to use the new Safety Check Manager.
   registry->RegisterTimePref(prefs::kIosSettingsSafetyCheckLastRunTime,
                              base::Time());
+  registry->RegisterDictionaryPref(
+      prefs::kIosSafetyCheckManagerInsecurePasswordCounts,
+      PrefRegistry::LOSSY_PREF);
+
   // Preferences related to app store rating.
   registry->RegisterIntegerPref(kAppStoreRatingTotalDaysOnChromeKey, 0);
   registry->RegisterListPref(kAppStoreRatingActiveDaysInPastWeekKey);
@@ -534,10 +546,8 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
       registry);
   segmentation_platform::DeviceSwitcherResultDispatcher::RegisterProfilePrefs(
       registry);
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   supervised_user::RegisterProfilePrefs(registry);
   supervised_user::SupervisedUserMetricsService::RegisterProfilePrefs(registry);
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
   sync_sessions::SessionSyncPrefs::RegisterProfilePrefs(registry);
   syncer::DeviceInfoPrefs::RegisterProfilePrefs(registry);
   syncer::SyncPrefs::RegisterProfilePrefs(registry);
@@ -765,6 +775,16 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
                              PrefRegistry::LOSSY_PREF);
 
   registry->RegisterBooleanPref(prefs::kUserAgentWasChanged, false);
+
+  registry->RegisterIntegerPref(
+      kObsoleteAccountStorageNewFeatureIconImpressions, 0);
+
+  registry->RegisterBooleanPref(kObsoleteAccountStorageNoticeShown, false);
+
+  registry->RegisterBooleanPref(kPreferencesMigratedToBasic, false);
+
+  registry->RegisterTimePref(prefs::kLastApplicationStorageMetricsLogTime,
+                             base::Time());
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -926,7 +946,8 @@ void MigrateObsoleteBrowserStatePrefs(const base::FilePath& state_path,
       kActivityBucketLastReportedDateArrayKey, prefs, defaults);
 
   // Added 10/2023, but DO NOT REMOVE after the usual year!
-  // TODO(crbug.com/40282890): Remove ~one year after full launch.
+  // TODO(crbug.com/40282890): Remove ~one year after full launch. Also remove
+  // the signinAndEnableLegacySyncFeature test helper and corresponding tests.
   browser_sync::MaybeMigrateSyncingUserToSignedIn(state_path, prefs);
 
   // Added 12/2023.
@@ -955,6 +976,22 @@ void MigrateObsoleteBrowserStatePrefs(const base::FilePath& state_path,
   // Added 02/2024.
   MigrateListPrefFromLocalStatePrefsToProfilePrefs(
       prefs::kIosLatestMostVisitedSites, prefs);
+
+  // Added 03/2024.
+  prefs->ClearPref(kObsoleteAccountStorageNewFeatureIconImpressions);
+
+  // Added 03/2024.
+  prefs->ClearPref(kObsoleteAccountStorageNoticeShown);
+
+  // Added 03/2024
+  prefs->ClearPref(kPreferencesMigratedToBasic);
+
+  // Added 03/2024.
+  MigrateNSDatePreferenceFromUserDefaults(
+      prefs::kLastApplicationStorageMetricsLogTime, prefs, defaults);
+
+  // Added 04/2024.
+  prefs->ClearPref(prefs::kMixedContentAutoupgradeEnabled);
 }
 
 void MigrateObsoleteUserDefault() {

@@ -92,6 +92,10 @@
 #include "third_party/dawn/include/dawn/webgpu_cpp.h"  // nogncheck
 #endif
 
+#if BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS)
+#include "gpu/command_buffer/service/drm_modifiers_filter_dawn.h"
+#endif
+
 namespace gpu {
 
 namespace {
@@ -329,6 +333,9 @@ GpuInit::~GpuInit() {
 
 bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
                                         const GpuPreferences& gpu_preferences) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  LOG(WARNING) << "Starting gpu initialization.";
+#endif
   gpu_preferences_ = gpu_preferences;
   // Blocklist decisions based on basic GPUInfo may not be final. It might
   // need more context based GPUInfo. In such situations, switching to
@@ -475,6 +482,14 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 #if BUILDFLAG(IS_WIN)
   UMA_HISTOGRAM_BOOLEAN("GPU.AppHelpIsLoaded",
                         static_cast<bool>(::GetModuleHandle(L"apphelp.dll")));
+#if defined(USE_EGL)
+  if (gpu_preferences_.gr_context_type == GrContextType::kGraphiteDawn &&
+      features::kSkiaGraphiteDawnBackendValidation.Get()) {
+    // Enable ANGLE debug layer if we need backend validation for Graphite since
+    // we can share the D3D11 device between ANGLE and Dawn.
+    gl::GLDisplayEGL::EnableANGLEDebugLayer();
+  }
+#endif
 #endif
   if (gl::GetGLImplementation() != gl::kGLImplementationDisabled) {
     gl_display = gl::init::InitializeGLNoExtensionsOneOff(
@@ -867,11 +882,13 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   InitializeDawnProcs();
 
   if (gpu_preferences_.gr_context_type == GrContextType::kGraphiteDawn) {
-    // TODO(crbug.com/325000752): Check if GPU_FEATURE_TYPE_SKIA_GRAPHITE is
-    // blocklisted and fail GPU process initialization if so.
     if (!InitializeDawn()) {
-      // Fail initialization and restart the GPU process.
-      return false;
+      if (gpu_feature_info_.status_values[GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
+          kGpuFeatureStatusEnabled) {
+        return false;
+      }
+      // SkiaGraphite is disabled by software_rendering_list.json
+      gpu_preferences_.gr_context_type = GrContextType::kGL;
     }
   }
 
@@ -880,30 +897,45 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   ui::OzonePlatform::GetInstance()->AfterSandboxEntry();
   gpu_feature_info_.supported_buffer_formats_for_allocation_and_texturing =
       std::move(supported_buffer_formats_for_texturing);
+  [[maybe_unused]] auto* factory =
+      ui::OzonePlatform::GetInstance()->GetSurfaceFactoryOzone();
+  bool filter_set = false;
 #if BUILDFLAG(ENABLE_VULKAN)
-  auto* factory = ui::OzonePlatform::GetInstance()->GetSurfaceFactoryOzone();
   if (gpu_feature_info_.status_values[GPU_FEATURE_TYPE_VULKAN] ==
           kGpuFeatureStatusEnabled &&
       factory->SupportsDrmModifiersFilter()) {
+    CHECK(!filter_set);
     DCHECK(vulkan_implementation_ &&
            vulkan_implementation_->GetVulkanInstance() &&
            vulkan_implementation_->GetVulkanInstance()->vk_instance() !=
                VK_NULL_HANDLE);
     factory->SetDrmModifiersFilter(std::make_unique<DrmModifiersFilterVulkan>(
         vulkan_implementation_.get()));
+    filter_set = true;
   }
 #endif  // BUILDFLAG(ENABLE_VULKAN)
+#if BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS)
+  if (dawn_context_provider_ && factory->SupportsDrmModifiersFilter()) {
+    CHECK(!filter_set);
+    factory->SetDrmModifiersFilter(std::make_unique<DrmModifiersFilterDawn>(
+        dawn_context_provider_->GetDevice().GetAdapter()));
+    filter_set = true;
+  }
+#endif  // BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS)
 #endif  // BUILDFLAG(IS_OZONE)
 
-  if (!watchdog_thread_)
+  if (!watchdog_thread_) {
     watchdog_init.SetGpuWatchdogPtr(nullptr);
+  }
 
 #if defined(USE_EGL) && !BUILDFLAG(IS_MAC)
-  if (gpu_feature_info_.IsWorkaroundEnabled(CHECK_EGL_FENCE_BEFORE_WAIT))
+  if (gpu_feature_info_.IsWorkaroundEnabled(CHECK_EGL_FENCE_BEFORE_WAIT)) {
     gl::GLFenceEGL::CheckEGLFenceBeforeWait();
+  }
 
-  if (gpu_feature_info_.IsWorkaroundEnabled(FLUSH_BEFORE_CREATE_FENCE))
+  if (gpu_feature_info_.IsWorkaroundEnabled(FLUSH_BEFORE_CREATE_FENCE)) {
     gl::GLFenceEGL::FlushBeforeCreateFence();
+  }
 #endif
 
   return true;
@@ -920,6 +952,10 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
 
   gl::GLDisplay* gl_display = InitializeGLThreadSafe(
       command_line, gpu_preferences_, &gpu_info_, &gpu_feature_info_);
+
+  if (!gl_display) {
+    LOG(FATAL) << "gpu::InitializeGLThreadSafe() failed.";
+  }
 
   if (command_line->HasSwitch(switches::kWebViewDrawFunctorUsesVulkan)) {
     bool result = InitializeVulkan();
@@ -1120,6 +1156,15 @@ scoped_refptr<gl::GLSurface> GpuInit::TakeDefaultOffscreenSurface() {
 
 bool GpuInit::InitializeDawn() {
 #if BUILDFLAG(SKIA_USE_DAWN)
+  if (gpu_feature_info_.status_values[GPU_FEATURE_TYPE_SKIA_GRAPHITE] !=
+          kGpuFeatureStatusEnabled &&
+      !gpu::DawnContextProvider::DefaultForceFallbackAdapter()) {
+    // Return false, if skia_graphite is blocked in
+    // gpu/config/software_rendering_list.json. Unless dawn is using the
+    // fallback adaptor (SwiftShader) for testing.
+    return false;
+  }
+
   dawn_context_provider_ = gpu::DawnContextProvider::Create(
       gpu_preferences_,
       GpuDriverBugWorkarounds(
@@ -1140,11 +1185,13 @@ bool GpuInit::InitializeDawn() {
       device_properties.device_id = adapter_properties.deviceID;
       device_properties.driver_version = adapter_properties_vk.driverVersion;
 
+#if BUILDFLAG(IS_ANDROID)
       if (!CheckVulkanCompatibilities(device_properties, gpu_info_)) {
         // The device is not compatible with Vulkan.
         dawn_context_provider_.reset();
         return false;
       }
+#endif
 #endif
     }
 

@@ -55,15 +55,16 @@
 #include "chrome/browser/ui/safety_hub/menu_notification_service_factory.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_constants.h"
 #include "chrome/browser/ui/side_panel/companion/companion_utils.h"
+#include "chrome/browser/ui/startup/default_browser_prompt_manager.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
+#include "chrome/browser/ui/tabs/recent_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_model.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_prefs.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
-#include "chrome/browser/ui/toolbar/recent_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
@@ -86,6 +87,7 @@
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/dom_distiller/core/url_utils.h"
 #include "components/feature_engagement/public/event_constants.h"
+#include "components/omnibox/browser/vector_icons.h"
 #include "components/password_manager/content/common/web_ui_constants.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -99,8 +101,10 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
+#include "components/webapps/browser/banners/install_banner_config.h"
 #include "components/webapps/browser/banners/installable_web_app_check_result.h"
 #include "components/webapps/browser/banners/web_app_banner_data.h"
+#include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/profiling.h"
@@ -154,6 +158,8 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kSaveAndShareMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kCastTitleItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kPerformanceMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kInstallAppItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel,
+                                      kSetBrowserAsDefaultMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ToolsMenuModel, kPerformanceMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ToolsMenuModel, kChromeLabsMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ToolsMenuModel, kReadingModeMenuItem);
@@ -225,11 +231,12 @@ std::u16string GetInstallPWALabel(const Browser* browser) {
     return std::u16string();
   }
 
-  std::optional<webapps::WebAppBannerData> install_config =
-      banner->GetCurrentWebAppBannerData();
+  std::optional<webapps::InstallBannerConfig> install_config =
+      banner->GetCurrentBannerConfig();
   if (!install_config) {
     return std::u16string();
   }
+  CHECK_EQ(install_config->mode, webapps::AppBannerMode::kWebApp);
   webapps::InstallableWebAppCheckResult installable =
       banner->GetInstallableWebAppCheckResult();
   std::u16string app_name;
@@ -244,7 +251,7 @@ std::u16string GetInstallPWALabel(const Browser* browser) {
       return std::u16string();
     case webapps::InstallableWebAppCheckResult::kYes_ByUserRequest:
     case webapps::InstallableWebAppCheckResult::kYes_Promotable:
-      app_name = install_config->GetAppName();
+      app_name = install_config->GetWebOrNativeAppName();
       break;
   }
   if (app_name.empty()) {
@@ -1126,24 +1133,6 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       }
       LogMenuAction(MENU_ACTION_RECENT_TABS_LOGIN_FOR_DEVICE_TABS);
       break;
-    case IDC_DISTILL_PAGE:
-      if (!uma_action_recorded_) {
-        base::UmaHistogramMediumTimes("WrenchMenu.TimeToAction.DistillPage",
-                                      delta);
-      }
-      LogMenuAction(MENU_ACTION_DISTILL_PAGE);
-      if (dom_distiller::url_utils::IsDistilledPage(
-              browser()
-                  ->tab_strip_model()
-                  ->GetActiveWebContents()
-                  ->GetLastCommittedURL())) {
-        dom_distiller::UMAHelper::RecordReaderModeExit(
-            dom_distiller::UMAHelper::ReaderModeEntryPoint::kMenuOption);
-      } else {
-        dom_distiller::UMAHelper::RecordReaderModeEntry(
-            dom_distiller::UMAHelper::ReaderModeEntryPoint::kMenuOption);
-      }
-      break;
     case IDC_FIND:
       if (!uma_action_recorded_)
         base::UmaHistogramMediumTimes("WrenchMenu.TimeToAction.Find", delta);
@@ -1554,6 +1543,13 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       }
       LogMenuAction(MENU_ACTION_SHOW_PERFORMANCE_SETTINGS);
       break;
+    case IDC_SET_BROWSER_AS_DEFAULT:
+      if (!uma_action_recorded_) {
+        base::UmaHistogramMediumTimes(
+            "WrenchMenu.TimeToAction.SetBrowserAsDefault", delta);
+      }
+      LogMenuAction(MENU_ACTION_SET_BROWSER_AS_DEFAULT);
+      break;
     default: {
       if (IsOtherProfileCommand(command_id)) {
         if (!uma_action_recorded_) {
@@ -1660,7 +1656,8 @@ void AppMenuModel::Build() {
 #endif
   }
 
-  if (AddSafetyHubMenuItem() || AddGlobalErrorMenuItems() || need_separator) {
+  if (AddSafetyHubMenuItem() || AddGlobalErrorMenuItems() ||
+      AddDefaultBrowserMenuItems() || need_separator) {
     AddSeparator(ui::NORMAL_SEPARATOR);
   }
 
@@ -1839,26 +1836,6 @@ void AppMenuModel::Build() {
     }
   }
 
-  if (dom_distiller::IsDomDistillerEnabled() &&
-      browser()->tab_strip_model()->GetActiveWebContents()) {
-    // Only show the reader mode toggle when it will do something.
-    if (dom_distiller::url_utils::IsDistilledPage(
-            browser()
-                ->tab_strip_model()
-                ->GetActiveWebContents()
-                ->GetLastCommittedURL())) {
-      // Show the menu option if we are on a distilled page.
-      AddItemWithStringId(IDC_DISTILL_PAGE, IDS_EXIT_DISTILLED_PAGE);
-    } else if (dom_distiller::ShowReaderModeOption()) {
-      // Show the menu option if the page is distillable.
-      std::optional<dom_distiller::DistillabilityResult> distillability =
-          dom_distiller::GetLatestResult(
-              browser()->tab_strip_model()->GetActiveWebContents());
-      if (distillability && distillability.value().is_distillable)
-        AddItemWithStringId(IDC_DISTILL_PAGE, IDS_DISTILL_PAGE);
-    }
-  }
-
 #if BUILDFLAG(IS_CHROMEOS)
   // Always show this option if we're in tablet mode on Chrome OS.
   if (display::Screen::GetScreen()->InTabletMode()) {
@@ -2022,6 +1999,32 @@ bool AppMenuModel::AddGlobalErrorMenuItems() {
     }
   }
   return menu_items_added;
+}
+
+bool AppMenuModel::AddDefaultBrowserMenuItems() {
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+  if (browser_->profile()->IsIncognitoProfile() ||
+      browser_->profile()->IsGuestSession()) {
+    return false;
+  }
+
+  if ((app_menu_icon_controller_ &&
+       app_menu_icon_controller_->GetTypeAndSeverity().type ==
+           AppMenuIconController::IconType::DEFAULT_BROWSER_PROMPT) ||
+      (DefaultBrowserPromptManager::GetInstance()->get_show_app_menu_item())) {
+    const auto update_icon =
+        ui::ImageModel::FromVectorIcon(omnibox::kProductChromeRefreshIcon,
+                                       ui::kColorMenuIcon, kDefaultIconSize);
+    AddItemWithIcon(
+        IDC_SET_BROWSER_AS_DEFAULT,
+        l10n_util::GetStringUTF16(IDS_SET_BROWSER_AS_DEFAULT_MENU_ITEM),
+        update_icon);
+    SetElementIdentifierAt(GetItemCount() - 1,
+                           AppMenuModel::kSetBrowserAsDefaultMenuItem);
+    return true;
+  }
+#endif
+  return false;
 }
 
 bool AppMenuModel::AddSafetyHubMenuItem() {

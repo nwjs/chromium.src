@@ -75,24 +75,6 @@ ScopedJavaLocalRef<jobject> AutocompleteMatch::GetOrCreateJavaObject(
     clipboard_image_data = search_terms_args->image_thumbnail_content;
   }
 
-  ScopedJavaLocalRef<jobject> j_query_tiles =
-      query_tiles::TileConversionBridge::CreateJavaTiles(env, query_tiles);
-
-  std::vector<std::u16string> suggest_titles;
-  suggest_titles.reserve(suggest_tiles.size());
-  std::vector<base::android::ScopedJavaLocalRef<jobject>> suggest_urls;
-  suggest_urls.reserve(suggest_tiles.size());
-  // Note: vector<bool> is a specialized version of vector that behaves
-  // differently, storing values as individual bits. This makes it impossible
-  // for us to use it to represent tile.is_search on the Java side.
-  std::vector<int> suggest_types;
-  suggest_types.reserve(suggest_tiles.size());
-  for (const auto& tile : suggest_tiles) {
-    suggest_titles.push_back(tile.title);
-    suggest_urls.push_back(url::GURLAndroid::FromNativeGURL(env, tile.url));
-    suggest_types.push_back(tile.is_search);
-  }
-
   std::vector<int> temp_subtypes(subtypes.begin(), subtypes.end());
 
   std::vector<jni_zero::ScopedJavaLocalRef<jobject>> actions_list;
@@ -117,11 +99,8 @@ ScopedJavaLocalRef<jobject> AutocompleteMatch::GetOrCreateJavaObject(
           url::GURLAndroid::FromNativeGURL(env, image_url),
           j_image_dominant_color, SupportsDeletion(), j_post_content_type,
           j_post_content, suggestion_group_id.value_or(omnibox::GROUP_INVALID),
-          j_query_tiles, ToJavaByteArray(env, clipboard_image_data),
-          has_tab_match.value_or(false),
-          ToJavaArrayOfStrings(env, suggest_titles),
-          url::GURLAndroid::ToJavaArrayOfGURLs(env, suggest_urls),
-          ToJavaIntArray(env, suggest_types), actions_list));
+          ToJavaByteArray(env, clipboard_image_data),
+          has_tab_match.value_or(false), actions_list));
 
   return ScopedJavaLocalRef<jobject>(*java_match_);
 }
@@ -173,8 +152,8 @@ void AutocompleteMatch::UpdateMatchingJavaTab(
 
   // Default state is: we don't have a matching tab. If that default state has
   // changed, reflect it in the UI.
-  // TODO(crbug.com/1266558): when Tab.java is relocated to Components, pass the
-  // Tab object directly to Java. This is not possible right now due to
+  // TODO(crbug.com/40204147): when Tab.java is relocated to Components, pass
+  // the Tab object directly to Java. This is not possible right now due to
   // //components being explicitly denied to depend on //chrome targets.
   if (!java_match_ || !has_tab_match.value_or(false))
     return;

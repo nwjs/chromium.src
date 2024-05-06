@@ -6,14 +6,15 @@
 #define COMPONENTS_PLUS_ADDRESSES_PLUS_ADDRESS_TEST_UTILS_H_
 
 #include "components/plus_addresses/plus_address_types.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 namespace plus_addresses::test {
 
 // Returns a fully populated, confirmed PlusProfile.
-PlusProfile GetPlusProfile();
+PlusProfile CreatePlusProfile();
 // Returns a fully populated, confirmed PlusProfile different from
-// `GetPlusProfile()`.
-PlusProfile GetPlusProfile2();
+// `CreatePlusProfile()`.
+PlusProfile CreatePlusProfile2();
 
 // Used in testing the GetOrCreate, Reserve, and Create network requests.
 std::string MakeCreationResponse(const PlusProfile& profile);

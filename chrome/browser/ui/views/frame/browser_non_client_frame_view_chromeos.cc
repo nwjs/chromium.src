@@ -84,6 +84,8 @@
 #include "chromeos/ui/frame/interior_resize_handler_targeter.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
+DEFINE_UI_CLASS_PROPERTY_TYPE(BrowserNonClientFrameViewChromeOS*)
+
 namespace {
 
 // The indicator for teleported windows has 8 DIPs before and below it.
@@ -113,6 +115,10 @@ content::RenderWidgetHost* GetRenderWidgetHost(views::WebView* web_view) {
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
+DEFINE_UI_CLASS_PROPERTY_KEY(BrowserNonClientFrameViewChromeOS*,
+                             kBrowserNonClientFrameViewChromeOSKey,
+                             nullptr)
+
 // Returns true if the header should be painted so that it looks the same as
 // the header used for packaged apps.
 bool UsePackagedAppHeaderStyle(const Browser* browser) {
@@ -139,6 +145,10 @@ BrowserNonClientFrameViewChromeOS::BrowserNonClientFrameViewChromeOS(
   frame->GetNativeWindow()->SetEventTargeter(
       std::make_unique<chromeos::InteriorResizeHandleTargeter>());
 #endif
+
+  // TODO: b/330360595 - Confirm if this is needed in Lacros.
+  aura::Window* frame_window = frame->GetNativeWindow();
+  frame_window->SetProperty(kBrowserNonClientFrameViewChromeOSKey, this);
 }
 
 BrowserNonClientFrameViewChromeOS::~BrowserNonClientFrameViewChromeOS() {
@@ -150,6 +160,11 @@ BrowserNonClientFrameViewChromeOS::~BrowserNonClientFrameViewChromeOS() {
   if (profile_indicator_icon_) {
     RemoveChildViewT(std::exchange(profile_indicator_icon_, nullptr));
   }
+}
+
+BrowserNonClientFrameViewChromeOS* BrowserNonClientFrameViewChromeOS::Get(
+    aura::Window* window) {
+  return window->GetProperty(kBrowserNonClientFrameViewChromeOSKey);
 }
 
 void BrowserNonClientFrameViewChromeOS::Init() {
@@ -378,7 +393,7 @@ int BrowserNonClientFrameViewChromeOS::NonClientHitTest(
   if (hit_test == HTCLIENT && !frame()->IsMaximized() &&
       !frame()->IsFullscreen() &&
       !display::Screen::GetScreen()->InTabletMode()) {
-    // TODO(crbug.com/1213133): Tab Strip hit calculation and bounds logic
+    // TODO(crbug.com/40768579): Tab Strip hit calculation and bounds logic
     // should reside in the TabStrip class.
     gfx::Point client_point(point);
     View::ConvertPointToTarget(this, frame()->client_view(), &client_point);
@@ -1048,6 +1063,15 @@ void BrowserNonClientFrameViewChromeOS::UpdateWindowRoundedCorners() {
 
   if (frame_header_) {
     frame_header_->SetHeaderCornerRadius(corner_radius);
+  }
+
+  if (browser_view()->IsWindowControlsOverlayEnabled()) {
+    // With window controls overlay enabled, the caption_button_container is
+    // drawn above the client view. The container has a background that extends
+    // over the curvature of the top-right corner, requiring its rounding.
+    caption_button_container_->layer()->SetRoundedCornerRadius(
+        gfx::RoundedCornersF(0, corner_radius, 0, 0));
+    caption_button_container_->layer()->SetIsFastRoundedCorner(/*enable=*/true);
   }
 
   if (chromeos::features::IsRoundedWindowsEnabled()) {

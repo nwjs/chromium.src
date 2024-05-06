@@ -15,6 +15,7 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/views/editor_menu/editor_menu_badge_view.h"
 #include "chrome/browser/ui/views/editor_menu/editor_menu_chip_view.h"
+#include "chrome/browser/ui/views/editor_menu/editor_menu_strings.h"
 #include "chrome/browser/ui/views/editor_menu/editor_menu_textfield_view.h"
 #include "chrome/browser/ui/views/editor_menu/editor_menu_view_delegate.h"
 #include "chrome/browser/ui/views/editor_menu/utils/icon.h"
@@ -25,7 +26,6 @@
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/accelerators/accelerator.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/geometry/insets.h"
@@ -51,6 +51,8 @@ namespace chromeos::editor_menu {
 namespace {
 
 constexpr char kWidgetName[] = "EditorMenuViewWidget";
+constexpr char16_t kCardShownAnnouncement[] =
+    u"Help Me Write, press tab to focus the Help Me Write card.";
 
 constexpr gfx::Insets kTitleContainerInsets = gfx::Insets::TLBR(12, 16, 12, 14);
 
@@ -118,10 +120,9 @@ void EditorMenuView::RequestFocus() {
 
 void EditorMenuView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kDialog;
-  node_data->SetName(
-      l10n_util::GetStringUTF16(editor_menu_mode_ == EditorMenuMode::kWrite
-                                    ? IDS_EDITOR_MENU_WRITE_CARD_TITLE
-                                    : IDS_EDITOR_MENU_REWRITE_CARD_TITLE));
+  node_data->SetName(editor_menu_mode_ == EditorMenuMode::kWrite
+                         ? GetEditorMenuWriteCardTitle()
+                         : GetEditorMenuRewriteCardTitle());
 }
 
 int EditorMenuView::GetHeightForWidth(int width) const {
@@ -160,6 +161,11 @@ void EditorMenuView::OnWidgetVisibilityChanged(views::Widget* widget,
                                                bool visible) {
   CHECK(delegate_);
   delegate_->OnEditorMenuVisibilityChanged(visible);
+
+  if (visible && !queued_announcement_) {
+    GetViewAccessibility().AnnounceAlert(kCardShownAnnouncement);
+    queued_announcement_ = true;
+  }
 }
 
 void EditorMenuView::UpdateBounds(const gfx::Rect& anchor_view_bounds) {
@@ -204,9 +210,9 @@ void EditorMenuView::AddTitleContainer() {
       views::BoxLayout::CrossAxisAlignment::kCenter);
 
   auto* title = title_container_->AddChildView(std::make_unique<views::Label>(
-      l10n_util::GetStringUTF16(editor_menu_mode_ == EditorMenuMode::kWrite
-                                    ? IDS_EDITOR_MENU_WRITE_CARD_TITLE
-                                    : IDS_EDITOR_MENU_REWRITE_CARD_TITLE),
+      editor_menu_mode_ == EditorMenuMode::kWrite
+          ? GetEditorMenuWriteCardTitle()
+          : GetEditorMenuRewriteCardTitle(),
       views::style::CONTEXT_DIALOG_TITLE, views::style::STYLE_HEADLINE_5));
   title->SetEnabledColorId(ui::kColorSysOnSurface);
 
@@ -223,8 +229,7 @@ void EditorMenuView::AddTitleContainer() {
       title_container_->AddChildView(views::ImageButton::CreateIconButton(
           base::BindRepeating(&EditorMenuView::OnSettingsButtonPressed,
                               weak_factory_.GetWeakPtr()),
-          vector_icons::kSettingsOutlineIcon,
-          l10n_util::GetStringUTF16(IDS_EDITOR_MENU_SETTINGS_TOOLTIP)));
+          vector_icons::kSettingsOutlineIcon, GetEditorMenuSettingsTooltip()));
 
   title_container_->SetProperty(views::kMarginsKey, kTitleContainerInsets);
 }

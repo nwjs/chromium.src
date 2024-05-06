@@ -16,9 +16,9 @@ namespace {
 
 void FillCommonFields(FormFieldData* data) {
   data->label = u"label";
-  data->name = u"name";
-  data->value = u"value";
-  data->form_control_type = FormControlType::kInputPassword;
+  data->set_name(u"name");
+  data->set_value(u"value");
+  data->set_form_control_type(FormControlType::kInputPassword);
   data->autocomplete_attribute = "off";
   data->max_length = 200;
   data->is_autofilled = true;
@@ -57,9 +57,9 @@ void FillVersion8Fields(FormFieldData* data) {
 
 void WriteSection1(const FormFieldData& data, base::Pickle* pickle) {
   pickle->WriteString16(data.label);
-  pickle->WriteString16(data.name);
-  pickle->WriteString16(data.value);
-  pickle->WriteString(FormControlTypeToString(data.form_control_type));
+  pickle->WriteString16(data.name());
+  pickle->WriteString16(data.value());
+  pickle->WriteString(FormControlTypeToString(data.form_control_type()));
   pickle->WriteString(data.autocomplete_attribute);
   pickle->WriteUInt64(data.max_length);
   pickle->WriteBool(data.is_autofilled);
@@ -444,7 +444,7 @@ TEST(FormFieldDataTest, IsTextInputElement) {
   for (const auto& test_case : test_data) {
     SCOPED_TRACE(testing::Message() << test_case.form_control_type);
     FormFieldData data;
-    data.form_control_type = test_case.form_control_type;
+    data.set_form_control_type(test_case.form_control_type);
     EXPECT_EQ(test_case.expected, data.IsTextInputElement());
   }
 }

@@ -27,6 +27,7 @@ lucicfg.config(
         "builders/*/*/*",
         "builders/*/*/*/*",
         "builders/gn_args_locations.json",
+        "builder-owners/*.txt",
         "cq-builders.md",
         "cq-usage/default.cfg",
         "cq-usage/full.cfg",
@@ -43,6 +44,7 @@ lucicfg.config(
         "luci/luci-scheduler.cfg",
         "luci/project.cfg",
         "luci/realms.cfg",
+        "luci/testhaus.cfg",
         "luci/tricium-prod.cfg",
         "outages.pyl",
         "sheriff-rotations/*.txt",
@@ -59,6 +61,12 @@ lucicfg.config(
         "-function-docstring-header",
         "-module-docstring",
     ],
+)
+
+# Just copy Testhaus config to generated outputs.
+lucicfg.emit(
+    dest = "luci/testhaus.cfg",
+    data = io.read_file("testhaus.cfg"),
 )
 
 # Just copy tricium-prod.cfg to the generated outputs
@@ -269,7 +277,6 @@ exec("//subprojects/infra.star")
 branches.exec("//subprojects/codesearch/subproject.star")
 branches.exec("//subprojects/findit/subproject.star")
 branches.exec("//subprojects/flakiness/subproject.star")
-branches.exec("//subprojects/goma/subproject.star")
 branches.exec("//subprojects/reclient/subproject.star")
 branches.exec("//subprojects/reviver/subproject.star")
 branches.exec("//subprojects/webrtc/subproject.star")
@@ -277,6 +284,7 @@ branches.exec("//subprojects/webrtc/subproject.star")
 exec("//generators/cq-usage.star")
 branches.exec("//generators/cq-builders-md.star")
 
+exec("//generators/builder-owners.star")
 exec("//generators/sort-consoles.star")
 
 # Execute validators after eveything except the outage file so that we're

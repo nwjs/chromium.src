@@ -235,7 +235,10 @@ public class PrivacyGuideFragmentTest {
     }
 
     private void setSafeBrowsingState(@SafeBrowsingState int safeBrowsingState) {
-        runOnUiThreadBlocking(() -> SafeBrowsingBridge.setSafeBrowsingState(safeBrowsingState));
+        runOnUiThreadBlocking(
+                () ->
+                        new SafeBrowsingBridge(ProfileManager.getLastUsedRegularProfile())
+                                .setSafeBrowsingState(safeBrowsingState));
     }
 
     private void setCookieControlsMode(@CookieControlsMode int cookieControlsMode) {
@@ -253,7 +256,10 @@ public class PrivacyGuideFragmentTest {
     }
 
     private void setPreloadStatePG3(@PreloadPagesState int preloadPagesState) {
-        runOnUiThreadBlocking(() -> PreloadPagesSettingsBridge.setState(preloadPagesState));
+        runOnUiThreadBlocking(
+                () ->
+                        PreloadPagesSettingsBridge.setState(
+                                ProfileManager.getLastUsedRegularProfile(), preloadPagesState));
     }
 
     private void executeWhileCapturingIntents(Runnable func) {
@@ -356,7 +362,7 @@ public class PrivacyGuideFragmentTest {
         launchPrivacyGuide();
         goToCard(FragmentType.SAFE_BROWSING);
         clickOnArrowNextToRadioButtonWithText(R.string.privacy_guide_safe_browsing_enhanced_title);
-        mRenderTestRule.render(getRootView(), "privacy_guide_sb_enhanced_sheet");
+        mRenderTestRule.render(getRootView(), "privacy_guide_sb_enhanced_sheet_friendlier");
     }
 
     @Test

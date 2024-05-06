@@ -6,8 +6,10 @@
 #define CONTENT_BROWSER_PRELOADING_PRELOADING_PREDICTION_H_
 
 #include <optional>
+#include <string_view>
 
 #include "base/timer/elapsed_timer.h"
+#include "content/browser/preloading/preloading_confidence.h"
 #include "content/public/browser/preloading_data.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "url/gurl.h"
@@ -42,7 +44,7 @@ class PreloadingPrediction {
 
   PreloadingPrediction(
       PreloadingPredictor predictor,
-      double confidence,
+      PreloadingConfidence confidence,
       ukm::SourceId triggered_primary_page_source_id,
       base::RepeatingCallback<bool(const GURL&)> url_match_predicate);
 
@@ -56,7 +58,7 @@ class PreloadingPrediction {
 
   // Confidence percentage of predictor's preloading prediction. This value
   // should be between 0 - 100.
-  const int64_t confidence_;
+  const PreloadingConfidence confidence_;
 
   // Holds the triggered primary page of preloading operation ukm::SourceId.
   const ukm::SourceId triggered_primary_page_source_id_;
@@ -93,7 +95,7 @@ class ExperimentalPreloadingPrediction {
  public:
   ExperimentalPreloadingPrediction() = delete;
   ExperimentalPreloadingPrediction(
-      base::StringPiece name,
+      std::string_view name,
       PreloadingURLMatchCallback url_match_predicate,
       float score,
       float min_score,
@@ -101,7 +103,7 @@ class ExperimentalPreloadingPrediction {
       size_t buckets);
   ~ExperimentalPreloadingPrediction();
 
-  base::StringPiece PredictorName() const { return name_; }
+  std::string_view PredictorName() const { return name_; }
   bool IsAccuratePrediction() const { return is_accurate_prediction_; }
   float Score() const { return score_; }
 
@@ -110,7 +112,7 @@ class ExperimentalPreloadingPrediction {
 
  private:
   // Experimental predictor's name
-  base::StringPiece name_;
+  std::string_view name_;
   // Set to true when preloading prediction was correct i.e., when the
   // navigation happens to the same predicted URL.
   bool is_accurate_prediction_ = false;

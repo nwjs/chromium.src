@@ -1011,6 +1011,11 @@ void CaptureModeController::MaybeUpdateVcPanel() {
   }
 }
 
+void CaptureModeController::CheckScreenCaptureDlpRestrictions(
+    OnCaptureModeDlpRestrictionChecked callback) {
+  delegate_->CheckCaptureModeInitRestrictionByDlp(std::move(callback));
+}
+
 void CaptureModeController::OnRecordingEnded(
     recording::mojom::RecordingStatus status,
     const gfx::ImageSkia& thumbnail) {
@@ -1325,7 +1330,7 @@ void CaptureModeController::LaunchRecordingServiceAndStartRecording(
   recording_service_remote_ = delegate_->LaunchRecordingService();
   recording_service_remote_.set_disconnect_handler(
       base::BindOnce(&CaptureModeController::OnRecordingServiceDisconnected,
-                     base::Unretained(this)));
+                     weak_ptr_factory_.GetWeakPtr()));
 
   // Prepare the pending remotes of the client, the video capturer, and the
   // audio stream factory.
@@ -1954,6 +1959,10 @@ void CaptureModeController::BeginVideoRecording(
       capture_params.window, capture_params.bounds,
       base::BindOnce(&CaptureModeController::InterruptVideoRecording,
                      weak_ptr_factory_.GetWeakPtr()));
+
+  if (on_video_recording_started_callback_for_test_) {
+    std::move(on_video_recording_started_callback_for_test_).Run();
+  }
 }
 
 void CaptureModeController::InterruptVideoRecording() {

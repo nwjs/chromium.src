@@ -25,11 +25,17 @@
 #include "ash/picker/views/picker_strings.h"
 #include "ash/picker/views/picker_symbol_item_view.h"
 #include "ash/public/cpp/picker/picker_search_result.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/overloaded.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chromeos/ui/vector_icons/vector_icons.h"
+#include "components/vector_icons/vector_icons.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/models/image_model.h"
+#include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/focus/focus_manager.h"
@@ -39,12 +45,19 @@
 #include "ui/views/view_utils.h"
 
 namespace ash {
+namespace {
+// Some of the icons we use do not have a default size, so we need to manually
+// set it.
+constexpr int kIconSize = 20;
+}  // namespace
 
 PickerSearchResultsView::PickerSearchResultsView(
     int picker_view_width,
     SelectSearchResultCallback select_search_result_callback,
+    SelectMoreResultsCallback select_more_results_callback,
     PickerAssetFetcher* asset_fetcher)
     : select_search_result_callback_(std::move(select_search_result_callback)),
+      select_more_results_callback_(std::move(select_more_results_callback)),
       asset_fetcher_(asset_fetcher) {
   SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kVertical);
@@ -179,6 +192,12 @@ void PickerSearchResultsView::AppendSearchResults(
   auto* section_view = section_list_view_->AddSection();
   section_view->AddTitleLabel(
       GetSectionTitleForPickerSectionType(section.type()));
+  if (section.has_more_results()) {
+    section_view->AddTitleTrailingLink(
+        l10n_util::GetStringUTF16(IDS_PICKER_SEE_MORE_BUTTON_TEXT),
+        base::BindRepeating(&PickerSearchResultsView::OnTrailingLinkClicked,
+                            base::Unretained(this), section.type()));
+  }
   for (const auto& result : section.results()) {
     AddResultToSection(result, section_view);
   }
@@ -209,7 +228,16 @@ void PickerSearchResultsView::AddResultToSection(
           [&](const PickerSearchResult::TextData& data) {
             auto item_view = std::make_unique<PickerListItemView>(
                 std::move(select_result_callback));
+            item_view->SetPrimaryText(data.primary_text);
+            item_view->SetSecondaryText(data.secondary_text);
+            item_view->SetLeadingIcon(data.icon);
+            section_view->AddListItem(std::move(item_view));
+          },
+          [&](const PickerSearchResult::SearchRequestData& data) {
+            auto item_view = std::make_unique<PickerListItemView>(
+                std::move(select_result_callback));
             item_view->SetPrimaryText(data.text);
+            item_view->SetLeadingIcon(data.icon);
             section_view->AddListItem(std::move(item_view));
           },
           [&](const PickerSearchResult::EmojiData& data) {
@@ -228,9 +256,37 @@ void PickerSearchResultsView::AddResultToSection(
             section_view->AddEmoticonItem(std::move(emoticon_item));
           },
           [&](const PickerSearchResult::ClipboardData& data) {
-            // Do nothing for now. There are no clipboard results for actual
-            // search currently, ClipboardData is only used for clipboard
-            // items in zero state view.
+            auto item_view = std::make_unique<PickerListItemView>(
+                std::move(select_result_callback));
+            const gfx::VectorIcon* icon = nullptr;
+            switch (data.display_format) {
+              case PickerSearchResult::ClipboardData::DisplayFormat::kFile:
+                icon = &vector_icons::kContentCopyIcon;
+                item_view->SetPrimaryText(data.display_text);
+                break;
+              case PickerSearchResult::ClipboardData::DisplayFormat::kText:
+                icon = &chromeos::kTextIcon;
+                item_view->SetPrimaryText(data.display_text);
+                break;
+              case PickerSearchResult::ClipboardData::DisplayFormat::kImage:
+                if (!data.display_image.has_value()) {
+                  return;
+                }
+                icon = &chromeos::kFiletypeImageIcon;
+                item_view->SetPrimaryImage(
+                    std::make_unique<views::ImageView>(*data.display_image));
+                break;
+              case PickerSearchResult::ClipboardData::DisplayFormat::kHtml:
+                icon = &vector_icons::kCodeIcon;
+                item_view->SetPrimaryText(
+                    l10n_util::GetStringUTF16(IDS_PICKER_HTML_CONTENT));
+                break;
+            }
+            if (icon) {
+              item_view->SetLeadingIcon(ui::ImageModel::FromVectorIcon(
+                  *icon, cros_tokens::kCrosSysOnSurface, kIconSize));
+            }
+            section_view->AddListItem(std::move(item_view));
           },
           [&, this](const PickerSearchResult::GifData& data) {
             // `base::Unretained` is safe here because `this` will own the gif
@@ -259,15 +315,19 @@ void PickerSearchResultsView::AddResultToSection(
           [&](const PickerSearchResult::LocalFileData& data) {
             auto item_view = std::make_unique<PickerListItemView>(
                 std::move(select_result_callback));
-            item_view->SetPreview(&preview_bubble_controller_);
+            // TODO: b/330794217 - Add preview once it's available.
             item_view->SetPrimaryText(data.title);
+            item_view->SetLeadingIcon(ui::ImageModel::FromVectorIcon(
+                chromeos::kFiletypeImageIcon, cros_tokens::kCrosSysOnSurface));
             section_view->AddListItem(std::move(item_view));
           },
           [&](const PickerSearchResult::DriveFileData& data) {
             auto item_view = std::make_unique<PickerListItemView>(
                 std::move(select_result_callback));
-            item_view->SetPreview(&preview_bubble_controller_);
+            // TODO: b/330794217 - Add preview once it's available.
             item_view->SetPrimaryText(data.title);
+            item_view->SetLeadingIcon(
+                GetIconForPickerCategory(PickerCategory::kDriveFiles));
             section_view->AddListItem(std::move(item_view));
           },
           [&](const PickerSearchResult::CategoryData& data) {
@@ -290,6 +350,12 @@ void PickerSearchResultsView::SetPseudoFocusedView(views::View* view) {
   pseudo_focused_view_ = view;
   ApplyPickerPseudoFocusToView(pseudo_focused_view_);
   ScrollPseudoFocusedViewToVisible();
+}
+
+void PickerSearchResultsView::OnTrailingLinkClicked(
+    PickerSectionType section_type,
+    const ui::Event& event) {
+  select_more_results_callback_.Run(section_type);
 }
 
 void PickerSearchResultsView::ScrollPseudoFocusedViewToVisible() {

@@ -45,10 +45,13 @@ class DataAggregatorService : public CfmObserver,
 
   // mojom::DataAggregator implementation
   void GetDataSourceNames(GetDataSourceNamesCallback callback) override;
-  void AddDataSource(
-      mojo::PendingRemote<mojom::DataSource> new_data_source) override;
+  void AddDataSource(const std::string& source_name,
+                     mojo::PendingRemote<mojom::DataSource> new_data_source,
+                     AddDataSourceCallback callback) override;
   void AddWatchDog(const std::string& source_name,
-                   mojo::PendingRemote<mojom::DataWatchDog> watch_dog) override;
+                   mojom::DataFilterPtr filter,
+                   mojo::PendingRemote<mojom::DataWatchDog> watch_dog,
+                   AddWatchDogCallback callback) override;
 
   // Disconnect handler for |mojom::DataAggregator|
   virtual void OnMojoDisconnect();
@@ -57,8 +60,26 @@ class DataAggregatorService : public CfmObserver,
   DataAggregatorService();
   ~DataAggregatorService() override;
 
+  void AddLocalCommandSource(const std::string& command);
+  void OnLocalCommandDisconnect(const std::string& command);
+  void StartFetchTimer();
+  void FetchFromAllSourcesAndEnqueue();
+  void EnqueueData(const std::string& source_name,
+                   const std::vector<std::string>& serialized_records);
+  void HandleEnqueueResponse(const std::string& source_name, bool success);
+
   ServiceAdaptor service_adaptor_;
   mojo::ReceiverSet<mojom::DataAggregator> receivers_;
+
+  base::RepeatingTimer fetch_timer_;
+
+  SEQUENCE_CHECKER(sequence_checker_);
+
+  // Worker thread for locally created DataSources
+  scoped_refptr<base::SequencedTaskRunner> local_task_runner_;
+
+  // Maps DataSource names to their remotes, for access convenience
+  std::map<std::string, mojo::Remote<mojom::DataSource>> data_source_map_;
 
   // Must be the last class member.
   base::WeakPtrFactory<DataAggregatorService> weak_ptr_factory_{this};

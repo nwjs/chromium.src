@@ -23,11 +23,17 @@
 #include "extensions/renderer/isolated_world_manager.h"
 #include "extensions/renderer/renderer_frame_context_data.h"
 #include "extensions/renderer/script_context.h"
+#include "pdf/buildflags.h"
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "v8/include/v8-isolate.h"
 #include "v8/include/v8-object.h"
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "base/feature_list.h"
+#include "pdf/pdf_features.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace extensions {
 
@@ -100,9 +106,14 @@ ScriptContext* ScriptContextSet::Register(
     }
   }
 
-  ScriptContext* context =
-      new ScriptContext(v8_context, frame, host_id, extension, context_type,
-                        effective_extension, effective_context_type);
+  std::optional<int> blink_isolated_world_id;
+  if (IsolatedWorldManager::IsExtensionIsolatedWorld(world_id)) {
+    blink_isolated_world_id = world_id;
+  }
+
+  ScriptContext* context = new ScriptContext(
+      v8_context, frame, host_id, extension, std::move(blink_isolated_world_id),
+      context_type, effective_extension, effective_context_type);
   contexts_.insert(context);  // takes ownership
   return context;
 }
@@ -310,6 +321,15 @@ mojom::ContextType ScriptContextSet::ClassifyJavaScriptContext(
       return mojom::ContextType::kLockscreenExtension;
 
     if (is_webview) {
+#if BUILDFLAG(ENABLE_PDF)
+      // The PDF Viewer extension in a webview needs to be a privileged
+      // extension in order to load.
+      if (base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif) &&
+          extension->id() == extension_misc::kPdfExtensionId) {
+        return mojom::ContextType::kPrivilegedExtension;
+      }
+#endif  // BUILDFLAG(ENABLE_PDF)
+
       return mojom::ContextType::kUnprivilegedExtension;
     }
 

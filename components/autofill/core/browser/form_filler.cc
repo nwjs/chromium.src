@@ -183,7 +183,7 @@ FieldFillingSkipReason FormFiller::GetFieldFillingSkipReason(
   // TODO(b/40227496): 'autofill_field.value' should be the initial value of
   // the field. `form_field.value` should be the current value.
   if ((field.properties_mask & kUserTyped) &&
-      (!field.value.empty() || !autofill_field.value.empty()) &&
+      (!field.value().empty() || !autofill_field.value().empty()) &&
       !is_trigger_field) {
     return FieldFillingSkipReason::kUserFilledFields;
   }
@@ -251,7 +251,7 @@ FieldFillingSkipReason FormFiller::GetFieldFillingSkipReason(
   // TODO(b/40227496): 'autofill_field.value' should be the initial value of
   // the field.
   if (!is_trigger_field && !autofill_field.IsSelectOrSelectListElement() &&
-      !autofill_field.value.empty() &&
+      !autofill_field.value().empty() &&
       (IsNotAPlaceholder(autofill_field) ||
        IsMeaningfullyPreFilled(autofill_field))) {
     return FieldFillingSkipReason::kValuePrefilled;
@@ -392,7 +392,7 @@ FillingProduct FormFiller::UndoAutofill(
     const FormAutofillHistory::FieldFillingEntry& previous_state =
         operation.GetFieldFillingEntry(field.global_id());
     // Update the FormFieldData to be sent for the renderer.
-    field.value = previous_state.value;
+    field.set_value(previous_state.value);
     field.is_autofilled = previous_state.is_autofilled;
 
     // Update the cached AutofillField in the browser.
@@ -404,7 +404,7 @@ FillingProduct FormFiller::UndoAutofill(
   }
 
   // Do not attempt a refill after an Undo operation.
-  if (FillingContext* filling_context = GetFillingContext(form.global_id())) {
+  if (GetFillingContext(form.global_id())) {
     SetFillingContext(form.global_id(), nullptr);
   }
 
@@ -433,24 +433,26 @@ void FormFiller::FillOrPreviewField(mojom::ActionPersistence action_persistence,
                                     AutofillField* autofill_field,
                                     const std::u16string& value,
                                     PopupItemId popup_item_id) {
-  if (autofill_field && action_persistence == mojom::ActionPersistence::kFill &&
-      (popup_item_id == PopupItemId::kCreditCardFieldByFieldFilling ||
-       popup_item_id == PopupItemId::kAddressFieldByFieldFilling)) {
-    // TODO(crbug.com/1345089): Only use AutofillField.
-    const FormFieldData* const filled_field = &field;
-    form_autofill_history_.AddFormFillEntry(
-        base::make_span(&filled_field, 1u),
-        base::make_span(&autofill_field, 1u),
-        GetFillingProductFromPopupItemId(popup_item_id),
-        /*is_refill=*/false);
+  if (autofill_field && action_persistence == mojom::ActionPersistence::kFill) {
     autofill_field->is_autofilled = true;
     autofill_field->AppendLogEventIfNotRepeated(FillFieldLogEvent{
         .fill_event_id = GetNextFillEventId(),
-        .had_value_before_filling = ToOptionalBoolean(!field.value.empty()),
+        .had_value_before_filling = ToOptionalBoolean(!field.value().empty()),
         .autofill_skipped_status = FieldFillingSkipReason::kNotSkipped,
         .was_autofilled_before_security_policy = ToOptionalBoolean(true),
         .had_value_after_filling = ToOptionalBoolean(true),
         .filling_method = FillingMethod::kFieldByFieldFilling});
+
+    if (popup_item_id == PopupItemId::kCreditCardFieldByFieldFilling ||
+        popup_item_id == PopupItemId::kAddressFieldByFieldFilling) {
+      // TODO(crbug.com/1345089): Only use AutofillField.
+      const FormFieldData* const filled_field = &field;
+      form_autofill_history_.AddFormFillEntry(
+          base::make_span(&filled_field, 1u),
+          base::make_span(&autofill_field, 1u),
+          GetFillingProductFromPopupItemId(popup_item_id),
+          /*is_refill=*/false);
+    }
   }
   manager_->driver().ApplyFieldAction(action_type, action_persistence,
                                       field.global_id(), value);
@@ -585,7 +587,7 @@ void FormFiller::FillOrPreviewForm(
               *form_structure, *autofill_field,
               !autofill_field->IsSelectElement());
     }
-    const bool has_value_before = !result_form.fields[i].value.empty();
+    const bool has_value_before = !result_form.fields[i].value().empty();
     // Log when the suggestion is selected and log on non-checkable fields that
     // skip filling.
     if (skip_reasons[autofill_field->global_id()] !=
@@ -661,11 +663,10 @@ void FormFiller::FillOrPreviewForm(
     const bool is_newly_autofilled = FillField(
         *autofill_field, profile_or_credit_card, forced_fill_values,
         result_form.fields[i], should_notify, cvc.has_value() ? *cvc : u"",
-        data_util::DetermineGroups(*form_structure), action_persistence,
-        &failure_to_fill);
+        action_persistence, &failure_to_fill);
     const bool autofilled_value_did_not_change =
         form.fields[i].is_autofilled && result_form.fields[i].is_autofilled &&
-        form.fields[i].value == result_form.fields[i].value;
+        form.fields[i].value() == result_form.fields[i].value();
     if (is_newly_autofilled && !autofilled_value_did_not_change) {
       newly_filled_field_ids.insert(result_form.fields[i].global_id());
     } else if (is_newly_autofilled) {
@@ -676,7 +677,7 @@ void FormFiller::FillOrPreviewForm(
           FieldFillingSkipReason::kNoValueToFill;
     }
 
-    const bool has_value_after = !result_form.fields[i].value.empty();
+    const bool has_value_after = !result_form.fields[i].value().empty();
     const bool is_autofilled_before = form.fields[i].is_autofilled;
     const bool is_autofilled_after = result_form.fields[i].is_autofilled;
 
@@ -707,10 +708,6 @@ void FormFiller::FillOrPreviewForm(
                "Field %zu Fillable - has value: %d->%d; autofilled: %d->%d. %s",
                i, has_value_before, has_value_after, is_autofilled_before,
                is_autofilled_after, failure_to_fill.c_str());
-
-    if (!autofill_field->IsFocusable() && result_form.fields[i].is_autofilled) {
-      AutofillMetrics::LogHiddenOrPresentationalSelectFieldsFilled();
-    }
   }
   if (could_attempt_refill) {
     filling_context->filled_form = result_form;
@@ -904,7 +901,7 @@ void FormFiller::TriggerRefill(const FormData& form,
             field->global_id() == filling_context->filled_field_id,
             field->GetFieldSignature() ==
                 filling_context->filled_field_signature,
-            field->renderer_id);
+            field->renderer_id());
       };
   auto it =
       base::ranges::max_element(*form_structure, {}, comparison_attributes);
@@ -956,7 +953,7 @@ void FormFiller::MaybeTriggerRefillForExpirationDate(
   if (old_value.length() != kSupportedLength) {
     return;
   }
-  if (old_value == field.value) {
+  if (old_value == field.value()) {
     return;
   }
   static constexpr char16_t kFormatRegEx[] =
@@ -968,7 +965,7 @@ void FormFiller::MaybeTriggerRefillForExpirationDate(
   DCHECK_EQ(old_groups.size(), 4u);
 
   std::vector<std::u16string> new_groups;
-  if (!MatchesRegex<kFormatRegEx>(field.value, &new_groups)) {
+  if (!MatchesRegex<kFormatRegEx>(field.value(), &new_groups)) {
     return;
   }
   DCHECK_EQ(new_groups.size(), 4u);
@@ -984,7 +981,7 @@ void FormFiller::MaybeTriggerRefillForExpirationDate(
       old_year / 100 != new_year) {
     return;
   }
-  std::u16string refill_value = field.value;
+  std::u16string refill_value = field.value();
   CHECK(refill_value.size() >= 2);
   refill_value[refill_value.size() - 1] = '0' + (old_year % 10);
   refill_value[refill_value.size() - 2] = '0' + ((old_year % 100) / 10);
@@ -1046,7 +1043,6 @@ bool FormFiller::FillField(
     FormFieldData& field_data,
     bool should_notify,
     const std::u16string& cvc,
-    uint32_t profile_form_bitmask,
     mojom::ActionPersistence action_persistence,
     std::string* failure_to_fill) {
   const FieldFillingData filling_content = GetFieldFillingData(
@@ -1060,7 +1056,7 @@ bool FormFiller::FillField(
     }
     return false;
   }
-  field_data.value = filling_content.value_to_fill;
+  field_data.set_value(filling_content.value_to_fill);
   field_data.force_override = filling_content.value_is_an_override;
 
   if (failure_to_fill) {
@@ -1081,10 +1077,6 @@ bool FormFiller::FillField(
   // it. This allows the renderer to distinguish autofilled fields from
   // fields with non-empty values, such as select-one fields.
   field_data.is_autofilled = true;
-  AutofillMetrics::LogUserHappinessMetric(
-      AutofillMetrics::FIELD_WAS_AUTOFILLED, autofill_field.Type().group(),
-      manager_->client().GetSecurityLevelForUmaHistograms(),
-      profile_form_bitmask);
 
   if (should_notify) {
     DCHECK(absl::holds_alternative<const AutofillProfile*>(

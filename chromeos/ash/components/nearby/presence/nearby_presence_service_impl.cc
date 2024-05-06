@@ -8,6 +8,7 @@
 
 #include "base/check.h"
 #include "base/logging.h"
+#include "chromeos/ash/components/nearby/presence/conversions/proto_conversions.h"
 #include "chromeos/ash/components/nearby/presence/credentials/nearby_presence_credential_manager_impl.h"
 #include "chromeos/ash/components/nearby/presence/nearby_presence_service_enum_coversions.h"
 #include "chromeos/ash/components/nearby/presence/prefs/nearby_presence_prefs.h"
@@ -68,9 +69,11 @@ namespace {
     presence_device.AddAction(static_cast<uint32_t>(action));
   }
 
-  // TODO(b/328450930): Introduce decrypted shared credential to the mojom
-  // representation of `PresenceDevice` and properly convert it via
-  // `SetDecryptSharedCredential()` here.
+  if (device->decrypt_shared_credential.get()) {
+    presence_device.SetDecryptSharedCredential(
+        ash::nearby::presence::proto::SharedCredentialFromMojom(
+            device->decrypt_shared_credential.get()));
+  }
 
   return presence_device;
 }
@@ -165,15 +168,16 @@ void NearbyPresenceServiceImpl::UpdateCredentials() {
   // flow has already occurred, and we can move forward with updating
   // credentials.
   if (credential_manager_) {
-    CD_LOG(VERBOSE, Feature::NP)
+    CD_LOG(VERBOSE, Feature::NEARBY_INFRA)
         << __func__ << ": Initiating updating credentials.";
     credential_manager_->UpdateCredentials();
     return;
   }
 
-  CD_LOG(VERBOSE, Feature::NP) << __func__
-                               << ": Attempted to update credentials, but "
-                                  "CredentialManager was not yet initialized.";
+  CD_LOG(VERBOSE, Feature::NEARBY_INFRA)
+      << __func__
+      << ": Attempted to update credentials, but "
+         "CredentialManager was not yet initialized.";
 
   // Otherwise, initialize a `CredentialManager` before updating credentials.
   Initialize(
@@ -211,19 +215,20 @@ void NearbyPresenceServiceImpl::OnDeviceLost(mojom::PresenceDevicePtr device) {
 
 void NearbyPresenceServiceImpl::OnMessageReceived(
     base::flat_map<std::string, std::string> message) {
-  CD_LOG(VERBOSE, Feature::NP)
+  CD_LOG(VERBOSE, Feature::NEARBY_INFRA)
       << __func__ << ": Push notification message recieved.";
   if ((message.at(push_notification::kNotificationClientIdKey) ==
        kNearbyPresencePushNotificationClientId) &&
       (message.at(push_notification::kNotificationTypeIdKey) ==
        kNearbyPresencePushNotificationTypeId)) {
     // TODO(b/319286048): Check for action specific information.
-    CD_LOG(ERROR, Feature::NP) << __func__
-                               << ": Push notification message is correctly "
-                                  "formatted. Updating credentials now.";
+    CD_LOG(ERROR, Feature::NEARBY_INFRA)
+        << __func__
+        << ": Push notification message is correctly "
+           "formatted. Updating credentials now.";
     UpdateCredentials();
   } else {
-    CD_LOG(VERBOSE, Feature::NP)
+    CD_LOG(VERBOSE, Feature::NEARBY_INFRA)
         << __func__
         << ": Push notification message is malformed. Discarding message.";
   }

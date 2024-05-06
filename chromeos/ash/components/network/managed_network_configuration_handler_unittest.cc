@@ -406,12 +406,9 @@ class ManagedNetworkConfigurationHandlerTest : public testing::Test {
   }
 
   void SetArcAlwaysOnUserPrefs(std::string package_name,
-                               bool lockdown,
                                bool vpn_configured_allowed = false) {
     user_prefs_.SetUserPref(arc::prefs::kAlwaysOnVpnPackage,
                             base::Value(package_name));
-    user_prefs_.SetUserPref(arc::prefs::kAlwaysOnVpnLockdown,
-                            base::Value(lockdown));
     user_prefs_.SetUserPref(prefs::kVpnConfigAllowed,
                             base::Value(vpn_configured_allowed));
   }
@@ -423,6 +420,7 @@ class ManagedNetworkConfigurationHandlerTest : public testing::Test {
  protected:
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  base::test::ScopedFeatureList feature_list_;
 
   TestNetworkPolicyObserver policy_observer_;
   std::unique_ptr<MockNetworkStateHandler> network_state_handler_;
@@ -2126,6 +2124,29 @@ TEST_F(ManagedNetworkConfigurationHandlerTest,
       managed_handler()->UserCreatedNetworkConfigurationsAreEphemeral());
 }
 
+TEST_F(ManagedNetworkConfigurationHandlerTest, AllowApnModification) {
+  feature_list_.InitAndEnableFeature(features::kApnPolicies);
+
+  // TODO(b/333100319): When feature is fully enabled, test
+  // AllowApnModification() in other unit tests to be consistent.
+  EXPECT_TRUE(managed_handler()->AllowApnModification());
+
+  // Set 'AllowApnModification' policy.
+  EXPECT_TRUE(SetPolicy(::onc::ONC_SOURCE_DEVICE_POLICY, std::string(),
+                        "policy/policy_allow_apn_modification.onc"));
+  base::RunLoop().RunUntilIdle();
+
+  // Check ManagedNetworkConfigurationHandler policy accessors.
+  EXPECT_FALSE(managed_handler()->AllowApnModification());
+  EXPECT_TRUE(managed_handler()->AllowCellularHotspot());
+  EXPECT_TRUE(managed_handler()->AllowCellularSimLock());
+  EXPECT_FALSE(managed_handler()->AllowOnlyPolicyCellularNetworks());
+  EXPECT_FALSE(managed_handler()->AllowOnlyPolicyWiFiToConnect());
+  EXPECT_FALSE(managed_handler()->AllowOnlyPolicyWiFiToConnectIfAvailable());
+  EXPECT_FALSE(managed_handler()->AllowOnlyPolicyNetworksToAutoconnect());
+  EXPECT_TRUE(managed_handler()->GetBlockedHexSSIDs().empty());
+}
+
 TEST_F(ManagedNetworkConfigurationHandlerTest, AllowCellularSimLock) {
   // Set 'AllowCellularSimLock' policy.
   EXPECT_TRUE(SetPolicy(::onc::ONC_SOURCE_DEVICE_POLICY, std::string(),
@@ -2402,17 +2423,15 @@ TEST_F(ManagedNetworkConfigurationHandlerTest, IsProhibitedFromConfiguringVpn) {
   user_prefs_.registry()->RegisterBooleanPref(prefs::kVpnConfigAllowed, true);
 
   for (const std::string& package_name : {"", "package_name"}) {
-    for (const bool lockdown : {true, false}) {
-      for (const bool vpn_configure_allowed : {true, false}) {
-        SetArcAlwaysOnUserPrefs(package_name, lockdown, vpn_configure_allowed);
-        if (package_name.empty() || !lockdown || vpn_configure_allowed) {
-          EXPECT_FALSE(managed_network_configuration_handler_
-                           ->IsProhibitedFromConfiguringVpn());
-          continue;
-        }
-        EXPECT_TRUE(managed_network_configuration_handler_
-                        ->IsProhibitedFromConfiguringVpn());
+    for (const bool vpn_configure_allowed : {true, false}) {
+      SetArcAlwaysOnUserPrefs(package_name, vpn_configure_allowed);
+      if (package_name.empty() || vpn_configure_allowed) {
+        EXPECT_FALSE(managed_network_configuration_handler_
+                         ->IsProhibitedFromConfiguringVpn());
+        continue;
       }
+      EXPECT_TRUE(managed_network_configuration_handler_
+                      ->IsProhibitedFromConfiguringVpn());
     }
   }
 }

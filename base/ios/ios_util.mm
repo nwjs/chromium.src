@@ -9,7 +9,6 @@
 #include <stddef.h>
 
 #include "base/apple/foundation_util.h"
-#import "base/ios/device_util.h"
 #include "base/system/sys_info.h"
 
 namespace {
@@ -82,13 +81,6 @@ bool IsMultipleScenesSupported() {
 
 bool IsApplicationPreWarmed() {
   return [NSProcessInfo.processInfo.environment objectForKey:@"ActivePrewarm"];
-}
-
-bool HasDynamicIsland() {
-  std::string hardware_model = ::ios::device_util::GetPlatform();
-  static bool is_dynamic_island_model =
-      (hardware_model == "iPhone15,2" || hardware_model == "iPhone15,3");
-  return is_dynamic_island_model;
 }
 
 }  // namespace base::ios

@@ -107,17 +107,33 @@ auto SaveSessionId(SessionId* session_id) {
   };
 }
 
-FormData CreateTestLoginForm() {
+FormData CreateTestBasicForm() {
   FormData form;
   form.renderer_id = test::MakeFormRendererId();
-  form.name = u"login_form";
   form.url = GURL("https://foo.com/form.html");
   form.action = GURL("https://foo.com/submit.html");
   form.main_frame_origin = url::Origin::Create(form.url);
+  return form;
+}
+
+FormData CreateTestLoginForm() {
+  FormData form = CreateTestBasicForm();
+  form.name = u"login_form";
   form.fields = {
       CreateTestFormField(/*label=*/"Username", /*name=*/"username",
                           /*value=*/"", FormControlType::kInputText),
       CreateTestFormField(/*label=*/"Password", /*name=*/"password",
+                          /*value=*/"", FormControlType::kInputPassword)};
+  return form;
+}
+
+FormData CreateTestChangePasswordForm() {
+  FormData form = CreateTestBasicForm();
+  form.name = u"change_password_form";
+  form.fields = {
+      CreateTestFormField(/*label=*/"Password", /*name=*/"password1",
+                          /*value=*/"", FormControlType::kInputPassword),
+      CreateTestFormField(/*label=*/"Password", /*name=*/"password2",
                           /*value=*/"", FormControlType::kInputPassword)};
   return form;
 }
@@ -538,12 +554,12 @@ TEST_F(AutofillProviderAndroidTest, OnTextFieldDidChange) {
   // Simulate a value change.
   EXPECT_CALL(provider_bridge(),
               OnFormFieldDidChange(EqualsFieldInfo(/*index=*/1)));
-  form.fields[1].value += u"x";
+  form.fields[1].set_value(form.fields[1].value() + u"x");
   android_autofill_manager().SimulateOnTextFieldDidChange(form, form.fields[1]);
   // The `FormDataAndroid` object owned by the provider is also updated.
   ASSERT_TRUE(test_api(autofill_provider()).form());
-  EXPECT_EQ(test_api(autofill_provider()).form()->form().fields[1].value,
-            form.fields[1].value);
+  EXPECT_EQ(test_api(autofill_provider()).form()->form().fields[1].value(),
+            form.fields[1].value());
 }
 
 // Tests that value changes in a form that is not part of the current Autofill
@@ -562,7 +578,7 @@ TEST_F(AutofillProviderAndroidTest, OnTextFieldDidChangeInUnrelatedForm) {
 
   // Simulate a value change in a different form.
   EXPECT_CALL(provider_bridge(), OnFormFieldDidChange).Times(0);
-  form2.fields[1].value += u"x";
+  form2.fields[1].set_value(form2.fields[1].value() + u"x");
   android_autofill_manager().SimulateOnTextFieldDidChange(form2,
                                                           form2.fields[1]);
 }
@@ -623,6 +639,9 @@ TEST_F(AutofillProviderAndroidTest, OnFormSubmittedWithKnownSuccess) {
 // Java when the `AutofillManager` of the tab is reset, even if the form
 // submission was not known to be a success.
 TEST_F(AutofillProviderAndroidTest, FormSubmissionHappensOnReset) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAndroidAutofillDirectFormSubmission);
   FormData form = CreateFormDataForFrame(
       CreateTestPersonalInformationFormData(), main_frame_token());
   android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{});
@@ -632,12 +651,35 @@ TEST_F(AutofillProviderAndroidTest, FormSubmissionHappensOnReset) {
 
   EXPECT_CALL(provider_bridge(), OnFormSubmitted).Times(0);
   android_autofill_manager().SimulateOnFormSubmitted(
-      form, /*known_success=*/false, mojom::SubmissionSource::XHR_SUCCEEDED);
+      form, /*known_success=*/false,
+      mojom::SubmissionSource::PROBABLY_FORM_SUBMITTED);
   Mock::VerifyAndClearExpectations(&provider_bridge());
 
-  EXPECT_CALL(provider_bridge(),
-              OnFormSubmitted(mojom::SubmissionSource::XHR_SUCCEEDED));
+  EXPECT_CALL(
+      provider_bridge(),
+      OnFormSubmitted(mojom::SubmissionSource::PROBABLY_FORM_SUBMITTED));
   android_autofill_manager().Reset();
+}
+
+// Tests that a form submission of an ongoing Autofill session is propagated to
+// Java directly on submission, even if the form submission was not known to be
+// a success.
+TEST_F(AutofillProviderAndroidTest, FormSubmissionHappensDirectly) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAndroidAutofillDirectFormSubmission};
+  FormData form = CreateFormDataForFrame(
+      CreateTestPersonalInformationFormData(), main_frame_token());
+  android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{});
+
+  // Start an Autofill session.
+  android_autofill_manager().SimulateOnAskForValuesToFill(form, form.fields[0]);
+
+  EXPECT_CALL(
+      provider_bridge(),
+      OnFormSubmitted(mojom::SubmissionSource::PROBABLY_FORM_SUBMITTED));
+  android_autofill_manager().SimulateOnFormSubmitted(
+      form, /*known_success=*/false,
+      mojom::SubmissionSource::PROBABLY_FORM_SUBMITTED);
 }
 
 // Tests that a form submission of an ongoing Autofill session is propagated to
@@ -1134,6 +1176,27 @@ TEST_P(AutofillProviderAndroidPrefillRequestTest,
   // before.
   EXPECT_NE(cache_session_id, pw_form_second_session_id);
   EXPECT_NE(pi_form_session_id, pw_form_second_session_id);
+}
+
+// Tests that the prefill request can be sent for Change Password form.
+TEST_P(AutofillProviderAndroidPrefillRequestTest,
+       PrefillRequestSentForChangePasswordForm) {
+  if (base::android::BuildInfo::GetInstance()->sdk_int() <
+      base::android::SdkVersion::SDK_VERSION_U) {
+    GTEST_SKIP();
+  }
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAndroidAutofillPrefillRequestsForChangePassword);
+
+  FormData form = CreateFormDataForFrame(CreateTestChangePasswordForm(),
+                                         main_frame_token());
+  android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{});
+  ASSERT_TRUE(android_autofill_manager().FindCachedFormById(form.global_id()));
+
+  EXPECT_CALL(provider_bridge(), SendPrefillRequest(EqualsFormData(form)));
+  android_autofill_manager().SimulatePropagateAutofillPredictions(
+      form.global_id());
 }
 
 // Tests that metrics are emitted when the bottom sheet is shown.

@@ -16,12 +16,15 @@ import org.chromium.chrome.browser.device_lock.DeviceLockActivityLauncherImpl;
 import org.chromium.chrome.browser.feed.FeedActionDelegate;
 import org.chromium.chrome.browser.feed.R;
 import org.chromium.chrome.browser.feed.signinbottomsheet.SigninBottomSheetCoordinator;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.signin.SigninAndHistoryOptInActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.SyncConsentActivityLauncherImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.AsyncTabCreationParams;
 import org.chromium.chrome.browser.tabmodel.document.ChromeAsyncTabLauncher;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.signin.SigninAndHistoryOptInCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -116,10 +119,28 @@ public class CreatorActionDelegateImpl implements FeedActionDelegate {
             BottomSheetController mBottomSheetController,
             WindowAndroid mWindowAndroid) {
         AccountPickerBottomSheetStrings strings =
-                new AccountPickerBottomSheetStrings(
-                        R.string.signin_account_picker_bottom_sheet_title_for_cormorant_signin,
-                        R.string.signin_account_picker_bottom_sheet_subtitle_for_cormorant_signin,
-                        R.string.close);
+                new AccountPickerBottomSheetStrings.Builder(
+                                R.string
+                                        .signin_account_picker_bottom_sheet_title_for_cormorant_signin)
+                        .setSubtitleStringId(
+                                R.string
+                                        .signin_account_picker_bottom_sheet_subtitle_for_cormorant_signin)
+                        .setDismissButtonStringId(R.string.close)
+                        .build();
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            SigninAndHistoryOptInActivityLauncherImpl.get()
+                    .launchActivityIfAllowed(
+                            mActivity,
+                            mProfile,
+                            strings,
+                            SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
+                            SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                                    .DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                            SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE,
+                            signinAccessPoint);
+            return;
+        }
         SigninBottomSheetCoordinator signinCoordinator =
                 new SigninBottomSheetCoordinator(
                         mWindowAndroid,

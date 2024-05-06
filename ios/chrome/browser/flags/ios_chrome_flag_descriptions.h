@@ -32,11 +32,6 @@ extern const char kAutofillDisableSilentProfileUpdatesDescription[];
 extern const char kAutofillEnableCardArtImageName[];
 extern const char kAutofillEnableCardArtImageDescription[];
 
-// Title and description for the flag to enable card benefits for autofill
-// Payments UI.
-extern const char kAutofillEnableCardBenefitsName[];
-extern const char kAutofillEnableCardBenefitsDescription[];
-
 // Title and description for the flag to enable American Express card benefits
 // for autofill Payments UI.
 extern const char kAutofillEnableCardBenefitsForAmericanExpressName[];
@@ -67,6 +62,11 @@ extern const char kAutofillEnableMerchantDomainInUnmaskCardRequestDescription[];
 // mandatory reauth feature is enabled.
 extern const char kAutofillEnablePaymentsMandatoryReauthName[];
 extern const char kAutofillEnablePaymentsMandatoryReauthDescription[];
+
+// Title and description for the flag to control the latency optimization where
+// the risk data pre-fetched during retrieval.
+extern const char kAutofillEnablePrefetchingRiskDataForRetrievalName[];
+extern const char kAutofillEnablePrefetchingRiskDataForRetrievalDescription[];
 
 // Title and description for the flag to control the new autofill suggestion
 // ranking formula for address profiles.
@@ -121,6 +121,10 @@ extern const char kAutofillParseVcnCardOnFileStandaloneCvcFieldsDescription[];
 // of Autofill suggestions shown is pruned.
 extern const char kAutofillPruneSuggestionsName[];
 extern const char kAutofillPruneSuggestionsDescription[];
+
+// Title and description for the flag that makes the autofill infobars sticky.
+extern const char kAutofillStickyInfobarName[];
+extern const char kAutofillStickyInfobarDescription[];
 
 // Title and description for the flag to suggest Server card instead of a
 // deduped Local card.
@@ -192,6 +196,11 @@ extern const char kContextualPanelForceShowEntrypointDescription[];
 extern const char kContextualPanelName[];
 extern const char kContextualPanelDescription[];
 
+// Title and description for the flag to enable the Credential Provider
+// Improvements.
+extern const char kCredentialProviderPerformanceImprovementsName[];
+extern const char kCredentialProviderPerformanceImprovementsDescription[];
+
 // Title and description for the flag to enable experience kit apple calendar
 // events.
 extern const char kAppleCalendarExperienceKitName[];
@@ -211,10 +220,25 @@ extern const char kMeasurementsDescription[];
 extern const char kEnableViewportIntentsName[];
 extern const char kEnableViewportIntentsDescription[];
 
-// Title and description for the flag to enable text classifier entity detection
-// in experience kit for different entity types.
-extern const char kEnableExpKitTextClassifierName[];
-extern const char kEnableExpKitTextClassifierDescription[];
+// Title and description for the flag to enable text classifier date detection
+// in experience kit.
+extern const char kEnableExpKitTextClassifierDateName[];
+extern const char kEnableExpKitTextClassifierDateDescription[];
+
+// Title and description for the flag to enable text classifier address
+// detection in experience kit.
+extern const char kEnableExpKitTextClassifierAddressName[];
+extern const char kEnableExpKitTextClassifierAddressDescription[];
+
+// Title and description for the flag to enable text classifier phone number
+// detection in experience kit.
+extern const char kEnableExpKitTextClassifierPhoneNumberName[];
+extern const char kEnableExpKitTextClassifierPhoneNumberDescription[];
+
+// Title and description for the flag to enable text classifier email
+// detection in experience kit.
+extern const char kEnableExpKitTextClassifierEmailName[];
+extern const char kEnableExpKitTextClassifierEmailDescription[];
 
 // Title and description for the flag to enable parental controls from Family
 // Link on iOS.
@@ -247,11 +271,6 @@ extern const char kDefaultBrowserPromoForceShowPromoDescription[];
 // Title and description for default browser promo trigger criteria experiment.
 extern const char kDefaultBrowserTriggerCriteriaExperimentName[];
 extern const char kDefaultBrowserTriggerCriteriaExperimentDescription[];
-
-// Title and description for the flag to enable the flag that skips the
-// triggering criteria default browser promo skip.
-extern const char kDefaultBrowserVideoPromoName[];
-extern const char kDefaultBrowserVideoPromoDescription[];
 
 // Title and description for the flag to control if a crash report is generated
 // on main thread freeze.
@@ -384,6 +403,11 @@ extern const char kEnableVariationsGoogleGroupFilteringDescription[];
 extern const char kEnableWebChannelsName[];
 extern const char kEnableWebChannelsDescription[];
 
+// Title and description for the flag to display promos promoting the Enhanced
+// Safe Browsing feature.
+extern const char kEnhancedSafeBrowsingPromoName[];
+extern const char kEnhancedSafeBrowsingPromoDescription[];
+
 // Title and description for the flag to enable feed background refresh.
 extern const char kFeedBackgroundRefreshName[];
 extern const char kFeedBackgroundRefreshDescription[];
@@ -483,6 +507,11 @@ extern const char kIOSPasswordBottomSheetDescription[];
 extern const char kIOSPasswordBottomSheetAutofocusName[];
 extern const char kIOSPasswordBottomSheetAutofocusDescription[];
 
+// Title and description for the flag to allow syncing, managing, and displaying
+// Google Password Manager WebAuthn credential ('passkey') metadata.
+extern const char kSyncWebauthnCredentialsName[];
+extern const char kSyncWebauthnCredentialsDescription[];
+
 // Title and description for the flag to enable filling the username of single
 // username forms in sign-in UFF.
 extern const char kIOSPasswordSignInUffName[];
@@ -523,11 +552,6 @@ extern const char kIOSTipsNotificationsDescription[];
 // Title and description for the flag to enable IPH for safari switcher.
 extern const char kIPHForSafariSwitcherName[];
 extern const char kIPHForSafariSwitcherDescription[];
-
-// Title and description for the flag to enable the Password Manager widget
-// promo IPH.
-extern const char kIPHiOSPromoPasswordManagerWidgetName[];
-extern const char kIPHiOSPromoPasswordManagerWidgetDescription[];
 
 // Title and description for the flag to enable the pull-to-refreh IPH.
 extern const char kIPHiOSPullToRefreshFeatureName[];
@@ -575,10 +599,6 @@ extern const char kMetrickitNonCrashReportDescription[];
 // non-syncing state.
 extern const char kMigrateSyncingUserToSignedInName[];
 extern const char kMigrateSyncingUserToSignedInDescription[];
-
-// Title and description for the flag to enable Mixed Content auto-upgrading.
-extern const char kMixedContentAutoupgradeName[];
-extern const char kMixedContentAutoupgradeDescription[];
 
 // TODO(crbug.com/1128242): Remove this flag after the refactoring work is
 // finished.
@@ -740,6 +760,24 @@ extern const char kOptimizationGuidePushNotificationClientDescription[];
 extern const char kOneTapForMapsName[];
 extern const char kOneTapForMapsDescription[];
 
+// Title and description for the flag to enable page content annotations.
+extern const char kPageContentAnnotationsName[];
+extern const char kPageContentAnnotationsDescription[];
+
+// Title and description for the flag to enable persisting salient images
+// metadata.
+extern const char kPageContentAnnotationsPersistSalientImageMetadataName[];
+extern const char
+    kPageContentAnnotationsPersistSalientImageMetadataDescription[];
+
+// Title and description for the flag to enable persisting remote page metadata.
+extern const char kPageContentAnnotationsRemotePageMetadataName[];
+extern const char kPageContentAnnotationsRemotePageMetadataDescription[];
+
+// Title and description for the flag to enable page visibility.
+extern const char kPageVisibilityPageContentAnnotationsName[];
+extern const char kPageVisibilityPageContentAnnotationsDescription[];
+
 // Title and description for the flag to enable PhishGuard password reuse
 // detection.
 extern const char kPasswordReuseDetectionName[];
@@ -753,11 +791,6 @@ extern const char kPasswordSharingDescription[];
 // Title and description for the flag to enable chrome://policy/test.
 extern const char kEnablePolicyTestPageName[];
 extern const char kEnablePolicyTestPageDescription[];
-
-// Title and description for the flag to enable the post restore default browser
-// promo.
-extern const char kPostRestoreDefaultBrowserPromoName[];
-extern const char kPostRestoreDefaultBrowserPromoDescription[];
 
 // Title and description for the flag to enable the Privacy Guide.
 extern const char kPrivacyGuideIosName[];
@@ -781,11 +814,6 @@ extern const char kRemoveExcessNTPsExperimentDescription[];
 // Title and description for the flag to remove unsafe restore.
 extern const char kRemoveOldWebStateRestoreName[];
 extern const char kRemoveOldWebStateRestoreDescription[];
-
-// Title and description for the flag to replace all sync-related UI with
-// sign-in ones.
-extern const char kReplaceSyncPromosWithSignInPromosName[];
-extern const char kReplaceSyncPromosWithSignInPromosDescription[];
 
 // Title and description for the flag to revamp Page Info in iOS.
 extern const char kRevampPageInfoIosName[];
@@ -919,6 +947,10 @@ extern const char kTabGridNewTransitionsDescription[];
 // Title and description for the tab groups in grid feature.
 extern const char kTabGroupsInGridName[];
 extern const char kTabGroupsInGridDescription[];
+
+// Title and description for the tab groups on iPad feature.
+extern const char kTabGroupsIPadName[];
+extern const char kTabGroupsIPadDescription[];
 
 // Title and description for the flag to determine tab inactivity in the
 // TabGrid.

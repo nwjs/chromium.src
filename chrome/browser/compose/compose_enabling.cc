@@ -25,6 +25,9 @@
 #include "components/flags_ui/flags_storage.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_frame_host.h"
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/constants/chromeos_features.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
 
@@ -169,20 +172,26 @@ base::expected<void, compose::ComposeShowStatus> ComposeEnabling::CheckEnabling(
   // TODO(b/314199871): Remove test bypass once this check becomes mock-able.
   if (!skip_user_check_for_testing_ &&
       !opt_guide->ShouldFeatureBeCurrentlyEnabledForUser(
-          optimization_guide::proto::ModelExecutionFeature::
-              MODEL_EXECUTION_FEATURE_COMPOSE)) {
+          optimization_guide::UserVisibleFeatureKey::kCompose)) {
     DVLOG(2) << "Feature not available for this user";
     return base::unexpected(
         compose::ComposeShowStatus::kUserNotAllowedByOptimizationGuide);
   }
 
+// For ChromeOS only, check whether this device is supported.
+#if BUILDFLAG(IS_CHROMEOS)
+  if (chromeos::features::ShouldDisableChromeComposeOnChromeOS()) {
+    DVLOG(2) << "feature disabled on ChromeOS";
+    return base::unexpected(compose::ComposeShowStatus::kDisabledOnChromeOS);
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
   DVLOG(2) << "enabled";
   return base::ok();
 }
 
-// TODO(b/303502029): make return state an enum instead of a bool so we
-// can return a different value when we have saved state for this field.
-bool ComposeEnabling::ShouldTriggerPopup(
+base::expected<void, compose::ComposeNudgeDenyReason>
+ComposeEnabling::ShouldTriggerPopup(
     std::string_view autocomplete_attribute,
     Profile* profile,
     translate::TranslateManager* translate_manager,
@@ -191,57 +200,83 @@ bool ComposeEnabling::ShouldTriggerPopup(
     const url::Origin& element_frame_origin,
     GURL url,
     autofill::AutofillSuggestionTriggerSource trigger_source) {
-  if (trigger_source ==
-          autofill::AutofillSuggestionTriggerSource::kComposeDialogLostFocus &&
-      !base::FeatureList::IsEnabled(
-          compose::features::kEnableComposeSavedStateNotification)) {
-    return false;
+  if (ongoing_session) {
+    return ShouldTriggerSavedStatePopup(trigger_source);
   }
+  return ShouldTriggerNoStatePopup(autocomplete_attribute, profile,
+                                   translate_manager, top_level_frame_origin,
+                                   element_frame_origin, url);
+}
 
-  if (trigger_source !=
-          autofill::AutofillSuggestionTriggerSource::kComposeDialogLostFocus &&
-      !base::FeatureList::IsEnabled(compose::features::kEnableComposeNudge)) {
-    return false;
-  }
-
-  // Check URL with Optimization guide.
-  compose::ComposeHintDecision decision =
-      GetOptimizationGuidanceForUrl(url, profile);
-  if (decision == compose::ComposeHintDecision::
-                      COMPOSE_HINT_DECISION_COMPOSE_DISABLED ||
-      decision ==
-          compose::ComposeHintDecision::COMPOSE_HINT_DECISION_DISABLE_NUDGE) {
-    return false;
-  }
-
+base::expected<void, compose::ComposeNudgeDenyReason>
+ComposeEnabling::ShouldTriggerNoStatePopup(
+    std::string_view autocomplete_attribute,
+    Profile* profile,
+    translate::TranslateManager* translate_manager,
+    const url::Origin& top_level_frame_origin,
+    const url::Origin& element_frame_origin,
+    GURL url) {
   // TODO(b/319661274): Support fenced frame checks from the Autofill popup
   // entry point.
   bool is_in_fenced_frame = false;
   if (!PageLevelChecks(translate_manager, url, top_level_frame_origin,
                        element_frame_origin, is_in_fenced_frame)
            .has_value()) {
-    return false;
+    return base::unexpected(compose::ComposeNudgeDenyReason::kPageLevelChecks);
   }
 
-  auto& config = compose::GetComposeConfig();
-
-  if (ongoing_session) {
-    if (!config.popup_with_saved_state) {
-      return false;
-    }
-  } else {
-    if (!config.popup_with_no_saved_state) {
-      return false;
-    }
-    // Check autocomplete attribute if the proactive nudge would be presented.
-    // TODO(b/303288183): Decide if we should keep this check or not.
-    if (!AutocompleteAllowed(autocomplete_attribute)) {
-      DVLOG(2) << "autocomplete=off";
-      return false;
-    }
+  // Check URL with Optimization guide.
+  switch (GetOptimizationGuidanceForUrl(url, profile)) {
+    case compose::ComposeHintDecision::COMPOSE_HINT_DECISION_COMPOSE_DISABLED:
+    case compose::ComposeHintDecision::COMPOSE_HINT_DECISION_DISABLE_NUDGE:
+      return base::unexpected(
+          compose::ComposeNudgeDenyReason::kOptimizationGuideChecks);
+    case compose::ComposeHintDecision::COMPOSE_HINT_DECISION_UNSPECIFIED:
+      if (!base::FeatureList::IsEnabled(
+              compose::features::kEnableNudgeForUnspecifiedHint)) {
+        return base::unexpected(
+            compose::ComposeNudgeDenyReason::kOptimizationGuideChecks);
+      }
+      break;
+    case compose::ComposeHintDecision::COMPOSE_HINT_DECISION_ENABLED:
+      break;
   }
 
-  return true;
+  // Check autocomplete attribute if the proactive nudge would be presented.
+  // TODO(b/303288183): Decide if we should keep this check or not.
+  if (!AutocompleteAllowed(autocomplete_attribute)) {
+    DVLOG(2) << "autocomplete=off";
+    return base::unexpected(compose::ComposeNudgeDenyReason::kDOMLevelChecks);
+  }
+
+  if (!compose::GetComposeConfig().proactive_nudge_enabled) {
+    return base::unexpected(
+        compose::ComposeNudgeDenyReason::kProactiveNudgeDisabled);
+  }
+
+  return base::ok();
+}
+
+base::expected<void, compose::ComposeNudgeDenyReason>
+ComposeEnabling::ShouldTriggerSavedStatePopup(
+    autofill::AutofillSuggestionTriggerSource trigger_source) {
+  // No need to preform field and page level checks since there is already saved
+  // state. Only check config and features.
+
+  if (!compose::GetComposeConfig().saved_state_nudge_enabled) {
+    return base::unexpected(
+        compose::ComposeNudgeDenyReason::kSavedStateNudgeDisabled);
+  }
+
+  if (trigger_source ==
+          autofill::AutofillSuggestionTriggerSource::kComposeDialogLostFocus &&
+      !base::FeatureList::IsEnabled(
+          compose::features::kEnableComposeSavedStateNotification)) {
+    return base::unexpected(
+        compose::ComposeNudgeDenyReason::kSavedStateNotificationDisabled);
+  }
+
+  return base::ok();
 }
 
 bool ComposeEnabling::ShouldTriggerContextMenu(
@@ -282,6 +317,7 @@ bool ComposeEnabling::ShouldTriggerContextMenu(
         compose::ComposeShowStatus::kShouldShow);
     return true;
   }
+
   compose::LogComposeContextMenuShowStatus(show_status.error());
   DVLOG(2) << "page level checks failed";
   return false;

@@ -9,6 +9,7 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "content/browser/preloading/preloading.h"
+#include "content/browser/preloading/preloading_confidence.h"
 #include "content/browser/preloading/preloading_config.h"
 #include "content/browser/preloading/prerender/prerender_features.h"
 #include "content/browser/preloading/prerender/prerender_final_status.h"
@@ -664,10 +665,33 @@ class PrerenderHostRegistryNewLimitAndSchedulerTest
       }
     }();
 
+    PreloadingPredictor embedder_predictor(100, "Embedder");
+
+    PreloadingPredictor creating_predictor = [&] {
+      switch (limit_group) {
+        case PrerenderLimitGroup::kSpeculationRulesEager:
+        case PrerenderLimitGroup::kSpeculationRulesNonEager:
+          return content_preloading_predictor::kSpeculationRules;
+        case PrerenderLimitGroup::kEmbedder:
+          return embedder_predictor;
+      }
+    }();
+    PreloadingPredictor enacting_predictor = [&] {
+      switch (limit_group) {
+        case PrerenderLimitGroup::kSpeculationRulesEager:
+          return content_preloading_predictor::kSpeculationRules;
+        case PrerenderLimitGroup::kSpeculationRulesNonEager:
+          // Arbitrarily chosen non-eager predictor.
+          return preloading_predictor::kUrlPointerDownOnAnchor;
+        case PrerenderLimitGroup::kEmbedder:
+          return embedder_predictor;
+      }
+    }();
+
     return IsNewTabTrigger(limit_group)
                ? registry().CreateAndStartHostForNewTab(
-                     prerender_attributes,
-                     content_preloading_predictor::kSpeculationRules)
+                     prerender_attributes, creating_predictor,
+                     enacting_predictor, PreloadingConfidence{100})
                : registry().CreateAndStartHost(prerender_attributes);
   }
 

@@ -6,12 +6,15 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/persistent_histogram_allocator.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/common/channel_info.h"
 #include "chrome_model_quality_logs_uploader_service.h"
 #include "components/metrics/metrics_log.h"
+#include "components/metrics/persistent_system_profile.h"
 #include "components/metrics/version_utils.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
+#include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
@@ -24,13 +27,27 @@
 namespace {
 
 void RecordUploadStatusHistogram(
-    optimization_guide::proto::ModelExecutionFeature feature,
+    optimization_guide::UserVisibleFeatureKey feature,
     optimization_guide::ModelQualityLogsUploadStatus status) {
   base::UmaHistogramEnumeration(
       base::StrCat(
           {"OptimizationGuide.ModelQualityLogsUploaderService.UploadStatus.",
            optimization_guide::GetStringNameForModelExecutionFeature(feature)}),
       status);
+}
+
+// Populates the given SystemProfileProto using the persistent system profile.
+// Returns false if the persistent system profile is not available.
+bool PopulatePersistentSystemProfile(
+    metrics::SystemProfileProto* system_profile) {
+  base::GlobalHistogramAllocator* allocator =
+      base::GlobalHistogramAllocator::Get();
+  if (!allocator || !allocator->memory_allocator()) {
+    return false;
+  }
+
+  return metrics::PersistentSystemProfile::GetSystemProfile(
+      *allocator->memory_allocator(), system_profile);
 }
 
 }  // namespace
@@ -49,7 +66,7 @@ ChromeModelQualityLogsUploaderService::
     ~ChromeModelQualityLogsUploaderService() = default;
 
 bool ChromeModelQualityLogsUploaderService::CanUploadLogs(
-    optimization_guide::proto::ModelExecutionFeature feature) {
+    optimization_guide::UserVisibleFeatureKey feature) {
   // Model quality logging requires user consent. Skip upload if consent is
   // missing.
   if (!g_browser_process->GetMetricsServicesManager()
@@ -84,16 +101,18 @@ bool ChromeModelQualityLogsUploaderService::CanUploadLogs(
 void ChromeModelQualityLogsUploaderService::SetSystemProfileProto(
     proto::LoggingMetadata* logging_metadata) {
   CHECK(logging_metadata) << "Logging metadata provided is null\n";
-  // Set system profile proto before uploading.
-  metrics::MetricsLog::RecordCoreSystemProfile(
-      metrics::GetVersionString(),
-      metrics::AsProtobufChannel(chrome::GetChannel()),
-      chrome::IsExtendedStableChannel(),
-      g_browser_process->GetApplicationLocale(), metrics::GetAppPackageName(),
-      logging_metadata->mutable_system_profile());
-
-  CHECK(logging_metadata->has_system_profile())
-      << "System Profile Proto not set\n";
+  // Set system profile proto before uploading. Try to use persistent system
+  // profile. If that is not available, then use the core system profile (Note
+  // this lacks field trial information).
+  if (!PopulatePersistentSystemProfile(
+          logging_metadata->mutable_system_profile())) {
+    metrics::MetricsLog::RecordCoreSystemProfile(
+        metrics::GetVersionString(),
+        metrics::AsProtobufChannel(chrome::GetChannel()),
+        chrome::IsExtendedStableChannel(),
+        g_browser_process->GetApplicationLocale(), metrics::GetAppPackageName(),
+        logging_metadata->mutable_system_profile());
+  }
 }
 
 }  // namespace optimization_guide

@@ -220,7 +220,7 @@ FYI_BUILDERS = {
         'linux',
         'dimension': {
             'gpu': '10de',
-            'os': 'Ubuntu-18.04',
+            'os': 'Ubuntu-22.04',
             'pool': 'chrome.tests.perf-fyi',
         },
     },
@@ -670,7 +670,7 @@ BUILDERS = {
         'platform':
         'android-trichrome-chrome-google-64-32-bundle',
         'dimension': {
-            'pool': 'chrome.tests.perf',
+            'pool': 'chrome.tests.perf-pgo',
             'os': 'Android',
             'device_type': 'oriole',
             'device_os': 'TP1A.220624.021',

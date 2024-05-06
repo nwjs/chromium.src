@@ -1404,6 +1404,9 @@ void ShellSurfaceBase::GetWidgetHitTestMask(SkPath* mask) const {
     return;
   }
 
+  if (!HasHitTestRegion()) {
+    return;
+  }
   GetHitTestMask(mask);
 
   const float scale = GetScale();
@@ -1537,7 +1540,7 @@ void ShellSurfaceBase::OnWidgetClosing(views::Widget* widget) {
   // its underlying surface, by asserting to it that the surface destroyed
   // itself. After that, it is safe to call CloseNow() on the widget.
   //
-  // TODO(crbug.com/1010326): This only closes the aura/exo pieces, but we
+  // TODO(crbug.com/40651062): This only closes the aura/exo pieces, but we
   // should go one level deeper and destroy the wayland stuff. Some options:
   //  - Invoke xkill under-the-hood, which will only work for x11 and won't
   //    work if the container itself is stuck.
@@ -2077,7 +2080,7 @@ void ShellSurfaceBase::UpdateShadow() {
   // committed by the client should not go to current `widget_`'s shadow, but to
   // the old widget's shadow prior to layer clone. Don't show the new shadow for
   // now.
-  // TODO(crbug.com/1491604): Find the old widget's shadow layer and update it,
+  // TODO(crbug.com/40285156): Find the old widget's shadow layer and update it,
   // and maybe show new widget's shadow by predicting its dimensions.
   int shadow_elevation = wm::kShadowElevationDefault;
   if (!shadow_bounds_ || shape_dp_.has_value() ||
@@ -2204,19 +2207,20 @@ void ShellSurfaceBase::UpdateWindowRoundedCorners() {
 gfx::Rect ShellSurfaceBase::GetVisibleBounds() const {
   // Use |geometry_| if set, otherwise use the visual bounds of the surface.
   if (geometry_.IsEmpty()) {
-    gfx::Rect rect;
+    gfx::Size size;
     if (root_surface()) {
       float int_part;
-      DCHECK(
-          std::modf(root_surface()->visual_rect().width(), &int_part) == 0.0f &&
-          std::modf(root_surface()->visual_rect().height(), &int_part) == 0.0f);
-      rect = gfx::ToEnclosingRectIgnoringError(root_surface()->visual_rect());
+      DCHECK(std::modf(root_surface()->content_size().width(), &int_part) ==
+                 0.0f &&
+             std::modf(root_surface()->content_size().height(), &int_part) ==
+                 0.0f);
+      size = gfx::ToCeiledSize(root_surface()->content_size());
       if (client_submits_surfaces_in_pixel_coordinates()) {
         float dsf = host_window()->layer()->device_scale_factor();
-        rect = gfx::ScaleToEnclosingRectIgnoringError(rect, 1.0f / dsf);
+        size = gfx::ScaleToRoundedSize(size, 1.0f / dsf);
       }
     }
-    return rect;
+    return gfx::Rect(size);
   }
 
   return geometry_;

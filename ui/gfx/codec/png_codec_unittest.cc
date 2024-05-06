@@ -148,7 +148,8 @@ enum ColorType {
   COLOR_TYPE_RGB = PNG_COLOR_TYPE_RGB,
   COLOR_TYPE_RGBA = PNG_COLOR_TYPE_RGBA,
   COLOR_TYPE_BGR,
-  COLOR_TYPE_BGRA
+  COLOR_TYPE_BGRA,
+  COLOR_TYPE_RGBX
 };
 
 // PNG encoder used for testing. Required because PNGCodec::Encode doesn't do
@@ -184,6 +185,11 @@ bool EncodeImage(const std::vector<unsigned char>& input,
       break;
     case COLOR_TYPE_RGBA:
       input_rowbytes = width * 4;
+      break;
+    case COLOR_TYPE_RGBX:
+      output_color_type = static_cast<ColorType>(PNG_COLOR_TYPE_RGB);
+      input_rowbytes = width * 4;
+      transforms |= PNG_TRANSFORM_STRIP_FILLER_AFTER;
       break;
     case COLOR_TYPE_BGR:
       input_rowbytes = width * 3;
@@ -691,8 +697,9 @@ void DecodeInterlacedRGBAtoSkBitmap(bool use_transparency) {
 
   // encode
   std::vector<unsigned char> encoded;
-  ASSERT_TRUE(EncodeImage(original, w, h, COLOR_TYPE_RGBA, &encoded,
-                          PNG_INTERLACE_ADAM7));
+  ASSERT_TRUE(EncodeImage(original, w, h,
+                          use_transparency ? COLOR_TYPE_RGBA : COLOR_TYPE_RGBX,
+                          &encoded, PNG_INTERLACE_ADAM7));
 
   // Decode the encoded string.
   SkBitmap decoded_bitmap;
@@ -731,6 +738,28 @@ TEST(PNGCodec, DecodeInterlacedRGBAtoSkBitmap_Opaque) {
 
 TEST(PNGCodec, DecodeInterlacedRGBAtoSkBitmap_Transparent) {
   DecodeInterlacedRGBAtoSkBitmap(/*use_transparency=*/true);
+}
+
+TEST(PNGCodec, EncoderSavesImagesWithAllOpaquePixelsAsOpaque) {
+  const int w = 20, h = 20;
+
+  // Create an RGBA image with all opaque pixels.
+  std::vector<unsigned char> original;
+  MakeRGBAImage(w, h, /*use_transparency=*/false, &original);
+
+  // Encode the image, without discarding transparency.
+  std::vector<unsigned char> png_data;
+  ASSERT_TRUE(PNGCodec::Encode(&original.front(), PNGCodec::FORMAT_RGBA,
+                               gfx::Size(w, h), w * 4,
+                               /*discard_transparency=*/false,
+                               std::vector<PNGCodec::Comment>{}, &png_data));
+
+  // Decode the image into an SkBitmap.
+  SkBitmap bitmap;
+  ASSERT_TRUE(PNGCodec::Decode(&png_data.front(), png_data.size(), &bitmap));
+
+  // Verify that the bitmap is opaque, despite coming from RGBA data.
+  EXPECT_EQ(bitmap.info().alphaType(), kOpaque_SkAlphaType);
 }
 
 // Test that corrupted data decompression causes failures.
@@ -781,6 +810,23 @@ TEST(PNGCodec, DecodeCorrupted) {
 // nominal value is unchanged. If you squint, the 128/255 left half should look
 // darker than the right half.
 //
+// The "as used by libpng" formula for calculating these expected 186, 145 or
+// (unchanged) 128 values can be seen in the diff at
+// https://crrev.com/c/5402327/13/ui/gfx/codec/png_codec_unittest.cc
+// and the same formula is at
+// https://www.w3.org/TR/2003/REC-PNG-20031110/#13Decoder-gamma-handling but
+// note the spec's caveat: "Viewers capable of full colour management... will
+// perform more sophisticated calculations than those described here."
+//
+// Being corrected to 186, 145 or 128 assumes that, like libpng, the PNG
+// decoder honors the gAMA chunk in the checkerboard.gamma*.png files. Those
+// files don't have an iCCP color profile chunk, but since the PNGCodec::Decode
+// API fills in a bag of RGBA pixels (without an associated colorspace), the
+// PNGCodec::Decode implementation nonetheless applies sRGB color correction
+// (approximately exponential) instead of basic gamma correction (literally
+// exponential). This produces slightly different numbers: 188, 146 or 129. The
+// code review in https://crrev.com/c/5402327 gives a little more context.
+//
 // When viewing these images in a browser, make sure to apply the "img {
 // image-rendering: pixelated }" CSS. Otherwise, browsers will often blur when
 // up-scaling (e.g. on high DPI displays), trumping the "two halves should have
@@ -802,9 +848,9 @@ TEST(PNGCodec, DecodeGamma) {
   };
 
   const SourceFile kSourceFiles[] = {
-      {1.0, 186, "checkerboard.gamma1dot0.png"},
-      {1.8, 145, "checkerboard.gamma1dot8.png"},
-      {2.2, 128, "checkerboard.gamma2dot2.png"},
+      {1.0, 188, "checkerboard.gamma1dot0.png"},
+      {1.8, 146, "checkerboard.gamma1dot8.png"},
+      {2.2, 129, "checkerboard.gamma2dot2.png"},
   };
 
   for (const auto& sf : kSourceFiles) {
@@ -820,17 +866,6 @@ TEST(PNGCodec, DecodeGamma) {
     ASSERT_TRUE(PNGCodec::Decode(&input[0], input.size(), PNGCodec::FORMAT_RGBA,
                                  &output, &outw, &outh));
     ASSERT_GT(output.size(), 0u);
-
-    // The floor(etc) formula matches libpng (see github link below). Note that
-    // libpng's png_gamma_8bit_correct function takes a single "png_fixed_point
-    // gamma_val" argument that (1) combines both the PNG-file gAMA chunk value
-    // and the display gamma and (2) is scaled by 100000 since the PNG gAMA
-    // chunk holds an integer value. Here, we use "sf.gamma / 2.2" instead.
-    // sf.gamma represents the PNG-file value and 2.2 is the display gamma.
-    //
-    // https://github.com/glennrp/libpng/blob/e755fb79ba945fea8a318dc343e73d22a39e2f4e/png.c#L3893
-    ASSERT_EQ(static_cast<double>(sf.corrected),
-              floor(255.0 * pow(128.0 / 255.0, sf.gamma / 2.2) + 0.5));
 
     EXPECT_EQ(output[0], sf.corrected) << "gamma: " << sf.gamma;
   }

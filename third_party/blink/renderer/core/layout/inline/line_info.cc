@@ -66,7 +66,7 @@ void LineInfo::Reset() {
   needs_accurate_end_position_ = false;
   is_ruby_base_ = false;
   is_ruby_text_ = false;
-  may_have_text_combine_item_ = false;
+  may_have_text_combine_or_ruby_item_ = false;
   allow_hang_for_alignment_ = false;
 }
 
@@ -78,8 +78,10 @@ void LineInfo::SetLineStyle(const InlineNode& node,
   const LayoutBox* box = node.GetLayoutBox();
   line_style_ = box->Style(use_first_line_style_);
   needs_accurate_end_position_ = ComputeNeedsAccurateEndPosition();
-  is_ruby_base_ = box->IsRubyBase();
-  is_ruby_text_ = box->IsRubyText();
+  if (!RuntimeEnabledFeatures::RubyLineBreakableEnabled()) {
+    is_ruby_base_ = box->IsRubyBase();
+    is_ruby_text_ = box->IsRubyText();
+  }
 
   // Reset block start offset related members.
   annotation_block_start_adjustment_ = LayoutUnit();
@@ -153,12 +155,23 @@ bool LineInfo::ComputeNeedsAccurateEndPosition() const {
 }
 
 InlineItemTextIndex LineInfo::End() const {
-  return GetBreakToken() ? GetBreakToken()->Start() : ItemsData().End();
+  if (GetBreakToken()) {
+    return GetBreakToken()->Start();
+  }
+  if (end_item_index_ && end_item_index_ < ItemsData().items.size()) {
+    return {end_item_index_, ItemsData().items[end_item_index_].StartOffset()};
+  }
+  return ItemsData().End();
 }
 
 unsigned LineInfo::EndTextOffset() const {
-  return GetBreakToken() ? GetBreakToken()->StartTextOffset()
-                         : ItemsData().text_content.length();
+  if (GetBreakToken()) {
+    return GetBreakToken()->StartTextOffset();
+  }
+  if (end_item_index_ && end_item_index_ < ItemsData().items.size()) {
+    return ItemsData().items[end_item_index_].StartOffset();
+  }
+  return ItemsData().text_content.length();
 }
 
 unsigned LineInfo::InflowEndOffset() const {
@@ -525,7 +538,7 @@ std::ostream& operator<<(std::ostream& ostream, const LineInfo& line_info) {
           << " width_=" << line_info.Width() << " Results=[\n";
   const String& text_content = line_info.ItemsData().text_content;
   for (const auto& result : line_info.Results()) {
-    ostream << "\t" << result.ToString(text_content).Utf8().c_str() << "\n";
+    ostream << result.ToString(text_content, "\t").Utf8() << "\n";
   }
   return ostream << "]";
 }

@@ -119,7 +119,7 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
     private LargeIconBridge mLargeIconBridge;
     private SelectionDelegate<HistoryItem> mSelectionDelegate;
     private boolean mShouldShowPrivacyDisclaimers;
-    private boolean mAppSpecificHistory;
+    private boolean mLaunchedForApp;
     private PrefChangeRegistrar mPrefChangeRegistrar;
     private String mAppId;
 
@@ -143,7 +143,7 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
      * @param historyProvider Provider of methods for querying and managing browsing history.
      * @param appId The ID of the application from which the history activity is launched, passed as
      *     the client package name.
-     * @param appSpecificHistory Whether app specific history features should be utilized.
+     * @param launchedForApp Whether history UI is launched for app-specific history.
      */
     public HistoryContentManager(
             @NonNull Activity activity,
@@ -157,7 +157,7 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
             @Nullable Supplier<Tab> tabSupplier,
             HistoryProvider historyProvider,
             String appId,
-            boolean appSpecificHistory) {
+            boolean launchedForApp) {
         mActivity = activity;
         mObserver = observer;
         mIsSeparateActivity = isSeparateActivity;
@@ -170,7 +170,7 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
                 ChromeAccessibilityUtil.get().isAccessibilityEnabled()
                         || UiUtils.isHardwareKeyboardAttached();
         mAppId = appId;
-        mAppSpecificHistory = appSpecificHistory;
+        mLaunchedForApp = launchedForApp;
         mSelectionDelegate =
                 selectionDelegate != null
                         ? selectionDelegate
@@ -363,6 +363,20 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
         return mHistoryAdapter.hasPrivacyDisclaimers();
     }
 
+    /**
+     * @return True if history UI was launched for the app-specific mode.
+     */
+    boolean launchedForApp() {
+        return ChromeFeatureList.sAppSpecificHistory.isEnabled() && mLaunchedForApp;
+    }
+
+    /** returns whether the info header will be available for user upon request. */
+    boolean isInfoHeaderAvailable() {
+        // Info header becomes available when history was launched for app-specific mode
+        // or a set of conditions for privacy disclaimer are all met.
+        return launchedForApp() || hasPrivacyDisclaimers();
+    }
+
     /** Called after a user clicks the privacy disclaimer link. */
     void onPrivacyDisclaimerLinkClicked() {
         openUrl(new GURL(UrlConstants.MY_ACTIVITY_URL_IN_HISTORY), null, true);
@@ -374,13 +388,6 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
     boolean getShouldShowClearData() {
         return mShouldShowClearDataIfAvailable
                 && UserPrefs.get(mProfile).getBoolean(Pref.ALLOW_DELETING_BROWSER_HISTORY);
-    }
-
-    /**
-     * @return True if the open full chrome history button should be shown.
-     */
-    boolean getShouldShowOpenInChrome() {
-        return ChromeFeatureList.sAppSpecificHistory.isEnabled() && mAppSpecificHistory;
     }
 
     /** Opens the url of each of the visits in the provided list in a new tab. */
@@ -403,15 +410,17 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
 
     /**
      * Open the provided url.
+     *
      * @param url The url to open.
-     * @param isIncognito Whether to open the url in an incognito tab. If null, the tab
-     *                    will open in the current tab model.
+     * @param isIncognito Whether to open the url in an incognito tab. If null, the tab will open in
+     *     the current tab model.
      * @param createNewTab Whether a new tab should be created. If false, the item will clobber the
-     *                     the current tab.
+     *     the current tab.
      */
     public void openUrl(GURL url, Boolean isIncognito, boolean createNewTab) {
         if (mIsSeparateActivity) {
-            if (getShouldShowOpenInChrome()) {
+            // Only history entries are loaded into the existing tab.
+            if (launchedForApp() && !createNewTab) {
                 Intent intent = new Intent(ACTION_VIEW, Uri.parse(url.getSpec()));
                 intent.putExtra(IntentHandler.EXTRA_PAGE_TRANSITION_TYPE, PAGE_TRANSITION_TYPE);
                 mActivity.setResult(Activity.RESULT_OK, intent);

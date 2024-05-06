@@ -28,6 +28,7 @@
 #include "content/public/browser/scoped_accessibility_mode.h"
 #include "content/public/common/content_switches.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/accessibility/accessibility_switches.h"
 #include "ui/accessibility/ax_mode_histogram_logger.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
 #include "ui/events/base_event_utils.h"
@@ -144,7 +145,7 @@ class ModeCollectionForTarget : public base::SupportsUserData::Data {
 const int ModeCollectionForTarget::kUserDataKey;
 
 // Returns a subset of `mode` for delivery to a WebContents.
-ui::AXMode FilterAccessibilityMode(ui::AXMode mode) {
+ui::AXMode FilterAccessibilityModeInvariants(ui::AXMode mode) {
   // Strip kLabelImages if kScreenReader is absent.
   // TODO(grt): kLabelImages is a feature of //chrome. Find a way to
   // achieve this filtering without teaching //content about it. Perhaps via
@@ -435,8 +436,9 @@ ui::AXMode BrowserAccessibilityStateImpl::GetAccessibilityMode() {
 
 ui::AXMode BrowserAccessibilityStateImpl::GetAccessibilityModeForBrowserContext(
     BrowserContext* browser_context) {
-  return GetAccessibilityMode() |
-         ModeCollectionForTarget::GetAccessibilityMode(browser_context);
+  return FilterAccessibilityModeInvariants(
+      GetAccessibilityMode() |
+      ModeCollectionForTarget::GetAccessibilityMode(browser_context));
 }
 
 void BrowserAccessibilityStateImpl::OnUserInputEvent() {
@@ -607,7 +609,7 @@ void BrowserAccessibilityStateImpl::OnModeChangedForProcess(
       WebContentsImpl::GetAllWebContents(),
       [new_mode](WebContentsImpl* web_contents) {
         if (!web_contents->IsBeingDestroyed()) {
-          web_contents->SetAccessibilityMode(FilterAccessibilityMode(
+          web_contents->SetAccessibilityMode(FilterAccessibilityModeInvariants(
               new_mode |
               ModeCollectionForTarget::GetAccessibilityMode(
                   web_contents->GetBrowserContext()) |
@@ -657,7 +659,7 @@ void BrowserAccessibilityStateImpl::OnModeChangedForBrowserContext(
       [browser_context, mode_for_context](WebContentsImpl* web_contents) {
         if (!web_contents->IsBeingDestroyed() &&
             web_contents->GetBrowserContext() == browser_context) {
-          web_contents->SetAccessibilityMode(FilterAccessibilityMode(
+          web_contents->SetAccessibilityMode(FilterAccessibilityModeInvariants(
               mode_for_context |
               ModeCollectionForTarget::GetAccessibilityMode(web_contents)));
         }
@@ -684,11 +686,11 @@ void BrowserAccessibilityStateImpl::OnModeChangedForWebContents(
   // Combine the effective modes for the process, `web_contents`'s
   // BrowserContext, and for `web_contents.
   static_cast<WebContentsImpl*>(web_contents)
-      ->SetAccessibilityMode(
-          FilterAccessibilityMode(GetAccessibilityMode() |
-                                  ModeCollectionForTarget::GetAccessibilityMode(
-                                      web_contents->GetBrowserContext()) |
-                                  new_mode));
+      ->SetAccessibilityMode(FilterAccessibilityModeInvariants(
+          GetAccessibilityMode() |
+          ModeCollectionForTarget::GetAccessibilityMode(
+              web_contents->GetBrowserContext()) |
+          new_mode));
 }
 
 void BrowserAccessibilityStateImpl::CallInitBackgroundTasksForTesting(

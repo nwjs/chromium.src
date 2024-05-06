@@ -24,11 +24,11 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/json/json_writer.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/byte_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "base/values.h"
@@ -42,7 +42,7 @@
 #include "content/browser/aggregation_service/public_key.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
-#include "third_party/blink/public/mojom/private_aggregation/aggregatable_report.mojom.h"
+#include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "third_party/boringssl/src/include/openssl/hpke.h"
 #include "third_party/distributed_point_functions/shim/buildflags.h"
 #include "url/gurl.h"
@@ -110,11 +110,11 @@ std::vector<DpfParameters> ConstructDpfParameters() {
 // Returns empty vector in case of error.
 std::vector<DpfKey> GenerateDpfKeys(
     const AggregationServicePayloadContents& contents) {
-  DCHECK_EQ(contents.operation,
-            AggregationServicePayloadContents::Operation::kHistogram);
-  DCHECK_EQ(contents.aggregation_mode,
-            blink::mojom::AggregationServiceMode::kExperimentalPoplar);
-  DCHECK_EQ(contents.contributions.size(), 1u);
+  CHECK_EQ(contents.operation,
+           AggregationServicePayloadContents::Operation::kHistogram);
+  CHECK_EQ(contents.aggregation_mode,
+           blink::mojom::AggregationServiceMode::kExperimentalPoplar);
+  CHECK_EQ(contents.contributions.size(), 1u);
 
   std::optional<std::pair<DpfKey, DpfKey>> maybe_dpf_keys =
       distributed_point_functions::GenerateKeysIncremental(
@@ -145,14 +145,14 @@ ConstructUnencryptedExperimentalPoplarPayloads(
   if (dpf_keys.empty()) {
     return {};
   }
-  DCHECK_EQ(dpf_keys.size(), 2u);
+  CHECK_EQ(dpf_keys.size(), 2u);
 
   std::vector<std::vector<uint8_t>> unencrypted_payloads;
   for (const DpfKey& dpf_key : dpf_keys) {
     std::vector<uint8_t> serialized_key(dpf_key.ByteSizeLong());
     bool succeeded =
         dpf_key.SerializeToArray(serialized_key.data(), serialized_key.size());
-    DCHECK(succeeded);
+    CHECK(succeeded);
 
     cbor::Value::MapValue value;
     value.emplace(kOperationKey, kHistogramValue);
@@ -224,7 +224,7 @@ std::vector<std::vector<uint8_t>> ConstructUnencryptedTeeBasedPayload(
   for (int i = 0; i < number_of_null_contributions_to_add; ++i) {
     AppendEncodedContributionToCborArray(
         data, blink::mojom::AggregatableReportHistogramContribution(
-                  /*bucket=*/0, /*value=*/0));
+                  /*bucket=*/0, /*value=*/0, /*filtering_id=*/std::nullopt));
   }
 
   value.emplace("data", std::move(data));
@@ -252,7 +252,8 @@ std::vector<uint8_t> EncryptWithHpke(
   std::vector<uint8_t> payload(EVP_HPKE_MAX_ENC_LENGTH);
   size_t encapsulated_shared_secret_len;
 
-  DCHECK_EQ(public_key.size(), PublicKey::kKeyByteLength);
+  CHECK_EQ(public_key.size(), PublicKey::kKeyByteLength,
+           base::NotFatalUntil::M128);
 
   if (!EVP_HPKE_CTX_setup_sender(
           /*ctx=*/sender_context.get(),
@@ -306,7 +307,8 @@ ConvertPayloadContentsFromProto(
     contributions.emplace_back(
         /*bucket=*/absl::MakeUint128(contribution_proto.bucket_high(),
                                      contribution_proto.bucket_low()),
-        /*value=*/contribution_proto.value());
+        /*value=*/contribution_proto.value(),
+        /*filtering_id=*/std::nullopt);
   }
 
   blink::mojom::AggregationServiceMode aggregation_mode =
@@ -422,6 +424,9 @@ void ConvertPayloadContentsToProto(
         absl::Uint128High64(contribution.bucket));
     contribution_proto->set_bucket_low(absl::Uint128Low64(contribution.bucket));
     contribution_proto->set_value(contribution.value);
+
+    // TODO(crbug.com/330744610): Add support for filtering IDs.
+    CHECK(!contribution.filtering_id.has_value());
   }
 
   switch (payload_contents.aggregation_mode) {
@@ -464,7 +469,7 @@ void ConvertSharedInfoToProto(const AggregatableReportSharedInfo& shared_info,
       break;
   }
 
-  DCHECK(shared_info.additional_fields.empty());
+  CHECK(shared_info.additional_fields.empty(), base::NotFatalUntil::M128);
 
   out->set_api_version(shared_info.api_version);
   out->set_api_identifier(shared_info.api_identifier);
@@ -568,15 +573,15 @@ AggregatableReportSharedInfo AggregatableReportSharedInfo::Clone() const {
 std::string AggregatableReportSharedInfo::SerializeAsJson() const {
   base::Value::Dict value;
 
-  DCHECK(report_id.is_valid());
+  CHECK(report_id.is_valid(), base::NotFatalUntil::M128);
   value.Set("report_id", report_id.AsLowercaseString());
 
   value.Set("reporting_origin", reporting_origin.Serialize());
 
   // Encoded as the number of seconds since the Unix epoch, ignoring leap
   // seconds and rounded down.
-  DCHECK(!scheduled_report_time.is_null());
-  DCHECK(!scheduled_report_time.is_inf());
+  CHECK(!scheduled_report_time.is_null(), base::NotFatalUntil::M128);
+  CHECK(!scheduled_report_time.is_inf(), base::NotFatalUntil::M128);
   value.Set("scheduled_report_time",
             base::NumberToString(
                 scheduled_report_time.InMillisecondsSinceUnixEpoch() /
@@ -591,15 +596,17 @@ std::string AggregatableReportSharedInfo::SerializeAsJson() const {
     value.Set("debug_mode", "enabled");
   }
 
-  DCHECK(base::ranges::none_of(additional_fields, [&value](const auto& e) {
-    return value.contains(e.first);
-  })) << "Additional fields in shared_info cannot duplicate existing fields";
+  CHECK(base::ranges::none_of(
+            additional_fields,
+            [&value](const auto& e) { return value.contains(e.first); }),
+        base::NotFatalUntil::M128)
+      << "Additional fields in shared_info cannot duplicate existing fields";
 
   value.Merge(additional_fields.Clone());
 
   std::string serialized_value;
   bool succeeded = base::JSONWriter::Write(value, &serialized_value);
-  DCHECK(succeeded);
+  CHECK(succeeded, base::NotFatalUntil::M128);
 
   return serialized_value;
 }
@@ -669,6 +676,12 @@ AggregatableReportRequest::CreateInternal(
                  contribution) { return contribution.value < 0; })) {
     return std::nullopt;
   }
+
+  // TODO(crbug.com/330744610): Add support for filtering IDs.
+  CHECK(base::ranges::none_of(
+      payload_contents.contributions,
+      [](const blink::mojom::AggregatableReportHistogramContribution&
+             contribution) { return contribution.filtering_id.has_value(); }));
 
   if (!shared_info.report_id.is_valid()) {
     return std::nullopt;
@@ -818,12 +831,14 @@ AggregatableReport::Provider::CreateFromRequestAndPublicKeys(
     const AggregatableReportRequest& report_request,
     std::vector<PublicKey> public_keys) const {
   const size_t num_processing_urls = public_keys.size();
-  DCHECK_EQ(num_processing_urls, report_request.processing_urls().size());
+  CHECK_EQ(num_processing_urls, report_request.processing_urls().size(),
+           base::NotFatalUntil::M128);
 
   // The urls must be sorted so we can ensure the ordering (and assignment of
   // DpfKey parties for the `kExperimentalPoplar` aggregation mode) is
   // deterministic.
-  DCHECK(base::ranges::is_sorted(report_request.processing_urls()));
+  CHECK(base::ranges::is_sorted(report_request.processing_urls()),
+        base::NotFatalUntil::M128);
 
   std::vector<std::vector<uint8_t>> unencrypted_payloads;
 
@@ -867,7 +882,8 @@ AggregatableReport::Provider::CreateFromRequestAndPublicKeys(
       base::as_bytes(base::make_span(authenticated_info_str));
 
   std::vector<AggregatableReport::AggregationServicePayload> encrypted_payloads;
-  DCHECK_EQ(unencrypted_payloads.size(), num_processing_urls);
+  CHECK_EQ(unencrypted_payloads.size(), num_processing_urls,
+           base::NotFatalUntil::M128);
   for (size_t i = 0; i < num_processing_urls; ++i) {
     std::vector<uint8_t> encrypted_payload =
         g_disable_encryption_for_testing_tool_

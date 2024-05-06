@@ -33,6 +33,7 @@
 #include "components/viz/common/resources/shared_image_format.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "components/viz/common/viz_utils.h"
+#include "components/viz/service/debugger/viz_debugger.h"
 #include "components/viz/service/display/bsp_tree.h"
 #include "components/viz/service/display/bsp_walk_action.h"
 #include "components/viz/service/display/output_surface.h"
@@ -43,6 +44,7 @@
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/geometry/quad_f.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/transform.h"
@@ -78,7 +80,6 @@ DirectRenderer::~DirectRenderer() = default;
 
 void DirectRenderer::Initialize() {
   use_partial_swap_ = settings_->partial_swap_enabled && CanPartialSwap();
-
   initialized_ = true;
 }
 
@@ -186,7 +187,7 @@ void DirectRenderer::DecideRenderPassAllocationsForFrame(
       continue;
     }
 #else
-    // TODO(crbug.com/1322528): Consider deallocating the primary plane in this
+    // TODO(crbug.com/40224327): Consider deallocating the primary plane in this
     // case.
     // Non-Windows platforms use BufferQueue, which are not owned by the render
     // pass backing. ChromeOS must hold on to the root surface buffers to ensure
@@ -451,6 +452,10 @@ gfx::Rect DirectRenderer::GetCurrentFramebufferDamage() const {
 }
 
 gfx::Rect DirectRenderer::GetTargetDamageBoundingRect() const {
+  if (use_render_pass_drawn_rect_) {
+    return gfx::Rect();
+  }
+
   gfx::Rect bounding_rect = GetCurrentFramebufferDamage();
   if (overlay_processor_) {
     bounding_rect.Union(
@@ -751,9 +756,6 @@ void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
   FlushPolygons(&poly_list, render_pass_scissor_in_draw_space,
                 render_pass_requires_scissor);
   FinishDrawingRenderPass();
-
-  if (render_pass->generate_mipmap)
-    GenerateMipmap();
 }
 
 bool DirectRenderer::CanSkipRenderPass(
@@ -767,7 +769,7 @@ bool DirectRenderer::CanSkipRenderPass(
   // the RenderPass.
   if (render_pass->cache_render_pass ||
       allow_undamaged_nonroot_render_pass_to_skip_) {
-    // TODO(crbug.com/1346502): Fix CopyOutputRequest and allow the render pass
+    // TODO(crbug.com/40232521): Fix CopyOutputRequest and allow the render pass
     // with copy request to skip.
     if (render_pass->has_damage_from_contributing_content ||
         !render_pass->copy_requests.empty()) {
@@ -832,8 +834,6 @@ void DirectRenderer::UseRenderPass(const AggregatedRenderPass* render_pass) {
   // BindFramebufferToTexture().
   if (is_root && !output_surface_->capabilities().renderer_allocates_images) {
     BindFramebufferToOutputSurface();
-    if (output_surface_->capabilities().supports_dc_layers)
-      output_surface_->SetDrawRectangle(current_frame()->root_damage_rect);
     InitializeViewport(current_frame(), render_pass->output_rect,
                        gfx::Rect(current_frame()->device_viewport_size),
                        current_frame()->device_viewport_size);
@@ -863,7 +863,7 @@ void DirectRenderer::UseRenderPass(const AggregatedRenderPass* render_pass) {
 }
 
 gfx::Rect DirectRenderer::ComputeScissorRectForRenderPass(
-    const AggregatedRenderPass* render_pass) const {
+    const AggregatedRenderPass* render_pass) {
   const AggregatedRenderPass* root_render_pass =
       current_frame()->root_render_pass;
   gfx::Rect root_damage_rect = current_frame()->root_damage_rect;
@@ -961,15 +961,39 @@ gfx::Rect DirectRenderer::ComputeScissorRectForRenderPass(
     return root_damage_rect;
   }
 
-  // If the root damage rect has been expanded due to overlays, all the other
-  // damage rect calculations are incorrect.
-  if (!root_render_pass->damage_rect.Contains(root_damage_rect))
-    return render_pass->output_rect;
-
   DCHECK(render_pass->copy_requests.empty() ||
          (render_pass->damage_rect == render_pass->output_rect));
 
+  if (use_render_pass_drawn_rect_) {
+    if (GetRenderPassBackingDrawnRect(render_pass->id) ==
+        render_pass->output_rect) {
+      return render_pass->damage_rect;
+    } else {
+      // This is the first time we are drawing to this backing but it might not
+      // be the first time we are drawing this render pass. If the render pass
+      // backing has been deallocated we must conservatively redraw the entire
+      // 'output_rect' as we have lost the accumulated damaged for this pass.
+      // TODO(crbug.com/332562242): We should move to better tracking of
+      // the drawn area by only fully drawing the visible portion of this render
+      // pass and not the entire output rect. This information is available in
+      // surface aggregator as root parent clip for render passes.
+      SetRenderPassBackingDrawnRect(render_pass->id, render_pass->output_rect);
+      return render_pass->output_rect;
+    }
+  }
+  // If the root damage rect has been expanded due to overlays, all the other
+  // damage rect calculations are incorrect. If the root damage rect was shrunk
+  // to an empty rect (i.e. during overlay processing for delegated compositing)
+  // then |Contains()| no longer works as expected so it must be checked
+  // separately.
+  if (!root_damage_rect.IsEmpty() &&
+      !root_render_pass->damage_rect.Contains(root_damage_rect)) {
+    return render_pass->output_rect;
+  }
+
   // For the non-root render pass.
+  // This is a repeated computation of target damage to render pass damage that
+  // already occurs in surface aggregator.
   gfx::Rect damage_rect = render_pass->damage_rect;
   if (!frame_buffer_damage.IsEmpty()) {
     gfx::Transform inverse_transform;
@@ -1178,6 +1202,11 @@ gfx::Rect DirectRenderer::GetDelegatedInkTrailDamageRect() {
 gpu::Mailbox DirectRenderer::GetPrimaryPlaneOverlayTestingMailbox() {
   NOTREACHED();
   return gpu::Mailbox();
+}
+
+gfx::Rect DirectRenderer::GetRenderPassBackingDrawnRect(
+    const AggregatedRenderPassId& render_pass_id) {
+  return gfx::Rect();
 }
 
 }  // namespace viz

@@ -117,11 +117,6 @@ BASE_FEATURE(kWebViewJavaJsBridgeMojo,
              "WebViewJavaJsBridgeMojo",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Field trial feature for controlling support of Origin Trials on WebView.
-BASE_FEATURE(kWebViewOriginTrials,
-             "WebViewOriginTrials",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Whether to record size of the embedding app's data directory to the UMA
 // histogram Android.WebView.AppDataDirectorySize.
 BASE_FEATURE(kWebViewRecordAppDataDirectorySize,
@@ -188,7 +183,7 @@ BASE_FEATURE(kWebViewPropagateNetworkChangeSignals,
 // Provide the unreduced product version from the AwContentBrowserClient API,
 // regardless of the user agent reduction policy.
 BASE_FEATURE(kWebViewUnreducedProductVersion,
-             "WebViewUnreducedPrductVersion",
+             "WebViewUnreducedProductVersion",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable raster in wide color gamut for apps that use webview in a wide color
@@ -214,7 +209,7 @@ const base::FeatureParam<int> kWebViewXRequestedWithHeaderMode{
 // the manifest.
 BASE_FEATURE(kWebViewXRequestedWithHeaderManifestAllowList,
              "WebViewXRequestedWithHeaderManifestAllowList",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This enables image drage out for Webview.
 BASE_FEATURE(kWebViewImageDrag,
@@ -252,6 +247,11 @@ BASE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel,
 BASE_FEATURE(kWebViewEnableCrash,
              "WebViewEnableCrash",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the built-in DNS resolver (Async DNS) on WebView.
+BASE_FEATURE(kWebViewAsyncDns,
+             "WebViewAsyncDns",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features
 }  // namespace android_webview

@@ -37,7 +37,7 @@ std::vector<std::unique_ptr<AutofillField>> CreateFields(
   for (const auto& t : field_templates) {
     const auto& f =
         result.emplace_back(std::make_unique<AutofillField>(FormFieldData()));
-    f->name = t.name;
+    f->set_name(t.name);
     f->label = t.label;
     f->SetTypeTo(AutofillType(t.field_type));
     DCHECK_EQ(f->Type().GetStorableType(), t.field_type);
@@ -255,7 +255,7 @@ TEST(FormStructureRationalizationEngine,
 
   // Matching label but incorrect type.
   field.label = u"colonia";
-  field.form_control_type = FormControlType::kInputMonth;
+  field.set_form_control_type(FormControlType::kInputMonth);
   EXPECT_TRUE(IsFieldConditionFulfilledIgnoringLocation(
       kMXContext, no_regex_match_required, field));
   EXPECT_FALSE(IsFieldConditionFulfilledIgnoringLocation(

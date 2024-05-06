@@ -9,6 +9,8 @@
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -77,7 +79,15 @@ bool IsUserEligibleForAccountStorage(const PrefService* pref_service,
 
   switch (sync_service->GetTransportState()) {
     case syncer::SyncService::TransportState::DISABLED:
+      return false;
     case syncer::SyncService::TransportState::PAUSED:
+      if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
+              switches::ExplicitBrowserSigninPhase::kFull) &&
+          // `prefs::kExplicitBrowserSignin` is false for users who signed in
+          // implicitly through the Dice web signin in a previous run.
+          pref_service->GetBoolean(::prefs::kExplicitBrowserSignin)) {
+        break;
+      }
       return false;
     case syncer::SyncService::TransportState::START_DEFERRED:
     case syncer::SyncService::TransportState::INITIALIZING:
@@ -136,7 +146,7 @@ bool IsOptedInForAccountStorage(const PrefService* pref_service,
     return false;
   }
 
-// TODO(crbug.com/1430075): Enable the checks below on Desktop too.
+// TODO(crbug.com/40262917): Enable the checks below on Desktop too.
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
   // From this point on, we want to check for encryption errors, which we can
   // only do when the engine is initialized. In that meantime, we give it the
@@ -149,7 +159,7 @@ bool IsOptedInForAccountStorage(const PrefService* pref_service,
   // Worse: in some cases sign-out might not clear the store. If another user
   // signs in later, the leftover data might end up in their account, see
   // crbug.com/1426774.
-  // TODO(crbug.com/1428598): Hook this code to IsTrackingMetadata().
+  // TODO(crbug.com/40262289): Hook this code to IsTrackingMetadata().
   if (sync_service->GetUserSettings()->IsPassphraseRequired() ||
       sync_service->GetUserSettings()->IsTrustedVaultKeyRequired()) {
     return false;

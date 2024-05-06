@@ -39,6 +39,21 @@ consoles.list_view(
 )
 
 try_.builder(
+    name = "linux-win-cross-rel",
+    description_html = "Linux to Windows cross compile.",
+    mirrors = ["ci/linux-win-cross-rel"],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/linux-win-cross-rel",
+            "dcheck_always_on",
+            "no_symbols",
+        ],
+    ),
+    os = os.LINUX_DEFAULT,
+    contact_team_email = "chrome-build-team@google.com",
+)
+
+try_.builder(
     name = "win-annotator-rel",
     mirrors = ["ci/win-annotator-rel"],
     gn_args = gn_args.config(
@@ -60,24 +75,6 @@ try_.builder(
     ssd = True,
     execution_timeout = 9 * time.hour,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "win-celab-try-rel",
-    executable = "recipe:celab",
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "reclient",
-            "minimal_symbols",
-        ],
-    ),
-    properties = {
-        "exclude": "chrome_only",
-        "pool_name": "celab-chromium-try",
-        "pool_size": 20,
-        "tests": "*",
-    },
 )
 
 try_.builder(
@@ -384,6 +381,37 @@ try_.orchestrator_builder(
 )
 
 try_.builder(
+    name = "win-arm64-compile-dbg",
+    branch_selector = branches.selector.WINDOWS_BRANCHES,
+    description_html = "Compile only builder for Windows ARM64 debug.",
+    mirrors = [
+        "ci/win-arm64-dbg",
+    ],
+    builder_config_settings = builder_config.try_settings(
+        include_all_triggered_testers = True,
+        is_compile_only = True,
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "ci/win-arm64-dbg",
+        ],
+    ),
+    builderless = False,
+    cores = None,
+    os = os.WINDOWS_10,
+    contact_team_email = "chrome-desktop-engprod@google.com",
+    main_list_view = "try",
+    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
+    tryjob = try_.job(
+        # TODO(crbug.com/1335555) Remove once cancelling doesn't wipe
+        # out builder cache
+        cancel_stale = False,
+        # TODO(crbug.com/328175907) Enable after resources verified.
+        experiment_percentage = 50,
+    ),
+)
+
+try_.builder(
     name = "win-arm64-dbg",
     description_html = "This builder run tests for Windows ARM64 debug build.",
     mirrors = [
@@ -467,6 +495,8 @@ try_.gpu.optional_tests_builder(
         ],
     ),
     os = os.WINDOWS_DEFAULT,
+    # default is 6 in _gpu_optional_tests_builder()
+    execution_timeout = 5 * time.hour,
     main_list_view = "try",
     tryjob = try_.job(
         location_filters = [

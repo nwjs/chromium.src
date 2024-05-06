@@ -4,6 +4,8 @@
 
 #include "chrome/browser/signin/dice_response_handler.h"
 
+#include <string_view>
+
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -30,6 +32,7 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/signin/public/identity_manager/identity_utils.h"
 #include "google_apis/gaia/gaia_auth_fetcher.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -88,8 +91,8 @@ enum DiceTokenFetchResult {
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 std::unique_ptr<RegistrationTokenHelper> BuildRegistrationTokenHelper(
     unexportable_keys::UnexportableKeyService& unexportable_key_service,
-    base::StringPiece client_id,
-    base::StringPiece auth_code,
+    std::string_view client_id,
+    std::string_view auth_code,
     const GURL& registration_url,
     base::OnceCallback<void(std::optional<RegistrationTokenHelper::Result>)>
         callback) {
@@ -464,8 +467,8 @@ void DiceResponseHandler::ProcessDiceSignoutHeader(
   // - If there is a policy restriction on removing the primary account.
   bool invalidate_only_primary_account =
       identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSync) ||
-      switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-          switches::ExplicitBrowserSigninPhase::kFull) ||
+      !signin::IsImplicitBrowserSigninOrExplicitDisabled(
+          identity_manager_, signin_client_->GetPrefs()) ||
       !signin_client_->IsClearPrimaryAccountAllowed(
           /*has_sync_account=*/false);
 

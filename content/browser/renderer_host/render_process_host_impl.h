@@ -29,6 +29,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "components/metrics/histogram_child_process.h"
 #include "components/services/storage/public/cpp/buckets/bucket_id.h"
 #include "components/services/storage/public/cpp/buckets/bucket_info.h"
 #include "components/services/storage/public/cpp/quota_error_or.h"
@@ -74,6 +75,7 @@
 #include "third_party/blink/public/mojom/background_sync/background_sync.mojom-forward.h"
 #include "third_party/blink/public/mojom/blob/file_backed_blob_factory.mojom.h"
 #include "third_party/blink/public/mojom/buckets/bucket_manager_host.mojom-forward.h"
+#include "third_party/blink/public/mojom/call_stack_generator/call_stack_generator.mojom.h"
 #include "third_party/blink/public/mojom/dom_storage/dom_storage.mojom.h"
 #include "third_party/blink/public/mojom/filesystem/file_system.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame_sinks/embedded_frame_sink.mojom-forward.h"
@@ -189,7 +191,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
       public ChildProcessLauncher::Client,
       public mojom::RendererHost,
       public blink::mojom::DomStorageProvider,
-      public memory_instrumentation::mojom::CoordinatorConnector
+      public memory_instrumentation::mojom::CoordinatorConnector,
+      public metrics::HistogramChildProcess
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
     ,
       public media::stable::mojom::StableVideoDecoderTracker
@@ -288,8 +291,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
       override;
   const base::TimeTicks& GetLastInitTime() override;
   bool IsProcessBackgrounded() override;
-  void IncrementKeepAliveRefCount(uint64_t handle_id_) override;
-  void DecrementKeepAliveRefCount(uint64_t handle_id_) override;
   std::string GetKeepAliveDurations() const override;
   size_t GetShutdownDelayRefCount() const override;
   int GetRenderFrameHostCount() const override;
@@ -306,6 +307,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void DisableRefCounts() override;
   bool AreRefCountsDisabled() override;
   mojom::Renderer* GetRendererInterface() override;
+
+  blink::mojom::CallStackGenerator* GetJavaScriptCallStackGeneratorInterface();
 
   bool MayReuseHost() override;
   bool IsUnused() override;
@@ -358,6 +361,20 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void OnProcessLaunched() override;
   void OnProcessLaunchFailed(int error_code) override;
 
+  const std::string& GetUnresponsiveDocumentJavascriptCallStack() const;
+  const blink::LocalFrameToken& GetUnresponsiveDocumentToken() const;
+
+  void SetUnresponsiveDocumentJSCallStackAndToken(
+      const std::string& untrusted_javascript_call_stack,
+      const std::optional<blink::LocalFrameToken>& frame_token);
+
+  void InterruptJavaScriptIsolateAndCollectCallStack();
+
+  // HistogramChildProcess implementation:
+  void BindChildHistogramFetcherFactory(
+      mojo::PendingReceiver<metrics::mojom::ChildHistogramFetcherFactory>
+          factory) override;
+
   // Call this function when it is evident that the child process is actively
   // performing some operation, for example if we just received an IPC message.
   void mark_child_process_activity_time() {
@@ -380,6 +397,33 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // list.
   static void RegisterHost(int host_id, RenderProcessHost* host);
   static void UnregisterHost(int host_id);
+
+  // "Keep alive ref count" represents the number of the customers of this
+  // render process who wish the renderer process to be alive. While the ref
+  // count is positive, |this| object will keep the renderer process alive,
+  // unless DisableRefCounts() is called. |handle_id| is a unique identifier
+  // associated with each keep-alive request.
+  // TODO(wjmaclean): Remove |handle_id| once the causes behind
+  // https://crbug.com/1148542 are known.
+  //
+  // Here is the list of users:
+  //  - Keepalive request (if the KeepAliveRendererForKeepaliveRequests
+  //    feature is enabled):
+  //    When a fetch request with keepalive flag
+  //    (https://fetch.spec.whatwg.org/#request-keepalive-flag) specified is
+  //    pending, it wishes the renderer process to be kept alive.
+  //  - Unload handlers:
+  //    Keeps the process alive briefly to give subframe unload handlers a
+  //    chance to execute after their parent frame navigates or is detached.
+  //    See https://crbug.com/852204.
+  //  - Process reuse timer (experimental):
+  //    Keeps the process alive for a set period of time in case it can be
+  //    reused for the same site. See https://crbug.com/894253.
+  void IncrementKeepAliveRefCount(uint64_t handle_id_);
+  void DecrementKeepAliveRefCount(uint64_t handle_id_);
+
+  int keep_alive_ref_count() const { return keep_alive_ref_count_; }
+  int worker_ref_count() const { return worker_ref_count_; }
 
   static void RegisterCreationObserver(
       RenderProcessHostCreationObserver* observer);
@@ -788,9 +832,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
 #endif
 
   void SetBatterySaverMode(bool battery_saver_mode_enabled) override;
-
-  int keep_alive_ref_count() const { return keep_alive_ref_count_; }
-  int worker_ref_count() const { return worker_ref_count_; }
 
 #if BUILDFLAG(IS_ANDROID)
   // Notifies the renderer process of memory pressure level.
@@ -1255,6 +1296,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Records the last time we regarded the child process active.
   base::TimeTicks child_process_activity_time_;
 
+  std::string unresponsive_document_javascript_call_stack_;
+  blink::LocalFrameToken unresponsive_document_token_;
+
   // A set of flags that influence RenderProcessHost behavior.
   int flags_;
 
@@ -1331,6 +1375,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // This will be bound to |io_thread_host_impl_|.
   mojo::PendingReceiver<mojom::ChildProcessHost> child_host_pending_receiver_;
   mojo::AssociatedRemote<mojom::Renderer> renderer_interface_;
+  mojo::Remote<blink::mojom::CallStackGenerator>
+      javascript_call_stack_generator_interface_;
   mojo::AssociatedReceiver<mojom::RendererHost> renderer_host_receiver_{this};
   mojo::Receiver<memory_instrumentation::mojom::CoordinatorConnector>
       coordinator_connector_receiver_{this};

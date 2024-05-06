@@ -127,10 +127,6 @@ BASE_FEATURE(kReclaimResourcesDelayedFlushInBackground,
              "ReclaimResourcesDelayedFlushInBackground",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kMoreAggressiveSolidColorDetection,
-             "MoreAggressiveSolidColorDetection",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kReducedFrameRateEstimation,
              "kReducedFrameRateEstimation",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -157,10 +153,6 @@ BASE_FEATURE(kSmallerInterestArea,
 
 const base::FeatureParam<int> kInterestAreaSizeInPixels{
     &kSmallerInterestArea, "size_in_pixels", kDefaultInterestAreaSizeInPixels};
-
-BASE_FEATURE(kImageCacheNoCache,
-             "ImageCacheNoCache",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kReclaimOldPrepaintTiles,
              "ReclaimOldPrepaintTiles",
@@ -189,12 +181,20 @@ BASE_FEATURE(kClearCanvasResourcesInBackground,
              "ClearCanvasResourcesInBackground",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUseV1MetricsTermination,
-             "UseV1MetricsTermination",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kMetricsTracingCalculationReduction,
              "MetricsTracingCalculationReduction",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPaintWithGainmapShader,
+             "PaintWithGainmapShader",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPaintWithGlobalToneMapFilter,
+             "PaintWithGlobalToneMapFilter",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kMetricsBackfillAdjustmentHoldback,
+             "MetricsBackfillAdjustmentHoldback",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

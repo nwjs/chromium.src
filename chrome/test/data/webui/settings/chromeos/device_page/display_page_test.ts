@@ -4,17 +4,18 @@
 
 import 'chrome://os-settings/lazy_load.js';
 
-import {CrLinkRowElement, CrToggleElement, DevicePageBrowserProxyImpl, DisplayLayoutElement, displaySettingsProviderMojom, Router, routes, setDisplayApiForTesting, setDisplaySettingsProviderForTesting, SettingsDisplayElement, SettingsDropdownMenuElement, SettingsSliderElement, SettingsToggleButtonElement} from 'chrome://os-settings/os_settings.js';
+import {CrLinkRowElement, CrSliderElement, CrToggleElement, DevicePageBrowserProxyImpl, DisplayLayoutElement, displaySettingsProviderMojom, Router, routes, setDisplayApiForTesting, setDisplaySettingsProviderForTesting, SettingsDisplayElement, SettingsDropdownMenuElement, SettingsSliderElement, SettingsToggleButtonElement} from 'chrome://os-settings/os_settings.js';
 import {strictQuery} from 'chrome://resources/ash/common/typescript_utils/strict_query.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {flush, microTask} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
+import {eventToPromise} from 'chrome://webui-test/test_util.js';
 
 import {FakeSystemDisplay} from '../fake_system_display.js';
 
-import {getFakePrefs} from './device_page_test_util.js';
+import {getFakePrefs, pressArrowLeft, pressArrowRight, simulateSliderClicked} from './device_page_test_util.js';
 import {FakeDisplaySettingsProvider} from './fake_display_settings_provider.js';
 import {TestDevicePageBrowserProxy} from './test_device_page_browser_proxy.js';
 
@@ -900,10 +901,17 @@ suite('<settings-display>', () => {
     await fakeSystemDisplay.getLayoutCalled.promise;
     assertEquals(1, displayPage.displays.length);
 
-    const displayBrightness =
+    // Brightness slider should not be present when the flag is disabled.
+    const displayBrightnessWrapper =
         displayPage.shadowRoot!.querySelector<HTMLDivElement>(
             '#brightnessSliderWrapper');
-    assertFalse(!!displayBrightness);
+    assertFalse(!!displayBrightnessWrapper);
+
+    // Auto-brightness toggle should not be present when the flag is disabled.
+    const displayAutoBrightnessToggle =
+        displayPage.shadowRoot!.querySelector<CrToggleElement>(
+            '#autoBrightnessToggle');
+    assertFalse(!!displayAutoBrightnessToggle);
   });
 
   test('Display brightness, flag enabled on internal display', async () => {
@@ -919,11 +927,19 @@ suite('<settings-display>', () => {
     assertEquals(1, displayPage.displays.length);
     flush();
 
-    // Display brightness slider should be present on the internal display.
-    const displayBrightness =
+    // Display brightness slider should be present on the internal display when
+    // the flag is enabled.
+    const displayBrightnessWrapper =
         displayPage.shadowRoot!.querySelector<HTMLDivElement>(
             '#brightnessSliderWrapper');
-    assertTrue(!!displayBrightness);
+    assertTrue(!!displayBrightnessWrapper);
+
+    // Auto-brightness toggle should be present on the internal display when the
+    // flag is enabled.
+    const displayAutoBrightnessToggle =
+        displayPage.shadowRoot!.querySelector<CrToggleElement>(
+            '#autoBrightnessToggle');
+    assertTrue(!!displayAutoBrightnessToggle);
   });
 
   test('Display brightness, flag enabled on external display', async () => {
@@ -966,6 +982,253 @@ suite('<settings-display>', () => {
 
     // Display brightness slider should not be present on external displays.
     assertFalse(!!displayBrightness);
+
+    // Auto-brightness toggle should not be present on external displays.
+    const displayAutoBrightnessToggle =
+        displayPage.shadowRoot!.querySelector<CrToggleElement>(
+            '#autoBrightnessToggle');
+    assertFalse(!!displayAutoBrightnessToggle);
   });
+
+  test(
+      'Display brightness, slider updates when brightness changes',
+      async () => {
+        loadTimeData.overrideValues(
+            {enableDisplayBrightnessControlInSettings: true});
+        await initPage();
+
+        // Set up the internal display.
+        addDisplay(1);
+        fakeSystemDisplay.onDisplayChanged.callListeners();
+        await fakeSystemDisplay.getInfoCalled.promise;
+        await fakeSystemDisplay.getLayoutCalled.promise;
+        assertEquals(1, displayPage.displays.length);
+        flush();
+
+        // Display brightness slider should be present on the internal display.
+        const displayBrightness =
+            displayPage.shadowRoot!.querySelector<HTMLDivElement>(
+                '#brightnessSliderWrapper');
+        assertTrue(!!displayBrightness);
+
+        const initialBrightness = 22.2;
+        displaySettingsProvider.setBrightnessPercentForTesting(
+            initialBrightness);
+        await flushTasks();
+
+        // Before changing the screen brightness, the slider value should be
+        // equal to the current screen brightness.
+        const displayBrightnessSlider =
+            displayPage.shadowRoot!.querySelector<CrSliderElement>(
+                '#brightnessSlider');
+        assertTrue(!!displayBrightnessSlider);
+        assertEquals(displayBrightnessSlider.value, initialBrightness);
+
+        // Change the screen brightness.
+        let adjustedBrightness = 99.0;
+        displaySettingsProvider.setBrightnessPercentForTesting(
+            adjustedBrightness);
+        await flushTasks();
+
+        // The slider should update to the new brightness.
+        assertEquals(displayBrightnessSlider.value, adjustedBrightness);
+
+        // Change the screen brightness again.
+        adjustedBrightness = 5.5;
+        displaySettingsProvider.setBrightnessPercentForTesting(
+            adjustedBrightness);
+        await flushTasks();
+
+        // The slider should update to the new brightness.
+        assertEquals(displayBrightnessSlider.value, adjustedBrightness);
+      });
+
+  test(
+      'Display brightness set pref value from slider, flag enabled',
+      async () => {
+        loadTimeData.overrideValues(
+            {enableDisplayBrightnessControlInSettings: true});
+        await initPage();
+
+        // Set up the internal display.
+        addDisplay(1);
+        fakeSystemDisplay.onDisplayChanged.callListeners();
+        await fakeSystemDisplay.getInfoCalled.promise;
+        await fakeSystemDisplay.getLayoutCalled.promise;
+        assertEquals(1, displayPage.displays.length);
+        flush();
+
+        // Before adjusting the slider, the value in FakeDisplaySettingsProvider
+        // should be equal to the default.
+        assertEquals(
+            displaySettingsProvider.getInternalDisplayScreenBrightness(), 0);
+
+        const displayBrightnessSlider =
+            displayPage.shadowRoot!.querySelector<CrSliderElement>(
+                '#brightnessSlider');
+        assertTrue(!!displayBrightnessSlider);
+
+        // Test clicking to near-min brightness case.
+        const minimumBrightnessPercent = 5;
+        const nearMinimumPercent = minimumBrightnessPercent + 1;
+        await simulateSliderClicked(
+            displayBrightnessSlider, nearMinimumPercent,
+            /*minimumValue=*/ minimumBrightnessPercent);
+        // Round to nearest integer for comparison to avoid precision issues
+        // (e.g. 6.000001) that don't affect real-world behavior.
+        let roundedBrightness = Math.round(
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        assertEquals(nearMinimumPercent, roundedBrightness);
+
+        // Test clicking to max brightness case.
+        const maxOutputBrightnessPercent = 100;
+        await simulateSliderClicked(
+            displayBrightnessSlider, maxOutputBrightnessPercent,
+            /*minimumValue=*/ minimumBrightnessPercent);
+        assertEquals(
+            maxOutputBrightnessPercent,
+            displaySettingsProvider.getInternalDisplayScreenBrightness(),
+        );
+
+        // Test clicking to non-boundary brightness case.
+        const nonBoundaryOutputBrightnessPercent = 31;
+        await simulateSliderClicked(
+            displayBrightnessSlider, nonBoundaryOutputBrightnessPercent,
+            /*minimumValue=*/ minimumBrightnessPercent);
+        // Round to nearest integer for comparison to avoid precision issues
+        // (e.g. 30.9999) that don't affect real-world behavior.
+        roundedBrightness = Math.round(
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        assertEquals(nonBoundaryOutputBrightnessPercent, roundedBrightness);
+
+        // Ensure value clamps to min.
+        displayBrightnessSlider.value = 0;
+        await flushTasks();
+        const sliderValueChangedPromise =
+            eventToPromise('cr-slider-value-changed', displayBrightnessSlider);
+        displayBrightnessSlider.dispatchEvent(
+            new CustomEvent('cr-slider-value-changed'));
+        await sliderValueChangedPromise;
+        assertEquals(
+            minimumBrightnessPercent,
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+
+        // Ensure value clamps to max.
+        displayBrightnessSlider.value = 101;
+        await flushTasks();
+        displayBrightnessSlider.dispatchEvent(
+            new CustomEvent('cr-slider-value-changed'));
+        await sliderValueChangedPromise;
+        assertEquals(
+            maxOutputBrightnessPercent,
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+
+        // Set the value to somewhere in the middle.
+        const expectedBrightnessValue = 77;
+        displayBrightnessSlider.value = expectedBrightnessValue;
+        displayBrightnessSlider.dispatchEvent(
+            new CustomEvent('cr-slider-value-changed'));
+
+        const increment = 10;
+        // Ensure slider keys work with increments.
+        assertEquals(
+            expectedBrightnessValue,
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        pressArrowRight(displayBrightnessSlider);
+        assertEquals(
+            expectedBrightnessValue + increment,
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        pressArrowRight(displayBrightnessSlider);
+        assertEquals(
+            expectedBrightnessValue + (2 * increment),
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        pressArrowRight(displayBrightnessSlider);
+        assertEquals(
+            maxOutputBrightnessPercent,
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        // Pressing right arrow when the brightness is already at maximum should
+        // maintain the same level.
+        pressArrowRight(displayBrightnessSlider);
+        assertEquals(
+            maxOutputBrightnessPercent,
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        pressArrowLeft(displayBrightnessSlider);
+        assertEquals(
+            maxOutputBrightnessPercent - increment,
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+        pressArrowLeft(displayBrightnessSlider);
+        assertEquals(
+            maxOutputBrightnessPercent - (2 * increment),
+            displaySettingsProvider.getInternalDisplayScreenBrightness());
+      });
+
+  test(
+      'Auto brightness toggle updates DisplaySettingsProvider, flag enabled',
+      async () => {
+        loadTimeData.overrideValues(
+            {enableDisplayBrightnessControlInSettings: true});
+        await initPage();
+
+        // Set up the internal display.
+        addDisplay(1);
+        fakeSystemDisplay.onDisplayChanged.callListeners();
+        await fakeSystemDisplay.getInfoCalled.promise;
+        await fakeSystemDisplay.getLayoutCalled.promise;
+        assertEquals(1, displayPage.displays.length);
+        flush();
+
+        // Before adjusting the auto-brightness toggle, the value in
+        // FakeDisplaySettingsProvider should be equal to the default (true).
+        assertTrue(displaySettingsProvider
+                       .getInternalDisplayAmbientLightSensorEnabled());
+
+        const autoBrightnessToggle =
+            displayPage.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#autoBrightnessToggle');
+        assertTrue(!!autoBrightnessToggle);
+
+        // Set the auto-brightness toggle to be on, to match the state of the
+        // provider setting.
+        // TODO(cambickel): When the auto-brightness toggle can observe the
+        // current state of the auto-brightness setting, remove this.
+        autoBrightnessToggle.checked = true;
+        await flushTasks();
+
+        // Switch auto-brightness to off.
+        autoBrightnessToggle.click();
+        await flushTasks();
+
+        // The setting in FakeDisplaySettingsProvider should now be disabled.
+        assertFalse(displaySettingsProvider
+                        .getInternalDisplayAmbientLightSensorEnabled());
+
+        // Switch auto-brightness to on.
+        autoBrightnessToggle.click();
+        await flushTasks();
+
+        // The setting in FakeDisplaySettingsProvider should now be enabled.
+        assertTrue(displaySettingsProvider
+                       .getInternalDisplayAmbientLightSensorEnabled());
+
+        // Switch auto-brightness to off by clicking on the row.
+        const autoBrightnessToggleRow =
+            displayPage.shadowRoot!.querySelector<HTMLDivElement>(
+                '#autoBrightnessToggleRow');
+        assertTrue(!!autoBrightnessToggleRow);
+        autoBrightnessToggleRow.click();
+        await flushTasks();
+
+        // The setting in FakeDisplaySettingsProvider should now be disabled.
+        assertFalse(displaySettingsProvider
+                        .getInternalDisplayAmbientLightSensorEnabled());
+
+        // Switch auto-brightness to on by clicking on the row.
+        autoBrightnessToggleRow.click();
+        await flushTasks();
+
+        // The setting in FakeDisplaySettingsProvider should now be enabled.
+        assertTrue(displaySettingsProvider
+                       .getInternalDisplayAmbientLightSensorEnabled());
+      });
 
 });

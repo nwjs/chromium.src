@@ -26,8 +26,8 @@ void AddField(const std::string& label,
               FormData* form_data) {
   FormFieldData field;
   field.label = ASCIIToUTF16(label);
-  field.name = ASCIIToUTF16(name);
-  field.form_control_type = control_type;
+  field.set_name(ASCIIToUTF16(name));
+  field.set_form_control_type(control_type);
   form_data->fields.push_back(field);
 }
 

@@ -524,8 +524,8 @@ void SavedPasswordsPresenter::RemoveForms(
 void SavedPasswordsPresenter::AddForms(const std::vector<PasswordForm>& forms,
                                        base::OnceClosure completion) {
   for (const auto& form : forms) {
-    // TODO(crbug.com/1359392): Consider replacing |sort_key_to_password_forms_|
-    // when grouping is launched.
+    // TODO(crbug.com/40862365): Consider replacing
+    // |sort_key_to_password_forms_| when grouping is launched.
     sort_key_to_password_forms_.insert(
         std::make_pair(CreateSortKey(CredentialUIEntry(form)), form));
   }
@@ -553,12 +553,12 @@ void SavedPasswordsPresenter::MaybeGroupCredentials(
 
   // Passkeys are collected synchronously.
   std::vector<PasskeyCredential> passkeys;
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_ANDROID)
   if (passkey_store_) {
     passkeys = PasskeyCredential::FromCredentialSpecifics(
         passkey_store_->GetAllPasskeys());
   }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   // Notify observers after grouping is complete.
   passwords_grouper_->GroupCredentials(

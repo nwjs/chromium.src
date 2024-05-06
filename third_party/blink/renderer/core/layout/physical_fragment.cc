@@ -410,7 +410,6 @@ PhysicalFragment::PhysicalFragment(FragmentBuilder* builder,
                     ? nullptr
                     : OofDataFromBuilder(builder)) {
   CHECK(builder->layout_object_);
-  CHECK(builder->layout_object_->Style());
 
   // A line with a float / block in a parallel flow should not have an outgoing
   // break token associated. An outgoing inline break token from a line means
@@ -467,7 +466,6 @@ PhysicalFragment::PhysicalFragment(const PhysicalFragment& other)
       break_token_(other.break_token_),
       oof_data_(other.oof_data_ ? other.CloneOofData() : nullptr) {
   CHECK(layout_object_);
-  CHECK(layout_object_->Style());
   DCHECK(other.children_valid_);
   DCHECK(children_valid_);
 }
@@ -556,7 +554,8 @@ PhysicalFragment::OofData* PhysicalFragment::OofDataFromBuilder(
       oof_data->oof_positioned_descendants.emplace_back(
           descendant.Node(),
           descendant.static_position.ConvertToPhysical(converter),
-          descendant.requires_content_before_breaking, inline_container);
+          descendant.requires_content_before_breaking,
+          descendant.is_hidden_for_paint, inline_container);
     }
   }
 
@@ -607,7 +606,8 @@ PhysicalFragment::OofData* PhysicalFragment::FragmentedOofDataFromBuilder(
         descendant.Node(),
         descendant.static_position.ConvertToPhysical(
             containing_block_converter),
-        descendant.requires_content_before_breaking, inline_container,
+        descendant.requires_content_before_breaking,
+        descendant.is_hidden_for_paint, inline_container,
         PhysicalContainingBlock(builder, size, containing_block_size,
                                 descendant.containing_block),
         PhysicalContainingBlock(builder, size,

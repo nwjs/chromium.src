@@ -9,7 +9,7 @@
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
 
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-#include "chrome/browser/ui/views/media_preview/media_coordinator.h"
+#include "chrome/browser/ui/views/media_preview/permission_prompt_previews_coordinator.h"
 #include "components/media_effects/media_device_info.h"
 #endif
 
@@ -47,6 +47,19 @@ class PermissionPromptBubbleOneOriginView :
   // PermissionPromptBubbleBaseView:
   void RunButtonCallback(int button_id) override;
 
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+  const std::optional<PermissionPromptPreviewsCoordinator>&
+  GetMediaPreviewsForTesting() const {
+    return media_previews_;
+  }
+  const raw_ptr<views::Label> GetCameraPermissionLabelForTesting() const {
+    return camera_permission_label_;
+  }
+  const raw_ptr<views::Label> GetMicPermissionLabelForTesting() const {
+    return mic_permission_label_;
+  }
+#endif
+
  private:
   // PermissionPromptBubbleBaseView:
   void ChildPreferredSizeChanged(views::View* child) override;
@@ -69,8 +82,7 @@ class PermissionPromptBubbleOneOriginView :
   void OnVideoDevicesChanged(
       const std::optional<std::vector<media::VideoCaptureDeviceInfo>>&
           device_infos) override;
-
-  std::optional<MediaCoordinator> media_preview_coordinator_;
+  std::optional<PermissionPromptPreviewsCoordinator> media_previews_;
   raw_ptr<views::Label> camera_permission_label_ = nullptr;
   raw_ptr<views::Label> mic_permission_label_ = nullptr;
   base::ScopedObservation<media_effects::MediaDeviceInfo,

@@ -260,6 +260,10 @@ std::optional<ModelError> FakeModelTypeSyncBridge::ApplyIncrementalSyncChanges(
       case EntityChange::ACTION_DELETE:
         EXPECT_TRUE(db_->HasData(change->storage_key()));
         db_->RemoveData(change->storage_key());
+        if (change->is_deleted_collaboration_membership()) {
+          deleted_collaboration_membership_storage_keys_.insert(
+              change->storage_key());
+        }
         break;
     }
   }
@@ -276,8 +280,8 @@ void FakeModelTypeSyncBridge::ApplyMetadataChangeList(
   in_memory_mcl->TransferChangesTo(&db_mcl);
 }
 
-void FakeModelTypeSyncBridge::GetData(StorageKeyList keys,
-                                      DataCallback callback) {
+void FakeModelTypeSyncBridge::GetDataForCommit(StorageKeyList keys,
+                                               DataCallback callback) {
   if (error_next_) {
     error_next_ = false;
     change_processor()->ReportError({FROM_HERE, "boom"});

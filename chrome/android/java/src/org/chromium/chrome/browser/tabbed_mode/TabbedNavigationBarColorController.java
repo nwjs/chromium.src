@@ -69,7 +69,7 @@ class TabbedNavigationBarColorController {
     private EdgeToEdgeController mEdgeToEdgeController;
     @Nullable private ChangeObserver mEdgeToEdgeChangeObserver;
 
-    private Tab mActiveTab;
+    private @Nullable Tab mActiveTab;
     private TabObserver mTabObserver;
 
     /**
@@ -220,13 +220,12 @@ class TabbedNavigationBarColorController {
     private void updateActiveTab() {
         if (!ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) return;
 
-        Tab activeTab = mTabModelSelector.getCurrentTab();
+        @Nullable Tab activeTab = mTabModelSelector.getCurrentTab();
         if (activeTab == mActiveTab) return;
 
         if (mActiveTab != null) mActiveTab.removeObserver(mTabObserver);
         mActiveTab = activeTab;
-        mActiveTab.addObserver(mTabObserver);
-
+        if (mActiveTab != null) mActiveTab.addObserver(mTabObserver);
         updateNavigationBarColor(getBottomInset());
     }
 
@@ -249,10 +248,15 @@ class TabbedNavigationBarColorController {
         mWindow.setNavigationBarColor(mNavigationBarColor);
         if (toEdge) return;
         setNavigationBarDividerColor();
-        // TODO(https://crbug.com/329287585): update icon color based on tab background color for
-        //     NavBarColorMatchesTabBackground experiment.
-        UiUtils.setNavigationBarIconColor(
-                mRootView, !mForceDarkNavigationBarColor && mLightNavigationBar);
+
+        if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) {
+            UiUtils.setNavigationBarIconColor(
+                    mRootView,
+                    ColorUtils.isHighLuminance(ColorUtils.calculateLuminance(mNavigationBarColor)));
+        } else {
+            UiUtils.setNavigationBarIconColor(
+                    mRootView, !mForceDarkNavigationBarColor && mLightNavigationBar);
+        }
     }
 
     @SuppressLint("NewApi")

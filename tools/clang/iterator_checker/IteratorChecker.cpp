@@ -9,6 +9,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/OperationKinds.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
+#include "clang/Analysis/FlowSensitive/AdornedCFG.h"
 #include "clang/Analysis/FlowSensitive/DataflowAnalysis.h"
 #include "clang/Analysis/FlowSensitive/DataflowLattice.h"
 #include "clang/Analysis/FlowSensitive/NoopLattice.h"
@@ -92,7 +93,7 @@ static llvm::DenseMap<llvm::StringRef, llvm::DenseMap<llvm::StringRef, uint8_t>>
                 {"crend", Annotation::kReturnIterator},
                 {"data", Annotation::kNone},
                 {"emplace",
-                 Annotation::kInvalidateAll | Annotation::kInvalidateAll},
+                 Annotation::kReturnIterator | Annotation::kInvalidateAll},
                 {"emplace_back", Annotation::kInvalidateAll},
                 {"empty", Annotation::kNone},
                 {"end", Annotation::kReturnEndIterator},
@@ -284,8 +285,6 @@ const clang::dataflow::Formula& ForceBoolValue(
 // deductions:
 // - The `transfer` function updates an environment after executing one more
 //   instructions.
-// - The `merge` function merge together the environments from two code
-//   diverging code paths. For instance the `if` and `for` loop.
 class InvalidIteratorAnalysis
     : public clang::dataflow::DataflowAnalysis<InvalidIteratorAnalysis,
                                                clang::dataflow::NoopLattice> {
@@ -306,34 +305,6 @@ class InvalidIteratorAnalysis
     if (auto cfg_stmt = elt.getAs<clang::CFGStmt>()) {
       Transfer(*cfg_stmt->getStmt(), env);
     }
-  }
-
-  // Used by DataflowAnalysis template.
-  bool merge(clang::QualType type,
-             const clang::dataflow::Value& val1,
-             const clang::dataflow::Environment& env1,
-             const clang::dataflow::Value& val2,
-             const clang::dataflow::Environment& env2,
-             clang::dataflow::Value& merged_val,
-             clang::dataflow::Environment& merged_env) final {
-    if (!IsIterator(type)) {
-      return true;
-    }
-
-    auto* container1 = GetContainerValue(env1, val1);
-    auto* container2 = GetContainerValue(env2, val2);
-    DebugStream() << "HERE: " << DebugString(env1, val1);
-    DebugStream() << "HERE: " << DebugString(env2, val2);
-    if (container1 != container2) {
-      // See tests/iterator-with-multiple-container.cpp
-      // TODO(https://crbug.com/1455371) Ban iterator associated with multiple
-      // containers.
-      UnsetContainerValue(merged_env, merged_val);
-      return true;
-    }
-
-    SetContainerValue(merged_env, merged_val, *container1);
-    return true;
   }
 
   llvm::StringMap<clang::QualType> GetSyntheticFields(clang::QualType Type) {
@@ -528,22 +499,6 @@ class InvalidIteratorAnalysis
       return;
     }
 
-    if (annotation & Annotation::kReturnIterator ||
-        annotation & Annotation::kReturnEndIterator) {
-      TransferCallReturningIterator(&callexpr, *container,
-                                    annotation & Annotation::kReturnEndIterator
-                                        ? env.getBoolLiteralValue(false)
-                                        : env.makeAtomicBoolValue(),
-                                    annotation & Annotation::kReturnEndIterator
-                                        ? env.getBoolLiteralValue(true)
-                                        : env.makeAtomicBoolValue(),
-                                    env);
-    }
-
-    if (annotation & Annotation::kReturnIteratorPair) {
-      //  TODO(https://crbug.com/1455371): Iterator pair are not yet supported.
-    }
-
     if (annotation & Annotation::kInvalidateArgs) {
       bool found_iterator = false;
 
@@ -562,14 +517,28 @@ class InvalidIteratorAnalysis
         // invalidate everything instead:
         InfoStream() << "INVALIDATING MANY: Container: " << container << '\n';
         InvalidateContainer(env, *container);
-        return;
       }
     }
 
     if (annotation & Annotation::kInvalidateAll) {
       InfoStream() << "INVALIDATING MANY: Container: " << container << '\n';
       InvalidateContainer(env, *container);
-      return;
+    }
+
+    if (annotation & Annotation::kReturnIterator ||
+        annotation & Annotation::kReturnEndIterator) {
+      TransferCallReturningIterator(&callexpr, *container,
+                                    annotation & Annotation::kReturnEndIterator
+                                        ? env.getBoolLiteralValue(false)
+                                        : env.makeAtomicBoolValue(),
+                                    annotation & Annotation::kReturnEndIterator
+                                        ? env.getBoolLiteralValue(true)
+                                        : env.makeAtomicBoolValue(),
+                                    env);
+    }
+
+    if (annotation & Annotation::kReturnIteratorPair) {
+      //  TODO(https://crbug.com/1455371): Iterator pair are not yet supported.
     }
   }
 
@@ -673,10 +642,7 @@ class InvalidIteratorAnalysis
       DebugStream() << DebugString(env, *lhs_it) << '\n';
       DebugStream() << DebugString(env, *rhs_it) << '\n';
       if (GetContainerValue(env, *lhs_it) != GetContainerValue(env, *rhs_it)) {
-        diagnostic_.Report(
-            expr.getSourceRange().getBegin(),
-            diagnostic_.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-                                        kInvalidIteratorComparison));
+        Report(kInvalidIteratorComparison, expr);
       }
       const auto& formula = ForceBoolValue(env, expr);
       auto& arena = env.arena();
@@ -804,10 +770,7 @@ class InvalidIteratorAnalysis
       return;
     }
 
-    diagnostic_.Report(
-        expr->getSourceRange().getBegin(),
-        diagnostic_.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-                                    kInvalidIteratorUsage));
+    Report(kInvalidIteratorUsage, *expr);
   }
 
   // This invalidates all the iterators previously created by this container in
@@ -892,13 +855,18 @@ class InvalidIteratorAnalysis
       const clang::Expr* expr,
       const clang::dataflow::Environment& env) {
     while (expr) {
+      clang::dataflow::StorageLocation* loc = nullptr;
+
       if (expr->isGLValue()) {
-        auto* loc = env.getStorageLocation(*expr);
-        if (loc) {
-          clang::dataflow::Value* value = env.getValue(*expr);
-          if (IsIterator(loc->getType().getCanonicalType())) {
-            return value;
-          }
+        loc = env.getStorageLocation(*expr);
+      } else if (expr->isPRValue() && expr->getType()->isRecordType()) {
+        loc = &env.getResultObjectLocation(*expr);
+      }
+
+      if (loc) {
+        clang::dataflow::Value* value = env.getValue(*expr);
+        if (IsIterator(loc->getType().getCanonicalType())) {
+          return value;
         }
       }
 
@@ -928,13 +896,6 @@ class InvalidIteratorAnalysis
     iterator_to_container_[&storage] = &container;
   }
 
-  void UnsetContainerValue(const clang::dataflow::Environment& env,
-                           const clang::dataflow::Value& iterator) {
-    auto& record = clang::cast<clang::dataflow::RecordValue>(iterator);
-    auto& storage = record.getLoc();
-    iterator_to_container_.erase(&storage);
-  }
-
   // Returns whether the currently handled value is an iterator.
   bool IsIterator(clang::QualType type) {
     return iterator_types_mapping_.count(type.getCanonicalType()) != 0;
@@ -958,6 +919,21 @@ class InvalidIteratorAnalysis
     return res;
   }
 
+  template <size_t N>
+  void Report(const char (&error_message)[N], const clang::Expr& expr) {
+    clang::SourceLocation location = expr.getSourceRange().getBegin();
+
+    // Avoid the same error to be reported twice:
+    if (reported_source_locations_.count({location, error_message})) {
+      return;
+    }
+    reported_source_locations_.insert({location, error_message});
+
+    diagnostic_.Report(
+        location, diagnostic_.getCustomDiagID(
+                      clang::DiagnosticsEngine::Level::Error, error_message));
+  }
+
   // The diagnostic engine that will issue potential errors.
   clang::DiagnosticsEngine& diagnostic_;
 
@@ -972,6 +948,11 @@ class InvalidIteratorAnalysis
   // case this is needed.
   llvm::DenseMap<clang::dataflow::StorageLocation*, clang::dataflow::Value*>
       iterator_to_container_;
+
+  // The set of reported errors' location. This is used to avoid submitting
+  // twice the same error during Clang DataFlowAnalysis iterations.
+  llvm::DenseSet<std::pair<clang::SourceLocation, clang::StringRef>>
+      reported_source_locations_;
 };
 
 class IteratorInvalidationCheck
@@ -999,7 +980,7 @@ class IteratorInvalidationCheck
     }
 
     InfoStream() << "[FUNCTION] " << func->getQualifiedNameAsString() << '\n';
-    auto control_flow_context = clang::dataflow::ControlFlowContext::build(
+    auto control_flow_context = clang::dataflow::AdornedCFG::build(
         *func, *func->getBody(), *result.Context);
     if (!control_flow_context) {
       llvm::report_fatal_error(control_flow_context.takeError());

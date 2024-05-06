@@ -127,6 +127,7 @@
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_common.h"
 #include "ui/accessibility/ax_enums.mojom-blink-forward.h"
@@ -440,6 +441,7 @@ const RoleEntry kReverseRoles[] = {
     {"option", ax::mojom::blink::Role::kMenuListOption},
     {"option", ax::mojom::blink::Role::kListBoxOption},
     {"group", ax::mojom::blink::Role::kDetails},
+    {"generic", ax::mojom::blink::Role::kFooterAsNonLandmark},
     {"combobox", ax::mojom::blink::Role::kComboBoxMenuButton},
     {"combobox", ax::mojom::blink::Role::kComboBoxSelect},
     {"combobox", ax::mojom::blink::Role::kTextFieldWithComboBox}};
@@ -454,7 +456,7 @@ static ARIARoleMap* CreateARIARoleMap() {
 }
 
 // The role name vector contains only ARIA roles, and no internal roles.
-static Vector<AtomicString>* CreateARIARoleNameVector() {
+static Vector<AtomicString>* CreateAriaRoleNameVector() {
   Vector<AtomicString>* role_name_vector = new Vector<AtomicString>(kNumRoles);
   role_name_vector->Fill(g_null_atom, kNumRoles);
 
@@ -716,7 +718,7 @@ void AXObject::Init(AXObject* parent) {
   // The role must be determined immediately.
   // Note: in order to avoid reentrancy, the role computation cannot use the
   // ParentObject(), although it can use the DOM parent.
-  role_ = DetermineAccessibilityRole();
+  role_ = DetermineRoleValue();
 #if DCHECK_IS_ON()
   DCHECK(IsValidRole(role_)) << "Illegal " << role_ << " for\n"
                              << GetNode() << '\n'
@@ -969,8 +971,7 @@ Node* AXObject::GetParentNodeForComputeParent(AXObjectCacheImpl& cache,
     }
     // TODO(accessibility) Remove this rule once we stop using AXMenuList*.
     if (IsA<HTMLSelectElement>(popup_owner) &&
-        AXObjectCacheImpl::ShouldCreateAXMenuListFor(
-            popup_owner->GetLayoutObject())) {
+        AXObjectCacheImpl::ShouldCreateAXMenuListFor(popup_owner)) {
       return nullptr;
     }
     return popup_owner;
@@ -1030,7 +1031,7 @@ bool AXObject::CanComputeAsNaturalParent(Node* node) {
   // parent an AXMenuListPopup, which is added as a child on creation. No other
   // children are allowed, and false is returned for anything else where the
   // parent would be AXMenuList.
-  if (AXObjectCacheImpl::ShouldCreateAXMenuListFor(node->GetLayoutObject())) {
+  if (AXObjectCacheImpl::ShouldCreateAXMenuListFor(node)) {
     return false;
   }
 
@@ -1312,25 +1313,48 @@ AccessibleNode* AXObject::GetAccessibleNode() const {
 
 namespace {
 
-void SerializeAriaNotificationAttributes(const AriaNotification& notification,
+void SerializeAriaNotificationAttributes(const AriaNotifications& notifications,
                                          ui::AXNodeData* node_data) {
   DCHECK(node_data);
 
+  const auto size = notifications.Size();
+  if (!size) {
+    // Avoid serializing empty attribute lists if there are no notifications.
+    return;
+  }
+
+  std::vector<std::string> announcements;
+  std::vector<std::string> notification_ids;
+  std::vector<int32_t> interrupt_properties;
+  std::vector<int32_t> priority_properties;
+
+  announcements.reserve(size);
+  notification_ids.reserve(size);
+  interrupt_properties.reserve(size);
+  priority_properties.reserve(size);
+
+  for (const auto& notification : notifications) {
+    announcements.emplace_back(TruncateString(notification.Announcement()));
+    notification_ids.emplace_back(
+        TruncateString(notification.NotificationId()));
+    interrupt_properties.emplace_back(
+        static_cast<int32_t>(notification.Interrupt()));
+    priority_properties.emplace_back(
+        static_cast<int32_t>(notification.Priority()));
+  }
+
   node_data->AddStringListAttribute(
       ax::mojom::blink::StringListAttribute::kAriaNotificationAnnouncements,
-      {TruncateString(notification.Announcement())});
-
+      announcements);
   node_data->AddStringListAttribute(
       ax::mojom::blink::StringListAttribute::kAriaNotificationIds,
-      {TruncateString(notification.NotificationId())});
-
+      notification_ids);
   node_data->AddIntListAttribute(
       ax::mojom::blink::IntListAttribute::kAriaNotificationInterruptProperties,
-      {static_cast<int32_t>(notification.Interrupt())});
-
+      interrupt_properties);
   node_data->AddIntListAttribute(
       ax::mojom::blink::IntListAttribute::kAriaNotificationPriorityProperties,
-      {static_cast<int32_t>(notification.Priority())});
+      priority_properties);
 }
 
 }  // namespace
@@ -1434,10 +1458,8 @@ void AXObject::Serialize(ui::AXNodeData* node_data,
 
   SerializeOtherScreenReaderAttributes(node_data);
 
-  for (const auto& notification :
-       AXObjectCache().RetrieveAriaNotifications(this)) {
-    SerializeAriaNotificationAttributes(notification, node_data);
-  }
+  SerializeAriaNotificationAttributes(
+      AXObjectCache().RetrieveAriaNotifications(this), node_data);
 
   // Return early. The following attributes are unnecessary for ignored nodes.
   // Exception: focusable ignored nodes are fully serialized, so that reasonable
@@ -1599,8 +1621,7 @@ void AXObject::SerializeElementAttributes(ui::AXNodeData* node_data) {
   // Expose StringAttribute::kRole, which is used for the xml-roles object
   // attribute. Prefer the raw ARIA role attribute value, otherwise, the ARIA
   // equivalent role is used, if it is a role that is exposed in xml-roles.
-  const AtomicString& role_str =
-      GetRoleAttributeStringForObjectAttribute(node_data);
+  const AtomicString& role_str = GetRoleStringForSerialization(node_data);
   TruncateAndAddStringAttribute(
       node_data, ax::mojom::blink::StringAttribute::kRole, role_str);
 }
@@ -1659,6 +1680,8 @@ void AXObject::SerializeInlineTextBoxAttributes(
       ax::mojom::blink::IntListAttribute::kCharacterOffsets, character_offsets,
       node_data);
 
+  // TODO(kevers): This data can be calculated on demand from the text content
+  // and should not need to be serialized.
   Vector<int> word_starts;
   Vector<int> word_ends;
   GetWordBoundaries(word_starts, word_ends);
@@ -1737,6 +1760,15 @@ void AXObject::SerializeLiveRegionAttributes(ui::AXNodeData* node_data) const {
 void AXObject::SerializeNameAndDescriptionAttributes(
     ui::AXMode accessibility_mode,
     ui::AXNodeData* node_data) const {
+  if (::features::IsAccessibilityPruneRedundantInlineTextEnabled()) {
+    if (node_data->role == ax::mojom::blink::Role::kInlineTextBox &&
+        IsOnlyChild()) {
+      // The text of an only-child inline text box can be inferred directly
+      // from the parent. No need to serialize redundant data.
+      return;
+    }
+  }
+
   ax::mojom::blink::NameFrom name_from;
   AXObjectVector name_objects;
   String name = GetName(name_from, &name_objects);
@@ -2489,7 +2521,7 @@ AXObject* AXObject::GetControlsListboxForTextfieldCombobox() {
     if (IsA<HTMLSelectElement>(listbox_candidate->GetNode()))
       return nullptr;
     // Require an ARIA role on the next sibling.
-    if (!ui::IsComboBoxContainer(listbox_candidate->AriaRoleAttribute())) {
+    if (!ui::IsComboBoxContainer(listbox_candidate->RawAriaRole())) {
       return nullptr;
     }
     // Naming a listbox within a composite combobox widget is not part of a
@@ -2507,7 +2539,7 @@ AXObject* AXObject::GetControlsListboxForTextfieldCombobox() {
   return listbox_candidate;
 }
 
-const AtomicString& AXObject::GetRoleAttributeStringForObjectAttribute(
+const AtomicString& AXObject::GetRoleStringForSerialization(
     ui::AXNodeData* node_data) {
   // All ARIA roles are exposed in xml-roles.
   if (const AtomicString& role_str =
@@ -2526,7 +2558,7 @@ const AtomicString& AXObject::GetRoleAttributeStringForObjectAttribute(
     // Landmarks are the only roles exposed in xml-roles, matching Firefox.
     return g_null_atom;
   }
-  return ARIARoleName(landmark_role);
+  return AriaRoleName(landmark_role);
 }
 
 void AXObject::SerializeMarkerAttributes(ui::AXNodeData* node_data) const {
@@ -2599,10 +2631,6 @@ bool AXObject::IsAXNodeObject() const {
   return false;
 }
 
-bool AXObject::IsAXLayoutObject() const {
-  return false;
-}
-
 bool AXObject::IsAXInlineTextBox() const {
   return false;
 }
@@ -2659,10 +2687,11 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
   // An SVG with no accessible children should be exposed as an image rather
   // than a document. See https://github.com/w3c/svg-aam/issues/12.
   // We do this check here for performance purposes: When
-  // AXLayoutObject::RoleFromLayoutObjectOrNode is called, that node's
+  // AXNodeObject::RoleFromLayoutObjectOrNode is called, that node's
   // accessible children have not been calculated. Rather than force calculation
   // there, wait until we have the full tree.
-  if (role_ == ax::mojom::blink::Role::kSvgRoot && !UnignoredChildCount()) {
+  if (role_ == ax::mojom::blink::Role::kSvgRoot &&
+      AccessibilityIsIncludedInTree() && !UnignoredChildCount()) {
     return ax::mojom::blink::Role::kImage;
   }
 
@@ -2705,11 +2734,18 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
   // An <aside> element should not be considered a landmark region
   // if it is a child of a landmark disallowed element, UNLESS it has
   // an accessible name.
-  if (role_ == ax::mojom::blink::Role::kComplementary) {
+  if (role_ == ax::mojom::blink::Role::kComplementary &&
+      RawAriaRole() != ax::mojom::blink::Role::kComplementary) {
     if (IsDescendantOfLandmarkDisallowedElement() &&
         !IsNameFromAuthorAttribute()) {
       return ax::mojom::blink::Role::kGenericContainer;
     }
+  }
+
+  // Treat a named <section> as role="region".
+  if (role_ == ax::mojom::blink::Role::kSection) {
+    return IsNameFromAuthorAttribute() ? ax::mojom::blink::Role::kRegion
+                                       : ax::mojom::blink::Role::kSection;
   }
 
   // TODO(accessibility): Consider moving the image vs. image map role logic
@@ -2725,9 +2761,9 @@ ax::mojom::blink::Role AXObject::RoleValue() const {
 bool AXObject::IsARIATextField() const {
   if (IsAtomicTextField())
     return false;  // Native role supercedes the ARIA one.
-  return AriaRoleAttribute() == ax::mojom::blink::Role::kTextField ||
-         AriaRoleAttribute() == ax::mojom::blink::Role::kSearchBox ||
-         AriaRoleAttribute() == ax::mojom::blink::Role::kTextFieldWithComboBox;
+  return RawAriaRole() == ax::mojom::blink::Role::kTextField ||
+         RawAriaRole() == ax::mojom::blink::Role::kSearchBox ||
+         RawAriaRole() == ax::mojom::blink::Role::kTextFieldWithComboBox;
 }
 
 bool AXObject::IsButton() const {
@@ -2875,16 +2911,7 @@ String AXObject::GetValueForControl() const {
   return String();
 }
 
-String AXObject::GetValueForControl(AXObjectSet& visited) const {
-  return String();
-}
-
 String AXObject::SlowGetValueForControlIncludingContentEditable() const {
-  return String();
-}
-
-String AXObject::SlowGetValueForControlIncludingContentEditable(
-    AXObjectSet& visited) const {
   return String();
 }
 
@@ -3054,10 +3081,6 @@ bool AXObject::IsSelectedFromFocusSupported() const {
 }
 
 bool AXObject::IsSelectedFromFocus() const {
-  return false;
-}
-
-bool AXObject::IsSelectedOptionActive() const {
   return false;
 }
 
@@ -3580,10 +3603,7 @@ bool AXObject::ComputeIsAriaHidden(IgnoredReasons* ignored_reasons) const {
   }
   // aria-hidden:true works a bit like display:none.
   // * aria-hidden=true affects entire subtree.
-  // * aria-hidden=false cannot override aria-hidden=true on an ancestor.
-  //   It can only affect elements that are styled as hidden, and only when
-  //   there is no aria-hidden=true in the ancestor chain.
-  // Therefore aria-hidden=true must be checked on every ancestor.
+  // * aria-hidden=false is a noop.
   if (AOMPropertyOrARIAAttributeIsTrue(AOMBooleanProperty::kHidden)) {
     if (ignored_reasons)
       ignored_reasons->push_back(IgnoredReason(kAXAriaHiddenElement));
@@ -3887,6 +3907,14 @@ bool AXObject::ComputeAccessibilityIsIgnoredButIncludedInTree() const {
     return true;
   }
 
+  // Ensure clean teardown of AXMenuList and AXMenuListPopup.
+  // TODO(accessibility) Remove this exception once AXMenuList* is removed.
+  if (RoleValue() == ax::mojom::blink::Role::kMenuListPopup ||
+      RoleValue() == ax::mojom::blink::Role::kMenuListOption ||
+      RoleValue() == ax::mojom::blink::Role::kComboBoxSelect) {
+    return true;
+  }
+
   const Node* node = GetNode();
 
   if (!node) {
@@ -3990,13 +4018,6 @@ bool AXObject::ComputeAccessibilityIsIgnoredButIncludedInTree() const {
     return true;
   }
 
-  // Ensure clean teardown of AXMenuList.
-  if (auto* option = DynamicTo<HTMLOptionElement>(element)) {
-    if (option->OwnerSelectElement()) {
-      return true;
-    }
-  }
-
   // Include all pseudo element content. Any anonymous subtree is included
   // from above, in the condition where there is no node.
   if (element && element->IsPseudoElement()) {
@@ -4071,12 +4092,10 @@ bool AXObject::ComputeAccessibilityIsIgnoredButIncludedInTree() const {
   if (!element)
     return false;
 
-  // Use a flag to control whether or not the <html> element is included
-  // in the accessibility tree. Either way it's always marked as "ignored",
-  // but eventually we want to always include it in the tree to simplify
-  // some logic.
+  // Include the <html> element in the accessibility tree, which will be
+  // "ignored".
   if (IsA<HTMLHtmlElement>(element))
-    return RuntimeEnabledFeatures::AccessibilityExposeHTMLElementEnabled();
+    return true;
 
   // Keep the internal accessibility tree consistent for videos which lack
   // a player and also inner text.
@@ -4178,13 +4197,12 @@ bool AXObject::LastKnownIsIncludedInTreeValue() const {
          LastKnownIsIgnoredButIncludedInTreeValue();
 }
 
-ax::mojom::blink::Role AXObject::DetermineAccessibilityRole() {
+ax::mojom::blink::Role AXObject::DetermineRoleValue() {
 #if DCHECK_IS_ON()
   base::AutoReset<bool> reentrancy_protector(&is_computing_role_, true);
   DCHECK(!IsDetached());
-  // Check parent object to work around circularity issues during
-  // AXObject::Init (DetermineAccessibilityRole is called there but before
-  // the parent is set).
+  // Check parent object to work around circularity issues during AXObject::Init
+  // (DetermineRoleValue is called there but before the parent is set).
   if (CachedParentObject()) {
     DCHECK(GetDocument());
     DCHECK(GetDocument()->Lifecycle().GetState() >=
@@ -4353,8 +4371,9 @@ bool AXObject::IsSubWidget() const {
       // inside an ARIA 1.1 role of "table", should not be selectable. We may
       // need to create separate role enums for grid cells vs table cells
       // to implement this.
-      if (AriaRoleAttribute() != ax::mojom::blink::Role::kUnknown)
+      if (RawAriaRole() != ax::mojom::blink::Role::kUnknown) {
         return true;
+      }
 
       // Otherwise it's only a subwidget if it's in a grid or treegrid,
       // not in a table.
@@ -5161,7 +5180,6 @@ bool DoesUndoRolePresentation(const AtomicString& name) {
         AtomicString("ARIA-DROPEFFECT"),
         AtomicString("ARIA-FLOWTO"),
         AtomicString("ARIA-GRABBED"),
-        AtomicString("ARIA-HIDDEN"),  // For aria-hidden=false.
         AtomicString("ARIA-KEYSHORTCUTS"),
         AtomicString("ARIA-LABEL"),
         AtomicString("ARIA-LABELEDBY"),
@@ -5183,7 +5201,7 @@ bool AXObject::HasAriaAttribute(bool does_undo_role_presentation) const {
 
   // A role is considered an ARIA attribute.
   if (!does_undo_role_presentation &&
-      AriaRoleAttribute() != ax::mojom::blink::Role::kUnknown) {
+      RawAriaRole() != ax::mojom::blink::Role::kUnknown) {
     return true;
   }
 
@@ -5219,6 +5237,17 @@ int AXObject::IndexInParent() const {
       << "\nParent: " << ax_parent_included->ToString(true)
       << "  #children=" << siblings.size();
   return (index == kNotFound) ? 0 : static_cast<int>(index);
+}
+
+bool AXObject::IsOnlyChild() const {
+  DCHECK(AccessibilityIsIncludedInTree())
+      << "IsOnlyChild is only valid when a node is included in the tree";
+  AXObject* ax_parent_included = ParentObjectIncludedInTree();
+  if (!ax_parent_included) {
+    return false;
+  }
+
+  return ax_parent_included->ChildrenIncludingIgnored().size() == 1;
 }
 
 bool AXObject::IsLiveRegionRoot() const {
@@ -5327,11 +5356,11 @@ AXRestriction AXObject::Restriction() const {
   return kRestrictionNone;
 }
 
-ax::mojom::blink::Role AXObject::AriaRoleAttribute() const {
+ax::mojom::blink::Role AXObject::RawAriaRole() const {
   return ax::mojom::blink::Role::kUnknown;
 }
 
-ax::mojom::blink::Role AXObject::RawAriaRole() const {
+ax::mojom::blink::Role AXObject::DetermineRawAriaRole() const {
   const AtomicString& aria_role =
       GetAOMPropertyOrARIAAttribute(AOMStringProperty::kRole);
   if (aria_role.IsNull() || aria_role.empty())
@@ -5339,8 +5368,8 @@ ax::mojom::blink::Role AXObject::RawAriaRole() const {
   return AriaRoleStringToRoleEnum(aria_role);
 }
 
-ax::mojom::blink::Role AXObject::DetermineAriaRoleAttribute() const {
-  ax::mojom::blink::Role role = RawAriaRole();
+ax::mojom::blink::Role AXObject::DetermineAriaRole() const {
+  ax::mojom::blink::Role role = DetermineRawAriaRole();
 
   if ((role == ax::mojom::blink::Role::kForm ||
        role == ax::mojom::blink::Role::kRegion) &&
@@ -5692,6 +5721,30 @@ AXObject* AXObject::PreviousSiblingIncludingIgnored() const {
   const int index_in_parent = IndexInParent();
   if (index_in_parent > 0)
     return parent_in_tree->ChildAtIncludingIgnored(index_in_parent - 1);
+  return nullptr;
+}
+
+AXObject* AXObject::CachedPreviousSiblingIncludingIgnored() const {
+  if (!LastKnownIsIncludedInTreeValue()) {
+    NOTREACHED() << "We don't support iterating children of objects excluded "
+                    "from the accessibility tree: "
+                 << ToString(true, true);
+    return nullptr;
+  }
+
+  const AXObject* included_parent = ParentObjectIncludedInTree();
+  if (!included_parent) {
+    return nullptr;
+  }
+
+  const AXObjectVector& siblings =
+      included_parent->CachedChildrenIncludingIgnored();
+
+  for (wtf_size_t count = 0; count < siblings.size(); count++) {
+    if (siblings[count] == this) {
+      return count > 0 ? siblings[count - 1] : nullptr;
+    }
+  }
   return nullptr;
 }
 
@@ -6269,6 +6322,12 @@ void AXObject::ClearChildren() const {
       ax_child_from_node->DetachFromParent();
     }
   }
+
+  // On clearing of children, ensure that our plugin serializer, if it exists,
+  // is properly reset.
+  if (IsA<HTMLEmbedElement>(node)) {
+    AXObjectCache().ResetPluginTreeSerializer();
+  }
 }
 
 void AXObject::ChildrenChangedWithCleanLayout() {
@@ -6366,8 +6425,8 @@ AtomicString AXObject::Language() const {
   // Only fallback for the root node, propagating this value down the tree is
   // handled browser side within AXNode::GetLanguage.
   //
-  // TODO(chrishall): Consider moving this to AXNodeObject or AXLayoutObject as
-  // the web area node is currently an AXLayoutObject.
+  // TODO(chrishall): Consider moving this to AXNodeObject as
+  // the web area node is currently an AXNodeObject.
   if (IsWebArea()) {
     const Document* document = GetDocument();
     if (document) {
@@ -6920,7 +6979,7 @@ bool AXObject::PerformAction(const ui::AXActionData& action_data) {
   cache.UpdateAXForAllDocuments();
 
   // Updating style and layout for the node can cause it to gain layout,
-  // detaching an AXNodeObject to make room for an AXLayoutObject.
+  // detaching the original AXNodeObject to make room for a new one with layout.
   if (IsDetached()) {
     AXObject* new_object = cache.Get(node);
     return new_object ? new_object->PerformAction(action_data) : false;
@@ -7120,7 +7179,7 @@ bool AXObject::RequestScrollToMakeVisibleWithSubFocusAction(
       DocumentUpdateReason::kAccessibility);
 
   // Updating style and layout for the node can cause it to gain layout,
-  // detaching an AXNodeObject to make room for an AXLayoutObject.
+  // detaching the original AXNodeObject to make room for a new one with layout.
   if (IsDetached()) {
     AXObject* new_object = cache.Get(node);
     return new_object
@@ -7637,8 +7696,10 @@ bool AXObject::SupportsNameFromContents(bool recursive) const {
         // aria-activedescendant, then consider the row focusable.
         if (ancestor->RoleValue() == ax::mojom::blink::Role::kGrid ||
             ancestor->RoleValue() == ax::mojom::blink::Role::kTreeGrid) {
-          if (AXObject* ax_prev = ancestor->PreviousSiblingIncludingIgnored()) {
-            if (ax_prev->GetControlsListboxForTextfieldCombobox() == ancestor &&
+          if (AXObject* ax_prev =
+                  ancestor->CachedPreviousSiblingIncludingIgnored()) {
+            if (ax_prev->RoleValue() ==
+                    ax::mojom::blink::Role::kTextFieldWithComboBox &&
                 ax_prev->GetAOMPropertyOrARIAAttribute(
                     AOMRelationProperty::kActiveDescendant)) {
               return true;
@@ -7818,9 +7879,9 @@ ax::mojom::blink::Role AXObject::ButtonRoleType() const {
 }
 
 // static
-const AtomicString& AXObject::ARIARoleName(ax::mojom::blink::Role role) {
+const AtomicString& AXObject::AriaRoleName(ax::mojom::blink::Role role) {
   static const Vector<AtomicString>* aria_role_name_vector =
-      CreateARIARoleNameVector();
+      CreateAriaRoleNameVector();
 
   return aria_role_name_vector->at(static_cast<wtf_size_t>(role));
 }
@@ -7841,8 +7902,9 @@ const String AXObject::RoleName(ax::mojom::blink::Role role,
                                 bool* is_internal) {
   if (is_internal)
     *is_internal = false;
-  if (const auto& role_name = ARIARoleName(role))
+  if (const auto& role_name = AriaRoleName(role)) {
     return role_name.GetString();
+  }
 
   if (is_internal)
     *is_internal = true;
@@ -7899,8 +7961,15 @@ void AXObject::PreSerializationConsistencyCheck() {
   // TODO(https://crbug.com/1480627): convert to CHECKs.
   CHECK(AXObjectCache().IsFrozen());
   CHECK(!NeedsToUpdateCachedValues());
-  CHECK(AccessibilityIsIncludedInTree())
-      << "Do not serialize unincluded nodes: " << ToString(true, true);
+  if (!AccessibilityIsIncludedInTree()) {
+    AXObject* included_parent = ParentObjectIncludedInTree();
+    // TODO(accessibility): Return to CHECK once it has been resolved,
+    // so that the message does not bloat stable releases.
+    DUMP_WILL_BE_NOTREACHED_NORETURN()
+        << "Do not serialize unincluded nodes: " << ToString(true)
+        << "\nIncluded parent: "
+        << (included_parent ? included_parent->ToString(true) : "nullptr");
+  }
 #if defined(AX_FAIL_FAST_BUILD)
   // A bit more expensive, so only check in builds used for testing.
   CHECK_EQ(IsAriaHidden(), !!FindAncestorWithAriaHidden(this))

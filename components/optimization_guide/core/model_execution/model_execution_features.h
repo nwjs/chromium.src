@@ -7,6 +7,7 @@
 
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
+#include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 
 namespace optimization_guide {
@@ -35,15 +36,14 @@ BASE_DECLARE_FEATURE(kExperimentalAIIPHPromoRampUp);
 BASE_DECLARE_FEATURE(kModelExecutionCapabilityDisable);
 
 // Checks if the provided `feature` is graduated from experimental AI settings.
-bool IsGraduatedFeature(proto::ModelExecutionFeature feature);
+bool IsGraduatedFeature(UserVisibleFeatureKey feature);
 
 const base::Feature* GetFeatureToUseToCheckSettingsVisibility(
-    proto::ModelExecutionFeature feature);
+    UserVisibleFeatureKey feature);
 
 // Returns the features allowed to be shown in the settings UI, and can be
 // enabled, even for unsigned users.
-base::flat_set<proto::ModelExecutionFeature>
-GetAllowedFeaturesForUnsignedUser();
+base::flat_set<UserVisibleFeatureKey> GetAllowedFeaturesForUnsignedUser();
 
 }  // namespace internal
 }  // namespace features

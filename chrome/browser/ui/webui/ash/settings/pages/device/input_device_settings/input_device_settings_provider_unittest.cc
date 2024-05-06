@@ -13,13 +13,17 @@
 #include "ash/public/mojom/input_device_settings.mojom-forward.h"
 #include "ash/public/mojom/input_device_settings.mojom-shared.h"
 #include "ash/public/mojom/input_device_settings.mojom.h"
+#include "ash/system/keyboard_brightness_control_delegate.h"
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/device/input_device_settings/input_device_settings_provider.mojom.h"
+#include "chromeos/dbus/power/fake_power_manager_client.h"
+#include "chromeos/dbus/power_manager/backlight.pb.h"
 #include "mojo/public/cpp/bindings/clone_traits.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
@@ -282,6 +286,48 @@ class FakeButtonPressObserver : public mojom::ButtonPressObserver {
   ::ash::mojom::ButtonPtr last_pressed_button_;
 };
 
+class FakeKeyboardBrightnessObserver
+    : public mojom::KeyboardBrightnessObserver {
+ public:
+  void OnKeyboardBrightnessChanged(double percent) override {
+    keyboard_brightness_ = percent;
+    ++num_times_called_;
+  }
+  double keyboard_brightness() { return keyboard_brightness_; }
+
+  int num_times_called() { return num_times_called_; }
+
+  mojo::Receiver<mojom::KeyboardBrightnessObserver> receiver{this};
+
+ private:
+  int num_times_called_ = 0;
+  double keyboard_brightness_ = 0;
+};
+
+class FakeKeyboardBrightnessControlDelegate
+    : public KeyboardBrightnessControlDelegate {
+ public:
+  FakeKeyboardBrightnessControlDelegate() = default;
+  ~FakeKeyboardBrightnessControlDelegate() override = default;
+
+  // override methods:
+  void HandleKeyboardBrightnessDown() override {}
+  void HandleKeyboardBrightnessUp() override {}
+  void HandleToggleKeyboardBacklight() override {}
+  void HandleSetKeyboardBrightness(double percent, bool gradual) override {
+    keyboard_brightness_ = percent;
+  }
+  void HandleGetKeyboardBrightness(
+      base::OnceCallback<void(std::optional<double>)> callback) override {
+    std::move(callback).Run(keyboard_brightness_);
+  }
+
+  double keyboard_brightness() { return keyboard_brightness_; }
+
+ private:
+  double keyboard_brightness_ = 0;
+};
+
 class FakeInputDeviceSettingsController
     : public MockInputDeviceSettingsController {
  public:
@@ -466,9 +512,11 @@ class InputDeviceSettingsProviderTest : public views::ViewsTestBase {
 
   void SetUp() override {
     feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
-    feature_list_->InitWithFeatures({features::kInputDeviceSettingsSplit,
-                                     features::kPeripheralCustomization},
-                                    {});
+    feature_list_->InitWithFeatures(
+        {features::kInputDeviceSettingsSplit,
+         features::kPeripheralCustomization,
+         features::kEnableKeyboardBacklightControlInSettings},
+        {});
     views::ViewsTestBase::SetUp();
     widget_ = CreateTestWidget();
     widget_->Show();
@@ -477,24 +525,38 @@ class InputDeviceSettingsProviderTest : public views::ViewsTestBase {
     controller_ = std::make_unique<FakeInputDeviceSettingsController>();
     provider_ = std::make_unique<InputDeviceSettingsProvider>();
     provider_->SetWidgetForTesting(widget_.get());
+    keyboard_brightness_control_delegate_ =
+        std::make_unique<FakeKeyboardBrightnessControlDelegate>();
+    provider_->SetKeyboardBrightnessControlDelegateForTesting(
+        keyboard_brightness_control_delegate_.get());
+    power_manager_client_ =
+        std::make_unique<chromeos::FakePowerManagerClient>();
+    histogram_tester_ = std::make_unique<base::HistogramTester>();
   }
 
   void TearDown() override {
     provider_.reset();
     controller_.reset();
+    keyboard_brightness_control_delegate_.reset();
+    power_manager_client_.reset();
     scoped_resetter_.reset();
     widget_.reset();
     views::ViewsTestBase::TearDown();
     feature_list_.reset();
+    histogram_tester_.reset();
   }
 
  protected:
   std::unique_ptr<FakeInputDeviceSettingsController> controller_;
   std::unique_ptr<InputDeviceSettingsProvider> provider_;
+  std::unique_ptr<FakeKeyboardBrightnessControlDelegate>
+      keyboard_brightness_control_delegate_;
+  std::unique_ptr<chromeos::FakePowerManagerClient> power_manager_client_;
   std::unique_ptr<base::test::ScopedFeatureList> feature_list_;
   std::unique_ptr<InputDeviceSettingsController::ScopedResetterForTest>
       scoped_resetter_;
   std::unique_ptr<views::Widget> widget_;
+  std::unique_ptr<base::HistogramTester> histogram_tester_;
 };
 
 TEST_F(InputDeviceSettingsProviderTest, TestSetKeyboardSettings) {
@@ -1008,6 +1070,49 @@ TEST_F(InputDeviceSettingsProviderTest, ButtonPressObserverTest) {
   EXPECT_EQ(*expected_button, fake_observer.last_pressed_button());
 }
 
+TEST_F(InputDeviceSettingsProviderTest, KeyboardBrightnessObserverTest) {
+  FakeKeyboardBrightnessObserver fake_observer;
+  EXPECT_EQ(0, fake_observer.num_times_called());
+
+  // Set initial brightness to 40.0.
+  double initial_brightness = 40.0;
+  keyboard_brightness_control_delegate_->HandleSetKeyboardBrightness(
+      initial_brightness, /*gradual=*/false);
+
+  provider_->ObserveKeyboardBrightness(
+      fake_observer.receiver.BindNewPipeAndPassRemote());
+  base::RunLoop().RunUntilIdle();
+
+  // OnKeyboardBrightnessChange is called when observer is registered.
+  EXPECT_EQ(1, fake_observer.num_times_called());
+
+  double expected_brightness = 66.6;
+
+  power_manager::BacklightBrightnessChange brightness_change;
+  brightness_change.set_percent(expected_brightness);
+  brightness_change.set_cause(
+      power_manager::BacklightBrightnessChange_Cause_USER_REQUEST);
+  provider_->KeyboardBrightnessChanged(brightness_change);
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(expected_brightness, fake_observer.keyboard_brightness());
+  EXPECT_EQ(2, fake_observer.num_times_called());
+}
+
+TEST_F(InputDeviceSettingsProviderTest, SetKeyboardBrightness) {
+  double adjustedBrightness = 60.9;
+  keyboard_brightness_control_delegate_->HandleSetKeyboardBrightness(
+      adjustedBrightness, /*gradual=*/false);
+  EXPECT_EQ(adjustedBrightness,
+            keyboard_brightness_control_delegate_->keyboard_brightness());
+
+  adjustedBrightness = 20.3;
+  keyboard_brightness_control_delegate_->HandleSetKeyboardBrightness(
+      adjustedBrightness, /*gradual=*/false);
+  EXPECT_EQ(adjustedBrightness,
+            keyboard_brightness_control_delegate_->keyboard_brightness());
+}
+
 TEST_F(InputDeviceSettingsProviderTest, ButtonPressObserverFollowsWindowFocus) {
   FakeButtonPressObserver fake_observer;
   provider_->ObserveButtonPresses(
@@ -1054,6 +1159,28 @@ TEST_F(InputDeviceSettingsProviderTest, HasLauncherButton) {
   base::RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(future.Get<0>());
+}
+
+TEST_F(InputDeviceSettingsProviderTest, HasKeyboardBacklight) {
+  base::test::TestFuture<bool> future;
+
+  power_manager_client_->set_has_keyboard_backlight(true);
+  provider_->HasKeyboardBacklight(future.GetCallback());
+  EXPECT_TRUE(future.Get<0>());
+
+  future.Clear();
+  power_manager_client_->set_has_keyboard_backlight(false);
+  provider_->HasKeyboardBacklight(future.GetCallback());
+  EXPECT_FALSE(future.Get<0>());
+}
+
+TEST_F(InputDeviceSettingsProviderTest, RecordKeyboardColorLinkClicked) {
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Settings.Device.Keyboard.ColorLinkClicked", 0);
+  provider_->RecordKeyboardColorLinkClicked();
+  base::RunLoop().RunUntilIdle();
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Settings.Device.Keyboard.ColorLinkClicked", 1);
 }
 
 }  // namespace ash::settings

@@ -44,6 +44,7 @@
 #include "chrome/browser/ash/login/test/oobe_screen_exit_waiter.h"
 #include "chrome/browser/ash/login/test/oobe_screen_waiter.h"
 #include "chrome/browser/ash/login/test/oobe_screens_utils.h"
+#include "chrome/browser/ash/login/test/scoped_policy_update.h"
 #include "chrome/browser/ash/login/test/test_predicate_waiter.h"
 #include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
@@ -55,6 +56,7 @@
 #include "chrome/browser/extensions/api/quick_unlock_private/quick_unlock_private_api.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/webui/ash/login/ai_intro_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/app_downloading_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/assistant_optin_flow_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/choobe_screen_handler.h"
@@ -71,6 +73,7 @@
 #include "chrome/browser/ui/webui/ash/login/theme_selection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/touchpad_scroll_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/tpm_error_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/tuna_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/user_creation_screen_handler.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/fake_gaia_mixin.h"
@@ -282,6 +285,28 @@ void HandleAppDownloadingScreen() {
 
   OobeScreenExitWaiter(AppDownloadingScreenView::kScreenId).Wait();
   LOG(INFO) << "OobeInteractiveUITest: 'app-downloading' screen done.";
+}
+
+// Waits for AiIntroScreen to be shown and clicks next to go to the next screen.
+void HandleAiIntroScreen() {
+  OobeScreenWaiter(AiIntroScreenView::kScreenId).Wait();
+  LOG(INFO) << "OobeInteractiveUITest: Switched to 'ai-intro' screen.";
+
+  test::OobeJS().TapOnPathAsync({"ai-intro", "nextButton"});
+
+  OobeScreenExitWaiter(AiIntroScreenView::kScreenId).Wait();
+  LOG(INFO) << "OobeInteractiveUITest: 'ai-intro' screen done.";
+}
+
+// Waits for TunaScreen to be shown and clicks next to go to the next screen.
+void HandleTunaScreen() {
+  OobeScreenWaiter(TunaScreenView::kScreenId).Wait();
+  LOG(INFO) << "OobeInteractiveUITest: Switched to 'tuna' screen.";
+
+  test::OobeJS().TapOnPathAsync({"tuna", "nextButton"});
+
+  OobeScreenExitWaiter(TunaScreenView::kScreenId).Wait();
+  LOG(INFO) << "OobeInteractiveUITest: 'tuna' screen done.";
 }
 
 // Waits for AssistantOptInFlowScreen to be shown, skips the opt-in, and waits
@@ -568,7 +593,10 @@ class OobeEndToEndTestSetupMixin : public InProcessBrowserTestMixin {
     std::tie(params_.is_tablet, params_.is_quick_unlock_enabled,
              params_.hide_shelf_controls_in_tablet_mode, params_.arc_state) =
         parameters;
-    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> enabled_features = {
+        ash::features::kFeatureManagementOobeAiIntro,
+        ash::features::kFeatureManagementOobeTuna,
+    };
     std::vector<base::test::FeatureRef> disabled_features;
     if (params_.hide_shelf_controls_in_tablet_mode) {
       enabled_features.push_back(features::kHideShelfControlsInTabletMode);
@@ -793,6 +821,14 @@ void OobeInteractiveUITest::PerformSessionSignInSteps() {
   if (test_setup()->arc_state() != ArcState::kNotAvailable) {
     HandleRecommendAppsScreen();
     HandleAppDownloadingScreen();
+  }
+
+  if (ash::features::IsOobeAiIntroEnabled()) {
+    HandleAiIntroScreen();
+  }
+
+  if (ash::features::IsOobeTunaEnabled()) {
+    HandleTunaScreen();
   }
 
   if (!features::IsOobeSkipAssistantEnabled()) {
@@ -1109,7 +1145,7 @@ class EphemeralUserOobeTest : public OobeBaseTest,
       &mixin_host_, DeviceStateMixin::State::OOBE_COMPLETED_CLOUD_ENROLLED};
 };
 
-// TODO(crbug.com/1396268): Flaky on Linux Chrome OS ASan LSan and dbg.
+// TODO(crbug.com/40882667): Flaky on Linux Chrome OS ASan LSan and dbg.
 // Re-enable this test.
 #if BUILDFLAG(IS_CHROMEOS) && (defined(ADDRESS_SANITIZER) || !defined(NDEBUG))
 #define MAYBE_RegularEphemeralUser DISABLED_RegularEphemeralUser
@@ -1135,6 +1171,14 @@ IN_PROC_BROWSER_TEST_P(EphemeralUserOobeTest, MAYBE_RegularEphemeralUser) {
   if (test_setup()->arc_state() != ArcState::kNotAvailable) {
     HandleRecommendAppsScreen();
     HandleAppDownloadingScreen();
+  }
+
+  if (ash::features::IsOobeAiIntroEnabled()) {
+    HandleAiIntroScreen();
+  }
+
+  if (ash::features::IsOobeTunaEnabled()) {
+    HandleTunaScreen();
   }
 
   HandleThemeSelectionScreen();

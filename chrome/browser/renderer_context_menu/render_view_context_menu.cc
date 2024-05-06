@@ -85,6 +85,7 @@
 #include "chrome/browser/sharing/features.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/spellchecker/spellcheck_service.h"
+#include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/translate/translate_service.h"
@@ -98,6 +99,7 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/keyboard_lock_controller.h"
+#include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble.h"
@@ -106,6 +108,7 @@
 #include "chrome/browser/ui/side_panel/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/side_search/side_search_utils.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
+#include "chrome/browser/ui/tabs/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -122,7 +125,6 @@
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/content_restriction.h"
-#include "chrome/common/pdf_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
@@ -154,6 +156,7 @@
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
+#include "components/pdf/common/pdf_util.h"
 #include "components/policy/content/policy_blocklist_service.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_member.h"
@@ -168,7 +171,9 @@
 #include "components/spellcheck/common/spellcheck_common.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/supervised_user/core/common/buildflags.h"
+#include "components/supervised_user/core/browser/supervised_user_preferences.h"
+#include "components/supervised_user/core/browser/supervised_user_service.h"
+#include "components/supervised_user/core/browser/supervised_user_url_filter.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/translate/core/browser/translate_prefs.h"
@@ -256,7 +261,7 @@
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "chrome/browser/pdf/pdf_extension_util.h"
-#include "chrome/browser/pdf/pdf_frame_util.h"
+#include "components/pdf/browser/pdf_frame_util.h"
 #include "pdf/pdf_features.h"
 #endif
 
@@ -279,16 +284,8 @@
 #include "chrome/browser/screen_ai/screen_ai_install_state.h"
 #endif
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-#include "chrome/browser/supervised_user/supervised_user_service_factory.h"
-#include "components/supervised_user/core/browser/supervised_user_preferences.h"
-#include "components/supervised_user/core/browser/supervised_user_service.h"
-#include "components/supervised_user/core/browser/supervised_user_url_filter.h"
-#endif
-
 #if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
 #include "chrome/browser/lens/region_search/lens_region_search_controller.h"
-#include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_side_panel_helper.h"
 #include "chrome/grit/theme_resources.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -830,6 +827,7 @@ void RenderViewContextMenu::AddSpellCheckServiceItem(ui::SimpleMenuModel* menu,
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu,
                                       kExitFullscreenMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu, kComposeMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu, kRegionSearchItem);
 
 RenderViewContextMenu::RenderViewContextMenu(
     content::RenderFrameHost& render_frame_host,
@@ -2199,11 +2197,20 @@ void RenderViewContextMenu::AppendPageItems() {
   menu_model_.AddItemWithStringId(IDC_PRINT, IDS_CONTENT_CONTEXT_PRINT);
   AppendLiveCaptionItem();
   AppendMediaRouterItem();
+  LensOverlayController* const controller =
+      LensOverlayController::GetController(source_web_contents_);
+
+  // TODO(https://crbug.com/330808104): Delete the code in the else statement
+  // once overlay is launched.
+  if (controller && controller->Enabled()) {
+    AppendRegionSearchItem();
+  } else {
 #if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
   if (IsRegionSearchEnabled()) {
     AppendRegionSearchItem();
   }
 #endif
+  }
 
   // Note: `has_sharing_menu_items = true` also implies a separator was added
   // for sharing section.
@@ -2713,12 +2720,16 @@ void RenderViewContextMenu::AppendRegionSearchItem() {
   // menu item.
   const TemplateURL* provider = GetImageSearchProvider();
   if (provider) {
-    menu_model_.AddItem(GetRegionSearchIdc(),
+    const int region_search_idc = GetRegionSearchIdc();
+    menu_model_.AddItem(region_search_idc,
                         l10n_util::GetStringFUTF16(
                             resource_id, GetImageSearchProviderName(provider)));
     if (companion::IsNewBadgeEnabledForSearchMenuItem(GetBrowser())) {
       menu_model_.SetIsNewFeatureAt(menu_model_.GetItemCount() - 1, true);
     }
+    menu_model_.SetElementIdentifierAt(
+        menu_model_.GetIndexOfCommandId(region_search_idc).value(),
+        kRegionSearchItem);
 
     MaybePrepareForLensQuery();
   }
@@ -3151,9 +3162,10 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
           /*extra_headers=*/std::string(), /*started_from_context_menu=*/true);
 
       if (browser) {
-        browser->OpenURL(params);
+        browser->OpenURL(params, /*navigation_handle_callback=*/{});
       } else {
-        source_web_contents_->OpenURL(params);
+        source_web_contents_->OpenURL(params,
+                                      /*navigation_handle_callback=*/{});
       }
       break;
     }
@@ -3190,11 +3202,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
 
     case IDC_CONTENT_CONTEXT_SAVELINKAS:
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
       CheckSupervisedUserURLFilterAndSaveLinkAs();
-#else
-      ExecSaveLinkAs();
-#endif
       break;
 
     case IDC_CONTENT_CONTEXT_SAVEAVAS:
@@ -3721,7 +3729,6 @@ bool RenderViewContextMenu::IsSaveLinkAsEnabled() const {
     return false;
   }
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   Profile* const profile = Profile::FromBrowserContext(browser_context_);
   CHECK(profile);
   if (supervised_user::IsSubjectToParentalControls(*profile->GetPrefs())) {
@@ -3739,7 +3746,6 @@ bool RenderViewContextMenu::IsSaveLinkAsEnabled() const {
       return false;
     }
   }
-#endif
 
   return params_.link_url.is_valid() &&
          ProfileIOData::IsHandledProtocol(params_.link_url.scheme());
@@ -4121,7 +4127,6 @@ void RenderViewContextMenu::ExecInspectBackgroundPage() {
       platform_app, GetProfile(), DevToolsOpenedByAction::kContextMenuInspect);
 }
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 void RenderViewContextMenu::CheckSupervisedUserURLFilterAndSaveLinkAs() {
   Profile* const profile = Profile::FromBrowserContext(browser_context_);
   CHECK(profile);
@@ -4148,7 +4153,6 @@ void RenderViewContextMenu::OnSupervisedUserURLFilterChecked(
     ExecSaveLinkAs();
   }
 }
-#endif
 
 void RenderViewContextMenu::ExecSaveLinkAs() {
   RenderFrameHost* render_frame_host = GetRenderFrameHost();
@@ -4309,20 +4313,22 @@ void RenderViewContextMenu::ExecAddANote() {
 void RenderViewContextMenu::ExecRegionSearch(
     int event_flags,
     bool is_google_default_search_provider) {
+  if (is_google_default_search_provider) {
+    // TODO(https://crbug.com/330808104): This should become a CHECK. If the
+    // menu item is clickable, then the controller must be enabled.
+    LensOverlayController* const controller =
+        LensOverlayController::GetController(source_web_contents_);
+    if (controller && controller->Enabled()) {
+      controller->ShowUI();
+      return;
+    }
+  }
+
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   Browser* browser = GetBrowser();
   CHECK(browser);
   if (lens::features::IsLensRegionSearchStaticPageEnabled()) {
     lens::OpenLensStaticPage(browser);
-    return;
-  }
-
-  if (is_google_default_search_provider &&
-      lens::features::IsLensOverlayEnabled()) {
-    browser->tab_strip_model()
-        ->GetActiveTab()
-        ->lens_overlay_controller()
-        ->ShowUI();
     return;
   }
 
@@ -4644,13 +4650,7 @@ void RenderViewContextMenu::PluginActionAt(
   if (!plugin_rfh)
     plugin_rfh = source_web_contents_->GetPrimaryMainFrame();
 
-  // TODO(crbug.com/776807): See if this needs to be done for OOPIFs as well.
-  // Calculate the local location in view coordinates inside the plugin before
-  // executing the plugin action.
-  gfx::Point local_location = gfx::ToFlooredPoint(
-      plugin_rfh->GetView()->TransformRootPointToViewCoordSpace(
-          gfx::PointF(location)));
-  plugin_rfh->ExecutePluginActionAtLocalLocation(local_location, plugin_action);
+  plugin_rfh->ExecutePluginActionAtLocalLocation(location, plugin_action);
 
   if (execute_plugin_action_callback_)
     std::move(execute_plugin_action_callback_).Run(plugin_rfh, plugin_action);

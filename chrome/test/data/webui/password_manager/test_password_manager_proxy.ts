@@ -24,6 +24,7 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
     isOptedInAccountStorage: boolean,
     isAccountStorageDefault: boolean,
     passwords: chrome.passwordsPrivate.PasswordUiEntry[],
+    isPasswordManagerPinAvailable: boolean,
   };
 
   listeners: {
@@ -51,16 +52,14 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
   constructor() {
     super([
       'addPassword',
-      'changeCredential',
       'cancelExportPasswords',
+      'changeCredential',
+      'changePasswordManagerPin',
       'continueImport',
       'dismissSafetyHubPasswordMenuNotification',
       'exportPasswords',
       'extendAuthValidity',
       'fetchFamilyMembers',
-      'importPasswords',
-      'isAccountStoreDefault',
-      'isOptedInForAccountStorage',
       'getBlockedSitesList',
       'getCredentialGroups',
       'getCredentialsWithReusedPassword',
@@ -68,6 +67,10 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
       'getPasswordCheckStatus',
       'getSavedPasswordList',
       'getUrlCollection',
+      'importPasswords',
+      'isAccountStoreDefault',
+      'isOptedInForAccountStorage',
+      'isPasswordManagerPinAvailable',
       'movePasswordsToAccount',
       'muteInsecureCredential',
       'optInForAccountStorage',
@@ -75,13 +78,13 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
       'recordPasswordViewInteraction',
       'removeBlockedSite',
       'removeCredential',
-      'resetImporter',
       'requestCredentialsDetails',
       'requestExportProgressStatus',
       'requestPlaintextPassword',
+      'resetImporter',
+      'sharePassword',
       'showAddShortcutDialog',
       'showExportedFileInShell',
-      'sharePassword',
       'startBulkPasswordCheck',
       'switchBiometricAuthBeforeFillingState',
       'undoRemoveSavedPasswordOrException',
@@ -99,6 +102,7 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
       isOptedInAccountStorage: false,
       isAccountStorageDefault: false,
       passwords: [],
+      isPasswordManagerPinAvailable: false,
     };
 
     // Holds listeners so they can be called when needed.
@@ -375,5 +379,14 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
 
   dismissSafetyHubPasswordMenuNotification() {
     this.methodCalled('dismissSafetyHubPasswordMenuNotification');
+  }
+
+  changePasswordManagerPin() {
+    this.methodCalled('changePasswordManagerPin');
+  }
+
+  isPasswordManagerPinAvailable(): Promise<boolean> {
+    this.methodCalled('isPasswordManagerPinAvailable');
+    return Promise.resolve(this.data.isPasswordManagerPinAvailable);
   }
 }

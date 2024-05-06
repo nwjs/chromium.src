@@ -145,7 +145,7 @@ void RecordFailedMigrationMetric(std::string_view infix_for_setting,
                                  AndroidBackendAPIErrorCode api_error) {
   base::UmaHistogramSparse(
       base::StrCat({"PasswordManager.PasswordSettingsMigrationFailed.",
-                    infix_for_setting, ".APIError"}),
+                    infix_for_setting, ".APIError2"}),
       static_cast<int>(api_error));
 }
 
@@ -173,8 +173,6 @@ PasswordManagerSettingsServiceAndroidImpl::
                                               syncer::SyncService* sync_service)
     : pref_service_(pref_service), sync_service_(sync_service) {
   CHECK(pref_service_);
-  if (!PasswordSettingsUpdaterAndroidBridgeHelper::CanCreateAccessor())
-    return;
   bridge_helper_ = PasswordSettingsUpdaterAndroidBridgeHelper::Create();
   lifecycle_helper_ = std::make_unique<PasswordManagerLifecycleHelperImpl>();
   Init();
@@ -194,8 +192,7 @@ PasswordManagerSettingsServiceAndroidImpl::
       bridge_helper_(std::move(bridge_helper)),
       lifecycle_helper_(std::move(lifecycle_helper)) {
   CHECK(pref_service_);
-  if (!bridge_helper_)
-    return;
+  CHECK(bridge_helper_);
   Init();
 }
 
@@ -211,10 +208,6 @@ bool PasswordManagerSettingsServiceAndroidImpl::IsSettingEnabled(
   const PrefService::Preference* regular_pref =
       GetRegularPrefFromSetting(pref_service_, setting);
   CHECK(regular_pref);
-
-  if (!bridge_helper_) {
-    return regular_pref->GetValue()->GetBool();
-  }
 
   if (!UsesUPMBackend()) {
     return regular_pref->GetValue()->GetBool();
@@ -298,13 +291,17 @@ void PasswordManagerSettingsServiceAndroidImpl::Init() {
 
   if (ShouldMigrateLocalSettings(pref_service_, is_password_sync_enabled_)) {
     MarkSettingsMigrationAsSuccessfulIfNothingToMigrate(pref_service_);
-    // TODO: b/332843285 - Don't create the migration callback when there's
-    // nothing to migrate.
-    start_migration_callback_ = base::BarrierCallback<
-        PasswordManagerSettingGmsAccessResult>(
-        2, base::BindOnce(
-               &PasswordManagerSettingsServiceAndroidImpl::MigratePrefsIfNeeded,
-               weak_ptr_factory_.GetWeakPtr()));
+    // If the migration was marked as done because there was nothing to migrate,
+    // there is no reason to create the migration callback.
+    if (!pref_service_->GetBoolean(
+            password_manager::prefs::kSettingsMigratedToUPMLocal)) {
+      start_migration_callback_ = base::BarrierCallback<
+          PasswordManagerSettingGmsAccessResult>(
+          2,
+          base::BindOnce(
+              &PasswordManagerSettingsServiceAndroidImpl::MigratePrefsIfNeeded,
+              weak_ptr_factory_.GetWeakPtr()));
+    }
   }
 
   // Unset the pref that marks the settings migration done, if the user is not
@@ -511,12 +508,7 @@ void PasswordManagerSettingsServiceAndroidImpl::
 }
 
 bool PasswordManagerSettingsServiceAndroidImpl::UsesUPMBackend() const {
-  // It's not possible to get or set the password settings values without the
-  // helper.
-  if (!bridge_helper_) {
-    return false;
-  }
-  return password_manager_android_util::CanUseUPMBackend(
+  return password_manager_android_util::ShouldUseUpmWiring(
       is_password_sync_enabled_, pref_service_);
 }
 

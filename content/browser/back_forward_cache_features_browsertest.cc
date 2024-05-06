@@ -340,7 +340,7 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_TRUE(DedicatedWorkerHostsForDocument::GetOrCreateForCurrentDocument(
                   current_frame_host())
                   ->GetBackForwardCacheDisablingFeatures()
-                  .Empty());
+                  .empty());
 
   // Use a broadcast channel in the frame.
   EXPECT_TRUE(ExecJs(current_frame_host(),
@@ -2270,12 +2270,11 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithJavaScriptDetails,
   EXPECT_TRUE(
       map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
   // Both socketA and socketB's JavaScript locations should be reported.
-  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
-              testing::UnorderedElementsAre(
-                  MatchesBlockingDetails(
-                      MatchesSourceLocation(url_js.spec(), "", 10, 15)),
-                  MatchesBlockingDetails(
-                      MatchesSourceLocation(url_js.spec(), "", 17, 15))));
+  EXPECT_THAT(
+      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
+      testing::UnorderedElementsAre(
+          MatchesBlockingDetails(MatchesSourceLocation(url_js, "", 10, 15)),
+          MatchesBlockingDetails(MatchesSourceLocation(url_js, "", 17, 15))));
 }
 
 // Use a blocklisted feature in multiple locations from an external JavaScript
@@ -2344,7 +2343,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithJavaScriptDetails,
   // Only socketB's JavaScript locations should be reported.
   EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
               testing::UnorderedElementsAre(MatchesBlockingDetails(
-                  MatchesSourceLocation(url_js.spec(), "", 17, 15))));
+                  MatchesSourceLocation(url_js, "", 17, 15))));
 }
 
 // Use a blocklisted feature in multiple places from HTML file and make sure all
@@ -2402,12 +2401,11 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithJavaScriptDetails,
   EXPECT_TRUE(
       map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
   // Both socketA and socketB's JavaScript locations should be reported.
-  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
-              testing::UnorderedElementsAre(
-                  MatchesBlockingDetails(
-                      MatchesSourceLocation(url_a.spec(), "", 11, 15)),
-                  MatchesBlockingDetails(
-                      MatchesSourceLocation(url_a.spec(), "", 18, 15))));
+  EXPECT_THAT(
+      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
+      testing::UnorderedElementsAre(
+          MatchesBlockingDetails(MatchesSourceLocation(url_a, "", 11, 15)),
+          MatchesBlockingDetails(MatchesSourceLocation(url_a, "", 18, 15))));
 }
 
 // Use a blocklisted feature in multiple locations from HTML file but stop using
@@ -2472,7 +2470,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithJavaScriptDetails,
   // Only socketB's JavaScript locations should be reported.
   EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
               testing::UnorderedElementsAre(MatchesBlockingDetails(
-                  MatchesSourceLocation(url_a.spec(), "", 18, 15))));
+                  MatchesSourceLocation(url_a, "", 18, 15))));
 }
 
 // TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
@@ -4375,8 +4373,14 @@ IN_PROC_BROWSER_TEST_F(SensorBackForwardCacheBrowserTest, OrientationCached) {
 // resets the reading back to have alpha=0 and navigates back to the a-page and
 // captures 3 more events and verifies that all events on the a-page have
 // alpha=0.
+// TODO(crbug.com/330801676): Flaky on macOS.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_SensorPausedWhileCached DISABLED_SensorPausedWhileCached
+#else
+#define MAYBE_SensorPausedWhileCached SensorPausedWhileCached
+#endif
 IN_PROC_BROWSER_TEST_F(SensorBackForwardCacheBrowserTest,
-                       SensorPausedWhileCached) {
+                       MAYBE_SensorPausedWhileCached) {
   ASSERT_TRUE(CreateHttpsServer()->Start());
   GURL url_a(https_server()->GetURL("a.test", "/title1.html"));
   GURL url_b(https_server()->GetURL("b.test", "/title1.html"));
@@ -5009,7 +5013,7 @@ class BackForwardCacheBrowserTestWithSupportedFeatures
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     EnableFeatureAndSetParams(features::kBackForwardCache, "supported_features",
-                              "broadcastchannel,keyboard-lock");
+                              "broadcastchannel,keyboardlock");
     BackForwardCacheBrowserTest::SetUpCommandLine(command_line);
   }
 };

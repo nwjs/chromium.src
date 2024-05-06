@@ -221,9 +221,9 @@ PopupRowView::PopupRowView(
   content_view_->GetViewAccessibility().SetRole(
       ax::mojom::Role::kListBoxOption);
   content_view_->GetViewAccessibility().SetName(
-      GetSuggestionA11yString(
-          suggestion,
-          /*add_call_to_action_if_expandable=*/suggestion.is_acceptable),
+      GetSuggestionA11yString(suggestion,
+                              /*add_call_to_action_if_expandable=*/
+                              suggestion.is_acceptable),
       ax::mojom::NameFrom::kAttribute);
   auto [position, set_size] = ComputePositionInSet(controller_, line_number);
   content_view_->GetViewAccessibility().SetPosInSet(position);
@@ -283,16 +283,16 @@ void PopupRowView::OnMouseReleased(const ui::MouseEvent& event) {
   }
 
   if (event.IsOnlyLeftMouseButton() &&
-      content_view_->HitTestPoint(event.location())) {
-    RunOnAccepted();
+      content_view_->HitTestPoint(event.location()) && controller_) {
+    controller_->AcceptSuggestion(line_number_);
   }
 }
 
 void PopupRowView::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
     case ui::ET_GESTURE_TAP:
-      if (content_view_->HitTestPoint(event->location())) {
-        RunOnAccepted();
+      if (content_view_->HitTestPoint(event->location()) && controller_) {
+        controller_->AcceptSuggestion(line_number_);
       }
       break;
     default:
@@ -416,14 +416,6 @@ bool PopupRowView::HandleKeyPressEvent(
     default:
       return false;
   }
-}
-
-// TODO: Clean up.
-void PopupRowView::RunOnAccepted() {
-  if (!controller_) {
-    return;
-  }
-  controller_->AcceptSuggestion(line_number_);
 }
 
 void PopupRowView::UpdateBackground() {

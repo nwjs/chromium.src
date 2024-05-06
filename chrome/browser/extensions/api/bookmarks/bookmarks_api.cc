@@ -282,7 +282,7 @@ void BookmarkEventRouter::BookmarkNodeRemoved(
 
 void BookmarkEventRouter::BookmarkAllUserNodesRemoved(
     const std::set<GURL>& removed_urls) {
-  // TODO(crbug.com/1468324): This used to be used only on Android, but that's
+  // TODO(crbug.com/40277078): This used to be used only on Android, but that's
   // no longer the case. We need to implement a new event to handle this.
 }
 
@@ -604,6 +604,10 @@ ExtensionFunction::ResponseValue BookmarksMoveFunction::RunOnReady() {
 
   if (!parent->is_folder()) {
     return Error(bookmark_api_constants::kInvalidParentError);
+  }
+
+  if (parent->HasAncestor(node)) {
+    return Error(bookmark_api_constants::kInvalidMoveDestinationError);
   }
 
   size_t index;

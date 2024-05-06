@@ -160,6 +160,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // rect in absolute coordinates.
   virtual PhysicalRect ScrollIntoView(
       const PhysicalRect&,
+      const PhysicalBoxStrut& scroll_margin,
       const mojom::blink::ScrollIntoViewParamsPtr&);
 
   static bool ScrollBehaviorFromString(const String&,
@@ -249,6 +250,9 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   // Returns the color provider for this scrollbar.
   const ui::ColorProvider* GetColorProvider(mojom::blink::ColorScheme) const;
+
+  // Returns the forced colors state for this scrollbar.
+  bool InForcedColorsMode() const;
 
   // This getter will create a MacScrollAnimator if it doesn't already exist,
   // only on MacOS.
@@ -607,6 +611,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
     return std::nullopt;
   }
   virtual void SetTargetedSnapAreaId(const std::optional<cc::ElementId>&) {}
+
+  virtual void DropCompositorScrollDeltaNextCommit() {}
 
  protected:
   // Deduces the mojom::blink::ScrollBehavior based on the

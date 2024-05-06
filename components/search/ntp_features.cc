@@ -133,6 +133,11 @@ BASE_FEATURE(kNtpBackgroundImageErrorDetection,
              "NtpBackgroundImageErrorDetection",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, calendar module will be shown.
+BASE_FEATURE(kNtpCalendarModule,
+             "NtpCalendarModule",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, chrome cart module will be shown.
 BASE_FEATURE(kNtpChromeCartModule,
              "NtpChromeCartModule",
@@ -164,7 +169,7 @@ BASE_FEATURE(kNtpDriveModuleShowSixFiles,
 // If enabled, handles navigations from the Most Visited tiles explicitly and
 // overrides the navigation's transition type to bookmark navigation before the
 // navigation is issued.
-// TODO(crbug.com/1147589): When removing this flag, also remove the workaround
+// TODO(crbug.com/40730793): When removing this flag, also remove the workaround
 // in ChromeContentBrowserClient::OverrideNavigationParams.
 BASE_FEATURE(kNtpHandleMostVisitedNavigationExplicitly,
              "HandleMostVisitedNavigationExplicitly",
@@ -251,6 +256,11 @@ BASE_FEATURE(kNtpOneGoogleBar,
              "NtpOneGoogleBar",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// If enabled, outlook calendar module will be shown.
+BASE_FEATURE(kNtpOutlookCalendarModule,
+             "NtpOutlookCalendarModule",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, Google Photos module will be shown.
 BASE_FEATURE(kNtpPhotosModule,
              "NtpPhotosModule",
@@ -296,6 +306,11 @@ BASE_FEATURE(kNtpRecipeTasksModule,
 // If enabled, SafeBrowsing module will be shown to a target user.
 BASE_FEATURE(kNtpSafeBrowsingModule,
              "NtpSafeBrowsingModule",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, sharepoint module will be shown.
+BASE_FEATURE(kNtpSharepointModule,
+             "NtpSharepointModule",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, shortcuts will be shown.
@@ -399,6 +414,11 @@ BASE_FEATURE(kNtpHistoryClustersModuleEnableContentClustering,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the Tab Resumption module will be shown.
+BASE_FEATURE(kNtpMostRelevantTabResumptionModule,
+             "NtpMostRelevantTabResumptionModule",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the Tab Resumption module will be shown.
 BASE_FEATURE(kNtpTabResumptionModule,
              "NtpTabResumptionModule",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -496,6 +516,8 @@ const char kNtpHistoryClustersModuleScoreThresholdParam[] =
 const char kNtpRealboxWidthBehaviorParam[] = "NtpRealboxWidthBehaviorParam";
 const char kNtpTabResumptionModuleCategoriesBlocklistParam[] =
     "NtpTabResumptionModuleCategoriesBlocklistParam";
+const char kNtpMostRelevantTabResumptionModuleDataParam[] =
+    "NtpMostRelevantTabResumptionModuleDataParam";
 const char kNtpTabResumptionModuleDataParam[] =
     "NtpTabResumptionModuleDataParam";
 const char kNtpTabResumptionModuleTimeLimitParam[] =

@@ -22,7 +22,6 @@
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/core/SkYUVAPixmaps.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
-#include "third_party/skia/include/gpu/ganesh/SkImageGanesh.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/ganesh/gl/GrGLBackendSurface.h"
 #include "third_party/skia/include/gpu/gl/GrGLTypes.h"
@@ -273,8 +272,8 @@ void VideoFrameYUVMailboxesHolder::VideoFrameToMailboxes(
     SkImageInfo info =
         SkImageInfo::Make(plane_sizes_[plane], color_type, kPlaneAlphaType);
     ri->WritePixels(
-        holders_[plane].mailbox, /*dst_x_offset=*/0,
-        /*dst_y_offset=*/0, /*dst_plane_index=*/0, GL_TEXTURE_2D,
+        holders_[plane].mailbox, /*dst_x_offset=*/0, /*dst_y_offset=*/0,
+        GL_TEXTURE_2D,
         SkPixmap(info, video_frame->data(plane), video_frame->stride(plane)));
     mailboxes[plane] = holders_[plane].mailbox;
   }
@@ -296,27 +295,6 @@ GrYUVABackendTextures VideoFrameYUVMailboxesHolder::VideoFrameToSkiaTextures(
   }
   return GrYUVABackendTextures(yuva_info_, backend_textures,
                                kTopLeft_GrSurfaceOrigin);
-}
-
-sk_sp<SkImage> VideoFrameYUVMailboxesHolder::VideoFrameToSkImage(
-    const VideoFrame* video_frame,
-    viz::RasterContextProvider* raster_context_provider,
-    sk_sp<SkColorSpace> reinterpret_color_space) {
-  GrDirectContext* gr_context = raster_context_provider->GrContext();
-  DCHECK(gr_context);
-
-  GrYUVABackendTextures yuva_backend_textures = VideoFrameToSkiaTextures(
-      video_frame, raster_context_provider, /*for_surface=*/false);
-  auto rgb_color_space =
-      reinterpret_color_space
-          ? reinterpret_color_space
-          : video_frame->ColorSpace().GetAsFullRangeRGB().ToSkColorSpace();
-
-  DCHECK(yuva_backend_textures.isValid());
-  auto result = SkImages::TextureFromYUVATextures(
-      gr_context, yuva_backend_textures, rgb_color_space);
-  DCHECK(result);
-  return result;
 }
 
 bool VideoFrameYUVMailboxesHolder::VideoFrameToPlaneSkSurfaces(

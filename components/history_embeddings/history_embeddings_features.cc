@@ -17,4 +17,17 @@ const base::FeatureParam<int> kPassageExtractionMaxWordsPerAggregatePassage(
     "PassageExtractionMaxWordsPerAggregatePassage",
     200);
 
+const base::FeatureParam<int> kSearchResultItemCount(&kHistoryEmbeddings,
+                                                     "SearchResultItemCount",
+                                                     3);
+
+const base::FeatureParam<bool> kAtKeywordAcceleration(&kHistoryEmbeddings,
+                                                      "AtKeywordAcceleration",
+                                                      false);
+
+const base::FeatureParam<double> kContentVisibilityThreshold(
+    &kHistoryEmbeddings,
+    "ContentVisibilityThreshold",
+    0.5);
+
 }  // namespace history_embeddings

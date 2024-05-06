@@ -105,8 +105,9 @@ SyncPrefs::SyncPrefs(PrefService* pref_service)
       base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
                           base::Unretained(this)));
 #if BUILDFLAG(IS_IOS)
-  // On iOS, in some situations, there is a dedicated opt-in for bookmarks and
-  // reading list.
+  // On iOS, in some situations, there was a dedicated opt-in for bookmarks and
+  // reading list. It's not used anymore with kReplaceSyncPromosWithSigninPromos
+  // enabled, except for a migration.
   pref_change_registrar_.Add(
       prefs::internal::kBookmarksAndReadingListAccountStorageOptIn,
       base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
@@ -220,6 +221,12 @@ bool SyncPrefs::IsInitialSyncFeatureSetupComplete() const {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
+bool SyncPrefs::IsExplicitBrowserSignin() const {
+  return switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
+             switches::ExplicitBrowserSigninPhase::kFull) &&
+         pref_service_->GetBoolean(::prefs::kExplicitBrowserSignin);
+}
+
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
 void SyncPrefs::SetInitialSyncFeatureSetupComplete() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -301,19 +308,6 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
         // All other types are always enabled by default.
         type_enabled = true;
       }
-
-#if BUILDFLAG(IS_IOS)
-      // In transport-only mode, bookmarks and reading list require an
-      // additional opt-in.
-      // TODO(crbug.com/1440628): Cleanup the temporary behaviour of an
-      // additional opt in for Bookmarks and Reading Lists.
-      if ((type == UserSelectableType::kBookmarks ||
-           type == UserSelectableType::kReadingList) &&
-          !base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos)) {
-        type_enabled &= pref_service_->GetBoolean(
-            prefs::internal::kBookmarksAndReadingListAccountStorageOptIn);
-      }
-#endif
     }
     if (type_enabled) {
       selected_types.Put(type);
@@ -363,6 +357,26 @@ bool SyncPrefs::IsTypeManagedByCustodian(UserSelectableType type) const {
   const char* pref_name = GetPrefNameForType(type);
   CHECK(pref_name);
   return pref_service_->IsPreferenceManagedByCustodian(pref_name);
+}
+
+bool SyncPrefs::IsTypeDisabledByUserForAccount(
+    const UserSelectableType type,
+    const signin::GaiaIdHash& gaia_id_hash) {
+  const char* pref_name = GetPrefNameForType(type);
+  DCHECK(pref_name);
+
+  const base::Value::Dict* account_settings =
+      pref_service_->GetDict(prefs::internal::kSelectedTypesPerAccount)
+          .FindDict(gaia_id_hash.ToBase64());
+  std::optional<bool> pref_value;
+  if (account_settings) {
+    pref_value = account_settings->FindBool(pref_name);
+  }
+
+  if (pref_value.has_value()) {
+    return !*pref_value;
+  }
+  return false;
 }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
@@ -430,26 +444,6 @@ void SyncPrefs::KeepAccountSettingsPrefsOnlyForUsers(
       available_gaia_ids,
       prefs::internal::kSyncEncryptionBootstrapTokenPerAccount);
 }
-
-#if BUILDFLAG(IS_IOS)
-void SyncPrefs::SetBookmarksAndReadingListAccountStorageOptIn(bool value) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  pref_service_->SetBoolean(
-      prefs::internal::kBookmarksAndReadingListAccountStorageOptIn, value);
-}
-
-bool SyncPrefs::IsOptedInForBookmarksAndReadingListAccountStorageForTesting() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return pref_service_->GetBoolean(
-      prefs::internal::kBookmarksAndReadingListAccountStorageOptIn);
-}
-
-void SyncPrefs::ClearBookmarksAndReadingListAccountStorageOptIn() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  pref_service_->ClearPref(
-      prefs::internal::kBookmarksAndReadingListAccountStorageOptIn);
-}
-#endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 bool SyncPrefs::IsSyncFeatureDisabledViaDashboard() const {
@@ -733,11 +727,6 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
       return base::FeatureList::IsEnabled(
           kEnablePasswordsAccountStorageForNonSyncingUsers);
     case UserSelectableType::kAutofill:
-      // Note that this logic may lead to kPayments being treated as supported
-      // (or even selected) while kAutofill isn't. This goes against the general
-      // practice that kPayments depends on kAutofill (when it comes to user
-      // choice).
-      // TODO(crbug.com/1435431): Update comment once the decoupling is removed.
       return base::FeatureList::IsEnabled(
           kSyncEnableContactInfoDataTypeInTransportMode);
     case UserSelectableType::kPayments:
@@ -986,15 +975,6 @@ bool SyncPrefs::MaybeMigratePrefsForSyncToSigninPart2(
         update_selected_types_dict->EnsureDict(gaia_id_hash.ToBase64());
     account_settings->Set(GetPrefNameForType(UserSelectableType::kAutofill),
                           false);
-    if (!base::FeatureList::IsEnabled(
-            syncer::kSyncDecoupleAddressPaymentSettings)) {
-      // When the auto fill data type is updated, the payments should be updated
-      // too. Payments should not be enabled when auto fill data type disabled.
-      // TODO(crbug.com/1435431): This can be removed once kPayments is
-      // decoupled from kAutofill.
-      account_settings->Set(GetPrefNameForType(UserSelectableType::kPayments),
-                            false);
-    }
     return true;
   }
   return false;

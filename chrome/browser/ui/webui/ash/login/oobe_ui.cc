@@ -26,7 +26,6 @@
 #include "base/system/sys_info.h"
 #include "base/values.h"
 #include "build/branding_buildflags.h"
-#include "chrome/browser/ash/boot_times_recorder_tab_helper.h"
 #include "chrome/browser/ash/drive/file_system_util.h"
 #include "chrome/browser/ash/login/enrollment/auto_enrollment_check_screen_view.h"
 #include "chrome/browser/ash/login/enrollment/enrollment_screen_view.h"
@@ -46,6 +45,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/webui/about/about_ui.h"
 #include "chrome/browser/ui/webui/ash/login/add_child_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/ai_intro_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/app_downloading_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/app_launch_splash_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/arc_vm_data_migration_screen_handler.h"
@@ -96,6 +96,7 @@
 #include "chrome/browser/ui/webui/ash/login/offline_login_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/online_authentication_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/oobe_display_chooser.h"
+#include "chrome/browser/ui/webui/ash/login/oobe_screens_handler_factory.h"
 #include "chrome/browser/ui/webui/ash/login/os_install_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/os_trial_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/osauth/apply_online_password_screen_handler.h"
@@ -121,6 +122,7 @@
 #include "chrome/browser/ui/webui/ash/login/theme_selection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/touchpad_scroll_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/tpm_error_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/tuna_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/update_required_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/update_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/user_allowlist_check_screen_handler.h"
@@ -322,6 +324,7 @@ void CreateAndAddOobeUIDataSource(Profile* profile,
   source->AddBoolean("isOobeFlow", is_oobe_flow);
   source->AddBoolean("isOobeLazyLoadingEnabled",
                      features::IsOobeLazyLoadingEnabled());
+  source->AddBoolean("isOobeAiIntroEnabled", features::IsOobeAiIntroEnabled());
   // TODO (b/268463435) Cleanup OobeJelly
   source->AddBoolean("isJellyEnabled", features::IsOobeJellyEnabled());
   source->AddBoolean("isOobeJellyEnabled", features::IsOobeJellyEnabled());
@@ -333,6 +336,7 @@ void CreateAndAddOobeUIDataSource(Profile* profile,
                      !features::IsOobeSkipAssistantEnabled());
   source->AddBoolean("isOobeGaiaInfoScreenEnabled",
                      features::IsOobeGaiaInfoScreenEnabled());
+  source->AddBoolean("isOobeTunaEnabled", features::IsOobeTunaEnabled());
   source->AddBoolean("isChoobeEnabled", features::IsOobeChoobeEnabled());
   source->AddBoolean("isSoftwareUpdateEnabled",
                      features::IsOobeSoftwareUpdateEnabled());
@@ -495,6 +499,14 @@ void OobeUI::ConfigureOobeDisplay() {
 
   AddScreenHandler(std::make_unique<AppDownloadingScreenHandler>());
 
+  if (features::IsOobeAiIntroEnabled()) {
+    AddScreenHandler(std::make_unique<AiIntroScreenHandler>());
+  }
+
+  if (features::IsOobeTunaEnabled()) {
+    AddScreenHandler(std::make_unique<TunaScreenHandler>());
+  }
+
   AddScreenHandler(std::make_unique<DemoSetupScreenHandler>());
 
   AddScreenHandler(std::make_unique<FamilyLinkNoticeScreenHandler>());
@@ -516,10 +528,6 @@ void OobeUI::ConfigureOobeDisplay() {
   AddScreenHandler(std::make_unique<MarketingOptInScreenHandler>());
 
   AddScreenHandler(std::make_unique<GaiaPasswordChangedScreenHandler>());
-
-  if (features::IsOobeGaiaInfoScreenEnabled()) {
-    AddScreenHandler(std::make_unique<GaiaInfoScreenHandler>());
-  }
 
   AddScreenHandler(std::make_unique<GaiaScreenHandler>(network_state_informer_,
                                                        error_screen));
@@ -590,6 +598,10 @@ void OobeUI::ConfigureOobeDisplay() {
     AddScreenHandler(std::make_unique<TouchpadScrollScreenHandler>());
   }
 
+  if (features::IsOobeGaiaInfoScreenEnabled()) {
+    AddScreenHandler(std::make_unique<GaiaInfoScreenHandler>());
+  }
+
   if (features::IsOobeDisplaySizeEnabled()) {
     AddScreenHandler(std::make_unique<DisplaySizeScreenHandler>());
   }
@@ -623,8 +635,6 @@ void OobeUI::ConfigureOobeDisplay() {
 
   // TabHelper is required for OOBE webui to make webview working on it.
   extensions::TabHelper::CreateForWebContents(contents);
-
-  BootTimesRecorderTabHelper::MaybeCreateForWebContents(contents);
 
   if (ShouldUpScaleOobe()) {
     UpScaleOobe();
@@ -688,6 +698,12 @@ void OobeUI::BindInterface(
 void OobeUI::BindInterface(
     mojo::PendingReceiver<cellular_setup::mojom::ESimManager> receiver) {
   GetESimManager(std::move(receiver));
+}
+
+void OobeUI::BindInterface(
+    mojo::PendingReceiver<screens_factory::mojom::ScreensFactory> receiver) {
+  oobe_screens_handler_factory_ =
+      std::make_unique<OobeScreensHandlerFactory>(std::move(receiver));
 }
 
 void OobeUI::BindInterface(
@@ -804,6 +820,10 @@ CoreOobe* OobeUI::GetCoreOobe() {
 
 ErrorScreen* OobeUI::GetErrorScreen() {
   return error_screen_.get();
+}
+
+OobeScreensHandlerFactory* OobeUI::GetOobeScreensHandlerFactory() {
+  return oobe_screens_handler_factory_.get();
 }
 
 base::Value::Dict OobeUI::GetLocalizedStrings() {

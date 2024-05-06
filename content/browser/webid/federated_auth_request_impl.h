@@ -81,7 +81,8 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   void RequestUserInfo(blink::mojom::IdentityProviderConfigPtr provider,
                        RequestUserInfoCallback) override;
   void CancelTokenRequest() override;
-  void ResolveTokenRequest(const std::string& token,
+  void ResolveTokenRequest(const std::optional<std::string>& account_id,
+                           const std::string& token,
                            ResolveTokenRequestCallback callback) override;
   void SetIdpSigninStatus(const url::Origin& origin,
                           blink::mojom::IdpSigninStatus status) override;
@@ -103,7 +104,9 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
 
   // content::FederatedIdentityModalDialogViewDelegate:
   void OnClose() override;
-  bool OnResolve(GURL idp_config_url, const std::string& token) override;
+  bool OnResolve(GURL idp_config_url,
+                 const std::optional<std::string>& account_id,
+                 const std::string& token) override;
 
   // Rejects the pending request if it has not been resolved naturally yet.
   void OnRejectRequest();
@@ -181,7 +184,8 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
 
   // Check if the scope of the request allows the browser to mediate
   // or delegate (to the IdP) the authorization.
-  static bool ShouldMediateAuthz(const std::vector<std::string>& scope);
+  bool ShouldMediateAuthzFor(
+      const blink::mojom::IdentityProviderRequestOptions& provider);
 
   // Whether we can show the continue_on popup (not using mediation: silent,
   // etc.)
@@ -355,7 +359,7 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // reorders accounts so that those that are considered returning users are
   // before users that are not returning.
   void ComputeLoginStateAndReorderAccounts(
-      const url::Origin& idp_origin,
+      const GURL& idp_config_url,
       IdpNetworkRequestManager::AccountList& accounts);
 
   url::Origin GetEmbeddingOrigin() const;
@@ -443,6 +447,9 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // mediation flow.
   std::string account_id_;
   base::TimeTicks start_time_;
+  base::TimeTicks well_known_and_config_fetched_time_;
+  base::TimeTicks accounts_fetched_time_;
+  base::TimeTicks client_metadata_fetched_time_;
   base::TimeTicks ready_to_display_accounts_dialog_time_;
   base::TimeTicks accounts_dialog_display_time_;
   base::TimeTicks select_account_time_;

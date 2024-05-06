@@ -23,6 +23,7 @@ bytemuck = "1"
 bytes = "1"
 cfg-if = "1"
 cxx = "1"
+fend-core = "1"
 font-types = "0.4"
 hex = "0.4"
 hex-literal = "0.4"
@@ -57,10 +58,6 @@ features = ["rustc_1_55"]
 version = "1"
 artifact = "bin"
 
-[dependencies.memoffset]
-version = "0.6"
-features = ["unstable_const"]
-
 [dependencies.rstest]
 default-features = false
 version = "0.17"
@@ -68,8 +65,12 @@ version = "0.17"
 [dependencies.rustversion]
 version = "1"
 
+# Temporarily inform our cargo tooling that we care about
+# the new version of serde_json_lenient. We are in the midst
+# of CLs that move from the older to the newer.
 [dependencies.serde_json_lenient]
-version = "0.1"
+package = "serde_json_lenient"
+version = "0.2"
 features = ["unbounded_depth", "float_roundtrip"]
 
 [dependencies.syn]

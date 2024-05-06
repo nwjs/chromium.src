@@ -4,13 +4,14 @@
 
 #include "chrome/updater/util/win_util.h"
 
+#include <windows.h>
+
 #include <aclapi.h>
 #include <combaseapi.h>
 #include <objidl.h>
 #include <regstr.h>
 #include <shellapi.h>
 #include <shlobj.h>
-#include <windows.h>
 #include <winhttp.h>
 #include <wrl/client.h>
 #include <wtsapi32.h>
@@ -1126,10 +1127,9 @@ bool EulaAccepted(const std::vector<std::string>& app_ids) {
 }
 
 void LogClsidEntries(REFCLSID clsid) {
-  const std::wstring local_server32_reg_path(
-      base::StrCat({base::StrCat({L"Software\\Classes\\CLSID\\",
-                                  base::win::WStringFromGUID(clsid)}),
-                    L"\\LocalServer32"}));
+  const std::wstring local_server32_reg_path(base::StrCat(
+      {base::StrCat({L"Software\\Classes\\CLSID\\", StringFromGuid(clsid)}),
+       L"\\LocalServer32"}));
   for (const HKEY root : {HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER}) {
     for (const REGSAM key_flag : {KEY_WOW64_32KEY, KEY_WOW64_64KEY}) {
       base::win::RegKey key;
@@ -1434,6 +1434,74 @@ HResultOr<ScopedKernelHANDLE> GetImpersonationToken(
 
 HResultOr<ScopedKernelHANDLE> GetLoggedOnUserToken() {
   return GetImpersonationToken(GetExplorerPid());
+}
+
+bool IsAuditMode() {
+  base::win::RegKey setup_state_key;
+  std::wstring state;
+  return setup_state_key.Open(HKEY_LOCAL_MACHINE, kSetupStateKey,
+                              KEY_QUERY_VALUE) == ERROR_SUCCESS &&
+         setup_state_key.ReadValue(kImageStateValueName, &state) ==
+             ERROR_SUCCESS &&
+         (base::EqualsCaseInsensitiveASCII(state, kImageStateUnuseableValue) ||
+          base::EqualsCaseInsensitiveASCII(state,
+                                           kImageStateGeneralAuditValue) ||
+          base::EqualsCaseInsensitiveASCII(state,
+                                           kImageStateSpecialAuditValue));
+}
+
+bool SetOemInstallState() {
+  if (!::IsUserAnAdmin() || !IsAuditMode()) {
+    return false;
+  }
+
+  const base::Time now = base::Time::Now();
+  VLOG(1) << "OEM install time set: " << now;
+  return base::win::RegKey(HKEY_LOCAL_MACHINE, CLIENTS_KEY,
+                           Wow6432(KEY_SET_VALUE))
+             .WriteValue(kRegValueOemInstallTimeMin,
+                         now.ToDeltaSinceWindowsEpoch().InMinutes()) ==
+         ERROR_SUCCESS;
+}
+
+bool ResetOemInstallState() {
+  VLOG(1) << "OEM install reset at time: " << base::Time::Now();
+  const LONG result =
+      base::win::RegKey(HKEY_LOCAL_MACHINE, CLIENTS_KEY, Wow6432(KEY_SET_VALUE))
+          .DeleteValue(kRegValueOemInstallTimeMin);
+  return result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND;
+}
+
+bool IsOemInstalling() {
+  DWORD oem_install_time_minutes = 0;
+  if (base::win::RegKey(HKEY_LOCAL_MACHINE, CLIENTS_KEY,
+                        Wow6432(KEY_QUERY_VALUE))
+          .ReadValueDW(kRegValueOemInstallTimeMin, &oem_install_time_minutes) !=
+      ERROR_SUCCESS) {
+    VLOG(2) << "OemInstallTime not found";
+    return false;
+  }
+  const base::Time now = base::Time::Now();
+  const base::Time oem_install_time = base::Time::FromDeltaSinceWindowsEpoch(
+      base::Minutes(oem_install_time_minutes));
+  const base::TimeDelta time_in_oem_mode = now - oem_install_time;
+  const bool is_oem_installing = time_in_oem_mode < kMinOemModeTime;
+  if (!is_oem_installing) {
+    ResetOemInstallState();
+  }
+  VLOG(1) << "now: " << now << ", OEM install time: " << oem_install_time
+          << ", time_in_oem_mode: " << time_in_oem_mode
+          << ", is_oem_installing: " << is_oem_installing;
+  return is_oem_installing;
+}
+
+std::wstring StringFromGuid(const GUID& guid) {
+  // {xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}
+  constexpr int kGuidStringCharacters =
+      1 + 8 + 1 + 4 + 1 + 4 + 1 + 4 + 1 + 12 + 1 + 1;
+  wchar_t guid_string[kGuidStringCharacters] = {0};
+  CHECK_NE(::StringFromGUID2(guid, guid_string, kGuidStringCharacters), 0);
+  return guid_string;
 }
 
 }  // namespace updater

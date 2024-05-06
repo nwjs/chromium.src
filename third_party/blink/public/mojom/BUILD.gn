@@ -26,6 +26,7 @@ mojom("mojom_platform") {
   generate_java = true
   sources = [
     "ad_tagging/ad_evidence.mojom",
+    "aggregation_service/aggregatable_report.mojom",
     "annotation/annotation.mojom",
     "app_banner/app_banner.mojom",
     "array_buffer/array_buffer_contents.mojom",
@@ -38,6 +39,7 @@ mojom("mojom_platform") {
     "browser_interface_broker.mojom",
     "browsing_topics/browsing_topics.mojom",
     "cache_storage/cache_storage.mojom",
+    "call_stack_generator/call_stack_generator.mojom",
     "choosers/color_chooser.mojom",
     "choosers/date_time_chooser.mojom",
     "choosers/file_chooser.mojom",
@@ -99,6 +101,7 @@ mojom("mojom_platform") {
     "input/focus_type.mojom",
     "input/gesture_event.mojom",
     "input/handwriting_gesture_result.mojom",
+    "input/ime_host.mojom",
     "input/input_event.mojom",
     "input/input_event_result.mojom",
     "input/input_handler.mojom",
@@ -180,7 +183,6 @@ mojom("mojom_platform") {
     "preloading/anchor_element_interaction_host.mojom",
     "prerender/prerender.mojom",
     "presentation/presentation.mojom",
-    "private_aggregation/aggregatable_report.mojom",
     "private_aggregation/private_aggregation_host.mojom",
     "push_messaging/push_messaging.mojom",
     "push_messaging/push_messaging_status.mojom",
@@ -287,6 +289,7 @@ mojom("mojom_platform") {
     ":web_feature_mojo_bindings",
     "//cc/mojom",
     "//components/attribution_reporting:mojom",
+    "//components/attribution_reporting:registration_header_error_mojom",
     "//components/attribution_reporting:registration_mojom",
     "//components/payments/mojom",
     "//components/schema_org/common:mojom",
@@ -1193,7 +1196,7 @@ mojom("android_mojo_bindings") {
   # generating the snapshot for android, blink is compiled with
   # current_os="linux" and target_os="android". Using target_os is necessary as
   # we need to compile in the same way as would happen when current_os="android".
-  if (target_os == "android") {
+  if (target_os_is_android) {
     sources += [ "remote_objects/remote_objects.mojom" ]
 
     # Direct deps (instead of transitive deps) are necessary for java targets.
@@ -1319,7 +1322,6 @@ mojom("mojom_core") {
     "frame/intrinsic_sizing_info.mojom",
     "frame/lifecycle.mojom",
     "frame/media_player_action.mojom",
-    "frame/pending_beacon.mojom",
     "frame/policy_container.mojom",
     "frame/remote_frame.mojom",
     "frame/reporting_observer.mojom",
@@ -1333,6 +1335,7 @@ mojom("mojom_core") {
     "frame/viewport_intersection_state.mojom",
     "page/browsing_context_group_info.mojom",
     "page/display_cutout.mojom",
+    "page/draggable_region.mojom",
     "page/page.mojom",
     "page/page_visibility_state.mojom",
     "page/widget.mojom",

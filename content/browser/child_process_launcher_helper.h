@@ -95,6 +95,7 @@ class LaunchResult;
 class ProcessStorageBase {
  public:
   virtual ~ProcessStorageBase() = default;
+  virtual void ReleaseProcess() = 0;
 };
 #endif
 
@@ -233,7 +234,13 @@ class ChildProcessLauncherHelper
       ChildProcessLauncherHelper::Process process);
 
 #if BUILDFLAG(IS_IOS)
-  void OnChildProcessStarted(std::unique_ptr<LaunchResult> launch_result);
+  void OnChildProcessStarted(pid_t process_id,
+                             std::unique_ptr<LaunchResult> launch_result);
+  void ClearProcessStorage();
+
+#if defined(__OBJC__)
+  NSObject* GetProcess();
+#endif
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -292,6 +299,10 @@ class ChildProcessLauncherHelper
   std::unique_ptr<base::CommandLine> command_line_;
   std::unique_ptr<SandboxedProcessLauncherDelegate> delegate_;
   base::WeakPtr<ChildProcessLauncher> child_process_launcher_;
+
+#if BUILDFLAG(IS_CHROMEOS)
+  std::optional<base::ProcessId> process_id_ = std::nullopt;
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   // The priority of the process. The state is stored to avoid changing the

@@ -655,7 +655,8 @@ void TestResponseProvider::GetLanguageResponse(
 
 // Test that the Show Original banner dismisses with a longer delay since it is
 // a high priority banner.
-- (void)testInfobarAcceptedBannerDismissWithHighPriorityDelay {
+// TODO(crbug.com/331774758): Test flaky.
+- (void)DISABLED_testInfobarAcceptedBannerDismissWithHighPriorityDelay {
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
   web::test::SetUpHttpServer(std::move(provider));
@@ -685,8 +686,8 @@ void TestResponseProvider::GetLanguageResponse(
                 grey_allOf(
                     grey_accessibilityID(
                         kInfobarBannerLabelsStackViewIdentifier),
-                    grey_accessibilityLabel(l10n_util::GetNSString(
-                        IDS_IOS_TRANSLATE_INFOBAR_AFTER_TRANSLATE_BANNER_TITLE)),
+                    grey_descendant(grey_text(l10n_util::GetNSString(
+                        IDS_IOS_TRANSLATE_INFOBAR_AFTER_TRANSLATE_BANNER_TITLE))),
                     nil)] assertWithMatcher:grey_nil() error:&error];
         return error == nil;
       });
@@ -797,7 +798,8 @@ void TestResponseProvider::GetLanguageResponse(
 
 // Tests that the "Always Translate" options can be toggled and the prefs are
 // updated accordingly.
-- (void)testInfobarAlwaysTranslate {
+// TODO(crbug.com/334867767) Fix and reenable tests.
+- (void)DISABLED_testInfobarAlwaysTranslate {
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
   web::test::SetUpHttpServer(std::move(provider));
@@ -1099,8 +1101,8 @@ void TestResponseProvider::GetLanguageResponse(
         selectElementWithMatcher:
             grey_allOf(
                 grey_accessibilityID(kInfobarBannerLabelsStackViewIdentifier),
-                grey_accessibilityLabel(l10n_util::GetNSString(
-                    IDS_IOS_TRANSLATE_INFOBAR_BEFORE_TRANSLATE_BANNER_TITLE)),
+                grey_descendant(grey_text(l10n_util::GetNSString(
+                    IDS_IOS_TRANSLATE_INFOBAR_BEFORE_TRANSLATE_BANNER_TITLE))),
                 nil)] assertWithMatcher:grey_notNil() error:&error];
     return error == nil;
   });
@@ -1117,8 +1119,8 @@ void TestResponseProvider::GetLanguageResponse(
                 grey_allOf(
                     grey_accessibilityID(
                         kInfobarBannerLabelsStackViewIdentifier),
-                    grey_accessibilityLabel(l10n_util::GetNSString(
-                        IDS_IOS_TRANSLATE_INFOBAR_AFTER_TRANSLATE_BANNER_TITLE)),
+                    grey_descendant(grey_text(l10n_util::GetNSString(
+                        IDS_IOS_TRANSLATE_INFOBAR_AFTER_TRANSLATE_BANNER_TITLE))),
                     nil)] assertWithMatcher:grey_notNil() error:&error];
         return error == nil;
       });

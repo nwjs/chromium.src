@@ -349,6 +349,24 @@ class FingerprintScreenTester extends ScreenElementApi {
   }
 }
 
+class AiIntroScreenTester extends ScreenElementApi {
+  constructor() {
+    super('ai-intro');
+  }
+  override shouldSkip(): boolean {
+    return loadTimeData.getBoolean('testapi_shouldSkipAiIntro');
+  }
+}
+
+class TunaScreenTester extends ScreenElementApi {
+  constructor() {
+    super('tuna');
+  }
+  override shouldSkip(): boolean {
+    return loadTimeData.getBoolean('testapi_shouldSkipTuna');
+  }
+}
+
 class AssistantScreenTester extends ScreenElementApi {
   private mainElement: PolymerElementApi;
   private valueProp: PolymerElementApi;
@@ -1081,6 +1099,7 @@ class LocalPasswordSetupScreenTester extends ScreenElementApi {
         this.confirmInput.isVisible();
   }
 
+  // TODO (b/329361749): remove this code after crrev.com/c/5381081 landed.
   enterPassword(password: string): void {
     this.firstInput.typeInto(password);
     afterNextRender(assert(this.element()), () => {
@@ -1090,6 +1109,18 @@ class LocalPasswordSetupScreenTester extends ScreenElementApi {
         this.nextButton.click();
       });
     });
+  }
+
+  enterPasswordToFirstInput(password: string): void {
+    this.firstInput.typeInto(password);
+  }
+
+  enterPasswordToConfirmInput(password: string): void {
+    this.confirmInput.typeInto(password);
+  }
+
+  isNextButtonEnabled(): boolean {
+    return this.nextButton !== undefined && this.nextButton.isEnabled();
   }
 }
 
@@ -1399,6 +1430,8 @@ export class OobeApiProvider {
       SyncScreen: new SyncScreenTester(),
       PasswordSelectionScreen: new PasswordSelectionScreenTester(),
       FingerprintScreen: new FingerprintScreenTester(),
+      AiIntroScreen: new AiIntroScreenTester(),
+      TunaScreen: new TunaScreenTester(),
       AssistantScreen: new AssistantScreenTester(),
       MarketingOptInScreen: new MarketingOptInScreenTester(),
       ConfirmSamlPasswordScreen: new ConfirmSamlPasswordScreenTester(),

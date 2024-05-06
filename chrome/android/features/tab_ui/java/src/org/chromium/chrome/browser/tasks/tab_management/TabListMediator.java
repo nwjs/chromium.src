@@ -34,6 +34,7 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -66,6 +67,9 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFaviconFetcher;
+import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
@@ -80,7 +84,6 @@ import org.chromium.chrome.browser.tasks.tab_groups.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
 import org.chromium.chrome.browser.tasks.tab_management.PriceMessageService.PriceTabData;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
-import org.chromium.chrome.browser.tasks.tab_management.TabListFaviconProvider.TabFaviconFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorActionMetricGroups;
 import org.chromium.chrome.tab_ui.R;
@@ -112,8 +115,8 @@ import java.util.stream.Collectors;
 /**
  * Mediator for business logic for the tab grid. This class should be initialized with a list of
  * tabs and a TabModel to observe for changes and should not have any logic around what the list
- * signifies.
- * TODO(yusufo): Move some of the logic here to a parent component to make the above true.
+ * signifies. TODO(yusufo): Move some of the logic here to a parent component to make the above
+ * true.
  */
 class TabListMediator {
     // The |mVisible| relies on whether the tab list is null when the last time
@@ -349,6 +352,7 @@ class TabListMediator {
     private final TabGridDialogHandler mTabGridDialogHandler;
     private final TabListFaviconProvider mTabListFaviconProvider;
     private final Supplier<PriceWelcomeMessageController> mPriceWelcomeMessageControllerSupplier;
+    private final TabGroupColorFaviconProvider mTabGroupColorFaviconProvider;
 
     private @Nullable Profile mProfile;
     private Size mDefaultGridCardSize;
@@ -786,15 +790,16 @@ class TabListMediator {
      * Construct the Mediator with the given Models and observing hooks from the given
      * ChromeActivity.
      *
+     * @param tabModelSelector {@link TabModelSelector} that will provide and receive signals about
+     *     the tabs concerned.
      * @param context The context used to get some configuration information.
      * @param model The Model to keep state about a list of {@link Tab}s.
      * @param mode The {@link TabListMode}
-     * @param tabModelSelector {@link TabModelSelector} that will provide and receive signals about
-     *     the tabs concerned.
      * @param regularTabModelSupplier The supplier of the regular {@link TabModel}.
      * @param thumbnailProvider {@link ThumbnailProvider} to provide screenshot related details.
      * @param titleProvider {@link PseudoTab.TitleProvider} for a given tab's title to show.
      * @param tabListFaviconProvider Provider for all favicon related drawables.
+     * @param tabGroupColorFaviconProvider Provider for tab group color favicon related drawables.
      * @param actionOnRelatedTabs Whether tab-related actions should be operated on all related
      *     tabs.
      * @param selectionDelegateProvider Provider for a {@link SelectionDelegate} that is used for a
@@ -816,6 +821,7 @@ class TabListMediator {
             @Nullable ThumbnailProvider thumbnailProvider,
             @Nullable PseudoTab.TitleProvider titleProvider,
             TabListFaviconProvider tabListFaviconProvider,
+            @NonNull TabGroupColorFaviconProvider tabGroupColorFaviconProvider,
             boolean actionOnRelatedTabs,
             @Nullable SelectionDelegateProvider selectionDelegateProvider,
             @Nullable GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
@@ -830,6 +836,7 @@ class TabListMediator {
         mModel = model;
         mMode = mode;
         mTabListFaviconProvider = tabListFaviconProvider;
+        mTabGroupColorFaviconProvider = tabGroupColorFaviconProvider;
         mComponentName = componentName;
         mTitleProvider = titleProvider;
         mSelectionDelegateProvider = selectionDelegateProvider;
@@ -1909,18 +1916,46 @@ class TabListMediator {
             String title = getLatestTitleForTab(pseudoTab);
             title = title.equals(pseudoTab.getTitle(mContext, mTitleProvider)) ? "" : title;
             Resources res = mContext.getResources();
-            model.set(
-                    TabProperties.CONTENT_DESCRIPTION_STRING,
-                    title.isEmpty()
-                            ? res.getQuantityString(
-                                    R.plurals.accessibility_expand_tab_group,
-                                    numOfRelatedTabs,
-                                    numOfRelatedTabs)
-                            : res.getQuantityString(
-                                    R.plurals.accessibility_expand_tab_group_with_group_name,
-                                    numOfRelatedTabs,
-                                    title,
-                                    numOfRelatedTabs));
+            if (!ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
+                model.set(
+                        TabProperties.CONTENT_DESCRIPTION_STRING,
+                        title.isEmpty()
+                                ? res.getQuantityString(
+                                        R.plurals.accessibility_expand_tab_group,
+                                        numOfRelatedTabs,
+                                        numOfRelatedTabs)
+                                : res.getQuantityString(
+                                        R.plurals.accessibility_expand_tab_group_with_group_name,
+                                        numOfRelatedTabs,
+                                        title,
+                                        numOfRelatedTabs));
+            } else {
+                int colorId = TabGroupColorUtils.getTabGroupColor(pseudoTab.getRootId());
+                // This should never be the case in practice, but if the color is invalid then set
+                // it to the first color in the list.
+                if (colorId == INVALID_COLOR_ID) {
+                    colorId = TabGroupColorId.GREY;
+                }
+                final @StringRes int colorDescRes =
+                        ColorPickerUtils.getTabGroupColorPickerItemColorAccessibilityString(
+                                colorId);
+                String colorDesc = res.getString(colorDescRes);
+                model.set(
+                        TabProperties.CONTENT_DESCRIPTION_STRING,
+                        title.isEmpty()
+                                ? res.getQuantityString(
+                                        R.plurals.accessibility_expand_tab_group_with_color,
+                                        numOfRelatedTabs,
+                                        numOfRelatedTabs,
+                                        colorDesc)
+                                : res.getQuantityString(
+                                        R.plurals
+                                                .accessibility_expand_tab_group_with_group_name_with_color,
+                                        numOfRelatedTabs,
+                                        title,
+                                        numOfRelatedTabs,
+                                        colorDesc));
+            }
         } else {
             model.set(TabProperties.CONTENT_DESCRIPTION_STRING, null);
         }
@@ -1935,21 +1970,54 @@ class TabListMediator {
                 title = title.equals(pseudoTab.getTitle(mContext, mTitleProvider)) ? "" : title;
 
                 Resources res = mContext.getResources();
-                if (title.isEmpty()) {
-                    model.set(
-                            TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING,
-                            res.getQuantityString(
-                                    R.plurals.accessibility_close_tab_group_button,
-                                    numOfRelatedTabs,
-                                    numOfRelatedTabs));
+                if (!ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
+                    if (title.isEmpty()) {
+                        model.set(
+                                TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING,
+                                res.getQuantityString(
+                                        R.plurals.accessibility_close_tab_group_button,
+                                        numOfRelatedTabs,
+                                        numOfRelatedTabs));
+                    } else {
+                        model.set(
+                                TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING,
+                                res.getQuantityString(
+                                        R.plurals
+                                                .accessibility_close_tab_group_button_with_group_name,
+                                        numOfRelatedTabs,
+                                        title,
+                                        numOfRelatedTabs));
+                    }
                 } else {
-                    model.set(
-                            TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING,
-                            res.getQuantityString(
-                                    R.plurals.accessibility_close_tab_group_button_with_group_name,
-                                    numOfRelatedTabs,
-                                    title,
-                                    numOfRelatedTabs));
+                    int colorId = TabGroupColorUtils.getTabGroupColor(pseudoTab.getRootId());
+                    // This should never be the case in practice, but if the color is invalid then
+                    // set it to the first color in the list.
+                    if (colorId == INVALID_COLOR_ID) {
+                        colorId = TabGroupColorId.GREY;
+                    }
+                    final @StringRes int colorDescRes =
+                            ColorPickerUtils.getTabGroupColorPickerItemColorAccessibilityString(
+                                    colorId);
+                    String colorDesc = res.getString(colorDescRes);
+                    if (title.isEmpty()) {
+                        model.set(
+                                TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING,
+                                res.getQuantityString(
+                                        R.plurals.accessibility_close_tab_group_button_with_color,
+                                        numOfRelatedTabs,
+                                        numOfRelatedTabs,
+                                        colorDesc));
+                    } else {
+                        model.set(
+                                TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING,
+                                res.getQuantityString(
+                                        R.plurals
+                                                .accessibility_close_tab_group_button_with_group_name_with_color,
+                                        numOfRelatedTabs,
+                                        title,
+                                        numOfRelatedTabs,
+                                        colorDesc));
+                    }
                 }
                 return;
             }
@@ -2043,11 +2111,9 @@ class TabListMediator {
                 if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
                     TabGroupModelFilter filter =
                             (TabGroupModelFilter) mCurrentTabModelFilterSupplier.get();
-                    final @TabGroupColorId int colorId =
-                            TabGroupColorUtils.getOrCreateTabGroupColor(
-                                    pseudoTab.getRootId(), filter);
+                    int colorId = TabGroupColorUtils.getTabGroupColor(pseudoTab.getRootId());
                     faviconFetcher =
-                            mTabListFaviconProvider.getFaviconFromTabGroupColorFetcher(
+                            mTabGroupColorFaviconProvider.getFaviconFromTabGroupColorFetcher(
                                     colorId, filter.getTabModel().isIncognito());
                 }
 

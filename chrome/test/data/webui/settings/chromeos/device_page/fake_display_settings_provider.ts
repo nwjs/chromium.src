@@ -16,6 +16,8 @@ type TabletModeObserverInterface =
     displaySettingsProviderMojom.TabletModeObserverInterface;
 type DisplayConfigurationObserverInterface =
     displaySettingsProviderMojom.DisplayConfigurationObserverInterface;
+type DisplayBrightnessSettingsObserverInterface =
+    displaySettingsProviderMojom.DisplayBrightnessSettingsObserverInterface;
 type DisplaySettingsType = displaySettingsProviderMojom.DisplaySettingsType;
 type DisplaySettingsValue = displaySettingsProviderMojom.DisplaySettingsValue;
 type DisplaySettingsOrientationOption =
@@ -28,7 +30,13 @@ export class FakeDisplaySettingsProvider implements
   private tabletModeObservers: TabletModeObserverInterface[] = [];
   private displayConfigurationObservers:
       DisplayConfigurationObserverInterface[] = [];
+  private displayBrightnessSettingsObservers:
+      DisplayBrightnessSettingsObserverInterface[] = [];
   private isTabletMode: boolean = false;
+  private brightnessPercent: number = 0;
+  // Enabled by default to match system behavior.
+  private isAmbientLightSensorEnabled: boolean = true;
+  private hasAmbientLightSensor_: boolean = true;
   private performanceSettingEnabled: boolean = false;
   private internalDisplayHistogram = new Map<DisplaySettingsType, number>();
   private externalDisplayHistogram = new Map<DisplaySettingsType, number>();
@@ -81,6 +89,55 @@ export class FakeDisplaySettingsProvider implements
 
   getIsTabletMode(): boolean {
     return this.isTabletMode;
+  }
+
+  // Implement DisplaySettingsProviderInterface.
+  observeDisplayBrightnessSettings(
+      observer: DisplayBrightnessSettingsObserverInterface):
+      Promise<{brightnessPercent: number}> {
+    this.displayBrightnessSettingsObservers.push(observer);
+
+    return Promise.resolve({brightnessPercent: this.brightnessPercent});
+  }
+
+  notifyDisplayBrightnessChanged(): void {
+    for (const observer of this.displayBrightnessSettingsObservers) {
+      observer.onDisplayBrightnessChanged(this.brightnessPercent);
+    }
+  }
+
+  setBrightnessPercentForTesting(brightnessPercent: number): void {
+    this.brightnessPercent = brightnessPercent;
+    this.notifyDisplayBrightnessChanged();
+  }
+
+  // Implement DisplaySettingsProviderInterface.
+  setInternalDisplayScreenBrightness(percent: number): void {
+    this.brightnessPercent = percent;
+  }
+
+  getInternalDisplayScreenBrightness(): number {
+    return this.brightnessPercent;
+  }
+
+  // Implement DisplaySettingsProviderInterface.
+  setInternalDisplayAmbientLightSensorEnabled(enabled: boolean): void {
+    this.isAmbientLightSensorEnabled = enabled;
+  }
+
+  getInternalDisplayAmbientLightSensorEnabled(): boolean {
+    return this.isAmbientLightSensorEnabled;
+  }
+
+  // Implement DisplaySettingsProviderInterface.
+  hasAmbientLightSensor(): Promise<{hasAmbientLightSensor: boolean}> {
+    return new Promise(
+        resolve =>
+            resolve({hasAmbientLightSensor: this.hasAmbientLightSensor_}));
+  }
+
+  setHasAmbientLightSensor(hasAmbientLightSensor: boolean): void {
+    this.hasAmbientLightSensor_ = hasAmbientLightSensor;
   }
 
   // Implement DisplaySettingsProviderInterface.

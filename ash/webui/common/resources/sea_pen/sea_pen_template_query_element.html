@@ -2,9 +2,10 @@
   .main {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: auto;
     justify-content: center;
-    margin-inline-start: 8px;
+    margin-block-start: 32px;
+    padding-inline: 40px;
   }
 
   #placeholder {
@@ -15,9 +16,10 @@
     align-items: start;
     color: var(--cros-text-color-primary);
     display: flex;
+    flex-flow: row wrap;
     font: var(--cros-display-6_regular-font);
     justify-content: center;
-    padding: 12px 0;
+    row-gap: 8px;
   }
 
   #template .unselected {
@@ -75,23 +77,28 @@
     align-items: center;
     box-sizing: border-box;
     display: flex;
-    height: 56px;
     justify-content: center;
-    padding: 12px 0;
+    margin-block: 24px;
   }
 
   #searchButtons cr-button {
     margin: 0 4px;
+    padding-inline-end: 16px;
   }
 
   #thumbnailsLoadingText {
-    color: var(--cros-text-color-prominent);
+    color: var(--cros-sys-on_primary_container);
     font: var(--cros-annotation-1-font);
   }
 
   cr-button {
     font: var(--cros-button-2-font);
     padding: 0px 12px;
+  }
+
+  #inspireMeAnimation {
+    height: 20px;
+    width: 20px;
   }
 
   .dropdown-check {
@@ -106,13 +113,24 @@
     font: var(--cros-button-2-font);
     padding: 8px 32px 8px 16px;
   }
+
+  #inspire:not(:hover) #inspireMeAnimation,
+  #inspire:hover #inspireIcon {
+    display: none;
+  }
+
+  #inspire:hover #inspireMeAnimation,
+  #inspire:not(:hover) #inspireIcon {
+    display: block;
+  }
 </style>
 <div class="main">
   <template is="dom-if" if="[[shouldShowOptions_(options_)]]">
     <sea-pen-options
         options="[[options_]]"
         selected-chip="[[selectedChip_]]"
-        selected-options="{{selectedOptions_}}">
+        selected-options="{{selectedOptions_}}"
+        on-sea-pen-option-escape="onOptionSelectionDone">
     </sea-pen-options>
   </template>
   <div id="template">
@@ -122,10 +140,18 @@
             disabled$="[[thumbnailsLoading_]]">
           <template is="dom-if" if="[[!thumbnailsLoading_]]" restamp>
             <div class="underline"></div>
-            <div class="chip-text" tabindex="0" on-click="onClickChip_"
-                on-keypress="onClickChip_">
-              [[token.translation]]
-            </div>
+            <sea-pen-chip-text
+                aria-label$="[[token.translation]]"
+                aria-description$="[[getTemplateAriaLabel_(templateTokens_)]]"
+                text-animation-enabled="[[shouldEnableTextAnimation(selectedChip_, token)]]"
+                chip-text="[[token.translation]]"
+                class="chip-text"
+                tabindex="0"
+                on-click="onClickChip_"
+                on-keypress="onClickChip_"
+                role="combobox">
+              <span aria-hidden="true">[[token.translation]]</span>
+            </sea-pen-chip-text>
           </template>
           <template is="dom-if" if="[[thumbnailsLoading_]]" restamp>
             <div class="chip-text">
@@ -143,11 +169,25 @@
   </div>
   <div id="searchButtons">
     <template is="dom-if" if="[[thumbnailsLoading_]]">
-      <span id="thumbnailsLoadingText">[[i18n('seaPenThumbnailsLoading')]]</span>
+      <span id="thumbnailsLoadingText" aria-description$="[[getTemplateAriaLabel_(templateTokens_)]]" aria-live="polite">
+        [[i18n('seaPenThumbnailsLoading')]]
+      </span>
     </template>
     <template is="dom-if" if="[[!thumbnailsLoading_]]">
-      <cr-button id="inspire" on-click="onClickInspire_">
-        <iron-icon icon="sea-pen:inspire" slot="prefix-icon"></iron-icon>
+      <cr-button
+          id="inspire"
+          on-click="onClickInspire_"
+          on-mouseleave="stopInspireIconAnimation_"
+          on-mouseenter="startInspireIconAnimation_">
+        <cros-lottie-renderer
+            id="inspireMeAnimation"
+            slot="prefix-icon"
+            asset-url="chrome://resources/ash/common/sea_pen/lightbulb_icon.json"
+            loop
+            dynamic
+            aria-hidden>
+        </cros-lottie-renderer>
+        <iron-icon id="inspireIcon" icon="sea-pen:inspire" slot="prefix-icon"></iron-icon>
         <p>[[i18n('seaPenInspireMeButton')]]</p>
       </cr-button>
       <cr-button

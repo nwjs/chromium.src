@@ -46,7 +46,7 @@ enum class IPHFailureReason {
   kNotConfigured,
   kWrongSessionRate,
   kWrongSessionImpact,
-  kWrongSessionImpactPerApp,
+  kWrongSessionImpactKeyedNotice,
   kWrongSessionImpactLegalNotice,
   kLegacyPromoNoScreenReader,
 };
@@ -150,12 +150,12 @@ std::ostream& operator<<(std::ostream& os, const IPHFailure& failure) {
             "similar IPH from running (session rate impact ALL); an IPH which "
             "is not limited should not (session rate impact NONE).";
       break;
-    case IPHFailureReason::kWrongSessionImpactPerApp:
-      os << " has unexpected per-app session rate impact: "
+    case IPHFailureReason::kWrongSessionImpactKeyedNotice:
+      os << " has unexpected per-key session rate impact: "
          << failure.config->session_rate_impact.type
-         << ". A heavyweight IPH which runs per-app should prevent other IPH "
-            "from running (session rate impact ALL); it may or may not be "
-            "limited by other IPH.";
+         << ". A heavyweight IPH which runs per app or account should prevent "
+            "other IPH from running (session rate impact ALL); it may or may "
+            "not be limited by other IPH.";
       break;
     case IPHFailureReason::kWrongSessionImpactLegalNotice:
       os << " has unexpected per-app session rate and/or session rate impact: "
@@ -262,8 +262,6 @@ IN_PROC_BROWSER_TEST_F(BrowserUserEducationServiceBrowserTest,
        IPHFailureReason::kWrongSessionRate, "crbug.com/1443063"},
       {&feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature,
        IPHFailureReason::kWrongSessionImpact, "crbug.com/1443063"},
-      {&feature_engagement::kIPHSideSearchFeature,
-       IPHFailureReason::kWrongSessionRate, "crbug.com/1443063"},
       {&feature_engagement::kIPHMemorySaverModeFeature,
        IPHFailureReason::kWrongSessionRate, "crbug.com/1443063"},
       {&feature_engagement::kIPHPriceTrackingInSidePanelFeature, std::nullopt,
@@ -382,12 +380,13 @@ IN_PROC_BROWSER_TEST_F(BrowserUserEducationServiceBrowserTest,
                               feature_config);
             }
             break;
-          case user_education::FeaturePromoSpecification::PromoSubtype::kPerApp:
+          case user_education::FeaturePromoSpecification::PromoSubtype::
+              kKeyedNotice:
             // These can be session limited or not, but they should preclude
             // other IPH.
             if (!limits_other_iph) {
               MaybeAddFailure(failures, exceptions, feature,
-                              IPHFailureReason::kWrongSessionImpactPerApp,
+                              IPHFailureReason::kWrongSessionImpactKeyedNotice,
                               feature_config);
             }
             break;
@@ -396,7 +395,7 @@ IN_PROC_BROWSER_TEST_F(BrowserUserEducationServiceBrowserTest,
             // These should not be session limited, and should limit other IPH.
             if (is_session_limited || !limits_other_iph) {
               MaybeAddFailure(failures, exceptions, feature,
-                              IPHFailureReason::kWrongSessionImpactPerApp,
+                              IPHFailureReason::kWrongSessionImpactKeyedNotice,
                               feature_config);
             }
             break;
@@ -405,7 +404,7 @@ IN_PROC_BROWSER_TEST_F(BrowserUserEducationServiceBrowserTest,
             // These should not be session limited, and should limit other IPH.
             if (is_session_limited || !limits_other_iph) {
               MaybeAddFailure(failures, exceptions, feature,
-                              IPHFailureReason::kWrongSessionImpactPerApp,
+                              IPHFailureReason::kWrongSessionImpactKeyedNotice,
                               feature_config);
             }
             break;
@@ -640,4 +639,40 @@ IN_PROC_BROWSER_TEST_P(BrowserUserEducationServiceNewBadgeBrowserTest,
       user_education::features::kNewBadgeTestFeature));
   EXPECT_FALSE(UserEducationService::MaybeShowNewBadge(
       incog->profile(), user_education::features::kNewBadgeTestFeature));
+}
+
+// Tests for the presence or absence of the recent sessions logic based on
+// the enabling flag.
+class BrowserUserEducationServiceRecentSessionsTest
+    : public InProcessBrowserTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  BrowserUserEducationServiceRecentSessionsTest() = default;
+  ~BrowserUserEducationServiceRecentSessionsTest() override = default;
+
+  void SetUp() override {
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeature(kAllowRecentSessionTracking);
+    } else {
+      feature_list_.InitAndDisableFeature(kAllowRecentSessionTracking);
+    }
+    InProcessBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         BrowserUserEducationServiceRecentSessionsTest,
+                         testing::Bool());
+
+// Ensure that the recent sessions logic only gets created if the flag is
+// enabled.
+IN_PROC_BROWSER_TEST_P(BrowserUserEducationServiceRecentSessionsTest,
+                       RecentSessionTrackerDependsOnFlag) {
+  auto* const result =
+      UserEducationServiceFactory::GetForBrowserContext(browser()->profile())
+          ->recent_session_tracker();
+  EXPECT_EQ(GetParam(), result != nullptr);
 }

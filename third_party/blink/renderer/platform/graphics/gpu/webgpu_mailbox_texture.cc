@@ -189,6 +189,7 @@ WebGPUMailboxTexture::WebGPUMailboxTexture(
     std::unique_ptr<RecyclableCanvasResource> recyclable_canvas_resource)
     : dawn_control_client_(std::move(dawn_control_client)),
       device_(device),
+      mailbox_(mailbox),
       finished_access_callback_(std::move(finished_access_callback)),
       recyclable_canvas_resource_(std::move(recyclable_canvas_resource)) {
   DCHECK(dawn_control_client_->GetContextProviderWeakPtr());
@@ -227,33 +228,46 @@ void WebGPUMailboxTexture::SetAlphaClearer(
   alpha_clearer_ = std::move(alpha_clearer);
 }
 
-void WebGPUMailboxTexture::Dissociate() {
-  if (wire_texture_id_ == 0) {
-    return;
-  }
-  if (auto context_provider =
-          dawn_control_client_->GetContextProviderWeakPtr()) {
-    gpu::webgpu::WebGPUInterface* webgpu =
-        context_provider->ContextProvider()->WebGPUInterface();
-    if (alpha_clearer_) {
-      alpha_clearer_->ClearAlpha(texture_);
-      alpha_clearer_ = nullptr;
-    }
-    if (needs_present_) {
-      webgpu->DissociateMailboxForPresent(
-          wire_device_id_, wire_device_generation_, wire_texture_id_,
-          wire_texture_generation_);
-    } else {
-      webgpu->DissociateMailbox(wire_texture_id_, wire_texture_generation_);
-    }
-    wire_texture_id_ = 0;
+gpu::SyncToken WebGPUMailboxTexture::Dissociate() {
+  gpu::SyncToken finished_access_token;
+  if (wire_texture_id_ != 0) {
+    if (base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider =
+            dawn_control_client_->GetContextProviderWeakPtr()) {
+      gpu::webgpu::WebGPUInterface* webgpu =
+          context_provider->ContextProvider()->WebGPUInterface();
+      if (alpha_clearer_) {
+        alpha_clearer_->ClearAlpha(texture_);
+        alpha_clearer_ = nullptr;
+      }
+      if (needs_present_) {
+        webgpu->DissociateMailboxForPresent(
+            wire_device_id_, wire_device_generation_, wire_texture_id_,
+            wire_texture_generation_);
+      } else {
+        webgpu->DissociateMailbox(wire_texture_id_, wire_texture_generation_);
+      }
+      wire_texture_id_ = 0;
 
-    if (finished_access_callback_) {
-      gpu::SyncToken finished_access_token;
       webgpu->GenUnverifiedSyncTokenCHROMIUM(finished_access_token.GetData());
-      std::move(finished_access_callback_).Run(finished_access_token);
+      if (recyclable_canvas_resource_) {
+        recyclable_canvas_resource_->SetCompletionSyncToken(
+            finished_access_token);
+      }
+      if (finished_access_callback_) {
+        std::move(finished_access_callback_).Run(finished_access_token);
+      }
     }
   }
+  return finished_access_token;
+}
+
+void WebGPUMailboxTexture::SetCompletionSyncToken(const gpu::SyncToken& token) {
+  // This should only be called after Dissociate().
+  CHECK_EQ(wire_texture_id_, 0u);
+
+  // This is only allowed if we have an associated recyclable canvas resource.
+  CHECK(recyclable_canvas_resource_);
+  recyclable_canvas_resource_->SetCompletionSyncToken(token);
 }
 
 WebGPUMailboxTexture::~WebGPUMailboxTexture() {

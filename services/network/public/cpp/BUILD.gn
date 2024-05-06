@@ -34,6 +34,8 @@ component("cpp") {
   sources = [
     "attribution_utils.cc",
     "attribution_utils.h",
+    "avail_language_header_parser.cc",
+    "avail_language_header_parser.h",
     "browsing_topics_parser.cc",
     "browsing_topics_parser.h",
     "client_hints.cc",
@@ -68,6 +70,8 @@ component("cpp") {
     "data_pipe_to_source_stream.h",
     "devtools_observer_util.cc",
     "devtools_observer_util.h",
+    "document_isolation_policy_parser.cc",
+    "document_isolation_policy_parser.h",
     "empty_url_loader_client.cc",
     "empty_url_loader_client.h",
     "features.cc",
@@ -139,8 +143,6 @@ component("cpp") {
     "url_loader_factory_builder.h",
     "url_util.cc",
     "url_util.h",
-    "variants_header_parser.cc",
-    "variants_header_parser.h",
     "weak_wrapper_shared_url_loader_factory.cc",
     "weak_wrapper_shared_url_loader_factory.h",
     "web_sandbox_flags.cc",
@@ -323,6 +325,27 @@ component("cross_origin_embedder_policy") {
   defines = [ "IS_NETWORK_CPP_CROSS_ORIGIN_IMPL" ]
 }
 
+# This component is separate from cpp_base as it is a dependency of
+# //services/network/public/mojom:url_loader_base.
+component("document_isolation_policy") {
+  sources = [
+    "document_isolation_policy.cc",
+    "document_isolation_policy.h",
+    "document_isolation_policy_mojom_traits.cc",
+    "document_isolation_policy_mojom_traits.h",
+  ]
+
+  deps = [
+    "//base",
+    "//mojo/public/mojom/base",
+    "//services/network/public/mojom:url_loader_base_shared",
+  ]
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  defines = [ "IS_NETWORK_CPP_DOCUMENT_ISOLATION_IMPL" ]
+}
+
 # This component is separate from `:cpp_base` to avoid a circular dependency as
 # its needed by :attribution_traits.
 component("attribution") {
@@ -448,6 +471,7 @@ component("cpp_base") {
     ":cookies_mojom_support",
     ":crash_keys",
     ":cross_origin_embedder_policy",
+    ":document_isolation_policy",
     ":ip_address_mojom_support",
     ":network_param_mojom_support",
     ":proxy_config_mojom_support",
@@ -529,6 +553,7 @@ source_set("tests") {
 
   sources = [
     "attribution_utils_unittest.cc",
+    "avail_language_header_parser_unittest.cc",
     "browsing_topics_parser_unittest.cc",
     "client_hints_unittest.cc",
     "content_language_parser_unittest.cc",
@@ -551,6 +576,7 @@ source_set("tests") {
     "default_credentials_mojom_traits_unittest.cc",
     "devtools_observer_unittest.cc",
     "digitally_signed_mojom_traits_unittest.cc",
+    "document_isolation_policy_parser_unittest.cc",
     "empty_url_loader_client_unittest.cc",
     "file_enumeration_entry_mojom_traits_unittest.cc",
     "first_party_sets_mojom_traits_unittest.cc",
@@ -593,7 +619,6 @@ source_set("tests") {
     "url_loader_completion_status_mojom_traits_unittest.cc",
     "url_loader_factory_builder_unittest.cc",
     "url_request_mojom_traits_unittest.cc",
-    "variants_header_parser_unittest.cc",
     "web_sandbox_flags_unittests.cc",
     "x_frame_options_parser_unittest.cc",
   ]
@@ -654,8 +679,8 @@ fuzzer_test("client_hints_fuzzer") {
   ]
 }
 
-fuzzer_test("variants_header_fuzzer") {
-  sources = [ "variants_header_fuzzer.cc" ]
+fuzzer_test("avail_language_header_fuzzer") {
+  sources = [ "avail_language_header_fuzzer.cc" ]
   deps = [
     ":cpp",
     "//services/network/public/mojom:url_loader_base",

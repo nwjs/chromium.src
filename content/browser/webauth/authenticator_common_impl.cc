@@ -7,6 +7,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -109,8 +110,8 @@ WebAuthenticationDelegate* GetWebAuthenticationDelegate() {
 std::string Base64UrlEncode(const base::span<const uint8_t> input) {
   std::string ret;
   base::Base64UrlEncode(
-      base::StringPiece(reinterpret_cast<const char*>(input.data()),
-                        input.size()),
+      std::string_view(reinterpret_cast<const char*>(input.data()),
+                       input.size()),
       base::Base64UrlEncodePolicy::OMIT_PADDING, &ret);
   return ret;
 }
@@ -161,12 +162,12 @@ bool AddTransportsFromCertificate(
   static constexpr uint8_t kTransportTypesOID[] = {
       0x2b, 0x06, 0x01, 0x04, 0x01, 0x82, 0xe5, 0x1c, 0x02, 0x01, 0x01};
   bool present, critical;
-  base::StringPiece contents;
+  std::string_view contents;
   if (!net::asn1::ExtractExtensionFromDERCert(
-          base::StringPiece(reinterpret_cast<const char*>(der_cert.data()),
-                            der_cert.size()),
-          base::StringPiece(reinterpret_cast<const char*>(kTransportTypesOID),
-                            sizeof(kTransportTypesOID)),
+          std::string_view(reinterpret_cast<const char*>(der_cert.data()),
+                           der_cert.size()),
+          std::string_view(reinterpret_cast<const char*>(kTransportTypesOID),
+                           sizeof(kTransportTypesOID)),
           &present, &critical, &contents) ||
       !present) {
     return false;
@@ -374,6 +375,26 @@ std::optional<device::CredProtectRequest> ProtectionPolicyToCredProtect(
               device::UserVerificationRequirement::kPreferred) {
         return device::CredProtectRequest::kUVRequired;
       }
+#if BUILDFLAG(IS_WIN)
+      // On Windows, if webauthn.dll is version two or below, rk=preferred
+      // cannot be expressed and will be mapped to rk=false. Some security keys
+      // have a bug where they'll return credProtect=1 when credProtect=2 is
+      // requested for non-discoverable credentials. Thus, for these versions
+      // of webauthn.dll, treat rk=preferred as rk=discouraged for the purposes
+      // of credProtect, because that's what will ultimately be sent to the
+      // security key.
+      //
+      // If a site explicitly requests a credProtect level, we'll still respect
+      // that because they are presumably going to check the response.
+      if (base::FeatureList::IsEnabled(
+              device::kWebAuthnCredProtectWin10BugWorkaround) &&
+          make_credential_options.resident_key ==
+              device::ResidentKeyRequirement::kPreferred &&
+          device::WinWebAuthnApi::GetDefault() &&
+          device::WinWebAuthnApi::GetDefault()->Version() < 3) {
+        return std::nullopt;
+      }
+#endif
       if (make_credential_options.resident_key !=
           device::ResidentKeyRequirement::kDiscouraged) {
         // Otherwise, kUVOrCredIDRequired is made the default unless

@@ -72,6 +72,20 @@ void StyleContainmentScope::RemoveChild(StyleContainmentScope* child) {
   child->SetParent(nullptr);
 }
 
+void StyleContainmentScope::Remove() {
+  if (parent_) {
+    parent_->RemoveChild(this);
+  }
+  for (StyleContainmentScope* child : children_) {
+    child->SetParent(nullptr);
+  }
+  children_.clear();
+  for (LayoutQuote* quote : quotes_) {
+    quote->SetScope(nullptr);
+  }
+  quotes_.clear();
+}
+
 // Get the quote which would be the last in preorder traversal before we hit
 // Element*.
 const LayoutQuote* StyleContainmentScope::FindQuotePrecedingElement(
@@ -158,11 +172,6 @@ void StyleContainmentScope::CreateCounterNodeForLayoutObject(
   counters_tree_->CreateCounterForLayoutObject(object, identifier);
 }
 
-void StyleContainmentScope::CreateListItemCounterNodeForLayoutObject(
-    LayoutObject& object) {
-  counters_tree_->CreateListItemCounterForLayoutObject(object);
-}
-
 void StyleContainmentScope::CreateCounterNodeForLayoutCounter(
     LayoutCounter& counter) {
   counters_tree_->CreateCounterForLayoutCounter(counter);
@@ -177,21 +186,6 @@ void StyleContainmentScope::UpdateCounters() const {
   counters_tree_->UpdateCounters();
   for (StyleContainmentScope* child : children_) {
     child->UpdateCounters();
-  }
-}
-
-void StyleContainmentScope::InvalidateAnchorNameReferences() const {
-  const Element* root = GetElement();
-  for (const Node* node = root; node;
-       node = LayoutTreeBuilderTraversal::Next(*node, root)) {
-    if (const Element* element = DynamicTo<Element>(node)) {
-      if (LayoutObject* layout_object = element->GetLayoutObject()) {
-        if (layout_object->StyleRef().AnchorName()) {
-          layout_object->SetNeedsLayout(
-              layout_invalidation_reason::kStyleChange);
-        }
-      }
-    }
   }
 }
 

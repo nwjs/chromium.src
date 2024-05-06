@@ -53,12 +53,32 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ReadAloudFlag) {
                    "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, WebUiToolbarFlag) {
+  RunSidePanelTest("side_panel/read_anything/toolbar_flag_test.js",
+                   "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, FontSize) {
   RunSidePanelTest("side_panel/read_anything/font_size_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, FontMenu) {
   RunSidePanelTest("side_panel/read_anything/font_menu_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ColorMenu) {
+  RunSidePanelTest("side_panel/read_anything/color_menu_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LetterSpacing) {
+  RunSidePanelTest("side_panel/read_anything/letter_spacing_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LineSpacing) {
+  RunSidePanelTest("side_panel/read_anything/line_spacing_test.js",
+                   "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, AppReceivesToolbarChanges) {
@@ -97,6 +117,18 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, UpdateContentSelection) {
                    "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, FakeTreeBuilderTest) {
+  RunSidePanelTest("side_panel/read_anything/fake_tree_builder_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest,
+                       UpdateContentSelectionWithHighlights) {
+  RunSidePanelTest(
+      "side_panel/read_anything/update_content_selection_with_highlights.js",
+      "mocha.run()");
+}
+
 // Integration tests that need the actual Read Aloud flag enabled because they
 // use the full C++ pipeline
 class ReadAnythingReadAloudMochaTest : public ReadAnythingMochaBrowserTest {
@@ -125,6 +157,13 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingReadAloudMochaTest,
                        ReadAloud_UpdateContentSelection) {
   RunSidePanelTest(
       "side_panel/read_anything/read_aloud_update_content_selection.js",
+      "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingReadAloudMochaTest,
+                       ReadAloud_UpdateContentSelectionPDF) {
+  RunSidePanelTest(
+      "side_panel/read_anything/read_aloud_update_content_selection_pdf.js",
       "mocha.run()");
 }
 

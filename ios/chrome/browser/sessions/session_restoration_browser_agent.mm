@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/sessions/session_constants.h"
 #import "ios/chrome/browser/sessions/session_restoration_observer.h"
 #import "ios/chrome/browser/sessions/session_service_ios.h"
+#import "ios/chrome/browser/sessions/session_tab_group.h"
 #import "ios/chrome/browser/sessions/session_window_ios.h"
 #import "ios/chrome/browser/sessions/session_window_ios_factory.h"
 #import "ios/chrome/browser/sessions/web_state_list_serialization.h"
@@ -25,6 +26,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/order_controller.h"
 #import "ios/chrome/browser/shared/model/web_state_list/order_controller_source.h"
 #import "ios/chrome/browser/shared/model/web_state_list/removing_indexes.h"
+#import "ios/chrome/browser/shared/model/web_state_list/tab_group_range.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web/model/session_state/web_session_state_tab_helper.h"
 #import "ios/web/public/navigation/navigation_item.h"
@@ -69,7 +71,7 @@ int OrderControllerSourceFromSessionWindowIOS::GetPinnedCount() const {
   for (CRWSessionStorage* session in session_window_.sessions) {
     CRWSessionUserData* user_data = session.userData;
     NSNumber* pinned_obj = base::apple::ObjCCast<NSNumber>(
-        [user_data objectForKey:kLegacyWebStateListOpenerIndexKey]);
+        [user_data objectForKey:kLegacyWebStateListPinnedStateKey]);
 
     // All pinned items are at the beginning of the list, so stop as
     // soon as the first unpinned tab is found.
@@ -211,7 +213,22 @@ SessionWindowIOS* FilterInvalidTabs(SessionWindowIOS* session_window) {
     [sessions addObject:session];
   }
 
+  // Create the new list of tab groups, updating the `rangeStart` and
+  // `rangeCount` properties.
+  NSMutableArray<SessionTabGroup*>* groups = [[NSMutableArray alloc] init];
+  for (SessionTabGroup* group in session_window.tabGroups) {
+    const TabGroupRange initial_range(group.rangeStart, group.rangeCount);
+    const TabGroupRange final_range =
+        removing_indexes.RangeAfterRemoval(initial_range);
+    if (final_range.valid()) {
+      group.rangeStart = final_range.range_begin();
+      group.rangeCount = final_range.count();
+      [groups addObject:group];
+    }
+  }
+
   return [[SessionWindowIOS alloc] initWithSessions:sessions
+                                          tabGroups:groups
                                       selectedIndex:selected_index];
 }
 
@@ -222,12 +239,14 @@ BROWSER_USER_DATA_KEY_IMPL(SessionRestorationBrowserAgent)
 SessionRestorationBrowserAgent::SessionRestorationBrowserAgent(
     Browser* browser,
     SessionServiceIOS* session_service,
-    bool enable_pinned_web_states)
+    bool enable_pinned_web_states,
+    bool enable_tab_groups)
     : session_service_(session_service),
       browser_(browser),
       session_window_ios_factory_([[SessionWindowIOSFactory alloc]
           initWithWebStateList:browser_->GetWebStateList()]),
       enable_pinned_web_states_(enable_pinned_web_states),
+      enable_tab_groups_(enable_tab_groups),
       all_web_state_observer_(std::make_unique<AllWebStateObservationForwarder>(
           browser_->GetWebStateList(),
           this)) {
@@ -282,7 +301,7 @@ void SessionRestorationBrowserAgent::RestoreSessionWindow(
   const std::vector<web::WebState*> restored_web_states =
       DeserializeWebStateList(
           browser_->GetWebStateList(), FilterInvalidTabs(window),
-          enable_pinned_web_states_,
+          enable_pinned_web_states_, enable_tab_groups_,
           base::BindRepeating(
               &web::WebState::CreateWithStorageSession,
               web::WebState::CreateParams(browser_->GetBrowserState())));
@@ -450,6 +469,22 @@ void SessionRestorationBrowserAgent::WebStateListDidChange(
       SaveSession(/*immediately=*/false);
       break;
     }
+    case WebStateListChange::Type::kGroupCreate:
+      // Persist the session state.
+      SaveSession(/*immediately=*/false);
+      break;
+    case WebStateListChange::Type::kGroupVisualDataUpdate:
+      // Persist the session state.
+      SaveSession(/*immediately=*/false);
+      break;
+    case WebStateListChange::Type::kGroupMove:
+      // Persist the session state.
+      SaveSession(/*immediately=*/false);
+      break;
+    case WebStateListChange::Type::kGroupDelete:
+      // Persist the session state.
+      SaveSession(/*immediately=*/false);
+      break;
   }
 
   if (status.active_web_state_change()) {

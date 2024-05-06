@@ -12,7 +12,6 @@
 #include "components/autofill/core/browser/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
-#include "components/autofill/core/browser/payments/payments_window_manager.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
@@ -105,10 +104,6 @@ CreditCardRiskBasedAuthenticator* AutofillClient::GetRiskBasedAuthenticator() {
 }
 
 payments::PaymentsAutofillClient* AutofillClient::GetPaymentsAutofillClient() {
-  return nullptr;
-}
-
-payments::PaymentsWindowManager* AutofillClient::GetPaymentsWindowManager() {
   return nullptr;
 }
 
@@ -205,15 +200,6 @@ AutofillClient::CreateCreditCardInternalAuthenticator(AutofillDriver* driver) {
 }
 #endif
 
-void AutofillClient::ShowCardUnmaskOtpInputDialog(
-    const CardUnmaskChallengeOption& challenge_option,
-    base::WeakPtr<OtpUnmaskDelegate> delegate) {
-}
-
-void AutofillClient::OnUnmaskOtpVerificationResult(
-    OtpUnmaskResult unmask_result) {
-}
-
 void AutofillClient::ConfirmSaveCreditCardLocally(
     const CreditCard& card,
     AutofillClient::SaveCreditCardOptions options,
@@ -236,15 +222,6 @@ void AutofillClient::ConfirmUploadIbanToCloud(
     LegalMessageLines legal_message_lines,
     bool should_show_prompt,
     SaveIbanPromptCallback callback) {}
-
-void AutofillClient::ShowUnmaskPrompt(
-    const CreditCard& card,
-    const CardUnmaskPromptOptions& card_unmask_prompt_options,
-    base::WeakPtr<CardUnmaskDelegate> delegate) {
-}
-
-void AutofillClient::OnUnmaskVerificationResult(PaymentsRpcResult result) {
-}
 
 void AutofillClient::UpdateOfferNotification(
     const AutofillOfferData* offer,
@@ -286,10 +263,24 @@ AutofillClient::GetDeviceAuthenticator() {
   return nullptr;
 }
 
+void AutofillClient::ShowAutofillFieldIphForManualFallbackFeature(
+    const FormFieldData&) {}
+
+void AutofillClient::HideAutofillFieldIphForManualFallbackFeature() {}
+
+void AutofillClient::NotifyAutofillManualFallbackUsed() {}
+
 std::optional<AutofillClient::PopupScreenLocation>
 AutofillClient::GetPopupScreenLocation() const {
   NOTIMPLEMENTED();
   return std::nullopt;
+}
+
+void AutofillClient::set_test_addresses(
+    std::vector<AutofillProfile> test_addresses) {}
+
+base::span<const AutofillProfile> AutofillClient::GetTestAddresses() const {
+  return {};
 }
 
 }  // namespace autofill

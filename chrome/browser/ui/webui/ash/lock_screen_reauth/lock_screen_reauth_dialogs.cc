@@ -139,7 +139,7 @@ LockScreenStartReauthDialog* LockScreenStartReauthDialog::GetInstance() {
 
 void LockScreenStartReauthDialog::OnProfileInitialized(Profile* profile) {
   if (!profile) {
-    // TODO(mohammedabdon): Create some generic way to show an error on
+    // TODO(b/333278160): Create some generic way to show an error on
     // the lock screen.
     LOG(ERROR) << "Failed to load lockscreen profile";
     return;
@@ -414,7 +414,7 @@ void LockScreenStartReauthDialog::TransferHttpAuthCaches() {
             &TransferHttpAuthCacheToSystemNetworkContext, base::DoNothing()));
 
     const user_manager::User* user =
-        user_manager::UserManager::Get()->GetActiveUser();
+        user_manager::UserManager::Get()->GetPrimaryUser();
     Profile* profile = ProfileHelper::Get()->GetProfileByUser(user);
     // Transfer auth cache to the active user's profile so that there is no need
     // to enter them again after unlocking the device.

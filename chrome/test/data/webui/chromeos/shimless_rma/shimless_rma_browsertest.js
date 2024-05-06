@@ -33,47 +33,6 @@ this.ShimlessRmaBrowserTest = class extends PolymerTest {
 };
 
 const tests = [
-  ['AllInputsDisabledTest', 'all_inputs_disabled_test.js'],
-  ['HardwareErrorPageTest', 'hardware_error_page_test.js'],
-  ['CriticalErrorPageTest', 'critical_error_page_test.js'],
-  ['FakeShimlessRmaServiceTestSuite', 'fake_shimless_rma_service_test.js'],
-  [
-    'OnboardingChooseDestinationPageTest',
-    'onboarding_choose_destination_page_test.js'
-  ],
-  [
-    'OnboardingChooseWipeDevicePageTest',
-    'onboarding_choose_wipe_device_page_test.js'
-  ],
-  [
-    'OnboardingChooseWpDisableMethodPageTest',
-    'onboarding_choose_wp_disable_method_page_test.js'
-  ],
-  [
-    'OnboardingEnterRsuWpDisableCodePageTest',
-    'onboarding_enter_rsu_wp_disable_code_page_test.js'
-  ],
-  ['OnboardingLandingPageTest', 'onboarding_landing_page_test.js'],
-  ['OnboardingNetworkPageTest', 'onboarding_network_page_test.js'],
-  [
-    'OnboardingSelectComponentsPageTest',
-    'onboarding_select_components_page_test.js', 'DISABLED_All'
-  ],
-  ['OnboardingUpdatePageTest', 'onboarding_update_page_test.js'],
-  [
-    'OnboardingWaitForManualWpDisablePageTest',
-    'onboarding_wait_for_manual_wp_disable_page_test.js'
-  ],
-  [
-    'OnboardingWpDisableCompletePageTest',
-    'onboarding_wp_disable_complete_page_test.js'
-  ],
-  ['RebootPageTest', 'reboot_page_test.js'],
-  [
-    'ReimagingCalibrationFailedPageTest',
-    'reimaging_calibration_failed_page_test.js'
-  ],
-  ['ReimagingCalibrationRunPageTest', 'reimaging_calibration_run_page_test.js'],
   [
     'ReimagingCalibrationSetupPageTest',
     'reimaging_calibration_setup_page_test.js'

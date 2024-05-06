@@ -20,7 +20,6 @@
 #include "components/browsing_data/content/browsing_data_quota_helper.h"
 #include "components/browsing_data/content/shared_worker_info.h"
 #include "components/browsing_data/core/browsing_data_utils.h"
-#include "components/browsing_data/core/features.h"
 #include "components/services/storage/public/mojom/storage_usage_info.mojom.h"
 #include "components/services/storage/shared_storage/shared_storage_manager.h"
 #include "content/public/browser/browser_context.h"
@@ -363,7 +362,7 @@ void StorageRemoverHelper::Visitor::operator()<net::CanonicalCookie>(
         helper->delegate_->IsCookieDeletionDisabled(
             net::cookie_util::CookieOriginToURL(cookie.Domain(),
                                                 cookie.SecureAttribute()))) {
-      // TODO(crbug.com/1500256): Expand test coverage for this block.
+      // TODO(crbug.com/40940636): Expand test coverage for this block.
       return;
     }
     helper->storage_partition_->GetCookieManagerForBrowserProcess()
@@ -674,7 +673,8 @@ const url::Origin BrowsingDataModel::GetOriginForDataKey(
           },
           [](const net::CanonicalCookie& cookie) {
             GURL cookie_url = net::cookie_util::CookieOriginToURL(
-                cookie.Domain(), cookie.SecureAttribute());
+                cookie.Domain(), browsing_data::IsHttpsCookieSourceScheme(
+                                     cookie.SourceScheme()));
             return url::Origin::Create(cookie_url);
           },
           [](const webid::FederatedIdentityDataModel::DataKey& data_key) {
@@ -975,8 +975,6 @@ void BrowsingDataModel::PopulateFromDisk(base::OnceClosure finished_callback) {
       attribution_reporting::features::kConversionMeasurement);
   bool is_private_aggregation_enabled =
       base::FeatureList::IsEnabled(blink::features::kPrivateAggregationApi);
-  bool is_cookies_tree_model_deprecated = base::FeatureList::IsEnabled(
-      browsing_data::features::kDeprecateCookiesTreeModel);
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   bool is_cdm_storage_database_enabled =
       base::FeatureList::IsEnabled(features::kCdmStorageDatabase);
@@ -1002,6 +1000,11 @@ void BrowsingDataModel::PopulateFromDisk(base::OnceClosure finished_callback) {
       base::BindOnce(&OnQuotaStorageLoaded, this, completion));
   storage_partition_->GetDOMStorageContext()->GetLocalStorageUsage(
       base::BindOnce(&OnLocalStorageLoaded, this, completion));
+
+  // Cookies
+  storage_partition_->GetCookieManagerForBrowserProcess()->GetAllCookies(
+      base::BindOnce(&OnCookiesLoaded, this, completion));
+
   // Shared storage origins
   if (is_shared_storage_enabled) {
     storage_partition_->GetSharedStorageManager()->FetchOrigins(
@@ -1032,16 +1035,11 @@ void BrowsingDataModel::PopulateFromDisk(base::OnceClosure finished_callback) {
         base::BindOnce(&OnPrivateAggregationLoaded, this, completion));
   }
 
-  // Cookies
-  if (is_cookies_tree_model_deprecated) {
-    storage_partition_->GetCookieManagerForBrowserProcess()->GetAllCookies(
-        base::BindOnce(&OnCookiesLoaded, this, completion));
-  }
-
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   if (is_cdm_storage_database_enabled && !is_cdm_migration_enabled) {
     storage_partition_->GetCdmStorageDataModel()->GetUsagePerAllStorageKeys(
-        base::BindOnce(&OnCdmStorageLoaded, this, completion));
+        base::BindOnce(&OnCdmStorageLoaded, this, completion),
+        base::Time::Min(), base::Time::Max());
   }
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 

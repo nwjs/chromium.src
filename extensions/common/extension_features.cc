@@ -27,6 +27,10 @@ BASE_FEATURE(kApiUserScripts,
              "ApiUserScripts",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kApiUserScriptsMultipleWorlds,
+             "ApiUserScriptsMultipleWorlds",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kApiOdfsConfigPrivate,
              "ApiOdfsConfigPrivate",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -130,10 +134,6 @@ BASE_FEATURE(kTelemetryExtensionPendingApprovalApi,
              "TelemetryExtensionPendingApprovalApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUsePerBrowserContextWebRequestEventRouter,
-             "kUsePerBrowserContextWebRequestEventRouter",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kWebviewTagMPArchBehavior,
              "WebviewTagMPArchBehavior",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -156,6 +156,10 @@ BASE_FEATURE(kDeclarativeNetRequestSafeRuleLimits,
 
 BASE_FEATURE(kDeclarativeNetRequestResponseHeaderMatching,
              "DeclarativeNetRequestResponseHeaderMatching",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseItemSnippetsAPI,
+             "UseItemSnippetsAPI",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

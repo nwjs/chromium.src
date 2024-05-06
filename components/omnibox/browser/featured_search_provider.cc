@@ -47,6 +47,13 @@ void FeaturedSearchProvider::Start(const AutocompleteInput& input,
   }
 
   DoStarterPackAutocompletion(input);
+
+  // TODO(crbug.com/333762301): Implement smarter triggering for the IPH match.
+  //  As is, the IPH message will always be displayed. This might make sense to
+  //  move to the ZPS provider.
+  if (OmniboxFieldTrial::IsStarterPackIPHEnabled()) {
+    AddIPHMatch();
+  }
 }
 
 FeaturedSearchProvider::~FeaturedSearchProvider() = default;
@@ -116,16 +123,27 @@ void FeaturedSearchProvider::AddStarterPackMatch(
     if (OmniboxFieldTrial::IsStarterPackExpansionEnabled() &&
         template_url.starter_pack_id() ==
             TemplateURLStarterPackData::kAskGoogle) {
-      match.description = template_url.short_name();
+      match.description = l10n_util::GetStringFUTF16(
+          IDS_OMNIBOX_INSTANT_KEYWORD_CHAT_TEXT, template_url.keyword(),
+          template_url.short_name());
       match.relevance += 10;
     } else {
-      match.description = l10n_util::GetStringFUTF16(
-          IDS_OMNIBOX_INSTANT_KEYWORD_SEARCH_TEXT, template_url.short_name());
+      std::u16string short_name = template_url.short_name();
+      if (template_url.short_name() == u"Tabs") {
+        // Very special request from UX to sentence-case "Tabs" -> "tabs" only
+        // in this context. It needs to stay capitalized elsewhere since it's
+        // treated like a proper engine name.
+        match.description = short_name = u"tabs";
+      }
+      match.description =
+          l10n_util::GetStringFUTF16(IDS_OMNIBOX_INSTANT_KEYWORD_SEARCH_TEXT,
+                                     template_url.keyword(), short_name);
     }
-    match.description_class.emplace_back(0, ACMatchClassification::NONE);
-    match.contents =
-        l10n_util::GetStringUTF16(IDS_OMNIBOX_INSTANT_KEYWORD_HELP);
-    match.contents_class.emplace_back(0, ACMatchClassification::DIM);
+    match.description_class = {
+        {0, ACMatchClassification::NONE},
+        {template_url.keyword().size(), ACMatchClassification::DIM}};
+    match.contents.clear();
+    match.contents_class = {{}};
     match.allowed_to_be_default_match = false;
     match.keyword = template_url.keyword();
   } else {
@@ -135,5 +153,21 @@ void FeaturedSearchProvider::AddStarterPackMatch(
     match.contents_class.emplace_back(0, ACMatchClassification::URL);
     match.SetAllowedToBeDefault(input);
   }
+  matches_.push_back(match);
+}
+
+void FeaturedSearchProvider::AddIPHMatch() {
+  // This value doesn't really matter as this suggestion is grouped after all
+  // other suggestions. Use an arbitrary constant.
+  constexpr int kRelevanceScore = 1000;
+  AutocompleteMatch match(this, kRelevanceScore, /*deletable=*/false,
+                          AutocompleteMatchType::NULL_RESULT_MESSAGE);
+
+  // Use this suggestion's contents field to display a message to the user that
+  // cannot be acted upon.
+  match.contents = l10n_util::GetStringUTF16(IDS_OMNIBOX_GEMINI_IPH);
+  match.contents_class.emplace_back(0, ACMatchClassification::NONE);
+  match.from_keyword = true;
+
   matches_.push_back(match);
 }

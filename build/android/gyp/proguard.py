@@ -46,6 +46,8 @@ _IGNORE_WARNINGS = (
         r'com.no.real.class.needed.receiver',
         # Ignore Unused Rule Warnings for annotations.
         r'@',
+        # Ignore Unused Rule Warnings for * implements Foo (androidx has these).
+        r'class \*+ implements',
         # Ignore rules that opt out of this check.
         r'!cr_allowunused',
         # https://crbug.com/1441225
@@ -55,6 +57,8 @@ _IGNORE_WARNINGS = (
     ]) + ')',
     # TODO(agrieve): Remove once we update to U SDK.
     r'OnBackAnimationCallback',
+    # This class was added only in the U PrivacySandbox SDK: crbug.com/333713111
+    r'Missing class android.adservices.common.AdServicesOutcomeReceiver',
     # We enforce that this class is removed via -checkdiscard.
     r'FastServiceLoader\.class:.*Could not inline ServiceLoader\.load',
 

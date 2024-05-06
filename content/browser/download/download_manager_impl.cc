@@ -74,6 +74,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/elements_upload_data_stream.h"
+#include "net/base/isolation_info.h"
 #include "net/base/load_flags.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/request_priority.h"
@@ -90,8 +91,16 @@
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "url/origin.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "net/http/http_content_disposition.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
 namespace content {
 namespace {
+#if BUILDFLAG(IS_ANDROID)
+// PDF MIME type.
+constexpr char kPdfMimeType[] = "application/pdf";
+#endif  // BUILDFLAG(IS_ANDROID)
 
 void DeleteDownloadedFileOnUIThread(const base::FilePath& file_path) {
   if (!file_path.empty()) {
@@ -231,8 +240,8 @@ CreatePendingSharedURLLoaderFactory(StoragePartitionImpl* storage_partition,
         rfh->GetSiteInstance()->GetBrowserContext(), rfh,
         rfh->GetProcess()->GetID(),
         ContentBrowserClient::URLLoaderFactoryType::kDownload, url::Origin(),
-        std::nullopt /* navigation_id */, ukm::kInvalidSourceIdObj,
-        factory_builder, nullptr /* header_client */,
+        net::IsolationInfo(), std::nullopt /* navigation_id */,
+        ukm::kInvalidSourceIdObj, factory_builder, nullptr /* header_client */,
         nullptr /* bypass_redirect_checks */, nullptr /* disable_secure_dns */,
         nullptr /* factory_override */,
         nullptr /* navigation_response_task_runner */);
@@ -547,6 +556,9 @@ void DownloadManagerImpl::Shutdown() {
     if (download != nullptr &&
         download->GetState() == download::DownloadItem::IN_PROGRESS) {
       download->Cancel(false);
+      if (delegate_) {
+        delegate_->OnDownloadCanceledAtShutdown(download);
+      }
     }
   }
 
@@ -1301,6 +1313,16 @@ void DownloadManagerImpl::InterceptNavigationOnChecksComplete(
       RecordDownloadOpenerType(render_frame_host, opener);
     }
   }
+
+  bool is_transient = false;
+#if BUILDFLAG(IS_ANDROID)
+  if (!download::IsContentDispositionAttachmentInHead(*response_head)) {
+    is_transient = delegate_->ShouldOpenPdfInline() &&
+                   base::EqualsCaseInsensitiveASCII(response_head->mime_type,
+                                                    kPdfMimeType);
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   StoragePartitionImpl* storage_partition =
       GetStoragePartitionForConfig(browser_context_, storage_partition_config);
   in_progress_manager_->InterceptDownloadFromNavigation(
@@ -1310,8 +1332,8 @@ void DownloadManagerImpl::InterceptNavigationOnChecksComplete(
       tab_url, tab_referrer_url, std::move(url_chain), std::move(cert_status),
       std::move(response_head), std::move(response_body),
       std::move(url_loader_client_endpoints),
-      CreatePendingSharedURLLoaderFactory(storage_partition,
-                                          render_frame_host));
+      CreatePendingSharedURLLoaderFactory(storage_partition, render_frame_host),
+      is_transient);
 }
 
 void DownloadManagerImpl::BeginResourceDownloadOnChecksComplete(

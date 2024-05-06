@@ -303,7 +303,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, RSSParseFeedInvalidFeed1) {
       "element 'desc_0' not found", "This feed contains no entries.", "Error");
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, RSSParseFeedInvalidFeed2) {
+// TODO(https://crbug.com/331144174): Test is flaky across multiple builders.
+IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest,
+                       DISABLED_RSSParseFeedInvalidFeed2) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   const Extension* extension = LoadExtension(
@@ -318,7 +320,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, RSSParseFeedInvalidFeed2) {
       "element 'desc_0' not found", "This feed contains no entries.", "Error");
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, RSSParseFeedInvalidFeed3) {
+// TODO(https://crbug.com/331144174): Flakey on Linux ASan LSan.
+#if BUILDFLAG(IS_LINUX) && defined(ADDRESS_SANITIZER) && defined(LEAK_SANITIZER)
+#define MAYBE_RSSParseFeedInvalidFeed3 DISABLED_RSSParseFeedInvalidFeed3
+#else
+#define MAYBE_RSSParseFeedInvalidFeed3 RSSParseFeedInvalidFeed3
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, MAYBE_RSSParseFeedInvalidFeed3) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   const Extension* extension = LoadExtension(

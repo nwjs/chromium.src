@@ -38,6 +38,10 @@
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_event_intent.h"
 #include "ui/accessibility/ax_mode.h"
+#include "ui/accessibility/ax_node_id_forward.h"
+#include "ui/accessibility/ax_tree_data.h"
+#include "ui/accessibility/ax_tree_id.h"
+#include "ui/accessibility/ax_tree_source.h"
 
 namespace gfx {
 class Point;
@@ -49,6 +53,7 @@ class Transform;
 
 namespace ui {
 struct AXActionData;
+class AXNode;
 struct AXNodeData;
 }
 
@@ -114,7 +119,6 @@ class BLINK_EXPORT WebAXObject {
   bool IsModal() const;
 
   bool IsOffScreen() const;
-  bool IsSelectedOptionActive() const;
   bool IsVisited() const;
 
   bool CanSetValueAttribute() const;
@@ -281,6 +285,17 @@ class BLINK_EXPORT WebAXObject {
 
   void HandleAutofillSuggestionAvailabilityChanged(
       WebAXAutofillSuggestionAvailability suggestion_availability) const;
+
+  // Methods for plugins to stitch a tree into this node.
+
+  // Get a new AXID that's not used by any accessibility node in this process,
+  // for when the client needs to insert additional nodes into the accessibility
+  // tree.
+  int GenerateAXID();
+  void SetPluginTreeSource(
+      ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>*
+          source);
+  void MarkPluginDescendantDirty(ui::AXNodeID node_id);
 
   // For testing only, returns whether or not we have the permission to
   // call AOM event listeners.

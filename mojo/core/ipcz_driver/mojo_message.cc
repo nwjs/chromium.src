@@ -21,6 +21,9 @@ namespace mojo::core::ipcz_driver {
 
 namespace {
 
+// Growth factor for reallocations.
+constexpr int kGrowthFactor = 2;
+
 // Data pipe attachments come in two parts within a message's handle list: the
 // DataPipe object wherever it was placed by the sender, and its control portal
 // as a separate attachment at the end of the handle list. For a message with
@@ -149,6 +152,27 @@ void MojoMessage::SetParcel(ScopedIpczHandle parcel) {
   }
 }
 
+MojoResult MojoMessage::ReserveCapacity(uint32_t payload_buffer_size,
+                                        uint32_t* buffer_size) {
+  DCHECK(!parcel_.is_valid());
+  if (context_ || size_committed_ || !data_.empty()) {
+    // TODO(andreaorru): support reserving additional capacity
+    // in the middle of the serialization.
+    return MOJO_RESULT_FAILED_PRECONDITION;
+  }
+
+  data_storage_size_ = std::max(payload_buffer_size, uint32_t{kMinBufferSize});
+  DataPtr new_storage(
+      static_cast<uint8_t*>(base::AllocNonScannable(data_storage_size_)));
+  data_storage_ = std::move(new_storage);
+  data_ = base::make_span(data_storage_.get(), 0u);
+
+  if (buffer_size) {
+    *buffer_size = base::checked_cast<uint32_t>(data_storage_size_);
+  }
+  return MOJO_RESULT_OK;
+}
+
 MojoResult MojoMessage::AppendData(uint32_t additional_num_bytes,
                                    const MojoHandle* handles,
                                    uint32_t num_handles,
@@ -165,7 +189,8 @@ MojoResult MojoMessage::AppendData(uint32_t additional_num_bytes,
   const size_t required_storage_size = std::max(new_data_size, kMinBufferSize);
   if (required_storage_size > data_storage_size_) {
     const size_t copy_size = std::min(new_data_size, data_storage_size_);
-    data_storage_size_ = std::max(data_size * 2, required_storage_size);
+    data_storage_size_ =
+        std::max(data_size * kGrowthFactor, required_storage_size);
     DataPtr new_storage(
         static_cast<uint8_t*>(base::AllocNonScannable(data_storage_size_)));
     base::ranges::copy(base::make_span(data_storage_.get(), copy_size),

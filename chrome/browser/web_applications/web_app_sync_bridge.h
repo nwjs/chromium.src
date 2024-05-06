@@ -145,10 +145,10 @@ class WebAppSyncBridge : public syncer::ModelTypeSyncBridge {
 
   void Init(base::OnceClosure callback);
 
-  // TODO(https://crbug.com/1517947): Remove this and use a command instead.
-  void SetAppUserDisplayMode(const webapps::AppId& app_id,
-                             mojom::UserDisplayMode user_display_mode,
-                             bool is_user_action);
+  // Non testing code should use SetUserDisplayModeCommand instead.
+  void SetAppUserDisplayModeForTesting(
+      const webapps::AppId& app_id,
+      mojom::UserDisplayMode user_display_mode);
 
   // TODO(https://crbug.com/1517947): Remove this and use a command instead.
   void SetAppIsDisabled(AppLock& lock,
@@ -210,7 +210,8 @@ class WebAppSyncBridge : public syncer::ModelTypeSyncBridge {
   std::optional<syncer::ModelError> ApplyIncrementalSyncChanges(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
-  void GetData(StorageKeyList storage_keys, DataCallback callback) override;
+  void GetDataForCommit(StorageKeyList storage_keys,
+                        DataCallback callback) override;
   void GetAllDataForDebugging(DataCallback callback) override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;

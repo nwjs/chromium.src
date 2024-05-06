@@ -20,7 +20,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "build/build_config.h"
 #include "components/password_manager/core/browser/features/password_features.h"
-#include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_store/password_store_change.h"
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
@@ -429,11 +428,10 @@ void PasswordSyncBridge::ActOnPasswordStoreChanges(
     return;
   }
 
-  // Note: No `error_callback` is required since any errors are handled
-  // explicitly via TakeError() below.
   syncer::SyncMetadataStoreChangeList metadata_change_list(
       password_store_sync_->GetMetadataStore(), syncer::PASSWORDS,
-      /*error_callback=*/base::DoNothing());
+      base::BindRepeating(&syncer::ModelTypeChangeProcessor::ReportError,
+                          change_processor()->GetWeakPtr()));
 
   for (const PasswordStoreChange& change : local_changes) {
     DCHECK(change.form().primary_key.has_value());
@@ -457,15 +455,20 @@ void PasswordSyncBridge::ActOnPasswordStoreChanges(
       }
     }
   }
+}
 
-  if (std::optional<syncer::ModelError> error =
-          metadata_change_list.TakeError()) {
-    change_processor()->ReportError(*error);
-  }
+std::vector<PasswordForm> PasswordSyncBridge::GetUnsyncedCredentials() const {
+  std::vector<PasswordForm> forms_to_be_moved;
+  GetUnsyncedCredentialsHelper(forms_to_be_moved,
+                               /*forms_to_be_deleted=*/nullptr);
+  return forms_to_be_moved;
 }
 
 std::unique_ptr<syncer::MetadataChangeList>
 PasswordSyncBridge::CreateMetadataChangeList() {
+  // Note: This creates an InMemoryMetadataChangeList (rather than
+  // SyncMetadataStoreChangeList) to ensure that metadata changes are always
+  // persisted as part of a transaction.
   return std::make_unique<syncer::InMemoryMetadataChangeList>();
 }
 
@@ -690,17 +693,15 @@ std::optional<syncer::ModelError> PasswordSyncBridge::MergeFullSyncData(
 
     // Persist the metadata changes.
     // TODO(mamir): add some test coverage for the metadata persistence.
-    // Note: No `error_callback` is required since any errors are handled
-    // explicitly via TakeError() below.
     syncer::SyncMetadataStoreChangeList sync_metadata_store_change_list(
         password_store_sync_->GetMetadataStore(), syncer::PASSWORDS,
-        /*error_callback=*/base::DoNothing());
+        base::BindRepeating(&syncer::ModelTypeChangeProcessor::ReportError,
+                            change_processor()->GetWeakPtr()));
     // |metadata_change_list| must have been created via
     // CreateMetadataChangeList() so downcasting is safe.
     static_cast<syncer::InMemoryMetadataChangeList*>(metadata_change_list.get())
         ->TransferChangesTo(&sync_metadata_store_change_list);
-    std::optional<syncer::ModelError> error =
-        sync_metadata_store_change_list.TakeError();
+    std::optional<syncer::ModelError> error = change_processor()->GetError();
     if (error) {
       metrics_util::LogPasswordSyncState(
           metrics_util::PasswordSyncState::
@@ -789,7 +790,7 @@ PasswordSyncBridge::ApplyIncrementalSyncChanges(
             return syncer::ModelError(
                 FROM_HERE, "Failed to add an entry to the password store.");
           }
-          // TODO(crbug.com/939302): It's not yet clear if the DCHECK_LE below
+          // TODO(crbug.com/40617060): It's not yet clear if the DCHECK_LE below
           // is legit. However, recent crashes suggest that 2 changes are
           // returned when trying to AddCredentialSync (details are in the bug).
           // Once this is resolved, we should update the call the
@@ -877,17 +878,15 @@ PasswordSyncBridge::ApplyIncrementalSyncChanges(
 
     // Persist the metadata changes.
     // TODO(mamir): add some test coverage for the metadata persistence.
-    // Note: No `error_callback` is required since any errors are handled
-    // explicitly via TakeError() below.
     syncer::SyncMetadataStoreChangeList sync_metadata_store_change_list(
         password_store_sync_->GetMetadataStore(), syncer::PASSWORDS,
-        /*error_callback=*/base::DoNothing());
+        base::BindRepeating(&syncer::ModelTypeChangeProcessor::ReportError,
+                            change_processor()->GetWeakPtr()));
     // |metadata_change_list| must have been created via
     // CreateMetadataChangeList() so downcasting is safe.
     static_cast<syncer::InMemoryMetadataChangeList*>(metadata_change_list.get())
         ->TransferChangesTo(&sync_metadata_store_change_list);
-    std::optional<syncer::ModelError> error =
-        sync_metadata_store_change_list.TakeError();
+    std::optional<syncer::ModelError> error = change_processor()->GetError();
     if (error) {
       metrics_util::LogApplySyncChangesState(
           metrics_util::ApplySyncChangesState::kApplyMetadataChangesFailed);
@@ -1015,8 +1014,39 @@ void PasswordSyncBridge::ApplyDisableSyncChanges(
   base::AutoReset<bool> processing_changes(&is_processing_remote_sync_changes_,
                                            true);
 
+  std::vector<PasswordForm> credentials_to_move;
+  std::vector<PasswordForm> credentials_to_delete;
+  GetUnsyncedCredentialsHelper(credentials_to_move, &credentials_to_delete);
   PasswordStoreChangeList password_store_changes;
-  std::vector<PasswordForm> unsynced_credentials_being_deleted;
+  for (const auto& form : credentials_to_move) {
+    password_store_changes.emplace_back(PasswordStoreChange::REMOVE, form);
+  }
+  for (const auto& form : credentials_to_delete) {
+    password_store_changes.emplace_back(PasswordStoreChange::REMOVE, form);
+  }
+
+  password_store_sync_->GetMetadataStore()->DeleteAllSyncMetadata(
+      syncer::PASSWORDS);
+  password_store_sync_->DeleteAndRecreateDatabaseFile();
+  password_store_sync_->NotifyCredentialsChanged(password_store_changes);
+
+  if (password_store_sync_->IsAccountStore()) {
+    base::UmaHistogramCounts100(
+        "PasswordManager.AccountStorage.UnsyncedPasswordsFoundDuringSignOut",
+        credentials_to_move.size());
+
+    if (!credentials_to_move.empty()) {
+      password_store_sync_->NotifyUnsyncedCredentialsWillBeDeleted(
+          std::move(credentials_to_move));
+    }
+  }
+
+  sync_enabled_or_disabled_cb_.Run();
+}
+
+void PasswordSyncBridge::GetUnsyncedCredentialsHelper(
+    std::vector<PasswordForm>& forms_to_be_moved,
+    std::vector<PasswordForm>* forms_to_be_deleted) const {
   PrimaryKeyToPasswordSpecificsDataMap credentials;
   FormRetrievalResult result =
       password_store_sync_->ReadAllCredentials(&credentials);
@@ -1027,30 +1057,14 @@ void PasswordSyncBridge::ApplyDisableSyncChanges(
       PasswordForm form = PasswordFromSpecifics(*specifics);
       form.primary_key = primary_key;
       form.in_store = password_manager::PasswordForm::Store::kAccountStore;
-      password_store_changes.emplace_back(PasswordStoreChange::REMOVE, form);
       if (unsynced_passwords_storage_keys.count(primary_key) != 0 &&
           !form.blocked_by_user) {
-        unsynced_credentials_being_deleted.push_back(std::move(form));
+        forms_to_be_moved.push_back(std::move(form));
+      } else if (forms_to_be_deleted) {
+        forms_to_be_deleted->push_back(std::move(form));
       }
     }
   }
-  password_store_sync_->GetMetadataStore()->DeleteAllSyncMetadata(
-      syncer::PASSWORDS);
-  password_store_sync_->DeleteAndRecreateDatabaseFile();
-  password_store_sync_->NotifyCredentialsChanged(password_store_changes);
-
-  if (password_store_sync_->IsAccountStore()) {
-    base::UmaHistogramCounts100(
-        "PasswordManager.AccountStorage.UnsyncedPasswordsFoundDuringSignOut",
-        unsynced_credentials_being_deleted.size());
-
-    if (!unsynced_credentials_being_deleted.empty()) {
-      password_store_sync_->NotifyUnsyncedCredentialsWillBeDeleted(
-          std::move(unsynced_credentials_being_deleted));
-    }
-  }
-
-  sync_enabled_or_disabled_cb_.Run();
 }
 
 sync_pb::EntitySpecifics
@@ -1112,7 +1126,8 @@ bool PasswordSyncBridge::SyncMetadataCacheContainsSupportedFields(
   return false;
 }
 
-std::set<FormPrimaryKey> PasswordSyncBridge::GetUnsyncedPasswordsStorageKeys() {
+std::set<FormPrimaryKey> PasswordSyncBridge::GetUnsyncedPasswordsStorageKeys()
+    const {
   std::set<FormPrimaryKey> storage_keys;
   DCHECK(password_store_sync_);
   PasswordStoreSync::MetadataStore* metadata_store =

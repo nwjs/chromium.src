@@ -276,6 +276,10 @@ const base::flat_map<VendorProductId, MouseMetadata>& GetMouseMetadataList() {
           {{0x0461, 0x4e9a},
            {mojom::CustomizationRestriction::kDisableKeyEventRewrites,
             mojom::MouseButtonConfig::kNoConfig}},
+          // HP 910 Mouse
+          {{0x0461, 0x4eef},
+           {mojom::CustomizationRestriction::kDisableKeyEventRewrites,
+            mojom::MouseButtonConfig::kNoConfig}},
           // Logitech Cube
           {{0x046d, 0x4010},
            {mojom::CustomizationRestriction::kDisableKeyEventRewrites,
@@ -418,10 +422,6 @@ const base::flat_map<VendorProductId, MouseMetadata>& GetMouseMetadataList() {
             mojom::MouseButtonConfig::kNoConfig}},
           // ELECOM DEFT Pro TrackBall
           {{0x056e, 0x0131},
-           {mojom::CustomizationRestriction::kDisableKeyEventRewrites,
-            mojom::MouseButtonConfig::kNoConfig}},
-          // ELECOM Trackball
-          {{0x056e, 0x1077},
            {mojom::CustomizationRestriction::kDisableKeyEventRewrites,
             mojom::MouseButtonConfig::kNoConfig}},
           // MosArt 2.4G Wireless Mouse
@@ -889,20 +889,20 @@ GetGraphicsTabletMetadataList() {
           {{0xeeee, 0xeeee},
            {mojom::CustomizationRestriction::kAllowCustomizations,
             mojom::GraphicsTabletButtonConfig::kNoConfig}},
+          // Wacom One Pen Tablet S
+          {{0x0531, 0x0100},
+           {mojom::CustomizationRestriction::kAllowCustomizations,
+            mojom::GraphicsTabletButtonConfig::kWacomStandardPenOnly}},
+          // Wacom One Pen tablet M
+          {{0x0531, 0x0102},
+           {mojom::CustomizationRestriction::kAllowCustomizations,
+            mojom::GraphicsTabletButtonConfig::kWacomStandardPenOnly}},
           // One by Wacom S
           {{0x056a, 0x037a},
            {mojom::CustomizationRestriction::kAllowCustomizations,
             mojom::GraphicsTabletButtonConfig::kWacomStandardPenOnly}},
           // One by Wacom M
           {{0x056a, 0x0301},
-           {mojom::CustomizationRestriction::kAllowCustomizations,
-            mojom::GraphicsTabletButtonConfig::kWacomStandardPenOnly}},
-          // Wacom One Pen Tablet S
-          {{0x056a, 0x0100},
-           {mojom::CustomizationRestriction::kAllowCustomizations,
-            mojom::GraphicsTabletButtonConfig::kWacomStandardPenOnly}},
-          // Wacom One pen tablet M
-          {{0x056a, 0x0102},
            {mojom::CustomizationRestriction::kAllowCustomizations,
             mojom::GraphicsTabletButtonConfig::kWacomStandardPenOnly}},
           // Wacom One Pen Display 11
@@ -1292,6 +1292,9 @@ GetKeyboardMouseComboMetadataList() {
            {mojom::CustomizationRestriction::kDisableKeyEventRewrites}},
           // Chicony Fujitsu Slim Keyboard with Touchpad
           {{0x04f2, 0x1322},
+           {mojom::CustomizationRestriction::kDisableKeyEventRewrites}},
+          // ELECOM TK-TB01DMBK
+          {{0x056e, 0x1077},
            {mojom::CustomizationRestriction::kDisableKeyEventRewrites}},
           // MosArt Wireless Keyboard and Mouse
           {{0x062a, 0x0102},

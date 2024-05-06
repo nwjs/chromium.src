@@ -34,10 +34,10 @@
 #include "chrome/browser/ui/web_applications/test/ssl_test_utils.h"
 #include "chrome/browser/web_applications/extension_status_utils.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
-#include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/preinstalled_app_install_features.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_manager.h"
 #include "chrome/browser/web_applications/preinstalled_web_apps/preinstalled_web_apps.h"
+#include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -70,6 +70,9 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chrome/browser/web_applications/commands/web_app_command.h"
+#include "chrome/browser/web_applications/jobs/uninstall/web_app_uninstall_and_replace_job.h"
+#include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chromeos/crosapi/mojom/app_service.mojom.h"
 #include "chromeos/crosapi/mojom/test_controller.mojom.h"
@@ -300,9 +303,9 @@ class PreinstalledWebAppMigrationBrowserTest
   base::test::ScopedFeatureList features_;
   std::optional<base::AutoReset<bool>> disable_external_extensions_scope_;
   std::unique_ptr<extensions::ExtensionCacheFake> test_extension_cache_;
-  OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
 
  private:
+  web_app::OsIntegrationTestOverrideBlockingRegistration faked_os_integration_;
   base::AutoReset<bool> enable_chrome_apps_;
   base::AutoReset<bool> skip_preinstalled_web_app_startup_;
   base::AutoReset<bool> bypass_offline_manifest_requirement_;
@@ -803,6 +806,47 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppMigrationBrowserTest,
 }
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
+class TestUninstallAndReplaceJobCommand
+    : public WebAppCommand<AppLock, bool /*uninstall_triggered*/> {
+ public:
+  TestUninstallAndReplaceJobCommand(
+      Profile* profile,
+      const std::vector<webapps::AppId>& from_apps,
+      const webapps::AppId& to_app,
+      base::OnceCallback<void(bool uninstall_triggered)> on_complete)
+      : WebAppCommand<AppLock, bool>("TestUninstallAndReplaceJobCommand",
+                                     AppLockDescription(to_app),
+                                     std::move(on_complete),
+                                     /*args_for_shutdown=*/false),
+        profile_(profile),
+        from_apps_(from_apps),
+        to_app_(to_app) {}
+
+  ~TestUninstallAndReplaceJobCommand() override = default;
+
+  void StartWithLock(std::unique_ptr<AppLock> lock) override {
+    lock_ = std::move(lock);
+    uninstall_and_replace_job_.emplace(
+        profile_, GetMutableDebugValue(), *lock_, from_apps_, to_app_,
+        base::BindOnce(&TestUninstallAndReplaceJobCommand::OnComplete,
+                       base::Unretained(this)));
+    uninstall_and_replace_job_->Start();
+  }
+
+  void OnComplete(bool uninstall_triggered) {
+    CompleteAndSelfDestruct(CommandResult::kSuccess, uninstall_triggered);
+  }
+
+ private:
+  raw_ptr<Profile> profile_ = nullptr;
+  std::unique_ptr<AppLock> lock_;
+
+  const std::vector<webapps::AppId> from_apps_;
+  const webapps::AppId to_app_;
+
+  std::optional<WebAppUninstallAndReplaceJob> uninstall_and_replace_job_;
+};
+
 IN_PROC_BROWSER_TEST_F(PreinstalledWebAppMigrationBrowserTest,
                        TransferAppAttributes) {
   // If ash does not contain the relevant test controller functionality, then
@@ -845,8 +889,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppMigrationBrowserTest,
     info->title = u"New app";
 
     WebAppInstallParams install_params;
-    base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode,
-                           bool /*did_uninstall_and_replace*/>
+    base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
         future;
     WebAppProvider::GetForTest(profile())
         ->scheduler()
@@ -854,13 +897,21 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppMigrationBrowserTest,
             std::move(info),
             /*overwrite_existing_manifest_fields=*/false,
             webapps::WebappInstallSource::OMNIBOX_INSTALL_ICON,
-            future.GetCallback(), install_params, {old_app_id});
+            future.GetCallback(), install_params);
 
     EXPECT_EQ(future.Get<webapps::InstallResultCode>(),
               webapps::InstallResultCode::kSuccessNewInstall);
-    EXPECT_TRUE(future.Get<bool /*did_uninstall_and_replace*/>());
     new_app_id = future.Get<webapps::AppId>();
     apps::AppReadinessWaiter(profile(), new_app_id).Await();
+  }
+  {
+    base::test::TestFuture<bool> future;
+    WebAppProvider::GetForTest(profile())->command_manager().ScheduleCommand(
+        std::make_unique<TestUninstallAndReplaceJobCommand>(
+            profile(), std::vector<webapps::AppId>{old_app_id}, new_app_id,
+            future.GetCallback()));
+    ASSERT_TRUE(future.Wait());
+    EXPECT_TRUE(future.Get<bool /*did_uninstall_and_replace*/>());
   }
 
   base::test::TestFuture<crosapi::mojom::AppListItemAttributesPtr>

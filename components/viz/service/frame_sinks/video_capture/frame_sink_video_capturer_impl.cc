@@ -80,9 +80,34 @@ constexpr gfx::Rect kMaxRect = gfx::Rect(0,
                                          std::numeric_limits<int>::max(),
                                          std::numeric_limits<int>::max());
 
+// Note about RGBA/BGRA/ARGB pixel format names:
+// In FrameSinkVideoCapturer, ARGB is a "format name", the frames it gives
+// could be RGBA/BGRA depends on platform and the preference of the buffer
+// format. When user wants ARGB result, it requests a CopyOutputRequest with
+// ResultFormat::RGBA which gives RGBA/BGRA results depends on platform and
+// where the result is stored (system memory or shared texture).
+// In our case, when requesting a kPreferGpuMemoryBuffer, it will create a blit
+// request, results in CopyOutputRequest uses whatever RGBA/BGRA pixel format
+// the GMB is, which we created in advance. For now, it is determined by
+// GetFramePoolPlatformPixelFormat.
+// This is also documented in the mojom comments (https://crrev.com/c/5418235)
+// about SetFormat, indicating the ARGB format may produce RGBA/BGRA frames
+// depends on platform.
+
+media::VideoPixelFormat GetFramePoolPlatformPixelFormat(
+    media::VideoPixelFormat format,
+    mojom::BufferFormatPreference buffer_format_preference) {
+  if (format == media::PIXEL_FORMAT_ARGB &&
+      buffer_format_preference ==
+          mojom::BufferFormatPreference::kPreferGpuMemoryBuffer) {
+    return media::PIXEL_FORMAT_ABGR;
+  }
+  return format;
+}
+
 // Get the frame pool for the specific format. We need context_provider if the
-// format is NV12 or RGBA (when buffer_format_preference is kNativeTexture).
-// Thus, buffer_format_preference is also needed to tell which mode RGBA use.
+// format is NV12 or ARGB (when buffer_format_preference is kNativeTexture).
+// Thus, buffer_format_preference is also needed to tell which mode ARGB use.
 std::unique_ptr<VideoFramePool> GetVideoFramePoolForFormat(
     media::VideoPixelFormat format,
     int capacity,
@@ -99,8 +124,9 @@ std::unique_ptr<VideoFramePool> GetVideoFramePoolForFormat(
       switch (buffer_format_preference) {
         case mojom::BufferFormatPreference::kPreferGpuMemoryBuffer:
           return std::make_unique<GpuMemoryBufferVideoFramePool>(
-              capacity, format, gfx::ColorSpace::CreateSRGB(),
-              context_provider);
+              capacity,
+              GetFramePoolPlatformPixelFormat(format, buffer_format_preference),
+              gfx::ColorSpace::CreateSRGB(), context_provider);
         case mojom::BufferFormatPreference::kDefault:
           return std::make_unique<SharedMemoryVideoFramePool>(capacity);
         default:
@@ -791,7 +817,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
   // activated surface sizes. To be cautious, we refresh the frame although a
   // frame damage event should happen shortly.
   //
-  // TODO(https://crbug.com/1300943): we should likely just get the frame
+  // TODO(crbug.com/40824508): we should likely just get the frame
   // region from the last aggregated surface.
   if (!gfx::Rect(region_properties->root_render_pass_size)
            .Contains(render_pass_in_root_space)) {
@@ -837,7 +863,10 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
                         region_properties->render_pass_subrect.ToString());
     auto reserve_start_time = base::TimeTicks::Now();
 
-    frame = frame_pool_->ReserveVideoFrame(pixel_format_, capture_size);
+    frame = frame_pool_->ReserveVideoFrame(
+        GetFramePoolPlatformPixelFormat(pixel_format_,
+                                        buffer_format_preference_),
+        capture_size);
 
     UMA_HISTOGRAM_CUSTOM_TIMES(
         "Viz.FrameSinkVideoCapturer.ReserveFrameDuration",
@@ -977,7 +1006,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
                                        frame->stride(VideoFrame::kVPlane));
           break;
         case media::PIXEL_FORMAT_ARGB:
-          strides = base::StringPrintf("strideRGBA:%d",
+          strides = base::StringPrintf("strideARGB:%d",
                                        frame->stride(VideoFrame::kARGBPlane));
           break;
         case media::PIXEL_FORMAT_NV12:
@@ -1032,7 +1061,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
   // reasonable metadata about the region capture rect. For more context, see
   // https://crbug.com/1327560.
   //
-  // TODO(https://crbug.com/1335175): Provide accurate bounds for elements
+  // TODO(crbug.com/40228439): Provide accurate bounds for elements
   // embedded in different renderers.
   const bool is_same_frame_sink_as_requested =
       resolved_target_->GetFrameSinkId() == target_->frame_sink_id;
@@ -1057,14 +1086,14 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
           mojom::BufferFormatPreference::kPreferGpuMemoryBuffer &&
       pixel_format_ == media::PIXEL_FORMAT_NV12;
 
-  const bool use_rgba_with_textures =
+  const bool use_argb_with_textures =
       buffer_format_preference_ ==
           mojom::BufferFormatPreference::kPreferGpuMemoryBuffer &&
       pixel_format_ == media::PIXEL_FORMAT_ARGB;
 
   std::optional<BlitRequest> blit_request;
 
-  if (use_rgba_with_textures || use_nv12_with_textures) {
+  if (use_argb_with_textures || use_nv12_with_textures) {
     gpu::MailboxHolder first_mailbox =
         request_properties.frame->mailbox_holder(0);
     gpu::MailboxHolder second_mailbox;
@@ -1137,7 +1166,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
   auto request = std::make_unique<CopyOutputRequest>(
       VideoPixelFormatToCopyOutputRequestFormat(pixel_format_,
                                                 use_multiplane_for_nv12),
-      use_nv12_with_textures || use_rgba_with_textures
+      use_nv12_with_textures || use_argb_with_textures
           ? CopyOutputRequest::ResultDestination::kNativeTextures
           : CopyOutputRequest::ResultDestination::kSystemMemory,
       base::BindOnce(&FrameSinkVideoCapturerImpl::DidCopyFrame,
@@ -1171,7 +1200,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
     // NV12 is currently supported only via GpuMemoryBuffers, everything else is
     // returned as a bitmap:
     const bool is_bitmap =
-        pixel_format_ != media::VideoPixelFormat::PIXEL_FORMAT_NV12;
+        buffer_format_preference_ == mojom::BufferFormatPreference::kDefault;
     consumer_->OnLog(base::StringPrintf(
         "FrameSinkVideoCapturerImpl: Sending CopyRequest: "
         "format=%s (%s) area:%s "
@@ -1225,15 +1254,15 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
                                      frame->stride(VideoFrame::kUVPlane));
         break;
       case CopyOutputResult::Format::RGBA:
-        strides = base::StringPrintf("strideRGBA:%d",
+        strides = base::StringPrintf("strideARGB:%d",
                                      frame->stride(VideoFrame::kARGBPlane));
 
         switch (result->destination()) {
           case CopyOutputResult::Destination::kSystemMemory:
-            format = "RGBA_Bitmap";
+            format = "ARGB_Bitmap";
             break;
           case CopyOutputResult::Destination::kNativeTextures:
-            format = "RGBA_Texture";
+            format = "ARGB_Texture";
             break;
         }
         break;
@@ -1286,6 +1315,8 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
   } else if (pixel_format_ == media::PIXEL_FORMAT_ARGB) {
     if (buffer_format_preference_ == mojom::BufferFormatPreference::kDefault) {
       int stride = frame->stride(VideoFrame::kARGBPlane);
+      // Note: ResultFormat::RGBA CopyOutputResult's format currently is
+      // kN32_SkColorType, which can be RGBA or BGRA depending on the platform.
       uint8_t* const pixels =
           frame->GetWritableVisibleData(VideoFrame::kARGBPlane) +
           content_rect.y() * stride + content_rect.x() * 4;
@@ -1300,7 +1331,7 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
     } else {
       CHECK_EQ(buffer_format_preference_,
                mojom::BufferFormatPreference::kPreferGpuMemoryBuffer);
-      // GMB RGBA results are written to the existing pool texture.
+      // GMB ARGB results are written to the existing pool texture.
       if (result->IsEmpty()) {
         frame = nullptr;
       } else {
@@ -1424,7 +1455,7 @@ void FrameSinkVideoCapturerImpl::MaybeDeliverFrame(
     scoped_refptr<VideoFrame> frame) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  // TODO(crbug.com/1332628): When capture fails because the sub-capture-target
+  // TODO(crbug.com/40227755): When capture fails because the sub-capture-target
   // version has changed, expedite the capture/delivery of a new frame.
   const bool capture_was_successful =
       frame && frame->metadata().sub_capture_target_version ==
@@ -1493,7 +1524,7 @@ void FrameSinkVideoCapturerImpl::MaybeDeliverFrame(
 #if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
   TRACE_COUNTER("gpu.capture", "NumFramesInFlight", num_frames_in_flight_);
 #else
-  // TODO(crbug/1006541): Delete when Perfetto is the default.
+  // TODO(crbug.com/42050015): Delete when Perfetto is the default.
   TRACE_COUNTER_ID1("gpu.capture",
                     "FrameSinkVideoCapturerImpl::num_frames_in_flight_", this,
                     num_frames_in_flight_);

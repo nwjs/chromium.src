@@ -488,6 +488,7 @@ void VaapiVideoEncodeAccelerator::ReturnBitstreamBuffer(
               << (metadata.key_frame ? "(keyframe)" : "")
               << " id: " << buffer.id() << " size: " << data_size;
   } else {
+    CHECK(metadata.dropped_frame());
     CHECK_EQ(metadata.payload_size_bytes, 0u);
     DVLOGF(4) << "Drop frame bitstream_buffer_id=" << buffer.id();
   }
@@ -798,6 +799,7 @@ std::unique_ptr<VaapiVideoEncoderDelegate::EncodeJob>
 VaapiVideoEncodeAccelerator::CreateEncodeJob(
     bool force_keyframe,
     base::TimeDelta frame_timestamp,
+    uint8_t spatial_index,
     bool end_of_picture,
     const VASurface& input_surface,
     scoped_refptr<VASurface> reconstructed_surface) {
@@ -839,8 +841,8 @@ VaapiVideoEncodeAccelerator::CreateEncodeJob(
   }
 
   return std::make_unique<EncodeJob>(
-      force_keyframe, frame_timestamp, end_of_picture, input_surface.id(),
-      std::move(picture), std::move(coded_buffer));
+      force_keyframe, frame_timestamp, spatial_index, end_of_picture,
+      input_surface.id(), std::move(picture), std::move(coded_buffer));
 }
 
 void VaapiVideoEncodeAccelerator::EncodePendingInputs() {
@@ -908,6 +910,7 @@ void VaapiVideoEncodeAccelerator::EncodePendingInputs() {
           (spatial_idx == 0 ? input_frame.force_keyframe : false);
       const bool end_of_picture = spatial_idx == num_spatial_layers - 1;
       job = CreateEncodeJob(force_key, input_frame.frame->timestamp(),
+                            base::checked_cast<uint8_t>(spatial_idx),
                             end_of_picture, *input_surfaces[spatial_idx],
                             std::move(reconstructed_surfaces[spatial_idx]));
       if (!job)

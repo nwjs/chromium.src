@@ -62,7 +62,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHPageZoomFeature,
     &kIPHPreviewsOmniboxUIFeature,
     &kIPHPriceDropNTPFeature,
-    &kIPHPwaInstallAvailableFeature,
     &kIPHQuietNotificationPromptsFeature,
     &kIPHReadAloudAppMenuFeature,
     &kIPHReadLaterContextMenuFeature,
@@ -122,7 +121,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSPromoWhatsNewFeature,
     &kIPHiOSPromoPostRestoreFeature,
     &kIPHiOSPromoCredentialProviderExtensionFeature,
-    &kIPHiOSPromoDefaultBrowserFeature,
     &kIPHiOSPromoDefaultBrowserReminderFeature,
     &kIPHiOSPromoOmniboxPositionFeature,
     &kIPHiOSNewTabToolbarItemFeature,
@@ -145,6 +143,8 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSPostDefaultAbandonmentPromoFeature,
     &kIPHiOSPromoGenericDefaultBrowserFeature,
     &kIPHiOSOverflowMenuCustomizationFeature,
+    &kIPHiOSPageInfoRevampFeature,
+    &kIPHiOSInlineEnhancedSafeBrowsingPromoFeature,
 #endif  // BUILDFLAG(IS_IOS)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
@@ -153,7 +153,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHCompanionSidePanelRegionSearchFeature,
     &kIPHComposeMSBBSettingsFeature,
     &kIPHComposeNewBadgeFeature,
-    &kIPHDeepScanPromptRemovalFeature,
     &kIPHDesktopCustomizeChromeFeature,
     &kIPHDesktopCustomizeChromeRefreshFeature,
     &kIPHDesktopNewTabPageModulesCustomizeFeature,
@@ -187,7 +186,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHSidePanelGenericMenuFeature,
     &kIPHSidePanelGenericPinnableFeature,
     &kIPHSideSearchAutoTriggeringFeature,
-    &kIPHSideSearchFeature,
     &kIPHSideSearchPageActionLabelFeature,
     &kIPHTabOrganizationSuccessFeature,
     &kIPHTabSearchFeature,
@@ -205,6 +203,7 @@ const base::Feature* const kAllFeatures[] = {
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+    &kIPHAutofillCreditCardBenefitFeature,
     &kIPHAutofillExternalAccountProfileSuggestionFeature,
     &kIPHAutofillManualFallbackFeature,
     &kIPHAutofillVirtualCardCVCSuggestionFeature,
@@ -216,6 +215,7 @@ const base::Feature* const kAllFeatures[] = {
         // BUILDFLAG(IS_FUCHSIA)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+    &kIPHGrowthFramework,
     &kIPHGoogleOneOfferNotificationFeature,
     &kIPHLauncherSearchHelpUiFeature,
     &kIPHScalableIphTimerBasedOneFeature,

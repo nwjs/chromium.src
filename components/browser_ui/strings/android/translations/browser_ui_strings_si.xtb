@@ -94,7 +94,6 @@
 <translation id="2501278716633472235">ආපසු යන්න</translation>
 <translation id="2546283357679194313">කුකීස් සහ අඩවි දත්ත</translation>
 <translation id="2550801787432930915">මිල පහත වැටීමේ කාඩ්පත</translation>
-<translation id="2569468611847789653">{COOKIE_COUNT,plural, =1{1 කුකීයක් අවහිර කළා}one{කුකී # ක් අවහිර කළා}other{කුකී # ක් අවහිර කළා}}</translation>
 <translation id="2570922361219980984">මෙම උපාංගය සඳහා ස්ථාන ප්‍රවේශයත් ක්‍රියා විරහිතයි. <ph name="BEGIN_LINK" />Android සැකසීම්<ph name="END_LINK" /> තුළ එය ක්‍රියාත්මක කරන්න.</translation>
 <translation id="257931822824936280">පුඵල් කරන ලදි - හැකිලීමට ක්ලික් කරන්න</translation>
 <translation id="2586657967955657006">පසුරු පුවරුව</translation>
@@ -177,6 +176,7 @@
 <translation id="3895926599014793903">විශාලනය සක්‍රිය කිරීම බල කරන්න</translation>
 <translation id="3908288065506437185">අප්‍රසිද්ධ ප්‍රකාරය තුළ තෙවන පාර්ශ්ව කුකී අවහිර කරන්න</translation>
 <translation id="3918378745482005425">සමහර විශේෂාංග ක්‍රියා නොකරනු ඇත. අදාළ අඩවිවලට තවමත් තෙවන පාර්ශ්ව කුකීස් භාවිතා කළ හැක.</translation>
+<translation id="3933121352599513978">අනවශ්‍ය ඉල්ලීම් හකුළන්න (නිර්දේශිතයි)</translation>
 <translation id="3955193568934677022">අඩවිවලට ආරක්ෂිත අන්තර්ගතය වාදනය කිරීමට ඉඩ දෙන්න (නිර්දේශිතයි)</translation>
 <translation id="3967822245660637423">බාගැනීම සම්පූර්ණයි</translation>
 <translation id="3974105241379491420">අඩවි ඔවුන් ඔබ ගැන සුරැකී ඇති තොරතුරු භාවිත කිරීමට ඉල්ලිය හැක</translation>
@@ -199,6 +199,7 @@
 <translation id="429312253194641664">වෙබ් අඩවියක් මාධ්‍ය ධාවන කරයි</translation>
 <translation id="42981349822642051">දිගහරින්න</translation>
 <translation id="4336566011000459927">Chrome අද නැවතත් කුකීස් සීමා කරනු ඇත</translation>
+<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> ඔබේ අවසාන පටිත්ත</translation>
 <translation id="4338831206024587507"><ph name="DOMAIN" /> යටතේ සියලු අඩවි</translation>
 <translation id="4402755511846832236">ඔබ මෙම උපාංගය සක්‍රියව භාවිත කරන විට දැන ගැනීමෙන් අඩවි අවහිර කරන්න</translation>
 <translation id="4412992751769744546">තෙවන පාර්ශව කුකී වලට ඉඩ දෙන්න</translation>
@@ -289,6 +290,7 @@
 <translation id="5853982612236235577">සක්‍රීය වූ විට, අඩවිවලට දැනුම් දීම් යැවීමට ඉල්ලිය හැක. අක්‍රිය වූ විට, අඩවිවලට දැනුම් දීම් යැවිය නොහැක.</translation>
 <translation id="5860033963881614850">අක්‍රීය</translation>
 <translation id="5876056640971328065">විඩියෝව විරාම කරන්න</translation>
+<translation id="5877248419911025165">සියලු ඉල්ලීම් හකුළන්න</translation>
 <translation id="5884085660368669834">අඩවි මනාපය</translation>
 <translation id="5887687176710214216">අවසන් වරට ඊයේ පිවිසි</translation>
 <translation id="5916664084637901428">ක්‍රියාත්මකයි</translation>
@@ -457,7 +459,6 @@
 <translation id="8441146129660941386">පසුපසට සොයන්න</translation>
 <translation id="8444433999583714703"><ph name="APP_NAME" /> හට ඔබේ ස්ථානයට ප්‍රවේශ වීමට ඉඩ දීමට, <ph name="BEGIN_LINK" />Android සැකසීම්<ph name="END_LINK" /> තුළද ස්ථානය ක්‍රියාත්මක කරන්න.</translation>
 <translation id="8447861592752582886">උපාංගයේ අවසර අහෝසි කරන්න</translation>
-<translation id="8451050538944905715">{NUM_SELECTED,plural, =1{කුකි 1ක් භාවිතයේ ඇත}one{කුකි #ක් භාවිතයේ ඇත}other{කුකි #ක් භාවිතයේ ඇත}}</translation>
 <translation id="8487700953926739672">නොබැඳිව ලද  හැක</translation>
 <translation id="848952951823693243">සැම විට ජංගම අඩවිය ඉල්ලන්න</translation>
 <translation id="8499083585497694743">මයික්‍රෆෝනය නිහඬ කිරීම ඉවත් කරන්න</translation>
@@ -497,6 +498,7 @@
 <translation id="8959122750345127698">සංචාලනය වෙත ළඟා විය නොහැකිය: <ph name="URL" /></translation>
 <translation id="8986362086234534611">අමතක</translation>
 <translation id="8990043154272859344">ඔබ සියලු අඩවිවලින් වරනු ලැබේ</translation>
+<translation id="8993853206419610596">සියලු ඉල්ලීම් පුළුල් කරන්න</translation>
 <translation id="9002538116239926534">සක්‍රීය වූ විට, අඩවිවලට ඔබේ උපාංගය මත දත්ත සුරැකිය හැක. අක්‍රිය වූ විට, අඩවිවලට ඔබේ උපාංගය මත දත්ත සුරැකිය නොහැක.</translation>
 <translation id="9011903857143958461"><ph name="SITE_NAME" /> ඉඩ දෙන ලදි</translation>
 <translation id="9019902583201351841">ඔබේ දෙමව්පියන් පාලනය කරයි</translation>

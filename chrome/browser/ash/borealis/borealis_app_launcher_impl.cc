@@ -12,7 +12,6 @@
 #include "chrome/browser/ash/borealis/borealis_service.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/views/borealis/borealis_installer_view.h"
 #include "chrome/browser/ui/views/borealis/borealis_launch_error_dialog.h"
 #include "chrome/browser/ui/views/borealis/borealis_splash_screen_view.h"
 #include "chrome/browser/ui/webui/ash/borealis_installer/borealis_installer_dialog.h"
@@ -34,11 +33,7 @@ void BorealisAppLauncherImpl::Launch(std::string app_id,
   if (!borealis::BorealisService::GetForProfile(profile_)
            ->Features()
            .IsEnabled()) {
-    if (base::FeatureList::IsEnabled(ash::features::kBorealisWebUIInstaller)) {
-      ash::BorealisInstallerDialog::Show(profile_);
-    } else {
-      borealis::ShowBorealisInstallerView(profile_);
-    }
+    ash::BorealisInstallerDialog::Show(profile_);
     std::move(callback).Run(LaunchResult::kSuccess);
     return;
   }

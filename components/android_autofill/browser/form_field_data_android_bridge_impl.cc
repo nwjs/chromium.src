@@ -4,7 +4,6 @@
 
 #include "components/android_autofill/browser/form_field_data_android_bridge_impl.h"
 
-#include <optional>
 #include <string>
 #include <string_view>
 
@@ -70,14 +69,14 @@ FormFieldDataAndroidBridgeImpl::GetOrCreateJavaPeer(
   };
 
   ScopedJavaLocalRef<jobject> obj = Java_FormFieldData_createFormFieldData(
-      env, ConvertUTF16ToJavaString(env, field.name),
+      env, ConvertUTF16ToJavaString(env, field.name()),
       ConvertUTF16ToJavaString(env, field.label),
-      ConvertUTF16ToJavaString(env, field.value),
+      ConvertUTF16ToJavaString(env, field.value()),
       ConvertUTF8ToJavaString(env, field.autocomplete_attribute),
       field.should_autocomplete,
       ConvertUTF16ToJavaString(env, field.placeholder),
-      ConvertUTF8ToJavaString(env,
-                              FormControlTypeToString(field.form_control_type)),
+      ConvertUTF8ToJavaString(
+          env, FormControlTypeToString(field.form_control_type())),
       ConvertUTF16ToJavaString(env, field.id_attribute),
       /*optionValues=*/ProjectOptions(field.options, &SelectOption::value),
       /*optionContents=*/ProjectOptions(field.options, &SelectOption::content),
@@ -117,7 +116,7 @@ void FormFieldDataAndroidBridgeImpl::UpdateFieldFromJava(FormFieldData& field) {
   if (ScopedJavaLocalRef<jstring> jvalue =
           Java_FormFieldData_getValue(env, obj);
       !jvalue.is_null()) {
-    field.value = ConvertJavaStringToUTF16(env, jvalue);
+    field.set_value(ConvertJavaStringToUTF16(env, jvalue));
   }
 }
 

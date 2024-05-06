@@ -136,12 +136,6 @@ public final class ProductionSupportedFlagList {
         Flag.commandLine(
                 AwSwitches.WEBVIEW_FENCED_FRAMES,
                 "Enables fenced frames. Also enables PrivacySandboxAdsAPIsOverride."),
-        Flag.commandLine(
-                AwSwitches.WEBVIEW_DISABLE_APP_RECOVERY,
-                "Disables WebView from checking for app recovery mitigations."),
-        Flag.commandLine(
-                AwSwitches.WEBVIEW_ENABLE_APP_RECOVERY,
-                "Enables WebView to check for app recovery mitigations."),
         Flag.baseFeature(
                 "DefaultPassthroughCommandDecoder", "Use the passthrough GLES2 command decoder."),
         Flag.baseFeature(
@@ -155,12 +149,14 @@ public final class ProductionSupportedFlagList {
                 GpuFeatures.PRUNE_OLD_TRANSFER_CACHE_ENTRIES,
                 "Prune old transfer cache entries and disable pruning from client"),
         Flag.baseFeature(
-                VizFeatures.ALLOW_BYPASS_RENDER_PASS_QUADS,
-                "Enable bypass render pass for RenderPassDrawQuads"),
-        Flag.baseFeature(
                 VizFeatures.WEBVIEW_NEW_INVALIDATE_HEURISTIC,
                 "More robust heuristic for calling Invalidate"),
         Flag.baseFeature(VizFeatures.WEBVIEW_VULKAN_INTERMEDIATE_BUFFER, "For debugging vulkan"),
+        Flag.baseFeature(
+                VizFeatures.WEBVIEW_ENABLE_ADPF, "Pass WebView threads to HWUI ADPF session"),
+        Flag.baseFeature(
+                VizFeatures.WEBVIEW_ENABLE_ADPF_RENDERER_MAIN,
+                "Include Renderer Main into ADPF session"),
         Flag.baseFeature(
                 VizFeatures.ALLOW_UNDAMAGED_NONROOT_RENDER_PASS_TO_SKIP,
                 "Enable optimization for skipping undamaged nonroot render passes."),
@@ -198,8 +194,6 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_JAVA_JS_BRIDGE_MOJO,
                 "Enables the new Java/JS Bridge code path with mojo implementation."),
         Flag.baseFeature(
-                AwFeatures.WEBVIEW_ORIGIN_TRIALS, "Enables Origin Trials support on WebView."),
-        Flag.baseFeature(
                 BlinkFeatures.GMS_CORE_EMOJI,
                 "Enables retrieval of the emoji font through GMS Core "
                         + "improving emoji glyph coverage."),
@@ -210,6 +204,10 @@ public final class ProductionSupportedFlagList {
                 AndroidAutofillFeatures.ANDROID_AUTOFILL_CANCEL_SESSION_ON_NAVIGATION_NAME,
                 "Enable cancelling autofill session on a new document navigation, same frame that"
                         + " has the form"),
+        Flag.baseFeature(
+                AndroidAutofillFeatures.ANDROID_AUTOFILL_DIRECT_FORM_SUBMISSION,
+                "When enabled, submission is directly fired to the provider upon receiving the "
+                        + "renderer's signal."),
         Flag.baseFeature(
                 AndroidAutofillFeatures.ANDROID_AUTOFILL_PREFILL_REQUESTS_FOR_LOGIN_FORMS_NAME,
                 "When enabled, prefill requests are supported for login forms."),
@@ -222,6 +220,9 @@ public final class ProductionSupportedFlagList {
                 "When enabled, the comparison between the cached form and the currently focused"
                         + " form that is used to decide whether to show a bottom sheet is performed"
                         + " by comparing password manager's FormDataParser predictions."),
+        Flag.baseFeature(
+                AndroidAutofillFeatures.ANDROID_AUTOFILL_PREFILL_REQUEST_FOR_CHANGE_PASSWORD_NAME,
+                "Enables sending prefill requests for Change Password forms."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_ENABLE_DEPENDENT_LOCALITY_PARSING,
                 "Enables parsing dependent locality fields (e.g. Bairros in Brazil)."),
@@ -291,8 +292,14 @@ public final class ProductionSupportedFlagList {
                 AutofillFeatures.AUTOFILL_ENABLE_SUPPORT_FOR_APARTMENT_NUMBERS,
                 "When enabled, Autofill supports apartment number fields."),
         Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_UNIFY_AND_FIX_FORM_TRACKING,
+                "When enabled, AutofillAgent and FormTracker track the same elements."),
+        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_USE_I18N_ADDRESS_MODEL,
                 "When enabled, Autofill uses the i18n version of the address model."),
+        Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_USE_AU_ADDRESS_MODEL,
+                "When enabled, Autofill uses a custom address model for Australia."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_USE_BR_ADDRESS_MODEL,
                 "When enabled, Autofill uses a custom address model for Brazil."),
@@ -614,6 +621,10 @@ public final class ProductionSupportedFlagList {
                 SafeBrowsingFeatures.HASH_PREFIX_REAL_TIME_LOOKUPS,
                 "When enabled, Safe Browsing checks will happen in real time"),
         Flag.baseFeature(
+                SafeBrowsingFeatures.SAFE_BROWSING_ASYNC_REAL_TIME_CHECK,
+                "When enabled, the real time Safe Browsing check will be called asynchronously,"
+                        + " along with an additional v4 check which will be synchronous."),
+        Flag.baseFeature(
                 "SafeBrowsingSkipSubResources2",
                 "When enabled, Safe Browsing will skip WebTransport and WebSockets"),
         Flag.baseFeature(
@@ -649,10 +660,13 @@ public final class ProductionSupportedFlagList {
                 "Enables new optimized implementation of SpdyHeadersToHttpResponse. No behavior"
                         + " change."),
         Flag.baseFeature(
-                BlinkFeatures.NEW_BASE_URL_INHERITANCE_BEHAVIOR,
-                "Enables the new base-url inheritance behavior for about:blank and "
-                        + "about:srcdoc pages loaded in a webview."),
+                "MojoFixAssociatedHandleLeak",
+                "Holdback for a bugfix which may have improved WebView stability."),
         Flag.baseFeature("MojoIpcz"),
+        Flag.baseFeature(
+                "FixDataPipeTrapBug",
+                "Used to disable a specific bug fix for a long-standing bug that may"
+                        + " have affected performance. Brief experiment for data collection"),
         Flag.baseFeature(
                 TracingServiceFeatures.ENABLE_PERFETTO_SYSTEM_TRACING,
                 "When enabled, WebView exports trace events to the Android Perfetto service."
@@ -687,6 +701,7 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 ContentFeatures.RENDER_DOCUMENT_COMPOSITOR_REUSE,
                 "If enabled, allows compositor to be reused on cross-RenderFrameHost navigations"),
+        Flag.baseFeature("ConditionallySkipGpuChannelFlush"),
         Flag.baseFeature("NetworkServiceCookiesHighPriorityTaskRunner"),
         Flag.baseFeature("IncreaseCoookieAccesCacheSize"),
         Flag.baseFeature("AvoidScheduleWorkDuringNativeEventProcessing"),
@@ -796,6 +811,9 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(GwpAsanFeatures.GWP_ASAN_MALLOC, "GWP-ASan for `malloc()`."),
         Flag.baseFeature(GwpAsanFeatures.GWP_ASAN_PARTITION_ALLOC, "GWP-ASan for PartitionAlloc."),
         Flag.baseFeature(
+                GwpAsanFeatures.EXTREME_LIGHTWEIGHT_UAF_DETECTOR,
+                "Enables the Extreme Lightweight UAF Detector."),
+        Flag.baseFeature(
                 CcFeatures.USE_MAP_RECT_FOR_PIXEL_MOVEMENT,
                 "Enables the usage of MapRect for computing filter pixel movement."),
         Flag.baseFeature(
@@ -807,6 +825,8 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature("V8SingleThreadedGCInBackground"),
         Flag.baseFeature("V8MemoryReducer"),
         Flag.baseFeature("V8MinorMS"),
+        Flag.baseFeature("V8ConcurrentSparkplug"),
+        Flag.baseFeature("V8BaselineBatchCompilation"),
         Flag.baseFeature("WebAssemblyMoreAggressiveCodeCaching"),
         Flag.baseFeature("WebAssemblyTurboshaft"),
         Flag.baseFeature("WebAssemblyTurboshaftInstructionSelection"),
@@ -934,6 +954,30 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 BlinkFeatures.BLINK_SCHEDULER_PRIORITIZE_NAVIGATION_IP_CS,
                 "If enabled, main frame navigation IPCs have higher priority on visible pages"),
+        Flag.baseFeature(
+                BlinkFeatures.CURSOR_ANCHOR_INFO_MOJO_PIPE,
+                "If enabled, CursorAnchorInfo is sent from Blink to the browser using a single"
+                        + " IPC."),
+        Flag.baseFeature(
+                NetworkServiceFeatures.AVOID_RESOURCE_REQUEST_COPIES,
+                "Avoids copying ResourceRequest when possible."),
+        Flag.baseFeature(
+                BlinkFeatures.LOWER_HIGH_RESOLUTION_TIMER_THRESHOLD,
+                "Schedule DOM Timers with high precision only if their deadline is <4ms."),
+        Flag.baseFeature(
+                "InputStreamOptimizations", "Enables optimizations to input stream handling."),
+        Flag.baseFeature("WebViewOptimizeXrwNavigationFlow"),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_ASYNC_DNS, "Enables the built-in DNS resolver (Async DNS)."),
+        Flag.baseFeature(
+                "UseMoveNotCopyInAXTreeCombiner",
+                "Enables moves instead of copies of snapshot tree data when combining updates."),
+        Flag.baseFeature(
+                "UseMoveNotCopyInMergeTreeUpdate",
+                "Enables moves instead of copies of snapshot tree data when merging udpates."),
+        Flag.baseFeature(
+                "EnableHangWatcher",
+                "Controls whether hooks for hang detection are active"),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

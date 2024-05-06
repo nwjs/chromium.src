@@ -72,37 +72,6 @@ constexpr base::TimeDelta kShowPageAnimationDelay = base::Milliseconds(50);
 constexpr base::TimeDelta kShowPageAnimationOpacityDuration =
     base::Milliseconds(100);
 
-// A context menu definition for AppListBubbleAppsCollectionsPage. The menu will
-// be the same as the regular AppsGridContextMenu, however the action executed
-// will be delegated to the AppListBubbleAppsCollectionsPage.
-class AppsCollectionsContextMenu : public AppsGridContextMenu {
- public:
-  using DismissalCallback = base::RepeatingCallback<void(AppListSortOrder)>;
-  explicit AppsCollectionsContextMenu(DismissalCallback callback)
-      : callback_(std::move(callback)) {}
-  AppsCollectionsContextMenu(const AppsCollectionsContextMenu&) = delete;
-  AppsCollectionsContextMenu& operator=(const AppsCollectionsContextMenu&) =
-      delete;
-  ~AppsCollectionsContextMenu() override = default;
-
-  // AppsGridContextMenu:
-  void ExecuteCommand(int command_id, int event_flags) override {
-    switch (command_id) {
-      case REORDER_BY_NAME_ALPHABETICAL:
-        callback_.Run(AppListSortOrder::kNameAlphabetical);
-        break;
-      case REORDER_BY_COLOR:
-        callback_.Run(AppListSortOrder::kColor);
-        break;
-      default:
-        NOTREACHED();
-    }
-  }
-
- private:
-  DismissalCallback callback_;
-};
-
 }  // namespace
 
 AppListBubbleAppsCollectionsPage::AppListBubbleAppsCollectionsPage(
@@ -177,15 +146,18 @@ AppListBubbleAppsCollectionsPage::AppListBubbleAppsCollectionsPage(
   toast_container_->UpdateVisibilityState(
       AppListToastContainerView::VisibilityState::kShown);
 
-  context_menu_ = std::make_unique<AppsCollectionsContextMenu>(
-      base::BindRepeating(&AppListBubbleAppsCollectionsPage::RequestAppReorder,
-                          weak_factory_.GetWeakPtr()));
+  context_menu_ =
+      std::make_unique<AppsGridContextMenu>(GetGridTypeForContextMenu());
   set_context_menu_controller(context_menu_.get());
 
   on_contents_scrolled_subscription_ =
       scroll_view_->AddContentsScrolledCallback(
           base::BindRepeating(&AppListBubbleAppsCollectionsPage::OnPageScrolled,
                               base::Unretained(this)));
+
+  AppsCollectionsController::Get()->SetReorderCallback(
+      base::BindRepeating(&AppListBubbleAppsCollectionsPage::RequestAppReorder,
+                          weak_factory_.GetWeakPtr()));
 }
 
 AppListBubbleAppsCollectionsPage::~AppListBubbleAppsCollectionsPage() {
@@ -283,11 +255,17 @@ void AppListBubbleAppsCollectionsPage::AbortAllAnimations() {
 }
 
 void AppListBubbleAppsCollectionsPage::OnNudgeRemoved() {
-  AppsCollectionsController::Get()->SetAppsCollectionDismissed();
+  AppsCollectionsController::Get()->SetAppsCollectionDismissed(
+      AppsCollectionsController::DismissReason::kExitNudge);
 
   CHECK(exit_page_callback_);
 
   std::move(exit_page_callback_).Run();
+}
+
+AppsGridContextMenu::GridType
+AppListBubbleAppsCollectionsPage::GetGridTypeForContextMenu() {
+  return AppsGridContextMenu::GridType::kAppsCollectionsGrid;
 }
 
 ui::Layer* AppListBubbleAppsCollectionsPage::GetPageAnimationLayerForTest() {
@@ -353,7 +331,8 @@ void AppListBubbleAppsCollectionsPage::DismissPageAndReorder(
     AppListSortOrder order) {
   AppListModelProvider::Get()->model()->delegate()->RequestAppListSort(order);
 
-  AppsCollectionsController::Get()->SetAppsCollectionDismissed();
+  AppsCollectionsController::Get()->SetAppsCollectionDismissed(
+      AppsCollectionsController::DismissReason::kSorting);
 
   CHECK(exit_page_callback_);
 

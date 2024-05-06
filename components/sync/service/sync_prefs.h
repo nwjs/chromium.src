@@ -74,6 +74,11 @@ class SyncPrefs {
   // enable sync-the-feature.
   bool IsInitialSyncFeatureSetupComplete() const;
 
+  // Returns true if the user is considered explicitly signed in to the browser.
+  // Returns false if the user is signed out or implicilty signed in (through
+  // Dice).
+  bool IsExplicitBrowserSignin() const;
+
   // ChromeOS Ash, IsInitialSyncFeatureSetupComplete() always returns true.
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   void SetInitialSyncFeatureSetupComplete();
@@ -103,6 +108,14 @@ class SyncPrefs {
   // parent/guardian of a child account).
   bool IsTypeManagedByCustodian(UserSelectableType type) const;
 
+  // Returns true if the type is disabled; that was either set by a user
+  // choice, or when a policy enforces disabling the type. Otherwise, returns
+  // false if no value exists for the type pref (default), or if it is enabled.
+  // Note: this method checks the actual pref value even if there is a policy
+  // applied on the type.
+  bool IsTypeDisabledByUserForAccount(const UserSelectableType type,
+                                      const signin::GaiaIdHash& gaia_id_hash);
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // On Desktop, kPasswords isn't considered "selected" by default in transport
   // mode. This method returns how many accounts selected (enabled) the type.
@@ -131,23 +144,6 @@ class SyncPrefs {
   // passed-in |available_gaia_ids|.
   void KeepAccountSettingsPrefsOnlyForUsers(
       const std::vector<signin::GaiaIdHash>& available_gaia_ids);
-
-#if BUILDFLAG(IS_IOS)
-  // Sets the opt-in for bookmarks & reading list in transport mode.
-  // Note that this only has an effect if `kReplaceSyncPromosWithSignInPromos`
-  // is NOT enabled. (It should still be called if
-  // `kReplaceSyncPromosWithSignInPromos` is enabled though, to better support
-  // rollbacks.)
-  void SetBookmarksAndReadingListAccountStorageOptIn(bool value);
-
-  // Gets the opt-in state for bookmarks & reading list in transport mode, for
-  // testing. Production code should use `GetSelectedTypes()`
-  // instead which already takes this into account.
-  bool IsOptedInForBookmarksAndReadingListAccountStorageForTesting();
-
-  // Clears the opt-in for bookmarks & reading list in transport mode.
-  void ClearBookmarksAndReadingListAccountStorageOptIn();
-#endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // Functions to deal with the Ash-specific state where sync-the-feature is
@@ -207,7 +203,7 @@ class SyncPrefs {
 
   // The encryption bootstrap token is used for explicit passphrase users
   // (usually custom passphrase) and represents a user-entered passphrase.
-  // TODO(crbug.com/1471928): Cleanup *EncryptionBootstrapToken when
+  // TODO(crbug.com/40069260): Cleanup *EncryptionBootstrapToken when
   // kSyncRememberCustomPassphraseAfterSignout is fully rolled-out. The Set/Get
   // methods will not be used, but ClearAllEncryptionBootstrapTokens will still
   // be needed to clear the gaia-keyed pref on signout for syncing users. It

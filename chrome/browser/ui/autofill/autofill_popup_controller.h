@@ -18,11 +18,29 @@
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/common/aliases.h"
 
+namespace content {
+class WebContents;
+}  // namespace content
+
 namespace autofill {
+
+struct PopupControllerCommon;
 
 // This interface provides data to an AutofillPopupView.
 class AutofillPopupController : public AutofillPopupViewDelegate {
  public:
+  // Acts as a factory method to create a new `AutofillPopupController`, or
+  // reuse `previous` if the construction arguments are the same. `previous` may
+  // be invalidated by this call. The controller will listen for keyboard input
+  // routed to `web_contents` while the popup is showing, unless `web_contents`
+  // is null.
+  static base::WeakPtr<AutofillPopupController> GetOrCreate(
+      base::WeakPtr<AutofillPopupController> previous,
+      base::WeakPtr<AutofillPopupDelegate> delegate,
+      content::WebContents* web_contents,
+      PopupControllerCommon controller_common,
+      int32_t form_control_ax_id);
+
   // Recalculates the height and width of the popup and triggers a redraw when
   // suggestions change.
   virtual void OnSuggestionsChanged() = 0;
@@ -109,6 +127,25 @@ class AutofillPopupController : public AutofillPopupViewDelegate {
 
   virtual std::optional<AutofillClient::PopupScreenLocation>
   GetPopupScreenLocation() const = 0;
+
+  // Shows the popup, or updates the existing popup with the given values.
+  virtual void Show(std::vector<Suggestion> suggestions,
+                    AutofillSuggestionTriggerSource trigger_source,
+                    AutoselectFirstSuggestion autoselect_first_suggestion) = 0;
+
+  // Determines whether to suppress minimum show thresholds. It should only be
+  // set during tests that cannot mock time (e.g. the autofill interactive
+  // browsertests).
+  virtual void DisableThresholdForTesting(bool disable_threshold) = 0;
+  virtual void KeepPopupOpenForTesting() = 0;
+
+  // Updates the data list values currently shown with the popup.
+  virtual void UpdateDataListValues(base::span<const SelectOption> options) = 0;
+
+  // Informs the controller that the popup may not be hidden by stale data or
+  // interactions with native Chrome UI. This state remains active until the
+  // view is destroyed.
+  virtual void PinView() = 0;
 
  protected:
   ~AutofillPopupController() override = default;

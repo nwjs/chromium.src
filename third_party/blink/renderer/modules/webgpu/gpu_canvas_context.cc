@@ -158,8 +158,9 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage(FlushReason) {
 
 bool GPUCanvasContext::PaintRenderingResultsToCanvas(
     SourceDrawingBuffer source_buffer) {
-  if (!swap_buffers_)
+  if (!swap_buffers_) {
     return false;
+  }
 
   if (Host()->ResourceProvider() &&
       Host()->ResourceProvider()->Size() != swap_buffers_->Size()) {
@@ -168,6 +169,9 @@ bool GPUCanvasContext::PaintRenderingResultsToCanvas(
 
   CanvasResourceProvider* resource_provider =
       Host()->GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
+  if (!resource_provider) {
+    return false;
+  }
 
   return CopyRenderingResultsFromDrawingBuffer(resource_provider,
                                                source_buffer);
@@ -751,17 +755,11 @@ bool GPUCanvasContext::CopyTextureToResourceProvider(
       WGPUTextureUsage_CopyDst | WGPUTextureUsage_RenderAttachment,
       dst_mailbox);
   WGPUImageCopyTexture source = {
-      .nextInChain = nullptr,
       .texture = texture,
-      .mipLevel = 0,
-      .origin = WGPUOrigin3D{0},
       .aspect = WGPUTextureAspect_All,
   };
   WGPUImageCopyTexture destination = {
-      .nextInChain = nullptr,
       .texture = reservation.texture,
-      .mipLevel = 0,
-      .origin = WGPUOrigin3D{0},
       .aspect = WGPUTextureAspect_All,
   };
   WGPUExtent3D copy_size = {

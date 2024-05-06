@@ -820,6 +820,7 @@ if (is_win || is_mac || is_linux) {
     ]
 
     data = [
+      "test/data/app_logos/googletest.bmp",
       "test/data/signed.exe",  # Payload used by network tests.
       "test/data/signed.exe.gz",
       "test/data/tagged_encode_utf8.exe",
@@ -1074,6 +1075,7 @@ if (is_win || is_mac || is_linux) {
 
     deps = [
       ":base",
+      ":branding_header",
       ":unit_test_util_sources",
       ":updater_test_sources",
       "//base/test:test_support",
@@ -1113,6 +1115,7 @@ if (is_win || is_mac || is_linux) {
 
     deps = [
       ":base",
+      ":branding_header",
       ":unit_test_util_sources",
       ":updater_test_sources",
       "//base/test:test_support",

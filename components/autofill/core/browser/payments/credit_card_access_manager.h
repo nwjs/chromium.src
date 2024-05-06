@@ -25,7 +25,6 @@
 #include "components/autofill/core/browser/payments/credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
-#include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments/payments_window_manager.h"
 #include "components/autofill/core/browser/payments/wait_for_signal_or_timeout.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
@@ -148,7 +147,7 @@ class CreditCardAccessManager
 
   // Caches CreditCard and corresponding CVC for unmasked card so that
   // card info can later be filled without attempting to auth again.
-  // TODO(crbug/1069929): Add browsertests for this.
+  // TODO(crbug.com/40126138): Add browsertests for this.
   void CacheUnmaskedCardInfo(const CreditCard& card, const std::u16string& cvc);
 
   // Return the info for the server cards present in the
@@ -380,9 +379,6 @@ class CreditCardAccessManager
 
   // The associated autofill client. Weak reference.
   const raw_ptr<AutofillClient> client_;
-
-  // Interface to make HTTP-based requests to Google Payments.
-  const raw_ptr<payments::PaymentsNetworkInterface> payments_network_interface_;
 
   // The personal data manager, used to save and load personal data to/from the
   // web database.

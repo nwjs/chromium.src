@@ -54,6 +54,7 @@ include_rules = [
   "+third_party/icu",
   "+third_party/khronos/GLES2",
   "+third_party/re2",
+  "+third_party/rust/fend_core/v1/wrapper/fend_core.h",
   "+third_party/skia",
   "+net",
   "+ui",
@@ -103,6 +104,8 @@ include_rules = [
   # could create subtle inconsistencies based on when observers are called.
   "-chromeos/ash/compoments/login/login_state",
   "+chromeos/ash/components/network",
+  # //ash can use resources from the internal ash resources repo.
+  "+chromeos/ash/resources/internal",
   # //ash can use the public interfaces of various services.
   "+chromeos/ash/services/assistant/public/cpp" ,
   "+chromeos/ash/services/assistant/test_support",

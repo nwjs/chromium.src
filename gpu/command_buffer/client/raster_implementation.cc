@@ -22,6 +22,7 @@
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/stack_allocated.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_math.h"
 #include "base/trace_event/memory_allocator_dump.h"
@@ -261,6 +262,8 @@ class RasterImplementation::TransferCacheSerializeHelperImpl final
 
 // Helper to copy PaintOps to the GPU service over the transfer buffer.
 class RasterImplementation::PaintOpSerializer {
+  STACK_ALLOCATED();
+
  public:
   PaintOpSerializer(uint32_t initial_size,
                     RasterImplementation* ri,
@@ -386,16 +389,16 @@ class RasterImplementation::PaintOpSerializer {
   bool valid() const { return !!buffer_; }
 
  private:
-  const raw_ptr<RasterImplementation> ri_;
-  raw_ptr<char, AllowPtrArithmetic | AcrossTasksDanglingUntriaged> buffer_;
-  const raw_ptr<cc::DecodeStashingImageProvider> stashing_image_provider_;
-  const raw_ptr<TransferCacheSerializeHelperImpl> transfer_cache_helper_;
-  raw_ptr<ClientFontManager> font_manager_;
+  RasterImplementation* const ri_ = nullptr;
+  char* buffer_ = nullptr;
+  cc::DecodeStashingImageProvider* const stashing_image_provider_ = nullptr;
+  TransferCacheSerializeHelperImpl* const transfer_cache_helper_ = nullptr;
+  ClientFontManager* font_manager_ = nullptr;
 
   uint32_t written_bytes_ = 0;
   uint32_t free_bytes_ = 0;
 
-  raw_ptr<size_t> max_op_size_hint_;
+  size_t* max_op_size_hint_ = nullptr;
 };
 
 RasterImplementation::SingleThreadChecker::SingleThreadChecker(
@@ -1252,7 +1255,6 @@ void RasterImplementation::CopySharedImage(const gpu::Mailbox& source_mailbox,
 void RasterImplementation::WritePixels(const gpu::Mailbox& dest_mailbox,
                                        int dst_x_offset,
                                        int dst_y_offset,
-                                       int dst_plane_index,
                                        GLenum texture_target,
                                        const SkPixmap& src_sk_pixmap) {
   TRACE_EVENT0("gpu", "RasterImplementation::WritePixels");
@@ -1293,10 +1295,9 @@ void RasterImplementation::WritePixels(const gpu::Mailbox& dest_mailbox,
          src_size);
 
   helper_->WritePixelsINTERNALImmediate(
-      dst_x_offset, dst_y_offset, dst_plane_index, src_info.width(),
-      src_info.height(), src_row_bytes, src_info.colorType(),
-      src_info.alphaType(), shm_id, shm_offset, pixels_offset,
-      dest_mailbox.name);
+      dst_x_offset, dst_y_offset, src_info.width(), src_info.height(),
+      src_row_bytes, src_info.colorType(), src_info.alphaType(), shm_id,
+      shm_offset, pixels_offset, dest_mailbox.name);
 }
 
 void RasterImplementation::WritePixelsYUV(const gpu::Mailbox& dest_mailbox,

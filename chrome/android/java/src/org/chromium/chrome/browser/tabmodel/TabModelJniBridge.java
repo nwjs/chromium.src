@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.supplier.ObservableSupplier;
@@ -46,7 +47,7 @@ public abstract class TabModelJniBridge implements TabModel {
                 TabModelJniBridgeJni.get().init(TabModelJniBridge.this, profile, mActivityType);
     }
 
-    /** @return Whether the native-side pointer has been initialized. */
+    /** Returns whether the native-side pointer has been initialized. */
     public boolean isNativeInitialized() {
         return mNativeTabModelJniBridge != 0;
     }
@@ -137,7 +138,7 @@ public abstract class TabModelJniBridge implements TabModel {
             Tab parent,
             GURL url,
             @Nullable Origin initiatorOrigin,
-            String extraHeaders,
+            @JniType("std::string") String extraHeaders,
             ResourceRequestBody postData,
             int disposition,
             boolean persistParentage,
@@ -155,7 +156,7 @@ public abstract class TabModelJniBridge implements TabModel {
 
     /** Returns whether supplied Tab instance has been grouped together with other Tabs. */
     @CalledByNative
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    @VisibleForTesting
     static boolean isTabInTabGroup(@NonNull Tab tab) {
         assert tab != null;
         final WindowAndroid windowAndroid = tab.getWindowAndroid();
@@ -186,7 +187,7 @@ public abstract class TabModelJniBridge implements TabModel {
     @CalledByNative
     public abstract int index();
 
-    /** @return Whether or not a sync session is currently being restored. */
+    /** Returns whether or not a sync session is currently being restored. */
     @CalledByNative
     protected abstract boolean isSessionRestoreInProgress();
 
@@ -200,7 +201,10 @@ public abstract class TabModelJniBridge implements TabModel {
     @NativeMethods
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
-        long init(TabModelJniBridge caller, Profile profile, @ActivityType int activityType);
+        long init(
+                TabModelJniBridge caller,
+                @JniType("Profile*") Profile profile,
+                @ActivityType int activityType);
 
         void broadcastSessionRestoreComplete(
                 long nativeTabModelJniBridge, TabModelJniBridge caller);

@@ -6,7 +6,6 @@
 
 #include <stdint.h>
 
-#include <optional>
 #include <string>
 #include <utility>
 
@@ -116,9 +115,9 @@ void SharedStorageDocumentServiceImpl::CreateWorklet(
     mojo::PendingAssociatedReceiver<blink::mojom::SharedStorageWorkletHost>
         worklet_host,
     CreateWorkletCallback callback) {
-  // A document can only create multiple worklets with `kSharedStorageAPIM124`
+  // A document can only create multiple worklets with `kSharedStorageAPIM125`
   // enabled.
-  if (!base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM124)) {
+  if (!base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM125)) {
     if (create_worklet_called_) {
       // This could indicate a compromised renderer, so let's terminate it.
       receiver_.ReportBadMessage("Attempted to create multiple worklets.");
@@ -129,12 +128,14 @@ void SharedStorageDocumentServiceImpl::CreateWorklet(
   }
 
   create_worklet_called_ = true;
+  bool is_same_origin =
+      render_frame_host().GetLastCommittedOrigin().IsSameOriginWith(
+          script_source_url);
 
   // A document can only create cross-origin worklets with
-  // `kSharedStorageAPIM124` enabled.
-  if (!base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM124) &&
-      !render_frame_host().GetLastCommittedOrigin().IsSameOriginWith(
-          script_source_url)) {
+  // `kSharedStorageAPIM125` enabled.
+  if (!base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM125) &&
+      !is_same_origin) {
     // This could indicate a compromised renderer, so let's terminate it.
     receiver_.ReportBadMessage(
         "Attempted to load a cross-origin module script.");
@@ -143,19 +144,24 @@ void SharedStorageDocumentServiceImpl::CreateWorklet(
     return;
   }
 
+  auto intercepting_callback = base::BindOnce(
+      &SharedStorageDocumentServiceImpl::OnCreateWorkletResponseIntercepted,
+      weak_ptr_factory_.GetWeakPtr(), is_same_origin, std::move(callback));
+
   std::string debug_message;
   if (!IsSharedStorageAddModuleAllowed(&debug_message)) {
-    std::move(callback).Run(
-        /*success=*/false,
-        /*error_message=*/GetSharedStorageErrorMessage(
-            debug_message, kSharedStorageAddModuleDisabledMessage));
+    std::move(intercepting_callback)
+        .Run(
+            /*success=*/false,
+            /*error_message=*/GetSharedStorageErrorMessage(
+                debug_message, kSharedStorageAddModuleDisabledMessage));
     return;
   }
 
   GetSharedStorageWorkletHostManager()->CreateWorkletHost(
       this, render_frame_host().GetLastCommittedOrigin(), script_source_url,
       credentials_mode, origin_trial_features, std::move(worklet_host),
-      std::move(callback));
+      std::move(intercepting_callback));
 }
 
 void SharedStorageDocumentServiceImpl::SharedStorageGet(
@@ -332,6 +338,24 @@ SharedStorageDocumentServiceImpl::SharedStorageDocumentServiceImpl(
       main_frame_id_(
           static_cast<RenderFrameHostImpl*>(rfh->GetOutermostMainFrame())
               ->GetFrameTreeNodeId()) {}
+
+void SharedStorageDocumentServiceImpl::OnCreateWorkletResponseIntercepted(
+    bool is_same_origin,
+    CreateWorkletCallback original_callback,
+    bool success,
+    const std::string& error_message) {
+  // When the worklet and the worklet creator are not same-origin, the user
+  // preferences for the worklet origin should not be revealed.
+  //
+  // TODO(cammie): Right now the metric will be recorded as `kSuccess`. We might
+  // want to record a separate metric for this distorted result.
+  if (!is_same_origin) {
+    std::move(original_callback).Run(/*success=*/true, /*error_message=*/{});
+    return;
+  }
+
+  std::move(original_callback).Run(success, error_message);
+}
 
 storage::SharedStorageManager*
 SharedStorageDocumentServiceImpl::GetSharedStorageManager() {

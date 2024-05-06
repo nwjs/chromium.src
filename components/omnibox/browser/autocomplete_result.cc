@@ -358,13 +358,10 @@ void AutocompleteResult::SortAndCull(
       page_classification);
 
   const bool is_zero_suggest = input.IsZeroSuggest();
-  const bool use_grouping_for_zps =
-      base::FeatureList::IsEnabled(omnibox::kGroupingFrameworkForZPS) &&
-      is_zero_suggest;
   const bool use_grouping_for_non_zps =
       base::FeatureList::IsEnabled(omnibox::kGroupingFrameworkForNonZPS) &&
       !is_zero_suggest;
-  const bool use_grouping = use_grouping_for_zps || use_grouping_for_non_zps;
+  const bool use_grouping = is_zero_suggest || use_grouping_for_non_zps;
 
   // Grouping requires all matches have a group ID. To keep providers 'dumb',
   // they only assign IDs when their ID isn't obvious from the match type.
@@ -385,9 +382,10 @@ void AutocompleteResult::SortAndCull(
                   [&](const auto& match) { return match.relevance == 0; });
   }
 
-  // If `kGroupingFrameworkForZPS` or `kGroupingFrameworkForNonZPS` are enabled
-  // and the current input & platform are supported, delegate to the framework.
-  if (use_grouping_for_zps) {
+  // If at zero suggest or `kGroupingFrameworkForNonZPS` is enabled
+  // and the current input & platform are supported, delegate to the
+  // framework.
+  if (is_zero_suggest) {
     PSections sections;
     if constexpr (is_android) {
       if (omnibox::IsNTPPage(page_classification)) {
@@ -401,12 +399,28 @@ void AutocompleteResult::SortAndCull(
             std::make_unique<AndroidWebZpsSection>(suggestion_groups_map_));
       }
     } else if constexpr (is_desktop) {
-      if (omnibox::IsNTPPage(page_classification)) {
+      if (omnibox::IsLensSearchbox(page_classification)) {
+        switch (page_classification) {
+          case OmniboxEventProto::CONTEXTUAL_SEARCHBOX:
+          case OmniboxEventProto::SEARCH_SIDE_PANEL_SEARCHBOX:
+            sections.push_back(
+                std::make_unique<DesktopLensContextualZpsSection>(
+                    suggestion_groups_map_));
+            break;
+          case OmniboxEventProto::LENS_SIDE_PANEL_SEARCHBOX:
+            sections.push_back(
+                std::make_unique<DesktopLensMultimodalZpsSection>(
+                    suggestion_groups_map_));
+            break;
+          default:
+            NOTREACHED();
+        }
+      } else if (omnibox::IsNTPPage(page_classification)) {
         sections.push_back(
             std::make_unique<DesktopNTPZpsSection>(suggestion_groups_map_));
         // Allow secondary zero-prefix suggestions in the NTP realbox or the
         // WebUI omnibox popup.
-        // TODO(crbug/1396174): Disallow secondary zps in the WebUI omnibox
+        // TODO(crbug.com/40062053): Disallow secondary zps in the WebUI omnibox
         // before experimentation.
         if ((page_classification == OmniboxEventProto::NTP_REALBOX ||
              base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup))) {
@@ -444,14 +458,8 @@ void AutocompleteResult::SortAndCull(
         }
       } else {
         if (omnibox::IsNTPPage(page_classification)) {
-          size_t num_trending_queries =
-              OmniboxFieldTrial::kInspireMeAdditionalTrendingQueries.Get();
-          size_t num_psuggest_queries =
-              OmniboxFieldTrial::kInspireMePsuggestQueries.Get();
-
-          sections.push_back(std::make_unique<IOSNTPZpsSection>(
-              num_trending_queries, num_psuggest_queries,
-              suggestion_groups_map_));
+          sections.push_back(
+              std::make_unique<IOSNTPZpsSection>(suggestion_groups_map_));
         } else if (omnibox::IsSearchResultsPage(page_classification)) {
           sections.push_back(
               std::make_unique<IOSSRPZpsSection>(suggestion_groups_map_));
@@ -479,11 +487,13 @@ void AutocompleteResult::SortAndCull(
     bool history_cluster_included = false;
     std::erase_if(matches_, [&](const auto& match) {
       // If not a history cluster match, don't erase it.
-      if (match.type != AutocompleteMatch::Type::HISTORY_CLUSTER)
+      if (match.type != AutocompleteMatch::Type::HISTORY_CLUSTER) {
         return false;
+      }
       // If not the 1st history cluster match, do erase it.
-      if (history_cluster_included)
+      if (history_cluster_included) {
         return true;
+      }
       // If the 1st history cluster match, don't erase it.
       history_cluster_included = true;
       return false;
@@ -492,9 +502,10 @@ void AutocompleteResult::SortAndCull(
     // Limit URL matches per OmniboxMaxURLMatches.
     size_t max_url_count = 0;
     if (OmniboxFieldTrial::IsMaxURLMatchesFeatureEnabled() &&
-        (max_url_count = OmniboxFieldTrial::GetMaxURLMatches()) != 0)
+        (max_url_count = OmniboxFieldTrial::GetMaxURLMatches()) != 0) {
       LimitNumberOfURLsShown(GetMaxMatches(is_zero_suggest), max_url_count,
                              comparing_object);
+    }
 
     // Limit total matches accounting for suggestions score <= 0, sub matches,
     // and feature configs such as OmniboxUIExperimentMaxAutocompleteMatches,

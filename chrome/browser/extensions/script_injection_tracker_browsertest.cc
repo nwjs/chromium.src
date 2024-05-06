@@ -15,7 +15,7 @@
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/extensions/permissions_test_util.h"
+#include "chrome/browser/extensions/permissions/permissions_test_util.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -112,6 +112,7 @@ void ExecuteUserScript(content::WebContents& web_contents,
       mojom::HostID(mojom::HostID::HostType::kExtensions, extension_id),
       mojom::CodeInjection::NewJs(mojom::JSInjection::New(
           std::move(sources), mojom::ExecutionWorld::kUserScript,
+          /*world_id=*/std::nullopt,
           blink::mojom::WantResultOption::kWantResult,
           blink::mojom::UserActivationOption::kDoNotActivate,
           blink::mojom::PromiseResultOption::kAwait)),
@@ -356,7 +357,7 @@ IN_PROC_BROWSER_TEST_F(ScriptInjectionTrackerBrowserTest,
 // also the "DocumentUserData race w/ Commit IPC" section in the
 // document here:
 // https://docs.google.com/document/d/1MFprp2ss2r9RNamJ7Jxva1bvRZvec3rzGceDGoJ6vW0/edit#heading=h.n2ppjzx4jpzt
-// TODO(crbug.com/936696): Remove the test after RenderDocument is shipped.
+// TODO(crbug.com/40615943): Remove the test after RenderDocument is shipped.
 IN_PROC_BROWSER_TEST_F(ScriptInjectionTrackerBrowserTest,
                        ProgrammaticInjectionRacingWithDidCommit) {
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -1562,7 +1563,7 @@ IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest,
 
 // Tests that ScriptInjectionTracker monitors extension permission changes
 // between commit and load, and updates the renderer data accordingly.
-// TODO(crbug.com/1522216): Flaky test.
+// TODO(crbug.com/41495179): Flaky test.
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_UpdateHostPermissions_RaceCondition \
   DISABLED_UpdateHostPermissions_RaceCondition

@@ -273,10 +273,6 @@ const char kEnableHangoutServicesExtensionForTesting[] =
 // screen.
 const char kEnableLacrosForkZygotesAtLoginScreen[] =
     "enable-lacros-fork-zygotes-at-login-screen";
-
-// Makes Lacros use a location shared across users for browser components.
-const char kEnableLacrosSharedComponentsDir[] =
-    "enable-lacros-shared-components-dir";
 #endif
 
 // Allows NaCl to run in all contexts (such as open web). Note that
@@ -811,11 +807,6 @@ extern const char kFromBrowserSwitcher[] = "from-browser-switcher";
 // shows an error box because the only way to hide Chrome is by uninstalling
 // it.
 const char kHideIcons[] = "hide-icons";
-
-// Don't try to clear downlevel OS appcompat layers out of Chrome's
-// AppCompatFlags\Layers value in the Windows registry on process startup; see
-// https://crbug.com/1482568.
-const char kNoAppCompatClear[] = "no-appcompat-clear";
 
 // Whether or not the browser should warn if the profile is on a network share.
 // This flag is only relevant for Windows currently.

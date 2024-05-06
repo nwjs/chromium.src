@@ -23,20 +23,22 @@ class DocumentStorageAccess final
   static const char kSupplementName[];
   static const char kNoAccessRequested[];
   static DocumentStorageAccess& From(Document& document);
-  static ScriptPromiseTyped<StorageAccessHandle> requestStorageAccess(
+  static ScriptPromise<StorageAccessHandle> requestStorageAccess(
       ScriptState* script_state,
       Document& document,
       const StorageAccessTypes* storage_access_types);
-  static ScriptPromise hasUnpartitionedCookieAccess(ScriptState* script_state,
-                                                    Document& document);
+  static ScriptPromise<IDLBoolean> hasUnpartitionedCookieAccess(
+      ScriptState* script_state,
+      Document& document);
 
   explicit DocumentStorageAccess(Document& document);
   void Trace(Visitor*) const override;
 
-  ScriptPromiseTyped<StorageAccessHandle> requestStorageAccess(
+  ScriptPromise<StorageAccessHandle> requestStorageAccess(
       ScriptState* script_state,
       const StorageAccessTypes* storage_access_types);
-  ScriptPromise hasUnpartitionedCookieAccess(ScriptState* script_state);
+  ScriptPromise<IDLBoolean> hasUnpartitionedCookieAccess(
+      ScriptState* script_state);
 };
 
 }  // namespace blink

@@ -30,7 +30,6 @@
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/sharing/features.h"
 #include "chrome/browser/sharing/sms/sms_flags.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
@@ -71,7 +70,6 @@
 #include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
-#include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_icon_view.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/chrome_features.h"
@@ -242,12 +240,12 @@ void LocationBarView::Init() {
 
     permission_dashboard_controller_ =
         std::make_unique<PermissionDashboardController>(
-            browser_, this, permission_dashboard_view_);
+            this, permission_dashboard_view_);
   } else {
     chip_controller_ = std::make_unique<ChipController>(
-        browser_, AddChildViewAt(std::make_unique<PermissionChipView>(
-                                     PermissionChipView::PressedCallback()),
-                                 0));
+        this, AddChildViewAt(std::make_unique<PermissionChipView>(
+                                 PermissionChipView::PressedCallback()),
+                             0));
   }
 
   const auto& typography_provider = views::TypographyProvider::Get();
@@ -347,7 +345,7 @@ void LocationBarView::Init() {
   if (browser_) {
     // Page action icons that participate in label animations should be added
     // first so that they appear on the left side of the icon container.
-    // TODO(crbug.com/1318890): Improve the ordering heuristics for page action
+    // TODO(crbug.com/40835681): Improve the ordering heuristics for page action
     // icons and determine a way to handle simultaneous icon animations.
     params.types_enabled.push_back(PageActionIconType::kPriceInsights);
     params.types_enabled.push_back(PageActionIconType::kPriceTracking);
@@ -356,9 +354,7 @@ void LocationBarView::Init() {
       params.types_enabled.push_back(PageActionIconType::kSideSearch);
     }
 
-    params.types_enabled.push_back(PageActionIconType::kSendTabToSelf);
     params.types_enabled.push_back(PageActionIconType::kClickToCall);
-    params.types_enabled.push_back(PageActionIconType::kQRCodeGenerator);
     if (base::FeatureList::IsEnabled(kWebOTPCrossDevice))
       params.types_enabled.push_back(PageActionIconType::kSmsRemoteFetcher);
     params.types_enabled.push_back(PageActionIconType::kManagePasswords);
@@ -921,7 +917,7 @@ void LocationBarView::OnThemeChanged() {
 }
 
 void LocationBarView::ChildPreferredSizeChanged(views::View* child) {
-  DeprecatedLayoutImmediately();
+  InvalidateLayout();
   SchedulePaint();
 }
 
@@ -942,18 +938,6 @@ void LocationBarView::Update(WebContents* contents) {
     omnibox_view_->OnTabChanged(contents);
   else
     omnibox_view_->Update();
-
-  PageActionIconView* send_tab_to_self_icon =
-      page_action_icon_controller_->GetIconView(
-          PageActionIconType::kSendTabToSelf);
-  if (send_tab_to_self_icon)
-    send_tab_to_self_icon->SetVisible(false);
-
-  PageActionIconView* qr_generator_icon =
-      page_action_icon_controller_->GetIconView(
-          PageActionIconType::kQRCodeGenerator);
-  if (qr_generator_icon)
-    qr_generator_icon->SetVisible(false);
 
   OnChanged();  // NOTE: Triggers layout.
 
@@ -1277,26 +1261,12 @@ void LocationBarView::FocusSearch() {
 
 void LocationBarView::UpdateContentSettingsIcons() {
   if (RefreshContentSettingViews()) {
-    DeprecatedLayoutImmediately();
-    SchedulePaint();
+    // TODO(crbug.com/40648316): Remove Layout override and transition
+    // LocationBarView to use a layout manager. Then when child view visibility
+    // changes LocationBarView's layout will be automatically invalidated and
+    // this InvalidateLayout() call can be removed.
+    InvalidateLayout();
   }
-}
-
-inline void LocationBarView::UpdateQRCodeGeneratorIcon() {
-  PageActionIconView* icon = page_action_icon_controller_->GetIconView(
-      PageActionIconType::kQRCodeGenerator);
-  if (icon)
-    icon->Update();
-}
-
-inline bool LocationBarView::UpdateSendTabToSelfIcon() {
-  PageActionIconView* icon = page_action_icon_controller_->GetIconView(
-      PageActionIconType::kSendTabToSelf);
-  if (!icon)
-    return false;
-  bool was_visible = icon->GetVisible();
-  icon->Update();
-  return was_visible != icon->GetVisible();
 }
 
 void LocationBarView::SaveStateToContents(WebContents* contents) {
@@ -1454,8 +1424,6 @@ void LocationBarView::OnChanged() {
       IsVirtualKeyboardVisible(GetWidget()));
   InvalidateLayout();
   SchedulePaint();
-  UpdateSendTabToSelfIcon();
-  UpdateQRCodeGeneratorIcon();
   UpdateChipVisibility();
 }
 
@@ -1487,17 +1455,12 @@ void LocationBarView::OnOmniboxFocused() {
   // Only show hover animation in unfocused steady state.  Since focusing
   // the omnibox is intentional, snapping is better than transitioning here.
   hover_animation_.Reset();
-
-  UpdateSendTabToSelfIcon();
-  UpdateQRCodeGeneratorIcon();
   RefreshBackground();
 }
 
 void LocationBarView::OnOmniboxBlurred() {
   if (views::FocusRing::Get(this))
     views::FocusRing::Get(this)->SchedulePaint();
-  UpdateSendTabToSelfIcon();
-  UpdateQRCodeGeneratorIcon();
   RefreshBackground();
 }
 

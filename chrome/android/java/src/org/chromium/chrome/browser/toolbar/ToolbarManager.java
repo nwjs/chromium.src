@@ -55,10 +55,10 @@ import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager.OverlayPanelManagerObserver;
 import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar;
+import org.chromium.chrome.browser.desktop_windowing.AppHeaderCoordinator;
 import org.chromium.chrome.browser.dom_distiller.DomDistillerTabUtils;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.dragdrop.toolbar.ToolbarDragDropCoordinator;
@@ -86,6 +86,7 @@ import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.omnibox.BackKeyBehaviorDelegate;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
+import org.chromium.chrome.browser.omnibox.LocationBarEmbedderUiOverrides;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
@@ -110,6 +111,7 @@ import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -133,6 +135,7 @@ import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonState;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController.ActionBarDelegate;
 import org.chromium.chrome.browser.toolbar.top.TabStripHeightSupplier;
+import org.chromium.chrome.browser.toolbar.top.TabStripTransitionCoordinator;
 import org.chromium.chrome.browser.toolbar.top.TabStripTransitionCoordinator.TabStripHeightObserver;
 import org.chromium.chrome.browser.toolbar.top.ToggleTabStackButton;
 import org.chromium.chrome.browser.toolbar.top.ToggleTabStackButtonCoordinator;
@@ -452,7 +455,10 @@ public class ToolbarManager
         @Override
         public void handleOnBackStarted(@NonNull BackEventCompat backEvent) {
             BackPressMetrics.recordNavStatusOnGestureStart(
-                    mActivityTabProvider.get().isNavigationInPrimaryMainFrameInProgress(),
+                    mActivityTabProvider
+                            .get()
+                            .getWebContents()
+                            .hasUncommittedNavigationInPrimaryMainFrame(),
                     mActivity.getWindow());
             mStartNavDuringOngoingGesture = false;
             mBackGestureInProgress = true;
@@ -525,6 +531,7 @@ public class ToolbarManager
      * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
      *     suggestion list) will position themselves relative to. If null, the content view will be
      *     used.
+     * @param appHeaderCoordinatorSupplier Supplier for the {@link AppHeaderCoordinator} instance.
      */
     public ToolbarManager(
             AppCompatActivity activity,
@@ -575,7 +582,8 @@ public class ToolbarManager
             @Nullable BackPressManager backPressManager,
             @Nullable ObservableSupplier<Integer> overviewColorSupplier,
             @Nullable View baseChromeLayout,
-            ObservableSupplier<ReadAloudController> readAloudControllerSupplier) {
+            ObservableSupplier<ReadAloudController> readAloudControllerSupplier,
+            OneshotSupplier<AppHeaderCoordinator> appHeaderCoordinatorSupplier) {
         TraceEvent.begin("ToolbarManager.ToolbarManager");
         mActivity = activity;
         mWindowAndroid = windowAndroid;
@@ -664,7 +672,16 @@ public class ToolbarManager
         mTopUiThemeColorProvider = topUiThemeColorProvider;
         mTopUiThemeColorProvider.addThemeColorObserver(this);
 
-        mAppThemeColorProvider = new AppThemeColorProvider(/* context= */ mActivity);
+        final boolean isTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity);
+        mAppThemeColorProvider =
+                new AppThemeColorProvider(
+                        /* context= */ mActivity,
+                        ToolbarFeatures.isTabStripWindowLayoutOptimizationEnabled(isTablet)
+                                ? mActivityLifecycleDispatcher
+                                : null);
+        appHeaderCoordinatorSupplier.onAvailable(
+                appHeaderCoordinator ->
+                        mAppThemeColorProvider.setDesktopWindowModeSupplier(appHeaderCoordinator));
         // Observe tint changes to update sub-components that rely on the tint (crbug.com/1077684).
         mAppThemeColorProvider.addTintObserver(this);
         mCustomTabThemeColorProvider = new SettableThemeColorProvider(/* context= */ mActivity);
@@ -699,9 +716,7 @@ public class ToolbarManager
         assert controlsVisibilityDelegate != null;
         mControlsVisibilityDelegate = controlsVisibilityDelegate;
         ThemeColorProvider browsingModeThemeColorProvider =
-                DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
-                        ? mAppThemeColorProvider
-                        : mTopUiThemeColorProvider;
+                isTablet ? mAppThemeColorProvider : mTopUiThemeColorProvider;
         ThemeColorProvider overviewModeThemeColorProvider = mAppThemeColorProvider;
 
         Runnable requestFocusRunnable = compositorViewHolder::requestFocus;
@@ -868,13 +883,12 @@ public class ToolbarManager
                             BackPressManager.isEnabled() ? backPressManager : null,
                             scrollListener,
                             tabModelSelectorSupplier,
-                            /* forcePhoneStyleOmnibox= */ false,
+                            new LocationBarEmbedderUiOverrides(),
                             baseChromeLayout);
             toolbarLayout.setLocationBarCoordinator(locationBarCoordinator);
             toolbarLayout.setBrowserControlsVisibilityDelegate(mControlsVisibilityDelegate);
             mLocationBar = locationBarCoordinator;
-            if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
-                    && ChromeFeatureList.sDragDropIntoOmnibox.isEnabled()) {
+            if (isTablet && ChromeFeatureList.sDragDropIntoOmnibox.isEnabled()) {
                 ViewStub targetViewStub =
                         ((ViewStub) mActivity.findViewById(R.id.target_view_stub));
                 assert targetViewStub != null;
@@ -2117,6 +2131,11 @@ public class ToolbarManager
         return mTabStripHeightSupplier;
     }
 
+    /** Return the TabStripTransitionCoordinator. */
+    public TabStripTransitionCoordinator getTabStripTransitionCoordinator() {
+        return mToolbar.getTabStripTransitionCoordinator();
+    }
+
     /**
      * @return The {@link StatusBarColorController} instance maintained by this class.
      */
@@ -2147,7 +2166,10 @@ public class ToolbarManager
     }
 
     @Override
-    public void onTintChanged(ColorStateList tint, @BrandedColorScheme int brandedColorScheme) {
+    public void onTintChanged(
+            ColorStateList tint,
+            ColorStateList activityFocusTint,
+            @BrandedColorScheme int brandedColorScheme) {
         updateBookmarkButtonStatus();
 
         if (mShouldUpdateToolbarPrimaryColor) {
@@ -2650,11 +2672,6 @@ public class ToolbarManager
 
     public ToolbarTabController getToolbarTabControllerForTesting() {
         return mToolbarTabController;
-    }
-
-    /** Return the TabStripTransitionCoordinator as component callback. */
-    ComponentCallbacks getTabStripTransitionCoordinatorForTesting() {
-        return mToolbar.getTabStripTransitionCoordinatorForTesting(); // IN-TEST
     }
 
     /**

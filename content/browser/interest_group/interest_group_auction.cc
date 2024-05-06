@@ -15,6 +15,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,7 +31,9 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
 #include "base/ranges/algorithm.h"
@@ -65,6 +68,7 @@
 #include "content/browser/interest_group/interest_group_pa_report_util.h"
 #include "content/browser/interest_group/interest_group_priority_util.h"
 #include "content/browser/interest_group/storage_interest_group.h"
+#include "content/common/features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom-forward.h"
@@ -110,6 +114,11 @@ constexpr base::TimeDelta kMaxPerBuyerTimeout = base::Milliseconds(500);
 constexpr base::TimeDelta kGroupFreshnessMin = base::Minutes(1);
 constexpr base::TimeDelta kGroupFreshnessMax = base::Days(30);
 constexpr int kGroupFreshnessBuckets = 100;
+
+// For updateIfOlderThan metrics.
+constexpr base::TimeDelta kMinUpdateIfOlderThanHistogram = base::Minutes(-10);
+constexpr base::TimeDelta kMaxUpdateIfOlderThanHistogram = base::Hours(30);
+constexpr size_t kUpdateIfOlderThanBuckets = 100;
 
 constexpr char kInvalidServerResponseReasonUMAName[] =
     "Ads.InterestGroup.ServerAuction.InvalidServerResponseReason";
@@ -355,7 +364,8 @@ std::optional<absl::uint128> BucketBaseForReportPaBuyers(
   }
   // Find the index of the buyer in `buyers`. It should be present, since we
   // only load interest groups belonging to owners from `buyers`.
-  DCHECK(config.non_shared_params.interest_group_buyers);
+  CHECK(config.non_shared_params.interest_group_buyers,
+        base::NotFatalUntil::M128);
   const std::vector<url::Origin>& buyers =
       *config.non_shared_params.interest_group_buyers;
   std::optional<size_t> index;
@@ -365,7 +375,7 @@ std::optional<absl::uint128> BucketBaseForReportPaBuyers(
       break;
     }
   }
-  DCHECK(index);
+  CHECK(index, base::NotFatalUntil::M128);
   // Use that index to get the associated bucket base, if present.
   if (*index >= config.non_shared_params.auction_report_buyer_keys->size()) {
     return std::nullopt;
@@ -483,7 +493,8 @@ void TakePrivateAggregationRequestsForBidState(
         // Only reserved types are supported for k-anon failures.
         // This *should* be guaranteed by `FillInPrivateAggregationRequest`
         // since we passed in `false` for `is_winner`.
-        DCHECK(!converted_request_value.event_type.has_value());
+        CHECK(!converted_request_value.event_type.has_value(),
+              base::NotFatalUntil::M128);
         private_aggregation_requests_reserved[std::move(agg_key)].emplace_back(
             std::move(converted_request_value.request));
       }
@@ -1178,6 +1189,7 @@ class InterestGroupAuction::BuyerHelper
   void OnBiddingSignalsReceived(
       const base::flat_map<std::string, double>& priority_vector,
       base::TimeDelta trusted_signals_fetch_latency,
+      std::optional<base::TimeDelta> update_if_older_than,
       base::OnceClosure resume_generate_bid_callback) override {
     BidState* state = generate_bid_client_receiver_set_.current_context();
     const blink::InterestGroup& interest_group = state->bidder->interest_group;
@@ -1185,6 +1197,7 @@ class InterestGroupAuction::BuyerHelper
         trusted_signals_fetch_latency;
     auction_->ReportTrustedSignalsFetchLatency(interest_group,
                                                trusted_signals_fetch_latency);
+    auction_->HandleUpdateIfOlderThan(interest_group, update_if_older_than);
     std::optional<double> new_priority;
     if (!priority_vector.empty()) {
       new_priority = CalculateInterestGroupPriority(
@@ -1454,6 +1467,10 @@ class InterestGroupAuction::BuyerHelper
       // owned by `generate_bid_client_receiver_set_`, deleting the bid isn't
       // sufficient.
       CloseBidStatePipes(*bid_states_[i]);
+      if (bid_states_[i]->trace_id) {
+        TRACE_EVENT_INSTANT("fledge", "bid_exceeds_size_limit",
+                            *bid_states_[i]->trace_id);
+      }
     }
     auction_->auction_metrics_recorder_->RecordBidsFilteredByPerBuyerLimits(
         bid_states_.size() - size_limit_);
@@ -1684,6 +1701,9 @@ class InterestGroupAuction::BuyerHelper
     UMA_HISTOGRAM_BOOLEAN("Ads.InterestGroup.Auction.BidFiltered",
                           bid_filtered);
     if (bid_filtered) {
+      if (state->trace_id) {
+        TRACE_EVENT_INSTANT("fledge", "bid_filtered", *state->trace_id);
+      }
       // Record if there are other bidders, as if there are not, the next call
       // may delete `this`.
       bool other_bidders = (num_outstanding_bids_ > 1);
@@ -1833,14 +1853,44 @@ class InterestGroupAuction::BuyerHelper
     }
 
     // The mojom API declaration should ensure none of these are null.
-    DCHECK(base::ranges::none_of(
-        pa_requests,
-        [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
-               request_ptr) { return request_ptr.is_null(); }));
-    DCHECK(base::ranges::none_of(
-        non_kanon_pa_requests,
-        [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
-               request_ptr) { return request_ptr.is_null(); }));
+    CHECK(base::ranges::none_of(
+              pa_requests,
+              [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
+                     request_ptr) { return request_ptr.is_null(); }),
+          base::NotFatalUntil::M128);
+    CHECK(base::ranges::none_of(
+              non_kanon_pa_requests,
+              [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
+                     request_ptr) { return request_ptr.is_null(); }),
+          base::NotFatalUntil::M128);
+
+    // TODO(crbug.com/330744610): Allow filtering IDs to be set.
+    if (base::ranges::any_of(
+            pa_requests,
+            [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
+                   request_ptr) {
+              return request_ptr->contribution->is_histogram_contribution() &&
+                     request_ptr->contribution->get_histogram_contribution()
+                         ->filtering_id.has_value();
+            })) {
+      mojo_bids.clear();
+      pa_requests.clear();
+      generate_bid_client_receiver_set_.ReportBadMessage(
+          "Filtering ID set inappropriately");
+    }
+    if (base::ranges::any_of(
+            non_kanon_pa_requests,
+            [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
+                   request_ptr) {
+              return request_ptr->contribution->is_histogram_contribution() &&
+                     request_ptr->contribution->get_histogram_contribution()
+                         ->filtering_id.has_value();
+            })) {
+      mojo_bids.clear();
+      non_kanon_pa_requests.clear();
+      generate_bid_client_receiver_set_.ReportBadMessage(
+          "Filtering ID set inappropriately");
+    }
     auction_->MaybeLogPrivateAggregationWebFeatures(pa_requests);
     if (!pa_requests.empty()) {
       BidState::PrivateAggregationPhaseKey agg_key = {
@@ -2588,7 +2638,7 @@ bool InterestGroupAuction::HandleServerResponseImpl(
     AdAuctionPageData& ad_auction_page_data) {
   // Check that response was witnessed by seller origin.
   std::array<uint8_t, crypto::kSHA256Length> hash =
-      crypto::SHA256Hash(response.byte_span());
+      crypto::SHA256Hash(response);
   if (!ad_auction_page_data.WitnessedAuctionResultForOrigin(
           config_->seller,
           std::string(reinterpret_cast<char*>(hash.data()), hash.size()))) {
@@ -3114,9 +3164,9 @@ std::optional<blink::AdSize> InterestGroupAuction::RequestedAdSize() const {
   return config_->non_shared_params.requested_size;
 }
 
-base::StringPiece GetRejectReasonString(
+std::string_view GetRejectReasonString(
     const auction_worklet::mojom::RejectReason reject_reason) {
-  base::StringPiece reject_reason_str;
+  std::string_view reject_reason_str;
   switch (reject_reason) {
     case auction_worklet::mojom::RejectReason::kNotAvailable:
       reject_reason_str = "not-available";
@@ -3279,7 +3329,9 @@ bool InterestGroupAuction::ReportPaBuyersValueIfAllowed(
                   blink::mojom::AggregatableReportHistogramContribution::New(
                       *bucket_base + report_buyers_config->bucket,
                       base::saturated_cast<int32_t>(
-                          std::max(0.0, value * report_buyers_config->scale)))),
+                          std::max(0.0, value * report_buyers_config->scale)),
+                      // TODO(crbug.com/330744610): Allow filtering ID to be set
+                      /*filtering_id=*/std::nullopt)),
           // TODO(caraitto): Consider allowing this to be set.
           blink::mojom::AggregationServiceMode::kDefault,
           std::move(debug_mode_details)));
@@ -3477,7 +3529,7 @@ InterestGroupAuction::TakeReservedPrivateAggregationRequests() {
         requests_map = component_auction_info.second
                            ->TakeReservedPrivateAggregationRequests();
     for (auto& [agg_key, requests] : requests_map) {
-      DCHECK(!requests.empty());
+      CHECK(!requests.empty(), base::NotFatalUntil::M128);
       PrivateAggregationRequests& destination_vector =
           private_aggregation_requests_reserved_[agg_key];
       destination_vector.insert(destination_vector.end(),
@@ -3495,7 +3547,7 @@ InterestGroupAuction::TakeNonReservedPrivateAggregationRequests() {
         component_auction_info.second
             ->TakeNonReservedPrivateAggregationRequests();
     for (auto& [event_type, requests] : requests_map) {
-      DCHECK(!requests.empty());
+      CHECK(!requests.empty(), base::NotFatalUntil::M128);
       PrivateAggregationRequests& destination_vector =
           private_aggregation_requests_non_reserved_[event_type];
       destination_vector.insert(destination_vector.end(),
@@ -3623,7 +3675,8 @@ base::flat_set<std::string> InterestGroupAuction::GetKAnonKeysToJoin() const {
 void InterestGroupAuction::MaybeLogPrivateAggregationWebFeatures(
     const std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>&
         private_aggregation_requests) {
-  DCHECK(maybe_log_private_aggregation_web_features_callback_);
+  CHECK(maybe_log_private_aggregation_web_features_callback_,
+        base::NotFatalUntil::M128);
   maybe_log_private_aggregation_web_features_callback_.Run(
       private_aggregation_requests);
 }
@@ -4123,6 +4176,28 @@ void InterestGroupAuction::ScoreQueuedBidsIfReady() {
   DCHECK(unscored_bids_.empty());
 }
 
+void InterestGroupAuction::HandleUpdateIfOlderThan(
+    const blink::InterestGroup& interest_group,
+    std::optional<base::TimeDelta> update_if_older_than) {
+  if (!base::FeatureList::IsEnabled(
+          features::kInterestGroupUpdateIfOlderThan)) {
+    return;
+  }
+  if (!update_if_older_than) {
+    return;
+  }
+  base::UmaHistogramCustomTimes(
+      "Ads.InterestGroup.UpdateIfOlderThan", *update_if_older_than,
+      kMinUpdateIfOlderThanHistogram, kMaxUpdateIfOlderThanHistogram,
+      kUpdateIfOlderThanBuckets);
+  if (*update_if_older_than < base::Minutes(10)) {
+    *update_if_older_than = base::Minutes(10);
+  }
+  interest_group_manager_->AllowUpdateIfOlderThan(
+      blink::InterestGroupKey(interest_group.owner, interest_group.name),
+      *update_if_older_than);
+}
+
 void InterestGroupAuction::HandleAdditionalBidError(AdditionalBidResult result,
                                                     std::string error) {
   auction_metrics_recorder_->RecordAdditionalBidResult(result);
@@ -4456,7 +4531,8 @@ bool InterestGroupAuction::ValidateScoreBidCompleteResult(
         component_auction_modified_bid_params,
     std::optional<double> bid_in_seller_currency,
     const std::optional<GURL>& debug_loss_report_url,
-    const std::optional<GURL>& debug_win_report_url) {
+    const std::optional<GURL>& debug_win_report_url,
+    const PrivateAggregationRequests& pa_requests) {
   DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   // If `debug_loss_report_url` or `debug_win_report_url` is not a valid HTTPS
   // URL, the auction should fail because the worklet is compromised.
@@ -4513,6 +4589,19 @@ bool InterestGroupAuction::ValidateScoreBidCompleteResult(
     score_ad_receivers_.ReportBadMessage("Invalid bid_in_seller_currency");
     return false;
   }
+
+  // TODO(crbug.com/330744610): Allow filtering IDs to be set.
+  if (base::ranges::any_of(
+          pa_requests,
+          [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
+                 request_ptr) {
+            return request_ptr->contribution->is_histogram_contribution() &&
+                   request_ptr->contribution->get_histogram_contribution()
+                       ->filtering_id.has_value();
+          })) {
+    score_ad_receivers_.ReportBadMessage("Filtering ID set inappropriately");
+    return false;
+  }
   return true;
 }
 
@@ -4535,8 +4624,8 @@ void InterestGroupAuction::OnScoreAdComplete(
 
   if (!ValidateScoreBidCompleteResult(
           score, component_auction_modified_bid_params.get(),
-          bid_in_seller_currency, debug_loss_report_url,
-          debug_win_report_url)) {
+          bid_in_seller_currency, debug_loss_report_url, debug_win_report_url,
+          pa_requests)) {
     OnBiddingAndScoringComplete(AuctionResult::kBadMojoMessage);
     return;
   }
@@ -4564,13 +4653,14 @@ void InterestGroupAuction::OnScoreAdComplete(
   // run that produces the result of runAdAuction().
   if (IsBidRoleUsedForWinner(kanon_mode_, bid->bid_role)) {
     // The mojom API declaration should ensure none of these are null.
-    DCHECK(base::ranges::none_of(
-        pa_requests,
-        [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
-               request_ptr) { return request_ptr.is_null(); }));
+    CHECK(base::ranges::none_of(
+              pa_requests,
+              [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
+                     request_ptr) { return request_ptr.is_null(); }),
+          base::NotFatalUntil::M128);
     MaybeLogPrivateAggregationWebFeatures(pa_requests);
     if (!pa_requests.empty()) {
-      DCHECK(config_);
+      CHECK(config_, base::NotFatalUntil::M128);
       BidState::PrivateAggregationPhaseKey agg_key = {
           config_->seller, seller_phase(),
           config_->aggregation_coordinator_origin};
@@ -4958,9 +5048,8 @@ void InterestGroupAuction::OnDecompressedServerResponse(
     }
     return;
   }
-  base::span<const uint8_t> result_span = result.value().byte_span();
   data_decoder->ParseCbor(
-      result_span,
+      result.value(),
       base::BindOnce(
           &InterestGroupAuction::OnParsedServerResponse,
           weak_ptr_factory_.GetWeakPtr(),
@@ -5141,7 +5230,8 @@ void InterestGroupAuction::CreateBidFromServerResponse() {
   if (saved_response_->result != AuctionResult::kSuccess) {
     return;
   }
-  if (!saved_response_->bid) {
+  // We require a bid for component auctions. Otherwise we use a fake value.
+  if (parent_ && !saved_response_->bid) {
     saved_response_->result = AuctionResult::kInvalidServerResponse;
     errors_.emplace_back("runAdAuction(): Missing bid value");
     return;
@@ -5156,7 +5246,7 @@ void InterestGroupAuction::CreateBidFromServerResponse() {
   std::unique_ptr<Bid> bid =
       buyer_helpers_[0]->TryToCreateBidFromServerResponse(
           auction_worklet::mojom::BidRole::kUnenforcedKAnon,
-          saved_response_->bid.value(), saved_response_->bid_currency,
+          saved_response_->bid.value_or(0.0001), saved_response_->bid_currency,
           saved_response_->ad_metadata,
           /*ad_descriptor=*/
           blink::AdDescriptor(saved_response_->ad_render_url),

@@ -12,13 +12,13 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "base/types/strong_alias.h"
 #include "base/values.h"
@@ -34,6 +34,7 @@
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/clipboard_types.h"
 #include "content/public/browser/commit_deferring_condition.h"
+#include "content/public/browser/digital_identity_provider.h"
 #include "content/public/browser/file_system_access_permission_context.h"
 #include "content/public/browser/generated_code_cache_settings.h"
 #include "content/public/browser/interest_group_api_operation.h"
@@ -73,6 +74,7 @@
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_cloud_identifier.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_error.mojom-forward.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
+#include "third_party/blink/public/mojom/model_execution/model_manager.mojom.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom-forward.h"
 #include "third_party/blink/public/mojom/payments/payment_credential.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
@@ -89,6 +91,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "media/capture/mojom/video_effects_manager.mojom.h"
+#include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace net {
@@ -231,7 +234,6 @@ class FontAccessDelegate;
 class HidDelegate;
 class IdentityRequestDialogController;
 class LoginDelegate;
-class DigitalIdentityProvider;
 class MediaObserver;
 class NavigationHandle;
 class NavigationThrottle;
@@ -302,7 +304,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   // expected to be copied. Otherwise, `replacement_data` should be written in
   // plaintext to the clipboard.
   using IsClipboardCopyAllowedCallback =
-      base::OnceCallback<void(const ClipboardPasteData& data,
+      base::OnceCallback<void(const ui::ClipboardFormatType& type,
+                              const ClipboardPasteData& data,
                               std::optional<std::u16string> replacement_data)>;
 
   virtual ~ContentBrowserClient() = default;
@@ -461,7 +464,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // matching_scheme_cookies_allowed_schemes, but maybe we should remove that
   // anyway.
   virtual bool ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
-      base::StringPiece scheme,
+      std::string_view scheme,
       bool is_embedded_origin_secure);
 
   // Similar to the above. Returns whether SameSite cookie restrictions should
@@ -472,7 +475,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // be different, as SameSite restrictions and third-party cookie blocking are
   // related but have different semantics.
   virtual bool ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
-      base::StringPiece scheme,
+      std::string_view scheme,
       bool is_embedded_origin_secure);
 
   // Gets a user friendly display name for a given |site_url| to be used in the
@@ -684,11 +687,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool IsIsolatedContextAllowedForUrl(BrowserContext* browser_context,
                                               const GURL& lock_url);
 
-  // Check if applications whose origin is |origin| are allowed to perform
-  // all-screens-auto-selection, which allows automatic capturing of all
-  // screens with the getAllScreensMedia API.
-  virtual bool IsGetAllScreensMediaAllowed(content::BrowserContext* context,
-                                           const url::Origin& origin);
+  // Check if the application running in the |render_frame_host| is allowed to
+  // automatically capture all screens by using the getAllScreensMedia API.
+  virtual void CheckGetAllScreensMediaAllowed(
+      content::RenderFrameHost* render_frame_host,
+      base::OnceCallback<void(bool)> callback);
 
   // Allow the embedder to control the maximum renderer process count. Only
   // applies if it is set to a non-zero value.  Once this limit is exceeded,
@@ -994,10 +997,10 @@ class CONTENT_EXPORT ContentBrowserClient {
       const url::Origin* reporting_origin,
       bool* can_bypass);
 
-  // Specifies whether an OS attribution event should be logged
+  // Specifies whether an OS attribution event should register
   // against the top level origin (web) or the app (OS) or if
   // OS attribution is disabled.
-  enum class AttributionReportingOsReportType {
+  enum class AttributionReportingOsRegistrar {
     kWeb,
     kOs,
     kDisabled,
@@ -1009,18 +1012,18 @@ class CONTENT_EXPORT ContentBrowserClient {
   // OS attribution is disabled. The behaviour can be the same or different
   // for source and trigger events so this struct is used to hold the behaviour
   // for the different event types.
-  struct AttributionReportingOsReportTypes {
-    AttributionReportingOsReportType source_report_type;
-    AttributionReportingOsReportType trigger_report_type;
+  struct AttributionReportingOsRegistrars {
+    AttributionReportingOsRegistrar source_registrar;
+    AttributionReportingOsRegistrar trigger_registrar;
 
-    auto operator<=>(const AttributionReportingOsReportTypes&) const = default;
+    auto operator<=>(const AttributionReportingOsRegistrars&) const = default;
   };
 
   // Allows the embedder to control if OS attribution source/trigger events
   // should register against the top level origin (web) or the app (OS) or if
   // OS attribution is disabled.
-  virtual AttributionReportingOsReportTypes
-  GetAttributionReportingOsReportTypes(WebContents* web_contents);
+  virtual AttributionReportingOsRegistrars GetAttributionReportingOsRegistrars(
+      WebContents* web_contents);
 
   // Allows the embedder to control if Attribution Reporting API is allowed in a
   // given context. This method checks the API-level permission.
@@ -1374,7 +1377,11 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Creates a new TracingDelegate. The caller owns the returned value.
   // It's valid to return nullptr.
-  virtual TracingDelegate* GetTracingDelegate();
+  virtual std::unique_ptr<TracingDelegate> CreateTracingDelegate();
+
+  // Whether system-wide performance trace collection using the external system
+  // tracing service is enabled.
+  virtual bool IsSystemWideTracingEnabled();
 
   // Returns true if plugin referred to by the url can use
   // pp::FileIO::RequestOSFileHandle.
@@ -1840,6 +1847,14 @@ class CONTENT_EXPORT ContentBrowserClient {
   // TODO(lukasza): https://crbug.com/888079: Ensure that |request_initiator| is
   // always accurate.
   //
+  // |isolation_info| is only set for untrusted factories (according to
+  // |URLLoaderFactoryParams::is_trusted|). It is empty for trusted factories
+  // as they have no fixed IsolationInfo.
+  // |isolation_info| value should be identical to
+  // |URLLoaderFactoryParams::isolation_info|.
+  // For more information about trusted factories, see documentation at
+  // |network.mojom.URLRequest.trusted_params|.
+  //
   // |navigation_id| is valid iff |type| is |kNavigation|. It corresponds to the
   // Navigation ID returned by NavigationHandle::GetNavigationId().
   //
@@ -1888,6 +1903,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       int render_process_id,
       URLLoaderFactoryType type,
       const url::Origin& request_initiator,
+      const net::IsolationInfo& isolation_info,
       std::optional<int64_t> navigation_id,
       ukm::SourceIdObj ukm_source_id,
       network::URLLoaderFactoryBuilder& factory_builder,
@@ -2162,7 +2178,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // ThreadPoolInstance was created.
   // Note: the embedder should *not* start the ThreadPoolInstance for
   // BrowserMainLoop, BrowserMainLoop itself is responsible for that.
-  virtual bool CreateThreadPool(base::StringPiece name);
+  virtual bool CreateThreadPool(std::string_view name);
 
   // Returns true if the tab security level is acceptable to allow WebAuthn
   // requests, false otherwise. This is not attached to
@@ -2596,6 +2612,17 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual std::unique_ptr<IdentityRequestDialogController>
   CreateIdentityRequestDialogController(WebContents* web_contents);
 
+  // Determines whether to show interstitial to prompt user whether they want to
+  // share their identity with the web page. Shows the interstitial if one is
+  // needed. Runs callback immediately if no interestitial is needed or after
+  // the user dismisses the interstitial if an interstitial is needed.
+  using DigitalIdentityInterstitialCallback = base::OnceCallback<void(
+      DigitalIdentityProvider::RequestStatusForMetrics status_for_metrics)>;
+  virtual void ShowDigitalIdentityInterstitialIfNeeded(
+      WebContents& web_contents,
+      const url::Origin& origin,
+      DigitalIdentityInterstitialCallback callback);
+
   // Creates a digital credential provider to fetch from native apps.
   virtual std::unique_ptr<DigitalIdentityProvider>
   CreateDigitalIdentityProvider();
@@ -2796,9 +2823,17 @@ class CONTENT_EXPORT ContentBrowserClient {
   // effect settings.
   virtual void BindVideoEffectsManager(
       const std::string& device_id,
-      content::BrowserContext* browser_context,
+      BrowserContext* browser_context,
       mojo::PendingReceiver<media::mojom::VideoEffectsManager>
           video_effects_manager);
+
+  // Allows the embedder to correlate backend media services with profile-keyed
+  // effect settings.
+  virtual void BindVideoEffectsProcessor(
+      const std::string& device_id,
+      BrowserContext* browser_context,
+      mojo::PendingReceiver<video_effects::mojom::VideoEffectsProcessor>
+          video_effects_processor);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   // Re-order audio device `infos` based on user preference. The ordering will
@@ -2847,6 +2882,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // this is used to not move VoiceOver's focus on navigation. This is used
   // today to suppress the event when the user navigates to the new tab page.
   virtual bool ShouldSuppressAXLoadComplete(RenderFrameHost* rfh);
+
+  virtual void BindModelManager(
+      RenderFrameHost* rfh,
+      mojo::PendingReceiver<blink::mojom::ModelManager> receiver);
 };
 
 }  // namespace content

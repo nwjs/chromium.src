@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import {assert} from 'chrome://resources/js/assert.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
 import {SeaPenImageId} from './constants.js';
 import {MantaStatusCode, RecentSeaPenThumbnailData, SeaPenThumbnail} from './sea_pen.mojom-webui.js';
@@ -17,6 +18,7 @@ function loadingReducer(
         ...state,
         thumbnails: true,
       };
+    case SeaPenActionName.CLEAR_SEA_PEN_THUMBNAILS_LOADING:
     case SeaPenActionName.SET_SEA_PEN_THUMBNAILS:
       return {
         ...state,
@@ -198,11 +200,32 @@ function thumbnailsReducer(
   }
 }
 
-function shouldShowSeaPenTermsOfServiceDialogReducer(
+function shouldShowSeaPenIntroductionDialogReducer(
     state: boolean, action: SeaPenActions): boolean {
   switch (action.name) {
-    case SeaPenActionName.SET_SHOULD_SHOW_SEA_PEN_TERMS_OF_SERVICE_DIALOG:
+    case SeaPenActionName.SET_SHOULD_SHOW_SEA_PEN_INTRODUCTION_DIALOG:
       return action.shouldShowDialog;
+    default:
+      return state;
+  }
+}
+
+function errorReducer(state: string|null, action: SeaPenActions): string|null {
+  switch (action.name) {
+    case SeaPenActionName.END_SELECT_RECENT_SEA_PEN_IMAGE:
+    case SeaPenActionName.END_SELECT_SEA_PEN_THUMBNAIL:
+      if (!action.success) {
+        // TODO(b/332743948) make error messages for this flow use manta status
+        // code.
+        return loadTimeData.getString('seaPenErrorGeneric');
+      }
+      return null;
+    case SeaPenActionName.BEGIN_SELECT_SEA_PEN_THUMBNAIL:
+    case SeaPenActionName.BEGIN_SELECT_RECENT_SEA_PEN_IMAGE:
+    case SeaPenActionName.DISMISS_SEA_PEN_ERROR_ACTION:
+    case SeaPenActionName.BEGIN_SEARCH_SEA_PEN_THUMBNAILS:
+    case SeaPenActionName.CLEAR_SEA_PEN_THUMBNAILS:
+      return null;
     default:
       return state;
   }
@@ -220,9 +243,10 @@ export function seaPenReducer(
     currentSelected: currentSelectedReducer(state.currentSelected, action),
     pendingSelected:
         pendingSelectedReducer(state.pendingSelected, action, state),
-    shouldShowSeaPenTermsOfServiceDialog:
-        shouldShowSeaPenTermsOfServiceDialogReducer(
-            state.shouldShowSeaPenTermsOfServiceDialog, action),
+    shouldShowSeaPenIntroductionDialog:
+        shouldShowSeaPenIntroductionDialogReducer(
+            state.shouldShowSeaPenIntroductionDialog, action),
+    error: errorReducer(state.error, action),
   };
   return newState;
 }

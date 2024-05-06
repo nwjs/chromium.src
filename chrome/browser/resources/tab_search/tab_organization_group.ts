@@ -9,6 +9,7 @@ import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
 import 'chrome://resources/cr_elements/mwb_shared_style.css.js';
 import 'chrome://resources/polymer/v3_0/iron-selector/iron-selector.js';
 import './strings.m.js';
+import './tab_organization_new_badge.js';
 import './tab_organization_results_actions.js';
 import './tab_organization_shared_style.css.js';
 import './tab_search_item.js';
@@ -43,6 +44,11 @@ export class TabOrganizationGroupElement extends PolymerElement {
         observer: 'onTabsChange_',
       },
 
+      firstNewTabIndex: {
+        type: Number,
+        value: 0,
+      },
+
       name: {
         type: String,
         value: '',
@@ -56,6 +62,11 @@ export class TabOrganizationGroupElement extends PolymerElement {
       organizationId: {
         type: Number,
         value: -1,
+      },
+
+      showReject: {
+        type: Boolean,
+        value: false,
       },
 
       lastFocusedIndex_: {
@@ -77,9 +88,11 @@ export class TabOrganizationGroupElement extends PolymerElement {
   }
 
   tabs: Tab[];
+  firstNewTabIndex: number;
   name: string;
   multiTabOrganization: boolean;
   organizationId: number;
+  showReject: boolean;
 
   private lastFocusedIndex_: number;
   private showInput_: boolean;
@@ -128,6 +141,18 @@ export class TabOrganizationGroupElement extends PolymerElement {
 
   private getInputAriaLabel_() {
     return loadTimeData.getStringF('inputAriaLabel', this.name);
+  }
+
+  private getEditButtonAriaLabel_() {
+    return loadTimeData.getStringF('editAriaLabel', this.name);
+  }
+
+  private getRejectButtonAriaLabel_() {
+    return loadTimeData.getStringF('rejectAriaLabel', this.name);
+  }
+
+  private showNewTabSectionHeader_(index: number) {
+    return this.firstNewTabIndex > 0 && this.firstNewTabIndex === index;
   }
 
   private onInputFocus_() {

@@ -4,11 +4,13 @@
 
 #include "ui/base/dragdrop/os_exchange_data_provider_win.h"
 
-#include <coml2api.h>
 #include <objbase.h>
+
+#include <shobjidl.h>
+
+#include <coml2api.h>
 #include <objidl.h>
 #include <shlobj.h>
-#include <shobjidl.h>
 #include <stdint.h>
 #include <wrl/client.h>
 
@@ -668,23 +670,19 @@ void OSExchangeDataProviderWin::GetVirtualFilesAsTempFiles(
                                              std::move(callback));
 }
 
-bool OSExchangeDataProviderWin::GetPickledData(
-    const ClipboardFormatType& format,
-    base::Pickle* data) const {
-  DCHECK(data);
-  bool success = false;
+std::optional<base::Pickle> OSExchangeDataProviderWin::GetPickledData(
+    const ClipboardFormatType& format) const {
   STGMEDIUM medium;
   FORMATETC format_etc = format.ToFormatEtc();
   if (SUCCEEDED(source_object_->GetData(&format_etc, &medium))) {
     if (medium.tymed & TYMED_HGLOBAL) {
       base::win::ScopedHGlobal<char*> c_data(medium.hGlobal);
       DCHECK_GT(c_data.size(), 0u);
-      *data = base::Pickle(base::as_bytes(base::span(c_data)));
-      success = true;
+      return base::Pickle::WithData(base::as_bytes(base::span(c_data)));
     }
     ReleaseStgMedium(&medium);
   }
-  return success;
+  return std::nullopt;
 }
 
 std::optional<OSExchangeDataProvider::FileContentsInfo>

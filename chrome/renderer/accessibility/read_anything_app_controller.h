@@ -24,7 +24,6 @@
 #include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_position.h"
 #include "ui/accessibility/ax_tree_update_forward.h"
-#include "url/gurl.h"
 
 namespace content {
 class RenderFrame;
@@ -91,7 +90,6 @@ class ReadAnythingAppController
       const std::vector<ui::AXEvent>& events) override;
   void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id,
                                ukm::SourceId ukm_source_id,
-                               const GURL& hostname,
                                bool is_pdf) override;
   void OnAXTreeDestroyed(const ui::AXTreeID& tree_id) override;
   void OnThemeChanged(
@@ -106,7 +104,7 @@ class ReadAnythingAppController
       double speech_rate,
       base::Value::Dict voices,
       read_anything::mojom::HighlightGranularity granularity) override;
-  void SetDefaultLanguageCode(const std::string& code) override;
+  void SetLanguageCode(const std::string& code) override;
   void ScreenAIServiceReady() override;
 
   // gin templates:
@@ -162,10 +160,9 @@ class ReadAnythingAppController
                          ui::AXNodeID focus_node_id,
                          int focus_offset) const;
   void OnCollapseSelection() const;
-  bool IsSelectable() const;
+  bool IsGoogleDocs() const;
   bool IsWebUIToolbarEnabled() const;
   bool IsReadAloudEnabled() const;
-  bool IsGoogleDocs() const;
   void OnStandardLineSpacing();
   void OnLooseLineSpacing();
   void OnVeryLooseLineSpacing();
@@ -200,10 +197,7 @@ class ReadAnythingAppController
   void Draw();
   void DrawSelection();
 
-  void ExecuteJavaScript(std::string script);
-
-  void UnserializeUpdates(std::vector<ui::AXTreeUpdate> updates,
-                          const ui::AXTreeID& tree_id);
+  void ExecuteJavaScript(const std::string& script);
 
   // Called when distillation has completed.
   void OnAXTreeDistilled(const ui::AXTreeID& tree_id,
@@ -219,7 +213,7 @@ class ReadAnythingAppController
   // Inits the AXPosition with a starting node.
   // TODO(crbug.com/1474951): We should be able to use AXPosition in a way
   // where this isn't needed.
-  void InitAXPositionWithNode(const ui::AXNodeID starting_node_id);
+  void InitAXPositionWithNode(const ui::AXNodeID& starting_node_id);
 
   // Returns a list of AXNodeIds representing the next nodes that should be
   // spoken and highlighted with Read Aloud.
@@ -291,6 +285,9 @@ class ReadAnythingAppController
                           int line_spacing,
                           int letter_spacing);
   void SetLanguageForTesting(const std::string& language_code);
+
+  // Helper for logging UmaHistograms based on times recorded in WebUI.
+  void LogUmaHistogramLongTimes(int64_t time, std::string metric);
 
   content::RenderFrame* GetRenderFrame();
 

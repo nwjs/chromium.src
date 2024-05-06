@@ -47,7 +47,6 @@
 #include "components/sync/protocol/reading_list_specifics.pb.h"
 #include "components/sync/protocol/saved_tab_group_specifics.pb.h"
 #include "components/sync/protocol/search_engine_specifics.pb.h"
-#include "components/sync/protocol/segmentation_specifics.pb.h"
 #include "components/sync/protocol/send_tab_to_self_specifics.pb.h"
 #include "components/sync/protocol/session_specifics.pb.h"
 #include "components/sync/protocol/shared_tab_group_data_specifics.pb.h"
@@ -618,7 +617,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(52 == GetNumModelTypes(),
+  static_assert(51 == GetNumModelTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -659,7 +658,6 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(saved_tab_group);
   VISIT(search_engine);
   VISIT(security_event);
-  VISIT(segmentation);
   VISIT(send_tab_to_self);
   VISIT(session);
   VISIT(shared_tab_group_data);
@@ -772,7 +770,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ModelTypeState& proto) {
   VISIT(progress_marker);
   VISIT(type_context);
   VISIT(encryption_key_name);
-  VISIT(initial_sync_done_deprecated);
   VISIT_ENUM(initial_sync_state);
   VISIT(cache_guid);
   VISIT(authenticated_account_id);
@@ -943,8 +940,8 @@ VISIT_PROTO_FIELDS(const sync_pb::HistorySpecifics& proto) {
 
 VISIT_PROTO_FIELDS(
     const sync_pb::NigoriSpecifics::AutoUpgradeDebugInfo& proto) {
-  VISIT_ENUM(auto_upgrade_state);
-  VISIT(eligibility_group_id);
+  VISIT_ENUM(auto_upgrade_experiment_group);
+  VISIT(auto_upgrade_cohort_id);
 }
 
 VISIT_PROTO_FIELDS(
@@ -1153,6 +1150,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroup& proto) {
   VISIT(position);
   VISIT(title);
   VISIT_ENUM(color);
+  VISIT(pinned_position);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroupTab& proto) {
@@ -1195,43 +1193,6 @@ VISIT_PROTO_FIELDS(const sync_pb::SendTabToSelfSpecifics& proto) {
   VISIT(target_device_sync_cache_guid);
   VISIT(opened);
   VISIT(notification_dismissed);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::SegmentationSpecifics& proto) {
-  VISIT(segmentation_key);
-  VISIT(segment_selection_result);
-  VISIT(device_metadata);
-  VISIT_REP(model_execution_data);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::SegmentationSpecifics::SegmentSelectionResult& proto) {
-  VISIT(selected_segment);
-  VISIT(expiry_time_windows_epoch_seconds);
-  VISIT(last_updated_time_windows_epoch_seconds);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::SegmentationSpecifics::DeviceMetadata& proto) {
-  VISIT(cache_guid);
-  VISIT_ENUM(platform_type);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::SegmentationSpecifics::ModelExecutionData& proto) {
-  VISIT(model_id);
-  VISIT_REP(model_outputs);
-  VISIT(execution_time_windows_epoch_seconds);
-  VISIT(score_expiry_time_windows_epoch_seconds);
-  VISIT(model_version);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::SegmentationSpecifics::ModelExecutionData::ModelOutput&
-        proto) {
-  VISIT(label);
-  VISIT(score);
-  VISIT(rank);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SessionHeader& proto) {

@@ -41,7 +41,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/extensions/active_tab_permission_granter.h"
 #include "chrome/browser/extensions/api/extension_action/test_extension_action_api_observer.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -49,7 +48,8 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/load_error_reporter.h"
-#include "chrome/browser/extensions/scripting_permissions_modifier.h"
+#include "chrome/browser/extensions/permissions/active_tab_permission_granter.h"
+#include "chrome/browser/extensions/permissions/scripting_permissions_modifier.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/net/profile_network_context_service.h"
 #include "chrome/browser/net/profile_network_context_service_factory.h"
@@ -1978,8 +1978,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, UpgradeRules) {
       {"|http:*yahoo", 2, 100, "redirect", "http://other.com"},
       // Since the test server can only display http requests, redirect all
       // https requests to google.com in the end.
-      // TODO(crbug.com/985104): Add a https test server to display https pages
-      // so this redirect rule can be removed.
+      // TODO(crbug.com/41471360): Add a https test server to display https
+      // pages so this redirect rule can be removed.
       {"|https*", 3, 6, "redirect", google_url.spec()},
       {"exact.com", 4, 5, "block", std::nullopt},
   };
@@ -3998,7 +3998,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 // Test that the actions matched badge text for an extension will be reset
 // when a main-frame navigation finishes.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
-                       // TODO(crbug.com/1331228): Re-enable this test
+                       // TODO(crbug.com/40843749): Re-enable this test
                        DISABLED_ActionsMatchedCountAsBadgeTextMainFrame) {
   auto get_url_for_host = [this](std::string hostname) {
     return embedded_test_server()->GetURL(hostname,
@@ -5356,7 +5356,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestAllowAllRequestsBrowserTest,
           {});
 }
 
-// TODO(crbug.com/1334363): Re-enable this test on MAC
+// TODO(crbug.com/40846422): Re-enable this test on MAC
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_TestPostNavigationMatched DISABLED_TestPostNavigationMatched
 #else
@@ -5385,7 +5385,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestAllowAllRequestsBrowserTest,
           {}, true);
 }
 
-// TODO(crbug.com/1344372): Re-enable this test on MAC
+// TODO(crbug.com/40852913): Re-enable this test on MAC
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_TestPostNavigationNotMatched DISABLED_TestPostNavigationNotMatched
 #else
@@ -6473,7 +6473,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestGlobalRulesBrowserTest_Packed,
 
 // Test that GetAvailableStaticRuleCount includes the excess unused allocation
 // after an extension update.
-// TODO(crbug.com/1399879): Deflake and re-enable.
+// TODO(crbug.com/40883375): Deflake and re-enable.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestGlobalRulesBrowserTest_Packed,
                        DISABLED_GetAvailableStaticRuleCountAfterPackedUpdate) {
   // This is not tested for unpacked extensions since the unpacked extension
@@ -7387,12 +7387,41 @@ IN_PROC_BROWSER_TEST_P(DNRMatchResponseHeadersBrowserTest,
       {"example.com", 3, kMinValidPriority, "redirect", redirected_url.spec()},
       {"example.com", 4, kMinValidPriority + 10, "block", std::nullopt,
        std::vector<TestHeaderCondition>(
-           {TestHeaderCondition("nonsense-header", {}, {})})}};
+           {TestHeaderCondition("nonsense-header", {}, {})})},
+
+      // For abc.com, there is an allow rule in onBeforeRequest and a block rule
+      // in onHeadersReceived. The block rule should take precedence because its
+      // priority exceeds that of the allow rule's.
+      {"abc.com", 5, kMinValidPriority, "allow"},
+      {"abc.com", 6, kMinValidPriority + 10, "block", std::nullopt,
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("nonsense-header", {}, {})})},
+
+      // For def.com, there is an allow rule in onBeforeRequest and a block rule
+      // in onHeadersReceived. The allow rule should take precedence because its
+      // priority exceeds that of the block rule's even though the allow rule is
+      // matched in an earlier request stage.
+      {"def.com", 7, kMinValidPriority + 10, "allow"},
+      {"def.com", 8, kMinValidPriority, "block", std::nullopt,
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("nonsense-header", {}, {})})},
+
+      // For abc.com, there is a block rule in onBeforeRequest and an allow rule
+      // with a higher priority in onHeadersReceived. Any request to ghi.com
+      // should be blocked because there is enough info to match the block rule
+      // in onBeforeRequest, without the request ever continuing onto later
+      // stages.
+      {"ghi.com", 9, kMinValidPriority, "block"},
+      {"ghi.com", 10, kMinValidPriority + 10, "allow", std::nullopt,
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("nonsense-header", {}, {})})},
+  };
 
   // Load the extension.
   std::vector<TestRule> rules;
   for (const auto& rule_data : rules_data) {
     TestRule rule = CreateGenericRule(rule_data.id);
+    rule.priority = rule_data.priority;
     rule.action->type = rule_data.type;
 
     rule.condition->url_filter = rule_data.filter;
@@ -7413,6 +7442,11 @@ IN_PROC_BROWSER_TEST_P(DNRMatchResponseHeadersBrowserTest,
   ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules(
       rules, "test_extension", {URLPattern::kAllUrlsPattern}));
 
+  auto get_url = [this](const std::string& hostname) {
+    return embedded_test_server()->GetURL(hostname,
+                                          "/pages_with_script/index.html");
+  };
+
   GURL google_url = embedded_test_server()->GetURL(
       "google.com", "/pages_with_script/index.html");
   GURL example_url = embedded_test_server()->GetURL(
@@ -7431,9 +7465,27 @@ IN_PROC_BROWSER_TEST_P(DNRMatchResponseHeadersBrowserTest,
       // The request should be redirected since rule with id 3 should take
       // action in the onBeforeRequest stage and rule with id 4 should never be
       // matched.
-      {"example.com", "/pages_with_script/index.html", true, redirected_url}};
+      {"example.com", "/pages_with_script/index.html", true, redirected_url},
+
+      // The request should be blocked since the block rule with id 6 has a
+      // higher priority than the allow rule with id 5 even though both rules
+      // match.
+      {"abc.com", "/pages_with_script/index.html", false, get_url("abc.com")},
+
+      // The request should not be blocked since the allow rule with id 7 has a
+      // higher priority than the block rule with id 8 which prevents the block
+      // rule from taking effect.
+      {"def.com", "/pages_with_script/index.html", true, get_url("def.com")},
+
+      // The request should be blocked since the block rule with id 9 blocks the
+      // request after matching with it in the onBeforeRequest stage, so it's
+      // never sent and won't enter subsequent request stages which contain the
+      // allow rule with id 10.
+      {"ghi.com", "/pages_with_script/index.html", false, get_url("ghi.com")},
+  };
 
   // Verify that the extension correctly intercepts network requests.
+  // TODO(crbug.com/40727004): Add checks for matched rule IDs.
   for (const auto& test_case : test_cases) {
     GURL url =
         embedded_test_server()->GetURL(test_case.hostname, test_case.path);

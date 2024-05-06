@@ -12,6 +12,7 @@
 #include "base/debug/crash_logging.h"
 #include "base/functional/callback_helpers.h"
 #include "base/functional/overloaded.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/uuid.h"
@@ -72,6 +73,26 @@ storage::mojom::CacheStorageControl* GetCacheStorageControl(
   }
   return control;
 }
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// TODO(crbug.com/40918057): remove this metrics if we confirm that
+// kContainerNotReady prevents calling the CountFeature IPC.
+enum class CountFeatureDropOutReason {
+  kOk = 0,
+  kContainerNotReady = 1,
+  kExecutionNotReady = 2,
+  kNotBoundOrNotConnected = 3,
+  kMaxValue = kNotBoundOrNotConnected,
+};
+
+// Max number of messages that can be sent before |container_| gets ready.
+// I believe messages may not be sent in that situation for regular way, but
+// we technically do not prevent finding a client and send a message in that
+// phase.
+// 128 is picked randomly. We may need to run a experiment to decide the precise
+// number.
+constexpr size_t kMaxBufferedMessageSize = 128;
 
 }  // namespace
 
@@ -472,6 +493,9 @@ void ServiceWorkerContainerHost::EnsureFileAccess(
 
 void ServiceWorkerContainerHost::OnExecutionReady() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Since `OnExecutionReady()` is a part of `ServiceWorkerContainerHost`,
+  // this method is called only if `is_container_ready_` is true.
+  CHECK(is_container_ready_);
 
   if (!IsContainerForClient()) {
     mojo::ReportBadMessage("SWPH_OER_NOT_CLIENT");
@@ -609,9 +633,15 @@ void ServiceWorkerContainerHost::PostMessageToClient(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(IsContainerForClient());
 
-  blink::mojom::ServiceWorkerObjectInfoPtr info;
   base::WeakPtr<ServiceWorkerObjectHost> object_host =
       GetOrCreateServiceWorkerObjectHost(version);
+  if (!is_container_ready_) {
+    if (buffered_messages_.size() < kMaxBufferedMessageSize) {
+      buffered_messages_.emplace_back(object_host, std::move(message));
+    }
+    return;
+  }
+  blink::mojom::ServiceWorkerObjectInfoPtr info;
   if (object_host)
     info = object_host->CreateCompleteObjectInfoToSend();
   container_->PostMessageToClient(std::move(info), std::move(message));
@@ -621,23 +651,45 @@ void ServiceWorkerContainerHost::CountFeature(
     blink::mojom::WebFeature feature) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   SCOPED_CRASH_KEY_NUMBER("SWCH_CF", "feature", static_cast<int32_t>(feature));
+  SCOPED_CRASH_KEY_NUMBER("SWCH_CF", "client_type",
+                          static_cast<int32_t>(GetClientType()));
+
+  constexpr char kDropOutMetrics[] = "ServiceWorker.CountFeature.DropOut";
 
   // CountFeature is a message about the client's controller. It should be sent
   // only for clients.
   DCHECK(IsContainerForClient());
 
-  // And only when loading finished so the controller is really settled.
-  if (!is_execution_ready())
+  // `container_` can be used only if ServiceWorkerContainerInfoForClient has
+  // been passed to the renderer process. Otherwise, the method call will crash
+  // inside the mojo library (See crbug.com/40918057).
+  if (!is_container_ready_) {
+    base::UmaHistogramEnumeration(
+        kDropOutMetrics, CountFeatureDropOutReason::kContainerNotReady);
+    buffered_used_features_.insert(feature);
     return;
+  }
+
+  // And only when loading finished so the controller is really settled.
+  if (!is_execution_ready()) {
+    base::UmaHistogramEnumeration(
+        kDropOutMetrics, CountFeatureDropOutReason::kExecutionNotReady);
+    buffered_used_features_.insert(feature);
+    return;
+  }
 
   // `container_` shouldn't be disconnected during the lifetime of `this` but
   // there seems a situation where `container_` is disconnected or unbound.
   // TODO(crbug.com/1136843, crbug.com/40918057): Figure out the cause and
   // remove this check.
   if (!container_.is_bound() || !container_.is_connected()) {
+    base::UmaHistogramEnumeration(
+        kDropOutMetrics, CountFeatureDropOutReason::kNotBoundOrNotConnected);
     return;
   }
 
+  base::UmaHistogramEnumeration(kDropOutMetrics,
+                                CountFeatureDropOutReason::kOk);
   container_->CountFeature(feature);
 }
 
@@ -649,8 +701,6 @@ ServiceWorkerContainerHost::CreateControllerServiceWorkerInfo() {
   controller_info->client_id = client_uuid();
   controller_info->mode = GetControllerMode();
   controller_info->fetch_handler_type = controller()->fetch_handler_type();
-  controller_info->effective_fetch_handler_type =
-      controller()->EffectiveFetchHandlerType();
   controller_info->fetch_handler_bypass_option =
       controller()->fetch_handler_bypass_option();
   controller_info->sha256_script_checksum =
@@ -702,6 +752,7 @@ void ServiceWorkerContainerHost::SendSetControllerServiceWorker(
     bool notify_controllerchange) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(IsContainerForClient());
+  CHECK(is_container_ready_);
 
   if (!controller_ || !context_) {
     // Do not set |fetch_request_window_id| when |controller_| is not available.
@@ -735,6 +786,19 @@ void ServiceWorkerContainerHost::SendSetControllerServiceWorker(
     controller_info->object_info =
         object_host->CreateCompleteObjectInfoToSend();
   }
+
+  // TODO(crbug.com/331279951): Remove these crash keys after investigation.
+  SCOPED_CRASH_KEY_NUMBER("SWCH_SC", "client_type",
+                          static_cast<int32_t>(GetClientType()));
+  SCOPED_CRASH_KEY_BOOL("SWCH_SC", "is_bound", container_.is_bound());
+  SCOPED_CRASH_KEY_BOOL("SWCH_SC", "is_connected",
+                        container_.is_bound() && container_.is_connected());
+  SCOPED_CRASH_KEY_BOOL("SWCH_SC", "notify_controllerchange",
+                        notify_controllerchange);
+  SCOPED_CRASH_KEY_BOOL("SWCH_SC", "IsContainerForClient",
+                        IsContainerForClient());
+  SCOPED_CRASH_KEY_BOOL("SWCH_SC", "is_execution_ready", is_execution_ready());
+  SCOPED_CRASH_KEY_BOOL("SWCH_SC", "is_container_ready", is_container_ready_);
 
   container_->SetController(std::move(controller_info),
                             notify_controllerchange);
@@ -1432,6 +1496,8 @@ void ServiceWorkerContainerHost::SetExecutionReady() {
 
   if (context_)
     context_->NotifyClientIsExecutionReady(*this);
+
+  FlushFeatures();
 }
 
 void ServiceWorkerContainerHost::RunExecutionReadyCallbacks() {
@@ -1476,6 +1542,15 @@ void ServiceWorkerContainerHost::UpdateController(
   scoped_refptr<ServiceWorkerVersion> previous_version = controller_;
   controller_ = version;
   if (version) {
+    // TODO(crbug.com/330928087): remove check when this issue resolved.
+    SCOPED_CRASH_KEY_NUMBER("SWV_RCFBCM", "client_type",
+                            static_cast<int32_t>(GetClientType()));
+    SCOPED_CRASH_KEY_BOOL("SWV_RCFBCM", "is_execution_ready",
+                          is_execution_ready());
+    SCOPED_CRASH_KEY_BOOL("SWV_RCFBCM", "is_blob_url",
+                          url() != GetUrlForScopeMatch());
+    SCOPED_CRASH_KEY_BOOL("SWV_RCFBCM", "is_inherited", is_inherited());
+    CHECK(!version->BFCacheContainsControllee(client_uuid()));
     version->AddControllee(this);
     if (IsBackForwardCacheEnabled() && IsInBackForwardCache()) {
       // |this| was not |version|'s controllee when |OnEnterBackForwardCache|
@@ -1497,8 +1572,18 @@ void ServiceWorkerContainerHost::UpdateController(
   // SetController message should be sent only for clients.
   DCHECK(IsContainerForClient());
 
-  if (!is_execution_ready())
+  // No need to `SetController` if the container is not ready because
+  // when the container gets ready, `ControllerServiceWorkerInfoPtr` is also
+  // sent in the same IPC call. Moreover, it is harmful to resend the past
+  // SetController to the renderer because it moves the controller in the
+  // renderer to the past one.
+  if (!is_container_ready_) {
     return;
+  }
+
+  if (!is_execution_ready()) {
+    return;
+  }
 
   SendSetControllerServiceWorker(notify_controllerchange);
 }
@@ -1882,6 +1967,7 @@ void ServiceWorkerContainerHost::InheritControllerFrom(
     SetControllerRegistration(creator_host.controller_registration(),
                               false /* notify_controllerchange */);
   }
+  creator_host.SetInherited();
 }
 
 mojo::PendingRemote<blink::mojom::CacheStorage>
@@ -1954,6 +2040,36 @@ ServiceWorkerContainerHost::MaybeCreateSubresourceLoaderParams(
   params.container_host = container_host->GetWeakPtr();
 
   return params;
+}
+
+void ServiceWorkerContainerHost::SetContainerReady() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  is_container_ready_ = true;
+  std::vector<std::tuple<base::WeakPtr<ServiceWorkerObjectHost>,
+                         blink::TransferableMessage>>
+      messages;
+
+  messages.swap(buffered_messages_);
+  base::UmaHistogramCounts1000("ServiceWorker.PostMessage.QueueSize",
+                               messages.size());
+  for (auto& [object_host, message] : messages) {
+    blink::mojom::ServiceWorkerObjectInfoPtr info;
+    if (object_host) {
+      info = object_host->CreateCompleteObjectInfoToSend();
+    }
+    container_->PostMessageToClient(std::move(info), std::move(message));
+  }
+  CHECK(buffered_messages_.empty());
+
+  FlushFeatures();
+}
+
+void ServiceWorkerContainerHost::FlushFeatures() {
+  std::set<blink::mojom::WebFeature> features;
+  features.swap(buffered_used_features_);
+  for (const auto& feature : features) {
+    CountFeature(feature);
+  }
 }
 
 // If a blob URL is used for a SharedWorker script's URL, a controller will be

@@ -1116,13 +1116,6 @@ bool IsMlUrlScoreCachingEnabled() {
 
 // <- ML Relevance Scoring
 // ---------------------------------------------------------
-// Android UI Revamp ->
-const base::FeatureParam<bool> kOmniboxModernizeVisualUpdateMergeClipboardOnNTP(
-    &omnibox::kOmniboxModernizeVisualUpdate,
-    "modernize_visual_update_merge_clipboard_on_ntp",
-    true);
-// <- Android UI Revamp
-// ---------------------------------------------------------
 // Touch Down Trigger For Prefetch ->
 const base::FeatureParam<int>
     kTouchDownTriggerForPrefetchMaxPrefetchesPerOmniboxSession(
@@ -1139,6 +1132,10 @@ const base::FeatureParam<std::string> kGeminiUrlOverride(
 
 bool IsStarterPackExpansionEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kStarterPackExpansion);
+}
+
+bool IsStarterPackIPHEnabled() {
+  return base::FeatureList::IsEnabled(omnibox::kStarterPackIPH);
 }
 // <- Site Search Starter Pack
 // ---------------------------------------------------------

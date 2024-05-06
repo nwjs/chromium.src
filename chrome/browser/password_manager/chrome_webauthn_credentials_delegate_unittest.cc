@@ -15,10 +15,12 @@
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/mock_callback.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate_factory.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
+#include "components/password_manager/core/browser/webauthn_credentials_delegate.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/test/web_contents_tester.h"
 #include "device/fido/discoverable_credential_metadata.h"
@@ -98,10 +100,10 @@ class ChromeWebAuthnCredentialsDelegateTest
 
   void SetCredList(std::vector<device::DiscoverableCredentialMetadata> creds) {
 #if !BUILDFLAG(IS_ANDROID)
-    AuthenticatorRequestDialogModel::TransportAvailabilityInfo tai;
+    AuthenticatorRequestDialogController::TransportAvailabilityInfo tai;
     tai.recognized_credentials = std::move(creds);
-    dialog_model()->StartFlow(std::move(tai),
-                              /*is_conditional_mediation=*/true);
+    dialog_controller()->StartFlow(std::move(tai),
+                                   /*is_conditional_mediation=*/true);
 #else
     delegate_->OnWebAuthnRequestPending(
         main_rfh(), creds, /*is_conditional_request=*/true,
@@ -113,8 +115,8 @@ class ChromeWebAuthnCredentialsDelegateTest
   }
 
 #if !BUILDFLAG(IS_ANDROID)
-  AuthenticatorRequestDialogModel* dialog_model() {
-    return authenticator_request_delegate_->GetDialogModelForTesting();
+  AuthenticatorRequestDialogController* dialog_controller() {
+    return authenticator_request_delegate_->dialog_controller();
   }
 #endif
 
@@ -194,6 +196,9 @@ TEST_F(ChromeWebAuthnCredentialsDelegateTest,
 
 // Testing selection of a credential.
 TEST_F(ChromeWebAuthnCredentialsDelegateTest, SelectCredential) {
+  base::MockCallback<
+      password_manager::WebAuthnCredentialsDelegate::OnPasskeySelectedCallback>
+      mock_callback;
   std::vector<device::DiscoverableCredentialMetadata> users;
   users.emplace_back(device::AuthenticatorType::kOther, kRpId,
                      device::fido_parsing_utils::Materialize(kCredId1),
@@ -219,14 +224,16 @@ TEST_F(ChromeWebAuthnCredentialsDelegateTest, SelectCredential) {
 
 #if !BUILDFLAG(IS_ANDROID)
   base::RunLoop run_loop;
-  dialog_model()->SetAccountPreselectedCallback(base::BindLambdaForTesting(
+  dialog_controller()->SetAccountPreselectedCallback(base::BindLambdaForTesting(
       [&](device::DiscoverableCredentialMetadata cred) {
         EXPECT_THAT(cred.cred_id, testing::ElementsAreArray(kCredId2));
         run_loop.Quit();
       }));
 #endif
 
-  credentials_delegate()->SelectPasskey(base::Base64Encode(kCredId2));
+  EXPECT_CALL(mock_callback, Run());
+  credentials_delegate()->SelectPasskey(base::Base64Encode(kCredId2),
+                                        mock_callback.Get());
 
 #if BUILDFLAG(IS_ANDROID)
   auto credential_id = GetSelectedId();

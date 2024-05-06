@@ -328,9 +328,6 @@ void BookmarkModelTypeProcessor::ModelReadyToSync(
   sync_pb::BookmarkModelMetadata model_metadata;
   model_metadata.ParseFromString(metadata_str);
 
-  syncer::MigrateLegacyInitialSyncDone(
-      *model_metadata.mutable_model_type_state(), syncer::BOOKMARKS);
-
   if (pending_clear_metadata_) {
     pending_clear_metadata_ = false;
     // Schedule save empty metadata, if not already empty.
@@ -465,7 +462,7 @@ void BookmarkModelTypeProcessor::ConnectIfReady() {
   }
 
   // Issue error and stop sync if bookmarks exceed limit.
-  // TODO(crbug.com/1347466): Think about adding two different limits: one for
+  // TODO(crbug.com/40854724): Think about adding two different limits: one for
   // when sync just starts, the other (larger one) as hard limit, incl.
   // incremental changes.
   const size_t count = bookmark_tracker_

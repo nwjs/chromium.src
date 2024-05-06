@@ -6,10 +6,15 @@
 #define CHROME_BROWSER_CHROMEOS_MAHI_MAHI_CONTENT_EXTRACTION_DELEGATE_H_
 
 #include "base/functional/callback.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/unguessable_token.h"
+#include "chrome/browser/screen_ai/screen_ai_service_router.h"
 #include "chromeos/components/mahi/public/mojom/content_extraction.mojom.h"
 #include "chromeos/crosapi/mojom/mahi.mojom-forward.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "url/gurl.h"
 
 namespace mahi {
 
@@ -45,26 +50,42 @@ class MahiContentExtractionDelegate {
   // Requests the content extraction service to check the page distillability
   // based on the a11y update. `distillable_check_callback_` will be triggered
   // when the check is finished.
-  void CheckDistillablity(const WebContentState& web_content_state);
+  void CheckDistillablity(const WebContentState& web_content_state,
+                          const base::Time& start_time);
 
  private:
   void OnGetContentSize(const base::UnguessableToken& page_id,
+                        const base::Time& start_time,
                         mojom::ContentSizeResponsePtr response);
 
   void OnGetContent(const base::UnguessableToken& page_id,
                     const base::UnguessableToken& client_id,
+                    const GURL& url,
                     GetContentCallback callback,
                     mojom::ExtractionResponsePtr response);
+
+  // Callback when screen ai service is initialized. If successful, binds mahi
+  // content extraction service with the screen ai main content extraction
+  // model.
+  void OnScreenAIServiceInitialized(bool successful);
 
   mojo::Remote<mojom::ContentExtractionServiceFactory>
       remote_content_extraction_service_factory_;
   mojo::Remote<mojom::ContentExtractionService>
       remote_content_extraction_service_;
 
+  // Router for the screen ai models. We need it to get the content extraction
+  // model.
+  screen_ai::ScreenAIServiceRouter screen_ai_service_router_;
+
   // This is the callback function to notifies the `MahiWebContentManager` with
   // the distillability check result.
   base::RepeatingCallback<void(const base::UnguessableToken&, bool)>
       distillable_check_callback_;
+
+  // This task runner is used to save the extracted content to disk. It meant to
+  // be used for debugging purposes only, and should not be used in production.
+  const scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
 
   base::WeakPtrFactory<MahiContentExtractionDelegate> weak_pointer_factory_{
       this};

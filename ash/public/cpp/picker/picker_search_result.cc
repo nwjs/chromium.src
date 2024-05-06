@@ -17,6 +17,9 @@ namespace ash {
 bool PickerSearchResult::TextData::operator==(
     const PickerSearchResult::TextData&) const = default;
 
+bool PickerSearchResult::SearchRequestData::operator==(
+    const PickerSearchResult::SearchRequestData&) const = default;
+
 bool PickerSearchResult::EmojiData::operator==(
     const PickerSearchResult::EmojiData&) const = default;
 
@@ -26,8 +29,15 @@ bool PickerSearchResult::SymbolData::operator==(
 bool PickerSearchResult::EmoticonData::operator==(
     const PickerSearchResult::EmoticonData&) const = default;
 
-PickerSearchResult::ClipboardData::ClipboardData(base::UnguessableToken item_id)
-    : item_id(item_id) {}
+PickerSearchResult::ClipboardData::ClipboardData(
+    base::UnguessableToken item_id,
+    DisplayFormat display_format,
+    std::u16string display_text,
+    std::optional<ui::ImageModel> display_image)
+    : item_id(item_id),
+      display_format(display_format),
+      display_text(std::move(display_text)),
+      display_image(std::move(display_image)) {}
 
 PickerSearchResult::ClipboardData::ClipboardData(
     const PickerSearchResult::ClipboardData&) = default;
@@ -89,7 +99,24 @@ PickerSearchResult& PickerSearchResult::operator=(PickerSearchResult&&) =
     default;
 
 PickerSearchResult PickerSearchResult::Text(std::u16string_view text) {
-  return PickerSearchResult(TextData{.text = std::u16string(text)});
+  return PickerSearchResult(TextData{.primary_text = std::u16string(text),
+                                     .secondary_text = u"",
+                                     .icon = ui::ImageModel()});
+}
+
+PickerSearchResult PickerSearchResult::Text(std::u16string_view primary_text,
+                                            std::u16string_view secondary_text,
+                                            ui::ImageModel icon) {
+  return PickerSearchResult(
+      TextData{.primary_text = std::u16string(primary_text),
+               .secondary_text = std::u16string(secondary_text),
+               .icon = std::move(icon)});
+}
+
+PickerSearchResult PickerSearchResult::SearchRequest(std::u16string_view text,
+                                                     ui::ImageModel icon) {
+  return PickerSearchResult(
+      SearchRequestData{.text = std::u16string(text), .icon = std::move(icon)});
 }
 
 PickerSearchResult PickerSearchResult::Emoji(std::u16string_view emoji) {
@@ -105,8 +132,13 @@ PickerSearchResult PickerSearchResult::Emoticon(std::u16string_view emoticon) {
 }
 
 PickerSearchResult PickerSearchResult::Clipboard(
-    base::UnguessableToken item_id) {
-  return PickerSearchResult(ClipboardData(item_id));
+    base::UnguessableToken item_id,
+    ClipboardData::DisplayFormat display_format,
+    std::u16string display_text,
+    std::optional<ui::ImageModel> display_image) {
+  return PickerSearchResult(ClipboardData(item_id, display_format,
+                                          std::move(display_text),
+                                          std::move(display_image)));
 }
 
 PickerSearchResult PickerSearchResult::Gif(const GURL& preview_url,

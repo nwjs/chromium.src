@@ -26,8 +26,8 @@ static_library("search_engines") {
     "keyword_web_data_service.h",
     "search_engine_choice/search_engine_choice_service.cc",
     "search_engine_choice/search_engine_choice_service.h",
-    "search_engine_choice_utils.cc",
-    "search_engine_choice_utils.h",
+    "search_engine_choice/search_engine_choice_utils.cc",
+    "search_engine_choice/search_engine_choice_utils.h",
     "search_engines_pref_names.h",
     "search_host_to_urls_map.cc",
     "search_host_to_urls_map.h",
@@ -92,6 +92,7 @@ static_library("search_engines") {
     "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//sql",
+    "//third_party/lens_server_proto:lens_overlay_proto",
     "//third_party/metrics_proto",
     "//third_party/omnibox_proto",
     "//ui/base",
@@ -112,8 +113,9 @@ static_library("search_engines") {
   }
 
   if (!is_android) {
-    sources += [ "generated_marketing_snippets.cc" ]
+    sources += [ "search_engine_choice/generated_marketing_snippets.cc" ]
     deps += [
+      ":generate_search_engine_icons",
       "//components/resources:components_scaled_resources_grit",
       "//ui/resources",
     ]
@@ -183,7 +185,7 @@ source_set("unit_tests") {
     "enterprise_site_search_manager_unittest.cc",
     "keyword_table_unittest.cc",
     "search_engine_choice/search_engine_choice_service_unittest.cc",
-    "search_engine_choice_utils_unittest.cc",
+    "search_engine_choice/search_engine_choice_utils_unittest.cc",
     "search_host_to_urls_map_unittest.cc",
     "template_url_data_unittest.cc",
     "template_url_prepopulate_data_unittest.cc",
@@ -270,4 +272,33 @@ component("search_engines_switches") {
   ]
 
   deps = [ "//base" ]
+}
+
+if (!is_android) {
+  action("generate_search_engine_icons") {
+    script = "//tools/search_engine_choice/generate_search_engine_icons.py"
+
+    inputs = [
+      "//tools/search_engine_choice/generate_search_engine_icons_config.json",
+      "//components/search_engines/prepopulated_engines.json",
+      "//components/search_engines/search_engine_countries-inc.cc",
+      "//tools/json_comment_eater/json_comment_eater.py",
+      "//tools/search_engine_choice/generate_search_engine_icons.py",
+      "//tools/search_engine_choice/search_engine_icons_utils.py",
+    ]
+
+    outputs = [
+      "$root_gen_dir/chrome/browser/ui/webui/search_engine_choice/generated_icon_utils-inc.cc",
+      "$target_gen_dir/generated_search_engine_resource_ids-inc.cc",
+    ]
+
+    args = [
+      rebase_path("//", root_build_dir),
+      rebase_path("$target_gen_dir/generated_search_engine_resource_ids-inc.cc",
+                  root_build_dir),
+      rebase_path(
+          "$target_gen_dir/../../chrome/browser/ui/webui/search_engine_choice/generated_icon_utils-inc.cc",
+          root_build_dir),
+    ]
+  }
 }

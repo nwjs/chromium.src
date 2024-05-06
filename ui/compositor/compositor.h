@@ -46,6 +46,7 @@
 #include "ui/compositor/compositor_export.h"
 #include "ui/compositor/compositor_lock.h"
 #include "ui/compositor/compositor_observer.h"
+#include "ui/compositor/host_begin_frame_observer.h"
 #include "ui/compositor/layer_animator_collection.h"
 #include "ui/compositor/throughput_tracker.h"
 #include "ui/compositor/throughput_tracker_host.h"
@@ -505,6 +506,15 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
 
   const cc::LayerTreeHost* host_for_testing() const { return host_.get(); }
 
+  void AddSimpleBeginFrameObserver(
+      ui::HostBeginFrameObserver::SimpleBeginFrameObserver* obs);
+  void RemoveSimpleBeginFrameObserver(
+      ui::HostBeginFrameObserver::SimpleBeginFrameObserver* obs);
+
+  const std::optional<base::TimeDelta>& max_vrr_interval_for_testing() const {
+    return max_vrr_interval_;
+  }
+
  private:
   friend class base::RefCounted<Compositor>;
   friend class TotalAnimationThroughputReporter;
@@ -516,6 +526,8 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   void ReportMetricsForTracker(
       int tracker_id,
       const cc::FrameSequenceMetrics::CustomReportData& data);
+
+  void MaybeUpdateObserveBeginFrame();
 
   gfx::Size size_;
 
@@ -532,6 +544,10 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
       external_begin_frame_controller_;
 
   std::unique_ptr<PendingBeginFrameArgs> pending_begin_frame_args_;
+
+  ui::HostBeginFrameObserver::SimpleBeginFrameObserverList
+      simple_begin_frame_observers_;
+  std::unique_ptr<ui::HostBeginFrameObserver> host_begin_frame_observer_;
 
   // The root of the Layer tree drawn by this compositor.
   raw_ptr<Layer> root_layer_ = nullptr;

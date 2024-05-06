@@ -41,6 +41,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
+#include "chrome/browser/ui/passwords/password_cross_domain_confirmation_popup_controller_impl.h"
 #include "chrome/browser/ui/passwords/password_generation_popup_controller_impl.h"
 #include "chrome/browser/ui/passwords/passwords_client_ui_delegate.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
@@ -136,6 +137,7 @@
 #include "chrome/browser/password_manager/android/password_manager_error_message_helper_bridge_impl.h"
 #include "chrome/browser/password_manager/android/password_manager_launcher_android.h"
 #include "chrome/browser/password_manager/android/password_manager_ui_util_android.h"
+#include "chrome/browser/password_manager/android/password_manager_util_bridge.h"
 #include "chrome/browser/password_manager/android/password_migration_warning_startup_launcher.h"
 #include "chrome/browser/touch_to_fill/password_manager/password_generation/android/touch_to_fill_password_generation_controller.h"
 #include "chrome/browser/touch_to_fill/password_manager/touch_to_fill_controller.h"
@@ -412,6 +414,16 @@ bool ChromePasswordManagerClient::PromptUserToChooseCredentials(
 void ChromePasswordManagerClient::ShowPasswordManagerErrorMessage(
     password_manager::ErrorMessageFlowType flow_type,
     password_manager::PasswordStoreBackendErrorType error_type) {
+  bool oldGMSSavingDisabled = error_type ==
+                              password_manager::PasswordStoreBackendErrorType::
+                                  kGMSCoreOutdatedSavingDisabled;
+  bool oldGMSSavingPossible = error_type ==
+                              password_manager::PasswordStoreBackendErrorType::
+                                  kGMSCoreOutdatedSavingPossible;
+  bool noPlayStore = !password_manager_android_util::IsPlayStoreAppPresent();
+  if ((oldGMSSavingDisabled || oldGMSSavingPossible) && noPlayStore) {
+    return;
+  }
   if (!password_manager_error_message_delegate_) {
     password_manager_error_message_delegate_ =
         std::make_unique<PasswordManagerErrorMessageDelegate>(
@@ -1093,10 +1105,38 @@ version_info::Channel ChromePasswordManagerClient::GetChannel() const {
 void ChromePasswordManagerClient::RefreshPasswordManagerSettingsIfNeeded()
     const {
 #if BUILDFLAG(IS_ANDROID)
+  // TODO (b/334091460): Add
+  // password_manager_android_util::AreMinUpmRequirementsMet() check here.
   PasswordManagerSettingsServiceFactory::GetForProfile(profile_)
       ->RequestSettingsFromBackend();
 #endif
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+std::unique_ptr<
+    password_manager::PasswordCrossDomainConfirmationPopupController>
+ChromePasswordManagerClient::ShowCrossDomainConfirmationPopup(
+    const gfx::RectF& element_bounds,
+    base::i18n::TextDirection text_direction,
+    const GURL& domain,
+    const std::u16string& password_origin,
+    base::OnceClosure confirmation_callback) {
+  gfx::Rect client_area = web_contents()->GetContainerBounds();
+  gfx::RectF element_bounds_in_screen_space =
+      element_bounds + client_area.OffsetFromOrigin();
+  auto controller =
+      cross_domain_confirmation_popup_factory_for_testing_
+          ? cross_domain_confirmation_popup_factory_for_testing_.Run()
+          : std::make_unique<
+                PasswordCrossDomainConfirmationPopupControllerImpl>(
+                web_contents());
+
+  controller->Show(element_bounds_in_screen_space, text_direction, domain,
+                   password_origin, std::move(confirmation_callback));
+
+  return controller;
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 void ChromePasswordManagerClient::AutomaticGenerationAvailable(
     const autofill::password_generation::PasswordGenerationUIData& ui_data) {

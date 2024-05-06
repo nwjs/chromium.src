@@ -7,8 +7,10 @@
 #include <iterator>
 #include <memory>
 
+#include "base/test/scoped_feature_list.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox_feature_configs.h"
+#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/omnibox_proto/groups.pb.h"
@@ -1253,12 +1255,9 @@ TEST(AutocompleteGrouperSectionsTest, AndroidWebZpsSection_mostVisitedTiles) {
 // Tests the groups, limits, and rules for the iOS NTP ZPS.
 TEST(AutocompleteGrouperSectionsTest, IOSNTPZpsSection) {
   auto test = [](ACMatches matches, std::vector<int> expected_relevances) {
-    size_t max_trending_queries = 3;
-    size_t max_psuggest_queries = 3;
     PSections sections;
     omnibox::GroupConfigMap group_configs;
-    sections.push_back(std::make_unique<IOSNTPZpsSection>(
-        max_trending_queries, max_psuggest_queries, group_configs));
+    sections.push_back(std::make_unique<IOSNTPZpsSection>(group_configs));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
@@ -1276,7 +1275,7 @@ TEST(AutocompleteGrouperSectionsTest, IOSNTPZpsSection) {
           CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
           CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
           CreateMatch(97, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST)},
-         {100, 99, 98});
+         {100, 99, 98, 97});
   }
 
   {
@@ -1286,8 +1285,10 @@ TEST(AutocompleteGrouperSectionsTest, IOSNTPZpsSection) {
     test({CreateMatch(100, omnibox::GROUP_TRENDS),
           CreateMatch(99, omnibox::GROUP_TRENDS),
           CreateMatch(98, omnibox::GROUP_TRENDS),
-          CreateMatch(97, omnibox::GROUP_TRENDS)},
-         {100, 99, 98});
+          CreateMatch(97, omnibox::GROUP_TRENDS),
+          CreateMatch(96, omnibox::GROUP_TRENDS),
+          CreateMatch(95, omnibox::GROUP_TRENDS)},
+         {100, 99, 98, 97, 96});
   }
 
   {
@@ -1302,7 +1303,7 @@ TEST(AutocompleteGrouperSectionsTest, IOSNTPZpsSection) {
           CreateMatch(95, omnibox::GROUP_TRENDS),
           CreateMatch(94, omnibox::GROUP_TRENDS),
           CreateMatch(93, omnibox::GROUP_TRENDS)},
-         {100, 99, 98, 96, 95, 94});
+         {100, 99, 98, 97, 96, 95, 94, 93});
   }
 }
 
@@ -1594,4 +1595,120 @@ TEST(AutocompleteGrouperSectionsTest,
         });
   }
 }
+
+TEST(AutocompleteGrouperSectionsTest,
+     AndroidNonZPSSection_richCardInFirstPosition) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxAnswerActions,
+      {{OmniboxFieldTrial::kAnswerActionsShowRichCard.name, "true"}});
+  auto test = [](ACMatches matches, std::vector<int> expected_relevances) {
+    PSections sections;
+    omnibox::GroupConfigMap group_configs;
+    AndroidNonZPSSection::set_num_visible_matches(5);
+    sections.push_back(std::make_unique<AndroidNonZPSSection>(group_configs));
+    auto out_matches = Section::GroupMatches(std::move(sections), matches);
+    VerifyMatches(out_matches, expected_relevances);
+  };
+
+  auto make_search = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_SEARCH);
+    match.type = AutocompleteMatchType::SEARCH_HISTORY;
+    return match;
+  };
+
+  auto make_url = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_OTHER_NAVS);
+    match.type = AutocompleteMatchType::NAVSUGGEST;
+    return match;
+  };
+
+  auto make_rich_card = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_MOBILE_RICH_ANSWER);
+    match.type = AutocompleteMatchType::SEARCH_HISTORY;
+    SuggestionAnswer answer;
+    match.answer = answer;
+    return match;
+  };
+
+  {
+    SCOPED_TRACE("No matches, no crashes.");
+    test({}, {});
+  }
+
+  SCOPED_TRACE("Card in first position");
+  test(
+      {
+          make_rich_card(20),
+          make_url(19),
+          make_url(18),
+          make_search(10),
+          make_search(9),
+      },
+      // 20     -- rich answer card
+      // 10, 9  -- top searches.
+      // 19, 18 -- top URLs.
+      {20, 10, 9, 19, 18});
+}
+
+TEST(AutocompleteGrouperSectionsTest,
+     AndroidNonZPSSection_richCardAboveKeyboard) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxAnswerActions,
+      {{OmniboxFieldTrial::kAnswerActionsShowRichCard.name, "true"},
+       {OmniboxFieldTrial::kAnswerActionsShowAboveKeyboard.name, "true"}});
+  auto test = [](ACMatches matches, std::vector<int> expected_relevances) {
+    PSections sections;
+    omnibox::GroupConfigMap group_configs;
+    AndroidNonZPSSection::set_num_visible_matches(5);
+    sections.push_back(std::make_unique<AndroidNonZPSSection>(group_configs));
+    auto out_matches = Section::GroupMatches(std::move(sections), matches);
+    VerifyMatches(out_matches, expected_relevances);
+  };
+
+  auto make_search = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_SEARCH);
+    match.type = AutocompleteMatchType::SEARCH_HISTORY;
+    return match;
+  };
+
+  auto make_url = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_OTHER_NAVS);
+    match.type = AutocompleteMatchType::NAVSUGGEST;
+    return match;
+  };
+
+  auto make_rich_card = [](int score) {
+    auto match = CreateMatch(score, omnibox::GROUP_MOBILE_RICH_ANSWER);
+    match.type = AutocompleteMatchType::SEARCH_HISTORY;
+    SuggestionAnswer answer;
+    match.answer = answer;
+    return match;
+  };
+
+  {
+    SCOPED_TRACE("No matches, no crashes.");
+    test({}, {});
+  }
+
+  SCOPED_TRACE("Card in last position of visible matches");
+  test(
+      {
+          make_url(19),
+          make_url(18),
+          make_rich_card(20),
+          make_search(10),
+          make_search(9),
+          make_search(8),
+          make_search(7),
+      },
+      // 19     -- default match url
+      // 10, 9  -- top searches.
+      // 18 -- remaining URL.
+      // 20 -- rich answer card
+      // 8, 7 -- below the fold matches
+      {19, 10, 9, 18, 20, 8, 7});
+}
+
 #endif

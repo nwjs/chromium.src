@@ -5,7 +5,6 @@
 #ifndef ASH_WM_SPLITVIEW_SPLIT_VIEW_DIVIDER_VIEW_H_
 #define ASH_WM_SPLITVIEW_SPLIT_VIEW_DIVIDER_VIEW_H_
 
-#include "ash/utility/cursor_setter.h"
 #include "base/memory/raw_ptr.h"
 #include "ui/views/view.h"
 #include "ui/views/view_targeter_delegate.h"
@@ -13,7 +12,6 @@
 namespace ash {
 
 class IconButton;
-class LayoutDividerController;
 class SplitViewDivider;
 class SplitViewDividerHandlerView;
 
@@ -23,8 +21,7 @@ class SplitViewDividerView : public views::View,
   METADATA_HEADER(SplitViewDividerView, views::View)
 
  public:
-  explicit SplitViewDividerView(LayoutDividerController* controller,
-                                SplitViewDivider* divider);
+  explicit SplitViewDividerView(SplitViewDivider* divider);
   SplitViewDividerView(const SplitViewDividerView&) = delete;
   SplitViewDividerView& operator=(const SplitViewDividerView&) = delete;
   ~SplitViewDividerView() override;
@@ -32,9 +29,8 @@ class SplitViewDividerView : public views::View,
   void DoSpawningAnimation(int spawn_position);
   void SetDividerBarVisible(bool visible);
 
-  // Called explicitly by SplitViewDivider when LayoutDividerController is
-  // shutting down.
-  void OnShuttingDown();
+  // Called explicitly by SplitViewDivider when the divider widget is closing.
+  void OnDividerClosing();
 
   // views::View:
   void Layout(PassKey) override;
@@ -44,6 +40,7 @@ class SplitViewDividerView : public views::View,
   bool OnMouseDragged(const ui::MouseEvent& event) override;
   void OnMouseReleased(const ui::MouseEvent& event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
+  ui::Cursor GetCursor(const ui::MouseEvent& event) override;
 
   // views::ViewTargeterDelegate:
   bool DoesIntersectRect(const views::View* target,
@@ -62,9 +59,12 @@ class SplitViewDividerView : public views::View,
   // `swap_windows` is true, swaps the windows after resizing.
   void EndResizing(gfx::Point location, bool swap_windows);
 
-  // Initializes or refreshes the visibility of the `feedback_button_` on the
-  // divider.
+  // Initializes, refreshes bounds, or updates visibility for the
+  // `feedback_button_` on the divider.
   void RefreshFeedbackButton(bool visible);
+
+  // Refreshes the bounds of the `feedback_button_`.
+  void RefreshFeedbackButtonBounds();
 
   // Triggered when the feedback button is pressed to open feedback form.
   void OnFeedbackButtonPressed();
@@ -76,13 +76,8 @@ class SplitViewDividerView : public views::View,
   // a resize.
   bool mouse_move_started_ = false;
 
-  raw_ptr<LayoutDividerController> controller_;
   raw_ptr<SplitViewDividerHandlerView> divider_handler_view_ = nullptr;
-  raw_ptr<SplitViewDivider, DanglingUntriaged> divider_;
-
-  // Securely updates the cursor.
-  // TODO(michelefan): Consider overriding `View::GetCursor`.
-  CursorSetter cursor_setter_;
+  raw_ptr<SplitViewDivider> divider_;
 
   raw_ptr<IconButton> feedback_button_ = nullptr;
 

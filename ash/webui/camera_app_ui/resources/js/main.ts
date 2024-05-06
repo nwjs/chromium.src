@@ -377,18 +377,28 @@ function createPerfLogger(): PerfLogger {
   });
 
   state.addObserver(state.State.TAKING, (val, extras) => {
-    // 'taking' state indicates either taking photo or video. Skips for
-    // video-taking case since we only want to collect the metrics of
-    // photo-taking.
-    if (state.get(Mode.VIDEO)) {
+    // `taking` state indicates either taking photo or video. Skips for
+    // some modes such as video mode since they didn't start `photo-taking`.
+    if (!state.get(PerfEvent.PHOTO_TAKING)) {
       return;
     }
-    const event = PerfEvent.PHOTO_TAKING;
+    if (!val) {
+      state.set(PerfEvent.PHOTO_TAKING, false, extras);
+    }
+  });
 
+  state.addObserver(PerfEvent.PHOTO_CAPTURE_SHUTTER, (val) => {
+    // `photo-taking` is a sum of `photo-capture-shutter` and
+    // `photo-capture-post-processing`. As scan mode doesn't record
+    // `photo-capture-post-processing`, returns early in this case.
+    if (state.get(Mode.SCAN)) {
+      return;
+    }
+    // If we log photo-taking metrics by 'taking' state, we cannot exclude the
+    // timer duration. photo-capture-shutter is the timing that a shutter is
+    // clicked.
     if (val) {
-      perfLogger.start(event);
-    } else {
-      perfLogger.stop(event, extras);
+      state.set(PerfEvent.PHOTO_TAKING, true);
     }
   });
 
@@ -514,16 +524,6 @@ async function main() {
                                                 metrics.LaunchType.DEFAULT;
 
   await DeviceOperator.initializeInstance();
-  try {
-    await filesystem.initialize();
-    const cameraDir = filesystem.getCameraDirectory();
-    if (!shouldHandleIntentResult) {
-      await resultSaver.initialize(cameraDir);
-    }
-  } catch (error) {
-    reportError(ErrorType.FILE_SYSTEM_FAILURE, ErrorLevel.ERROR, error);
-    nav.open(ViewName.WARNING, WarningType.FILESYSTEM_FAILURE);
-  }
 
   // Create a promise to finish the intent, that runs in parallel with starting
   // camera.
@@ -547,6 +547,17 @@ async function main() {
 
   await cameraResourceInitialized.wait();
   const cameraStartSuccessful = await cameraManager.requestResume();
+
+  try {
+    await filesystem.initialize();
+    const cameraDir = filesystem.getCameraDirectory();
+    if (!shouldHandleIntentResult) {
+      await resultSaver.initialize(cameraDir);
+    }
+  } catch (error) {
+    reportError(ErrorType.FILE_SYSTEM_FAILURE, ErrorLevel.ERROR, error);
+    nav.open(ViewName.WARNING, WarningType.FILESYSTEM_FAILURE);
+  }
 
   // To align window behavior with other apps, defaultWindowSize is only applied
   // when the camera app is first opened. Later, the window will be opened in

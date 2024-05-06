@@ -73,7 +73,8 @@ SubmissionReadinessState CalculateSubmissionReadiness(
     // block a form submission. Note: Don't use |check_status !=
     // kNotCheckable|, a radio button is considered a "checkable" element too,
     // but it should block a submission.
-    return field.form_control_type == autofill::FormControlType::kInputCheckbox;
+    return field.form_control_type() ==
+           autofill::FormControlType::kInputCheckbox;
   };
 
   for (size_t i = username_index + 1; i < password_index; ++i) {
@@ -95,7 +96,7 @@ SubmissionReadinessState CalculateSubmissionReadiness(
     }
 
     if (username_index != i && password_index != i &&
-        form_data.fields[i].value.empty()) {
+        form_data.fields[i].value().empty()) {
       return SubmissionReadinessState::kEmptyFields;
     }
     number_of_visible_elements++;
@@ -168,7 +169,7 @@ void PasswordCredentialFillerImpl::Dismiss(ToShowVirtualKeyboard should_show) {
       !driver_) {
     return;
   }
-  // TODO(crbug/1434278): Avoid using KeyboardReplacingSurfaceClosed.
+  // TODO(crbug.com/40264656): Avoid using KeyboardReplacingSurfaceClosed.
   driver_->KeyboardReplacingSurfaceClosed(should_show);
 }
 

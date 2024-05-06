@@ -27,6 +27,7 @@
 #include "components/autofill/core/browser/payments/card_unmask_delegate.h"
 #include "components/autofill/core/browser/payments/client_behavior_constants.h"
 #include "components/autofill/core/browser/payments/payments_network_interface_base.h"
+#include "components/autofill/core/browser/payments/payments_window_manager.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "url/origin.h"
@@ -458,8 +459,8 @@ class PaymentsNetworkInterface : public PaymentsNetworkInterfaceBase {
   // denotes incognito mode.
   PaymentsNetworkInterface(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      signin::IdentityManager* const identity_manager,
-      AccountInfoGetter* const account_info_getter,
+      signin::IdentityManager* identity_manager,
+      AccountInfoGetter* account_info_getter,
       bool is_off_the_record = false);
 
   PaymentsNetworkInterface(const PaymentsNetworkInterface&) = delete;

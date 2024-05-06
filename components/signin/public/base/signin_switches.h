@@ -33,6 +33,10 @@ BASE_DECLARE_FEATURE(kSeedAccountsRevamp);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnterprisePolicyOnSignin);
+
+// Feature flag to hide signin promo in settings page.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kHideSettingsSignInPromo);
 #endif
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -134,6 +138,13 @@ extern const base::FeatureParam<int> kMinorModeRestrictionsFetchDeadlineMs;
 #if BUILDFLAG(IS_IOS)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUseSystemCapabilitiesForMinorModeRestrictions);
+
+// Short timeout to wait for asynchronously fetching already available system
+// capabilities.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+extern const base::FeatureParam<int>
+    kFetchImmediatelyAvailableCapabilityDeadlineMs;
+
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kRemoveSignedInAccountsDialog);
 #endif

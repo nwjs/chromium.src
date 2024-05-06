@@ -12,6 +12,8 @@ GPUDeviceLostInfo::GPUDeviceLostInfo(const WGPUDeviceLostReason reason,
                                      const String& message) {
   switch (reason) {
     case WGPUDeviceLostReason_Undefined:
+    case WGPUDeviceLostReason_InstanceDropped:
+    case WGPUDeviceLostReason_FailedCreation:
       reason_ = "unknown";
       break;
     case WGPUDeviceLostReason_Destroyed:

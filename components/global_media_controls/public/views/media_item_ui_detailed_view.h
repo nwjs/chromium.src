@@ -5,8 +5,6 @@
 #ifndef COMPONENTS_GLOBAL_MEDIA_CONTROLS_PUBLIC_VIEWS_MEDIA_ITEM_UI_DETAILED_VIEW_H_
 #define COMPONENTS_GLOBAL_MEDIA_CONTROLS_PUBLIC_VIEWS_MEDIA_ITEM_UI_DETAILED_VIEW_H_
 
-#include <optional>
-
 #include "base/component_export.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -156,6 +154,10 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIDetailedView
   // position.
   void SeekTo(double seek_progress);
 
+  // Callback for when the media progress view wants to update the progress
+  // position to the given time.
+  void SeekToTimestamp(const base::TimeDelta time) const;
+
   // Callback for when the start casting button is toggled by user.
   void StartCastingButtonPressed();
 
@@ -209,6 +211,8 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIDetailedView
   // The current `ChapterItemView` for the chapter at the index of the chapter
   // list.
   base::flat_map<int, ChapterItemView*> chapters_;
+
+  base::WeakPtrFactory<MediaItemUIDetailedView> weak_factory_{this};
 #endif
 };
 

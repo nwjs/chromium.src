@@ -513,7 +513,7 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
   // delegatesFocus, we should focus the custom element's focus delegate.
   if (auto* label = DynamicTo<HTMLLabelElement>(element)) {
     auto* control = label->control();
-    if (control && control->DelegatesFocus()) {
+    if (control && control->IsShadowHostWithDelegatesFocus()) {
       element = control;
     }
   }
@@ -521,11 +521,12 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
   for (; element; element = element->ParentOrShadowHostElement()) {
     if (element->IsFocusable() && element->IsFocusedElementInDocument())
       return WebInputEventResult::kNotHandled;
-    if (element->IsFocusable() || element->DelegatesFocus()) {
+    if (element->IsFocusable() || element->IsShadowHostWithDelegatesFocus()) {
       break;
     }
   }
-  DCHECK(!element || element->IsFocusable() || element->DelegatesFocus());
+  DCHECK(!element || element->IsFocusable() ||
+         element->IsShadowHostWithDelegatesFocus());
 
   // To fix <rdar://problem/4895428> Can't drag selected ToDo, we don't focus
   // a node on mouse down if it's selected and inside a focused node. It will
@@ -815,8 +816,9 @@ WebInputEventResult MouseEventManager::HandleMouseDraggedEvent(
       return WebInputEventResult::kNotHandled;
 
     layout_object = parent->GetLayoutObject();
-    if (!layout_object || !IsListBox(layout_object))
+    if (!layout_object || !layout_object->IsListBox()) {
       return WebInputEventResult::kNotHandled;
+    }
   }
 
   // |SelectionController| calls |PositionForPoint()| which requires
@@ -980,11 +982,15 @@ bool MouseEventManager::TryStartDrag(
           frame_->Selection().ComputeVisibleSelectionInDOMTree().Start()))
     return false;
 
-  // Invalidate clipboard here against anymore pasteboard writing for
-  // security. The drag image can still be changed as we drag, but not
-  // the pasteboard data.
+  // Set the clipboard access policy to protected
+  // (https://html.spec.whatwg.org/multipage/dnd.html#concept-dnd-p) to
+  // prevent changes in the clipboard after dragstart event has been fired:
+  // https://html.spec.whatwg.org/multipage/dnd.html#dndevents
+  // According to
+  // https://html.spec.whatwg.org/multipage/dnd.html#dom-datatransfer-setdragimage,
+  // drag image is only allowed to be changed during dragstart event.
   GetDragState().drag_data_transfer_->SetAccessPolicy(
-      DataTransferAccessPolicy::kImageWritable);
+      DataTransferAccessPolicy::kTypesReadable);
 
   if (drag_controller.StartDrag(frame_, GetDragState(), event.Event(),
                                 mouse_down_pos_)) {

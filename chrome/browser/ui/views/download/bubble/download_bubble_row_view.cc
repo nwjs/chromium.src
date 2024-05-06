@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/download/bubble/download_bubble_row_view.h"
 
+#include <string_view>
 #include <utility>
 
 #include "base/files/file_path.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/icon_manager.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/download/bubble/download_bubble_row_list_view.h"
@@ -38,8 +40,10 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/text/bytes_formatting.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
 #include "ui/display/screen.h"
+#include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/image_util.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -50,7 +54,9 @@
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/link_fragment.h"
 #include "ui/views/controls/progress_bar.h"
+#include "ui/views/controls/styled_label.h"
 #include "ui/views/input_event_activation_protector.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/flex_layout_types.h"
@@ -62,6 +68,7 @@
 #include "ui/views/rect_based_targeting_utils.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/style/typography_provider.h"
+#include "ui/views/vector_icons.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/widget/root_view.h"
@@ -136,21 +143,112 @@ class DownloadBubbleTransparentButton : public views::Button {
 
 BEGIN_METADATA(DownloadBubbleTransparentButton)
 END_METADATA
+
+class DownloadBubbleDeepScanNotice : public views::View {
+  METADATA_HEADER(DownloadBubbleDeepScanNotice, views::View)
+ public:
+  explicit DownloadBubbleDeepScanNotice(base::WeakPtr<Browser> browser) {
+    const int icon_label_spacing =
+        ChromeLayoutProvider::Get()->GetDistanceMetric(
+            views::DISTANCE_RELATED_LABEL_HORIZONTAL);
+    const size_t vertical_spacing =
+        ChromeLayoutProvider::Get()->GetDistanceMetric(
+            views::DISTANCE_RELATED_CONTROL_VERTICAL);
+
+    SetLayoutManager(std::make_unique<views::TableLayout>())
+        // Download Icon
+        ->AddColumn(views::LayoutAlignment::kCenter,
+                    views::LayoutAlignment::kStart,
+                    views::TableLayout::kFixedSize,
+                    views::TableLayout::ColumnSize::kUsePreferred, 0, 0)
+        // Download name label (primary_label_)
+        .AddPaddingColumn(views::TableLayout::kFixedSize, icon_label_spacing)
+        .AddColumn(views::LayoutAlignment::kStart,
+                   features::IsChromeRefresh2023()
+                       ? views::LayoutAlignment::kCenter
+                       : views::LayoutAlignment::kStart,
+                   1.0f, views::TableLayout::ColumnSize::kFixed, 0, 0)
+        .AddPaddingRow(1.0, vertical_spacing)
+        .AddRows(1, 1.0f)
+        .AddPaddingRow(1.0, vertical_spacing);
+
+    icon_ = AddChildView(std::make_unique<views::ImageView>());
+    icon_->SetCanProcessEventsWithinSubtree(false);
+    icon_->SetBorder(views::CreateEmptyBorder(GetLayoutInsets(DOWNLOAD_ICON)));
+
+    size_t link_offset;
+    std::u16string link_text =
+        l10n_util::GetStringUTF16(IDS_DEEP_SCANNING_PROMPT_REMOVAL_NOTICE_LINK);
+    std::u16string notice_text = l10n_util::GetStringFUTF16(
+        IDS_DEEP_SCANNING_PROMPT_REMOVAL_NOTICE, link_text, &link_offset);
+    auto* label = AddChildView(std::make_unique<views::StyledLabel>());
+    label->SetText(notice_text);
+    label->SetTextContext(views::style::CONTEXT_DIALOG_BODY_TEXT);
+    label->SetDefaultTextStyle(features::IsChromeRefresh2023()
+                                   ? views::style::STYLE_BODY_3_MEDIUM
+                                   : views::style::STYLE_PRIMARY);
+    views::StyledLabel::RangeStyleInfo link_style =
+        views::StyledLabel::RangeStyleInfo::CreateForLink(base::BindRepeating(
+            [](base::WeakPtr<Browser> browser) {
+              if (!browser) {
+                return;
+              }
+              chrome::ShowSafeBrowsingEnhancedProtection(browser.get());
+            },
+            browser));
+    label->AddStyleRange(
+        gfx::Range{link_offset, link_offset + link_text.length()}, link_style);
+    label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+    label->SetProperty(
+        views::kFlexBehaviorKey,
+        views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
+                                 views::MaximumFlexSizeRule::kUnbounded,
+                                 /*adjust_height_for_width=*/true));
+  }
+
+  void OnPaint(gfx::Canvas* canvas) override {
+    size_t vertical_offset = ChromeLayoutProvider::Get()->GetDistanceMetric(
+        views::DISTANCE_RELATED_CONTROL_VERTICAL);
+    gfx::Rect bounds = GetLocalBounds();
+    bounds.set_y(bounds.y() + vertical_offset);
+    bounds.set_height(bounds.height() - vertical_offset);
+    cc::PaintFlags flags;
+    flags.setAntiAlias(true);
+    flags.setStyle(cc::PaintFlags::kFill_Style);
+    flags.setColor(
+        GetColorProvider()->GetColor(kColorDownloadBubbleInfoBackground));
+
+    const size_t kCornerRadius = 8;
+    canvas->DrawRoundRect(bounds, kCornerRadius, flags);
+  }
+
+  void OnThemeChanged() override {
+    views::View::OnThemeChanged();
+    const gfx::VectorIcon& vector_icon = features::IsChromeRefresh2023()
+                                             ? views::kInfoChromeRefreshIcon
+                                             : views::kInfoIcon;
+    icon_->SetImage(
+        ui::ImageModel::FromVectorIcon(vector_icon, ui::kColorSysPrimary,
+                                       GetLayoutConstant(DOWNLOAD_ICON_SIZE)));
+  }
+
+ private:
+  raw_ptr<views::ImageView> icon_;
+};
+
+BEGIN_METADATA(DownloadBubbleDeepScanNotice)
+END_METADATA
+
 }  // namespace
 
 void DownloadBubbleRowView::UpdateRow(bool initial_setup) {
-  if (initial_setup &&
-      info_->model()->GetState() == download::DownloadItem::IN_PROGRESS) {
-    AnnounceInProgressAlert();
-    accessible_alert_in_progress_timer_.Reset();
-  }
-
   RecordMetricsOnUpdate();
   SetIcon();
   UpdateButtons();
   RecordDownloadDisplayed();
   UpdateLabels();
   UpdateProgressBar();
+  UpdateDeepScanNotice();
   if (!update_status_text_timer_.IsRunning()) {
     update_status_text_timer_.Reset();
   }
@@ -334,11 +432,6 @@ DownloadBubbleRowView::DownloadBubbleRowView(
       browser_(std::move(browser)),
       inkdrop_container_(
           AddChildView(std::make_unique<views::InkDropContainerView>())),
-      accessible_alert_in_progress_timer_(
-          FROM_HERE,
-          base::Minutes(3),
-          base::BindRepeating(&DownloadBubbleRowView::AnnounceInProgressAlert,
-                              base::Unretained(this))),
       update_status_text_timer_(
           FROM_HERE,
           base::Minutes(1),
@@ -352,6 +445,8 @@ DownloadBubbleRowView::DownloadBubbleRowView(
   CHECK(info_->model());
   info_->AddObserver(this);
   SetBorder(views::CreateEmptyBorder(GetLayoutInsets(DOWNLOAD_ROW)));
+
+  SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
 
   views::InkDrop::Install(this, std::make_unique<views::InkDropHost>(this));
   views::InstallRectHighlightPathGenerator(this);
@@ -393,8 +488,9 @@ DownloadBubbleRowView::DownloadBubbleRowView(
       .AddColumn(views::LayoutAlignment::kCenter,
                  views::LayoutAlignment::kStart, views::TableLayout::kFixedSize,
                  views::TableLayout::ColumnSize::kUsePreferred, 0, 0)
-      // Three rows, one for name, one for status, and one for the progress bar.
-      .AddRows(3, 1.0f);
+      // Four rows, one for name, one for status, one for the progress bar, and
+      // one for the deep scan notice.
+      .AddRows(4, 1.0f);
 
   inkdrop_container_->SetProperty(views::kViewIgnoredByLayoutKey, true);
 
@@ -527,6 +623,18 @@ DownloadBubbleRowView::DownloadBubbleRowView(
 
   SetNotifyEnterExitOnChild(true);
 
+  // TODO(https://crbug.com/332382747): Remove after 2024-10
+  deep_scan_notice_ =
+      AddChildView(std::make_unique<DownloadBubbleDeepScanNotice>(browser_));
+  deep_scan_notice_->SetProperty(views::kTableColAndRowSpanKey,
+                                 gfx::Size(5, 1));
+  deep_scan_notice_->SetProperty(views::kTableHorizAlignKey,
+                                 views::LayoutAlignment::kStretch);
+  deep_scan_notice_->SetBorder(views::CreateEmptyBorder(
+      gfx::Insets().set_top(ChromeLayoutProvider::Get()->GetDistanceMetric(
+          views::DISTANCE_RELATED_CONTROL_VERTICAL))));
+  deep_scan_notice_->SetVisible(false);
+
   // Set up initial state.
   UpdateRow(/*initial_setup=*/true);
 }
@@ -541,6 +649,7 @@ views::View::Views DownloadBubbleRowView::GetChildrenInZOrder() {
   move_child_to_top(transparent_button_);
   move_child_to_top(quick_action_holder_);
   move_child_to_top(main_button_holder_);
+  move_child_to_top(deep_scan_notice_);
   return children;
 }
 
@@ -779,6 +888,13 @@ void DownloadBubbleRowView::UpdateLabels() {
   secondary_label_->SetEnabledColorId(info_->secondary_text_color());
 }
 
+void DownloadBubbleRowView::UpdateDeepScanNotice() {
+  if (info_->ShouldShowDeepScanNotice()) {
+    deep_scan_notice_->SetVisible(true);
+    bubble_controller_->SetDeepScanNoticeSeen();
+  }
+}
+
 void DownloadBubbleRowView::RecordMetricsOnUpdate() {
   // This should only be logged once per download.
   MaybeRecordDangerousDownloadWarningShown(*info_->model());
@@ -952,11 +1068,6 @@ void DownloadBubbleRowView::ShowContextMenuForViewImpl(
                      base::RepeatingClosure());
 }
 
-void DownloadBubbleRowView::AnnounceInProgressAlert() {
-  GetViewAccessibility().AnnounceText(
-      info_->model()->GetInProgressAccessibleAlertText());
-}
-
 void DownloadBubbleRowView::UpdateStatusText() {
   secondary_label_->SetText(info_->model()->GetStatusTextForLabel(
       secondary_label_->font_list(), secondary_label_->width()));
@@ -1049,32 +1160,6 @@ void DownloadBubbleRowView::OnInfoChanged() {
   navigation_handler_->ResizeDialog();
 }
 
-void DownloadBubbleRowView::OnDownloadStateChanged(
-    download::DownloadItem::DownloadState old_state,
-    download::DownloadItem::DownloadState new_state) {
-  CHECK(old_state != new_state);
-
-  // Announce completion of downloads
-  if (new_state == download::DownloadItem::COMPLETE) {
-    const std::u16string alert_text = l10n_util::GetStringFUTF16(
-        IDS_DOWNLOAD_COMPLETE_ACCESSIBLE_ALERT,
-        info_->model()->GetFileNameToReportUser().LossyDisplayName());
-    GetViewAccessibility().AnnounceText(alert_text);
-  }
-
-  // When in progress, announce the progress immediately and start the timer for
-  // further updates.
-  if (new_state == download::DownloadItem::IN_PROGRESS) {
-    AnnounceInProgressAlert();
-    accessible_alert_in_progress_timer_.Reset();
-  }
-
-  // When no longer in progress, stop announcing.
-  if (old_state == download::DownloadItem::IN_PROGRESS) {
-    accessible_alert_in_progress_timer_.Stop();
-  }
-}
-
 void DownloadBubbleRowView::SimulateMainButtonClickForTesting(
     const ui::Event& event) {
   static_cast<DownloadBubbleTransparentButton*>(transparent_button_)
@@ -1098,6 +1183,19 @@ views::ImageButton* DownloadBubbleRowView::GetQuickActionButtonForTesting(
 void DownloadBubbleRowView::SetInputProtectorForTesting(
     std::unique_ptr<views::InputEventActivationProtector> input_protector) {
   input_protector_ = std::move(input_protector);
+}
+
+views::View* DownloadBubbleRowView::TargetForRect(View* root,
+                                                  const gfx::Rect& rect) {
+  // The deep scan notice is on top of the transparent button to make the link
+  // clickable, but we want to target the button for all other input events.
+  views::View* target = views::ViewTargeterDelegate::TargetForRect(root, rect);
+  if (views::IsViewClass<DownloadBubbleDeepScanNotice>(target) ||
+      views::IsViewClass<DownloadBubbleDeepScanNotice>(target->parent())) {
+    return transparent_button_;
+  }
+
+  return target;
 }
 
 BEGIN_METADATA(DownloadBubbleRowView)

@@ -584,7 +584,7 @@ IN_PROC_BROWSER_TEST_F(WebAppTabStripBrowserTest, DISABLED_NavigationThrottle) {
   EXPECT_EQ(tab_strip->active_index(), 0);
   EXPECT_EQ(tab_strip->GetWebContentsAt(0)->GetVisibleURL(), start_url);
 
-// TODO(crbug.com/1417525): Fix this test on Windows and Mac.
+// TODO(crbug.com/40257354): Fix this test on Windows and Mac.
 #if !(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC))
   // Navigate to a home tab URL via a target=_blank link.
   content::TestNavigationObserver nav_observer(
@@ -745,7 +745,8 @@ IN_PROC_BROWSER_TEST_F(WebAppTabStripBrowserTest,
   // Navigate to home tab using the same URL.
   app_browser->OpenURL(OpenURLParams(start_url, content::Referrer(),
                                      WindowOpenDisposition::CURRENT_TAB,
-                                     ui::PAGE_TRANSITION_TYPED, false));
+                                     ui::PAGE_TRANSITION_TYPED, false),
+                       /*navigation_handle_callback=*/{});
 
   // Expect the JS variable to still be set, meaning the page was not navigated.
   EXPECT_EQ(true, EvalJs(tab_strip->GetWebContentsAt(0), "test == 5"));
@@ -1207,7 +1208,8 @@ IN_PROC_BROWSER_TEST_F(WebAppTabStripBrowserTest, MiddleClickHomeTabLink) {
   // Middle click home tab link from the home tab.
   app_browser->OpenURL(OpenURLParams(start_url, content::Referrer(),
                                      WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                                     ui::PAGE_TRANSITION_TYPED, false));
+                                     ui::PAGE_TRANSITION_TYPED, false),
+                       /*navigation_handle_callback=*/{});
 
   // Check we stayed in the home tab.
   EXPECT_EQ(tab_strip->count(), 1);
@@ -1220,7 +1222,8 @@ IN_PROC_BROWSER_TEST_F(WebAppTabStripBrowserTest, MiddleClickHomeTabLink) {
   // Middle click home tab link from a different tab.
   app_browser->OpenURL(OpenURLParams(start_url, content::Referrer(),
                                      WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                                     ui::PAGE_TRANSITION_TYPED, false));
+                                     ui::PAGE_TRANSITION_TYPED, false),
+                       /*navigation_handle_callback=*/{});
 
   // Check it was opened in the home tab.
   EXPECT_EQ(tab_strip->count(), 2);

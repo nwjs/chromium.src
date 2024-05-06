@@ -45,8 +45,6 @@ BASE_DECLARE_FEATURE(kPwaUniversalInstallUi);
 BASE_DECLARE_FEATURE(kWebApkInstallFailureNotification);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-BASE_DECLARE_FEATURE(kCreateShortcutIgnoresManifest);
-
 BASE_DECLARE_FEATURE(kInstallPromptSegmentation);
 
 BASE_DECLARE_FEATURE(kAppBannerTriggering);
@@ -64,6 +62,7 @@ BASE_DECLARE_FEATURE(kUniversalInstallManifest);
 BASE_DECLARE_FEATURE(kUniversalInstallIcon);
 BASE_DECLARE_FEATURE(kUniversalInstallRootScopeNoManifest);
 extern const base::FeatureParam<int> kMinimumFaviconSize;
+BASE_DECLARE_FEATURE(kUniversalInstallDefaultUrl);
 
 }  // namespace features
 }  // namespace webapps

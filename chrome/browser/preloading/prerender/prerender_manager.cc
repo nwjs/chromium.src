@@ -12,7 +12,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_features.h"
-#include "chrome/browser/page_load_metrics/observers/bookmark_navigation_handle_user_data.h"
+#include "chrome/browser/page_load_metrics/observers/navigation_handle_user_data.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/field_trial_settings.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service.h"
@@ -60,9 +60,9 @@ content::PreloadingFailureReason ToPreloadingFailureReason(
 
 void AttachBookmarkBarNavigationHandleUserData(
     content::NavigationHandle& navigation_handle) {
-  BookmarkNavigationHandleUserData::CreateForNavigationHandle(
+  NavigationHandleUserData::CreateForNavigationHandle(
       navigation_handle,
-      BookmarkNavigationHandleUserData::InitiatorLocation::kBookmarkBar);
+      NavigationHandleUserData::InitiatorLocation::kBookmarkBar);
 }
 
 }  // namespace
@@ -322,11 +322,17 @@ PrerenderManager::StartPrerenderNewTabPage(
     new_tab_page_prerender_handle_.reset();
   }
 
+  base::RepeatingCallback<void(content::NavigationHandle&)>
+      prerender_navigation_handle_callback = base::BindRepeating(
+          &NavigationHandleUserData::AttachNewTabPageNavigationHandleUserData);
+
   new_tab_page_prerender_handle_ = web_contents()->StartPrerendering(
       prerendering_url, content::PreloadingTriggerType::kEmbedder,
       prerender_utils::kNewTabPageMetricSuffix,
       ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK),
-      content::PreloadingHoldbackStatus::kUnspecified, preloading_attempt);
+      content::PreloadingHoldbackStatus::kUnspecified, preloading_attempt,
+      /*url_match_predicate=*/{},
+      std::move(prerender_navigation_handle_callback));
 
   return new_tab_page_prerender_handle_
              ? new_tab_page_prerender_handle_->GetWeakPtr()
@@ -384,7 +390,8 @@ PrerenderManager::StartPrerenderDirectUrlInput(
       prerender_utils::kDirectUrlInputMetricSuffix,
       ui::PageTransitionFromInt(ui::PAGE_TRANSITION_TYPED |
                                 ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
-      content::PreloadingHoldbackStatus::kUnspecified, &preloading_attempt);
+      content::PreloadingHoldbackStatus::kUnspecified, &preloading_attempt,
+      /*url_match_predicate=*/{}, /*prerender_navigation_handle_callback=*/{});
 
   if (direct_url_input_prerender_handle_) {
     return direct_url_input_prerender_handle_->GetWeakPtr();
@@ -422,7 +429,8 @@ void PrerenderManager::StartPrerenderSearchResult(
           ui::PageTransitionFromInt(ui::PAGE_TRANSITION_GENERATED |
                                     ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
           holdback_status_override, preloading_attempt.get(),
-          std::move(url_match_predicate));
+          std::move(url_match_predicate),
+          /*prerender_navigation_handle_callback=*/{});
 
   if (prerender_handle) {
     CHECK(!search_prerender_task_)
@@ -509,6 +517,7 @@ void PrerenderManager::ResetPrerenderHandlesOnPrimaryPageChanged(
   }
 
   bookmark_prerender_handle_.reset();
+  new_tab_page_prerender_handle_.reset();
 }
 
 bool PrerenderManager::ResetSearchPrerenderTaskIfNecessary(

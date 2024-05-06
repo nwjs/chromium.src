@@ -21,7 +21,6 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/account_info.h"
-#import "components/sync/base/features.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/local_data_description.h"
 #import "components/sync/service/sync_service.h"
@@ -466,8 +465,13 @@ bool IsABookmarkNodeSectionForIdentifier(
       base::BindOnce(^(std::map<syncer::ModelType, syncer::LocalDataDescription>
                            description) {
         auto it = description.find(syncer::BOOKMARKS);
-        CHECK(it != description.end());
-        completion(it->second.item_count, std::move(user_email));
+        // GetLocalDataDescriptions() can return an empty result if data type is
+        // still in configuration, or has an error.
+        if (it != description.end()) {
+          completion(it->second.item_count, std::move(user_email));
+          return;
+        }
+        completion(0, std::move(user_email));
       }));
 }
 
@@ -530,6 +534,21 @@ bool IsABookmarkNodeSectionForIdentifier(
 }
 
 #pragma mark - BookmarkModelBridgeObserver
+
+- (void)bookmarkModelWillRemoveAllNodes:(const LegacyBookmarkModel*)model {
+  CHECK(model);
+  if (model == [self displayedBookmarkModel]) {
+    if (self.displayedNode && self.displayedNode->is_permanent_node()) {
+      // All Bookmarks home mediators will receive
+      // `bookmarkModelWillRemoveAllNodes:`. However, the navigation controller
+      // should be edited only once. In order to ensure a single Bookmarks home
+      // view controller request the navigation controller to change we call
+      // `displayRoot` a single time, in the permanent folder.
+      [self.consumer displayRoot];
+    }
+    self.displayedNode = nullptr;
+  }
+}
 
 // BookmarkModelBridgeObserver Callbacks
 // Instances of this class automatically observe the bookmark model.
@@ -596,8 +615,8 @@ bool IsABookmarkNodeSectionForIdentifier(
        willDeleteNode:(const bookmarks::BookmarkNode*)node
            fromFolder:(const bookmarks::BookmarkNode*)folder {
   DCHECK(node);
-  if (self.displayedNode && self.displayedNode->HasAncestor(node)) {
-    self.displayedNode = nullptr;
+  if (self.displayedNode == node) {
+    [self.consumer closeThisFolder];
   }
 }
 

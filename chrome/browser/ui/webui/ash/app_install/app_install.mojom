@@ -4,18 +4,27 @@
 
 module ash.app_install.mojom;
 
+import "ui/gfx/geometry/mojom/geometry.mojom";
 import "url/mojom/url.mojom";
 
 struct DialogArgs {
-  url.mojom.Url url;
-
   string name;
+
+  url.mojom.Url url;
 
   string description;
 
   url.mojom.Url icon_url;
 
-  array<url.mojom.Url> screenshot_urls;
+  array<Screenshot> screenshots;
+
+  bool is_already_installed;
+};
+
+struct Screenshot {
+  url.mojom.Url url;
+
+  gfx.mojom.Size size;
 };
 
 // Lives in the browser process. A renderer uses this to create a page handler
@@ -29,7 +38,9 @@ interface PageHandlerFactory {
 // are implemented in the browser process.
 interface PageHandler {
   // Returns arguments passed to the dialog on creation.
-  GetDialogArgs() => (DialogArgs args);
+  // If no args are returned this indicates a failure to download them and an
+  // error should be shown.
+  GetDialogArgs() => (DialogArgs? args);
 
   // Closes the dialog.
   CloseDialog();
@@ -38,6 +49,9 @@ interface PageHandler {
   // successfully installed.
   InstallApp() => (bool installed);
 
-  // Opens the app that was just installed, then closes the dialog.
+  // Opens the app that was just installed.
   LaunchApp();
+
+  // Retries the install dialog flow.
+  TryAgain();
 };

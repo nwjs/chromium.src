@@ -80,13 +80,10 @@ class CORE_EXPORT ViewTransitionSupplement
   VectorOf<std::unique_ptr<ViewTransitionRequest>> TakePendingRequests();
   void OnTransitionFinished(ViewTransition* transition) override;
 
-  // Notifies when the "view-transition" meta tag associated with this Document
-  // has changed.
-  void OnMetaTagChanged(const AtomicString& content_value);
-
   // TODO(https://crbug.com/1422251): Expand this to receive a the full set of
   // @view-transition options.
-  void OnViewTransitionsStyleUpdated(bool cross_document_enabled);
+  void OnViewTransitionsStyleUpdated(bool cross_document_enabled,
+                                     const Vector<String>& types);
 
   // Notifies that the `body` element has been parsed and will be added to the
   // Document.
@@ -144,6 +141,8 @@ class CORE_EXPORT ViewTransitionSupplement
 
   uint32_t resource_local_id_sequence_ =
       viz::ViewTransitionElementResourceId::kInvalidLocalId;
+
+  Vector<String> cross_document_types_;
 };
 
 }  // namespace blink

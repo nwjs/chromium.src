@@ -43,7 +43,7 @@ group("deps") {
     }
     if (use_prebuilt_instrumented_libraries ||
         use_locally_built_instrumented_libraries) {
-      deps += [ "//third_party/instrumented_libraries:deps" ]
+      deps += [ "//third_party/instrumented_libs:deps" ]
     }
   }
   if (fail_on_san_warnings) {
@@ -438,6 +438,11 @@ config("coverage_flags") {
                   rebase_path(sanitizer_coverage_allowlist, root_build_dir) ]
     }
   }
+  if (use_centipede) {
+    # Centipede intercepts calls such as memcmp and memcpy in order to improve
+    # its testcase generation.
+    cflags += [ "-fno-builtin" ]
+  }
 }
 
 config("hwasan_flags") {
@@ -468,10 +473,11 @@ config("msan_flags") {
 
       # TODO(https://crbug.com/1317909): evaluate and possibly enable
       "-fno-sanitize-memory-use-after-dtor",
-
-      # TODO(https://crbug.com/1369167): evaluate and possibly enable
-      "-fno-sanitize-memory-param-retval",
     ]
+
+    if (!msan_eager_checks) {
+      cflags += [ "-fno-sanitize-memory-param-retval" ]
+    }
   }
 }
 

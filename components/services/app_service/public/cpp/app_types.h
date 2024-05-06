@@ -15,6 +15,10 @@ namespace apps {
 // //components/services/app_service/public/cpp/macros.h
 // macros if necessary, as well as the ApplicationType enum in
 // //components/services/app_service/public/protos/app_types.proto.
+//
+// This is used for metrics and should not be reordered or removed and email
+// chromeos-data-team@google.com to request a corresponding change to backend
+// enums.
 ENUM(AppType,
      kUnknown,
      kArc,                         // Android app.
@@ -32,6 +36,14 @@ ENUM(AppType,
      kStandaloneBrowserExtension,  // Extension hosted in Lacros.
      kBruschetta                   // Bruschetta app, see go/bruschetta.
 )
+
+// When updating the enum below, update
+// //components/services/app_service/public/cpp/macros.h
+// macros if necessary.
+//
+// Used by PackageId mapping closely to corresponding values in AppType but
+// can contain other non-app values e.g. app shortcuts.
+ENUM(PackageType, kUnknown, kArc, kBorealis, kChromeApp, kGeForceNow, kWeb)
 
 // Whether an app is ready to launch, i.e. installed.
 // Note the enumeration is used in UMA histogram so entries should not be
@@ -57,6 +69,9 @@ ENUM(Readiness,
 // enums.xml as well as ApplicationInstallReason in
 // //components/services/app_service/public/protos/app_types.proto.
 //
+// Email chromeos-data-team@google.com to request a corresponding change to
+// backend enums.
+//
 // Note the enumeration is used in UMA histogram so entries should not be
 // re-ordered or removed. New entries should be added at the bottom.
 ENUM(InstallReason,
@@ -69,13 +84,16 @@ ENUM(InstallReason,
      kUser,     // Installed by user action.
      kSubApp,   // Installed by the SubApp API call.
      kKiosk,    // Installed by Kiosk on Chrome OS.
-     kCommandLine  // Installed by command line argument.
+     kCommandLine  // Deprecated, no longer used.
 )
 
 // Where the app was installed from.
 // This should be kept in sync with histograms.xml, InstallSource in
 // enums.xml as well as ApplicationInstallSource in
 // //components/services/app_service/public/protos/app_types.proto.
+//
+// Email chromeos-data-team@google.com to request a corresponding change to
+// backend enums.
 //
 // Note the enumeration is used in UMA histogram so entries should not be
 // re-ordered or removed. New entries should be added at the bottom.
@@ -94,6 +112,9 @@ ENUM(InstallSource,
 // //components/services/app_service/public/protos/app_types.proto, so entries
 // should not be re-ordered or removed. New entries should be added at the
 // bottom.
+//
+// Email chromeos-data-team@google.com to request a corresponding change to
+// backend enums.
 ENUM(UninstallSource,
      kUnknown,
      kAppList,        // Uninstall by the user from the App List (Launcher)
@@ -114,6 +135,12 @@ ENUM(WindowMode,
 
 COMPONENT_EXPORT(APP_TYPES)
 ApplicationType ConvertAppTypeToProtoApplicationType(AppType app_type);
+
+COMPONENT_EXPORT(APP_TYPES)
+std::optional<AppType> ConvertPackageTypeToAppType(PackageType package_type);
+
+COMPONENT_EXPORT(APP_TYPES)
+std::optional<PackageType> ConvertAppTypeToPackageType(AppType app_type);
 
 COMPONENT_EXPORT(APP_TYPES)
 ApplicationInstallReason ConvertInstallReasonToProtoApplicationInstallReason(

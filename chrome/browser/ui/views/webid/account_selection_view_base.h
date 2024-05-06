@@ -22,9 +22,12 @@
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/styled_label.h"
 #include "ui/views/widget/widget_observer.h"
 
 using TokenError = content::IdentityCredentialTokenError;
+
+class AccountImageView;
 
 namespace content {
 struct IdentityRequestAccount;
@@ -36,10 +39,18 @@ inline constexpr int kButtonRadius = 16;
 inline constexpr int kBubbleWidth = 375;
 // The desired size of the avatars of user accounts.
 inline constexpr int kDesiredAvatarSize = 30;
+// The desired size of the avatar of user accounts when the button has three
+// lines of text.
+inline constexpr int kLargerAvatarSize = 40;
+// The desired size of the IDP icon used as badge for the user account avatar
+// when there are multiple IDPs.
+inline constexpr int kLargeAvatarBadgeSize = 16;
 // The desired size of the icon of the identity provider.
 inline constexpr int kDesiredIdpIconSize = 20;
 // The desired size of the icon for the "Use another account" button.
 inline constexpr int kDesiredUseOtherAccountIconSize = 20;
+// The desired size of the icon for the "Choose an account" button.
+inline constexpr int kDesiredChooseAnAccountIconSize = 20;
 // The size of the padding used at the top and bottom of the bubble.
 inline constexpr int kTopBottomPadding = 4;
 // The size of the horizontal padding between the bubble content and the edge of
@@ -55,6 +66,12 @@ inline constexpr int kRightMargin = 40;
 // The size of the space between the top boundary of the WebContents and the top
 // boundary of the bubble.
 inline constexpr int kTopMargin = 16;
+// The size of the icon of the identity provider in the modal dialog.
+inline constexpr int kModalIdpIconSize = 32;
+// The size of avatars in the modal dialog.
+inline constexpr int kModalAvatarSize = 36;
+// The size of the horizontal padding for most elements in the modal.
+inline constexpr int kModalHorizontalSpacing = 8;
 
 inline constexpr char kImageFetcherUmaClient[] = "FedCMAccountChooser";
 
@@ -127,9 +144,9 @@ class BrandIconImageView : public views::ImageView {
 
  public:
   BrandIconImageView(
-      base::OnceCallback<void(const GURL&, const gfx::ImageSkia&)>
-          add_idp_image,
-      int image_size);
+      base::OnceCallback<void(const GURL&, const gfx::ImageSkia&)> add_image,
+      int image_size,
+      bool should_circle_crop = true);
   BrandIconImageView(const BrandIconImageView&) = delete;
   BrandIconImageView& operator=(const BrandIconImageView&) = delete;
   ~BrandIconImageView() override;
@@ -143,8 +160,9 @@ class BrandIconImageView : public views::ImageView {
                       const gfx::Image& image,
                       const image_fetcher::RequestMetadata& metadata);
 
-  base::OnceCallback<void(const GURL&, const gfx::ImageSkia&)> add_idp_image_;
+  base::OnceCallback<void(const GURL&, const gfx::ImageSkia&)> add_image_;
   int image_size_;
+  bool should_circle_crop_;
 
   base::WeakPtrFactory<BrandIconImageView> weak_ptr_factory_{this};
 };
@@ -195,6 +213,9 @@ class AccountSelectionViewBase {
 
     // Called when IdentityProvider.close() is called from the renderer.
     virtual void CloseModalDialog() = 0;
+
+    // Called when the user clicks on the 'Choose an account' button
+    virtual void OnChooseAnAccount() = 0;
   };
 
   AccountSelectionViewBase(
@@ -211,7 +232,8 @@ class AccountSelectionViewBase {
 
   // Updates the FedCM dialog to show the "account picker" sheet.
   virtual void ShowMultiAccountPicker(
-      const std::vector<IdentityProviderDisplayData>& idp_data_list) = 0;
+      const std::vector<IdentityProviderDisplayData>& idp_data_list,
+      bool show_back_button) = 0;
 
   // Updates the FedCM dialog to show the "verifying" sheet.
   virtual void ShowVerifyingSheet(
@@ -249,6 +271,12 @@ class AccountSelectionViewBase {
       const content::IdentityRequestAccount& account,
       const IdentityProviderDisplayData& idp_display_data) = 0;
 
+  // Updates to show a single account along with a button to show all options.
+  // Currently used when there are multiple IDPs and exactly one returning
+  // account.
+  virtual void ShowSingleReturningAccountDialog(
+      const std::vector<IdentityProviderDisplayData>& idp_data_list) = 0;
+
   // Updates the FedCM dialog to show the "loading" sheet.
   virtual void ShowLoadingDialog() = 0;
 
@@ -265,7 +293,7 @@ class AccountSelectionViewBase {
   // method is virtual for testing purposes.
   virtual base::WeakPtr<views::Widget> GetDialogWidget();
 
-  // Populates `idp_images` when an IDP image has been fetched.
+  // Populates `brand_icon_images_` when an IDP image has been fetched.
   void AddIdpImage(const GURL& image_url, const gfx::ImageSkia& idp_image);
 
   // Returns the network traffic annotation tag for FedCM.
@@ -293,18 +321,33 @@ class AccountSelectionViewBase {
   std::unique_ptr<views::View> CreateAccountRow(
       const content::IdentityRequestAccount& account,
       const IdentityProviderDisplayData& idp_display_data,
-      bool should_hover);
+      bool should_hover,
+      bool should_include_idp,
+      bool is_modal_dialog = false,
+      int additional_vertical_padding = 0);
 
-  // Returns a view containing a disclosure label. The label links to privacy
-  // policy and terms of service URLs, if available.
-  std::unique_ptr<views::View> CreateDisclosureLabel(
+  // Returns a StyledLabel containing a disclosure label. The label links to
+  // privacy policy and terms of service URLs, if available.
+  std::unique_ptr<views::StyledLabel> CreateDisclosureLabel(
       const IdentityProviderDisplayData& idp_display_data);
 
   // Sets the brand views::ImageView visibility and image. Initiates the
   // download of the brand icon if necessary.
-  void ConfigureIdpBrandImageView(
-      BrandIconImageView* image_view,
-      const content::IdentityProviderMetadata& idp_metadata);
+  void ConfigureBrandImageView(BrandIconImageView* image_view,
+                               const GURL& brand_icon_url,
+                               int image_size = kDesiredIdpIconSize,
+                               bool should_circle_crop = true);
+
+  // Sets the badge of the AccountImageView, if available, or initiates the
+  // fetch otherwise.
+  void ConfigureBadgeIdp(AccountImageView& account_image_view,
+                         const GURL& brand_icon_url);
+
+  // Sends an accessibility event to make an announcement of the passed in
+  // `announcement` if available, otherwise the text in the currently focused
+  // view is announced.
+  void SendAccessibilityEvent(views::Widget* widget,
+                              std::u16string announcement = std::u16string());
 
   // The ImageFetcher used to fetch the account pictures for FedCM.
   std::unique_ptr<image_fetcher::ImageFetcher> image_fetcher_;
@@ -312,10 +355,9 @@ class AccountSelectionViewBase {
   // Web contents which the dialog is rendered on.
   raw_ptr<content::WebContents, DanglingUntriaged> web_contents_;
 
-  // The images for the IDP icons. Stored so that they can be reused upon
-  // pressing the back button after choosing an account on the multi IDP
-  // chooser.
-  base::flat_map<GURL, gfx::ImageSkia> idp_images_;
+  // The images for the brand icons. Stored so that they can be reused upon
+  // pressing the back button after choosing an account.
+  base::flat_map<GURL, gfx::ImageSkia> brand_icon_images_;
 
   // Widget to control the dialog i.e. hide, show, add observer etc.
   base::WeakPtr<views::Widget> dialog_widget_;
@@ -327,6 +369,10 @@ class AccountSelectionViewBase {
   // Observes events on AccountSelectionBubbleView.
   // Dangling when running Chromedriver's run_py_tests.py test suite.
   raw_ptr<Observer, DanglingUntriaged> observer_{nullptr};
+
+  // Used to ensure that callbacks are not run if the AccountSelectionViewBase
+  // is destroyed.
+  base::WeakPtrFactory<AccountSelectionViewBase> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_WEBID_ACCOUNT_SELECTION_VIEW_BASE_H_

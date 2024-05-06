@@ -545,7 +545,7 @@ class FormDataImporterTest : public testing::Test {
 
     test::DisableSystemServices(prefs_.get());
 
-    personal_data_manager_ = std::make_unique<TestPersonalDataManager>();
+    personal_data_manager_ = autofill_client_->GetPersonalDataManager();
     personal_data_manager_->set_auto_accept_address_imports_for_testing(true);
     personal_data_manager_->SetPrefService(prefs_.get());
     personal_data_manager_->SetSyncServiceForTest(&sync_service_);
@@ -742,8 +742,8 @@ class FormDataImporterTest : public testing::Test {
     std::optional<CreditCard> extracted_credit_card =
         ExtractCreditCard(form_structure);
     ASSERT_TRUE(extracted_credit_card);
-    personal_data_manager_->OnAcceptedLocalCreditCardSave(
-        *extracted_credit_card);
+    personal_data_manager_->payments_data_manager()
+        .OnAcceptedLocalCreditCardSave(*extracted_credit_card);
 
     CreditCard expected = test::CreateCreditCardWithInfo(
         exp_name, exp_cc_num, exp_cc_month, exp_cc_year, "");
@@ -766,10 +766,9 @@ class FormDataImporterTest : public testing::Test {
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   std::unique_ptr<PrefService> prefs_;
   syncer::TestSyncService sync_service_;
-  // `personal_data_manager_` needs to be destroyed before `autofill_client_`,
-  // as the destructor of the clients FormDataImporter relies on it.
-  std::unique_ptr<TestPersonalDataManager> personal_data_manager_;
   std::unique_ptr<TestAutofillClient> autofill_client_;
+  // Owned by `autofill_client_`.
+  raw_ptr<TestPersonalDataManager> personal_data_manager_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -890,7 +889,7 @@ TEST_F(FormDataImporterTest, ParseI18nPhoneNumberInCityAndNumberField) {
       types.push_back(field->heuristic_type());
     }
   }
-  test_api(form_structure.get()).SetFieldTypes(types, types);
+  test_api(*form_structure.get()).SetFieldTypes(types, types);
 
   ExtractAddressProfilesAndVerifyExpectation(*form_structure,
                                              {expected_profile});
@@ -1319,7 +1318,7 @@ TEST_F(FormDataImporterTest, ImportAddressProfiles_BadEmail) {
 
   // Change the value of the email field.
   ASSERT_EQ(form_structure->field(2)->Type().GetStorableType(), EMAIL_ADDRESS);
-  form_structure->field(2)->value = u"bogus";
+  form_structure->field(2)->set_value(u"bogus");
 
   // Verify that there was no import.
   ImportAddressProfileAndVerifyImportOfNoProfile(*form_structure);
@@ -1598,7 +1597,7 @@ TEST_F(FormDataImporterTest,
   FormData hidden_second_form = form_data;
   for (FormFieldData& field : hidden_second_form.fields) {
     // Reset the values and make the field non focusable.
-    field.value = u"";
+    field.set_value(u"");
     field.is_focusable = false;
   }
 
@@ -1822,7 +1821,7 @@ TEST_F(FormDataImporterTest,
               UnorderedElementsCompareEqual(expected));
 }
 
-// TODO(crbug.com/634131): Create profiles if part of a standalone part of a
+// TODO(crbug.com/41267680): Create profiles if part of a standalone part of a
 // composed country name is present. Currently this is treated as an invalid
 // country, which is ignored on import.
 TEST_F(FormDataImporterTest,
@@ -1847,7 +1846,8 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_Valid) {
   histogram_tester.ExpectUniqueSample(
       "Autofill.SubmittedCardState",
       AutofillMetrics::HAS_CARD_NUMBER_AND_EXPIRATION_DATE, 1);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected = test::CreateCreditCardWithInfo(
       "Biggie Smalls", "4111111111111111", "01", "2999",
@@ -1902,7 +1902,8 @@ TEST_F(FormDataImporterTest,
       ExtractCreditCard(form_structure);
   EXPECT_TRUE(extracted_credit_card);
 
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected = test::CreateCreditCardWithInfo(
       "Jim Johansen", "4444333322221111", "02", "2999", "", u"001");
@@ -1953,7 +1954,7 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_MonthSelectInvalidText) {
   FormData form = CreateFullCreditCardForm(
       "Biggie Smalls", "4111-1111-1111-1111", "Feb (2)", "2999");
   // Add option values and contents to the expiration month field.
-  ASSERT_EQ(u"exp_month", form.fields[2].name);
+  ASSERT_EQ(u"exp_month", form.fields[2].name());
   form.fields[2].options = {
       {.value = u"1", .content = u"Jan (1)"},
       {.value = u"2", .content = u"Feb (2)"},
@@ -1970,7 +1971,8 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_MonthSelectInvalidText) {
   histogram_tester.ExpectUniqueSample(
       "Autofill.SubmittedCardState",
       AutofillMetrics::HAS_CARD_NUMBER_AND_EXPIRATION_DATE, 1);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   // See that the invalid option text was converted to the right value.
   CreditCard expected = test::CreateCreditCardWithInfo(
@@ -1987,7 +1989,8 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_TwoValidCards) {
   std::optional<CreditCard> extracted_credit_card =
       ExtractCreditCard(*form_structure1);
   EXPECT_TRUE(extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected = test::CreateCreditCardWithInfo(
       "Biggie Smalls", "4111111111111111", "01", "2999",
@@ -2006,7 +2009,7 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_TwoValidCards) {
   std::optional<CreditCard> extracted_credit_card2 =
       ExtractCreditCard(form_structure2);
   EXPECT_TRUE(extracted_credit_card2);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
       *extracted_credit_card2);
 
   CreditCard expected2 = test::CreateCreditCardWithInfo(
@@ -2153,7 +2156,8 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_SameCreditCardWithConflict) {
   std::optional<CreditCard> extracted_credit_card =
       ExtractCreditCard(form_structure1);
   EXPECT_TRUE(extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected = test::CreateCreditCardWithInfo(
       "Biggie Smalls", "4111111111111111", "01", "2998",
@@ -2196,7 +2200,8 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_ShouldReturnLocalCard) {
   std::optional<CreditCard> extracted_credit_card =
       ExtractCreditCard(form_structure1);
   EXPECT_TRUE(extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected = test::CreateCreditCardWithInfo(
       "Biggie Smalls", "4111111111111111", "01", "2998",
@@ -2244,7 +2249,8 @@ TEST_F(FormDataImporterTest,
   std::optional<CreditCard> extracted_credit_card =
       ExtractCreditCard(form_structure1);
   EXPECT_TRUE(extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected(base::Uuid::GenerateRandomV4().AsLowercaseString(),
                       test::kEmptyOrigin);
@@ -2291,7 +2297,8 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_EmptyCardWithConflict) {
   std::optional<CreditCard> extracted_credit_card =
       ExtractCreditCard(form_structure1);
   EXPECT_TRUE(extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected = test::CreateCreditCardWithInfo(
       "Biggie Smalls", "4111111111111111", "01", "2998",
@@ -2331,7 +2338,8 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_MissingInfoInNew) {
   std::optional<CreditCard> extracted_credit_card =
       ExtractCreditCard(form_structure1);
   EXPECT_TRUE(extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(*extracted_credit_card);
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
+      *extracted_credit_card);
 
   CreditCard expected = test::CreateCreditCardWithInfo(
       "Biggie Smalls", "4111111111111111", "01", "2999", "");
@@ -3043,7 +3051,7 @@ TEST_F(FormDataImporterTest, ExtractFormData_OneAddressOneCreditCard) {
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(extracted_data.extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
       *extracted_data.extracted_credit_card);
 
   // Test that the address has been saved.
@@ -3079,7 +3087,7 @@ TEST_F(FormDataImporterTest, ExtractFormData_TwoAddressesOneCreditCard) {
       /*payment_methods_autofill_enabled=*/true);
 
   ASSERT_TRUE(extracted_data.extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
       *extracted_data.extracted_credit_card);
 
   // Test that both addresses have been saved.
@@ -3182,7 +3190,7 @@ TEST_F(FormDataImporterTest, ExtractFormData_ImportIbanRecordType_LocalIban) {
   iban.set_record_type(Iban::kLocalIban);
 
   const std::vector<const Iban*>& results =
-      personal_data_manager_->GetLocalIbans();
+      personal_data_manager_->payments_data_manager().GetLocalIbans();
   ASSERT_EQ(1U, results.size());
   EXPECT_THAT(*results[0], ComparesEqual(iban));
 
@@ -3214,7 +3222,7 @@ TEST_F(FormDataImporterTest, ExtractFormData_AddressesDisabledOneCreditCard) {
       form_structure, /*profile_autofill_enabled=*/false,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(extracted_data.extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
       *extracted_data.extracted_credit_card);
 
   // Test that addresses were not saved.
@@ -3343,7 +3351,7 @@ TEST_F(FormDataImporterTest, ExtractFormData_HiddenCreditCardFormAfterEntered) {
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(extracted_data.extracted_credit_card);
-  personal_data_manager_->OnAcceptedLocalCreditCardSave(
+  personal_data_manager_->payments_data_manager().OnAcceptedLocalCreditCardSave(
       *extracted_data.extracted_credit_card);
 
   // Test that the credit card has been saved.
@@ -3956,7 +3964,7 @@ TEST_F(FormDataImporterTest, MultiStepImport_DeleteOnBrowsingHistoryCleared) {
       ConstructSplitDefaultProfileFormStructure(/*part=*/1);
   ExtractAddressProfilesAndVerifyExpectation(*form_structure, {});
 
-  form_data_importer().OnURLsDeleted(
+  form_data_importer().OnHistoryDeletions(
       /*history_service=*/nullptr,
       history::DeletionInfo::ForUrls(
           {history::URLRow(form_structure->source_url())},
@@ -4342,7 +4350,7 @@ TEST_F(FormDataImporterTest,
        GetObservedFieldValues_SkipFieldsFilledWithFallback) {
   AutofillField field;
   field.SetTypeTo(AutofillType(NAME_FIRST));
-  field.value = u"First";
+  field.set_value(u"First");
   const AutofillField* field_ptr = &field;
 
   base::flat_map<FieldType, std::u16string> observed_field_types =
@@ -4371,7 +4379,7 @@ class FormDataImporterTest_ExtractCreditCardFromForm
                  Mode mode = Mode::kDefaultValue) {
     AutofillField& f = test_api(form_).PushField();
     f.set_server_predictions({test::CreateFieldPrediction(field_type)});
-    f.value = std::move(value);
+    f.set_value(std::move(value));
     f.is_autofilled = mode == Mode::kAutofilled;
     f.is_user_edited = mode == Mode::kUserEdited;
   }

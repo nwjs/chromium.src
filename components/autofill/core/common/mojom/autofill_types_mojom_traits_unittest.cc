@@ -218,7 +218,7 @@ void ExpectFormFieldData(const FormFieldData& expected,
   EXPECT_TRUE(passed.host_frame.is_empty());
   EXPECT_TRUE(FormFieldData::DeepEqual(test::WithoutUnserializedData(expected),
                                        passed));
-  EXPECT_EQ(expected.value, passed.value);
+  EXPECT_EQ(expected.value(), passed.value());
   EXPECT_EQ(expected.user_input, passed.user_input);
   std::move(closure).Run();
 }
@@ -315,12 +315,12 @@ std::vector<Section> SectionTestCases() {
   // FieldIdentifier.
   base::flat_map<LocalFrameToken, size_t> frame_token_ids;
   FormFieldData field;
-  field.name = u"from_field_name";
+  field.set_name(u"from_field_name");
   // Randomizing the LocalFrameToken requires an AutofillTestEnvironment, which
   // doesn't exist yet because SectionTestCases() is called by
   // INSTANTIATE_TEST_SUITE_P().
   field.host_frame = test::MakeLocalFrameToken(test::RandomizeFrame(false));
-  field.renderer_id = FieldRendererId(123);
+  field.set_renderer_id(FieldRendererId(123));
   s = Section::FromFieldIdentifier(field, frame_token_ids);
   test_cases.push_back(s);
 
@@ -336,11 +336,11 @@ TEST_F(AutofillTypeTraitsTestImpl, PassFormFieldData) {
       "TestLabel", "TestName", "TestValue", kOptions, kOptions);
   // Set other attributes to check if they are passed correctly.
   input.host_frame = test::MakeLocalFrameToken();
-  input.name = u"name";
+  input.set_name(u"name");
   input.id_attribute = u"id";
   input.name_attribute = u"name";
-  input.value = u"value";
-  input.form_control_type = FormControlType::kInputText;
+  input.set_value(u"value");
+  input.set_form_control_type(FormControlType::kInputText);
   input.autocomplete_attribute = "on";
   input.parsed_autocomplete =
       AutocompleteParsingResult{.section = "autocomplete_section",
@@ -350,7 +350,7 @@ TEST_F(AutofillTypeTraitsTestImpl, PassFormFieldData) {
   input.css_classes = u"class1";
   input.aria_label = u"aria label";
   input.aria_description = u"aria description";
-  input.renderer_id = FieldRendererId(1234);
+  input.set_renderer_id(FieldRendererId(1234));
   input.host_form_id = FormRendererId(123);
   input.max_length = 12345;
   input.is_autofilled = true;
@@ -380,7 +380,7 @@ TEST_F(AutofillTypeTraitsTestImpl, PassDataListFormFieldData) {
       "DatalistLabel", "DatalistName", "DatalistValue", kOptions, kOptions);
   // Set other attributes to check if they are passed correctly.
   input.host_frame = test::MakeLocalFrameToken();
-  input.renderer_id = FieldRendererId(1234);
+  input.set_renderer_id(FieldRendererId(1234));
   input.id_attribute = u"id";
   input.name_attribute = u"name";
   input.autocomplete_attribute = "on";

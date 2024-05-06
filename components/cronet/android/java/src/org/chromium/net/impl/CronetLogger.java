@@ -21,6 +21,8 @@ public abstract class CronetLogger {
         CRONET_SOURCE_FALLBACK,
         // The library is loaded through the bootclasspath.
         CRONET_SOURCE_PLATFORM,
+        // The application is using the fake implementation.
+        CRONET_SOURCE_FAKE,
     }
 
     /** Generates a new unique ID suitable for use as reference for cross-linking log events. */
@@ -54,7 +56,7 @@ public abstract class CronetLogger {
      */
     public abstract void logCronetTrafficInfo(long cronetEngineId, CronetTrafficInfo trafficInfo);
 
-    // TODO(https://crbug.com/1521339): consider using AutoValue for this.
+    // TODO(crbug.com/41494309): consider using AutoValue for this.
     public static final class CronetEngineBuilderInitializedInfo {
         public long cronetInitializationRef;
 
@@ -185,6 +187,12 @@ public abstract class CronetLogger {
      * particular CronetEngine.
      */
     public static class CronetTrafficInfo {
+        public static enum RequestTerminalState {
+            SUCCEEDED,
+            ERROR,
+            CANCELLED,
+        }
+
         private final long mRequestHeaderSizeInBytes;
         private final long mRequestBodySizeInBytes;
         private final long mResponseHeaderSizeInBytes;
@@ -195,6 +203,7 @@ public abstract class CronetLogger {
         private final String mNegotiatedProtocol;
         private final boolean mWasConnectionMigrationAttempted;
         private final boolean mDidConnectionMigrationSucceed;
+        private final RequestTerminalState mTerminalState;
 
         public CronetTrafficInfo(
                 long requestHeaderSizeInBytes,
@@ -206,7 +215,8 @@ public abstract class CronetLogger {
                 Duration totalLatency,
                 String negotiatedProtocol,
                 boolean wasConnectionMigrationAttempted,
-                boolean didConnectionMigrationSucceed) {
+                boolean didConnectionMigrationSucceed,
+                RequestTerminalState terminalState) {
             mRequestHeaderSizeInBytes = requestHeaderSizeInBytes;
             mRequestBodySizeInBytes = requestBodySizeInBytes;
             mResponseHeaderSizeInBytes = responseHeaderSizeInBytes;
@@ -217,6 +227,7 @@ public abstract class CronetLogger {
             mNegotiatedProtocol = negotiatedProtocol;
             mWasConnectionMigrationAttempted = wasConnectionMigrationAttempted;
             mDidConnectionMigrationSucceed = didConnectionMigrationSucceed;
+            mTerminalState = terminalState;
         }
 
         /** @return The total size of headers sent in bytes */
@@ -277,6 +288,10 @@ public abstract class CronetLogger {
         /** @return True if the connection migration was attempted and succeeded, else False */
         public boolean didConnectionMigrationSucceed() {
             return mDidConnectionMigrationSucceed;
+        }
+
+        public RequestTerminalState getTerminalState() {
+            return mTerminalState;
         }
     }
 

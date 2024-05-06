@@ -204,6 +204,17 @@ std::string GetServiceWorkerForError(const std::string& error) {
         );
         chrome.test.succeed();
       },
+      async function createRoutine() {
+        await chrome.test.assertPromiseRejects(
+            chrome.os.diagnostics.createRoutine({
+              memory: {}
+            }),
+            'Error: Unauthorized access to ' +
+            'chrome.os.diagnostics.createRoutine. ' +
+            '%s'
+        );
+        chrome.test.succeed();
+      },
       async function createVolumeButtonRoutine() {
         await chrome.test.assertPromiseRejects(
             chrome.os.diagnostics.createVolumeButtonRoutine({
@@ -260,6 +271,17 @@ std::string GetServiceWorkerForError(const std::string& error) {
         );
         chrome.test.succeed();
       },
+      async function isRoutineArgumentSupported() {
+        await chrome.test.assertPromiseRejects(
+            chrome.os.diagnostics.isRoutineArgumentSupported({
+              memory: {},
+            }),
+            'Error: Unauthorized access to ' +
+            'chrome.os.diagnostics.isRoutineArgumentSupported. ' +
+            '%s'
+        );
+        chrome.test.succeed();
+      },
       async function isVolumeButtonRoutineArgumentSupported() {
         await chrome.test.assertPromiseRejects(
             chrome.os.diagnostics.isVolumeButtonRoutineArgumentSupported({
@@ -268,6 +290,18 @@ std::string GetServiceWorkerForError(const std::string& error) {
             }),
             'Error: Unauthorized access to ' +
             'chrome.os.diagnostics.isVolumeButtonRoutineArgumentSupported. ' +
+            '%s'
+        );
+        chrome.test.succeed();
+      },
+      async function replyToRoutineInquiry() {
+        await chrome.test.assertPromiseRejects(
+            chrome.os.diagnostics.replyToRoutineInquiry({
+              uuid: '123',
+              reply: {},
+            }),
+            'Error: Unauthorized access to ' +
+            'chrome.os.diagnostics.replyToRoutineInquiry. ' +
             '%s'
         );
         chrome.test.succeed();
@@ -533,19 +567,6 @@ std::string GetServiceWorkerForError(const std::string& error) {
             ),
             'Error: Unauthorized access to ' +
             'chrome.os.diagnostics.runNvmeSelfTestRoutine. ' +
-            '%s'
-        );
-        chrome.test.succeed();
-      },
-      async function runNvmeWearLevelRoutine() {
-        await chrome.test.assertPromiseRejects(
-            chrome.os.diagnostics.runNvmeWearLevelRoutine(
-              {
-                wear_level_threshold: 80
-              }
-            ),
-            'Error: Unauthorized access to ' +
-            'chrome.os.diagnostics.runNvmeWearLevelRoutine. ' +
             '%s'
         );
         chrome.test.succeed();

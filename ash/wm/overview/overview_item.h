@@ -72,6 +72,10 @@ class ASH_EXPORT OverviewItem : public OverviewItemBase,
 
   OverviewItemView* overview_item_view() { return overview_item_view_; }
 
+  void set_eligible_for_shadow_config(bool eligible_for_shadow_config) {
+    eligible_for_shadow_config_ = eligible_for_shadow_config;
+  }
+
   // Handles events forwarded from the contents view.
   void OnFocusedViewActivated();
   void OnFocusedViewClosed();
@@ -81,6 +85,9 @@ class ASH_EXPORT OverviewItem : public OverviewItemBase,
 
   // Updates the rounded corners on `this` only.
   void UpdateRoundedCorners();
+
+  // Returns the `kTopViewInset` of the `transform_window_`.
+  int GetTopInset() const;
 
   OverviewAnimationType GetExitOverviewAnimationType() const;
   OverviewAnimationType GetExitTransformAnimationType() const;
@@ -104,10 +111,12 @@ class ASH_EXPORT OverviewItem : public OverviewItemBase,
   gfx::RectF GetTransformedBounds() const override;
   std::vector<OverviewFocusableView*> GetFocusableViews() const override;
   views::View* GetBackDropView() const override;
+  bool ShouldHaveShadow() const override;
   void UpdateRoundedCornersAndShadow() override;
   void SetOpacity(float opacity) override;
   float GetOpacity() const override;
   void PrepareForOverview() override;
+  void SetShouldUseSpawnAnimation(bool value) override;
   void OnStartingAnimationComplete() override;
   void HideForSavedDeskLibrary(bool animate) override;
   void RevertHideForSavedDeskLibrary(bool animate) override;
@@ -153,6 +162,7 @@ class ASH_EXPORT OverviewItem : public OverviewItemBase,
  private:
   friend class OverviewTestBase;
   friend class ScopedOverviewTransformWindow;
+  FRIEND_TEST_ALL_PREFIXES(OverviewSessionTest, DraggingOnMultipleDisplay);
   FRIEND_TEST_ALL_PREFIXES(SplitViewOverviewSessionTest, Clipping);
 
   // Creates `item_widget_` with `OverviewItemView` as its contents view.
@@ -229,8 +239,10 @@ class ASH_EXPORT OverviewItem : public OverviewItemBase,
   // If true, `shadow_` is eligible to be created, false otherwise. The shadow
   // should not be created if `this` is hosted by an `OverviewGroupItem`
   // together with another `OverviewItem` (the group-level shadow will be
-  // installed instead).
-  const bool eligible_for_shadow_config_;
+  // installed instead). However if a window inside an `OverviewGroupItem` is
+  // destroyed, `eligible_for_shadow_config_` is set to true to ensure the
+  // shadow bounds get updated correctly.
+  bool eligible_for_shadow_config_;
 
   // The view associated with |item_widget_|. Contains a title, close button and
   // maybe a backdrop. Forwards certain events to |this|.

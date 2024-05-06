@@ -58,8 +58,7 @@ TEST_F(HighlightStyleUtilsTest, SelectedTextInputShadow) {
           ->firstChild();
   const ComputedStyle& text_style = text_node->GetLayoutObject()->StyleRef();
 
-  std::unique_ptr<PaintController> controller{
-      std::make_unique<PaintController>()};
+  PaintController* controller = MakeGarbageCollected<PaintController>();
   GraphicsContext context(*controller);
   PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground);
   TextPaintStyle paint_style;
@@ -109,8 +108,7 @@ TEST_F(HighlightStyleUtilsTest, SelectedTextIsRespected) {
 
   Compositor().BeginFrame();
 
-  std::unique_ptr<PaintController> controller{
-      std::make_unique<PaintController>()};
+  PaintController* controller = MakeGarbageCollected<PaintController>();
   GraphicsContext context(*controller);
   PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground);
   TextPaintStyle paint_style;
@@ -203,8 +201,7 @@ TEST_F(HighlightStyleUtilsTest, CurrentColorReportingAll) {
 
   Compositor().BeginFrame();
 
-  std::unique_ptr<PaintController> controller{
-      std::make_unique<PaintController>()};
+  auto* controller = MakeGarbageCollected<PaintController>();
   GraphicsContext context(*controller);
   PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground);
   TextPaintStyle paint_style;
@@ -215,10 +212,6 @@ TEST_F(HighlightStyleUtilsTest, CurrentColorReportingAll) {
       HighlightStyleUtils::HighlightPaintingStyle(
           GetDocument(), div_style, div_text, kPseudoIdHighlight, paint_style,
           paint_info, AtomicString("highlight1"));
-  HighlightStyleUtils::HighlightTextPaintStyle selection_paint_style =
-      HighlightStyleUtils::HighlightPaintingStyle(GetDocument(), div_style,
-                                                  div_text, kPseudoIdSelection,
-                                                  paint_style, paint_info);
 
   EXPECT_TRUE(highlight_paint_style.properties_using_current_color.Has(
       HighlightStyleUtils::HighlightColorProperty::kCurrentColor));
@@ -250,8 +243,12 @@ TEST_F(HighlightStyleUtilsTest, CurrentColorReportingAll) {
   EXPECT_TRUE(highlight_paint_style.properties_using_current_color.Has(
       HighlightStyleUtils::HighlightColorProperty::kSelectionDecorationColor));
 #else
+  HighlightStyleUtils::HighlightTextPaintStyle selection_paint_style =
+      HighlightStyleUtils::HighlightPaintingStyle(GetDocument(), div_style,
+                                                  div_text, kPseudoIdSelection,
+                                                  paint_style, paint_info);
   // Selection uses explicit default colors.
-  EXPECT_TRUE(selection_paint_style.properties_using_current_color.Empty());
+  EXPECT_TRUE(selection_paint_style.properties_using_current_color.empty());
 #endif
 }
 
@@ -283,8 +280,7 @@ TEST_F(HighlightStyleUtilsTest, CurrentColorReportingSome) {
 
   Compositor().BeginFrame();
 
-  std::unique_ptr<PaintController> controller{
-      std::make_unique<PaintController>()};
+  auto* controller = MakeGarbageCollected<PaintController>();
   GraphicsContext context(*controller);
   PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground);
   TextPaintStyle paint_style;
@@ -340,8 +336,7 @@ TEST_F(HighlightStyleUtilsTest, CustomPropertyInheritance) {
   Compositor().BeginFrame();
   std::optional<Color> previous_layer_color;
 
-  std::unique_ptr<PaintController> controller{
-      std::make_unique<PaintController>()};
+  PaintController* controller = MakeGarbageCollected<PaintController>();
   GraphicsContext context(*controller);
   PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground);
   TextPaintStyle paint_style;

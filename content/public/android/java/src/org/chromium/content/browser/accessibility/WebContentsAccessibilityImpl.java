@@ -1053,7 +1053,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         mHasFinishedLatestAccessibilitySnapshot = false;
         long beforeSnapshotTimeMs = SystemClock.elapsedRealtime();
 
-        // Stubbed.
         if (ContentFeatureMap.isEnabled(ContentFeatureList.ACCESSIBILITY_UNIFIED_SNAPSHOTS)) {
             mNativeAssistDataObj =
                     WebContentsAccessibilityImplJni.get()
@@ -1066,6 +1065,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                     .requestAccessibilityTreeSnapshot(
                             mNativeAssistDataObj,
                             viewRoot,
+                            mDelegate.getAccessibilityCoordinates(),
+                            mView,
                             () -> onSnapshotDoneCallback(viewRoot, beforeSnapshotTimeMs));
         } else {
             mDelegate.requestAccessibilitySnapshot(
@@ -1086,6 +1087,11 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                     1,
                     5 * 1000,
                     100);
+        }
+
+        if (ContentFeatureMap.isEnabled(ContentFeatureList.ACCESSIBILITY_UNIFIED_SNAPSHOTS)) {
+            WebContentsAccessibilityImplJni.get().deleteEarly(mNativeAssistDataObj);
+            mNativeAssistDataObj = 0;
         }
     }
 
@@ -2079,8 +2085,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                             coords[4 * i + 1],
                             coords[4 * i + 2],
                             coords[4 * i + 3]);
-            mAccessibilityNodeInfoBuilder.convertWebRectToAndroidCoordinates(
-                    rect, info.getExtras());
+            AccessibilityNodeInfoBuilder.convertWebRectToAndroidCoordinates(
+                    rect, info.getExtras(), mDelegate.getAccessibilityCoordinates(), mView);
             boundingRects[i] = new RectF(rect);
         }
 
@@ -2120,6 +2126,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         void requestAccessibilityTreeSnapshot(
                 long nativeWebContentsAccessibilityAndroid,
                 ViewStructure viewRoot,
+                AccessibilityDelegate.AccessibilityCoordinates accessibilityCoordinates,
+                View view,
                 Runnable onDoneCallback);
 
         void connectInstanceToRootManager(long nativeWebContentsAccessibilityAndroid);

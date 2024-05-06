@@ -83,6 +83,8 @@ const char kCommandSigKey[] = "sig";
 const char kCommandAuthLevelKey[] = "auth_level";
 
 const char kRequestCommandKey[] = "cmd";
+const char kRequestWrappedSecretKey[] = "wrapped_secret";
+const char kRequestSecretKey[] = "secret";
 
 const char kResponseSuccessKey[] = "ok";
 const char kResponseErrorKey[] = "err";
@@ -91,14 +93,22 @@ const char kRegisterCommandName[] = "device/register";
 const char kWrapKeyCommandName[] = "keys/wrap";
 const char kGenKeyPairCommandName[] = "keys/genpair";
 const char kRecoveryKeyStoreWrapCommandName[] = "recovery_key_store/wrap";
+const char kPasskeysWrapPinCommandName[] = "passkeys/wrap_pin";
+const char kRecoveryKeyStoreWrapAsMemberCommandName[] =
+    "recovery_key_store/wrap_as_member";
 
 const char kRegisterPubKeysKey[] = "pub_keys";
 const char kRegisterDeviceIdKey[] = "device_id";
 
 const char kHardwareKey[] = "hw";
+const char kUserVerificationKey[] = "uv";
 
 const char kWrappingPurpose[] = "purpose";
 const char kWrappingKeyToWrap[] = "key";
+
+const char kPinHash[] = "pin_hash";
+const char kGeneration[] = "pin_generation";
+const char kClaimKey[] = "pin_claim_key";
 
 const char kWrappingResponsePublicKey[] = "pub_key";
 const char kWrappingResponseWrappedPrivateKey[] = "priv_key";
@@ -109,5 +119,12 @@ const char kKeyPurposeSecurityDomainSecret[] = "security domain secret";
 const char kRecoveryKeyStorePinHash[] = "pin_hash";
 const char kRecoveryKeyStoreCertXml[] = "cert_xml";
 const char kRecoveryKeyStoreSigXml[] = "sig_xml";
+
+const char kRecoveryKeyStoreURL[] =
+    "https://cryptauthvault.googleapis.com/v1/vaults/0";
+const char kRecoveryKeyStoreCertFileURL[] =
+    "https://www.gstatic.com/cryptauthvault/v0/cert.xml";
+const char kRecoveryKeyStoreSigFileURL[] =
+    "https://www.gstatic.com/cryptauthvault/v0/cert.sig.xml";
 
 }  // namespace device::enclave

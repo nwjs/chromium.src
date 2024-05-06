@@ -9,7 +9,7 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/page_load_metrics/observers/bookmark_navigation_handle_user_data.h"
+#include "chrome/browser/page_load_metrics/observers/navigation_handle_user_data.h"
 #include "chrome/browser/ui/bookmarks/bookmark_editor.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
 #include "chrome/browser/ui/simple_message_box.h"
@@ -61,7 +61,7 @@ extern size_t kNumBookmarkUrlsBeforePrompting;
 // the dialog (if shown).
 // `launch_action` represents the location and time of the bookmark launch
 // action for callsites that support it.
-// TODO(crbug.com/1449016): This should be made non-optional once all callsites
+// TODO(crbug.com/40914589): This should be made non-optional once all callsites
 // have all the information needed to correctly construct the `launch_action`.
 void OpenAllIfAllowed(
     Browser* browser,
@@ -69,8 +69,8 @@ void OpenAllIfAllowed(
         raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>& nodes,
     WindowOpenDisposition initial_disposition,
     bool add_to_group,
-    BookmarkNavigationHandleUserData::InitiatorLocation navigation_type =
-        BookmarkNavigationHandleUserData::InitiatorLocation::kOther,
+    NavigationHandleUserData::InitiatorLocation navigation_type =
+        NavigationHandleUserData::InitiatorLocation::kOther,
     std::optional<BookmarkLaunchAction> launch_action = std::nullopt);
 
 // Returns the count of bookmarks that would be opened by OpenAll. If

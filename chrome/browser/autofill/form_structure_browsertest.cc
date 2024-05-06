@@ -133,10 +133,10 @@ std::string FormStructuresToString(
         }
       }
       string_form += base::JoinString(
-          {field->Type().ToStringView(), base::UTF16ToUTF8(field->name),
-           base::UTF16ToUTF8(field->label), base::UTF16ToUTF8(field->value),
+          {field->Type().ToStringView(), base::UTF16ToUTF8(field->name()),
+           base::UTF16ToUTF8(field->label), base::UTF16ToUTF8(field->value()),
            section},
-          base::StringPiece(" | "));
+          " | ");
       string_form.push_back('\n');
     }
     string_forms.push_back(string_form);

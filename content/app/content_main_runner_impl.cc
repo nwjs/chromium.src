@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -512,9 +513,7 @@ bool ShouldAllowSystemTracingConsumer() {
 // TODO(crbug.com/1173395): Also enable for Lacros-Chrome.
 #if BUILDFLAG(IS_CHROMEOS)
   // The consumer should only be enabled when the delegate allows it.
-  TracingDelegate* delegate =
-      GetContentClient()->browser()->GetTracingDelegate();
-  return delegate && delegate->IsSystemWideTracingEnabled();
+  return GetContentClient()->browser()->IsSystemWideTracingEnabled();
 #else   // BUILDFLAG(IS_CHROMEOS_ASH)
   return false;
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -523,7 +522,7 @@ bool ShouldAllowSystemTracingConsumer() {
 void CreateChildThreadPool(const std::string& process_type) {
   // Thread pool should only be initialized once.
   DCHECK(!base::ThreadPoolInstance::Get());
-  base::StringPiece thread_pool_name;
+  std::string_view thread_pool_name;
   if (process_type == switches::kGpuProcess)
     thread_pool_name = "GPU";
   else if (process_type == switches::kRendererProcess)

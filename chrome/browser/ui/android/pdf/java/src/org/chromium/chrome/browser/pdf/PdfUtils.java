@@ -5,13 +5,18 @@
 package org.chromium.chrome.browser.pdf;
 
 import android.net.Uri;
-import android.os.Build;
 import android.text.TextUtils;
 import android.webkit.MimeTypeMap;
 
 import androidx.annotation.Nullable;
+import androidx.core.os.BuildCompat;
+
+import org.jni_zero.CalledByNative;
 
 import org.chromium.base.ContentUriUtils;
+import org.chromium.base.Log;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.chrome.browser.util.ChromeFileProvider;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
@@ -25,8 +30,9 @@ import java.util.Locale;
 public class PdfUtils {
     // TODO(shuyng): add this to android_chrome_strings.grd once the UX spec is finalized.
     static final String PDF_PAGE_TITLE = "PDF";
+    private static final String TAG = "PdfUtils";
     private static final String PDF_EXTENSION = "pdf";
-    private static boolean sUseAndroidPdfViewerForTesting;
+    private static boolean sShouldOpenPdfInlineForTesting;
 
     /**
      * Determines whether the navigation is to a pdf file.
@@ -36,12 +42,14 @@ public class PdfUtils {
      * @return Whether the navigation is to a pdf file.
      */
     public static boolean isPdfNavigation(String url, @Nullable LoadUrlParams params) {
-        if (!useAndroidPdfViewer()) {
+        if (!shouldOpenPdfInline()) {
             return false;
         }
         Uri uri = Uri.parse(url);
         String scheme = uri.getScheme();
-        assert scheme != null;
+        if (scheme == null) {
+            return false;
+        }
         if (scheme.equals(UrlConstants.FILE_SCHEME)) {
             // TODO(shuyng): ask the download subsystem for MIME type.
             String fileExtension = MimeTypeMap.getFileExtensionFromUrl(url).toLowerCase(Locale.US);
@@ -57,12 +65,20 @@ public class PdfUtils {
         return false;
     }
 
-    /** Determines whether to use the Android PdfViewer to render pdf inline. */
-    public static boolean useAndroidPdfViewer() {
-        if (sUseAndroidPdfViewerForTesting) return true;
+    /** Determines whether to open pdf inline. */
+    @CalledByNative
+    public static boolean shouldOpenPdfInline() {
+        if (sShouldOpenPdfInlineForTesting) return true;
         // TODO(https://crbug.com/327492784): Update checks once release plan is finalized.
         return ContentFeatureMap.isEnabled(ContentFeatureList.ANDROID_OPEN_PDF_INLINE)
-                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+                && BuildCompat.isAtLeastV();
+    }
+
+    public static PdfInfo getPdfInfo(NativePage nativePage) {
+        if (nativePage == null || !nativePage.isPdf()) {
+            return null;
+        }
+        return new PdfInfo(nativePage.getTitle(), nativePage.getCanonicalFilepath());
     }
 
     static String getFileNameFromUrl(String url) {
@@ -101,10 +117,34 @@ public class PdfUtils {
         if (scheme.equals(UrlConstants.CONTENT_SCHEME) || scheme.equals(UrlConstants.FILE_SCHEME)) {
             return url;
         }
-        return "";
+        return null;
     }
 
-    static void setUseAndroidPdfViewerForTesting(boolean useAndroidPdfViewerForTesting) {
-        sUseAndroidPdfViewerForTesting = useAndroidPdfViewerForTesting;
+    static void setShouldOpenPdfInlineForTesting(boolean shouldOpenPdfInlineForTesting) {
+        sShouldOpenPdfInlineForTesting = shouldOpenPdfInlineForTesting;
+    }
+
+    // TODO(shuyng): Update to getPdfDocumentRequest once API becomes available.
+    static Uri getContentUri(String pdfFilePath) {
+        Uri uri = Uri.parse(pdfFilePath);
+        String scheme = uri.getScheme();
+        Uri generatedUri;
+        try {
+            if (UrlConstants.CONTENT_SCHEME.equals(scheme)) {
+                // TODO(shuyng): Use Uri to build PdfDocumentRequest.
+                generatedUri = uri;
+            } else if (UrlConstants.FILE_SCHEME.equals(scheme)) {
+                // TODO(shuyng): Use File object to build PdfDocumentRequest.
+                generatedUri = Uri.EMPTY;
+            } else {
+                // TODO(shuyng): Use Uri to build PdfDocumentRequest.
+                File file = new File(pdfFilePath);
+                generatedUri = ChromeFileProvider.generateUri(file);
+            }
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Couldn't generate URI for pdf file: " + e);
+            generatedUri = null;
+        }
+        return generatedUri;
     }
 }

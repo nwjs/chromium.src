@@ -164,8 +164,6 @@ void ThreadGroup::StartImpl(
     WorkerEnvironment worker_environment,
     bool synchronous_thread_start_for_testing,
     std::optional<TimeDelta> may_block_threshold) {
-  DCHECK(!replacement_thread_group_);
-
   if (synchronous_thread_start_for_testing) {
     worker_started_for_testing_.emplace(WaitableEvent::ResetPolicy::AUTOMATIC);
     // Don't emit a ScopedBlockingCallWithBaseSyncPrimitives from this
@@ -362,7 +360,6 @@ void ThreadGroup::UpdateSortKeyImpl(BaseScopedCommandsExecutor* executor,
 void ThreadGroup::PushTaskSourceAndWakeUpWorkersImpl(
     BaseScopedCommandsExecutor* executor,
     RegisteredTaskSourceAndTransaction transaction_with_task_source) {
-  DCHECK(!replacement_thread_group_);
   DCHECK_EQ(delegate_->GetThreadGroupForTraits(
                 transaction_with_task_source.transaction.traits()),
             this);
@@ -497,7 +494,7 @@ void ThreadGroup::WaitForWorkersIdleLockRequiredForTesting(size_t n) {
   AutoReset<bool> ban_cleanups(&worker_cleanup_disallowed_for_testing_, true);
 
   while (NumberOfIdleWorkersLockRequiredForTesting() < n) {
-    idle_workers_set_cv_for_testing_->Wait();
+    idle_workers_set_cv_for_testing_.Wait();
   }
 }
 
@@ -523,7 +520,8 @@ void ThreadGroup::WaitForWorkersCleanedUpForTesting(size_t n) {
   CheckedAutoLock auto_lock(lock_);
 
   if (!num_workers_cleaned_up_for_testing_cv_) {
-    num_workers_cleaned_up_for_testing_cv_ = lock_.CreateConditionVariable();
+    lock_.CreateConditionVariableAndEmplace(
+        num_workers_cleaned_up_for_testing_cv_);
   }
 
   while (num_workers_cleaned_up_for_testing_ < n) {

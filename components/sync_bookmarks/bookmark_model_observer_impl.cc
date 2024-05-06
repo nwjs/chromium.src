@@ -127,6 +127,9 @@ void BookmarkModelObserverImpl::BookmarkNodeMoved(
   if (!bookmark_model_->IsNodeSyncable(old_parent) &&
       bookmark_model_->IsNodeSyncable(new_parent)) {
     BookmarkNodeAdded(new_parent, new_index, false /*unused*/);
+    // If the moved node is a folder, the descendants also became syncable and
+    // must be reported as well.
+    ProcessMovedDescendentsAsBookmarkNodeAddedRecursive(node);
     return;
   }
 
@@ -332,7 +335,7 @@ void BookmarkModelObserverImpl::BookmarkNodeFaviconChanged(
       node, bookmark_model_, entity->metadata().unique_position(),
       /*force_favicon_load=*/false);
 
-  // TODO(crbug.com/1094825): implement |base_specifics_hash| similar to
+  // TODO(crbug.com/40699726): implement |base_specifics_hash| similar to
   // ClientTagBasedModelTypeProcessor.
   if (!entity->MatchesFaviconHash(specifics.bookmark().favicon())) {
     ProcessUpdate(entity, specifics);
@@ -555,6 +558,17 @@ void BookmarkModelObserverImpl::ProcessDelete(
   bookmark_tracker_->MarkDeleted(entity);
   // Mark the entity that it needs to be committed.
   bookmark_tracker_->IncrementSequenceNumber(entity);
+}
+
+void BookmarkModelObserverImpl::
+    ProcessMovedDescendentsAsBookmarkNodeAddedRecursive(
+        const bookmarks::BookmarkNode* node) {
+  CHECK(node);
+  for (size_t index = 0; index < node->children().size(); ++index) {
+    BookmarkNodeAdded(node, index, false /*unused*/);
+    ProcessMovedDescendentsAsBookmarkNodeAddedRecursive(
+        node->children()[index].get());
+  }
 }
 
 syncer::UniquePosition BookmarkModelObserverImpl::GetUniquePositionForNode(

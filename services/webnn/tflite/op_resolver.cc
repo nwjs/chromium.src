@@ -20,6 +20,14 @@ OpResolver::OpResolver() {
              ::tflite::ops::builtin::Register_AVERAGE_POOL_2D(),
              /* min_version */ 1,
              /* max_version */ 3);
+  AddBuiltin(::tflite::BuiltinOperator_ARG_MAX,
+             ::tflite::ops::builtin::Register_ARG_MAX(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
+  AddBuiltin(::tflite::BuiltinOperator_ARG_MIN,
+             ::tflite::ops::builtin::Register_ARG_MIN(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_CONCATENATION,
              ::tflite::ops::builtin::Register_CONCATENATION(),
              /* min_version = */ 1,
@@ -48,6 +56,10 @@ OpResolver::OpResolver() {
              /* max_version */ 2);
   AddBuiltin(::tflite::BuiltinOperator_ELU,
              ::tflite::ops::builtin::Register_ELU());
+  AddBuiltin(::tflite::BuiltinOperator_EQUAL,
+             ::tflite::ops::builtin::Register_EQUAL(),
+             /* min_version = */ 1,
+             /* max_version = */ 3);
   AddBuiltin(::tflite::BuiltinOperator_EXP,
              ::tflite::ops::builtin::Register_EXP());
   AddBuiltin(::tflite::BuiltinOperator_FLOOR,
@@ -56,14 +68,36 @@ OpResolver::OpResolver() {
              ::tflite::ops::builtin::Register_FULLY_CONNECTED(),
              /* min_version = */ 1,
              /* max_version = */ 9);
+  AddBuiltin(::tflite::BuiltinOperator_GATHER,
+             ::tflite::ops::builtin::Register_GATHER(),
+             /* min_version = */ 1,
+             /* max_version = */ 3);
+  AddBuiltin(::tflite::BuiltinOperator_GREATER,
+             ::tflite::ops::builtin::Register_GREATER(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
+  AddBuiltin(::tflite::BuiltinOperator_GREATER_EQUAL,
+             ::tflite::ops::builtin::Register_GREATER_EQUAL(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_HARD_SWISH,
              ::tflite::ops::builtin::Register_HARD_SWISH());
   AddBuiltin(::tflite::BuiltinOperator_LEAKY_RELU,
              ::tflite::ops::builtin::Register_LEAKY_RELU(),
              /* min_version = */ 1,
              /* max_version = */ 2);
+  AddBuiltin(::tflite::BuiltinOperator_LESS,
+             ::tflite::ops::builtin::Register_LESS(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
+  AddBuiltin(::tflite::BuiltinOperator_LESS_EQUAL,
+             ::tflite::ops::builtin::Register_LESS_EQUAL(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_LOG,
              ::tflite::ops::builtin::Register_LOG());
+  AddBuiltin(::tflite::BuiltinOperator_LOGICAL_NOT,
+             ::tflite::ops::builtin::Register_LOGICAL_NOT());
   AddBuiltin(::tflite::BuiltinOperator_LOGISTIC,
              ::tflite::ops::builtin::Register_LOGISTIC(),
              /* min_version = */ 1,
@@ -76,6 +110,10 @@ OpResolver::OpResolver() {
              ::tflite::ops::builtin::Register_MAXIMUM(),
              /* min_version = */ 1,
              /* max_version = */ 4);
+  AddBuiltin(::tflite::BuiltinOperator_MEAN,
+             ::tflite::ops::builtin::Register_MEAN(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_MINIMUM,
              ::tflite::ops::builtin::Register_MINIMUM(),
              /* min_version = */ 1,
@@ -99,6 +137,16 @@ OpResolver::OpResolver() {
              /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_POW,
              ::tflite::ops::builtin::Register_POW());
+  AddBuiltin(::tflite::BuiltinOperator_REDUCE_PROD,
+             ::tflite::ops::builtin::Register_REDUCE_PROD());
+  AddBuiltin(::tflite::BuiltinOperator_REDUCE_MAX,
+             ::tflite::ops::builtin::Register_REDUCE_MAX(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
+  AddBuiltin(::tflite::BuiltinOperator_REDUCE_MIN,
+             ::tflite::ops::builtin::Register_REDUCE_MIN(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_RELU,
              ::tflite::ops::builtin::Register_RELU(), /* min_version = */ 1,
              /* max_version = */ 2);
@@ -127,11 +175,22 @@ OpResolver::OpResolver() {
              ::tflite::ops::builtin::Register_SOFTMAX(),
              /* min_version = */ 1,
              /* max_version = */ 3);
+  AddBuiltin(::tflite::BuiltinOperator_SPLIT_V,
+             ::tflite::ops::builtin::Register_SPLIT_V(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_SQRT,
              ::tflite::ops::builtin::Register_SQRT());
   AddBuiltin(::tflite::BuiltinOperator_SUB,
              ::tflite::ops::builtin::Register_SUB(),
              /* min_version = */ 1,
+             /* max_version = */ 3);
+  AddBuiltin(::tflite::BuiltinOperator_SUM,
+             ::tflite::ops::builtin::Register_SUM(),
+             /* min_version = */ 1,
+             /* max_version = */ 2);
+  AddBuiltin(::tflite::BuiltinOperator_TANH,
+             ::tflite::ops::builtin::Register_TANH(), /* min_version = */ 1,
              /* max_version = */ 3);
   AddBuiltin(::tflite::BuiltinOperator_TRANSPOSE,
              ::tflite::ops::builtin::Register_TRANSPOSE(),

@@ -7,11 +7,28 @@
 
 #import <UIKit/UIKit.h>
 
+#import "base/memory/weak_ptr.h"
+
+struct ContextualPanelItemConfiguration;
+
 // Consumer for the ContextualPanelEntrypointViewController.
 @protocol ContextualPanelEntrypointConsumer
 
 // Update the consumer with the image to be shown on the entrypoint badge.
-- (void)setEntrypointImage:(UIImage*)image;
+- (void)setEntrypointConfig:
+    (base::WeakPtr<ContextualPanelItemConfiguration>)config;
+
+// Notify the consumer to hide the entrypoint.
+- (void)hideEntrypoint;
+
+// Notify the consumer to show the entrypoint.
+- (void)showEntrypoint;
+
+// Notify the consumer to transition to the large entrypoint for a loud moment.
+- (void)transitionToLargeEntrypoint;
+
+// Notify the consumer to transition back to the small entrypoint.
+- (void)transitionToSmallEntrypoint;
 
 @end
 

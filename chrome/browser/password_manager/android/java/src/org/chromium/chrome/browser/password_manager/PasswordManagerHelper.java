@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -134,11 +135,12 @@ public class PasswordManagerHelper {
      */
     public static PasswordManagerHelper getForProfile(Profile profile) {
         if (sProfileMap == null) {
-            sProfileMap = new ProfileKeyedMap<>(ProfileKeyedMap.NO_REQUIRED_CLEANUP_ACTION);
+            sProfileMap =
+                    new ProfileKeyedMap<>(
+                            ProfileKeyedMap.ProfileSelection.REDIRECTED_TO_ORIGINAL,
+                            ProfileKeyedMap.NO_REQUIRED_CLEANUP_ACTION);
         }
-        Profile originalProfile = profile.getOriginalProfile();
-        return sProfileMap.getForProfile(
-                originalProfile, () -> new PasswordManagerHelper(originalProfile));
+        return sProfileMap.getForProfile(profile, PasswordManagerHelper::new);
     }
 
     /**
@@ -154,14 +156,22 @@ public class PasswordManagerHelper {
             @ManagePasswordsReferrer int referrer,
             SettingsLauncher settingsLauncher,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            boolean managePasskeys) {
+            boolean managePasskeys,
+            @Nullable String account) {
         RecordHistogram.recordEnumeratedHistogram(
                 "PasswordManager.ManagePasswordsReferrer",
                 referrer,
                 ManagePasswordsReferrer.MAX_VALUE + 1);
         SyncService syncService = SyncServiceFactory.getForProfile(mProfile);
+        PrefService prefService = UserPrefs.get(mProfile);
 
-        if (canUseUpm()) {
+        // Force instantiation of GMSCore password settings if GMSCore update is required. Launching
+        // Password settings will fail and instead the blocking dialog with the suggestion to update
+        // will be displayed. This is the desired behavior with the
+        // `UnifiedPasswordManagerSyncOnlyInGMSCore` feature on.
+        if (canUseUpm()
+                || PasswordManagerUtilBridge.isGmsCoreUpdateRequired(
+                        prefService, hasChosenToSyncPasswords(syncService))) {
             LoadingModalDialogCoordinator loadingDialogCoordinator =
                     LoadingModalDialogCoordinator.create(modalDialogManagerSupplier, context);
             launchTheCredentialManager(
@@ -169,7 +179,8 @@ public class PasswordManagerHelper {
                     syncService,
                     loadingDialogCoordinator,
                     modalDialogManagerSupplier,
-                    context);
+                    context,
+                    account);
             return;
         }
 
@@ -227,7 +238,7 @@ public class PasswordManagerHelper {
         // TODO(crbug.com/1327294): Move the syncService and backend presence checks in the util.
         boolean isPwdSyncEnabled = hasChosenToSyncPasswords(syncService);
         return syncService != null
-                && PasswordManagerUtilBridge.canUseUPMBackend(isPwdSyncEnabled, prefService)
+                && PasswordManagerUtilBridge.shouldUseUpmWiring(isPwdSyncEnabled, prefService)
                 && PasswordManagerBackendSupportHelper.getInstance().isBackendPresent();
     }
 
@@ -430,7 +441,15 @@ public class PasswordManagerHelper {
         // during the GMS Core installation.
         // intent.putExtra("overlay", true);
 
-        context.startActivity(intent);
+        try {
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            // In case that Google Play Store isn't present on the device, its activity could not
+            // have been started.
+            // TODO: b/334051261 - Instead of silently failing to open Google Play Store to offer
+            // updating GMS Core, either don't offer the option at all or indicate why the update
+            // button didn't work.
+        }
     }
 
     @VisibleForTesting
@@ -439,8 +458,8 @@ public class PasswordManagerHelper {
             SyncService syncService,
             LoadingModalDialogCoordinator loadingDialogCoordinator,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            Context context) {
-        assert canUseUpm();
+            Context context,
+            @Nullable String account) {
         assert syncService != null;
 
         CredentialManagerLauncher credentialManagerLauncher;
@@ -456,9 +475,7 @@ public class PasswordManagerHelper {
         loadingDialogCoordinator.show();
 
         long startTimeMs = SystemClock.elapsedRealtime();
-        String account = CoreAccountInfo.getEmailFrom(syncService.getAccountInfo());
-        if (hasChosenToSyncPasswords(syncService)) {
-            assert account != null;
+        if (!TextUtils.isEmpty(account)) {
             credentialManagerLauncher.getAccountCredentialManagerIntent(
                     referrer,
                     account,
@@ -699,9 +716,9 @@ public class PasswordManagerHelper {
                     CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED);
         }
         // This check only may return true if the feature flag
-        // UnifiedPasswordManagerSyncOnlyInGMSCore is enabled. This checks against the account store
-        // GMSCore version if the user is syncing and against the local version if the user is not
-        // syncing.
+        // `UnifiedPasswordManagerSyncOnlyInGMSCore` is enabled. This checks against the account
+        // store GMSCore version if the user is syncing and against the local version if the user is
+        // not syncing.
         if (PasswordManagerUtilBridge.isGmsCoreUpdateRequired(
                 UserPrefs.get(mProfile),
                 hasChosenToSyncPasswords(SyncServiceFactory.getForProfile(mProfile)))) {
@@ -719,38 +736,45 @@ public class PasswordManagerHelper {
     }
 
     // TODO(crbug.com/1346239): Exceptions should be thrown by factory, remove this method.
-    private static CredentialManagerLauncher getCredentialManagerLauncher()
+    private CredentialManagerLauncher getCredentialManagerLauncher()
             throws CredentialManagerBackendException {
-        CredentialManagerLauncher launcher =
-                CredentialManagerLauncherFactory.getInstance().createLauncher();
-        if (launcher != null) return launcher;
-
-        if (PasswordManagerBackendSupportHelper.getInstance().isUpdateNeeded()) {
-            throw new CredentialManagerBackendException(
-                    "Backend version is not supported.",
-                    CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED);
-        }
         if (!PasswordManagerBackendSupportHelper.getInstance().isBackendPresent()) {
             throw new CredentialManagerBackendException(
                     "Backend downstream implementation is not available.",
                     CredentialManagerError.BACKEND_NOT_AVAILABLE);
         }
+        if (PasswordManagerBackendSupportHelper.getInstance().isUpdateNeeded()) {
+            throw new CredentialManagerBackendException(
+                    "Backend version is not supported.",
+                    CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED);
+        }
+        // This check only may return true if the feature flag
+        // UnifiedPasswordManagerSyncOnlyInGMSCore is enabled. This checks against the account store
+        // GMSCore version if the user is syncing and against the local version if the user is not
+        // syncing.
+        if (PasswordManagerUtilBridge.isGmsCoreUpdateRequired(
+                UserPrefs.get(mProfile),
+                hasChosenToSyncPasswords(SyncServiceFactory.getForProfile(mProfile)))) {
+            throw new CredentialManagerBackendException(
+                    "Backend version is not supported.",
+                    CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED);
+        }
+
+        CredentialManagerLauncher launcher =
+                CredentialManagerLauncherFactory.getInstance().createLauncher();
+        if (launcher != null) return launcher;
 
         throw new CredentialManagerBackendException(
                 "Can not instantiate backend client.", CredentialManagerError.UNCATEGORIZED);
     }
 
     private static void startAccountSettingsActivity(Context context, Intent intent) {
-        boolean success = false;
         Activity activity = ContextUtils.activityFromContext(context);
         if (activity != null) {
             try {
                 activity.startActivityForResult(intent, 0);
-                success = true;
             } catch (ActivityNotFoundException e) {
             }
         }
-        RecordHistogram.recordBooleanHistogram(
-                PasswordMetricsUtil.ACCOUNT_SETTINGS_ACTIVITY_HISTOGRAM, success);
     }
 }

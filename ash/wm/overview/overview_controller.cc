@@ -196,11 +196,6 @@ bool OverviewController::CanEnterOverview() const {
     return false;
   }
 
-  if (SnapGroupController* snap_group_controller = SnapGroupController::Get();
-      snap_group_controller && !snap_group_controller->CanEnterOverview()) {
-    return false;
-  }
-
   // Don't allow entering overview if there is a system modal dialog or chromeOS
   // is running in kiosk app session.
   Shell* shell = Shell::Get();
@@ -514,6 +509,7 @@ void OverviewController::ToggleOverview(OverviewEnterExitType type) {
     overview_session_->set_enter_exit_overview_type(new_type);
     for (auto& observer : observers_)
       observer.OnOverviewModeStarting();
+
     overview_session_->Init(windows, hide_windows);
 
     overview_session_->UpdateFrameThrottling();

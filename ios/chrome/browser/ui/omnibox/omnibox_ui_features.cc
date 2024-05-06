@@ -40,3 +40,26 @@ bool IsIpadPopoutOmniboxEnabled() {
 bool IsRichAutocompletionEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kRichAutocompletion);
 }
+
+const char kRichAutocompletionParam[] = "RichAutocompletionParam";
+const char kRichAutocompletionParamLabel[] = "Label";
+const char kRichAutocompletionParamTextField[] = "TextField";
+
+bool IsRichAutocompletionEnabled(RichAutocompletionImplementation type) {
+  if (!IsRichAutocompletionEnabled()) {
+    return false;
+  }
+
+  if (type == RichAutocompletionImplementation::kAny) {
+    return true;
+  }
+
+  std::string featureParam = base::GetFieldTrialParamValueByFeature(
+      omnibox::kRichAutocompletion, kRichAutocompletionParam);
+  if (type == RichAutocompletionImplementation::kTextField) {
+    return featureParam == kRichAutocompletionParamTextField;
+  }
+
+  // Label is the default.
+  return true;
+}

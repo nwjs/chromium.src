@@ -597,6 +597,13 @@ void InterestGroupAuctionReporter::OnSellerReportResultComplete(
   timings.script_run_time = reporting_latency;
   for (auction_worklet::mojom::PrivateAggregationRequestPtr& request :
        pa_requests) {
+    // TODO(crbug.com/330744610): Allow filtering ID to be set.
+    if (request->contribution->is_histogram_contribution() &&
+        request->contribution->get_histogram_contribution()
+            ->filtering_id.has_value()) {
+      mojo::ReportBadMessage("Filtering ID set inappropriately");
+    }
+
     // reportResult() only gets executed for seller when there was an auction
     // winner so we consider is_winner to be true, which results in
     // "reserved.loss" reports not being reported. Bid reject reason is not
@@ -771,8 +778,7 @@ void InterestGroupAuctionReporter::OnBidderWorkletReceived(
   }
   // If k-anonymity enforcement is on we can only reveal the winning reporting
   // id in reportWin if the winning ad's reporting_ads_kanon entry is
-  // k-anonymous. Otherwise we simply provide the empty string, as well as hide
-  // the field name.
+  // k-anonymous.
   //
   // An exception to this is contextual bids, which have access to page
   // information anyway.
@@ -780,9 +786,13 @@ void InterestGroupAuctionReporter::OnBidderWorkletReceived(
       !IsKAnonForReporting(winning_bid_info_.storage_interest_group,
                            chosen_ad)) {
     reporting_id = "";
-    reporting_id_field =
-        auction_worklet::mojom::ReportingIdField::kInterestGroupName;
+    reporting_id_field = auction_worklet::mojom::ReportingIdField::kNone;
   }
+  base::UmaHistogramEnumeration(
+      top_level_seller_winning_bid_info_.saved_response.has_value()
+          ? "Ads.InterestGroup.ServerAuction.ReportingIdType"
+          : "Ads.InterestGroup.Auction.ReportingIdType",
+      reporting_id_field);
 
   bidder_worklet_handle_->AuthorizeSubresourceUrls(
       *seller_info.subresource_url_builder);
@@ -909,6 +919,13 @@ void InterestGroupAuctionReporter::OnBidderReportWinComplete(
   timings.script_run_time = reporting_latency;
   for (auction_worklet::mojom::PrivateAggregationRequestPtr& request :
        pa_requests) {
+    // TODO(crbug.com/330744610): Allow filtering ID to be set.
+    if (request->contribution->is_histogram_contribution() &&
+        request->contribution->get_histogram_contribution()
+            ->filtering_id.has_value()) {
+      mojo::ReportBadMessage("Filtering ID set inappropriately");
+    }
+
     // Only winner's reportWin() gets executed, so is_winner is true, which
     // results in "reserved.loss" reports not being reported. Bid reject reason
     // is not meaningful thus not supported in reportWin(), so it is set to

@@ -167,11 +167,18 @@ StringView ConsumeUrlAsStringView(CSSParserTokenRange&,
 cssvalue::CSSURIValue* ConsumeUrl(CSSParserTokenRange&,
                                   const CSSParserContext&);
 
+// Some properties accept non-standard colors, like rgb values without a
+// preceding hash, in quirks mode.
+CORE_EXPORT CSSValue* ConsumeColorMaybeQuirky(CSSParserTokenRange&,
+                                              const CSSParserContext&);
+
+// https://drafts.csswg.org/css-color-5/#typedef-color
 CORE_EXPORT CSSValue* ConsumeColor(CSSParserTokenRange&,
-                                   const CSSParserContext&,
-                                   bool accept_quirky_colors = false,
-                                   AllowedColorKeywords allowed_keywords =
-                                       AllowedColorKeywords::kAllowSystemColor);
+                                   const CSSParserContext&);
+
+// https://drafts.csswg.org/css-color-5/#absolute-color
+CORE_EXPORT CSSValue* ConsumeAbsoluteColor(CSSParserTokenRange&,
+                                           const CSSParserContext&);
 
 CSSValue* ConsumeLineWidth(CSSParserTokenRange&,
                            const CSSParserContext&,
@@ -194,6 +201,7 @@ bool ConsumeOneOrTwoValuedPosition(CSSParserTokenRange&,
                                    CSSValue*& result_y);
 bool ConsumeBorderShorthand(CSSParserTokenRange&,
                             const CSSParserContext&,
+                            const CSSParserLocalContext&,
                             const CSSValue*& result_width,
                             const CSSValue*& result_style,
                             const CSSValue*& result_color);
@@ -412,6 +420,8 @@ CSSValue* ParseBorderRadiusCorner(CSSParserTokenRange&,
 CSSValue* ParseBorderWidthSide(CSSParserTokenRange&,
                                const CSSParserContext&,
                                const CSSParserLocalContext&);
+const CSSValue* ParseBorderStyleSide(CSSParserTokenRange&,
+                                     const CSSParserContext&);
 
 CSSValue* ConsumeShadow(CSSParserTokenRange&,
                         const CSSParserContext&,
@@ -579,6 +589,14 @@ CSSValue* ConsumeFontSizeAdjust(CSSParserTokenRange&, const CSSParserContext&);
 // ASCII case-insensitive match of any predefined counter style name.
 bool ShouldLowerCaseCounterStyleNameOnParse(const AtomicString&,
                                             const CSSParserContext&);
+
+// https://drafts.csswg.org/css-anchor-position-1/#typedef-inset-area
+const CSSValue* ConsumeInsetArea(CSSParserTokenRange&);
+
+// inset-area can take one or two keywords. If the second is omitted, either the
+// first is repeated, or the second is span-all. This method returns true if the
+// omitted value should be the first one repeated.
+bool IsRepeatedInsetAreaValue(CSSValueID value_id);
 
 // Template implementations are at the bottom of the file for readability.
 

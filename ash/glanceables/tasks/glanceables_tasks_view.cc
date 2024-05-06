@@ -16,7 +16,8 @@
 #include "ash/glanceables/common/glanceables_view_id.h"
 #include "ash/glanceables/glanceables_controller.h"
 #include "ash/glanceables/glanceables_metrics.h"
-#include "ash/glanceables/tasks/glanceables_task_view_v2.h"
+#include "ash/glanceables/tasks/glanceables_task_view.h"
+#include "ash/glanceables/tasks/glanceables_tasks_combobox_model.h"
 #include "ash/public/cpp/new_window_delegate.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
@@ -25,7 +26,6 @@
 #include "ash/style/icon_button.h"
 #include "ash/style/typography.h"
 #include "ash/system/unified/glanceable_tray_child_bubble.h"
-#include "ash/system/unified/tasks_combobox_model.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -169,24 +169,13 @@ END_METADATA
 
 }  // namespace
 
-GlanceablesTasksViewBase::GlanceablesTasksViewBase(
-    bool use_glanceables_container_style)
-    : GlanceableTrayChildBubble(use_glanceables_container_style),
-      shown_time_(base::Time::Now()) {}
-
-GlanceablesTasksViewBase::~GlanceablesTasksViewBase() {
-  RecordTotalShowTimeForTasks(base::Time::Now() - shown_time_);
-}
-
-BEGIN_METADATA(GlanceablesTasksViewBase)
-END_METADATA
-
 // It is the parent container of GlanceablesTasksView that matches the style
 // of GlanceableTrayChildBubble, so `use_glanceables_container_style` is set to
 // false here.
 GlanceablesTasksView::GlanceablesTasksView(
     const ui::ListModel<api::TaskList>* task_lists)
-    : GlanceablesTasksViewBase(/*use_glanceables_container_style=*/false) {
+    : GlanceableTrayChildBubble(/*use_glanceables_container_style=*/false),
+      shown_time_(base::Time::Now()) {
   SetAccessibleRole(ax::mojom::Role::kGroup);
 
   auto* layout_manager =
@@ -256,7 +245,8 @@ GlanceablesTasksView::GlanceablesTasksView(
   header_icon->SetID(
       base::to_underlying(GlanceablesViewId::kTasksBubbleHeaderIcon));
 
-  tasks_combobox_model_ = std::make_unique<TasksComboboxModel>(task_lists);
+  tasks_combobox_model_ =
+      std::make_unique<GlanceablesTasksComboboxModel>(task_lists);
   CreateComboBoxView();
 
   list_footer_view_ =
@@ -285,6 +275,7 @@ GlanceablesTasksView::GlanceablesTasksView(
 }
 
 GlanceablesTasksView::~GlanceablesTasksView() {
+  RecordTotalShowTimeForTasks(base::Time::Now() - shown_time_);
   if (first_task_list_shown_) {
     RecordTasksListChangeCount(tasks_list_change_count_);
     RecordNumberOfAddedTasks(added_tasks_, task_list_initially_empty_,
@@ -296,14 +287,14 @@ void GlanceablesTasksView::ChildPreferredSizeChanged(View* child) {
   PreferredSizeChanged();
 }
 
-void GlanceablesTasksView::CancelUpdates() {
-  weak_ptr_factory_.InvalidateWeakPtrs();
-}
-
 void GlanceablesTasksView::OnViewFocused(views::View* view) {
   CHECK_EQ(view, task_list_combo_box_view_);
 
   AnnounceListStateOnComboBoxAccessibility();
+}
+
+void GlanceablesTasksView::CancelUpdates() {
+  weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
 void GlanceablesTasksView::UpdateTaskLists(
@@ -329,21 +320,22 @@ void GlanceablesTasksView::UpdateTaskLists(
 
 void GlanceablesTasksView::AddNewTaskButtonPressed() {
   // TODO(b/301253574): make sure there is only one view is in `kEdit` state.
+  task_items_container_view_->SetVisible(true);
   auto* const pending_new_task = task_items_container_view_->AddChildViewAt(
       CreateTaskView(GetActiveTaskList()->id, /*task=*/nullptr),
       /*index=*/0);
   pending_new_task->UpdateTaskTitleViewForState(
-      GlanceablesTaskViewV2::TaskTitleViewState::kEdit);
+      GlanceablesTaskView::TaskTitleViewState::kEdit);
 
   RecordUserStartedAddingTask();
 
   PreferredSizeChanged();
 }
 
-std::unique_ptr<GlanceablesTaskViewV2> GlanceablesTasksView::CreateTaskView(
+std::unique_ptr<GlanceablesTaskView> GlanceablesTasksView::CreateTaskView(
     const std::string& task_list_id,
     const api::Task* task) {
-  return std::make_unique<GlanceablesTaskViewV2>(
+  return std::make_unique<GlanceablesTaskView>(
       task,
       base::BindRepeating(&GlanceablesTasksView::MarkTaskAsCompleted,
                           base::Unretained(this), task_list_id),
@@ -381,7 +373,7 @@ void GlanceablesTasksView::ScheduleUpdateTasks(ListShownContext context) {
   }
 
   SetIsLoading(true);
-  task_list_combo_box_view_->SetAccessibleDescription(u"");
+  task_list_combo_box_view_->GetViewAccessibility().SetDescription(u"");
 
   const auto* const active_task_list = GetActiveTaskList();
   tasks_combobox_model_->SaveLastSelectedTaskList(active_task_list->id);
@@ -484,7 +476,7 @@ void GlanceablesTasksView::UpdateTasksInTaskList(
   // Set `task_items_container_view_` to invisible if there is no task so that
   // the layout manager won't include it as a visible view.
   task_items_container_view_->SetVisible(
-      task_items_container_view_->children().size() > 0);
+      !task_items_container_view_->children().empty());
   list_footer_view_->SetVisible(tasks->item_count() >= kMaximumTasks);
 
   task_list_combo_box_view_->SetTooltipText(
@@ -493,8 +485,8 @@ void GlanceablesTasksView::UpdateTasksInTaskList(
   task_items_container_view_->SetAccessibleName(l10n_util::GetStringFUTF16(
       IDS_GLANCEABLES_TASKS_SELECTED_LIST_ACCESSIBLE_NAME,
       base::UTF8ToUTF16(task_list_title)));
-  task_items_container_view_->SetAccessibleDescription(
-      list_footer_view_->items_count_label());
+  task_items_container_view_->GetViewAccessibility().SetDescription(
+      *list_footer_view_->items_count_label());
   task_items_container_view_->NotifyAccessibilityEvent(
       ax::mojom::Event::kChildrenChanged,
       /*send_native_event=*/true);
@@ -554,7 +546,7 @@ void GlanceablesTasksView::ActionButtonPressed(TasksLaunchSource source,
 
 void GlanceablesTasksView::SaveTask(
     const std::string& task_list_id,
-    base::WeakPtr<GlanceablesTaskViewV2> view,
+    base::WeakPtr<GlanceablesTaskView> view,
     const std::string& task_id,
     const std::string& title,
     api::TasksClient::OnTaskSavedCallback callback) {
@@ -594,7 +586,7 @@ void GlanceablesTasksView::SaveTask(
 }
 
 void GlanceablesTasksView::OnTaskSaved(
-    base::WeakPtr<GlanceablesTaskViewV2> view,
+    base::WeakPtr<GlanceablesTaskView> view,
     const std::string& task_id,
     api::TasksClient::OnTaskSavedCallback callback,
     const api::Task* task) {
@@ -613,6 +605,8 @@ void GlanceablesTasksView::OnTaskSaved(
   }
   SetIsLoading(false);
   std::move(callback).Run(task);
+  task_items_container_view_->SetVisible(
+      !task_items_container_view_->children().empty());
   list_footer_view_->SetVisible(task_items_container_view_->children().size() >=
                                 kMaximumTasks);
 }
@@ -674,7 +668,7 @@ std::u16string GlanceablesTasksView::GetErrorString(
 }
 
 void GlanceablesTasksView::RemoveTaskView(
-    base::WeakPtr<GlanceablesTaskViewV2> task_view) {
+    base::WeakPtr<GlanceablesTaskView> task_view) {
   if (!task_view) {
     return;
   }
@@ -683,6 +677,8 @@ void GlanceablesTasksView::RemoveTaskView(
     add_new_task_button_->RequestFocus();
   }
   task_items_container_view_->RemoveChildViewT(task_view.get());
+  task_items_container_view_->SetVisible(
+      !task_items_container_view_->children().empty());
   PreferredSizeChanged();
 }
 
@@ -706,7 +702,7 @@ void GlanceablesTasksView::CreateComboBoxView() {
   // Assign a default value for tooltip and accessible text.
   task_list_combo_box_view_->SetTooltipText(l10n_util::GetStringFUTF16(
       IDS_GLANCEABLES_TASKS_DROPDOWN_ACCESSIBLE_NAME, u""));
-  task_list_combo_box_view_->SetAccessibleDescription(u"");
+  task_list_combo_box_view_->GetViewAccessibility().SetDescription(u"");
   task_list_combo_box_view_->SetSelectionChangedCallback(base::BindRepeating(
       &GlanceablesTasksView::SelectedTasksListChanged, base::Unretained(this)));
 }

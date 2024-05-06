@@ -50,10 +50,6 @@ luci.bucket(
                 branches.value(branch_selector = branches.selector.MAIN, value = "v8"),
             ] if p != None],
         ),
-        acl.entry(
-            roles = acl.BUILDBUCKET_OWNER,
-            groups = "service-account-chromium-tryserver",
-        ),
     ],
 )
 
@@ -138,6 +134,24 @@ luci.cq_group(
         ),
     ],
     tree_status_host = "chromium-status.appspot.com" if settings.is_main else None,
+    user_limit_default = cq.user_limit(
+        name = "default-limit",
+        run = cq.run_limits(max_active = 10),
+    ),
+    user_limits = [
+        cq.user_limit(
+            name = "chromium-src-emergency-quota",
+            groups = ["chromium-src-emergency-quota"],
+            run = cq.run_limits(max_active = None),
+        ),
+        cq.user_limit(
+            name = "bots",
+            users = [
+                "chromium-autoroll@skia-public.iam.gserviceaccount.com",
+            ],
+            run = cq.run_limits(max_active = None),
+        ),
+    ],
 )
 
 # Declare a CQ group that watches all branch heads, excluding the active

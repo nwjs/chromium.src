@@ -9,6 +9,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/check_is_test.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -114,7 +115,8 @@ std::unique_ptr<VideoDecoder> VdaVideoDecoder::Create(
     const gpu::GpuPreferences& gpu_preferences,
     const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
     GetStubCB get_stub_cb,
-    VideoDecodeAccelerator::Config::OutputMode output_mode) {
+    VideoDecodeAccelerator::Config::OutputMode output_mode,
+    VideoDecodeAccelerator::TextureAllocationMode texture_allocation_mode) {
   auto* decoder = new VdaVideoDecoder(
       std::move(parent_task_runner), std::move(gpu_task_runner),
       std::move(media_log), target_color_space,
@@ -129,7 +131,7 @@ std::unique_ptr<VideoDecoder> VdaVideoDecoder::Create(
       GpuVideoAcceleratorUtil::ConvertGpuToMediaDecodeCapabilities(
           GpuVideoDecodeAcceleratorFactory::GetDecoderCapabilities(
               gpu_preferences, gpu_workarounds)),
-      output_mode);
+      output_mode, texture_allocation_mode);
 
   return std::make_unique<AsyncDestroyVideoDecoder<VdaVideoDecoder>>(
       base::WrapUnique(decoder));
@@ -144,7 +146,8 @@ VdaVideoDecoder::VdaVideoDecoder(
     CreateCommandBufferHelperCB create_command_buffer_helper_cb,
     CreateAndInitializeVdaCB create_and_initialize_vda_cb,
     const VideoDecodeAccelerator::Capabilities& vda_capabilities,
-    VideoDecodeAccelerator::Config::OutputMode output_mode)
+    VideoDecodeAccelerator::Config::OutputMode output_mode,
+    VideoDecodeAccelerator::TextureAllocationMode texture_allocation_mode)
     : parent_task_runner_(std::move(parent_task_runner)),
       gpu_task_runner_(std::move(gpu_task_runner)),
       media_log_(std::move(media_log)),
@@ -154,11 +157,20 @@ VdaVideoDecoder::VdaVideoDecoder(
       create_and_initialize_vda_cb_(std::move(create_and_initialize_vda_cb)),
       vda_capabilities_(vda_capabilities),
       output_mode_(output_mode),
+      texture_allocation_mode_(texture_allocation_mode),
       timestamps_(128) {
   DVLOG(1) << __func__;
   DCHECK(parent_task_runner_->RunsTasksInCurrentSequence());
   DCHECK_EQ(vda_capabilities_.flags, 0U);
   DCHECK(media_log_);
+
+#if BUILDFLAG(IS_CHROMEOS)
+  if (output_mode != VideoDecodeAccelerator::Config::OutputMode::kImport ||
+      texture_allocation_mode != VideoDecodeAccelerator::TextureAllocationMode::
+                                     kDoNotAllocateGLTextures) {
+    CHECK_IS_TEST();
+  }
+#endif
 
   gpu_weak_this_ = gpu_weak_this_factory_.GetWeakPtr();
   parent_weak_this_ = parent_weak_this_factory_.GetWeakPtr();
@@ -581,10 +593,7 @@ void VdaVideoDecoder::ProvidePictureBuffersAsync(uint32_t count,
   std::vector<std::pair<PictureBuffer, gfx::GpuMemoryBufferHandle>>
       picture_buffers_and_gmbs = picture_buffer_manager_->CreatePictureBuffers(
           count, pixel_format, texture_size, texture_target,
-          output_mode_ == VideoDecodeAccelerator::Config::OutputMode::kImport
-              ? VideoDecodeAccelerator::TextureAllocationMode::
-                    kDoNotAllocateGLTextures
-              : vda_->GetSharedImageTextureAllocationMode());
+          texture_allocation_mode_);
   if (picture_buffers_and_gmbs.empty()) {
     parent_task_runner_->PostTask(
         FROM_HERE,

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/feature_list.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
@@ -23,6 +24,7 @@
 #include "components/autofill/content/common/mojom/autofill_driver.mojom.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
 #include "components/autofill/content/renderer/form_tracker.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -338,7 +340,7 @@ class AutofillAgent : public content::RenderFrameObserver,
       const blink::WebElement& node);
 
   void OnTextFieldDidChange(const blink::WebFormControlElement& element);
-  void DidChangeScrollOffsetImpl(const blink::WebFormControlElement& element);
+  void DidChangeScrollOffsetImpl(FieldRendererId element_id);
 
   // Shows Password Manager, password generation, or Autofill suggestions for
   // `element`. This call is asynchronous and may or may not lead to the showing
@@ -396,7 +398,10 @@ class AutofillAgent : public content::RenderFrameObserver,
   std::optional<FormData> GetSubmittedForm() const;
 
   void ResetLastInteractedElements();
-  void UpdateLastInteracted(const blink::WebFormElement& form);
+  // A form_id means that the user last interacted with a FormElement.
+  // A field_id means that the user last interacted with a formless control.
+  void UpdateLastInteractedElement(
+      absl::variant<FormRendererId, FieldRendererId> element_id);
 
   // Called when current form is no longer submittable, submitted_forms_ is
   // cleared in this method.
@@ -411,6 +416,13 @@ class AutofillAgent : public content::RenderFrameObserver,
   // when another event of the same type started.
   void BatchSelectOrSelectListOptionChange(FieldRendererId element_id);
   void BatchDataListOptionChange(FieldRendererId element_id);
+
+  FormRef last_interacted_form() const {
+    return base::FeatureList::IsEnabled(
+               features::kAutofillUnifyAndFixFormTracking)
+               ? form_tracker_->last_interacted_form()
+               : last_interacted_form_;
+  }
 
   // TODO(b/40281981): Remove.
   std::optional<FormData>& provisionally_saved_form() {
@@ -442,12 +454,9 @@ class AutofillAgent : public content::RenderFrameObserver,
   // autofill state before the preview.
   std::vector<std::pair<FieldRef, blink::WebAutofillState>> previewed_elements_;
 
-  // Records the last autofill action (Fill or Undo) done by the agent. Used in
-  // ClearPreviewedForm to get the default state of previewed fields
-  // post-clearing.
-  mojom::FormActionType last_action_type_ = mojom::FormActionType::kFill;
-
   // Last form which was interacted with by the user.
+  // TODO(b/40281981): Remove when tracking becomes only FormTracker's
+  // responsibility.
   FormRef last_interacted_form_;
 
   // When dealing with an unowned form, we keep track of the unowned fields
@@ -475,7 +484,8 @@ class AutofillAgent : public content::RenderFrameObserver,
   // until destruction time.
   std::unique_ptr<FormTracker> form_tracker_ =
       std::make_unique<FormTracker>(unsafe_render_frame(),
-                                    config_.user_gesture_required);
+                                    config_.user_gesture_required,
+                                    *this);
 
   mojo::AssociatedReceiver<mojom::AutofillAgent> receiver_{this};
 
@@ -489,7 +499,7 @@ class AutofillAgent : public content::RenderFrameObserver,
   // Timers for throttling handling of frequent events.
   base::OneShotTimer select_or_selectlist_option_change_batch_timer_;
   base::OneShotTimer datalist_option_change_batch_timer_;
-  // TODO(crbug.com/1444566): Merge some or all of these timers?
+  // TODO(crbug.com/40267764): Merge some or all of these timers?
   base::OneShotTimer process_forms_after_dynamic_change_timer_;
   base::OneShotTimer process_forms_form_extraction_timer_;
   base::OneShotTimer process_forms_form_extraction_with_response_timer_;

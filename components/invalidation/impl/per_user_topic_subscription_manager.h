@@ -44,8 +44,6 @@ class INVALIDATION_EXPORT PerUserTopicSubscriptionManager {
    public:
     virtual void OnSubscriptionChannelStateChanged(
         SubscriptionChannelState state) = 0;
-    virtual void OnSubscriptionRequestStarted(Topic topic,
-                                              RequestType request_type) = 0;
     virtual void OnSubscriptionRequestFinished(Topic topic,
                                                RequestType request_type,
                                                Status code) = 0;
@@ -64,9 +62,9 @@ class INVALIDATION_EXPORT PerUserTopicSubscriptionManager {
 
   // Just calls std::make_unique. For ease of base::Bind'ing
   static std::unique_ptr<PerUserTopicSubscriptionManager> Create(
+      network::mojom::URLLoaderFactory* url_loader_factory,
       IdentityProvider* identity_provider,
       PrefService* pref_service,
-      network::mojom::URLLoaderFactory* url_loader_factory,
       const std::string& project_id);
 
   // RegisterProfilePrefs and RegisterPrefs register the same prefs, because on
@@ -108,11 +106,14 @@ class INVALIDATION_EXPORT PerUserTopicSubscriptionManager {
     return pending_subscriptions_.empty();
   }
 
+  size_t GetPendingSubscriptionsCountForTest() const {
+    return pending_subscriptions_.size();
+  }
+
  protected:
   // These are protected so that the mock can access them.
   void NotifySubscriptionChannelStateChange(
       SubscriptionChannelState invalidator_state);
-  void NotifySubscriptionRequestStarted(Topic topic, RequestType request_type);
   void NotifySubscriptionRequestFinished(Topic topic,
                                          RequestType request_type,
                                          Status code);

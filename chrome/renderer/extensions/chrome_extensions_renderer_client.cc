@@ -21,7 +21,6 @@
 #include "chrome/common/extensions/extension_metrics.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/renderer/chrome_render_thread_observer.h"
-#include "chrome/renderer/extensions/chrome_extensions_dispatcher_delegate.h"
 #include "chrome/renderer/extensions/renderer_permissions_policy_delegate.h"
 #include "chrome/renderer/extensions/resource_request_policy.h"
 #include "content/public/common/content_constants.h"
@@ -141,7 +140,6 @@ void ChromeExtensionsRendererClient::RenderThreadStarted() {
   // injects it using SetExtensionDispatcher(). Don't overwrite it.
   if (!extension_dispatcher_) {
     extension_dispatcher_ = std::make_unique<extensions::Dispatcher>(
-        std::make_unique<ChromeExtensionsDispatcherDelegate>(),
         std::move(api_providers_));
     nw::ExtensionDispatcherCreated(extension_dispatcher_.get());
   }

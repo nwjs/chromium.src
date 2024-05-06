@@ -209,6 +209,8 @@ static_library("browser") {
     "form_forest_util_inl.h",
     "form_parsing/address_field_parser.cc",
     "form_parsing/address_field_parser.h",
+    "form_parsing/address_field_parser_ng.cc",
+    "form_parsing/address_field_parser_ng.h",
     "form_parsing/autofill_parsing_utils.h",
     "form_parsing/autofill_scanner.cc",
     "form_parsing/autofill_scanner.h",
@@ -301,6 +303,8 @@ static_library("browser") {
     "metrics/address_data_cleaner_metrics.h",
     "metrics/address_save_metrics.cc",
     "metrics/address_save_metrics.h",
+    "metrics/autofill_in_devtools_metrics.cc",
+    "metrics/autofill_in_devtools_metrics.h",
     "metrics/autofill_metrics.cc",
     "metrics/autofill_metrics.h",
     "metrics/autofill_metrics_utils.cc",
@@ -358,6 +362,8 @@ static_library("browser") {
     "metrics/payments/wallet_usage_data_metrics.h",
     "metrics/placeholder_metrics.cc",
     "metrics/placeholder_metrics.h",
+    "metrics/profile_deduplication_metrics.cc",
+    "metrics/profile_deduplication_metrics.h",
     "metrics/profile_import_metrics.cc",
     "metrics/profile_import_metrics.h",
     "metrics/profile_token_quality_metrics.cc",
@@ -534,6 +540,7 @@ static_library("browser") {
     "ui/payments/card_unmask_prompt_options.h",
     "ui/payments/card_unmask_prompt_view.h",
     "ui/payments/payments_bubble_closed_reasons.h",
+    "ui/payments/payments_window_user_consent_dialog.h",
     "ui/payments/payments_window_user_consent_dialog_controller.h",
     "ui/payments/payments_window_user_consent_dialog_controller_impl.cc",
     "ui/payments/payments_window_user_consent_dialog_controller_impl.h",
@@ -543,6 +550,7 @@ static_library("browser") {
     "ui/payments/virtual_card_enroll_ui_model.cc",
     "ui/payments/virtual_card_enroll_ui_model.h",
     "ui/popup_hiding_reasons.h",
+    "ui/popup_item_ids.cc",
     "ui/popup_item_ids.h",
     "ui/region_combobox_model.cc",
     "ui/region_combobox_model.h",
@@ -561,6 +569,8 @@ static_library("browser") {
     "webdata/addresses/autofill_profile_sync_util.h",
     "webdata/addresses/contact_info_model_type_controller.cc",
     "webdata/addresses/contact_info_model_type_controller.h",
+    "webdata/addresses/contact_info_precondition_checker.cc",
+    "webdata/addresses/contact_info_precondition_checker.h",
     "webdata/addresses/contact_info_sync_bridge.cc",
     "webdata/addresses/contact_info_sync_bridge.h",
     "webdata/addresses/contact_info_sync_util.cc",
@@ -794,6 +804,10 @@ static_library("browser") {
       "//ui/native_theme:native_theme_browser",
     ]
   }
+
+  if (is_ios) {
+    deps += [ "//components/autofill/ios/common" ]
+  }
 }
 
 static_library("legal_message_line") {
@@ -875,6 +889,8 @@ static_library("test_support") {
     "payments/mock_test_payments_network_interface.h",
     "payments/test/mock_mandatory_reauth_manager.cc",
     "payments/test/mock_mandatory_reauth_manager.h",
+    "payments/test/mock_payments_window_manager.cc",
+    "payments/test/mock_payments_window_manager.h",
     "payments/test/test_credit_card_otp_authenticator.cc",
     "payments/test/test_credit_card_otp_authenticator.h",
     "payments/test/test_credit_card_risk_based_authenticator.cc",
@@ -890,6 +906,7 @@ static_library("test_support") {
     "payments/test_payments_network_interface.h",
     "payments/test_virtual_card_enrollment_manager.cc",
     "payments/test_virtual_card_enrollment_manager.h",
+    "payments_data_manager_test_api.cc",
     "payments_data_manager_test_api.h",
     "personal_data_manager_test_utils.cc",
     "personal_data_manager_test_utils.h",
@@ -1098,6 +1115,7 @@ source_set("unit_tests") {
     "form_data_importer_utils_unittest.cc",
     "form_filler_unittest.cc",
     "form_forest_unittest.cc",
+    "form_parsing/address_field_parser_ng_unittest.cc",
     "form_parsing/address_field_parser_unittest.cc",
     "form_parsing/credit_card_field_parser_unittest.cc",
     "form_parsing/field_candidates_unittest.cc",
@@ -1150,6 +1168,7 @@ source_set("unit_tests") {
     "metrics/payments/virtual_card_standalone_cvc_suggestion_metrics_unittest.cc",
     "metrics/payments/wallet_usage_data_metrics_unittest.cc",
     "metrics/placeholder_metrics_unittest.cc",
+    "metrics/profile_deduplication_metrics_unittest.cc",
     "metrics/profile_import_metrics_unittest.cc",
     "metrics/profile_token_quality_metrics_unittest.cc",
     "metrics/quality_metrics_unittest.cc",
@@ -1352,6 +1371,10 @@ source_set("unit_tests") {
       "//content/test:test_support",
       "//third_party/blink/public/common",
     ]
+  }
+
+  if (is_ios) {
+    deps += [ "//components/autofill/ios/common" ]
   }
 }
 

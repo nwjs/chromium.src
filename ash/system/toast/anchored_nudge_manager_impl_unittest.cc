@@ -26,8 +26,11 @@
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/views/bubble/bubble_border.h"
+#include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/focus/focus_manager.h"
+#include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -88,6 +91,15 @@ views::LabelButton* GetNudgePrimaryButton(const std::string& id) {
 
 views::LabelButton* GetNudgeSecondaryButton(const std::string& id) {
   return GetAnchoredNudgeManager()->GetNudgeSecondaryButtonForTest(id);
+}
+
+AnchoredNudge* GetNudgeIfShown(const std::string& id) {
+  return GetAnchoredNudgeManager()->GetNudgeIfShown(id);
+}
+
+void PressTab() {
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  generator.PressKey(ui::KeyboardCode::VKEY_TAB, ui::EF_NONE);
 }
 
 }  // namespace
@@ -750,6 +762,28 @@ TEST_F(AnchoredNudgeManagerImplTest,
   EXPECT_FALSE(GetShownNudge(id));
 }
 
+// Tests that a nudge closes if its anchor view widget is hiding.
+TEST_F(AnchoredNudgeManagerImplTest, NudgeCloses_WhenAnchorViewWidgetIsHiding) {
+  std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
+
+  // Set up nudge data contents.
+  const std::string id = "id";
+  auto* anchor_view = widget->SetContentsView(std::make_unique<views::View>());
+  auto nudge_data = CreateBaseNudgeData(id, anchor_view);
+
+  // Show a nudge.
+  GetAnchoredNudgeManager()->Show(nudge_data);
+  EXPECT_TRUE(GetShownNudge(id));
+
+  // Hide the anchor view widget, the nudge should have closed.
+  widget->Hide();
+  EXPECT_FALSE(GetShownNudge(id));
+
+  // Show the anchor view widget, the nudge should not reappear.
+  widget->ShowInactive();
+  EXPECT_FALSE(GetShownNudge(id));
+}
+
 // Tests that a nudge is properly destroyed on shutdown.
 TEST_F(AnchoredNudgeManagerImplTest, NudgeCloses_OnShutdown) {
   std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
@@ -1154,6 +1188,128 @@ TEST_F(AnchoredNudgeManagerImplTest, TimeToActionMetric) {
   GetAnchoredNudgeManager()->MaybeRecordNudgeAction(kTestCatalogName);
   histogram_tester.ExpectBucketCount(kNudgeTimeToActionWithinSession,
                                      kTestCatalogName, 1);
+}
+
+// Tests that a nudge is parented to its anchor view, which has a widget.
+TEST_F(AnchoredNudgeManagerImplTest, SetParent_AnchorViewWithWidget) {
+  std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
+
+  // Set up nudge data contents.
+  const std::string id = "id";
+  auto contents_view = std::make_unique<views::View>();
+  auto* anchor_view =
+      contents_view->AddChildView(std::make_unique<views::View>());
+  widget->SetContentsView(contents_view.get());
+
+  auto nudge_data = CreateBaseNudgeData(id, anchor_view);
+  nudge_data.set_anchor_view_as_parent = true;
+
+  // Anchor view exists, the nudge should be created and parented by it.
+  GetAnchoredNudgeManager()->Show(nudge_data);
+  EXPECT_TRUE(GetShownNudge(id));
+  EXPECT_EQ(GetNudgeIfShown(id)->GetWidget()->GetNativeWindow()->parent(),
+            anchor_view->GetWidget()->GetNativeView()->parent());
+}
+
+// Tests that a nudge is not parented to its anchor view if
+// `set_anchor_view_as_parent` is not set to true.
+TEST_F(AnchoredNudgeManagerImplTest, NotSetParent_AnchorViewWithWidget) {
+  std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
+
+  // Set up nudge data contents.
+  const std::string id = "id";
+  auto contents_view = std::make_unique<views::View>();
+  auto* anchor_view =
+      contents_view->AddChildView(std::make_unique<views::View>());
+  widget->SetContentsView(contents_view.get());
+
+  auto nudge_data = CreateBaseNudgeData(id, anchor_view);
+  nudge_data.set_anchor_view_as_parent = false;
+
+  // Anchor view exists, the nudge should be created but not parented by it.
+  GetAnchoredNudgeManager()->Show(nudge_data);
+  EXPECT_TRUE(GetShownNudge(id));
+  EXPECT_NE(GetNudgeIfShown(id)->GetWidget()->GetNativeWindow()->parent(),
+            anchor_view->GetWidget()->GetNativeView()->parent());
+}
+
+// Tests that a nudge is not created if its anchor view doesn't have a widget
+// but `set_anchor_view_as_parent` is set to true.
+TEST_F(AnchoredNudgeManagerImplTest, SetParent_AnchorViewWithoutWidget) {
+  // Set up nudge data contents.
+  const std::string id = "id";
+  auto contents_view = std::make_unique<views::View>();
+  auto* anchor_view =
+      contents_view->AddChildView(std::make_unique<views::View>());
+  auto nudge_data = CreateBaseNudgeData(id, anchor_view);
+  nudge_data.set_anchor_view_as_parent = true;
+
+  // Attempt to show nudge.
+  GetAnchoredNudgeManager()->Show(nudge_data);
+
+  // Anchor view does not have a widget, the nudge should not be created.
+  EXPECT_FALSE(GetShownNudge(id));
+}
+
+// Tests that a nudge receives focus when it has buttons, and skips focus
+// traversal when it has no buttons.
+TEST_F(AnchoredNudgeManagerImplTest, FocusTraversable) {
+  std::unique_ptr<views::Widget> widget = CreateFramelessTestWidget();
+
+  // Set widget contents.
+  views::View* view1;
+  views::View* view2;
+  views::View* view3;
+  widget->SetContentsView(
+      views::Builder<views::FlexLayoutView>()
+          .AddChildren(
+              views::Builder<views::LabelButton>()
+                  .CopyAddressTo(&view1)
+                  .SetFocusBehavior(views::View::FocusBehavior::ALWAYS),
+              views::Builder<views::LabelButton>()
+                  .CopyAddressTo(&view2)
+                  .SetFocusBehavior(views::View::FocusBehavior::ALWAYS),
+              views::Builder<views::LabelButton>()
+                  .CopyAddressTo(&view3)
+                  .SetFocusBehavior(views::View::FocusBehavior::ALWAYS))
+          .Build());
+
+  // Setup a nudge without buttons and set `view2` as the anchor view.
+  const std::string id = "id";
+  auto nudge_data = CreateBaseNudgeData(id, view2);
+  GetAnchoredNudgeManager()->Show(nudge_data);
+
+  // Focus traversal should skip the nudge since it has no buttons.
+  PressTab();
+  EXPECT_EQ(widget->GetFocusManager()->GetFocusedView(), view1);
+  PressTab();
+  EXPECT_EQ(widget->GetFocusManager()->GetFocusedView(), view2);
+  PressTab();
+  EXPECT_EQ(widget->GetFocusManager()->GetFocusedView(), view3);
+
+  // When a nudge has buttons, focus traversal should go into them and cycle
+  // until the nudge is dismissed.
+  nudge_data.primary_button_text = u"button";
+  nudge_data.secondary_button_text = u"button";
+  GetAnchoredNudgeManager()->Show(nudge_data);
+  PressTab();
+  EXPECT_EQ(widget->GetFocusManager()->GetFocusedView(), view1);
+  PressTab();
+  EXPECT_EQ(widget->GetFocusManager()->GetFocusedView(), view2);
+  PressTab();
+
+  auto* nudge_widget = GetShownNudge(id)->GetWidget();
+  EXPECT_EQ(nudge_widget->GetFocusManager()->GetFocusedView(),
+            GetNudgeSecondaryButton(id));
+  PressTab();
+  EXPECT_EQ(nudge_widget->GetFocusManager()->GetFocusedView(),
+            GetNudgePrimaryButton(id));
+  PressTab();
+  EXPECT_EQ(nudge_widget->GetFocusManager()->GetFocusedView(),
+            GetNudgeSecondaryButton(id));
+
+  GetAnchoredNudgeManager()->Cancel(id);
+  EXPECT_EQ(widget->GetFocusManager()->GetFocusedView(), view2);
 }
 
 }  // namespace ash

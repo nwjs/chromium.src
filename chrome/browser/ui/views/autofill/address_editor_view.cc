@@ -125,9 +125,14 @@ void AddressEditorView::CreateEditorView() {
       views::BoxLayout::Orientation::kVertical,
       gfx::Insets::VH(kBetweenChildSpacing / 2, 0), kBetweenChildSpacing));
 
+  views::View* first_field = nullptr;
   for (const auto& field : controller_->editor_fields()) {
-    CreateInputField(field);
+    views::View* view = CreateInputField(field);
+    if (first_field == nullptr) {
+      first_field = view;
+    }
   }
+  initial_focus_view_ = first_field;
 
   if (controller_->is_validatable()) {
     validation_error_ =
@@ -240,6 +245,7 @@ std::unique_ptr<views::Combobox> AddressEditorView::CreateCountryCombobox(
 
 void AddressEditorView::UpdateEditorView() {
   validation_error_ = nullptr;
+  initial_focus_view_ = nullptr;
   RemoveAllChildViews();
   CreateEditorView();
   PreferredSizeChanged();
@@ -249,6 +255,10 @@ void AddressEditorView::UpdateEditorView() {
   // messages are always consistent.
   if (all_address_fields_have_been_validated_) {
     ValidateAllFields();
+  }
+
+  if (initial_focus_view_) {
+    initial_focus_view_->RequestFocus();
   }
 }
 

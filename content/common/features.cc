@@ -93,13 +93,6 @@ BASE_FEATURE(kCodeCacheDeletionWithoutFilter,
              "CodeCacheDeletionWithoutFilter",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, when creating new proxies for all nodes in a `FrameTree`, one
-// IPC is sent to create all child frame proxies instead of sending one IPC per
-// proxy.
-BASE_FEATURE(kConsolidatedIPCForProxyCreation,
-             "ConsolidatedIPCForProxyCreation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, event.movement is calculated in blink instead of in browser.
 BASE_FEATURE(kConsolidatedMovementXY,
              "ConsolidatedMovementXY",
@@ -192,13 +185,6 @@ BASE_FEATURE(kExperimentalContentSecurityPolicyFeatures,
 // Enables CORS checks on the ID assertion endpoint of the FedCM API.
 BASE_FEATURE(kFedCmIdAssertionCORS,
              "FedCmIdAssertionCORS",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables metrics collection for signin status mismatches. Also enables
-// parsing the signin status HTTP headers.
-// kFedCmIdpSigninStatusEnabled takes precedence over this feature flag.
-BASE_FEATURE(kFedCmIdpSigninStatusMetrics,
-             "FedCmIdpSigninStatusMetrics",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables sending only SameSite=None cookies in credentialed FedCM requests
@@ -206,7 +192,7 @@ BASE_FEATURE(kFedCmIdpSigninStatusMetrics,
 // is enabled, this is a no-op for the ID assertion endpoint.
 BASE_FEATURE(kFedCmSameSiteNone,
              "FedCmSameSiteNone",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, limits the number of FLEDGE auctions that can be run between page
 // load and unload -- any attempt to run more than this number of auctions will
@@ -278,12 +264,6 @@ BASE_FEATURE(kHandleChildThreadTypeChangesInBrowser,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// Tells the RenderFrameHost to send beforeunload messages on a different
-// local frame interface which will handle the messages at a higher priority.
-BASE_FEATURE(kHighPriorityBeforeUnload,
-             "HighPriorityBeforeUnload",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // A feature flag for the memory-backed code cache.
 BASE_FEATURE(kInMemoryCodeCache,
              "InMemoryCodeCache",
@@ -296,6 +276,14 @@ BASE_FEATURE(kInMemoryCodeCache,
 BASE_FEATURE(kInnerFrameCompositorSurfaceEviction,
              "InnerFrameCompositorSurfaceEviction",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the ability to use the updateIfOlderThanMs field in the trusted
+// bidding response to trigger a post-auction update if the group has been
+// updated more recently than updateIfOlderThanMs milliseconds, bypassing the
+// typical 24 hour wait.
+BASE_FEATURE(kInterestGroupUpdateIfOlderThan,
+             "InterestGroupUpdateIfOlderThan",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable IOSurface based screen capturer.
 #if BUILDFLAG(IS_MAC)
@@ -376,7 +364,7 @@ BASE_FEATURE(kPreloadingConfig,
 // origin trial token: Attribution Reporting, FLEDGE, Topics.
 BASE_FEATURE(kPrivacySandboxAdsAPIsM1Override,
              "PrivacySandboxAdsAPIsM1Override",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables reporting ResourceTiming entries for document, who initiated a
 // cancelled navigation in one of their <iframe>.
@@ -399,15 +387,6 @@ BASE_FEATURE(kProactivelySwapBrowsingInstance,
 // https://crbug.com/1286501.
 BASE_FEATURE(kRestrictCanAccessDataForOriginToUIThread,
              "RestrictCanAccessDataForOriginToUIThread",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Kill switch for moving the checking of specific requested files from
-// SecurityState::CanCommitURL() to SecurityState::CanRequestURL() in
-// ChildProcessSecurityPolicy.
-// TODO(https://crbug.com/764958): Remove this once the move is verified to be
-// safe.
-BASE_FEATURE(kRequestFileSetCheckedInCanRequestURL,
-             "RequestFileSetCheckedInCanRequestURL",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Make sendBeacon throw for a Blob with a non simple type.

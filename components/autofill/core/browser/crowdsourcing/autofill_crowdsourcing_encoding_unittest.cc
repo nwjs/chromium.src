@@ -373,13 +373,13 @@ TEST_F(AutofillCrowdsourcingEncoding,
   for (size_t i = 0; i < form_structure->field_count(); ++i) {
     form_structure->field(i)->set_possible_types(possible_field_types[i]);
 
-    if (form_structure->field(i)->name == u"password") {
+    if (form_structure->field(i)->name() == u"password") {
       form_structure->field(i)->set_generation_type(
           AutofillUploadContents::Field::
               MANUALLY_TRIGGERED_GENERATION_ON_SIGN_UP_FORM);
       form_structure->field(i)->set_generated_password_changed(true);
     }
-    if (form_structure->field(i)->name == u"username") {
+    if (form_structure->field(i)->name() == u"username") {
       form_structure->field(i)->set_vote_type(
           AutofillUploadContents::Field::CREDENTIALS_REUSED);
     }
@@ -446,7 +446,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequestWithPropertiesMask) {
   form.fields.push_back(CreateTestFormField("First Name", "firstname", "",
                                             FormControlType::kInputText,
                                             "given-name"));
-  form.fields.back().name_attribute = form.fields.back().name;
+  form.fields.back().name_attribute = form.fields.back().name();
   form.fields.back().id_attribute = u"first_name";
   form.fields.back().css_classes = u"class1 class2";
   form.fields.back().properties_mask = FieldPropertiesFlags::kHadFocus;
@@ -454,7 +454,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequestWithPropertiesMask) {
 
   form.fields.push_back(CreateTestFormField(
       "Last Name", "lastname", "", FormControlType::kInputText, "family-name"));
-  form.fields.back().name_attribute = form.fields.back().name;
+  form.fields.back().name_attribute = form.fields.back().name();
   form.fields.back().id_attribute = u"last_name";
   form.fields.back().css_classes = u"class1 class2";
   form.fields.back().properties_mask =
@@ -463,7 +463,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequestWithPropertiesMask) {
 
   form.fields.push_back(CreateTestFormField(
       "Email", "email", "", FormControlType::kInputEmail, "email"));
-  form.fields.back().name_attribute = form.fields.back().name;
+  form.fields.back().name_attribute = form.fields.back().name();
   form.fields.back().id_attribute = u"e-mail";
   form.fields.back().css_classes = u"class1 class2";
   form.fields.back().properties_mask =
@@ -1183,7 +1183,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
     FormFieldData field;
     field.id_attribute = ASCIIToUTF16(f.id);
     field.name_attribute = ASCIIToUTF16(f.name);
-    field.name = field.name_attribute;
+    field.set_name(field.name_attribute);
     field.label = ASCIIToUTF16(f.label);
     field.placeholder = ASCIIToUTF16(f.placeholder);
     field.aria_label = ASCIIToUTF16(f.aria_label);
@@ -1191,7 +1191,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
     field.css_classes = ASCIIToUTF16(f.css_classes);
     field.autocomplete_attribute = f.autocomplete;
     field.parsed_autocomplete = ParseAutocompleteAttribute(f.autocomplete);
-    field.renderer_id = test::MakeFieldRendererId();
+    field.set_renderer_id(test::MakeFieldRendererId());
     form.fields.push_back(field);
   }
   RandomizedEncoder encoder("seed for testing",
@@ -1261,7 +1261,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
                                          RandomizedEncoder::FIELD_ID,
                                          field.id_attribute));
     }
-    if (field.name.empty()) {
+    if (field.name().empty()) {
       EXPECT_FALSE(metadata.has_name());
     } else {
       EXPECT_EQ(metadata.name().encoded_bits(),
@@ -1269,10 +1269,11 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
                                          RandomizedEncoder::FIELD_NAME,
                                          field.name_attribute));
     }
-    EXPECT_EQ(metadata.type().encoded_bits(),
-              encoder.Encode(form_signature, field_signature,
-                             RandomizedEncoder::FIELD_CONTROL_TYPE,
-                             FormControlTypeToString(field.form_control_type)));
+    EXPECT_EQ(
+        metadata.type().encoded_bits(),
+        encoder.Encode(form_signature, field_signature,
+                       RandomizedEncoder::FIELD_CONTROL_TYPE,
+                       FormControlTypeToString(field.form_control_type())));
     if (field.label.empty()) {
       EXPECT_FALSE(metadata.has_label());
     } else {
@@ -1336,10 +1337,10 @@ TEST_F(AutofillCrowdsourcingEncoding, Metadata_OnlySendFullUrlWithUserConsent) {
 
     // One form field needed to be valid form.
     FormFieldData field;
-    field.form_control_type = FormControlType::kInputText;
+    field.set_form_control_type(FormControlType::kInputText);
     field.label = u"email";
-    field.name = u"email";
-    field.renderer_id = test::MakeFieldRendererId();
+    field.set_name(u"email");
+    field.set_renderer_id(test::MakeFieldRendererId());
     form.fields.push_back(field);
 
     TestingPrefServiceSimple prefs;
@@ -1367,8 +1368,8 @@ TEST_F(AutofillCrowdsourcingEncoding,
   FormData form;
   form.url = GURL("http://www.foo.com/");
   FormFieldData field;
-  field.name = u"text field";
-  field.renderer_id = test::MakeFieldRendererId();
+  field.set_name(u"text field");
+  field.set_renderer_id(test::MakeFieldRendererId());
   form.fields.push_back(field);
 
   FormStructure form_structure(form);
@@ -1395,8 +1396,8 @@ TEST_F(AutofillCrowdsourcingEncoding,
   FormData form;
   form.url = GURL("http://www.foo.com/");
   FormFieldData field_data;
-  field_data.name = u"text field";
-  field_data.renderer_id = test::MakeFieldRendererId();
+  field_data.set_name(u"text field");
+  field_data.set_renderer_id(test::MakeFieldRendererId());
   form.fields.push_back(field_data);
 
   FormStructure form_structure(form);
@@ -1496,9 +1497,9 @@ TEST_F(AutofillCrowdsourcingEncoding,
                                                 nullptr);
 
   // Simulate user changed non-pre-filled field value.
-  form_structure.field(0)->value = u"John";
+  form_structure.field(0)->set_value(u"John");
   // Simulate user changed pre-filled field value.
-  form_structure.field(2)->value = u"changed@example.com";
+  form_structure.field(2)->set_value(u"changed@example.com");
 
   // Sets `initial_value_changed` on `form_structure::fields_`.
   form_structure.RetrieveFromCache(
@@ -1560,35 +1561,35 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeAutofillPageQueryRequest) {
   form.url = GURL("http://www.foo.com/");
 
   FormFieldData field;
-  field.form_control_type = FormControlType::kInputText;
+  field.set_form_control_type(FormControlType::kInputText);
 
   field.label = u"Name on Card";
-  field.name = u"name_on_card";
-  field.renderer_id = test::MakeFieldRendererId();
+  field.set_name(u"name_on_card");
+  field.set_renderer_id(test::MakeFieldRendererId());
   field.host_form_signature = form_signature;
   form.fields.push_back(field);
 
   field.label = u"Address";
-  field.name = u"billing_address";
-  field.renderer_id = test::MakeFieldRendererId();
+  field.set_name(u"billing_address");
+  field.set_renderer_id(test::MakeFieldRendererId());
   field.host_form_signature = FormSignature(12345UL);
   form.fields.push_back(field);
 
   field.label = u"Card Number";
-  field.name = u"card_number";
-  field.renderer_id = test::MakeFieldRendererId();
+  field.set_name(u"card_number");
+  field.set_renderer_id(test::MakeFieldRendererId());
   field.host_form_signature = FormSignature(67890UL);
   form.fields.push_back(field);
 
   field.label = u"Expiration Date";
-  field.name = u"expiration_month";
-  field.renderer_id = test::MakeFieldRendererId();
+  field.set_name(u"expiration_month");
+  field.set_renderer_id(test::MakeFieldRendererId());
   field.host_form_signature = FormSignature(12345UL);
   form.fields.push_back(field);
 
   field.label = u"Expiration Year";
-  field.name = u"expiration_year";
-  field.renderer_id = test::MakeFieldRendererId();
+  field.set_name(u"expiration_year");
+  field.set_renderer_id(test::MakeFieldRendererId());
   field.host_form_signature = FormSignature(12345UL);
   form.fields.push_back(field);
 
@@ -1597,8 +1598,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeAutofillPageQueryRequest) {
   checkable_field.check_status =
       FormFieldData::CheckStatus::kCheckableButUnchecked;
   checkable_field.label = u"Checkable1";
-  checkable_field.name = u"Checkable1";
-  checkable_field.renderer_id = test::MakeFieldRendererId();
+  checkable_field.set_name(u"Checkable1");
+  checkable_field.set_renderer_id(test::MakeFieldRendererId());
   checkable_field.host_form_signature = form_signature;
   form.fields.push_back(checkable_field);
 
@@ -1666,8 +1667,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeAutofillPageQueryRequest) {
   }
   for (size_t i = 0; i < 5; ++i) {
     field.label = u"Address";
-    field.name = u"address";
-    field.renderer_id = test::MakeFieldRendererId();
+    field.set_name(u"address");
+    field.set_renderer_id(test::MakeFieldRendererId());
     field.host_form_signature = form_signature3;
     form.fields.push_back(field);
   }
@@ -1700,7 +1701,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeAutofillPageQueryRequest) {
   EXPECT_THAT(encoded_query3, SerializesSameAs(query));
 
   // |form_structures4| will have the same signature as |form_structure3|.
-  form.fields.back().name = u"address123456789";
+  form.fields.back().set_name(u"address123456789");
 
   FormStructure form_structure4(form);
   forms.push_back(&form_structure4);
@@ -1717,8 +1718,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeAutofillPageQueryRequest) {
   // are. The result should be the same as in previous test.
   for (size_t i = 0; i < 300; ++i) {
     field.label = u"Address";
-    field.name = u"address";
-    field.renderer_id = test::MakeFieldRendererId();
+    field.set_name(u"address");
+    field.set_renderer_id(test::MakeFieldRendererId());
     malformed_form.fields.push_back(field);
   }
 
@@ -2232,9 +2233,9 @@ TEST_F(
     // Create an iframe form with a single field.
     std::vector<FormFieldData> fields;
     FormFieldData field;
-    field.form_control_type = FormControlType::kInputText;
-    field.name = u"name";
-    field.renderer_id = test::MakeFieldRendererId();
+    field.set_form_control_type(FormControlType::kInputText);
+    field.set_name(u"name");
+    field.set_renderer_id(test::MakeFieldRendererId());
     field.host_form_signature = FormSignature(host_form_signature);
     fields.push_back(field);
 
@@ -3290,9 +3291,10 @@ TEST_F(AutofillCrowdsourcingEncoding,
   // Add 6 fields.
   for (int i = 0; i < 6; i++) {
     FormFieldData field;
-    field.form_control_type = FormControlType::kInputText;
-    field.label = field.name = base::NumberToString16(i);
-    field.renderer_id = test::MakeFieldRendererId();
+    field.set_form_control_type(FormControlType::kInputText);
+    field.set_name(base::NumberToString16(i));
+    field.label = (base::NumberToString16(i));
+    field.set_renderer_id(test::MakeFieldRendererId());
     form_data.fields.push_back(field);
   }
 

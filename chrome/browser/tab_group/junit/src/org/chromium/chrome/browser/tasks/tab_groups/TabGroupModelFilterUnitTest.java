@@ -10,20 +10,27 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import static org.chromium.ui.test.util.MockitoHelper.doFunction;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -44,8 +51,10 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.ObserverList;
 import org.chromium.base.Token;
 import org.chromium.base.TokenJni;
+import org.chromium.base.UserDataHost;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -55,14 +64,19 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabStateAttributes;
+import org.chromium.chrome.browser.tab.TabStateAttributes.DirtinessState;
+import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.components.tab_groups.TabGroupColorId;
+import org.chromium.ui.test.util.MockitoHelper;
+import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -75,12 +89,12 @@ import java.util.Set;
     ChromeFeatureList.TAB_GROUP_PARITY_ANDROID
 })
 public class TabGroupModelFilterUnitTest {
-    private static final int TAB1_ID = 456;
-    private static final int TAB2_ID = 789;
-    private static final int TAB3_ID = 123;
-    private static final int TAB4_ID = 147;
-    private static final int TAB5_ID = 258;
-    private static final int TAB6_ID = 369;
+    private static final int TAB1_ID = 11;
+    private static final int TAB2_ID = 12;
+    private static final int TAB3_ID = 13;
+    private static final int TAB4_ID = 14;
+    private static final int TAB5_ID = 15;
+    private static final int TAB6_ID = 16;
     private static final int TAB1_ROOT_ID = TAB1_ID;
     private static final int TAB2_ROOT_ID = TAB2_ID;
     private static final int TAB3_ROOT_ID = TAB2_ID;
@@ -106,9 +120,9 @@ public class TabGroupModelFilterUnitTest {
     private static final int POSITION5 = 4;
     private static final int POSITION6 = 5;
 
-    private static final int NEW_TAB_ID_0 = 159;
-    private static final int NEW_TAB_ID_1 = 160;
-    private static final int NEW_TAB_ID_2 = 162;
+    private static final int NEW_TAB_ID_0 = 20;
+    private static final int NEW_TAB_ID_1 = 21;
+    private static final int NEW_TAB_ID_2 = 22;
 
     private static final String TAB_GROUP_TITLES_FILE_NAME = "tab_group_titles";
     private static final String TAB_TITLE = "Tab";
@@ -117,16 +131,21 @@ public class TabGroupModelFilterUnitTest {
     private static final int INVALID_COLOR_ID = -1;
     private static final int COLOR_ID = 0;
 
+    private static final String TAB_GROUP_SYNC_IDS_FILE_NAME = "tab_group_sync_ids";
+
     @Rule public TestRule mProcessor = new Features.JUnitProcessor();
     @Rule public JniMocker mJniMocker = new JniMocker();
 
     @Mock Token.Natives mTokenJniMock;
     @Mock TabModel mTabModel;
+    @Mock TabList mComprehensiveModel;
     @Mock TabGroupModelFilterObserver mTabGroupModelFilterObserver;
     @Mock Context mContext;
     @Mock SharedPreferences mSharedPreferencesTitle;
     @Mock SharedPreferences mSharedPreferencesColor;
+    @Mock SharedPreferences mSharedPreferencesSyncId;
     @Mock SharedPreferences.Editor mEditor;
+    @Mock TabStateAttributes.Observer mAttributesObserver;
 
     @Captor ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
 
@@ -143,13 +162,24 @@ public class TabGroupModelFilterUnitTest {
     private InOrder mModelAndObserverInOrder;
 
     private Tab prepareTab(int tabId, int rootId, @Nullable Token tabGroupId, int parentTabId) {
-        Tab tab = mock(Tab.class);
+        Tab tab = mock(Tab.class, "Tab " + tabId);
         doReturn(true).when(tab).isInitialized();
         doReturn(tabId).when(tab).getId();
+
+        ObserverList<TabObserver> tabObserverList = new ObserverList<>();
+        MockitoHelper.doCallback((TabObserver obs) -> tabObserverList.addObserver(obs))
+                .when(tab)
+                .addObserver(any());
+        MockitoHelper.doCallback((TabObserver obs) -> tabObserverList.removeObserver(obs))
+                .when(tab)
+                .removeObserver(any());
         doAnswer(
                         invocation -> {
                             int newRootId = invocation.getArgument(0);
                             when(tab.getRootId()).thenReturn(newRootId);
+                            for (TabObserver observer : tabObserverList) {
+                                observer.onRootIdChanged(tab, newRootId);
+                            }
                             return null;
                         })
                 .when(tab)
@@ -159,12 +189,21 @@ public class TabGroupModelFilterUnitTest {
                         invocation -> {
                             Token newTabGroupId = invocation.getArgument(0);
                             when(tab.getTabGroupId()).thenReturn(newTabGroupId);
+                            for (TabObserver observer : tabObserverList) {
+                                observer.onTabGroupIdChanged(tab, newTabGroupId);
+                            }
                             return null;
                         })
                 .when(tab)
                 .setTabGroupId(any());
         tab.setTabGroupId(tabGroupId);
         doReturn(parentTabId).when(tab).getParentId();
+
+        when(tab.getUrl()).thenReturn(GURL.emptyGURL());
+        when(tab.getUserDataHost()).thenReturn(new UserDataHost());
+        TabStateAttributes.createForTab(tab, TabCreationState.LIVE_IN_FOREGROUND);
+        TabStateAttributes.from(tab).addObserver(mAttributesObserver);
+
         return tab;
     }
 
@@ -209,26 +248,28 @@ public class TabGroupModelFilterUnitTest {
                 .when(mTabModel)
                 .moveTab(anyInt(), anyInt());
 
+        doFunction(mTabs::get).when(mTabModel).getTabAt(anyInt());
         doAnswer(
                         invocation -> {
-                            int index = invocation.getArgument(0);
-                            return mTabs.get(index);
+                            int tabId = invocation.getArgument(0);
+                            return mTabs.stream()
+                                    .filter(t -> t.getId() == tabId)
+                                    .findAny()
+                                    .orElse(null);
                         })
                 .when(mTabModel)
-                .getTabAt(anyInt());
-
-        doAnswer(
-                        invocation -> {
-                            Tab tab = invocation.getArgument(0);
-                            return mTabs.indexOf(tab);
-                        })
-                .when(mTabModel)
-                .indexOf(any(Tab.class));
+                .getTabById(anyInt());
+        doFunction(mTabs::indexOf).when(mTabModel).indexOf(any(Tab.class));
 
         doAnswer(invocation -> mTabs.size()).when(mTabModel).getCount();
 
         doReturn(0).when(mTabModel).index();
         doNothing().when(mTabModel).addObserver(mTabModelObserverCaptor.capture());
+
+        doReturn(mComprehensiveModel).when(mTabModel).getComprehensiveModel();
+        doAnswer(invocation -> mTabs.size()).when(mComprehensiveModel).getCount();
+        doFunction(mTabs::get).when(mComprehensiveModel).getTabAt(anyInt());
+
         mTabModelInOrder = inOrder(mTabModel);
     }
 
@@ -333,11 +374,15 @@ public class TabGroupModelFilterUnitTest {
         doReturn(mSharedPreferencesColor)
                 .when(mContext)
                 .getSharedPreferences(TAB_GROUP_COLORS_FILE_NAME, Context.MODE_PRIVATE);
+        doReturn(mSharedPreferencesSyncId)
+                .when(mContext)
+                .getSharedPreferences(TAB_GROUP_SYNC_IDS_FILE_NAME, Context.MODE_PRIVATE);
         ContextUtils.initApplicationContextForTests(mContext);
         when(mSharedPreferencesTitle.getString(anyString(), any())).thenReturn(TAB_TITLE);
         when(mSharedPreferencesColor.getInt(anyString(), anyInt())).thenReturn(INVALID_COLOR_ID);
         when(mSharedPreferencesTitle.edit()).thenReturn(mEditor);
         when(mSharedPreferencesColor.edit()).thenReturn(mEditor);
+        when(mSharedPreferencesSyncId.edit()).thenReturn(mEditor);
         when(mEditor.putString(anyString(), anyString())).thenReturn(mEditor);
         when(mEditor.putInt(anyString(), anyInt())).thenReturn(mEditor);
 
@@ -586,9 +631,16 @@ public class TabGroupModelFilterUnitTest {
     public void testGroupMembershipOfTabAfterClose() {
         assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab2));
         assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab3));
+        assertEquals(TAB2_ID, mTab2.getRootId());
+        assertEquals(TAB2_ID, mTab3.getRootId());
+
         mTabGroupModelFilter.closeTab(mTab2);
+
         assertFalse(mTabGroupModelFilter.isTabInTabGroup(mTab2));
         assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab3));
+        assertEquals(TAB3_ID, mTab2.getRootId());
+        assertEquals(TAB3_ID, mTab3.getRootId());
+        verify(mTabGroupModelFilterObserver).didChangeGroupRootId(TAB2_ID, TAB3_ID);
     }
 
     @Test
@@ -596,6 +648,7 @@ public class TabGroupModelFilterUnitTest {
     public void testGroupMembershipOfTabAfterClose_NoTabGroupId() {
         assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab2));
         assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab3));
+
         mTabGroupModelFilter.closeTab(mTab2);
         assertFalse(mTabGroupModelFilter.isTabInTabGroup(mTab2));
         assertFalse(mTabGroupModelFilter.isTabInTabGroup(mTab3));
@@ -801,12 +854,15 @@ public class TabGroupModelFilterUnitTest {
                 new ArrayList<>(Arrays.asList(mTab1, mTab2, mTab3, mTab4, mTab5, mTab6));
         assertArrayEquals(mTabs.toArray(), expectedTabModelBeforeUngroup.toArray());
 
-        assertNull(mTab1.getTabGroupId());
+        Token tabGroupId = new Token(374893L, 83942L);
+        mTab1.setTabGroupId(tabGroupId);
+        assertNotNull(mTab1.getTabGroupId());
         mTabGroupModelFilter.moveTabOutOfGroup(TAB1_ID);
 
         // Ungrouping the last tab in group should have no effect on tab model.
         verify(mTabModel, never()).moveTab(anyInt(), anyInt());
         verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab1, POSITION1);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab1.getRootId());
         assertArrayEquals(mTabs.toArray(), expectedTabModelBeforeUngroup.toArray());
         assertNull(mTab1.getTabGroupId());
     }
@@ -826,14 +882,8 @@ public class TabGroupModelFilterUnitTest {
         assertEquals(mTab1.getTabGroupId(), tabGroupId);
         verify(mTabGroupModelFilterObserver).didCreateNewGroup(mTab1, mTabGroupModelFilter);
         verify(mTabGroupModelFilterObserver).didMergeTabToGroup(mTab1, mTab1.getId());
-        verify(mTabGroupModelFilterObserver)
-                .didCreateGroup(
-                        Collections.singletonList(mTab1),
-                        Collections.singletonList(0),
-                        Collections.singletonList(mTab1.getRootId()),
-                        Collections.singletonList(null),
-                        null,
-                        INVALID_COLOR_ID);
+        verify(mTabGroupModelFilterObserver, never())
+                .didCreateGroup(anyList(), anyList(), anyList(), anyList(), anyString(), anyInt());
         assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab1));
 
         mTabGroupModelFilter.moveTabOutOfGroup(TAB1_ID);
@@ -842,6 +892,7 @@ public class TabGroupModelFilterUnitTest {
         verify(mTabModel, never()).moveTab(anyInt(), anyInt());
         verify(mTabGroupModelFilterObserver).willMoveTabOutOfGroup(mTab1, TAB1_ROOT_ID);
         verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab1, POSITION1);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab1.getRootId());
         assertArrayEquals(mTabs.toArray(), expectedTabModelBeforeUngroup.toArray());
         assertNull(mTab1.getTabGroupId());
         assertThat(mTabGroupModelFilter.getTabGroupCount(), equalTo(2));
@@ -893,11 +944,32 @@ public class TabGroupModelFilterUnitTest {
 
         verify(mTabModel).moveTab(mTab3.getId(), POSITION2);
         verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab3, POSITION3);
+        verify(mTabGroupModelFilterObserver, never()).didChangeGroupRootId(anyInt(), anyInt());
         assertThat(mTab3.getRootId(), equalTo(TAB3_ID));
         assertThat(mTab2.getRootId(), equalTo(TAB2_ID));
         assertNull(mTab3.getTabGroupId());
         assertThat(mTab2.getTabGroupId(), equalTo(TAB2_TAB_GROUP_ID));
         assertArrayEquals(mTabs.toArray(), expectedTabModelAfterUngroup.toArray());
+        verify(mAttributesObserver).onTabStateDirtinessChanged(mTab3, DirtinessState.DIRTY);
+        verifyNoMoreInteractions(mAttributesObserver);
+    }
+
+    @Test
+    public void moveTabOutOfGroupInDirection_NewRootId() {
+        assertEquals(TAB2_ID, mTab2.getRootId());
+        assertEquals(TAB2_ID, mTab3.getRootId());
+
+        mTabGroupModelFilter.moveTabOutOfGroupInDirection(TAB2_ID, false);
+
+        verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab2, POSITION2);
+        verify(mTabGroupModelFilterObserver).didChangeGroupRootId(TAB2_ID, TAB3_ID);
+        assertThat(mTab3.getRootId(), equalTo(TAB3_ID));
+        assertThat(mTab2.getRootId(), equalTo(TAB2_ID));
+        assertNull(mTab2.getTabGroupId());
+        assertThat(mTab3.getTabGroupId(), equalTo(TAB2_TAB_GROUP_ID));
+        verify(mAttributesObserver).onTabStateDirtinessChanged(mTab2, DirtinessState.DIRTY);
+        verify(mAttributesObserver).onTabStateDirtinessChanged(mTab3, DirtinessState.DIRTY);
+        verifyNoMoreInteractions(mAttributesObserver);
     }
 
     @Test
@@ -916,6 +988,9 @@ public class TabGroupModelFilterUnitTest {
         assertThat(mTab2.getTabGroupId(), equalTo(TAB2_TAB_GROUP_ID));
         assertThat(mTab3.getTabGroupId(), equalTo(TAB2_TAB_GROUP_ID));
         assertThat(mTab4.getTabGroupId(), equalTo(TAB2_TAB_GROUP_ID));
+
+        verify(mAttributesObserver).onTabStateDirtinessChanged(mTab4, DirtinessState.DIRTY);
+        verifyNoMoreInteractions(mAttributesObserver);
     }
 
     @Test
@@ -925,6 +1000,7 @@ public class TabGroupModelFilterUnitTest {
 
         verify(mTabGroupModelFilterObserver, never())
                 .didCreateNewGroup(mTab5, mTabGroupModelFilter);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab5.getId());
 
         assertThat(mTab2.getTabGroupId(), equalTo(TAB2_TAB_GROUP_ID));
         assertThat(mTab3.getTabGroupId(), equalTo(TAB2_TAB_GROUP_ID));
@@ -941,6 +1017,7 @@ public class TabGroupModelFilterUnitTest {
         verify(mTabModel, never()).moveTab(anyInt(), anyInt());
         verify(mTabGroupModelFilterObserver, never())
                 .didCreateNewGroup(mTab5, mTabGroupModelFilter);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab5.getId());
         assertArrayEquals(
                 mTabGroupModelFilter.getRelatedTabList(mTab5.getId()).toArray(),
                 expectedGroup.toArray());
@@ -991,6 +1068,7 @@ public class TabGroupModelFilterUnitTest {
         verify(mTabGroupModelFilterObserver).didMergeTabToGroup(mTab6, TAB1_ROOT_ID);
         verify(mTabGroupModelFilterObserver, never())
                 .didCreateNewGroup(mTab6, mTabGroupModelFilter);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(anyInt());
         assertArrayEquals(
                 mTabGroupModelFilter.getRelatedTabList(mTab5.getId()).toArray(),
                 expectedGroup.toArray());
@@ -1016,6 +1094,7 @@ public class TabGroupModelFilterUnitTest {
         verify(mTabGroupModelFilterObserver).didMergeTabToGroup(mTab6, mTab2.getId());
         verify(mTabGroupModelFilterObserver, never())
                 .didCreateNewGroup(mTab6, mTabGroupModelFilter);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab5.getId());
         assertArrayEquals(
                 mTabGroupModelFilter.getRelatedTabList(mTab5.getId()).toArray(),
                 expectedGroup.toArray());
@@ -1067,6 +1146,7 @@ public class TabGroupModelFilterUnitTest {
         verify(mTabGroupModelFilterObserver).didMergeTabToGroup(mTab3, mTab4.getId());
         verify(mTabGroupModelFilterObserver, never())
                 .didCreateNewGroup(mTab2, mTabGroupModelFilter);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab2.getId());
         assertArrayEquals(
                 mTabGroupModelFilter.getRelatedTabList(mTab2.getId()).toArray(),
                 expectedGroup.toArray());
@@ -1096,11 +1176,13 @@ public class TabGroupModelFilterUnitTest {
         // Attempt to merge single tabs with group tabs.
         verify(mTabGroupModelFilterObserver, never())
                 .didCreateNewGroup(mTab5, mTabGroupModelFilter);
+        verify(mTabGroupModelFilterObserver, never()).didRemoveTabGroup(anyInt());
 
         assertThat(mTab5.getTabGroupId(), equalTo(TAB5_TAB_GROUP_ID));
         assertThat(mTab4.getTabGroupId(), equalTo(TAB5_TAB_GROUP_ID));
-        assertThat(mTab1.getTabGroupId(), equalTo(TAB5_TAB_GROUP_ID));
-        assertThat(mTab4.getTabGroupId(), equalTo(TAB5_TAB_GROUP_ID));
+        verify(mAttributesObserver).onTabStateDirtinessChanged(mTab1, DirtinessState.DIRTY);
+        verify(mAttributesObserver).onTabStateDirtinessChanged(mTab4, DirtinessState.DIRTY);
+        verifyNoMoreInteractions(mAttributesObserver);
     }
 
     @Test
@@ -1232,6 +1314,26 @@ public class TabGroupModelFilterUnitTest {
     }
 
     @Test
+    public void mergeListOfTabsToGroup_MultipleGroups() {
+        List<Tab> tabsToMerge = new ArrayList<>(Arrays.asList(mTab1, mTab2, mTab3, mTab4));
+        mTabGroupModelFilter.mergeListOfTabsToGroup(tabsToMerge, mTab5, false, false);
+
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab2.getId());
+        assertEquals(mTab5.getId(), mTab1.getRootId());
+        assertEquals(mTab5.getId(), mTab2.getRootId());
+        assertEquals(mTab5.getId(), mTab3.getRootId());
+        assertEquals(mTab5.getId(), mTab4.getRootId());
+        assertEquals(mTab5.getId(), mTab5.getRootId());
+        assertEquals(mTab5.getId(), mTab6.getRootId());
+        assertEquals(mTab5.getTabGroupId(), mTab1.getTabGroupId());
+        assertEquals(mTab5.getTabGroupId(), mTab2.getTabGroupId());
+        assertEquals(mTab5.getTabGroupId(), mTab3.getTabGroupId());
+        assertEquals(mTab5.getTabGroupId(), mTab4.getTabGroupId());
+        assertEquals(mTab5.getTabGroupId(), mTab5.getTabGroupId());
+        assertEquals(mTab5.getTabGroupId(), mTab6.getTabGroupId());
+    }
+
+    @Test
     public void merge_OtherGroupsLastShownIdUnchanged() {
         List<Tab> expectedGroup = new ArrayList<>(Arrays.asList(mTab1, mTab4));
         List<Tab> expectedTabModel =
@@ -1262,6 +1364,7 @@ public class TabGroupModelFilterUnitTest {
         verify(mTabModel).moveTab(mTab4.getId(), ++startIndex);
         verify(mTabGroupModelFilterObserver).didMergeTabToGroup(mTab4, mTab1.getId());
         verify(mTabGroupModelFilterObserver).didCreateNewGroup(mTab1, mTabGroupModelFilter);
+        verify(mTabGroupModelFilterObserver, never()).didRemoveTabGroup(anyInt());
         assertArrayEquals(
                 mTabGroupModelFilter.getRelatedTabList(mTab4.getId()).toArray(),
                 expectedGroup.toArray());
@@ -1364,6 +1467,9 @@ public class TabGroupModelFilterUnitTest {
         assertThat(mTab4.getRootId(), equalTo(TAB2_ROOT_ID));
         assertThat(mTabGroupModelFilter.indexOf(mTab4), equalTo(1));
 
+        TabStateAttributes.from(mTab4).clearTabStateDirtiness();
+        reset(mAttributesObserver);
+
         // Undo the grouped action
         mTabGroupModelFilter.undoGroupedTab(mTab4, POSITION4, TAB4_ROOT_ID, TAB4_TAB_GROUP_ID);
 
@@ -1371,6 +1477,8 @@ public class TabGroupModelFilterUnitTest {
         assertThat(mTab4.getRootId(), equalTo(TAB4_ROOT_ID));
         assertNull(mTab4.getTabGroupId());
         assertThat(mTabGroupModelFilter.indexOf(mTab4), equalTo(2));
+        verify(mAttributesObserver).onTabStateDirtinessChanged(mTab4, DirtinessState.DIRTY);
+        verifyNoMoreInteractions(mAttributesObserver);
     }
 
     @Test
@@ -1656,6 +1764,7 @@ public class TabGroupModelFilterUnitTest {
                         originalTabGroupIds,
                         TAB_TITLE,
                         COLOR_ID);
+        verify(mTabGroupModelFilterObserver).didRemoveTabGroup(mTab2.getId());
         assertArrayEquals(
                 mTabGroupModelFilter.getRelatedTabList(mTab2.getId()).toArray(),
                 expectedGroup.toArray());
@@ -1720,30 +1829,13 @@ public class TabGroupModelFilterUnitTest {
         when(mSharedPreferencesColor.getInt(anyString(), anyInt())).thenReturn(COLOR_ID);
 
         List<Tab> expectedGroup = new ArrayList<>(Arrays.asList(mTab4, mTab1));
-        List<Integer> originalIndexes = new ArrayList<>();
-        List<Integer> originalRootIds = new ArrayList<>();
-        List<Token> originalTabGroupIds = new ArrayList<>();
-
-        for (Tab tab : expectedGroup) {
-            originalIndexes.add(
-                    TabModelUtils.getTabIndexById(mTabGroupModelFilter.getTabModel(), tab.getId()));
-            originalRootIds.add(tab.getRootId());
-            originalTabGroupIds.add(tab.getTabGroupId());
-        }
-
         Token tabGroupId = new Token(33L, 82L);
         when(mTokenJniMock.createRandom()).thenReturn(tabGroupId);
 
         mTabGroupModelFilter.mergeTabsToGroup(mTab1.getId(), mTab4.getId(), false);
         verify(mTabGroupModelFilterObserver).didCreateNewGroup(mTab4, mTabGroupModelFilter);
-        verify(mTabGroupModelFilterObserver)
-                .didCreateGroup(
-                        expectedGroup,
-                        originalIndexes,
-                        originalRootIds,
-                        originalTabGroupIds,
-                        TAB_TITLE,
-                        COLOR_ID);
+        verify(mTabGroupModelFilterObserver, never())
+                .didCreateGroup(anyList(), anyList(), anyList(), anyList(), anyString(), anyInt());
         assertArrayEquals(
                 mTabGroupModelFilter.getRelatedTabList(mTab1.getId()).toArray(),
                 expectedGroup.toArray());
@@ -1859,5 +1951,14 @@ public class TabGroupModelFilterUnitTest {
         mTabGroupModelFilter.setTabGroupColor(TAB2_ROOT_ID, TabGroupColorId.GREY);
         verify(mTabGroupModelFilterObserver)
                 .didChangeTabGroupColor(TAB2_ROOT_ID, TabGroupColorId.GREY);
+    }
+
+    @Test
+    public void testSetTabGroupSyncId() {
+        String prefKey = String.valueOf(TAB2_ROOT_ID);
+        mTabGroupModelFilter.setTabGroupSyncId(TAB2_ROOT_ID, "Foo");
+        verify(mEditor).putString(eq(prefKey), eq("Foo"));
+        mTabGroupModelFilter.getTabGroupSyncId(TAB2_ROOT_ID);
+        verify(mSharedPreferencesSyncId).getString(eq(prefKey), eq(null));
     }
 }

@@ -22,6 +22,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
@@ -35,6 +36,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -99,6 +101,7 @@
 #include "components/component_updater/timer_update_scheduler.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
+#include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_filter_constants.h"
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -114,7 +117,9 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/safe_browsing_service_interface.h"
 #include "components/sessions/core/session_id_generator.h"
-#include "components/subresource_filter/content/browser/ruleset_service.h"
+#include "components/subresource_filter/content/shared/browser/ruleset_service.h"
+#include "components/subresource_filter/core/browser/subresource_filter_constants.h"
+#include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/ukm/ukm_service.h"
 #include "components/update_client/update_query_params.h"
@@ -147,6 +152,7 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/win/windows_version.h"
 #include "chrome/browser/browser_features.h"
+#include "chrome/browser/os_crypt/app_bound_encryption_provider_win.h"
 #include "components/os_crypt/async/browser/dpapi_key_provider.h"
 #elif BUILDFLAG(IS_MAC)
 #include "chrome/browser/chrome_browser_main_mac.h"
@@ -970,8 +976,6 @@ const std::string& BrowserProcessImpl::GetApplicationLocale() {
 
 void BrowserProcessImpl::SetApplicationLocale(
     const std::string& actual_locale) {
-  // NOTE: this is called before any threads have been created in non-test
-  // environments.
   locale_ = actual_locale;
   ChromeContentBrowserClient::SetApplicationLocale(actual_locale);
   translate::TranslateDownloadManager::GetInstance()->set_application_locale(
@@ -1134,6 +1138,17 @@ BrowserProcessImpl::subresource_filter_ruleset_service() {
   if (!created_subresource_filter_ruleset_service_)
     CreateSubresourceFilterRulesetService();
   return subresource_filter_ruleset_service_.get();
+}
+
+subresource_filter::RulesetService*
+BrowserProcessImpl::fingerprinting_protection_ruleset_service() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!created_fingerprinting_protection_ruleset_service_ &&
+      base::FeatureList::IsEnabled(
+          features::kEnableFingerprintingProtectionBlocklist)) {
+    CreateFingerprintingProtectionRulesetService();
+  }
+  return fingerprinting_protection_ruleset_service_.get();
 }
 
 StartupData* BrowserProcessImpl::startup_data() {
@@ -1333,13 +1348,36 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
         /*precedence=*/10u,
         std::make_unique<os_crypt_async::DPAPIKeyProvider>(local_state())));
   }
+
+  if (base::FeatureList::IsEnabled(
+          features::kRegisterAppBoundEncryptionProvider)) {
+    // Support level is logged separately to metrics from
+    // app_bound_encryption_metrics_win.cc.
+    providers.emplace_back(std::make_pair(
+        // Note: 15 is chosen to be higher than the 10 precedence above for
+        // DPAPI. This ensures that when the the provider is enabled for
+        // encryption, the App-Bound encryption key is used and not the DPAPI
+        // one.
+        /*precedence=*/15u,
+        std::make_unique<os_crypt_async::AppBoundEncryptionProviderWin>(
+            local_state())));
+  }
 #endif  // BUILDFLAG(IS_WIN)
 
   os_crypt_async_ =
       std::make_unique<os_crypt_async::OSCryptAsync>(std::move(providers));
 
   // Trigger async initialization of OSCrypt key providers.
-  std::ignore = os_crypt_async_->GetInstance(base::DoNothing());
+  os_crypt_async_init_subscription_.emplace(
+      os_crypt_async_->GetInstance(base::BindOnce(
+          [](base::TimeTicks start_time, os_crypt_async::Encryptor encryptor,
+             bool success) {
+            base::UmaHistogramTimes("OSCrypt.AsyncInitialization.Time",
+                                    base::TimeTicks::Now() - start_time);
+            base::UmaHistogramBoolean("OSCrypt.AsyncInitialization.Result",
+                                      success);
+          },
+          base::TimeTicks::Now())));
 }
 
 void BrowserProcessImpl::CreateIconManager() {
@@ -1424,10 +1462,32 @@ void BrowserProcessImpl::CreateSubresourceFilterRulesetService() {
   DCHECK(!subresource_filter_ruleset_service_);
   created_subresource_filter_ruleset_service_ = true;
 
+  if (!base::FeatureList::IsEnabled(
+          subresource_filter::kSafeBrowsingSubresourceFilter)) {
+    return;
+  }
+
   base::FilePath user_data_dir;
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   subresource_filter_ruleset_service_ =
-      subresource_filter::RulesetService::Create(local_state(), user_data_dir);
+      subresource_filter::RulesetService::Create(
+          subresource_filter::kSafeBrowsingRulesetConfig, local_state(),
+          user_data_dir);
+}
+
+void BrowserProcessImpl::CreateFingerprintingProtectionRulesetService() {
+  CHECK(!fingerprinting_protection_ruleset_service_);
+  // Set this to true so that we don't retry indefinitely to
+  // create the service if there was an error.
+  created_fingerprinting_protection_ruleset_service_ = true;
+
+  base::FilePath user_data_dir;
+  base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+  fingerprinting_protection_ruleset_service_ =
+      subresource_filter::RulesetService::Create(
+          fingerprinting_protection_filter::
+              kFingerprintingProtectionRulesetConfig,
+          local_state(), user_data_dir);
 }
 
 #if !BUILDFLAG(IS_ANDROID)

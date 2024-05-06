@@ -15,7 +15,10 @@ import("//tools/grit/repack.gni")
 assert(!is_ios, "Chromium/iOS shouldn't use anything in //chrome")
 
 group("resources") {
-  public_deps = [ "segmentation_internals:resources" ]
+  public_deps = [
+    "data_sharing_internals:resources",
+    "segmentation_internals:resources",
+  ]
 
   if (!is_android) {
     public_deps += [
@@ -33,7 +36,9 @@ group("resources") {
       "hats:resources",
       "history:resources",
       "identity_internals:resources",
+      "key_value_pair_viewer_shared:resources",
       "lens/overlay:resources",
+      "lens/overlay/search_bubble:resources",
       "management:resources",
       "new_tab_page:resources",
       "new_tab_page_instant:resources",
@@ -85,6 +90,10 @@ group("resources") {
 
   if (is_chromeos_lacros && enable_extensions) {
     public_deps += [ "accessibility:extension_resources" ]
+  }
+
+  if (!is_chromeos_lacros && enable_extensions) {
+    public_deps += [ "accessibility:reading_mode_gdocs_extension_resources" ]
   }
 
   if (is_win || is_mac || is_linux || is_chromeos_ash) {

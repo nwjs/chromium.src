@@ -29,12 +29,15 @@ namespace base {
 struct LaunchOptions;
 }  // namespace base
 
-namespace crosapi {
+namespace user_manager {
 class DeviceOwnershipWaiter;
+}  // namespace user_manager
+
+namespace crosapi {
 class PrimaryProfileCreationWaiter;
 
 // Manages launching and terminating Lacros process.
-// TODO(crbug.com/1495590): Extract launching logic from BrowserManager to
+// TODO(crbug.com/40286595): Extract launching logic from BrowserManager to
 // BrowserLauncher.
 class BrowserLauncher {
  public:
@@ -66,9 +69,6 @@ class BrowserLauncher {
 
     // Sets true if Lacros uses resource file sharing.
     bool enable_resource_file_sharing = false;
-
-    // Sets true if Lacros uses a shared components directory.
-    bool enable_shared_components_dir = false;
 
     // Sets true if Lacros forks Zygotes at login screen.
     bool enable_fork_zygotes_at_login_screen = false;
@@ -182,6 +182,16 @@ class BrowserLauncher {
   // Provides public API to call LaunchProcessWithParameters for testing.
   bool LaunchProcessForTesting(const LaunchParams& parameters);
 
+  // Provides public API to call CreateLaunchParamsForTesting for testing.
+  LaunchParams CreateLaunchParamsForTesting(
+      const base::FilePath& chrome_path,
+      const LaunchParamsFromBackground& params,
+      bool launching_at_login_screen,
+      std::optional<int> startup_fd,
+      std::optional<int> read_pipe_fd,
+      mojo::PlatformChannel& channel,
+      browser_util::LacrosSelection lacros_selection);
+
   // Creates postlogin pipe fd and returns the read fd. This is used to test
   // ResumeLaunch. Note that the reader is on the same process and does not
   // launch testing process.
@@ -203,7 +213,8 @@ class BrowserLauncher {
   // TODO(crbug.com/1463883): Remove this once we refactored to use the
   // constructor.
   void set_device_ownership_waiter_for_testing(
-      std::unique_ptr<DeviceOwnershipWaiter> device_ownership_waiter);
+      std::unique_ptr<user_manager::DeviceOwnershipWaiter>
+          device_ownership_waiter);
 
   // Skips device ownership fetch. Use set_device_ownership_waiter_for_testing()
   // above if possible. Use this method only if your test must set up the
@@ -264,7 +275,7 @@ class BrowserLauncher {
   base::ScopedFD postlogin_pipe_fd_;
 
   // Used to delay an action until the definitive device owner is fetched.
-  std::unique_ptr<DeviceOwnershipWaiter> device_ownership_waiter_;
+  std::unique_ptr<user_manager::DeviceOwnershipWaiter> device_ownership_waiter_;
 
   // Used to wait for the primary user profile to be fully created.
   std::unique_ptr<PrimaryProfileCreationWaiter>

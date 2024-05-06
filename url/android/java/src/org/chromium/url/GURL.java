@@ -13,6 +13,7 @@ import com.google.errorprone.annotations.DoNotMock;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Log;
@@ -138,15 +139,16 @@ public class GURL {
     }
 
     @CalledByNative
-    private void init(String spec, boolean isValid, Parsed parsed) {
+    private void init(@JniType("std::string") String spec, boolean isValid, Parsed parsed) {
         mSpec = spec;
         mIsValid = isValid;
         mParsed = parsed;
     }
 
     @CalledByNative
-    private long toNativeGURL() {
-        return getNatives().createNative(mSpec, mIsValid, mParsed.toNativeParsed());
+    private void toNativeGURL(long nativeGurl, long nativeParsed) {
+        mParsed.initNative(nativeParsed);
+        GURLJni.get().initNative(mSpec, mIsValid, nativeGurl, nativeParsed);
     }
 
     /** See native GURL::is_valid(). */
@@ -238,12 +240,12 @@ public class GURL {
     }
 
     protected void getOriginInternal(GURL target) {
-        getNatives().getOrigin(mSpec, mIsValid, mParsed.toNativeParsed(), target);
+        getNatives().getOrigin(this, target);
     }
 
     /** See native GURL::DomainIs(). */
     public boolean domainIs(String domain) {
-        return getNatives().domainIs(mSpec, mIsValid, mParsed.toNativeParsed(), domain);
+        return getNatives().domainIs(this, domain);
     }
 
     /**
@@ -264,15 +266,7 @@ public class GURL {
             String username, boolean clearUsername, String password, boolean clearPassword) {
         GURL result = new GURL();
         getNatives()
-                .replaceComponents(
-                        mSpec,
-                        mIsValid,
-                        mParsed.toNativeParsed(),
-                        username,
-                        clearUsername,
-                        password,
-                        clearPassword,
-                        result);
+                .replaceComponents(this, username, clearUsername, password, clearPassword, result);
         return result;
     }
 
@@ -398,27 +392,29 @@ public class GURL {
     @NativeMethods
     interface Natives {
         /** Initializes the provided |target| by parsing the provided |uri|. */
-        void init(String uri, GURL target);
+        void init(@JniType("std::string") String uri, GURL target);
 
         /**
          * Reconstructs the native GURL for this Java GURL and initializes |target| with its Origin.
          */
-        void getOrigin(String spec, boolean isValid, long nativeParsed, GURL target);
+        void getOrigin(@JniType("GURL") GURL self, GURL target);
 
         /** Reconstructs the native GURL for this Java GURL, and calls GURL.DomainIs. */
-        boolean domainIs(String spec, boolean isValid, long nativeParsed, String domain);
+        boolean domainIs(@JniType("GURL") GURL self, @JniType("std::string") String domain);
 
-        /** Reconstructs the native GURL for this Java GURL, returning its native pointer. */
-        long createNative(String spec, boolean isValid, long nativeParsed);
+        /** Reconstructs the native GURL for this Java GURL, assigning it to nativeGurl. */
+        void initNative(
+                @JniType("std::string") String spec,
+                boolean isValid,
+                long nativeGurl,
+                long nativeParsed);
 
         /**
          * Reconstructs the native GURL for this Java GURL and initializes |result| with the result
          * of ReplaceComponents.
          */
         void replaceComponents(
-                String spec,
-                boolean isValid,
-                long nativeParsed,
+                @JniType("GURL") GURL self,
                 String username,
                 boolean clearUsername,
                 String password,

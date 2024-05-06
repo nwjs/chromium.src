@@ -286,11 +286,8 @@ class BASE_EXPORT PlatformThreadApple : public PlatformThreadBase {
 
   static TimeDelta GetCurrentThreadRealtimePeriodForTest();
 
-  // Signals that the feature list has been initialized which allows to check
-  // the feature's value now and initialize state. This prevents race
-  // conditions where the feature is being checked while it is being
-  // initialized, which can cause a crash.
-  static void InitFeaturesPostFieldTrial();
+  // Initializes features for this class. See `base::features::Init()`.
+  static void InitializeFeatures();
 };
 #endif  // BUILDFLAG(IS_APPLE)
 
@@ -321,6 +318,10 @@ class BASE_EXPORT PlatformThreadLinux : public PlatformThreadBase {
                             ThreadType thread_type,
                             IsViaIPC via_ipc);
 
+  // Toggles a specific thread's type at runtime. The thread must be of the
+  // current process.
+  static void SetThreadType(PlatformThreadId thread_id, ThreadType thread_type);
+
   // For a given thread id and thread type, setup the cpuset and schedtune
   // CGroups for the thread.
   static void SetThreadCgroupsForThreadType(PlatformThreadId thread_id,
@@ -329,17 +330,30 @@ class BASE_EXPORT PlatformThreadLinux : public PlatformThreadBase {
   // Determine if thread_id is a background thread by looking up whether
   // it is in the urgent or non-urgent cpuset
   static bool IsThreadBackgroundedForTest(PlatformThreadId thread_id);
+
+ protected:
+  static void SetThreadTypeInternal(PlatformThreadId process_id,
+                                    PlatformThreadId thread_id,
+                                    ThreadType thread_type,
+                                    IsViaIPC via_ipc);
 };
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS)
 BASE_EXPORT BASE_DECLARE_FEATURE(kSetRtForDisplayThreads);
 
+class CrossProcessPlatformThreadDelegate;
+
 class BASE_EXPORT PlatformThreadChromeOS : public PlatformThreadLinux {
  public:
-  // Signals that the feature list has been initialized. Used for preventing
-  // race conditions and crashes, see comments in PlatformThreadApple.
-  static void InitFeaturesPostFieldTrial();
+  // Sets a delegate which handles thread type changes for threads of another
+  // process. This must be externally synchronized with any call to
+  // SetCurrentThreadType.
+  static void SetCrossProcessPlatformThreadDelegate(
+      CrossProcessPlatformThreadDelegate* delegate);
+
+  // Initializes features for this class. See `base::features::Init()`.
+  static void InitializeFeatures();
 
   // Toggles a specific thread's type at runtime. This is the ChromeOS-specific
   // version and includes Linux's functionality but does slightly more. See
@@ -370,6 +384,12 @@ class BASE_EXPORT PlatformThreadChromeOS : public PlatformThreadLinux {
   // Returns a SequenceChecker which should be used to verify that all
   // cross-process priority changes are performed without races.
   static SequenceCheckerImpl& GetCrossProcessThreadPrioritySequenceChecker();
+
+ protected:
+  static void SetThreadTypeInternal(PlatformThreadId process_id,
+                                    PlatformThreadId thread_id,
+                                    ThreadType thread_type,
+                                    IsViaIPC via_ipc);
 };
 #endif  // BUILDFLAG(IS_CHROMEOS)
 

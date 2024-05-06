@@ -45,10 +45,14 @@ interface Observable {
   [CallWith=ScriptState] Observable filter(Predicate predicate);
   [CallWith=ScriptState] Observable take(unsigned long long number_to_take);
   [CallWith=ScriptState] Observable drop(unsigned long long number_to_drop);
+  [CallWith=ScriptState, RaisesException] Observable flatMap(Mapper mapper);
+  [CallWith=ScriptState, RaisesException] Observable switchMap(Mapper mapper);
 
   // Promise-returning operators.
   // See https://wicg.github.io/observable/#promise-returning-operators.
   [CallWith=ScriptState] Promise<sequence<any>> toArray(optional SubscribeOptions options = {});
   [CallWith=ScriptState] Promise<undefined> forEach(Visitor callback, optional SubscribeOptions options = {});
+  [CallWith=ScriptState] Promise<any> first(optional SubscribeOptions options = {});
+  [CallWith=ScriptState] Promise<any> last(optional SubscribeOptions options = {});
 };
 

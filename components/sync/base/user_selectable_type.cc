@@ -40,7 +40,7 @@ constexpr char kPaymentsTypeName[] = "payments";
 constexpr char kCompareTypeName[] = "compare";
 
 UserSelectableTypeInfo GetUserSelectableTypeInfo(UserSelectableType type) {
-  static_assert(52 == syncer::GetNumModelTypes(),
+  static_assert(51 == syncer::GetNumModelTypes(),
                 "Almost always when adding a new ModelType, you must tie it to "
                 "a UserSelectableType below (new or existing) so the user can "
                 "disable syncing of that data. Today you must also update the "
@@ -52,12 +52,9 @@ UserSelectableTypeInfo GetUserSelectableTypeInfo(UserSelectableType type) {
     case UserSelectableType::kBookmarks:
       return {kBookmarksTypeName, BOOKMARKS, {BOOKMARKS, POWER_BOOKMARK}};
     case UserSelectableType::kPreferences:
-      // TODO(crbug.com/1369259): Add GetPreconditionState() logic to check
-      // history state as a precondition for SEGMENTATION.
       return {kPreferencesTypeName,
               PREFERENCES,
-              {PREFERENCES, DICTIONARY, PRIORITY_PREFERENCES, SEARCH_ENGINES,
-               SEGMENTATION}};
+              {PREFERENCES, DICTIONARY, PRIORITY_PREFERENCES, SEARCH_ENGINES}};
     case UserSelectableType::kPasswords:
       return {
           kPasswordsTypeName,
@@ -87,8 +84,14 @@ UserSelectableTypeInfo GetUserSelectableTypeInfo(UserSelectableType type) {
     case UserSelectableType::kReadingList:
       return {kReadingListTypeName, READING_LIST, {READING_LIST}};
     case UserSelectableType::kTabs:
+#if BUILDFLAG(IS_ANDROID)
+      return {kTabsTypeName, SESSIONS, {SESSIONS, SAVED_TAB_GROUP}};
+#else
       return {kTabsTypeName, SESSIONS, {SESSIONS}};
+#endif
     case UserSelectableType::kSavedTabGroups:
+      // Note: Saved tab groups is presented as a separate type only on desktop.
+      // On mobile platforms, it is bundled together with open tabs.
       return {kSavedTabGroupsTypeName, SAVED_TAB_GROUP, {SAVED_TAB_GROUP}};
     case UserSelectableType::kSharedTabGroupData:
       // Note: COLLABORATION_GROUP might be re-used for other features. If this
@@ -236,7 +239,7 @@ std::optional<UserSelectableOsType> GetUserSelectableOsTypeFromString(
   // Some pref types migrated from browser prefs to OS prefs. Map the browser
   // type name to the OS type so that enterprise policy SyncTypesListDisabled
   // still applies to the migrated names.
-  // TODO(https://crbug.com/1059309): Rename "osApps" to "apps" and
+  // TODO(crbug.com/40678410): Rename "osApps" to "apps" and
   // "osWifiConfigurations" to "wifiConfigurations", and remove the mapping for
   // "preferences".
   if (type == kAppsTypeName) {

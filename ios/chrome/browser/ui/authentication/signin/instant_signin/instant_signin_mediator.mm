@@ -5,7 +5,6 @@
 #import "ios/chrome/browser/ui/authentication/signin/instant_signin/instant_signin_mediator.h"
 
 #import "base/memory/raw_ptr.h"
-#import "components/sync/base/features.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -98,8 +97,8 @@ using signin_metrics::PromoAction;
       _accessPoint != signin_metrics::AccessPoint::ACCESS_POINT_READING_LIST) {
     return;
   }
-  _syncService->GetUserSettings()
-      ->SetBookmarksAndReadingListAccountStorageOptIn(true);
+  // TODO(crbug.com/41488185): Turn on corresponding data type; Bookmarks or RL
+  // on sign-in to avoid double-promo flow, and consider renaming this method.
 }
 
 @end

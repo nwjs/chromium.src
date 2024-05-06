@@ -117,7 +117,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
   EXPECT_EQ(1, user_action_tester.GetActionCount("CreateShortcut"));
 }
 
-// TODO(crbug.com/1449002): flaky on Mac11 Tests builder.
+// TODO(crbug.com/40269598): flaky on Mac11 Tests builder.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_InstallSourceRecorded DISABLED_InstallSourceRecorded
 #else
@@ -164,9 +164,8 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
   NavigateViaLinkClickToURLAndWait(browser(), GetInstallableAppURL());
   webapps::AppId app_id = InstallShortcutAppForCurrentUrl();
   // Change launch container to open in window.
-  sync_bridge().SetAppUserDisplayMode(app_id,
-                                      mojom::UserDisplayMode::kStandalone,
-                                      /*is_user_action=*/false);
+  sync_bridge().SetAppUserDisplayModeForTesting(
+      app_id, mojom::UserDisplayMode::kStandalone);
 
   Browser* new_browser =
       NavigateInNewWindowAndAwaitInstallabilityCheck(GetInstallableAppURL());
@@ -266,7 +265,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest, IgnoreInvalidManifestData) {
   EXPECT_EQ(registrar().GetAppStartUrl(app_id), url);
 }
 
-// TODO(crbug.com/1400778): Un-flake and re-enable this test.
+// TODO(crbug.com/40883914): Un-flake and re-enable this test.
 IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
                        DISABLED_CreateShortcutAgainOverwriteUserDisplayMode) {
   base::UserActionTester user_action_tester;
@@ -277,7 +276,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
   // Shortcut apps to PWAs should launch in a tab.
   EXPECT_EQ(registrar().GetAppUserDisplayMode(app_id),
             mojom::UserDisplayMode::kBrowser);
-  // TODO(crbug.com/1275945): We need to wait a bit longer for the
+  // TODO(crbug.com/40808578): We need to wait a bit longer for the
   // WebAppInstallTask to complete before starting another install.
   // Move the install/update/uninstall events out of
   // WebAppRegistrarObserver and into a WebAppInstallManagerObserver
@@ -291,7 +290,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
             mojom::UserDisplayMode::kStandalone);
 }
 
-// TODO(crbug.com/1439209): Re-enable this test
+// TODO(crbug.com/40908616): Re-enable this test
 IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
                        DISABLED_OpenShortcutWindowOnlyOnce) {
   base::UserActionTester user_action_tester;
@@ -329,70 +328,30 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest, UseHostWhenTitleIsUrl) {
   EXPECT_TRUE(gfx::BitmapsAreEqual(bitmap, generated_icon_bitmap));
 }
 
-class CreateShortcutBrowserTest_CreateShortcutIgnoresManifest
-    : public CreateShortcutBrowserTest,
-      public testing::WithParamInterface<bool> {
- public:
-  CreateShortcutBrowserTest_CreateShortcutIgnoresManifest() {
-    if (GetParam()) {
-      scoped_feature_list_.InitAndEnableFeature(
-          webapps::features::kCreateShortcutIgnoresManifest);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          webapps::features::kCreateShortcutIgnoresManifest);
-    }
-  }
-
-  ~CreateShortcutBrowserTest_CreateShortcutIgnoresManifest() override = default;
-
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_P(CreateShortcutBrowserTest_CreateShortcutIgnoresManifest,
+IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
                        InstallableSiteDifferentStartUrl) {
-  bool create_shortcut_ignores_manifest = GetParam();
   NavigateViaLinkClickToURLAndWait(browser(), PageWithDifferentStartUrl());
   webapps::AppId app_id = InstallShortcutAppForCurrentUrl();
 
   EXPECT_EQ(registrar().GetAppUserDisplayMode(app_id),
             mojom::UserDisplayMode::kBrowser);
 
-  // Using the manifest makes it a non-shortcut, even though we used "Create
-  // Shortcut". Could be considered a bug (crbug.com/1469482).
-  EXPECT_EQ(registrar().IsShortcutApp(app_id),
-            create_shortcut_ignores_manifest);
+  // Using the manifest makes it a non-shortcut.
+  EXPECT_EQ(registrar().IsShortcutApp(app_id), false);
 
-  if (create_shortcut_ignores_manifest) {
-    // Title set to current page title.
-    EXPECT_EQ(registrar().GetAppShortName(app_id),
-              "Page with manifest with different start URL");
-  } else {
-    // Title from manifest.
-    EXPECT_EQ(registrar().GetAppShortName(app_id), "Basic web app");
-  }
+  // Title from manifest.
+  EXPECT_EQ(registrar().GetAppShortName(app_id), "Basic web app");
 
-  if (create_shortcut_ignores_manifest) {
-    // Start URL set to current page.
-    EXPECT_EQ(registrar().GetAppById(app_id)->start_url(),
-              PageWithDifferentStartUrl());
-  } else {
-    // Start URL from manifest.
-    EXPECT_EQ(registrar().GetAppById(app_id)->start_url(),
-              PageWithDifferentStartUrlManifestStartUrl());
-  }
+  // Start URL from manifest.
+  EXPECT_EQ(registrar().GetAppById(app_id)->start_url(),
+            PageWithDifferentStartUrlManifestStartUrl());
 }
 
-IN_PROC_BROWSER_TEST_P(CreateShortcutBrowserTest_CreateShortcutIgnoresManifest,
-                       CanInstallOverTabShortcutApp) {
+IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest, InstallOverTabShortcutApp) {
   NavigateViaLinkClickToURLAndWait(browser(), GetInstallableAppURL());
   webapps::AppId shortcut_app_id = InstallShortcutAppForCurrentUrl();
 
-  bool create_shortcut_ignores_manifest = GetParam();
-  if (create_shortcut_ignores_manifest) {
-    EXPECT_TRUE(registrar().IsShortcutApp(shortcut_app_id));
-  } else {
-    EXPECT_FALSE(registrar().IsShortcutApp(shortcut_app_id));
-  }
+  EXPECT_FALSE(registrar().IsShortcutApp(shortcut_app_id));
 
   Browser* new_browser =
       NavigateInNewWindowAndAwaitInstallabilityCheck(GetInstallableAppURL());
@@ -407,10 +366,5 @@ IN_PROC_BROWSER_TEST_P(CreateShortcutBrowserTest_CreateShortcutIgnoresManifest,
   EXPECT_EQ(shortcut_app_id, web_app_id);
   EXPECT_FALSE(registrar().IsShortcutApp(web_app_id));
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    /*no prefix*/,
-    CreateShortcutBrowserTest_CreateShortcutIgnoresManifest,
-    testing::Bool());
 
 }  // namespace web_app

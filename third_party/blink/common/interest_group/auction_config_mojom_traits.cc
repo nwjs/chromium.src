@@ -119,6 +119,16 @@ bool StructTraits<blink::mojom::AuctionAdConfigBuyerTimeoutsDataView,
       !data.ReadAllBuyersTimeout(&out->all_buyers_timeout)) {
     return false;
   }
+  if (out->per_buyer_timeouts) {
+    for (const auto& timeout : *out->per_buyer_timeouts) {
+      if (timeout.second.is_negative()) {
+        return false;
+      }
+    }
+  }
+  if (out->all_buyers_timeout && out->all_buyers_timeout->is_negative()) {
+    return false;
+  }
   return true;
 }
 
@@ -219,6 +229,10 @@ bool StructTraits<blink::mojom::AuctionAdConfigNonSharedParamsDataView,
       !data.ReadComponentAuctions(&out->component_auctions) ||
       !data.ReadDeprecatedRenderUrlReplacements(
           &out->deprecated_render_url_replacements)) {
+    return false;
+  }
+
+  if (out->seller_timeout && out->seller_timeout->is_negative()) {
     return false;
   }
 
@@ -374,11 +388,12 @@ bool StructTraits<blink::mojom::AuctionAdConfigDataView, blink::AuctionConfig>::
   // `decision_logic_url` and, if present, `trusted_scoring_signals_url` must
   // share the seller's origin, and must be HTTPS. Need to explicitly check the
   // scheme because some non-HTTPS URLs may have HTTPS origins (e.g., blob
-  // URLs).
+  // URLs). Trusted signals URLs also have additional restrictions (no query,
+  // etc).
   if ((out->decision_logic_url &&
        !out->IsHttpsAndMatchesSellerOrigin(*out->decision_logic_url)) ||
       (out->trusted_scoring_signals_url &&
-       !out->IsHttpsAndMatchesSellerOrigin(
+       !out->IsValidTrustedScoringSignalsURL(
            *out->trusted_scoring_signals_url))) {
     return false;
   }

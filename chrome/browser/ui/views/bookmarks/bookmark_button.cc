@@ -5,7 +5,7 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_button.h"
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/browser_features.h"
-#include "chrome/browser/page_load_metrics/observers/bookmark_navigation_handle_user_data.h"
+#include "chrome/browser/page_load_metrics/observers/navigation_handle_user_data.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_config.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
@@ -252,17 +252,23 @@ void BookmarkButton::StartPreconnecting(GURL url) {
 }
 
 void BookmarkButton::StartPrerendering(GURL url) {
-  // TODO(https://crbug.com/1422819): Prerender only for https scheme, and add
+  // TODO(crbug.com/40259793): Prerender only for https scheme, and add
   // an enum metric to report the protocol scheme.
   CHECK(base::FeatureList::IsEnabled(features::kBookmarkTriggerForPrerender2));
-  if (!prerender_handle_) {
-    prerender_web_contents_ =
-        browser_->tab_strip_model()->GetActiveWebContents()->GetWeakPtr();
-    PrerenderManager::CreateForWebContents(&(*prerender_web_contents_));
-    auto* prerender_manager =
-        PrerenderManager::FromWebContents(&(*prerender_web_contents_));
-    prerender_handle_ = prerender_manager->StartPrerenderBookmark(url);
+  if (prerender_handle_) {
+    return;
   }
+  auto* active_web_contents =
+      browser_->tab_strip_model()->GetActiveWebContents();
+  if (!active_web_contents) {
+    return;
+  }
+
+  prerender_web_contents_ = active_web_contents->GetWeakPtr();
+  PrerenderManager::CreateForWebContents(&(*prerender_web_contents_));
+  auto* prerender_manager =
+      PrerenderManager::FromWebContents(&(*prerender_web_contents_));
+  prerender_handle_ = prerender_manager->StartPrerenderBookmark(url);
 }
 
 BEGIN_METADATA(BookmarkButton)

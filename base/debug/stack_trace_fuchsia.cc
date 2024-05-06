@@ -237,14 +237,21 @@ size_t CollectStackTrace(const void** trace, size_t count) {
   return frame_count;
 }
 
-void StackTrace::PrintWithPrefix(const char* prefix_string) const {
-  OutputToStreamWithPrefix(&std::cerr, prefix_string);
+// static
+void StackTrace::PrintMessageWithPrefix(cstring_view prefix_string,
+                                        cstring_view message) {
+  std::cerr << prefix_string << message;
+}
+
+void StackTrace::PrintWithPrefixImpl(cstring_view prefix_string) const {
+  OutputToStreamWithPrefixImpl(&std::cerr, prefix_string);
 }
 
 // Emits stack trace data using the symbolizer markup format specified at:
 // https://fuchsia.googlesource.com/zircon/+/master/docs/symbolizer_markup.md
-void StackTrace::OutputToStreamWithPrefix(std::ostream* os,
-                                          const char* prefix_string) const {
+void StackTrace::OutputToStreamWithPrefixImpl(
+    std::ostream* os,
+    cstring_view prefix_string) const {
   SymbolMap map;
 
   int module_id = 0;

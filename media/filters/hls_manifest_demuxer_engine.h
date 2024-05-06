@@ -6,6 +6,7 @@
 #define MEDIA_FILTERS_HLS_MANIFEST_DEMUXER_ENGINE_H_
 
 #include <optional>
+#include <string_view>
 #include <vector>
 
 #include "base/memory/scoped_refptr.h"
@@ -157,11 +158,6 @@ class MEDIA_EXPORT HlsManifestDemuxerEngine : public ManifestDemuxer::Engine,
                   std::string role,
                   ManifestDemuxer::DelayCallback cb,
                   base::TimeDelta delay_time);
-
-  // Posted by `::UpdateRenditionManifestUri`
-  void UpdateRenditionManifestUriAction(std::string role,
-                                        GURL uri,
-                                        base::OnceCallback<void(bool)> cb);
   void UpdateMediaPlaylistForRole(
       std::string role,
       GURL uri,
@@ -247,7 +243,7 @@ class MEDIA_EXPORT HlsManifestDemuxerEngine : public ManifestDemuxer::Engine,
 
   // Parses a playlist using the multivariant playlist, if it's being used.
   hls::ParseStatus::Or<scoped_refptr<hls::MediaPlaylist>>
-  ParseMediaPlaylistFromStringSource(base::StringPiece source,
+  ParseMediaPlaylistFromStringSource(std::string_view source,
                                      GURL uri,
                                      hls::types::DecimalInteger version);
 

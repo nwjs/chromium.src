@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_separator_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_title_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_views_test_api.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_warning_view.h"
@@ -93,6 +94,7 @@ const std::vector<PopupItemId> kClickablePopupItemIds{
 
 const std::vector<PopupItemId> kUnclickablePopupItemIds{
     PopupItemId::kInsecureContextPaymentDisabledMessage,
+    PopupItemId::kTitle,
     PopupItemId::kSeparator,
 };
 
@@ -177,11 +179,12 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
 #if !BUILDFLAG(IS_MAC)
     Paint(widget().GetRootView());
 #else
-    // TODO(crbug.com/123): On Mac OS we need to trigger Paint() on the roots of
-    // the individual rows. The reason is that the views::ViewScrollView()
-    // created in PopupViewViews::CreateChildViews() owns a Layer.
-    // As a consequence, views::View::Paint() does not propagate to the rows
-    // because the recursion stops in views::View::RecursivePaintHelper().
+    // TODO(crbug.com/40190148): On Mac OS we need to trigger Paint() on the
+    // roots of the individual rows. The reason is that the
+    // views::ViewScrollView() created in PopupViewViews::CreateChildViews()
+    // owns a Layer. As a consequence, views::View::Paint() does not propagate
+    // to the rows because the recursion stops in
+    // views::View::RecursivePaintHelper().
     for (size_t index = 0; index < GetNumberOfRows(); ++index) {
       views::View* root = &GetRowViewAt(index);
       while (!root->layer() && root->parent()) {
@@ -1027,7 +1030,7 @@ TEST_F(PopupViewViewsTest, CellSubPopupResetAfterSuggestionsUpdates) {
       << "The cell's sub-popup should be closed.";
 }
 
-// TODO(crbug.com/1515280): Enable on ChromeOS when test setup in the death
+// TODO(crbug.com/41487832): Enable on ChromeOS when test setup in the death
 // subprocess is fixed.
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
 // `PopupViewViewsTest` is not used in death tests because it sets up a complex
@@ -1221,7 +1224,35 @@ TEST_F(PopupViewViewsTest, SubPopupOpensForNonSelectableContentSelection) {
   task_environment()->FastForwardBy(PopupViewViews::kMouseOpenSubPopupDelay);
 }
 
-// TODO(crbug.com/1489673): Enable once the view shows itself properly.
+TEST_F(PopupViewViewsTest, SubPopupNotOpenForSelectableContentSelection) {
+  Suggestion suggestion = CreateSuggestionWithChildren({Suggestion(u"Child")});
+  suggestion.is_acceptable = true;
+  controller().set_suggestions({suggestion});
+  CreateAndShowView();
+
+  EXPECT_CALL(controller(), OpenSubPopup).Times(0);
+
+  view().SetSelectedCell(CellIndex{0, CellType::kContent},
+                         PopupCellSelectionSource::kMouse);
+  task_environment()->FastForwardBy(PopupViewViews::kMouseOpenSubPopupDelay);
+}
+
+TEST_F(PopupViewViewsTest,
+       SubPopupNotOpenForMerchantOptedOutVcnContentSelection) {
+  Suggestion suggestion = CreateSuggestionWithChildren({Suggestion(u"Child")});
+  suggestion.is_acceptable = false;
+  suggestion.apply_deactivated_style = true;
+  controller().set_suggestions({suggestion});
+  CreateAndShowView();
+
+  EXPECT_CALL(controller(), OpenSubPopup).Times(0);
+
+  view().SetSelectedCell(CellIndex{0, CellType::kContent},
+                         PopupCellSelectionSource::kMouse);
+  task_environment()->FastForwardBy(PopupViewViews::kMouseOpenSubPopupDelay);
+}
+
+// TODO(crbug.com/40284129): Enable once the view shows itself properly.
 #if !BUILDFLAG(IS_MAC)
 // Tests that `GetPopupScreenLocation` returns the bounds and arrow position of
 // the popup.
@@ -1242,7 +1273,7 @@ TEST_F(PopupViewViewsTest, GetPopupScreenLocation) {
 }
 #endif  // !BUILDFLAG(IS_MAC)
 
-// TODO(crbug.com/1523677): Rework into pixel tests and run on all available
+// TODO(crbug.com/41496626): Rework into pixel tests and run on all available
 // platforms. The test below is a temporary solution to cover positioning
 // calculations in the popup. The exact numbers were obtained by observing
 // a local run, manually verified and hardcoded in the test with acceptable 15px
@@ -1343,7 +1374,7 @@ TEST_F(PopupViewViewsTest, PopupPositioning) {
 TEST_F(PopupViewViewsTest, StandaloneCvcSuggestion_ElementId) {
   Suggestion suggestion(u"dummy_main_text");
   suggestion.feature_for_iph =
-      feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature.name;
+      &feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature;
   controller().set_suggestions({suggestion});
   CreateAndShowView();
 
@@ -1354,7 +1385,7 @@ TEST_F(PopupViewViewsTest, StandaloneCvcSuggestion_ElementId) {
 TEST_F(PopupViewViewsTest, VirtualCardSuggestion_ElementId) {
   Suggestion suggestion(u"dummy_main_text");
   suggestion.feature_for_iph =
-      feature_engagement::kIPHAutofillVirtualCardSuggestionFeature.name;
+      &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature;
   controller().set_suggestions({suggestion});
   CreateAndShowView();
 

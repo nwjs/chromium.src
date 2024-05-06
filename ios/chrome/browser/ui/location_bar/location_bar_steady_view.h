@@ -53,6 +53,11 @@
 // Sets whether the contents are centered or aligned to the leading side.
 - (void)setCentered:(BOOL)centered;
 
+// Sets the location label of the location bar centered relative to the content
+// around it when centered is passed as YES. Otherwise, resets it to the
+// "absolute" center.
+- (void)setLocationBarLabelCenteredBetweenContent:(BOOL)centered;
+
 // The tappable button representing the location bar.
 @property(nonatomic, strong) UIButton* locationButton;
 // The label displaying the current location URL.
@@ -60,6 +65,8 @@
 // The view displaying badges in the leading corner of the view.
 // TODO(crbug.com/991241): Pass into init as parameter.
 @property(nonatomic, strong) UIView* badgeView;
+// The view displaying the Contextual Panel's entrypoint.
+@property(nonatomic, strong) UIView* contextualPanelEntrypointView;
 // The button displayed in the trailing corner of the view, i.e. share button.
 @property(nonatomic, strong) CustomHighlightableButton* trailingButton;
 // The string that describes the current security level. Used for a11y.

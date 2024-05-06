@@ -23,12 +23,14 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.chrome.browser.data_sharing.DataSharingNotificationManager;
 import org.chromium.chrome.browser.data_sharing.SharedImageTilesCoordinator;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
@@ -40,6 +42,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.Butt
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.IconPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ShowMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabGroupColorChangeActionType;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorOpenMetricGroups;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -358,6 +361,8 @@ public class TabGridDialogMediator
 
                     if (result == R.id.edit_group_color) {
                         mShowColorPickerPopupRunnable.run();
+                        TabUiMetricsHelper.recordTabGroupColorChangeActionMetrics(
+                                TabGroupColorChangeActionType.VIA_OVERFLOW_MENU);
                     }
                 };
 
@@ -379,6 +384,11 @@ public class TabGridDialogMediator
 
     void hideDialog(boolean showAnimation) {
         if (!mModel.get(TabGridDialogProperties.IS_DIALOG_VISIBLE)) return;
+
+        if (mModel.get(TabGridDialogProperties.IS_SHARE_SHEET_VISIBLE)) {
+            // TODO(b/333776074): Close the ShareSheet without causing a crash at accessibility
+            // important restoration.
+        }
 
         if (mSnackbarManager != null) {
             mSnackbarManager.dismissSnackbars(TabGridDialogMediator.this);
@@ -498,6 +508,11 @@ public class TabGridDialogMediator
 
         TabGroupModelFilter filter = (TabGroupModelFilter) mCurrentTabModelFilterSupplier.get();
         Tab currentTab = TabModelUtils.getTabById(filter.getTabModel(), mCurrentTabId);
+        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
+            final @TabGroupColorId int color =
+                    TabGroupColorUtils.getOrCreateTabGroupColor(currentTab.getRootId(), filter);
+            mModel.set(TabGridDialogProperties.TAB_GROUP_COLOR_ID, color);
+        }
         if (mTabGroupTitleEditor != null) {
             String storedTitle = mTabGroupTitleEditor.getTabGroupTitle(currentTab.getRootId());
             if (storedTitle != null && filter.isTabInTabGroup(currentTab)) {
@@ -521,12 +536,6 @@ public class TabGridDialogMediator
         mModel.set(
                 TabGridDialogProperties.HEADER_TITLE,
                 TabGroupTitleEditor.getDefaultTitle(mContext, tabsCount));
-
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
-            final @TabGroupColorId int color =
-                    TabGroupColorUtils.getOrCreateTabGroupColor(currentTab.getRootId(), filter);
-            mModel.set(TabGridDialogProperties.TAB_GROUP_COLOR_ID, color);
-        }
     }
 
     private void updateColorProperties(Context context, boolean isIncognito) {
@@ -713,6 +722,13 @@ public class TabGridDialogMediator
                 mSharedImageTilesCoordinator.updateTilesCount(0);
             }
             showShareBottomSheet();
+
+            // TODO(b/325082444): This is used for prototyping purposes for now, should be removed
+            // and called from Data Sharing service.
+            new DataSharingNotificationManager(mContext)
+                    .showNotification(
+                            mContext.getResources()
+                                    .getString(R.string.data_sharing_origin_fallback));
         };
     }
 

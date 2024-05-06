@@ -261,6 +261,10 @@
 [submodule "third_party/harfbuzz-ng/src"]
 	path = third_party/harfbuzz-ng/src
 	url = https://chromium.googlesource.com/external/github.com/harfbuzz/harfbuzz
+[submodule "third_party/instrumented_libs"]
+	path = third_party/instrumented_libs
+	url = https://chromium.googlesource.com/chromium/third_party/instrumented_libraries
+	gclient-condition = checkout_instrumented_libraries
 [submodule "third_party/jszip/src"]
 	path = third_party/jszip/src
 	url = https://chromium.googlesource.com/external/github.com/Stuk/jszip
@@ -569,6 +573,10 @@
 	path = third_party/android_prebuilts/build_tools
 	url = https://android.googlesource.com/platform/prebuilts/build-tools
 	gclient-condition = checkout_android_prebuilts_build_tools
+[submodule "chromeos/ash/resources/internal"]
+	path = chromeos/ash/resources/internal
+	url = https://chrome-internal.googlesource.com/chrome/chromeos/ash/resources/internal
+	gclient-condition = checkout_src_internal and checkout_chromeos
 [submodule "chromeos/assistant/internal"]
 	path = chromeos/assistant/internal
 	url = https://chrome-internal.googlesource.com/chrome/assistant
@@ -617,10 +625,6 @@
 	path = chrome/browser/platform_experience/win
 	url = https://chrome-internal.googlesource.com/chrome/browser/platform_experience/win
 	gclient-condition = checkout_src_internal
-[submodule "chrome/browser/resources/chromeos/quickoffice"]
-	path = chrome/browser/resources/chromeos/quickoffice
-	url = https://chrome-internal.googlesource.com/quickoffice/crx
-	gclient-condition = (checkout_chromeos or checkout_linux) and checkout_src_internal
 [submodule "chrome/browser/resources/settings/internal"]
 	path = chrome/browser/resources/settings/internal
 	url = https://chrome-internal.googlesource.com/chrome/browser/resources/settings_internal
@@ -629,6 +633,10 @@
 	path = chrome/browser/spellchecker/internal
 	url = https://chrome-internal.googlesource.com/chrome/spellchecker/internal
 	gclient-condition = checkout_src_internal
+[submodule "chrome/elevation_service/internal"]
+	path = chrome/elevation_service/internal
+	url = https://chrome-internal.googlesource.com/chrome/elevation_service/internal
+	gclient-condition = checkout_src_internal and checkout_win
 [submodule "chrome/installer/mac/internal"]
 	path = chrome/installer/mac/internal
 	url = https://chrome-internal.googlesource.com/chrome/installer/mac/internal
@@ -660,10 +668,6 @@
 [submodule "chrome/test/media_router/internal"]
 	path = chrome/test/media_router/internal
 	url = https://chrome-internal.googlesource.com/chrome/test/media_router/internal
-	gclient-condition = checkout_src_internal
-[submodule "chrome/test/python_tests"]
-	path = chrome/test/python_tests
-	url = https://chrome-internal.googlesource.com/chrome/test/python_tests
 	gclient-condition = checkout_src_internal
 [submodule "chrome/tools/memory"]
 	path = chrome/tools/memory

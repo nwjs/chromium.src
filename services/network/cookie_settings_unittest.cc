@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "services/network/cookie_settings.h"
+
 #include <tuple>
 #include <utility>
-
-#include "services/network/cookie_settings.h"
 
 #include "base/functional/callback_helpers.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -26,6 +26,7 @@
 #include "net/cookies/cookie_util.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/first_party_sets/first_party_set_metadata.h"
+#include "services/network/tpcd/metadata/manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
@@ -473,6 +474,73 @@ TEST_P(CookieSettingsTest, GetCookieSettingSAAUnblocks) {
         kAllowedRequestsHistogram, BlockedStorageAccessResultWithSaaOverride(),
         1);
   }
+
+  // If cookies are globally blocked, SAA grants and 3PC override
+  // should both be ignored.
+  {
+    settings.set_content_settings(
+        ContentSettingsType::COOKIES,
+        {CreateSetting("*", "*", CONTENT_SETTING_BLOCK)});
+    settings.set_block_third_party_cookies(true);
+    base::HistogramTester histogram_tester_2;
+    EXPECT_EQ(settings.GetCookieSetting(url, top_level_url,
+                                        GetCookieSettingOverrides(), nullptr),
+              CONTENT_SETTING_BLOCK);
+    histogram_tester_2.ExpectUniqueSample(
+        kAllowedRequestsHistogram,
+        net::cookie_util::StorageAccessResult::ACCESS_BLOCKED, 1);
+  }
+}
+
+TEST_P(CookieSettingsTest, GetCookieSettingSAAUnblocksViaFedCM) {
+  GURL top_level_url = GURL(kURL);
+  GURL url = GURL(kOtherURL);
+  GURL third_url = GURL(kDomainURL);
+
+  base::HistogramTester histogram_tester;
+
+  CookieSettings settings;
+  settings.set_content_settings(
+      ContentSettingsType::COOKIES,
+      {CreateSetting("*", "*", CONTENT_SETTING_ALLOW)});
+  settings.set_block_third_party_cookies(true);
+
+  settings.set_content_settings(
+      ContentSettingsType::FEDERATED_IDENTITY_SHARING,
+      {CreateSetting(net::SchemefulSite(url).Serialize(),
+                     net::SchemefulSite(top_level_url).Serialize(),
+                     CONTENT_SETTING_ALLOW)});
+
+  // When requesting our setting for the embedder/top-level combination our
+  // grant is for access should be allowed. For any other domain pairs access
+  // should still be blocked.
+  EXPECT_EQ(settings.GetCookieSetting(url, top_level_url,
+                                      GetCookieSettingOverrides(), nullptr),
+            SettingWithSaaOverride(CONTENT_SETTING_ALLOW));
+  histogram_tester.ExpectUniqueSample(
+      kAllowedRequestsHistogram, BlockedStorageAccessResultWithSaaOverride(),
+      1);
+
+  // Grants are not bidirectional.
+  EXPECT_EQ(settings.GetCookieSetting(top_level_url, url,
+                                      GetCookieSettingOverrides(), nullptr),
+            CONTENT_SETTING_BLOCK);
+
+  histogram_tester.ExpectBucketCount(kAllowedRequestsHistogram,
+                                     net::cookie_util::StorageAccessResult::
+                                         ACCESS_ALLOWED_STORAGE_ACCESS_GRANT,
+                                     IsStorageAccessGrantEligible() ? 1 : 0);
+  histogram_tester.ExpectBucketCount(
+      kAllowedRequestsHistogram, BlockedStorageAccessResultWithSaaOverride(),
+      IsStorageAccessGrantEligible() ? 1 : 2);
+
+  // Unrelated contexts do not get access.
+  EXPECT_EQ(settings.GetCookieSetting(url, third_url,
+                                      GetCookieSettingOverrides(), nullptr),
+            CONTENT_SETTING_BLOCK);
+  EXPECT_EQ(settings.GetCookieSetting(third_url, top_level_url,
+                                      GetCookieSettingOverrides(), nullptr),
+            CONTENT_SETTING_BLOCK);
 
   // If cookies are globally blocked, SAA grants and 3PC override
   // should both be ignored.
@@ -1858,10 +1926,11 @@ TEST_P(CookieSettingsTpcdMetadataGrantsTest, Grants) {
       {CreateSetting("*", "*", CONTENT_SETTING_ALLOW)});
 
   // Allowlisting.
-  settings.set_content_settings(
-      ContentSettingsType::TPCD_METADATA_GRANTS,
+  network::tpcd::metadata::Manager manager;
+  manager.SetGrants(
       {CreateSetting(third_party_url_1.host(), first_party_url.host(),
                      CONTENT_SETTING_ALLOW)});
+  settings.set_tpcd_metadata_manager(&manager);
 
   histogram_tester.ExpectTotalCount(kAllowedRequestsHistogram, 0);
 
@@ -1898,9 +1967,9 @@ TEST_P(CookieSettingsTpcdMetadataGrantsTest, IsCookieAccessible) {
   settings.set_mitigations_enabled_for_3pcd(true);
 
   // Allowlisting.
-  settings.set_content_settings(
-      ContentSettingsType::TPCD_METADATA_GRANTS,
-      {CreateSetting(kOtherURL, kURL, CONTENT_SETTING_ALLOW)});
+  network::tpcd::metadata::Manager manager;
+  manager.SetGrants({CreateSetting(kOtherURL, kURL, CONTENT_SETTING_ALLOW)});
+  settings.set_tpcd_metadata_manager(&manager);
 
   std::unique_ptr<net::CanonicalCookie> cookie =
       MakeCanonicalSameSiteNoneCookie("name", kOtherURL);
@@ -1923,9 +1992,9 @@ TEST_P(CookieSettingsTpcdMetadataGrantsTest,
   settings.set_mitigations_enabled_for_3pcd(true);
 
   // Allowlisting.
-  settings.set_content_settings(
-      ContentSettingsType::TPCD_METADATA_GRANTS,
-      {CreateSetting(kOtherURL, kURL, CONTENT_SETTING_ALLOW)});
+  network::tpcd::metadata::Manager manager;
+  manager.SetGrants({CreateSetting(kOtherURL, kURL, CONTENT_SETTING_ALLOW)});
+  settings.set_tpcd_metadata_manager(&manager);
 
   net::CookieAccessResultList maybe_included_cookies = {
       {*MakeCanonicalSameSiteNoneCookie("third_party", kOtherURL), {}}};
@@ -2012,10 +2081,10 @@ TEST_P(CookieSettingsTpcdMetadataGrantsTest, ExplicitSettingPreserved) {
       {CreateSetting("*", first_party_url.host(), CONTENT_SETTING_BLOCK)});
 
   // Allowlisting.
-  settings.set_content_settings(
-      ContentSettingsType::TPCD_METADATA_GRANTS,
-      {CreateSetting(third_party_url.host(), first_party_url.host(),
-                     CONTENT_SETTING_ALLOW)});
+  network::tpcd::metadata::Manager manager;
+  manager.SetGrants({CreateSetting(
+      third_party_url.host(), first_party_url.host(), CONTENT_SETTING_ALLOW)});
+  settings.set_tpcd_metadata_manager(&manager);
 
   histogram_tester.ExpectTotalCount(kAllowedRequestsHistogram, 0);
 

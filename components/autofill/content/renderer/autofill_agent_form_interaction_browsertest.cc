@@ -34,6 +34,7 @@ using ::testing::Field;
 using ::testing::InSequence;
 using ::testing::MockFunction;
 using ::testing::Not;
+using ::testing::Property;
 
 // Returns a matcher that matches a `FormFieldData::id_attribute`.
 auto HasFieldIdAttribute(std::u16string id_attribute) {
@@ -42,7 +43,7 @@ auto HasFieldIdAttribute(std::u16string id_attribute) {
 
 // Returns a matcher that matches a `FormFieldData::form_control_type`.
 auto HasType(FormControlType type) {
-  return Field(&FormFieldData::form_control_type, type);
+  return Property(&FormFieldData::form_control_type, type);
 }
 
 auto IsContentEditable() {
@@ -401,6 +402,22 @@ TEST_F(AutofillAgentContentEditableInteractionTest,
   check.Call();
   ChangeFocusToNull(GetMainFrame()->GetDocument());
 }
+
+// Scrolling doesn't hide the popup on Android.
+#if !BUILDFLAG(IS_ANDROID)
+// Tests that scrolling triggers a call to `AutofillDriver::HidePopup()`.
+TEST_F(AutofillAgentContentEditableInteractionTest,
+       ScrollingHidesAutofillPopup) {
+  EXPECT_CALL(autofill_driver(), HidePopup);
+  // "height" is needed so that the page is long enough to be able to scroll.
+  LoadHTML(
+      "<body><textarea style=\"height:10000px\" id=ce "
+      "contenteditable></textarea></body>");
+  SimulateElementClickAndWait("ce");
+  SimulateElementFocusAndWait("ce");
+  SimulateScrollingAndWait();
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Tests that clicking on a contenteditable form is ignored.
 TEST_F(AutofillAgentContentEditableInteractionTest,

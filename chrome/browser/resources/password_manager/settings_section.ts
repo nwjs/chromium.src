@@ -9,8 +9,8 @@ import './user_utils_mixin.js';
 import '/shared/settings/controls/extension_controlled_indicator.js';
 import './dialogs/move_passwords_dialog.js';
 
+import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {HelpBubbleMixin} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin.js';
-import {PrefsMixin} from 'chrome://resources/cr_components/settings_prefs/prefs_mixin.js';
 import type {CrLinkRowElement} from 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
@@ -133,7 +133,18 @@ export class SettingsSectionElement extends SettingsSectionElementBase {
       passwordsOnDevice_: {
         type: Array,
       },
+
+      isPasswordManagerPinAvailable_: {
+        type: Boolean,
+        value: false,
+      },
     };
+  }
+
+  static get observers() {
+    return [
+      'updateIsPasswordManagerPinAvailable_(isSyncingPasswords)',
+    ];
   }
 
   private blockedSites_: BlockedSite[];
@@ -145,6 +156,7 @@ export class SettingsSectionElement extends SettingsSectionElementBase {
   private enableButterOnDesktopFollowup_: boolean;
   private movePasswordsLabel_: string;
   private passwordsOnDevice_: chrome.passwordsPrivate.PasswordUiEntry[] = [];
+  private isPasswordManagerPinAvailable_: boolean = false;
 
   private setBlockedSitesListListener_: BlockedSitesListChangedListener|null =
       null;
@@ -189,7 +201,9 @@ export class SettingsSectionElement extends SettingsSectionElementBase {
         trustedVaultStateChanged);
     this.addWebUiListener(
         'trusted-vault-banner-state-changed', trustedVaultStateChanged);
-
+    // TODO(crbug.com/331611435): add listener for enclave availability and
+    // trigger `updateIsPasswordManagerPinAvailable_`.
+    this.updateIsPasswordManagerPinAvailable_();
     // <if expr="is_win or is_macosx">
     PasskeysBrowserProxyImpl.getInstance().hasPasskeys().then(hasPasskeys => {
       this.hasPasskeys_ = hasPasskeys;
@@ -377,6 +391,15 @@ export class SettingsSectionElement extends SettingsSectionElementBase {
     this.movePasswordsLabel_ =
         await PluralStringProxyImpl.getInstance().getPluralString(
             'deviceOnlyPasswordsIconTooltip', this.passwordsOnDevice_.length);
+  }
+
+  private updateIsPasswordManagerPinAvailable_() {
+    PasswordManagerImpl.getInstance().isPasswordManagerPinAvailable().then(
+        available => this.isPasswordManagerPinAvailable_ = available);
+  }
+
+  private onChangePasswordManagerPinRowClick_() {
+    PasswordManagerImpl.getInstance().changePasswordManagerPin();
   }
 }
 

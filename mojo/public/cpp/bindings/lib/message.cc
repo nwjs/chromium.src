@@ -168,7 +168,7 @@ void CreateSerializedMessageObject(uint32_t name,
                                   buffer_size);
 
   // Make sure we zero the memory first!
-  memset(payload_buffer.data(), 0, total_allocation_size);
+  memset(payload_buffer.data(), 0, buffer_size);
   WriteMessageHeader(name, flags, trace_nonce, payload_interface_id_count,
                      &payload_buffer);
 
@@ -277,6 +277,24 @@ Message::Message(uint32_t name,
               payload_interface_id_count,
               MOJO_CREATE_MESSAGE_FLAG_NONE,
               handles,
+              estimated_payload_size) {}
+
+Message::Message(uint32_t name,
+                 uint32_t flags,
+                 MojoCreateMessageFlags create_message_flags,
+                 size_t estimated_payload_size)
+    : Message(name,
+              flags,
+              0,
+              0,
+              create_message_flags,
+              nullptr,
+              estimated_payload_size) {}
+
+Message::Message(uint32_t name, uint32_t flags, size_t estimated_payload_size)
+    : Message(name,
+              flags,
+              MOJO_CREATE_MESSAGE_FLAG_NONE,
               estimated_payload_size) {}
 
 Message::Message(ScopedMessageHandle handle,
@@ -568,6 +586,19 @@ bool Message::DeserializeAssociatedEndpointHandles(
     ids[i] = kInvalidInterfaceId;
   }
   return result;
+}
+
+void Message::NotifyPeerClosureForSerializedHandles(
+    AssociatedGroupController* group_controller) {
+  const uint32_t num_ids = payload_num_interface_ids();
+  if (num_ids == 0) {
+    return;
+  }
+
+  const uint32_t* ids = header_v2()->payload_interface_ids.Get()->storage();
+  for (uint32_t i = 0; i < num_ids; ++i) {
+    group_controller->NotifyLocalEndpointOfPeerClosure(ids[i]);
+  }
 }
 
 void Message::SerializeIfNecessary() {

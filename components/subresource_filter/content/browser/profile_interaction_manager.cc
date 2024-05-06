@@ -10,9 +10,9 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/subresource_filter/content/browser/ads_intervention_manager.h"
 #include "components/subresource_filter/content/browser/content_subresource_filter_throttle_manager.h"
-#include "components/subresource_filter/content/browser/content_subresource_filter_web_contents_helper.h"
 #include "components/subresource_filter/content/browser/subresource_filter_content_settings_manager.h"
 #include "components/subresource_filter/content/browser/subresource_filter_profile_context.h"
+#include "components/subresource_filter/content/shared/common/subresource_filter_utils.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/page.h"
@@ -57,7 +57,7 @@ void ProfileInteractionManager::OnReloadRequested() {
   GetWebContents()->GetController().Reload(content::ReloadType::NORMAL, true);
 }
 
-// TODO(https://crbug.com/1131969): Consider adding reporting when
+// TODO(crbug.com/40721689): Consider adding reporting when
 // ads violations are triggered.
 void ProfileInteractionManager::OnAdsViolationTriggered(
     content::RenderFrameHost* rfh,
@@ -158,7 +158,7 @@ void ProfileInteractionManager::MaybeShowNotification() {
     }
 #endif
 
-    // TODO(https://crbug.com/1103176): Plumb the actual frame reference here
+    // TODO(crbug.com/40139135): Plumb the actual frame reference here
     // (it comes from
     // ContentSubresourceFilterThrottleManager::DidDisallowFirstSubresource,
     // which comes from a specific frame).

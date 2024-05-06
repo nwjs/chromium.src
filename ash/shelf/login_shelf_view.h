@@ -162,6 +162,9 @@ class ASH_EXPORT LoginShelfView : public views::View,
   // Returns scoped object to temporarily block Browse as Guest login button.
   std::unique_ptr<ScopedGuestButtonBlocker> GetScopedGuestButtonBlocker();
 
+  // Returns the button container.
+  views::View* GetButtonContainerByID(ButtonId button_id);
+
   // TrayActionObserver:
   void OnLockScreenNoteStateChanged(mojom::TrayActionState state) override;
 
@@ -237,6 +240,8 @@ class ASH_EXPORT LoginShelfView : public views::View,
 
   bool ShouldShowOsInstallButton() const;
 
+  void SetButtonVisible(ButtonId id, bool visible);
+
   // Helper function which calls `closure` when device display is on. Or if the
   // number of dropped calls exceeds 'kMaxDroppedCallsWhenDisplaysOff'
   void CallIfDisplayIsOn(const base::RepeatingClosure& closure);
@@ -244,6 +249,8 @@ class ASH_EXPORT LoginShelfView : public views::View,
   // Helper function which calls on_kiosk_menu_shown when kiosk menu is shown.
   void OnKioskMenuShown(const base::RepeatingClosure& on_kiosk_menu_shown);
   void OnKioskMenuclosed();
+
+  void OnAddUserButtonClicked();
 
   OobeDialogState dialog_state_ = OobeDialogState::HIDDEN;
   bool allow_guest_ = true;

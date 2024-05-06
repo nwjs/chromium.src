@@ -40,7 +40,6 @@
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -592,7 +591,6 @@ void FillNavigationParamsRequest(
   // error srcdoc page. See test
   // NavigationRequestBrowserTest.OriginForSrcdocErrorPageInSubframe.
   if (common_params.initiator_base_url) {
-    CHECK(blink::features::IsNewBaseUrlInheritanceBehaviorEnabled());
     CHECK(common_params.url.IsAboutSrcdoc() ||
           common_params.url.IsAboutBlank());
     navigation_params->fallback_base_url =
@@ -1453,7 +1451,7 @@ bool RenderFrameImpl::UniqueNameFrameAdapter::IsMainFrame() const {
 }
 
 bool RenderFrameImpl::UniqueNameFrameAdapter::IsCandidateUnique(
-    base::StringPiece name) const {
+    std::string_view name) const {
   // This method is currently O(N), where N = number of frames in the tree.
   DCHECK(!name.empty());
 
@@ -1489,7 +1487,7 @@ int RenderFrameImpl::UniqueNameFrameAdapter::GetChildCount() const {
 std::vector<std::string>
 RenderFrameImpl::UniqueNameFrameAdapter::CollectAncestorNames(
     BeginPoint begin_point,
-    bool (*should_stop)(base::StringPiece)) const {
+    bool (*should_stop)(std::string_view)) const {
   std::vector<std::string> result;
   for (blink::WebFrame* frame = begin_point == BeginPoint::kParentFrame
                                     ? GetWebFrame()->Parent()
@@ -4616,14 +4614,16 @@ void RenderFrameImpl::DidChangePerformanceTiming() {
 
 void RenderFrameImpl::DidObserveUserInteraction(
     base::TimeTicks max_event_start,
-    base::TimeTicks max_event_end,
+    base::TimeTicks max_event_commit_finish,
     base::TimeTicks max_event_queued_main_thread,
+    base::TimeTicks max_event_end,
     blink::UserInteractionType interaction_type,
     uint64_t interaction_offset) {
-  for (auto& observer : observers_)
-    observer.DidObserveUserInteraction(max_event_start, max_event_end,
-                                       max_event_queued_main_thread,
-                                       interaction_type, interaction_offset);
+  for (auto& observer : observers_) {
+    observer.DidObserveUserInteraction(
+        max_event_start, max_event_queued_main_thread, max_event_commit_finish,
+        max_event_end, interaction_type, interaction_offset);
+  }
 }
 
 void RenderFrameImpl::DidChangeCpuTiming(base::TimeDelta time) {
@@ -4804,13 +4804,16 @@ void RenderFrameImpl::PostAccessibilityEvent(const ui::AXEvent& event) {
       event);
 }
 
-bool RenderFrameImpl::AXReadyCallback() {
-  if (!IsAccessibilityEnabled()) {
-    return false;
-  }
+bool RenderFrameImpl::SendAccessibilitySerialization(
+    std::vector<ui::AXTreeUpdate> updates,
+    std::vector<ui::AXEvent> events,
+    bool had_load_complete_messages) {
+  // This function should never be called from a11y unless it's enabled.
+  CHECK(IsAccessibilityEnabled());
 
   return render_accessibility_manager_->GetRenderAccessibilityImpl()
-      ->AXReadyCallback();
+      ->SendAccessibilitySerialization(std::move(updates), std::move(events),
+                                       had_load_complete_messages);
 }
 
 void RenderFrameImpl::AddObserver(RenderFrameObserver* observer) {
@@ -4951,8 +4954,7 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
   params->url = GetLoadingUrl();
   // Note: since we get the security origin from the `frame_document`, we also
   // get the base url from it too.
-  if (blink::features::IsNewBaseUrlInheritanceBehaviorEnabled() &&
-      (params->url.IsAboutBlank() || params->url.IsAboutSrcdoc())) {
+  if (params->url.IsAboutBlank() || params->url.IsAboutSrcdoc()) {
     GURL base_url = frame_document.BaseURL();
     // Only pass the base URL if it is valid and can be serialized by Mojo.
     if (base_url.is_valid() &&
@@ -6410,11 +6412,6 @@ RenderFrameImpl::MaybeGetBackgroundResourceFetchAssets() {
 void RenderFrameImpl::OnStopLoading() {
   for (auto& observer : observers_)
     observer.OnStop();
-}
-
-void RenderFrameImpl::DraggableRegionsChanged() {
-  for (auto& observer : observers_)
-    observer.DraggableRegionsChanged();
 }
 
 bool RenderFrameImpl::IsRequestingNavigation() {

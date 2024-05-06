@@ -56,12 +56,12 @@ int GetCurrentMajorProductVersion() {
 
 // Checks if the AUTOFILL_WALLET_CREDENTIAL should be ignored if it is the only
 // encrypted datatype.
-bool ShouldAutofillWalletCredentialBeIgnoredIfOnlyEncryptedType() {
+bool ShouldAutofillWalletCredentialBeIgnoredIfOnlyEncryptedType(
+    const SyncPrefs& prefs) {
   // Explicit sign-in to the browser via native UI, making this scenario an edge
   // case as more features will usually be enabled, including PASSWORDS. Thus,
   // AUTOFILL_WALLET_CREDENTIAL is not the only active encrypted type.
-  if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-          switches::ExplicitBrowserSigninPhase::kFull)) {
+  if (prefs.IsExplicitBrowserSignin()) {
     return false;
   }
   // Similar to above: more features will usually be enabled, including
@@ -156,6 +156,21 @@ bool SyncUserSettingsImpl::IsTypeManagedByCustodian(
   return prefs_->IsTypeManagedByCustodian(type);
 }
 
+SyncUserSettings::UserSelectableTypePrefState
+SyncUserSettingsImpl::GetTypePrefStateForAccount(
+    UserSelectableType type) const {
+  if (delegate_->GetSyncAccountStateForPrefs() !=
+      SyncPrefs::SyncAccountState::kSignedInNotSyncing) {
+    return SyncUserSettings::UserSelectableTypePrefState::kNotApplicable;
+  }
+  signin::GaiaIdHash gaia_id_hash = signin::GaiaIdHash::FromGaiaId(
+      delegate_->GetSyncAccountInfoForPrefs().gaia);
+  if (prefs_->IsTypeDisabledByUserForAccount(type, gaia_id_hash)) {
+    return SyncUserSettings::UserSelectableTypePrefState::kDisabled;
+  }
+  return SyncUserSettings::UserSelectableTypePrefState::kEnabledOrDefault;
+}
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 int SyncUserSettingsImpl::GetNumberOfAccountsWithPasswordsSelected() const {
   return prefs_->GetNumberOfAccountsWithPasswordsSelected();
@@ -221,20 +236,13 @@ void SyncUserSettingsImpl::KeepAccountSettingsPrefsOnlyForUsers(
   prefs_->KeepAccountSettingsPrefsOnlyForUsers(available_gaia_ids);
 }
 
-#if BUILDFLAG(IS_IOS)
-void SyncUserSettingsImpl::SetBookmarksAndReadingListAccountStorageOptIn(
-    bool value) {
-  prefs_->SetBookmarksAndReadingListAccountStorageOptIn(value);
-}
-#endif  // BUILDFLAG(IS_IOS)
-
 UserSelectableTypeSet SyncUserSettingsImpl::GetRegisteredSelectableTypes()
     const {
   UserSelectableTypeSet registered_types;
   for (UserSelectableType type : UserSelectableTypeSet::All()) {
     if (!base::Intersection(registered_model_types_,
                             UserSelectableTypeToAllModelTypes(type))
-             .Empty()) {
+             .empty()) {
       registered_types.Put(type);
     }
   }
@@ -282,7 +290,7 @@ UserSelectableOsTypeSet SyncUserSettingsImpl::GetRegisteredSelectableOsTypes()
   for (UserSelectableOsType type : UserSelectableOsTypeSet::All()) {
     if (!base::Intersection(registered_model_types_,
                             UserSelectableOsTypeToAllModelTypes(type))
-             .Empty()) {
+             .empty()) {
       registered_types.Put(type);
     }
   }
@@ -342,7 +350,7 @@ bool SyncUserSettingsImpl::IsTrustedVaultRecoverabilityDegraded() const {
 }
 
 bool SyncUserSettingsImpl::IsUsingExplicitPassphrase() const {
-  // TODO(crbug.com/1466401): Either make this method return a Tribool, so the
+  // TODO(crbug.com/40923935): Either make this method return a Tribool, so the
   // "unknown" case is properly communicated, or just remove it altogether
   // (callers can always use the global IsExplicitPassphrase() helper).
   std::optional<PassphraseType> type = GetPassphraseType();
@@ -398,7 +406,7 @@ ModelTypeSet SyncUserSettingsImpl::GetPreferredDataTypes() const {
   // though they're technically not registered.
   types.PutAll(ControlTypes());
 
-  static_assert(52 == GetNumModelTypes(),
+  static_assert(51 == GetNumModelTypes(),
                 "If adding a new sync data type, update the list below below if"
                 " you want to disable the new data type for local sync.");
   if (prefs_->IsLocalSyncEnabled()) {
@@ -412,7 +420,6 @@ ModelTypeSet SyncUserSettingsImpl::GetPreferredDataTypes() const {
     types.Remove(OUTGOING_PASSWORD_SHARING_INVITATION);
     types.Remove(PLUS_ADDRESS);
     types.Remove(SECURITY_EVENTS);
-    types.Remove(SEGMENTATION);
     types.Remove(SEND_TAB_TO_SELF);
     types.Remove(SHARED_TAB_GROUP_DATA);
     types.Remove(SHARING_MESSAGE);
@@ -431,7 +438,7 @@ bool SyncUserSettingsImpl::IsEncryptedDatatypeEnabled() const {
   ModelTypeSet preferred_types = GetPreferredDataTypes();
   const ModelTypeSet encrypted_types = GetEncryptedDataTypes();
   DCHECK(encrypted_types.HasAll(AlwaysEncryptedUserTypes()));
-  if (ShouldAutofillWalletCredentialBeIgnoredIfOnlyEncryptedType()) {
+  if (ShouldAutofillWalletCredentialBeIgnoredIfOnlyEncryptedType(*prefs_)) {
     // Remove AUTOFILL_WALLET_CREDENTIAL from the set to avoid that the
     // function returns true for the case where the set ONLY includes
     // AUTOFILL_WALLET_CREDENTIAL. This feature alone is not sufficient to
@@ -440,7 +447,7 @@ bool SyncUserSettingsImpl::IsEncryptedDatatypeEnabled() const {
     // AUTOFILL_WALLET_CREDENTIAL being listed as AlwaysEncryptedUserTypes().
     preferred_types.Remove(syncer::AUTOFILL_WALLET_CREDENTIAL);
   }
-  return !Intersection(preferred_types, encrypted_types).Empty();
+  return !Intersection(preferred_types, encrypted_types).empty();
 }
 
 std::string SyncUserSettingsImpl::GetEncryptionBootstrapToken() const {

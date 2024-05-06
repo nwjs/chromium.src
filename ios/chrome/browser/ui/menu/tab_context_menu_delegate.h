@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/ui/sharing/sharing_scenario.h"
 
 class GURL;
+class TabGroup;
 
 namespace synced_sessions {
 struct DistantSession;
@@ -63,10 +64,26 @@ class WebStateID;
 - (void)createNewTabGroupWithIdentifier:(web::WebStateID)identifier
                               incognito:(BOOL)incognito;
 
+// Tells the delegate to display the group edition view of the group of the
+// given identifier.
+- (void)editTabGroup:(const TabGroup*)group incognito:(BOOL)incognito;
+
 // Tells the delegate to close the tab with the item identifier `identifier`.
-// `incognito`tracks the incognito state of the tab.
+// `incognito` tracks the incognito state of the tab.
 - (void)closeTabWithIdentifier:(web::WebStateID)identifier
                      incognito:(BOOL)incognito;
+
+// Tells the delegate to close the group. `incognito` tracks the incognito state
+// of the group.
+- (void)closeTabGroup:(const TabGroup*)group incognito:(BOOL)incognito;
+
+// Tells the delegate to ungroup the `group`. `incognito` tracks the incognito
+// state of the group.
+- (void)ungroupTabGroup:(const TabGroup*)group incognito:(BOOL)incognito;
+
+// Tells the delegate to add a tab to the `group`. `incognito` tracks the
+// incognito state of the group.
+- (void)addTabToGroup:(const TabGroup*)group incognito:(BOOL)incognito;
 
 @end
 

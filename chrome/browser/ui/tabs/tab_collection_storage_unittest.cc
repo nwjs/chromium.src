@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/tabs/tab_collection_storage.h"
+
 #include <memory>
 
+#include "base/test/gtest_util.h"
 #include "chrome/browser/ui/tabs/pinned_tab_collection.h"
 #include "chrome/browser/ui/tabs/tab_collection.h"
-#include "chrome/browser/ui/tabs/tab_collection_storage.h"
 #include "chrome/browser/ui/tabs/tab_group_tab_collection.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -55,32 +57,56 @@ class TabCollectionStorageTest : public ::testing::Test {
   }
 
   void SetTabID(tabs::TabModel* tab_model, int id) {
-    tab_handle_to_id_map_[tab_model->GetHandle()] = id;
+    std::string identifier =
+        "T" + base::NumberToString(reinterpret_cast<uintptr_t>(tab_model));
+    storage_children_to_id_map_[identifier] = "T" + base::NumberToString(id);
   }
 
-  void ResetTabIDs(int start) {
-    int i = 0;
+  void SetCollectionID(tabs::TabCollection* collection, int id) {
+    std::string identifier =
+        "C" + base::NumberToString(reinterpret_cast<uintptr_t>(collection));
+    storage_children_to_id_map_[identifier] = "C" + base::NumberToString(id);
+  }
+
+  void ResetStorageChildrenIDs(int start) {
+    int tab_i = 0;
+    int collection_i = 0;
     const auto& children = GetTabCollectionStorage()->GetChildren();
     for (const auto& child : children) {
       if (std::holds_alternative<std::unique_ptr<tabs::TabModel>>(child)) {
         SetTabID(std::get<std::unique_ptr<tabs::TabModel>>(child).get(),
-                 start + i);
-        i += 1;
+                 start + tab_i);
+        tab_i += 1;
+      } else if (std::holds_alternative<std::unique_ptr<tabs::TabCollection>>(
+                     child)) {
+        SetCollectionID(
+            std::get<std::unique_ptr<tabs::TabCollection>>(child).get(),
+            start + collection_i);
+        collection_i += 1;
       }
     }
   }
 
-  std::vector<int> TabIDString() {
-    std::vector<int> res;
+  std::vector<std::string> StorageCollectionChildrenString() {
+    std::vector<std::string> ids;
     const auto& children = GetTabCollectionStorage()->GetChildren();
     for (const auto& child : children) {
+      std::string identifier;
       if (std::holds_alternative<std::unique_ptr<tabs::TabModel>>(child)) {
         tabs::TabModel* tab_model =
             std::get<std::unique_ptr<tabs::TabModel>>(child).get();
-        res.push_back(tab_handle_to_id_map_[tab_model->GetHandle()]);
+        identifier =
+            "T" + base::NumberToString(reinterpret_cast<uintptr_t>(tab_model));
+      } else if (std::holds_alternative<std::unique_ptr<tabs::TabCollection>>(
+                     child)) {
+        tabs::TabCollection* collection =
+            std::get<std::unique_ptr<tabs::TabCollection>>(child).get();
+        identifier =
+            "C" + base::NumberToString(reinterpret_cast<uintptr_t>(collection));
       }
+      ids.push_back(storage_children_to_id_map_[identifier]);
     }
-    return res;
+    return ids;
   }
 
  private:
@@ -90,7 +116,7 @@ class TabCollectionStorageTest : public ::testing::Test {
   std::unique_ptr<TabStripModel> tab_strip_model_;
   std::unique_ptr<Profile> testing_profile_;
   std::unique_ptr<TestTabStripModelDelegate> tab_strip_model_delegate_;
-  std::map<tabs::TabHandle, int> tab_handle_to_id_map_;
+  std::map<std::string, std::string> storage_children_to_id_map_;
 };
 
 TEST_F(TabCollectionStorageTest, AddTabOperation) {
@@ -110,7 +136,7 @@ TEST_F(TabCollectionStorageTest, AddTabOperation) {
 
   // Add four more tabs.
   AddTabs(4);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
 
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
 
@@ -118,7 +144,11 @@ TEST_F(TabCollectionStorageTest, AddTabOperation) {
   SetTabID(tab_model_two_ptr, 5);
   collection_storage->AddTab(std::move(tab_model_two), 3ul);
   EXPECT_EQ(collection_storage->GetIndexOfTab(tab_model_two_ptr), 3ul);
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 1, 2, 5, 3, 4}));
+  EXPECT_EQ(collection_storage->GetTabAtIndex(3ul), tab_model_two_ptr);
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"T0", "T1", "T2", "T5", "T3", "T4"}));
+
+  // TODO(b/332586827):Add death testing for out of bounds index.
 }
 
 TEST_F(TabCollectionStorageTest, RemoveTabOperation) {
@@ -134,14 +164,15 @@ TEST_F(TabCollectionStorageTest, RemoveTabOperation) {
   // Add `tab_model_one` to index 3.
   collection_storage->AddTab(std::move(tab_model_one), 3ul);
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
 
   auto removed_tab_model = collection_storage->RemoveTab(tab_model_one_ptr);
 
   EXPECT_EQ(collection_storage->GetChildrenCount(), 4ul);
   EXPECT_EQ(removed_tab_model.get(), tab_model_one_ptr);
   // `tab_model_one_ptr` was removed from index 3.
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 1, 2, 4}));
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"T0", "T1", "T2", "T4"}));
 }
 
 TEST_F(TabCollectionStorageTest, CloseTabOperation) {
@@ -157,12 +188,13 @@ TEST_F(TabCollectionStorageTest, CloseTabOperation) {
   // Add `tab_model_one` to index 3.
   collection_storage->AddTab(std::move(tab_model_one), 3ul);
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
 
   collection_storage->CloseTab(tab_model_one_ptr);
 
   EXPECT_EQ(collection_storage->GetChildrenCount(), 4ul);
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 1, 2, 4}));
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"T0", "T1", "T2", "T4"}));
 }
 
 TEST_F(TabCollectionStorageTest, MoveTabOperation) {
@@ -179,50 +211,55 @@ TEST_F(TabCollectionStorageTest, MoveTabOperation) {
   collection_storage->AddTab(std::move(tab_model_one), 3ul);
   EXPECT_EQ(collection_storage->GetIndexOfTab(tab_model_one_ptr), 3ul);
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
 
   collection_storage->MoveTab(tab_model_one_ptr, 1ul);
 
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
   EXPECT_EQ(collection_storage->GetIndexOfTab(tab_model_one_ptr), 1ul);
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 3, 1, 2, 4}));
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"T0", "T3", "T1", "T2", "T4"}));
 
   collection_storage->MoveTab(tab_model_one_ptr, 4ul);
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
   EXPECT_EQ(collection_storage->GetIndexOfTab(tab_model_one_ptr), 4ul);
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 1, 2, 4, 3}));
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"T0", "T1", "T2", "T4", "T3"}));
 }
 
-// TODO(b/327925372): Re-enable the test.
+// TODO(b/332586827): Re-enable death testing.
 TEST_F(TabCollectionStorageTest, DISABLED_InvalidArgumentsTabOperations) {
   auto tab_model_one =
       std::make_unique<tabs::TabModel>(nullptr, GetTabStripModel());
   tabs::TabCollectionStorage* collection_storage = GetTabCollectionStorage();
   std::unique_ptr<tabs::TabModel> empty_ptr;
 
-  EXPECT_DEATH(
+  EXPECT_DEATH_IF_SUPPORTED(
       collection_storage->AddTab(
           std::make_unique<tabs::TabModel>(nullptr, GetTabStripModel()), 10ul),
       "");
-  EXPECT_DEATH(collection_storage->AddTab(std::move(empty_ptr), 1ul), "");
+  EXPECT_DEATH_IF_SUPPORTED(
+      collection_storage->AddTab(std::move(empty_ptr), 1ul), "");
 
-  EXPECT_DEATH(
+  EXPECT_DEATH_IF_SUPPORTED(
       {
         std::unique_ptr<tabs::TabModel> tab_model =
             collection_storage->RemoveTab(tab_model_one.get());
       },
       "");
-  EXPECT_DEATH(
+  EXPECT_DEATH_IF_SUPPORTED(
       {
         std::unique_ptr<tabs::TabModel> tab_model =
             collection_storage->RemoveTab(nullptr);
       },
       "");
 
-  EXPECT_DEATH(collection_storage->MoveTab(tab_model_one.get(), 0ul), "");
+  EXPECT_DEATH_IF_SUPPORTED(
+      collection_storage->MoveTab(tab_model_one.get(), 0ul), "");
   collection_storage->AddTab(std::move(tab_model_one), 0ul);
-  EXPECT_DEATH(collection_storage->MoveTab(tab_model_one.get(), 10ul), "");
-  EXPECT_DEATH(collection_storage->MoveTab(nullptr, 10ul), "");
+  EXPECT_DEATH_IF_SUPPORTED(
+      collection_storage->MoveTab(tab_model_one.get(), 10ul), "");
+  EXPECT_DEATH_IF_SUPPORTED(collection_storage->MoveTab(nullptr, 10ul), "");
 }
 
 TEST_F(TabCollectionStorageTest, AddMixedTabAndCollectionOperation) {
@@ -244,7 +281,11 @@ TEST_F(TabCollectionStorageTest, AddMixedTabAndCollectionOperation) {
 
   // Add four more tabs.
   AddTabs(4);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
+
+  // Set collection ids of both the sub collections.
+  SetCollectionID(tab_collection_one_ptr, 0);
+  SetCollectionID(tab_collection_two_ptr, 1);
 
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
 
@@ -253,7 +294,8 @@ TEST_F(TabCollectionStorageTest, AddMixedTabAndCollectionOperation) {
             3ul);
   EXPECT_EQ(collection_storage->GetIndexOfCollection(tab_collection_one_ptr),
             0ul);
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 1, 2, 3}));
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"C0", "T0", "T1", "C1", "T2", "T3"}));
 }
 
 TEST_F(TabCollectionStorageTest, RemoveMixedTabAndCollectionOperation) {
@@ -270,7 +312,10 @@ TEST_F(TabCollectionStorageTest, RemoveMixedTabAndCollectionOperation) {
 
   // Add four more tabs.
   AddTabs(4);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
+
+  SetCollectionID(tab_collection_one_ptr, 0);
+  SetCollectionID(tab_collection_two_ptr, 1);
 
   collection_storage->AddCollection(std::move(tab_collection_one), 2ul);
   collection_storage->AddCollection(std::move(tab_collection_two), 4ul);
@@ -283,7 +328,8 @@ TEST_F(TabCollectionStorageTest, RemoveMixedTabAndCollectionOperation) {
   EXPECT_EQ(collection_storage->GetIndexOfCollection(tab_collection_two_ptr),
             3ul);
   EXPECT_FALSE(collection_storage->ContainsCollection(tab_collection_one_ptr));
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 1, 2, 3}));
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"T0", "T1", "T2", "C1", "T3"}));
 }
 
 TEST_F(TabCollectionStorageTest, CloseMixedTabAndCollectionOperation) {
@@ -297,13 +343,14 @@ TEST_F(TabCollectionStorageTest, CloseMixedTabAndCollectionOperation) {
 
   collection_storage->AddCollection(std::move(tab_collection_one), 3ul);
   EXPECT_EQ(collection_storage->GetChildrenCount(), 5ul);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
 
   collection_storage->CloseCollection(tab_collection_one_ptr);
 
   EXPECT_EQ(collection_storage->GetChildrenCount(), 4ul);
   EXPECT_FALSE(collection_storage->ContainsCollection(tab_collection_one_ptr));
-  EXPECT_EQ(TabIDString(), (std::vector<int>{0, 1, 2, 3}));
+  EXPECT_EQ(StorageCollectionChildrenString(),
+            (std::vector<std::string>{"T0", "T1", "T2", "T3"}));
 }
 
 TEST_F(TabCollectionStorageTest, MoveMixedTabAndCollectionOperation) {
@@ -323,11 +370,15 @@ TEST_F(TabCollectionStorageTest, MoveMixedTabAndCollectionOperation) {
 
   collection_storage->AddTab(std::move(tab_model_one), 0);
   AddTabs(4);
-  ResetTabIDs(0);
+  ResetStorageChildrenIDs(0);
 
   collection_storage->AddCollection(std::move(tab_collection_one), 3ul);
   collection_storage->AddCollection(std::move(tab_collection_two), 1ul);
   EXPECT_EQ(collection_storage->GetChildrenCount(), 7ul);
+
+  // Set collection ids of both the sub collections.
+  SetCollectionID(tab_collection_one_ptr, 0);
+  SetCollectionID(tab_collection_two_ptr, 1);
 
   // Move `collection_one` to index 1.
   collection_storage->MoveCollection(tab_collection_one_ptr, 1ul);
@@ -345,4 +396,7 @@ TEST_F(TabCollectionStorageTest, MoveMixedTabAndCollectionOperation) {
             0ul);
   EXPECT_EQ(collection_storage->GetIndexOfCollection(tab_collection_two_ptr),
             5ul);
+  EXPECT_EQ(
+      StorageCollectionChildrenString(),
+      (std::vector<std::string>{"C0", "T1", "T2", "T3", "T4", "C1", "T0"}));
 }

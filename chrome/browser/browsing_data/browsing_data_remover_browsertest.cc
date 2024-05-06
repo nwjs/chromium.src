@@ -24,7 +24,6 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/browsing_data/counters/cache_counter.h"
 #include "chrome/browser/browsing_data/counters/site_data_counting_helper.h"
-#include "chrome/browser/browsing_data/local_data_container.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/media/clear_key_cdm_test_helper.h"
@@ -38,7 +37,6 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/browsing_data/content/browsing_data_model.h"
-#include "components/browsing_data/core/features.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
@@ -56,6 +54,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/storage_usage_info.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
@@ -138,9 +137,13 @@ class BrowsingDataRemoverBrowserTest
     std::vector<base::test::FeatureRef> enabled_features = {};
     // TODO(b/314968275): Add tests for when UNO Desktop is enabled.
     std::vector<base::test::FeatureRef> disabled_features = {
-        switches::kUnoDesktop};
+        switches::kUnoDesktop, switches::kExplicitBrowserSigninUIOnDesktop};
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
     enabled_features.push_back(media::kExternalClearKeyForTesting);
+    enabled_features.push_back(features::kCdmStorageDatabase);
+    // Refer to b/325351177 for more information on why this feature is
+    // disabled.
+    disabled_features.push_back(features::kCdmStorageDatabaseMigration);
 #endif
     // WebSQL is disabled by default as of M119 (crbug/695592). Enable feature
     // in tests during deprecation trial and enterprise policy support.
@@ -259,16 +262,11 @@ class BrowsingDataRemoverBrowserTest
     ExpectTotalModelCount(0);
   }
 
-  inline void ExpectTotalModelCount(int expected) {
-    std::unique_ptr<CookiesTreeModel> cookies_tree_model =
-        GetCookiesTreeModel(GetProfile());
+  inline void ExpectTotalModelCount(size_t expected) {
     std::unique_ptr<BrowsingDataModel> browsing_data_model =
         GetBrowsingDataModel(GetProfile());
-    int total_model_size =
-        GetCookiesTreeModelCount(cookies_tree_model->GetRoot()) +
-        browsing_data_model->size();
-    EXPECT_EQ(expected, total_model_size)
-        << GetCookiesTreeModelInfo(cookies_tree_model->GetRoot());
+
+    EXPECT_EQ(expected, browsing_data_model->size());
   }
 
   void OnVideoDecodePerfInfo(base::RunLoop* run_loop,
@@ -293,6 +291,10 @@ class BrowsingDataRemoverBrowserTest
       const std::optional<net::CookiePartitionKey>& cookie_partition_key,
       const std::optional<blink::StorageKey>& storage_key,
       const std::set<std::string>& storage_buckets_to_remove) {
+    bool partitioned_state_allowed_only =
+        cookie_partition_key.has_value() &&
+        !origin.DomainIs(cookie_partition_key->site()
+                             .registrable_domain_or_host_for_testing());
     base::RunLoop loop;
     content::ClearSiteData(
         GetBrowser()->profile()->GetWeakPtr(),
@@ -302,7 +304,7 @@ class BrowsingDataRemoverBrowserTest
         /*avoid_closing_connections=*/true,
         /*cookie_partition_key=*/cookie_partition_key,
         /*storage_key=*/storage_key,
-        /*partitioned_state_allowed_only=*/false,
+        /*partitioned_state_allowed_only=*/partitioned_state_allowed_only,
         /*callback=*/loop.QuitClosure());
     loop.Run();
   }
@@ -1368,15 +1370,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   ExpectTotalModelCount(0);
 }
 
-// TODO(crbug.com/1472412): Enable after fixing flakiness.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_MediaLicenseDeletionWithFilter \
-  DISABLED_MediaLicenseDeletionWithFilter
-#else
-#define MAYBE_MediaLicenseDeletionWithFilter MediaLicenseDeletionWithFilter
-#endif
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
-                       MAYBE_MediaLicenseDeletionWithFilter) {
+                       MediaLicenseDeletionWithFilter) {
   const std::string kMediaLicenseType = "MediaLicense";
 
   GURL url =
@@ -1421,7 +1416,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   RemoveWithFilterAndWait(
       content::BrowsingDataRemover::DATA_TYPE_MEDIA_LICENSES,
       std::move(filter_builder));
-  ExpectTotalModelCount(1);
+  ExpectTotalModelCount(0);
 }
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
@@ -1468,12 +1463,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                        PRE_StorageRemovedFromDisk) {
   EXPECT_EQ(1, GetSiteDataCount());
-  auto expected_model_size = 2;
-  if (base::FeatureList::IsEnabled(
-          browsing_data::features::kDeprecateCookiesTreeModel)) {
-    expected_model_size--;
-  }
-  ExpectTotalModelCount(expected_model_size);
+  ExpectTotalModelCount(1);
   RemoveAndWait(chrome_browsing_data_remover::DATA_TYPE_SITE_DATA |
                 content::BrowsingDataRemover::DATA_TYPE_CACHE |
                 chrome_browsing_data_remover::DATA_TYPE_HISTORY |
@@ -1509,8 +1499,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 }
 
 const std::vector<std::string> kSessionOnlyStorageTestTypes{
-    "Cookie",    "LocalStorage", "FileSystem",    "SessionStorage",
-    "IndexedDb", "WebSql",       "ServiceWorker", "CacheStorage",
+    "Cookie", "LocalStorage",  "FileSystem",   "SessionStorage", "IndexedDb",
+    "WebSql", "ServiceWorker", "CacheStorage", "MediaLicense",
 };
 
 // Test that storage gets deleted if marked as SessionOnly.
@@ -1525,12 +1515,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
     EXPECT_TRUE(HasDataForType(type));
   }
 
-  auto expected_model_size = 2;
-  if (base::FeatureList::IsEnabled(
-          browsing_data::features::kDeprecateCookiesTreeModel)) {
-    expected_model_size--;
-  }
-  ExpectTotalModelCount(expected_model_size);
+  ExpectTotalModelCount(1);
   HostContentSettingsMapFactory::GetForProfile(GetBrowser()->profile())
       ->SetDefaultContentSetting(ContentSettingsType::COOKIES,
                                  CONTENT_SETTING_SESSION_ONLY);

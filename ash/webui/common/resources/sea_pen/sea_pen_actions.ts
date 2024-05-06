@@ -21,6 +21,7 @@ export enum SeaPenActionName {
   SET_THUMBNAIL_RESPONSE_STATUS_CODE = 'set_thumbnail_response_status_code',
   BEGIN_SELECT_SEA_PEN_THUMBNAIL = 'begin_select_sea_pen_thumbnail',
   CLEAR_SEA_PEN_THUMBNAILS = 'clear_sea_pen_thumbnails',
+  CLEAR_SEA_PEN_THUMBNAILS_LOADING = 'clear_sea_pen_thumbnails_loading',
   END_SELECT_SEA_PEN_THUMBNAIL = 'end_select_sea_pen_thumbnail',
   BEGIN_SELECT_RECENT_SEA_PEN_IMAGE = 'begin_select_recent_sea_pen_image',
   END_SELECT_RECENT_SEA_PEN_IMAGE = 'end_select_recent_sea_pen_image',
@@ -28,19 +29,20 @@ export enum SeaPenActionName {
   SET_RECENT_SEA_PEN_IMAGES = 'set_recent_sea_pen_images',
   SET_RECENT_SEA_PEN_IMAGE_DATA = 'set_recent_sea_pen_image_data',
   SET_SELECTED_RECENT_SEA_PEN_IMAGE = 'set_selected_recent_sea_pen_image',
-  SET_SHOULD_SHOW_SEA_PEN_TERMS_OF_SERVICE_DIALOG =
-      'set_should_show_sea_pen_terms_of_service_dialog',
+  SET_SHOULD_SHOW_SEA_PEN_INTRODUCTION_DIALOG =
+      'set_should_show_sea_pen_introduction_dialog',
+  DISMISS_SEA_PEN_ERROR_ACTION = 'dismiss_sea_pen_error',
 }
 
 export type SeaPenActions = BeginSearchSeaPenThumbnailsAction|
     BeginLoadRecentSeaPenImagesAction|BeginLoadRecentSeaPenImageDataAction|
     BeginLoadSelectedRecentSeaPenImageAction|BeginSelectRecentSeaPenImageAction|
-    ClearSeaPenThumbnailsAction|EndSelectRecentSeaPenImageAction|
-    SetThumbnailResponseStatusCodeAction|SetSeaPenThumbnailsAction|
-    SetRecentSeaPenImagesAction|SetRecentSeaPenImageDataAction|
-    SetSelectedRecentSeaPenImageAction|BeginSelectSeaPenThumbnailAction|
-    EndSelectSeaPenThumbnailAction|
-    SetShouldShowSeaPenTermsOfServiceDialogAction;
+    ClearSeaPenThumbnailsAction|ClearSeaPenThumbnailsLoadingAction|
+    EndSelectRecentSeaPenImageAction|SetThumbnailResponseStatusCodeAction|
+    SetSeaPenThumbnailsAction|SetRecentSeaPenImagesAction|
+    SetRecentSeaPenImageDataAction|SetSelectedRecentSeaPenImageAction|
+    BeginSelectSeaPenThumbnailAction|EndSelectSeaPenThumbnailAction|
+    SetShouldShowSeaPenIntroductionDialogAction|DismissSeaPenErrorAction;
 
 export interface BeginSearchSeaPenThumbnailsAction extends Action {
   name: SeaPenActionName.BEGIN_SEARCH_SEA_PEN_THUMBNAILS;
@@ -250,20 +252,37 @@ export function clearSeaPenThumbnailsAction(): ClearSeaPenThumbnailsAction {
   return {name: SeaPenActionName.CLEAR_SEA_PEN_THUMBNAILS};
 }
 
-export interface SetShouldShowSeaPenTermsOfServiceDialogAction extends Action {
-  name: SeaPenActionName.SET_SHOULD_SHOW_SEA_PEN_TERMS_OF_SERVICE_DIALOG;
+export interface ClearSeaPenThumbnailsLoadingAction extends Action {
+  name: SeaPenActionName.CLEAR_SEA_PEN_THUMBNAILS_LOADING;
+}
+
+export function clearSeaPenThumbnailsLoadingAction():
+    ClearSeaPenThumbnailsLoadingAction {
+  return {name: SeaPenActionName.CLEAR_SEA_PEN_THUMBNAILS_LOADING};
+}
+
+export interface SetShouldShowSeaPenIntroductionDialogAction extends Action {
+  name: SeaPenActionName.SET_SHOULD_SHOW_SEA_PEN_INTRODUCTION_DIALOG;
   shouldShowDialog: boolean;
 }
 
 /**
- * Sets the boolean that determines whether to show the Sea Pen terms of service
+ * Sets the boolean that determines whether to show the Sea Pen introduction
  * dialog.
  */
-export function setShouldShowSeaPenTermsOfServiceDialogAction(
-    shouldShowDialog: boolean): SetShouldShowSeaPenTermsOfServiceDialogAction {
+export function setShouldShowSeaPenIntroductionDialogAction(
+    shouldShowDialog: boolean): SetShouldShowSeaPenIntroductionDialogAction {
   assert(typeof shouldShowDialog === 'boolean');
   return {
-    name: SeaPenActionName.SET_SHOULD_SHOW_SEA_PEN_TERMS_OF_SERVICE_DIALOG,
+    name: SeaPenActionName.SET_SHOULD_SHOW_SEA_PEN_INTRODUCTION_DIALOG,
     shouldShowDialog,
   };
+}
+
+export interface DismissSeaPenErrorAction extends Action {
+  name: SeaPenActionName.DISMISS_SEA_PEN_ERROR_ACTION;
+}
+
+export function dismissSeaPenErrorAction(): DismissSeaPenErrorAction {
+  return {name: SeaPenActionName.DISMISS_SEA_PEN_ERROR_ACTION};
 }

@@ -27,6 +27,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
+#include "cc/test/pixel_test_utils.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/browser/browser_url_handler_impl.h"
 #include "content/browser/child_process_security_policy_impl.h"
@@ -68,6 +69,7 @@
 #include "content/public/test/hit_test_region_observer.h"
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/no_renderer_crashes_assertion.h"
+#include "content/public/test/slow_http_response.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_navigation_throttle.h"
 #include "content/public/test/test_navigation_throttle_inserter.h"
@@ -78,6 +80,7 @@
 #include "content/test/content_browser_test_utils_internal.h"
 #include "content/test/did_commit_navigation_interceptor.h"
 #include "content/test/fake_network_url_loader_factory.h"
+#include "content/test/render_document_feature.h"
 #include "content/test/task_runner_deferring_throttle.h"
 #include "content/test/test_render_frame_host_factory.h"
 #include "ipc/ipc_security_test_util.h"
@@ -97,6 +100,7 @@
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
 #include "third_party/blink/public/mojom/frame/remote_frame.mojom-test-utils.h"
 #include "third_party/blink/public/mojom/frame/sudden_termination_disabler_type.mojom-shared.h"
+#include "third_party/blink/public/mojom/navigation/navigation_params.mojom-shared.h"
 #include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
@@ -6040,71 +6044,6 @@ IN_PROC_BROWSER_TEST_F(UndoCommitNavigationBrowserTest,
   EXPECT_EQ(final_url, results[1].url);
 }
 
-// Regression test for https://crbug.com/1223837. Previously, if a child frame
-// was in the middle of committing a navigation to a provisional frame in render
-// process B while render process A simultaneously detaches that child frame,
-// the detach message would never be received by render process B.
-IN_PROC_BROWSER_TEST_F(UndoCommitNavigationBrowserTest,
-                       DetachAfterCommitNavigationInSubFrame) {
-  ASSERT_TRUE(NavigateToURL(
-      shell(), embedded_test_server()->GetURL(
-                   "a.com", "/cross_site_iframe_factory.html?a(b,a)")));
-
-  WebContentsImpl* const web_contents =
-      static_cast<WebContentsImpl*>(shell()->web_contents());
-  FrameTreeNode* const first_subframe_node =
-      web_contents->GetPrimaryMainFrame()->child_at(0);
-  FrameTreeNode* const second_subframe_node =
-      web_contents->GetPrimaryMainFrame()->child_at(1);
-  RenderProcessHost* const b_com_render_process_host =
-      first_subframe_node->render_manager()->current_frame_host()->GetProcess();
-
-  // Start a navigation in the second child frame that will create a speculative
-  // RFH in the existing render process for b.com. The first child frame is
-  // already hosted in the render process for b.com: this is to ensure the
-  // render process remains live even after the second child frame is detached
-  // later in this test.
-  ASSERT_TRUE(BeginNavigateToURLFromRenderer(
-      second_subframe_node,
-      embedded_test_server()->GetURL("b.com", "/title1.html")));
-
-  // Ensure the speculative RFH is in the expected process.
-  RenderFrameHostImpl* speculative_render_frame_host =
-      second_subframe_node->render_manager()->speculative_frame_host();
-  ASSERT_TRUE(speculative_render_frame_host);
-  EXPECT_EQ(b_com_render_process_host,
-            speculative_render_frame_host->GetProcess());
-
-  // Pause (and ignore) the next `DidCommitProvisionalLoad()` for b.com.
-  CommitNavigationPauser commit_pauser(speculative_render_frame_host);
-  commit_pauser.WaitForCommitAndPause();
-
-  // At this point, the b.com renderer has already committed the RenderFrame,
-  // but on the browser side, the RenderFrameHost is still speculative.
-
-  // Intentionally do not wait for script completion here. This runs an event
-  // loop that pumps incoming messages, but IPCs from b.com would be processed
-  // out of order, since the `DidCommitProvisionalLoad()` attempt was previously
-  // paused above.
-  ExecuteScriptAsync(
-      web_contents,
-      JsReplace("document.querySelectorAll('iframe')[1].remove()"));
-
-  // However, since it's not possible to wait for `remove()` to take effect,
-  // the test must cheat a little and directly call the Mojo IPC that the JS
-  // above would eventually trigger.
-  second_subframe_node->render_manager()->current_frame_host()->Detach();
-
-  EXPECT_TRUE(WaitForLoadStop(web_contents));
-  // Validate that render process for b.com has handled the detach message for
-  // the provisional frame that was committing. Before the fix, the render
-  // process for b.com still had the proxy for the second child frame, because
-  // the browser process's request to delete it was sent via a broken message
-  // pipe. Thus, the frame tree in the render process for b.com incorrectly
-  // thought there were still two child frames.
-  EXPECT_EQ(1, EvalJs(first_subframe_node, "top.length"));
-}
-
 class ResumeCommitClosureSetWaiter {
  public:
   explicit ResumeCommitClosureSetWaiter(NavigationHandle* handle) {
@@ -6266,6 +6205,80 @@ class CommitNavigationRaceBrowserTest
  private:
   base::test::ScopedFeatureList feature_list_;
 };
+
+// Test for https://crbug.com/40187807 and https://crbug.com/332746903.
+//
+// Ensure that racing a navigation commit in a speculative/provisional child
+// frame in render process B with a detach IPC from render process A (i.e. the
+// child frame's parent is in render process A and has removed the frame owner
+// element—e.g. <iframe>—from the DOM) does not result in the detach IPC being
+// discarded and never received by render process B.
+IN_PROC_BROWSER_TEST_P(CommitNavigationRaceBrowserTest,
+                       DetachAfterCommitNavigationInSubFrame) {
+  ASSERT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL(
+                   "a.com", "/cross_site_iframe_factory.html?a(b,a)")));
+
+  WebContentsImpl* const web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+  FrameTreeNode* const first_subframe_node =
+      web_contents->GetPrimaryMainFrame()->child_at(0);
+  FrameTreeNode* const second_subframe_node =
+      web_contents->GetPrimaryMainFrame()->child_at(1);
+  RenderProcessHost* const b_com_render_process_host =
+      first_subframe_node->render_manager()->current_frame_host()->GetProcess();
+
+  // Start a navigation in the second child frame that will create a speculative
+  // RFH in the existing render process for b.com. The first child frame is
+  // already hosted in the render process for b.com: this is to ensure the
+  // render process remains live even after the second child frame is detached
+  // later in this test.
+  ASSERT_TRUE(BeginNavigateToURLFromRenderer(
+      second_subframe_node,
+      embedded_test_server()->GetURL("b.com", "/title1.html")));
+
+  // Ensure the speculative RFH is in the expected process.
+  RenderFrameHostImpl* speculative_render_frame_host =
+      second_subframe_node->render_manager()->speculative_frame_host();
+  ASSERT_TRUE(speculative_render_frame_host);
+  EXPECT_EQ(b_com_render_process_host,
+            speculative_render_frame_host->GetProcess());
+
+  // Pause (and ignore) the next `DidCommitProvisionalLoad()` for b.com.
+  CommitNavigationPauser commit_pauser(speculative_render_frame_host);
+  commit_pauser.WaitForCommitAndPause();
+
+  // At this point, the b.com renderer has already committed the RenderFrame,
+  // but on the browser side, the RenderFrameHost is still speculative.
+
+  // Intentionally do not wait for script completion here. This runs an event
+  // loop that pumps incoming messages, but IPCs from b.com would be processed
+  // out of order, since the `DidCommitProvisionalLoad()` attempt was previously
+  // paused above.
+  ExecuteScriptAsync(
+      web_contents,
+      JsReplace("document.querySelectorAll('iframe')[1].remove()"));
+
+  // However, since it's not possible to wait for `remove()` to take effect,
+  // the test must cheat a little and directly call the Mojo IPC that the JS
+  // above would eventually trigger.
+  second_subframe_node->render_manager()->current_frame_host()->Detach();
+
+  EXPECT_TRUE(WaitForLoadStop(web_contents));
+  // Validate that render process for b.com has handled the detach message for
+  // the provisional frame that was committing. Before the fix:
+  // - without navigation queueing, the render process for b.com still had the
+  //   proxy for the second child frame, because the browser process's request
+  //   to delete it was sent via a broken message pipe. Thus, the frame tree in
+  //   the render process for b.com incorrectly thought there were still two
+  //   child frames.
+  // - with navigation queueing, the render process for b.com has already
+  //   committed the navigation in the second child frame, so the renderer-side
+  //   proxy has already been destroyed and replaced. However, the browser
+  //   process has not heard about the commit yet and sends a detach to the
+  //   proxy, which the renderer ignores since it no longer exists.
+  EXPECT_EQ(1, EvalJs(first_subframe_node, "top.length"));
+}
 
 IN_PROC_BROWSER_TEST_P(CommitNavigationRaceBrowserTest,
                        BeginNewNavigationDuringCommitNavigationInMainFrame) {
@@ -8205,6 +8218,50 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, FixedStoragePartition) {
   EXPECT_TRUE(GetSiteInstance(shell)->IsFixedStoragePartition());
 }
 
+// Exercises the restored session history traversal code path which uses
+// RESTORE navigation types, rather than HISTORY_{SAME|DIFFERENT}_DOCUMENT,
+// which code might erroneously expect. See https://crbug.com/40068335.
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
+                       TraversingToRestoredEntryUsesRestoreType) {
+  ASSERT_TRUE(
+      web_contents()->GetController().GetActiveEntry()->IsInitialEntry());
+
+  const GURL url1(embedded_test_server()->GetURL("/title1.html"));
+  const GURL url2(embedded_test_server()->GetURL("/title2.html"));
+  const GURL url3(embedded_test_server()->GetURL("/title2.html#samedoc"));
+
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  EXPECT_TRUE(NavigateToURL(shell(), url2));
+  EXPECT_TRUE(NavigateToURL(shell(), url3));
+
+  // Clone the tab and load the page.
+  std::unique_ptr<WebContents> new_tab = shell()->web_contents()->Clone();
+  WebContentsImpl* new_tab_impl = static_cast<WebContentsImpl*>(new_tab.get());
+  NavigationController& new_controller = new_tab_impl->GetController();
+
+  {
+    TestNavigationObserver clone_observer(new_tab.get());
+    new_controller.LoadIfNecessary();
+    clone_observer.Wait();
+  }
+
+  // Back to url2 which is a same document navigation but uses RESTORE.
+  {
+    NavigationHandleCommitObserver observer(new_tab.get(), url2);
+    ASSERT_TRUE(HistoryGoBack(new_tab_impl));
+    EXPECT_EQ(observer.navigation_type(),
+              blink::mojom::NavigationType::RESTORE);
+  }
+
+  // Back to url1 which is a cross document navigation but uses RESTORE.
+  {
+    NavigationHandleCommitObserver observer(new_tab.get(), url1);
+    ASSERT_TRUE(HistoryGoBack(new_tab_impl));
+    EXPECT_EQ(observer.navigation_type(),
+              blink::mojom::NavigationType::RESTORE);
+  }
+}
+
 class NavigationBrowserTestDeprecateUnloadOptOut
     : public NavigationBrowserTest,
       public ::testing::WithParamInterface<bool> {
@@ -8323,5 +8380,185 @@ IN_PROC_BROWSER_TEST_F(NavigationWithPageSwapBrowserTest,
 
   ASSERT_TRUE(NavigateBack(new_tab_impl));
 }
+
+class NavigationBrowserTestPaintHoldingSubframe
+    : public NavigationBrowserTest,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  NavigationBrowserTestPaintHoldingSubframe() {
+    const bool enable_render_document = GetParam();
+    if (enable_render_document) {
+      InitAndEnableRenderDocumentFeature(
+          &render_document_feature_,
+          GetRenderDocumentLevelName(RenderDocumentLevel::kSubframe));
+    } else {
+      InitAndEnableRenderDocumentFeature(
+          &render_document_feature_,
+          GetRenderDocumentLevelName(RenderDocumentLevel::kCrashedFrame));
+    }
+
+    auto* command_line = base::CommandLine::ForCurrentProcess();
+
+    // This test requires cross-process iframes.
+    command_line->AppendSwitch(switches::kSitePerProcess);
+  }
+
+  void SetUp() override {
+    EnablePixelOutput();
+    NavigationBrowserTest::SetUp();
+  }
+
+  void SetUpOnMainThread() override {
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &NavigationBrowserTestPaintHoldingSubframe::HandleSlowStyleSheet,
+        base::Unretained(this)));
+    NavigationBrowserTest::SetUpOnMainThread();
+  }
+
+ protected:
+  void WaitForStylesheetRequest() {
+    if (start_response_) {
+      return;
+    }
+
+    base::RunLoop run_loop;
+    run_loop_ = &run_loop;
+    run_loop.Run();
+    run_loop_ = nullptr;
+  }
+
+  void FinishStylesheetRequest() {
+    std::move(start_response_).Run();
+    std::move(finish_response_).Run();
+  }
+
+  SkBitmap CopyView(RenderWidgetHostView* view) {
+    base::RunLoop run_loop;
+    run_loop_ = &run_loop;
+
+    constexpr gfx::Size kOutputSize(10, 10);
+    view->CopyFromSurface(
+        gfx::Rect(), kOutputSize,
+        base::BindOnce(&NavigationBrowserTestPaintHoldingSubframe::OnCopyDone,
+                       base::Unretained(this)));
+
+    run_loop.Run();
+    run_loop_ = nullptr;
+    return bitmap_;
+  }
+
+ private:
+  std::unique_ptr<net::test_server::HttpResponse> HandleSlowStyleSheet(
+      const net::test_server::HttpRequest& request) {
+    if (request.relative_url != "/slow-response") {
+      return nullptr;
+    }
+    return std::make_unique<SlowHttpResponse>(base::BindOnce(
+        &NavigationBrowserTestPaintHoldingSubframe::OnStylesheetRequest,
+        base::Unretained(this)));
+  }
+
+  void OnStylesheetRequest(base::OnceClosure start_response,
+                           base::OnceClosure finish_response) {
+    start_response_ = std::move(start_response);
+    finish_response_ = std::move(finish_response);
+
+    if (run_loop_) {
+      run_loop_->Quit();
+    }
+  }
+
+  void OnCopyDone(const SkBitmap& bitmap) {
+    bitmap_ = bitmap;
+    run_loop_->Quit();
+  }
+
+  SkBitmap bitmap_;
+  raw_ptr<base::RunLoop> run_loop_;
+  base::OnceClosure start_response_;
+  base::OnceClosure finish_response_;
+  base::test::ScopedFeatureList render_document_feature_;
+};
+
+IN_PROC_BROWSER_TEST_P(NavigationBrowserTestPaintHoldingSubframe, Basic) {
+  // TODO(khushalsagar): Enable for RenderDocument with the feature code.
+  const bool enable_render_document = GetParam();
+  if (enable_render_document) {
+    GTEST_SKIP();
+  }
+
+  auto* web_contents = shell()->web_contents();
+
+  GURL main_url(
+      embedded_test_server()->GetURL("/render-blocking-mainframe.html"));
+  ASSERT_TRUE(NavigateToURL(web_contents, main_url));
+
+  const std::string iframe_id = "iframe_id";
+
+  {
+    GURL subframe_url(embedded_test_server()->GetURL(
+        "a.com", "/render-blocking-subframe.html"));
+    const std::string kCreateIFrameWithID = R"(
+    const iframe = document.createElement("iframe");
+    iframe.id = $1;
+    document.body.appendChild(iframe);
+  )";
+    ASSERT_TRUE(ExecJs(web_contents->GetPrimaryMainFrame(),
+                       JsReplace(kCreateIFrameWithID, "iframe_id")));
+
+    TestNavigationObserver load_observer(web_contents);
+    ASSERT_TRUE(
+        BeginNavigateIframeToURL(web_contents, "iframe_id", subframe_url));
+    WaitForStylesheetRequest();
+    FinishStylesheetRequest();
+    load_observer.Wait();
+  }
+
+  // We should have a cross-process iframe which is a local root.
+  auto* subframe_rfh = static_cast<RenderFrameHostImpl*>(
+      ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+  ASSERT_TRUE(subframe_rfh);
+  ASSERT_TRUE(subframe_rfh->is_local_root());
+
+  // The frame is displaying blue.
+  WaitForCopyableViewInFrame(subframe_rfh);
+  auto bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorBLUE) << cc::GetPNGDataUrl(bitmap);
+
+  {
+    GURL subframe_url(embedded_test_server()->GetURL(
+        "a.com", "/render-blocking-subframe.html?red"));
+
+    TestNavigationObserver load_observer(web_contents);
+    ASSERT_TRUE(
+        BeginNavigateIframeToURL(web_contents, "iframe_id", subframe_url));
+    load_observer.WaitForNavigationFinished();
+    WaitForStylesheetRequest();
+
+    // The subframe RFH could have changed.
+    subframe_rfh = static_cast<RenderFrameHostImpl*>(
+        ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+    ASSERT_TRUE(subframe_rfh);
+    ASSERT_TRUE(subframe_rfh->is_local_root());
+  }
+
+  // The frame should continue to display blue from paint holding.
+  WaitForCopyableViewInWebContents(web_contents);
+  bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorBLUE);
+
+  // Respond to the stylesheet request which will resume rendering in the
+  // subframe.
+  FinishStylesheetRequest();
+
+  // Now the frame is displaying red.
+  WaitForCopyableViewInFrame(subframe_rfh);
+  bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorRED) << cc::GetPNGDataUrl(bitmap);
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         NavigationBrowserTestPaintHoldingSubframe,
+                         ::testing::Bool());
 
 }  // namespace content

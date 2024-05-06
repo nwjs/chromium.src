@@ -4,15 +4,17 @@
 
 #include "ui/views/win/hwnd_message_handler.h"
 
+#include <tchar.h>
+
 #include <dwmapi.h>
 #include <oleacc.h>
 #include <shellapi.h>
-#include <tchar.h>
 #include <wrl/client.h>
 
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/containers/heap_array.h"
 #include "base/debug/gdi_debug_util_win.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -33,11 +35,10 @@
 #include "services/tracing/public/cpp/perfetto/macros.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_window_handle_event_info.pbzero.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/platform/ax_fragment_root_win.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/accessibility/platform/ax_platform_node_win.h"
 #include "ui/accessibility/platform/ax_system_caret_win.h"
-#include "ui/base/ime/init/input_method_initializer.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/ui_base_features.h"
@@ -1383,7 +1384,7 @@ void HWNDMessageHandler::InitExtras() {
   // then ask element B for its fragment root, without having sent WM_GETOBJECT
   // to element B's window.
   // So we create the fragment root now to ensure it's ready if asked for.
-  if (::features::IsUiaProviderEnabled()) {
+  if (::ui::AXPlatform::GetInstance().IsUiaProviderEnabled()) {
     ax_fragment_root_ = std::make_unique<ui::AXFragmentRootWin>(hwnd(), this);
   }
 
@@ -1881,15 +1882,6 @@ LRESULT HWNDMessageHandler::OnDpiChanged(UINT msg,
   display::win::ScreenWin::UpdateDisplayInfos();
   SetBoundsInternal(gfx::Rect(*reinterpret_cast<RECT*>(l_param)), false);
   delegate_->HandleWindowScaleFactorChanged(scaling_factor);
-
-  // https://crbug.com/41486958
-  // On Windows, TSF will hang the browser window and stuck KEYBOARD and MOUSE
-  // window messages when user is using a non-English IME (Chinese: Microsoft
-  // Pinyin, etc..) and try typing on any textarea after a DPI change when
-  // window is minimized. This hacky workaround fix that problem, as same
-  // reproduce procedure no longer triggers the hang.
-  ui::RestartInputMethod();
-
   return 0;
 }
 
@@ -1987,7 +1979,8 @@ LRESULT HWNDMessageHandler::OnGetObject(UINT message,
       delegate_->GetNativeViewAccessible()) {
     // Expose either the UIA or the MSAA implementation, but not both, depending
     // on the state of the feature flag.
-    if (is_uia_request && ::features::IsUiaProviderEnabled()) {
+    if (is_uia_request &&
+        ::ui::AXPlatform::GetInstance().IsUiaProviderEnabled()) {
       // Retrieve UIA object for the root view.
       Microsoft::WRL::ComPtr<IRawElementProviderSimple> root;
       ax_fragment_root_->GetNativeViewAccessible()->QueryInterface(
@@ -2841,9 +2834,10 @@ LRESULT HWNDMessageHandler::OnTouchEvent(UINT message,
 
   // Handle touch events only on Aura for now.
   WORD num_points = LOWORD(w_param);
-  std::unique_ptr<TOUCHINPUT[]> input(new TOUCHINPUT[num_points]);
+  base::HeapArray<TOUCHINPUT> input =
+      base::HeapArray<TOUCHINPUT>::WithSize(num_points);
   if (ui::GetTouchInputInfoWrapper(reinterpret_cast<HTOUCHINPUT>(l_param),
-                                   num_points, input.get(),
+                                   num_points, input.data(),
                                    sizeof(TOUCHINPUT))) {
     // input[i].dwTime doesn't necessarily relate to the system time at all,
     // so use base::TimeTicks::Now().

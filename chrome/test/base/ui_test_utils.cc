@@ -90,6 +90,7 @@
 #endif
 
 #if defined(TOOLKIT_VIEWS)
+#include "ui/views/test/widget_test_api.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #endif
@@ -292,8 +293,10 @@ NavigateToURLWithDispositionBlockUntilNavigationsComplete(
 
   AllBrowserTabAddedWaiter tab_added_waiter;
 
-  WebContents* web_contents = browser->OpenURL(OpenURLParams(
-      url, Referrer(), disposition, ui::PAGE_TRANSITION_TYPED, false));
+  WebContents* web_contents =
+      browser->OpenURL(OpenURLParams(url, Referrer(), disposition,
+                                     ui::PAGE_TRANSITION_TYPED, false),
+                       /*navigation_handle_callback=*/{});
   if (browser_test_flags & BROWSER_TEST_WAIT_FOR_BROWSER)
     browser = WaitForBrowserNotInSet(initial_browsers);
   if (browser_test_flags & BROWSER_TEST_WAIT_FOR_TAB)
@@ -485,14 +488,37 @@ bool WaitForMinimized(Browser* browser) {
   return minimize_waiter.Wait();
 }
 
+bool WaitForMaximized(Browser* browser) {
+  views::test::PropertyWaiter maximize_waiter(
+      base::BindRepeating(&BrowserWindow::IsMaximized,
+                          base::Unretained(browser->window())),
+      true);
+  return maximize_waiter.Wait();
+}
+
+views::AsyncWidgetRequestWaiter CreateAsyncWidgetRequestWaiter(
+    Browser& browser) {
+  auto* widget = views::Widget::GetWidgetForNativeWindow(
+      browser.window()->GetNativeWindow());
+  CHECK(widget);
+  return views::AsyncWidgetRequestWaiter(*widget);
+}
+
+void SetAndWaitForBounds(Browser& browser, const gfx::Rect& bounds) {
+  auto waiter = CreateAsyncWidgetRequestWaiter(browser);
+  auto* window = browser.window();
+  window->SetBounds(bounds);
+  waiter.Wait();
+}
+
 FullscreenWaiter::FullscreenWaiter(Browser* browser,
                                    FullscreenWaiter::Expectation expectation)
     : expectation_(std::move(expectation)),
       controller_(browser->exclusive_access_manager()->fullscreen_controller()),
       // Sometimes, the wait is called on a sequeunce, e.g.
       // as a part of interactive_ui_tests's RunTestSequence.
-      // To handle that case, we can process pending task posted to the sequence
-      // in nested RunLoop.
+      // To handle that case, we can process pending task posted to the
+      // sequence in nested RunLoop.
       run_loop_(base::RunLoop::Type::kNestableTasksAllowed),
       satisfied_(IsSatisfied()) {
   observation_.Observe(controller_);

@@ -220,7 +220,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
     return nil;
   }
 
-  if (selectedCell.itemIdentifier == _selectedItemID) {
+  if (selectedCell.pinnedItemIdentifier == _selectedItemID) {
     UICollectionViewLayoutAttributes* attributes = [self.collectionView
         layoutAttributesForItemAtIndexPath:selectedItemIndexPath];
     // Normalize frame to window coordinates. The attributes class applies this
@@ -235,7 +235,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
                                                          size:attributes.size];
     // If the active item is the last inserted item, it needs to be animated
     // differently.
-    if (selectedCell.itemIdentifier == _lastInsertedItemID) {
+    if (selectedCell.pinnedItemIdentifier == _lastInsertedItemID) {
       activeItem.isAppearing = YES;
     }
 
@@ -401,8 +401,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   __weak __typeof(self) weakSelf = self;
   ProceduralBlock collectionViewUpdatesCompletion = ^{
     [weakSelf updateCollectionViewAfterMovingItemToIndex:toIndex];
-    [weakSelf.delegate pinnedTabsViewController:weakSelf
-                              didMoveItemWithID:itemID];
+    [weakSelf.delegate pinnedTabsViewControllerDidMoveItem:weakSelf];
   };
 
   [self.collectionView
@@ -498,8 +497,8 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   [self.dragDropHandler dragWillBeginForItem:_draggedItem];
   _dragEndAtNewIndex = NO;
   _localDragActionInProgress = YES;
-  base::UmaHistogramEnumeration(kUmaPinnedViewDragDropTabs,
-                                DragDropTabs::kDragBegin);
+  base::UmaHistogramEnumeration(kUmaPinnedViewDragDropTabsEvent,
+                                DragDropItem::kDragBegin);
   [self.delegate pinnedViewControllerDragSessionWillBegin:self];
   [self dragSessionEnabled:YES];
 }
@@ -507,15 +506,15 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 - (void)collectionView:(UICollectionView*)collectionView
      dragSessionDidEnd:(id<UIDragSession>)session {
   _localDragActionInProgress = NO;
-  DragDropTabs dragEvent = _dragEndAtNewIndex
-                               ? DragDropTabs::kDragEndAtNewIndex
-                               : DragDropTabs::kDragEndAtSameIndex;
+  DragDropItem dragEvent = _dragEndAtNewIndex
+                               ? DragDropItem::kDragEndAtNewIndex
+                               : DragDropItem::kDragEndAtSameIndex;
   // If a drop animation is in progress and the drag didn't end at a new index,
   // that means the item has been dropped outside of its collection view.
   if (_dropAnimationInProgress && !_dragEndAtNewIndex) {
-    dragEvent = DragDropTabs::kDragEndInOtherCollection;
+    dragEvent = DragDropItem::kDragEndInOtherCollection;
   }
-  base::UmaHistogramEnumeration(kUmaPinnedViewDragDropTabs, dragEvent);
+  base::UmaHistogramEnumeration(kUmaPinnedViewDragDropTabsEvent, dragEvent);
 
   [self.dragDropHandler dragSessionDidEnd];
   [self.delegate pinnedViewControllerDragSessionDidEnd:self];
@@ -853,34 +852,34 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 - (void)configureCell:(PinnedCell*)cell withItem:(TabSwitcherItem*)item {
   CHECK(cell);
   if (item) {
-    cell.itemIdentifier = item.identifier;
+    cell.pinnedItemIdentifier = item.identifier;
     cell.title = item.title;
     [item fetchFavicon:^(TabSwitcherItem* innerItem, UIImage* icon) {
       // Only update the icon if the cell is not already reused for another
       // item.
-      if (cell.itemIdentifier == innerItem.identifier) {
+      if (cell.pinnedItemIdentifier == innerItem.identifier) {
         cell.icon = icon;
       }
     }];
     [item fetchSnapshot:^(TabSwitcherItem* innerItem, UIImage* snapshot) {
       // Only update the icon if the cell is not already reused for another
       // item.
-      if (cell.itemIdentifier == innerItem.identifier) {
+      if (cell.pinnedItemIdentifier == innerItem.identifier) {
         cell.snapshot = snapshot;
       }
     }];
   }
 
-  cell.accessibilityIdentifier =
-      [NSString stringWithFormat:@"%@%ld", kPinnedCellIdentifier,
-                                 [self indexOfItemWithID:cell.itemIdentifier]];
+  cell.accessibilityIdentifier = [NSString
+      stringWithFormat:@"%@%ld", kPinnedCellIdentifier,
+                       [self indexOfItemWithID:cell.pinnedItemIdentifier]];
 
   if (item.showsActivity) {
     [cell showActivityIndicator];
   } else {
     [cell hideActivityIndicator];
   }
-  if (_contentAppeared && cell.itemIdentifier == _lastInsertedItemID) {
+  if (_contentAppeared && cell.pinnedItemIdentifier == _lastInsertedItemID) {
     cell.hidden = YES;
   }
 }

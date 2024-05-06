@@ -6,7 +6,6 @@
 
 #import <memory>
 
-#import "base/feature_list.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/histogram_macros.h"
@@ -16,7 +15,6 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
-#import "components/sync/base/features.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/discover_feed/model/feed_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -119,6 +117,11 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::ACCESS_POINT_TIPS_NOTIFICATION:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE:
+    case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return false;
   }
@@ -204,6 +207,11 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_TIPS_NOTIFICATION:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE:
+    case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -291,6 +299,11 @@ void RecordImpressionsTilDismissHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_TIPS_NOTIFICATION:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE:
+    case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -378,6 +391,11 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_TIPS_NOTIFICATION:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE:
+    case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -454,6 +472,11 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_TIPS_NOTIFICATION:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE:
+    case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return nullptr;
   }
@@ -528,6 +551,11 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_TIPS_NOTIFICATION:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE:
+    case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return nullptr;
   }
@@ -550,7 +578,6 @@ const char* AlreadySeenSigninViewPreferenceKey(
       }
       break;
     }
-    case SigninPromoAction::kSync:
     case SigninPromoAction::kSigninSheet:
     case SigninPromoAction::kInstantSignin:
     case SigninPromoAction::kSigninWithNoDefaultIdentity:
@@ -730,6 +757,8 @@ id<SystemIdentity> GetDisplayedIdentity(
     _prefService = prefService;
     _syncService = syncService;
     _accessPoint = accessPoint;
+    _signinPromoViewState = SigninPromoViewState::kNeverVisible;
+    _signinPromoAction = SigninPromoAction::kInstantSignin;
     _dataTypeToWaitForInitialSync = syncer::ModelType::UNSPECIFIED;
     _signinPresenter = signinPresenter;
     _accountSettingsPresenter = accountSettingsPresenter;
@@ -781,7 +810,6 @@ id<SystemIdentity> GetDisplayedIdentity(
                          hasCloseButton:hasCloseButton
                        hasSignInSpinner:self.showSpinner];
     switch (self.signinPromoAction) {
-      case SigninPromoAction::kSync:
       case SigninPromoAction::kSigninSheet:
       case SigninPromoAction::kInstantSignin:
       case SigninPromoAction::kSigninWithNoDefaultIdentity:
@@ -811,7 +839,6 @@ id<SystemIdentity> GetDisplayedIdentity(
                        hasCloseButton:hasCloseButton
                      hasSignInSpinner:self.showSpinner];
   switch (self.signinPromoAction) {
-    case SigninPromoAction::kSync:
     case SigninPromoAction::kReviewAccountSettings:
       break;
     case SigninPromoAction::kSigninSheet:
@@ -846,7 +873,6 @@ id<SystemIdentity> GetDisplayedIdentity(
       }
       // This action should not contribute to the DisplayedCount pref.
       return;
-    case SigninPromoAction::kSync:
     case SigninPromoAction::kSigninSheet:
     case SigninPromoAction::kInstantSignin:
     case SigninPromoAction::kSigninWithNoDefaultIdentity:
@@ -1069,7 +1095,6 @@ id<SystemIdentity> GetDisplayedIdentity(
   switch (self.signinPromoAction) {
     case SigninPromoAction::kReviewAccountSettings:
       return;
-    case SigninPromoAction::kSync:
     case SigninPromoAction::kSigninSheet:
     case SigninPromoAction::kInstantSignin:
     case SigninPromoAction::kSigninWithNoDefaultIdentity:
@@ -1153,11 +1178,6 @@ id<SystemIdentity> GetDisplayedIdentity(
                          operation:AuthenticationOperation::kInstantSignin
                        promoAction:promoAction];
       return;
-    case SigninPromoAction::kSync:
-      [self showSigninWithIdentity:nil
-                         operation:AuthenticationOperation::kSigninAndSync
-                       promoAction:promoAction];
-      return;
     case SigninPromoAction::kSigninSheet:
       [self showSigninWithIdentity:nil
                          operation:AuthenticationOperation::kSigninOnly
@@ -1181,13 +1201,6 @@ id<SystemIdentity> GetDisplayedIdentity(
       [self sendImpressionsTillSigninButtonsHistogram];
       [self showSigninWithIdentity:self.displayedIdentity
                          operation:AuthenticationOperation::kInstantSignin
-                       promoAction:signin_metrics::PromoAction::
-                                       PROMO_ACTION_WITH_DEFAULT];
-      return;
-    case SigninPromoAction::kSync:
-      [self sendImpressionsTillSigninButtonsHistogram];
-      [self showSigninWithIdentity:self.displayedIdentity
-                         operation:AuthenticationOperation::kSigninAndSync
                        promoAction:signin_metrics::PromoAction::
                                        PROMO_ACTION_WITH_DEFAULT];
       return;
@@ -1231,12 +1244,6 @@ id<SystemIdentity> GetDisplayedIdentity(
                        promoAction:signin_metrics::PromoAction::
                                        PROMO_ACTION_NOT_DEFAULT];
       return;
-    case SigninPromoAction::kSync:
-      [self showSigninWithIdentity:nil
-                         operation:AuthenticationOperation::kSigninAndSync
-                       promoAction:signin_metrics::PromoAction::
-                                       PROMO_ACTION_NOT_DEFAULT];
-      return;
     case SigninPromoAction::kSigninSheet:
       [self showSigninWithIdentity:nil
                          operation:AuthenticationOperation::kSigninOnly
@@ -1276,7 +1283,6 @@ id<SystemIdentity> GetDisplayedIdentity(
       // This promo action should not contribute to the displayed count of the
       // sign-in actions.
       break;
-    case SigninPromoAction::kSync:
     case SigninPromoAction::kSigninSheet:
     case SigninPromoAction::kInstantSignin:
     case SigninPromoAction::kSigninWithNoDefaultIdentity:

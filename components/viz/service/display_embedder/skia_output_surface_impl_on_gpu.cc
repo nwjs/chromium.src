@@ -467,8 +467,7 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame(
     std::vector<raw_ptr<ImageContextImpl, VectorExperimental>> image_contexts,
     std::vector<gpu::SyncToken> sync_tokens,
     base::OnceClosure on_finished,
-    base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb,
-    std::optional<gfx::Rect> draw_rectangle) {
+    base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb) {
   TRACE_EVENT0("viz", "SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame");
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(!scoped_output_device_paint_);
@@ -480,14 +479,6 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame(
   if (!ddl && !graphite_recording) {
     MarkContextLost(CONTEXT_LOST_UNKNOWN);
     return;
-  }
-
-  if (draw_rectangle) {
-    if (!output_device_->SetDrawRectangle(*draw_rectangle)) {
-      MarkContextLost(
-          ContextLostReason::CONTEXT_LOST_SET_DRAW_RECTANGLE_FAILED);
-      return;
-    }
   }
 
   // We do not reset scoped_output_device_paint_ after drawing the ddl until
@@ -1800,7 +1791,7 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutput(
     std::unique_ptr<CopyOutputRequest> request,
     const gpu::Mailbox& mailbox) {
   TRACE_EVENT0("viz", "SkiaOutputSurfaceImplOnGpu::CopyOutput");
-  // TODO(https://crbug.com/898595): Do this on the GPU instead of CPU with
+  // TODO(crbug.com/41422493): Do this on the GPU instead of CPU with
   // Vulkan.
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
@@ -1830,7 +1821,7 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutput(
       DCHECK(backing_representation);
 
       SkSurfaceProps surface_props;
-      // TODO(https://crbug.com/1226672): Use BeginScopedReadAccess instead
+      // TODO(crbug.com/40776586): Use BeginScopedReadAccess instead
       scoped_access = backing_representation->BeginScopedWriteAccess(
           /*final_msaa_count=*/1, surface_props, &begin_semaphores,
           &end_semaphores,
@@ -2041,13 +2032,6 @@ void SkiaOutputSurfaceImplOnGpu::ReleaseImageContexts(
 void SkiaOutputSurfaceImplOnGpu::ScheduleOverlays(
     SkiaOutputSurface::OverlayList overlays) {
   overlays_ = std::move(overlays);
-}
-
-void SkiaOutputSurfaceImplOnGpu::SetEnableDCLayers(bool enable) {
-  if (context_is_lost_) {
-    return;
-  }
-  output_device_->SetEnableDCLayers(enable);
 }
 
 void SkiaOutputSurfaceImplOnGpu::SetVSyncDisplayID(int64_t display_id) {
@@ -2320,6 +2304,7 @@ bool SkiaOutputSurfaceImplOnGpu::InitializeForDawn() {
 #elif BUILDFLAG(IS_WIN)
   presenter_ = dependency_->CreatePresenter();
   if (presenter_) {
+    AddChildWindowToBrowser(presenter_->GetWindow());
     output_device_ = std::make_unique<SkiaOutputDeviceDComp>(
         dependency_, shared_image_factory_.get(),
         shared_image_representation_factory_.get(), context_state_.get(),
@@ -2465,12 +2450,6 @@ void SkiaOutputSurfaceImplOnGpu::SwapBuffersInternal(
   }
 
   if (frame) {
-    if (gl_surface_) {
-      if (frame->delegated_ink_metadata) {
-        gl_surface_->SetDelegatedInkTrailStartPoint(
-            std::move(frame->delegated_ink_metadata));
-      }
-    }
     if (presenter_) {
       presenter_->SetChoreographerVsyncIdForNextFrame(
           frame->choreographer_vsync_id);
@@ -2737,16 +2716,12 @@ void SkiaOutputSurfaceImplOnGpu::PreserveChildSurfaceControls() {
 void SkiaOutputSurfaceImplOnGpu::InitDelegatedInkPointRendererReceiver(
     mojo::PendingReceiver<gfx::mojom::DelegatedInkPointRenderer>
         pending_receiver) {
-  if (gl_surface_) {
-    DCHECK(!presenter_);
-    gl_surface_->InitDelegatedInkPointRendererReceiver(
-        std::move(pending_receiver));
-  } else if (presenter_) {
 #if BUILDFLAG(IS_WIN)
+  if (presenter_) {
     presenter_->InitDelegatedInkPointRendererReceiver(
         std::move(pending_receiver));
-#endif
   }
+#endif
 }
 
 const scoped_refptr<AsyncReadResultLock>
@@ -2884,7 +2859,8 @@ void SkiaOutputSurfaceImplOnGpu::CreateSolidColorSharedImage(
   auto pixel_span = base::make_span(
       reinterpret_cast<const uint8_t*>(&premul_bytes), sizeof(uint32_t));
 
-  // TODO(crbug.com/1360538) Some work is needed to properly support F16 format.
+  // TODO(crbug.com/40237688) Some work is needed to properly support F16
+  // format.
   shared_image_factory_->CreateSharedImage(
       mailbox, solid_color_image_format_, size, color_space,
       kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
@@ -2958,6 +2934,10 @@ void SkiaOutputSurfaceImplOnGpu::DetileOverlay(
     const gfx::RectF& display_rect,
     const gfx::RectF& crop_rect,
     gfx::OverlayTransform transform) {
+  if (!vulkan_image_processor_) {
+    vulkan_image_processor_ = media::VulkanImageProcessor::Create();
+  }
+
   // Note that we don't want to get the device queue from the
   // VulkanContextProvider because we actually need a special protected device
   // queue.
@@ -2991,6 +2971,10 @@ void SkiaOutputSurfaceImplOnGpu::DetileOverlay(
   }
 
   output_representation->SetCleared();
+}
+
+void SkiaOutputSurfaceImplOnGpu::CleanupImageProcessor() {
+  vulkan_image_processor_ = nullptr;
 }
 #endif
 

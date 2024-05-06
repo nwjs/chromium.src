@@ -207,6 +207,8 @@ class ExtensionBackForwardCacheBrowserTest
   base::test::ScopedFeatureList feature_list_;
 };
 
+// These tests use chrome.tabs.executeScript, so the SW versions of the tests
+// must still be run with MV2. See crbug.com/332328868.
 INSTANTIATE_TEST_SUITE_P(EventPageAndFalse,
                          ExtensionBackForwardCacheBrowserTest,
                          ::testing::Values(TestParams{
@@ -216,7 +218,7 @@ INSTANTIATE_TEST_SUITE_P(ServiceWorkerAndFalse,
                          ExtensionBackForwardCacheBrowserTest,
                          ::testing::Values(TestParams{
                              .enable_disconnect_message_port_on_bfcache = false,
-                             .context_type = ContextType::kServiceWorker}));
+                             .context_type = ContextType::kServiceWorkerMV2}));
 INSTANTIATE_TEST_SUITE_P(EventPageAndTrue,
                          ExtensionBackForwardCacheBrowserTest,
                          ::testing::Values(TestParams{
@@ -226,7 +228,7 @@ INSTANTIATE_TEST_SUITE_P(ServiceWorkerAndTrue,
                          ExtensionBackForwardCacheBrowserTest,
                          ::testing::Values(TestParams{
                              .enable_disconnect_message_port_on_bfcache = true,
-                             .context_type = ContextType::kServiceWorker}));
+                             .context_type = ContextType::kServiceWorkerMV2}));
 
 IN_PROC_BROWSER_TEST_P(ExtensionBackForwardCacheBrowserTest, ScriptAllowed) {
   ASSERT_TRUE(LoadExtension(test_data_dir_.AppendASCII("back_forward_cache")
@@ -997,7 +999,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionBackForwardCacheBrowserTest,
                 base::StringPrintf(kScript, iframe_frame_tree_node_id)));
 }
 
-// TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
+// TODO(crbug.com/40834769): WebSQL does not work on Fuchsia.
 #if BUILDFLAG(IS_FUCHSIA)
 #define MAYBE_StorageCallbackEvicts DISABLED_StorageCallbackEvicts
 #else

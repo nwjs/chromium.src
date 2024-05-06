@@ -5,7 +5,9 @@
 #include "chrome/browser/devtools/chrome_devtools_session.h"
 
 #include <memory>
+#include <string_view>
 #include <type_traits>
+
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/strings/string_number_conversions.h"
@@ -15,6 +17,7 @@
 #include "chrome/browser/devtools/protocol/cast_handler.h"
 #include "chrome/browser/devtools/protocol/emulation_handler.h"
 #include "chrome/browser/devtools/protocol/page_handler.h"
+#include "chrome/browser/devtools/protocol/pwa_handler.h"
 #include "chrome/browser/devtools/protocol/security_handler.h"
 #include "chrome/browser/devtools/protocol/storage_handler.h"
 #include "chrome/browser/devtools/protocol/system_info_handler.h"
@@ -95,6 +98,14 @@ ChromeDevToolsSession::ChromeDevToolsSession(
       channel->GetClient()->IsTrusted()) {
     system_info_handler_ = std::make_unique<SystemInfoHandler>(&dispatcher_);
   }
+  if (agent_host->GetType() == content::DevToolsAgentHost::kTypeBrowser &&
+      channel->GetClient()->AllowUnsafeOperations()) {
+    if (IsDomainAvailableToUntrustedClient<PWAHandler>() ||
+        channel->GetClient()->IsTrusted()) {
+      pwa_handler_ =
+          std::make_unique<PWAHandler>(&dispatcher_, agent_host->GetId());
+    }
+  }
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   window_manager_handler_ =
       std::make_unique<WindowManagerHandler>(&dispatcher_);
@@ -104,7 +115,7 @@ ChromeDevToolsSession::ChromeDevToolsSession(
 ChromeDevToolsSession::~ChromeDevToolsSession() = default;
 
 base::HistogramBase::Sample GetCommandUmaId(
-    const base::StringPiece command_name) {
+    const std::string_view command_name) {
   return static_cast<base::HistogramBase::Sample>(
       base::HashMetricName(command_name));
 }
@@ -117,7 +128,7 @@ void ChromeDevToolsSession::HandleCommand(
   crdtp::UberDispatcher::DispatchResult dispatched =
       dispatcher_.Dispatch(dispatchable);
 
-  auto command_uma_id = GetCommandUmaId(base::StringPiece(
+  auto command_uma_id = GetCommandUmaId(std::string_view(
       reinterpret_cast<const char*>(dispatchable.Method().begin()),
       dispatchable.Method().size()));
   std::string client_type = client_channel_->GetClient()->GetTypeForMetrics();

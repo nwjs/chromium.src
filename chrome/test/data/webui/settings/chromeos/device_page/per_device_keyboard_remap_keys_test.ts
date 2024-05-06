@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {FakeInputDeviceSettingsProvider, fakeKeyboards, Keyboard, KeyboardRemapModifierKeyRowElement, MetaKey, ModifierKey, Router, routes, setInputDeviceSettingsProviderForTesting, SettingsPerDeviceKeyboardRemapKeysElement} from 'chrome://os-settings/os_settings.js';
+import {FakeInputDeviceSettingsProvider, fakeKeyboards, FkeyRowElement, Keyboard, KeyboardRemapModifierKeyRowElement, KeyboardSixPackKeyRowElement, MetaKey, ModifierKey, Router, routes, setInputDeviceSettingsProviderForTesting, SettingsPerDeviceKeyboardRemapKeysElement} from 'chrome://os-settings/os_settings.js';
 import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -17,7 +17,8 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
     page.remove();
   });
 
-  async function initializePerDeviceKeyboardRemapKeys(): Promise<void> {
+  async function initializePerDeviceKeyboardRemapKeys(keyboardIndex: number):
+      Promise<void> {
     provider = new FakeInputDeviceSettingsProvider();
     provider.setFakeKeyboards(fakeKeyboards);
     setInputDeviceSettingsProviderForTesting(provider);
@@ -27,13 +28,20 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
     // Set the current route with keyboardId as search param and notify
     // the observer to update keyboard settings.
     const url = new URLSearchParams(
-        'keyboardId=' + encodeURIComponent(fakeKeyboards[0]!.id));
+        'keyboardId=' + encodeURIComponent(fakeKeyboards[keyboardIndex]!.id));
     await Router.getInstance().setCurrentRoute(
         routes.PER_DEVICE_KEYBOARD_REMAP_KEYS,
         /* dynamicParams= */ url, /* removeSearch= */ true);
 
     document.body.appendChild(page);
     provider.observeKeyboardSettings(page);
+    return flushTasks();
+  }
+
+  async function setModifierSplitEnabled(isEnabled: boolean): Promise<void> {
+    loadTimeData.overrideValues({
+      enableModifierSplit: isEnabled,
+    });
     return flushTasks();
   }
 
@@ -67,14 +75,155 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
     assertEquals(ModifierKey.kCapsLock, page.get('fakeCapsLockPref.value'));
     assertEquals(ctrlDefaultMapping, page.get('fakeCtrlPref.value'));
     assertEquals(ModifierKey.kEscape, page.get('fakeEscPref.value'));
+    assertEquals(ModifierKey.kRightAlt, page.get('fakeRightAltPref.value'));
+    assertEquals(ModifierKey.kFunction, page.get('fakeFunctionPref.value'));
     assertEquals(metaDefaultMapping, page.get('fakeMetaPref.value'));
   }
+
+  /**
+   * Verify that the f11 and f12 key rows are hidden in the remap subpage when
+   * keyboard has function key as a modifier key.
+   */
+  test('hide f11 and f12 key row', async () => {
+    await initializePerDeviceKeyboardRemapKeys(4);
+
+    const f11KeyRow = page.shadowRoot!.querySelector<FkeyRowElement>('#f11');
+    const f12KeyRow = page.shadowRoot!.querySelector<FkeyRowElement>('#f12');
+    assertFalse(isVisible(f11KeyRow));
+    assertFalse(isVisible(f12KeyRow));
+
+    // Initialize a keyboard without function key as a modifier key.
+    await initializePerDeviceKeyboardRemapKeys(1);
+
+    const updatedF11KeyRow =
+        page.shadowRoot!.querySelector<FkeyRowElement>('#f11');
+    const updatedF12KeyRow =
+        page.shadowRoot!.querySelector<FkeyRowElement>('#f12');
+    assertTrue(isVisible(updatedF11KeyRow));
+    assertTrue(isVisible(updatedF12KeyRow));
+  });
+
+  /**
+   * Verify that the other keys header and six pack key rows are hidden in the
+   * remap subpage when keyboard has function key as a modifier key.
+   */
+  test('hide other keys header and six pack key rows', async () => {
+    await initializePerDeviceKeyboardRemapKeys(4);
+
+    const otherKeysHeader =
+        page.shadowRoot!.querySelector<HTMLHeadingElement>('#otherKeysHeader');
+    const delRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#del');
+    const pageDownRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>(
+            '#pageDown');
+    const pageUpRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#pageUp');
+    const endRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#end');
+    const homeRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#home');
+    const insertRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#insert');
+    assertFalse(isVisible(otherKeysHeader));
+    assertFalse(isVisible(delRow));
+    assertFalse(isVisible(pageDownRow));
+    assertFalse(isVisible(pageUpRow));
+    assertFalse(isVisible(endRow));
+    assertFalse(isVisible(homeRow));
+    assertFalse(isVisible(insertRow));
+
+    // Initialize a keyboard without function key as a modifier key.
+    await initializePerDeviceKeyboardRemapKeys(1);
+
+    const updatedOtherKeysHeader =
+        page.shadowRoot!.querySelector<HTMLHeadingElement>('#otherKeysHeader');
+    const updatedDelRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#del');
+    const updatedPageDownRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>(
+            '#pageDown');
+    const updatedPageUpRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#pageUp');
+    const updatedEndRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#end');
+    const updatedHomeRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#home');
+    const updatedInsertRow =
+        page.shadowRoot!.querySelector<KeyboardSixPackKeyRowElement>('#insert');
+    assertTrue(isVisible(updatedOtherKeysHeader));
+    assertTrue(isVisible(updatedDelRow));
+    assertTrue(isVisible(updatedPageDownRow));
+    assertTrue(isVisible(updatedPageUpRow));
+    assertTrue(isVisible(updatedEndRow));
+    assertTrue(isVisible(updatedHomeRow));
+    assertTrue(isVisible(updatedInsertRow));
+  });
+
+  /**
+   * Verify that the function key row is shown in the remap subpage when
+   * keyboard has function key as a modifier key.
+   */
+
+  test('show function key row if has function key', async () => {
+    await initializePerDeviceKeyboardRemapKeys(4);
+
+    assertEquals(ModifierKey.kFunction, page.get('fakeFunctionPref.value'));
+    const functionKeyRow =
+        page.shadowRoot!.querySelector<KeyboardRemapModifierKeyRowElement>(
+            '#functionKey');
+    assert(functionKeyRow);
+    assertEquals('function', functionKeyRow.get('keyLabel'));
+    const functionKeyDropdown =
+        functionKeyRow.shadowRoot!.querySelector('#keyDropdown');
+    assert(functionKeyDropdown);
+    assertEquals(
+        ModifierKey.kFunction.toString(),
+        functionKeyDropdown.shadowRoot!.querySelector('select')!.value);
+
+    await initializePerDeviceKeyboardRemapKeys(0);
+
+    const updatedFunctionRow =
+        page.shadowRoot!.querySelector<KeyboardRemapModifierKeyRowElement>(
+            '#functionKey');
+    assertFalse(isVisible(updatedFunctionRow));
+  });
+
+  /**
+   * Verify that the right alt row is shown in the remap subpage when modifier
+   * split feature flag is on.
+   */
+
+  test('show right alt row with modifier split on', async () => {
+    await setModifierSplitEnabled(true);
+    await initializePerDeviceKeyboardRemapKeys(4);
+
+    assertEquals(ModifierKey.kRightAlt, page.get('fakeRightAltPref.value'));
+    const rightAltKeyRow =
+        page.shadowRoot!.querySelector<KeyboardRemapModifierKeyRowElement>(
+            '#rightAltKey');
+    assert(rightAltKeyRow);
+    assertEquals('right alt', rightAltKeyRow.get('keyLabel'));
+    const rightAltKeyDropdown =
+        rightAltKeyRow.shadowRoot!.querySelector('#keyDropdown');
+    assert(rightAltKeyDropdown);
+    assertEquals(
+        ModifierKey.kRightAlt.toString(),
+        rightAltKeyDropdown.shadowRoot!.querySelector('select')!.value);
+
+    await initializePerDeviceKeyboardRemapKeys(0);
+
+    const updatedRightAltRow =
+        page.shadowRoot!.querySelector<KeyboardRemapModifierKeyRowElement>(
+            '#rightAltKey');
+    assertFalse(isVisible(updatedRightAltRow));
+  });
 
   /**
    * Verify that the remap subpage is correctly loaded with keyboard data.
    */
   test('keyboard remap subpage loaded', async () => {
-    await initializePerDeviceKeyboardRemapKeys();
+    await initializePerDeviceKeyboardRemapKeys(0);
     assert(page.get('keyboard'));
 
     // Verify that the dropdown menu for unremapped key is displayed as default.
@@ -129,7 +278,7 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
    * keyboardId is passed through the query url.
    */
   test('keyboard remap subpage updated for different keyboard', async () => {
-    await initializePerDeviceKeyboardRemapKeys();
+    await initializePerDeviceKeyboardRemapKeys(0);
     // Update the subpage with a new keyboard.
     const url = new URLSearchParams(
         'keyboardId=' + encodeURIComponent(fakeKeyboards[2]!.id));
@@ -203,7 +352,7 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
    * Verify that the restore defaults button will restore the remapping keys.
    */
   test('keyboard remap subpage restore defaults', async () => {
-    await initializePerDeviceKeyboardRemapKeys();
+    await initializePerDeviceKeyboardRemapKeys(0);
     page.restoreDefaults();
     await flushTasks();
 
@@ -269,7 +418,7 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
    * the remapping page, it will switch back to per device keyboard page.
    */
   test('re-route to back page when keyboard disconnected', async () => {
-    await initializePerDeviceKeyboardRemapKeys();
+    await initializePerDeviceKeyboardRemapKeys(0);
     // Check it's currently in the modifier remapping page.
     assertEquals(
         routes.PER_DEVICE_KEYBOARD_REMAP_KEYS,
@@ -285,7 +434,8 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
    * prefs settings change.
    */
   test('Update keyboard settings', async () => {
-    await initializePerDeviceKeyboardRemapKeys();
+    await setModifierSplitEnabled(true);
+    await initializePerDeviceKeyboardRemapKeys(4);
     assertTrue(page.get('isInitialized'));
     // Set the modifier remappings to default stage.
     page.restoreDefaults();
@@ -295,23 +445,28 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
     page.set('fakeAltPref.value', ModifierKey.kAssistant);
     page.set('fakeBackspacePref.value', ModifierKey.kControl);
     page.set('fakeEscPref.value', ModifierKey.kVoid);
+    page.set('fakeRightAltPref.value', ModifierKey.kAlt);
+    page.set('fakeFunctionPref.value', ModifierKey.kRightAlt);
 
     // Verify that the keyboard settings in the provider are updated.
     const keyboards = await provider.getConnectedKeyboardSettings();
     assert(keyboards);
-    const updatedRemapping = keyboards[0]!.settings.modifierRemappings;
+    const updatedRemapping = keyboards[4]!.settings.modifierRemappings;
     assert(updatedRemapping);
-    assertEquals(5, Object.keys(updatedRemapping).length);
+    assertEquals(7, Object.keys(updatedRemapping).length);
     assertEquals(ModifierKey.kAssistant, updatedRemapping[ModifierKey.kAlt]);
     assertEquals(
         ModifierKey.kControl, updatedRemapping[ModifierKey.kBackspace]);
     assertEquals(ModifierKey.kVoid, updatedRemapping[ModifierKey.kEscape]);
     assertEquals(ModifierKey.kControl, updatedRemapping[ModifierKey.kMeta]);
     assertEquals(ModifierKey.kMeta, updatedRemapping[ModifierKey.kControl]);
+    assertEquals(ModifierKey.kAlt, updatedRemapping[ModifierKey.kRightAlt]);
+    assertEquals(
+        ModifierKey.kRightAlt, updatedRemapping[ModifierKey.kFunction]);
   });
 
   test('Keyboard description populated correctly', async () => {
-    await initializePerDeviceKeyboardRemapKeys();
+    await initializePerDeviceKeyboardRemapKeys(0);
     assertTrue(page.get('isInitialized'));
     assertEquals('ERGO K860', getPageDescription());
     await changeKeyboardExternalState(/* isExternal= */ false);
@@ -324,7 +479,7 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
         loadTimeData.overrideValues({
           enableAltClickAndSixPackCustomization: true,
         });
-        await initializePerDeviceKeyboardRemapKeys();
+        await initializePerDeviceKeyboardRemapKeys(0);
         assertTrue(
             isVisible(page.shadowRoot!.querySelector('#modifierKeysHeader')));
         assertTrue(
@@ -335,7 +490,7 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
     loadTimeData.overrideValues({
       enableAltClickAndSixPackCustomization: true,
     });
-    await initializePerDeviceKeyboardRemapKeys();
+    await initializePerDeviceKeyboardRemapKeys(0);
     const sixPackKeyRows =
         page.shadowRoot!.querySelectorAll('keyboard-six-pack-key-row');
     assertEquals(6, sixPackKeyRows.length);

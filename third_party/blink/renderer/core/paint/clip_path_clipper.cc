@@ -191,12 +191,7 @@ bool HasCompositeClipPathAnimation(const LayoutObject& layout_object) {
 
   ClipPathPaintImageGenerator* generator =
       layout_object.GetFrame()->GetClipPathPaintImageGenerator();
-  // TODO(crbug.com/686074): The generator may be null in tests.
-  // Fix and remove this test-only branch.
-  if (!generator) {
-    SetCompositeClipPathStatus(layout_object.GetNode(), false);
-    return false;
-  }
+  CHECK(generator);
 
   const Element* element = To<Element>(layout_object.GetNode());
   const Animation* animation = generator->GetAnimationIfCompositable(element);
@@ -322,7 +317,7 @@ std::optional<gfx::RectF> ClipPathClipper::LocalClipPathBoundingBox(
     return bounding_box;
   }
 
-  if (const auto* box = DynamicTo<GeometryBoxClipPathOperation>(clip_path)) {
+  if (IsA<GeometryBoxClipPathOperation>(clip_path)) {
     reference_box.Intersect(gfx::RectF(InfiniteIntRect()));
     return reference_box;
   }

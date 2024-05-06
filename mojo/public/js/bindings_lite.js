@@ -485,6 +485,10 @@ mojo.internal.Encoder = class {
    * @param {!Array|!Uint8Array} value
    */
   encodeArray(arraySpec, offset, value) {
+    if (arraySpec.elementNullable &&
+        !!arraySpec.elementType.$.preventNullableElement) {
+      throw new Error('nullable primitive elements are not supported yet');
+    }
     const arraySize = mojo.internal.computeInlineArraySize(arraySpec, value);
     const arrayData = this.message_.allocate(arraySize);
     const arrayEncoder =
@@ -778,6 +782,11 @@ mojo.internal.Decoder = class {
    * @return {Array}
    */
   decodeArray(arraySpec, offset) {
+    if (arraySpec.elementNullable &&
+        !!arraySpec.elementType.$.preventNullableElement) {
+      throw new Error('nullable primitive elements are not supported yet');
+    }
+
     const arrayOffset = this.decodeOffset(offset);
     if (!arrayOffset)
       return null;
@@ -1099,7 +1108,11 @@ mojo.internal.deserializeMessageHeader = function(data) {
  *   arraySpec: (!mojo.internal.ArraySpec|undefined),
  *   mapSpec: (!mojo.internal.MapSpec|undefined),
  *   structSpec: (!mojo.internal.StructSpec|undefined),
+ *   preventNullableElement: (boolean|undefined)
  * }}
+ * TODO(ffred): preventNullableElement is used to prevent arrays of nullables
+ * from being used until support is fully implemented. Remove once support is
+ * fully added.
  */
 mojo.internal.MojomTypeInfo;
 
@@ -1204,6 +1217,7 @@ mojo.internal.Bool = {
       return decoder.decodeBool(byteOffset, bitOffset);
     },
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1221,6 +1235,7 @@ mojo.internal.Int8 = {
     },
     arrayElementSize: nullable => 1,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1238,6 +1253,7 @@ mojo.internal.Uint8 = {
     },
     arrayElementSize: nullable => 1,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1255,6 +1271,7 @@ mojo.internal.Int16 = {
     },
     arrayElementSize: nullable => 2,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1272,6 +1289,7 @@ mojo.internal.Uint16 = {
     },
     arrayElementSize: nullable => 2,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1289,6 +1307,7 @@ mojo.internal.Int32 = {
     },
     arrayElementSize: nullable => 4,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1306,6 +1325,7 @@ mojo.internal.Uint32 = {
     },
     arrayElementSize: nullable => 4,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1322,7 +1342,9 @@ mojo.internal.Int64 = {
       return decoder.decodeInt64(byteOffset);
     },
     arrayElementSize: nullable => 8,
-    isValidObjectKeyType: true,
+    // TS Compiler does not allow Object maps to have bigint keys.
+    isValidObjectKeyType: false,
+    preventNullableElement: true,
   },
 };
 
@@ -1339,7 +1361,9 @@ mojo.internal.Uint64 = {
       return decoder.decodeUint64(byteOffset);
     },
     arrayElementSize: nullable => 8,
-    isValidObjectKeyType: true,
+    // TS Compiler does not allow Object maps to have bigint keys.
+    isValidObjectKeyType: false,
+    preventNullableElement: true,
   },
 };
 
@@ -1357,6 +1381,7 @@ mojo.internal.Float = {
     },
     arrayElementSize: nullable => 4,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1374,6 +1399,7 @@ mojo.internal.Double = {
     },
     arrayElementSize: nullable => 8,
     isValidObjectKeyType: true,
+    preventNullableElement: true,
   },
 };
 
@@ -1522,6 +1548,7 @@ mojo.internal.Enum = function() {
       },
       arrayElementSize: nullable => 4,
       isValidObjectKeyType: true,
+      preventNullableElement: true,
     },
   };
 };
@@ -1740,3 +1767,4 @@ mojo.internal.AssociatedInterfaceRequest = function(type) {
     },
   };
 };
+

@@ -12,6 +12,7 @@
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/app_list/app_list_model_provider.h"
 #include "ash/app_list/app_list_util.h"
+#include "ash/app_list/apps_collections_controller.h"
 #include "ash/app_list/model/app_list_folder_item.h"
 #include "ash/app_list/views/app_list_a11y_announcer.h"
 #include "ash/app_list/views/app_list_bubble_apps_collections_page.h"
@@ -35,7 +36,6 @@
 #include "ash/public/cpp/metrics_util.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_types.h"
-#include "ash/public/cpp/view_shadow.h"
 #include "ash/search_box/search_box_constants.h"
 #include "ash/shell.h"
 #include "ash/style/ash_color_id.h"
@@ -75,6 +75,7 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_shadow.h"
 
 using views::BoxLayout;
 
@@ -746,7 +747,7 @@ void AppListBubbleView::QueryChanged(const std::u16string& trimmed_query,
     search_page_->search_view()->UpdateForNewSearch(!trimmed_query.empty());
     if (!trimmed_query.empty()) {
       ShowPage(AppListBubblePage::kSearch);
-    } else if (app_list_features::IsAppsCollectionsEnabled()) {
+    } else if (AppsCollectionsController::Get()->ShouldShowAppsCollection()) {
       ShowPage(AppListBubblePage::kAppsCollections);
     } else {
       ShowPage(AppListBubblePage::kApps);
@@ -873,7 +874,7 @@ void AppListBubbleView::OnShowAnimationEnded(const gfx::Rect& layer_bounds) {
   // consistency with bubbles in status area. Add it when status area bubbles
   // get updated.
   if (!chromeos::features::IsJellyEnabled()) {
-    view_shadow_ = std::make_unique<ViewShadow>(this, kShadowElevation);
+    view_shadow_ = std::make_unique<views::ViewShadow>(this, kShadowElevation);
     view_shadow_->SetRoundedCornerRadius(kBubbleCornerRadius);
   }
 }

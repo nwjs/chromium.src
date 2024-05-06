@@ -49,8 +49,8 @@ void RecordSystemPromptResult(
 SecurePaymentConfirmationApp::SecurePaymentConfirmationApp(
     content::WebContents* web_contents_to_observe,
     const std::string& effective_relying_party_identity,
-    std::unique_ptr<SkBitmap> icon,
-    const std::u16string& label,
+    const std::u16string& payment_instrument_label,
+    std::unique_ptr<SkBitmap> payment_instrument_icon,
     std::vector<uint8_t> credential_id,
     const url::Origin& merchant_origin,
     base::WeakPtr<PaymentRequestSpec> spec,
@@ -61,8 +61,8 @@ SecurePaymentConfirmationApp::SecurePaymentConfirmationApp(
       authenticator_frame_routing_id_(
           authenticator->GetRenderFrameHost()->GetGlobalId()),
       effective_relying_party_identity_(effective_relying_party_identity),
-      icon_(std::move(icon)),
-      label_(label),
+      payment_instrument_label_(payment_instrument_label),
+      payment_instrument_icon_(std::move(payment_instrument_icon)),
       credential_id_(std::move(credential_id)),
       merchant_origin_(merchant_origin),
       spec_(spec),
@@ -111,7 +111,7 @@ void SecurePaymentConfirmationApp::InvokePaymentApp(
   options->allow_credentials = std::move(credentials);
 
   options->challenge = request_->challenge;
-  // TODO(crbug.com/1325854): The 'showOptOut' flag status must also be signed
+  // TODO(crbug.com/40225659): The 'showOptOut' flag status must also be signed
   // in the assertion, so that the verifier can check that the caller offered
   // the experience if desired.
   authenticator_->SetPaymentOptions(blink::mojom::PaymentOptions::New(
@@ -157,7 +157,7 @@ std::string SecurePaymentConfirmationApp::GetId() const {
 }
 
 std::u16string SecurePaymentConfirmationApp::GetLabel() const {
-  return label_;
+  return payment_instrument_label_;
 }
 
 std::u16string SecurePaymentConfirmationApp::GetSublabel() const {
@@ -165,7 +165,7 @@ std::u16string SecurePaymentConfirmationApp::GetSublabel() const {
 }
 
 const SkBitmap* SecurePaymentConfirmationApp::icon_bitmap() const {
-  return icon_.get();
+  return payment_instrument_icon_.get();
 }
 
 bool SecurePaymentConfirmationApp::IsValidForModifier(
@@ -216,19 +216,11 @@ void SecurePaymentConfirmationApp::AbortPaymentApp(
 mojom::PaymentResponsePtr
 SecurePaymentConfirmationApp::SetAppSpecificResponseFields(
     mojom::PaymentResponsePtr response) const {
-  if (base::FeatureList::IsEnabled(
-          blink::features::kSecurePaymentConfirmationExtensions)) {
-    response->get_assertion_authenticator_response =
-        blink::mojom::GetAssertionAuthenticatorResponse::New(
-            response_->info.Clone(), response_->authenticator_attachment,
-            response_->signature, response_->user_handle,
-            response_->extensions.Clone());
-    return response;
-  }
-  response->secure_payment_confirmation =
-      mojom::SecurePaymentConfirmationResponse::New(
-          response_->info.Clone(), response_->signature,
-          response_->authenticator_attachment, response_->user_handle);
+  response->get_assertion_authenticator_response =
+      blink::mojom::GetAssertionAuthenticatorResponse::New(
+          response_->info.Clone(), response_->authenticator_attachment,
+          response_->signature, response_->user_handle,
+          response_->extensions.Clone());
   return response;
 }
 

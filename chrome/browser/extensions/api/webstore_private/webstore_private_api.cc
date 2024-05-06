@@ -39,6 +39,7 @@
 #include "chrome/browser/safe_browsing/safe_browsing_navigation_observer_manager_factory.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
 #include "chrome/browser/ui/app_list/app_list_util.h"
 #include "chrome/browser/ui/extensions/extensions_dialogs.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -50,11 +51,12 @@
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer_manager.h"
 #include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#include "components/supervised_user/core/common/pref_names.h"
-#include "content/public/browser/browser_context.h"
+#include "components/supervised_user/core/browser/supervised_user_preferences.h"
+#include "components/supervised_user/core/common/features.h"
 #include "content/public/browser/gpu_feature_checker.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/api/management/management_api.h"
 #include "extensions/browser/extension_dialog_auto_confirm.h"
 #include "extensions/browser/extension_function_constants.h"
 #include "extensions/browser/extension_registry.h"
@@ -68,13 +70,6 @@
 #include "net/base/load_flags.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
-
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-#include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
-#include "components/supervised_user/core/browser/supervised_user_preferences.h"
-#include "components/supervised_user/core/common/features.h"
-#include "extensions/browser/api/management/management_api.h"
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
 using safe_browsing::SafeBrowsingNavigationObserverManager;
 
@@ -211,10 +206,8 @@ const char kLegacyPackagedAppError[] =
     "Legacy packaged apps are no longer supported";
 #endif
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 const char kParentBlockedExtensionInstallError[] =
     "Parent has blocked extension/app installation";
-#endif
 
 // The number of user gestures to trace back for the referrer chain.
 // const int kExtensionReferrerUserGestureLimit = 2;
@@ -370,34 +363,6 @@ void ReportWebStoreInstallNotAllowlistedInstalled(bool installed,
         installed);
   }
 }
-
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-// Grants parental approval to extensions installed dy supervised users
-// the end of the extension installation, if the parent has allowed installing
-// extensions without their intervention.
-void GrantExtensionApprovalForChildWhenSkipParentApprovalEnabled(
-    const std::string& extension_id,
-    content::BrowserContext& browser_context) {
-  const Profile* profile = Profile::FromBrowserContext(&browser_context);
-  if (!supervised_user::AreExtensionsPermissionsEnabled(*profile->GetPrefs()) ||
-      !supervised_user::SupervisedUserCanSkipExtensionParentApprovals(
-          *profile->GetPrefs())) {
-    return;
-  }
-  SupervisedUserExtensionsDelegate* supervised_user_extensions_delegate =
-      ManagementAPI::GetFactoryInstance()
-          ->Get(&browser_context)
-          ->GetSupervisedUserExtensionsDelegate();
-  CHECK(supervised_user_extensions_delegate);
-  CHECK(supervised_user_extensions_delegate->CanInstallExtensions());
-  const ExtensionRegistry* registry = ExtensionRegistry::Get(&browser_context);
-  const Extension* extension =
-      registry->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
-  CHECK(extension);
-  supervised_user_extensions_delegate->AddExtensionApproval(*extension);
-}
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
-
 }  // namespace
 
 // static
@@ -527,7 +492,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
     return;
   }
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   // Check if the supervised user is allowed to install extensions in the legacy
   // flow. NOTE: we do not block themes.
   if (!dummy_extension_->is_theme()) {
@@ -550,7 +514,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
       }
     }
   }
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
   // Check the management policy before the installation process begins.
   ExtensionInstallStatus install_status = GetWebstoreExtensionInstallStatus(
@@ -604,7 +567,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseFailure(
   Release();
 }
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
 void WebstorePrivateBeginInstallWithManifest3Function::RequestExtensionApproval(
     content::WebContents* web_contents) {
@@ -709,7 +671,6 @@ bool WebstorePrivateBeginInstallWithManifest3Function::
   return true;
 }
 
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
 void WebstorePrivateBeginInstallWithManifest3Function::OnFrictionPromptDone(
     bool result) {
@@ -752,7 +713,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnInstallPromptDone(
   switch (payload.result) {
     case ExtensionInstallPrompt::Result::ACCEPTED:
     case ExtensionInstallPrompt::Result::ACCEPTED_WITH_WITHHELD_PERMISSIONS: {
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
       // TODO(b/202064235): The only user of this branch is ChromeOs v1 flow.
       // Handle parent permission for child accounts on ChromeOS.
       if (!dummy_extension_->is_theme()  // Parent permission not required for
@@ -771,7 +731,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnInstallPromptDone(
           break;
         }
       }
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
       bool withhold_permissions =
           payload.result ==
           ExtensionInstallPrompt::Result::ACCEPTED_WITH_WITHHELD_PERMISSIONS;
@@ -879,9 +838,9 @@ WebstorePrivateBeginInstallWithManifest3Function::BuildResponse(
 
   // The old Webstore expects an empty string on success, so don't use
   // RESULT_SUCCESS here.
-  // TODO(crbug.com/709120): The new Webstore accepts either the empty string or
-  // RESULT_SUCCESS on success now, so once the old Webstore is turned down this
-  // can be changed over.
+  // TODO(crbug.com/40514370): The new Webstore accepts either the empty string
+  // or RESULT_SUCCESS on success now, so once the old Webstore is turned down
+  // this can be changed over.
   return ArgumentList(BeginInstallWithManifest3::Results::Create(
       api::webstore_private::Result::kEmptyString));
 }
@@ -917,7 +876,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::ShowInstallDialog(
   auto prompt = std::make_unique<ExtensionInstallPrompt::Prompt>(
       ExtensionInstallPrompt::INSTALL_PROMPT);
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   if (!dummy_extension_->is_theme()) {
     const bool requires_parent_permission =
         supervised_user::AreExtensionsPermissionsEnabled(
@@ -946,7 +904,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::ShowInstallDialog(
 #endif  // BUILDFLAG(IS_CHROMEOS)
     }
   }
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
   install_prompt_ = std::make_unique<ExtensionInstallPrompt>(contents);
   install_prompt_->ShowDialog(
@@ -1017,7 +974,7 @@ WebstorePrivateCompleteInstallFunction::Run() {
   }
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // TODO(https://crbug.com/1365778): Centralize logic for disallowing
+  // TODO(crbug.com/40239506): Centralize logic for disallowing
   // installation with other installation paths.
   if (!profile->IsMainProfile()) {
     bool allowed = approval_->dummy_extension &&
@@ -1070,12 +1027,6 @@ void WebstorePrivateCompleteInstallFunction::OnExtensionInstallSuccess(
 
   RecordWebstoreExtensionInstallResult(true);
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  CHECK(Profile::FromBrowserContext(browser_context()));
-  GrantExtensionApprovalForChildWhenSkipParentApprovalEnabled(
-      id, *Profile::FromBrowserContext(browser_context()));
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
-
   // Matches the AddRef in Run().
   Release();
 }
@@ -1112,7 +1063,7 @@ WebstorePrivateEnableAppLauncherFunction::
 
 ExtensionFunction::ResponseAction
 WebstorePrivateEnableAppLauncherFunction::Run() {
-  // TODO(crbug.com/822900): Check if this API is still in use and whether we
+  // TODO(crbug.com/40567472): Check if this API is still in use and whether we
   // can remove it.
   return RespondNow(NoArguments());
 }
@@ -1216,7 +1167,6 @@ WebstorePrivateIsPendingCustodianApprovalFunction::Run() {
       IsPendingCustodianApproval::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   auto* profile = Profile::FromBrowserContext(browser_context());
   if (!supervised_user::AreExtensionsPermissionsEnabled(*profile->GetPrefs())) {
     return RespondNow(BuildResponse(false));
@@ -1239,9 +1189,6 @@ WebstorePrivateIsPendingCustodianApprovalFunction::Run() {
       params->id, disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED);
 
   return RespondNow(BuildResponse(is_pending_approval));
-#else
-  return RespondNow(BuildResponse(false));
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 }
 
 ExtensionFunction::ResponseValue

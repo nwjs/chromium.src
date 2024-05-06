@@ -345,9 +345,11 @@ class FragmentPaintPropertyTreeBuilder {
   }
 
   void OnUpdateTransform(PaintPropertyChangeType change) {
-    properties_changed_.transform_changed =
-        std::max(properties_changed_.transform_changed, change);
-    properties_changed_.transform_change_is_scroll_translation_only = false;
+    if (change != PaintPropertyChangeType::kUnchanged) {
+      properties_changed_.transform_changed =
+          std::max(properties_changed_.transform_changed, change);
+      properties_changed_.transform_change_is_scroll_translation_only = false;
+    }
   }
   void OnUpdateScrollTranslation(PaintPropertyChangeType change) {
     properties_changed_.transform_changed =
@@ -431,8 +433,9 @@ static bool NeedsScrollOrScrollTranslation(
   if (!box.GetScrollableArea())
     return false;
 
+  gfx::PointF scroll_position = box.GetScrollableArea()->ScrollPosition();
   ScrollOffset scroll_offset = box.GetScrollableArea()->GetScrollOffset();
-  return !scroll_offset.IsZero() ||
+  return !scroll_position.IsOrigin() || !scroll_offset.IsZero() ||
          box.NeedsScrollNode(direct_compositing_reasons);
 }
 
@@ -807,9 +810,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateAnchorPositionScrollTranslation() {
     if (NeedsAnchorPositionScrollTranslation(object_)) {
       const auto& box = To<LayoutBox>(object_);
       const AnchorPositionScrollData& anchor_position_scroll_data =
-          *To<Element>(box.GetNode())->GetAnchorPositionScrollData();
+          *box.GetAnchorPositionScrollData();
       gfx::Vector2dF translation_offset =
-          -anchor_position_scroll_data.AccumulatedOffset();
+          -anchor_position_scroll_data.AccumulatedAdjustment();
       TransformPaintPropertyNode::State state{
           {gfx::Transform::MakeTranslation(translation_offset)}};
 
@@ -839,7 +842,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateAnchorPositionScrollTranslation() {
               anchor_position_scroll_data.AdjustmentContainerIds().begin(),
               anchor_position_scroll_data.AdjustmentContainerIds().end());
       state.anchor_position_scroll_data->accumulated_scroll_origin =
-          anchor_position_scroll_data.AccumulatedScrollOrigin();
+          anchor_position_scroll_data.AccumulatedAdjustmentScrollOrigin();
       state.anchor_position_scroll_data->needs_scroll_adjustment_in_x =
           anchor_position_scroll_data.NeedsScrollAdjustmentInX();
       state.anchor_position_scroll_data->needs_scroll_adjustment_in_y =

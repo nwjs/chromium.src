@@ -77,8 +77,8 @@ emoji_picker::mojom::Category ConvertCategoryEnum(
 namespace ash {
 
 EmojiUI::EmojiUI(content::WebUI* web_ui)
-    : ui::MojoBubbleWebUIController(web_ui,
-                                    true /* Needed for webui browser tests */),
+    : TopChromeWebUIController(web_ui,
+                               true /* Needed for webui browser tests */),
       initial_category_(emoji_picker::mojom::Category::kEmojis) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       web_ui->GetWebContents()->GetBrowserContext(),
@@ -112,11 +112,18 @@ EmojiUI::EmojiUI(content::WebUI* web_ui)
 
 EmojiUI::~EmojiUI() = default;
 
-bool EmojiUI::ShouldShow(const ui::TextInputClient* input_client) {
-  return input_client != nullptr;
+bool EmojiUI::ShouldShow(const ui::TextInputClient* input_client,
+                         ui::EmojiPickerFocusBehavior focus_behavior) {
+  switch (focus_behavior) {
+    case ui::EmojiPickerFocusBehavior::kOnlyShowWhenFocused:
+      return input_client != nullptr;
+    case ui::EmojiPickerFocusBehavior::kAlwaysShow:
+      return true;
+  }
 }
 
-void EmojiUI::Show(ui::EmojiPickerCategory category) {
+void EmojiUI::Show(ui::EmojiPickerCategory category,
+                   ui::EmojiPickerFocusBehavior focus_behavior) {
   if (display::Screen::GetScreen()->InTabletMode()) {
     ui::ShowTabletModeEmojiPanel();
     return;
@@ -127,8 +134,7 @@ void EmojiUI::Show(ui::EmojiPickerCategory category) {
   ui::TextInputClient* input_client =
       input_method ? input_method->GetTextInputClient() : nullptr;
 
-  // Does not show emoji picker if there is no input client.
-  if (!ShouldShow(input_client)) {
+  if (!ShouldShow(input_client, focus_behavior)) {
     return;
   }
 
@@ -172,7 +178,6 @@ void EmojiUI::Show(ui::EmojiPickerCategory category) {
   // Need to reload the web contents here because the view isn't visible unless
   // ShowUI is called from the JS side.  By reloading, we trigger the JS to
   // eventually call ShowUI().
-  contents_wrapper->ReloadWebContents();
   contents_wrapper->GetWebUIController()->incognito_mode_ = incognito_mode;
   contents_wrapper->GetWebUIController()->no_text_field_ =
       input_client == nullptr;

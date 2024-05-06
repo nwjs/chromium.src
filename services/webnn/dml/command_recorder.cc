@@ -23,45 +23,16 @@ D3D12_RESOURCE_BARRIER CreateUAVBarrier(ID3D12Resource* resource) {
           .UAV = {.pResource = resource}};
 }
 
-D3D12_HEAP_PROPERTIES CreateHeapProperties(D3D12_HEAP_TYPE type) {
-  return {.Type = type,
-          .CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-          .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
-          .CreationNodeMask = 1,
-          .VisibleNodeMask = 1};
-}
-
-D3D12_RESOURCE_DESC CreateResourceDesc(
-    uint64_t size,
-    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE) {
-  return {.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
-          .Alignment = 0,
-          .Width = size,
-          .Height = 1,
-          .DepthOrArraySize = 1,
-          .MipLevels = 1,
-          .Format = DXGI_FORMAT_UNKNOWN,
-          .SampleDesc = {1, 0},
-          .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-          .Flags = flags};
-}
-
 }  // namespace
 
 // Static
 std::unique_ptr<CommandRecorder> CommandRecorder::Create(
     scoped_refptr<CommandQueue> queue,
     ComPtr<IDMLDevice> dml_device) {
-  D3D12_FEATURE_DATA_ARCHITECTURE arch = {};
-  RETURN_NULL_IF_FAILED(GetD3D12Device(dml_device.Get())
-                            ->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE,
-                                                  &arch, sizeof(arch)));
-  bool is_uma = (arch.UMA == TRUE);
-
   ComPtr<ID3D12CommandAllocator> command_allocator;
   RETURN_NULL_IF_FAILED(
       GetD3D12Device(dml_device.Get())
-          ->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+          ->CreateCommandAllocator(queue->GetCommandListType(),
                                    IID_PPV_ARGS(&command_allocator)));
 
   // The command list will be created upon the first call to `Open()` method.
@@ -73,36 +44,22 @@ std::unique_ptr<CommandRecorder> CommandRecorder::Create(
       dml_device->CreateCommandRecorder(IID_PPV_ARGS(&command_recorder)));
 
   return base::WrapUnique(new CommandRecorder(
-      is_uma, std::move(queue), std::move(dml_device),
-      std::move(command_allocator), std::move(command_recorder)));
+      std::move(queue), std::move(dml_device), std::move(command_allocator),
+      std::move(command_recorder)));
 }
 
 CommandRecorder::CommandRecorder(
-    bool is_uma,
     scoped_refptr<CommandQueue> command_queue,
     ComPtr<IDMLDevice> dml_device,
     ComPtr<ID3D12CommandAllocator> command_allocator,
     ComPtr<IDMLCommandRecorder> command_recorder)
-    : is_uma_(is_uma),
-      command_queue_(std::move(command_queue)),
+    : command_queue_(std::move(command_queue)),
       dml_device_(std::move(dml_device)),
       d3d12_device_(GetD3D12Device(dml_device_.Get())),
       command_allocator_(std::move(command_allocator)),
       command_recorder_(std::move(command_recorder)) {}
 
 CommandRecorder::~CommandRecorder() = default;
-
-bool CommandRecorder::IsUMA() const {
-  return is_uma_;
-}
-
-IDMLDevice* CommandRecorder::GetDMLDevice() const {
-  return dml_device_.Get();
-}
-
-CommandQueue* CommandRecorder::GetCommandQueue() const {
-  return command_queue_.get();
-}
 
 HRESULT CommandRecorder::Open() {
   CHECK(!is_open_);
@@ -114,8 +71,8 @@ HRESULT CommandRecorder::Open() {
   if (!command_list_) {
     // `CreateCommandList()` creates a command list in the open state.
     RETURN_IF_FAILED(d3d12_device_->CreateCommandList(
-        0, D3D12_COMMAND_LIST_TYPE_DIRECT, command_allocator_.Get(), nullptr,
-        IID_PPV_ARGS(&command_list_)));
+        0, command_queue_->GetCommandListType(), command_allocator_.Get(),
+        nullptr, IID_PPV_ARGS(&command_list_)));
   } else {
     // It's safe to reset the command list while it is still being executed.
     RETURN_IF_FAILED(command_list_->Reset(command_allocator_.Get(), nullptr));
@@ -203,8 +160,8 @@ HRESULT CommandRecorder::InitializeOperator(
   const uint32_t num_descriptors_in_heap =
       std::max(1u, initialization_binding_properties.RequiredDescriptorCount);
   RETURN_IF_FAILED(CreateDescriptorHeap(
-      num_descriptors_in_heap, L"WebNN_Descriptor_Heap_For_Initialization",
-      descriptor_heap));
+      d3d12_device_.Get(), num_descriptors_in_heap,
+      L"WebNN_Descriptor_Heap_For_Initialization", descriptor_heap));
 
   ID3D12DescriptorHeap* descriptor_heaps[] = {descriptor_heap.Get()};
   command_list_->SetDescriptorHeaps(/* NumDescriptorHeaps */ 1,
@@ -229,8 +186,8 @@ HRESULT CommandRecorder::InitializeOperator(
   if (temp_resource_size > 0) {
     ComPtr<ID3D12Resource> temp_resource;
     RETURN_IF_FAILED(CreateDefaultBuffer(
-        temp_resource_size, L"WebNN_Temporary_Buffer_For_Initialization",
-        temp_resource));
+        d3d12_device_.Get(), temp_resource_size,
+        L"WebNN_Temporary_Buffer_For_Initialization", temp_resource));
     DML_BUFFER_BINDING temp_buffer_binding{.Buffer = temp_resource.Get(),
                                            .Offset = 0,
                                            .SizeInBytes = temp_resource_size};
@@ -427,129 +384,6 @@ HRESULT CommandRecorder::ExecuteOperator(
   // it has completed execution on the GPU.
   command_resources_.push_back(std::move(descriptor_heap));
 
-  return S_OK;
-}
-
-HRESULT CommandRecorder::CreateDefaultBuffer(uint64_t size,
-                                             const wchar_t* name_for_debugging,
-                                             ComPtr<ID3D12Resource>& resource) {
-  TRACE_EVENT2("gpu", "dml::CommandRecorder::CreateDefaultBuffer", "size", size,
-               "name", name_for_debugging);
-  auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-  auto resource_desc =
-      CreateResourceDesc(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-
-  CHECK_NE(name_for_debugging, nullptr);
-  CHECK_EQ(resource->SetName(name_for_debugging), S_OK);
-  return S_OK;
-}
-
-HRESULT CommandRecorder::CreateUploadBuffer(uint64_t size,
-                                            const wchar_t* name_for_debugging,
-                                            ComPtr<ID3D12Resource>& resource) {
-  TRACE_EVENT2("gpu", "dml::CommandRecorder::CreateUploadBuffer", "size", size,
-               "name", name_for_debugging);
-  auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-  auto resource_desc = CreateResourceDesc(size, D3D12_RESOURCE_FLAG_NONE);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-
-  CHECK_NE(name_for_debugging, nullptr);
-  CHECK_EQ(resource->SetName(name_for_debugging), S_OK);
-  return S_OK;
-}
-
-HRESULT CommandRecorder::CreateReadbackBuffer(
-    uint64_t size,
-    const wchar_t* name_for_debugging,
-    ComPtr<ID3D12Resource>& resource) {
-  TRACE_EVENT2("gpu", "dml::CommandRecorder::CreateReadbackBuffer", "size",
-               size, "name", name_for_debugging);
-  auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_READBACK);
-  auto resource_desc = CreateResourceDesc(size, D3D12_RESOURCE_FLAG_NONE);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-
-  CHECK_NE(name_for_debugging, nullptr);
-  CHECK_EQ(resource->SetName(name_for_debugging), S_OK);
-  return S_OK;
-}
-
-HRESULT CommandRecorder::CreateCustomUploadBuffer(
-    uint64_t size,
-    const wchar_t* name_for_debugging,
-    ComPtr<ID3D12Resource>& resource) {
-  CHECK(is_uma_);
-  TRACE_EVENT2("gpu", "dml::CommandRecorder::CreateCustomUploadBuffer", "size",
-               size, "name", name_for_debugging);
-  // Create the equivalent custom heap properties regarding to upload heap,
-  // based on the adapter's architectural properties.
-  // https://learn.microsoft.com/en-us/previous-versions/dn788678(v=vs.85)
-  auto heap_properties =
-      d3d12_device_->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_UPLOAD);
-  auto resource_desc =
-      CreateResourceDesc(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-
-  CHECK_NE(name_for_debugging, nullptr);
-  CHECK_EQ(resource->SetName(name_for_debugging), S_OK);
-  return S_OK;
-}
-
-HRESULT CommandRecorder::CreateCustomReadbackBuffer(
-    uint64_t size,
-    const wchar_t* name_for_debugging,
-    ComPtr<ID3D12Resource>& resource) {
-  CHECK(is_uma_);
-  TRACE_EVENT2("gpu", "dml::CommandRecorder::CreateCustomReadbackBuffer",
-               "size", size, "name", name_for_debugging);
-  // Create the equivalent custom heap properties regarding to readback heap,
-  // based on the adapter's architectural properties.
-  // https://learn.microsoft.com/en-us/previous-versions/dn788678(v=vs.85)
-  auto heap_properties =
-      d3d12_device_->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_READBACK);
-  auto resource_desc =
-      CreateResourceDesc(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-
-  CHECK_NE(name_for_debugging, nullptr);
-  CHECK_EQ(resource->SetName(name_for_debugging), S_OK);
-  return S_OK;
-}
-
-HRESULT CommandRecorder::CreateDescriptorHeap(
-    uint32_t num_descriptors,
-    const wchar_t* name_for_debugging,
-    ComPtr<ID3D12DescriptorHeap>& descriptor_heap) {
-  TRACE_EVENT2("gpu", "dml::CommandRecorder::CreateDescriptorHeap",
-               "num_descriptors", num_descriptors, "name", name_for_debugging);
-  CHECK_GT(num_descriptors, 0u);
-  D3D12_DESCRIPTOR_HEAP_DESC descriptor_heap_desc{
-      .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-      .NumDescriptors = num_descriptors,
-      .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE};
-  RETURN_IF_FAILED(d3d12_device_->CreateDescriptorHeap(
-      &descriptor_heap_desc, IID_PPV_ARGS(&descriptor_heap)));
-  CHECK(descriptor_heap.Get());
-  descriptor_heap_desc = descriptor_heap->GetDesc();
-  CHECK_EQ(descriptor_heap_desc.NumDescriptors, num_descriptors);
-
-  CHECK_NE(name_for_debugging, nullptr);
-  CHECK_EQ(descriptor_heap->SetName(name_for_debugging), S_OK);
   return S_OK;
 }
 

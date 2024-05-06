@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_row_factory_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_separator_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_title_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_warning_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -82,7 +83,7 @@ constexpr int kAutofillPopupWidthMultiple = 12;
 // (see crbug.com/1434330).
 constexpr int kAutofillPopupMinWidth = kAutofillPopupWidthMultiple * 13;
 static_assert(kAutofillPopupMinWidth > 128);
-// TODO(crbug.com/831603): move handling the max width to the base class.
+// TODO(crbug.com/41382463): move handling the max width to the base class.
 constexpr int kAutofillPopupMaxWidth = kAutofillPopupWidthMultiple * 38;
 
 // Preferred position relative to the control sides of the sub-popup.
@@ -200,7 +201,7 @@ bool PopupViewViews::Show(
   // Check for the special "warning bubble" mode: single warning suggestion
   // which content should be just announced to the user. Triggering
   // Event::kAlert on such a row makes screen readers read its content out.
-  // TODO(crbug.com/1480487): Consider supporting "warning mode" explicitly.
+  // TODO(crbug.com/40281426): Consider supporting "warning mode" explicitly.
   if (rows_.size() == 1 &&
       absl::holds_alternative<PopupWarningView*>(rows_[0])) {
     absl::get<PopupWarningView*>(rows_[0])->NotifyAccessibilityEvent(
@@ -608,6 +609,8 @@ void PopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
       feature_engagement::kIPHAutofillVirtualCardSuggestionFeature);
   browser->window()->MaybeShowFeaturePromo(
       feature_engagement::kIPHAutofillExternalAccountProfileSuggestionFeature);
+  browser->window()->MaybeShowFeaturePromo(
+      feature_engagement::kIPHAutofillCreditCardBenefitFeature);
 }
 
 void PopupViewViews::SetSelectedCell(
@@ -642,12 +645,17 @@ void PopupViewViews::SetSelectedCell(
     new_selected_row.SetSelectedCell(cell_index->second);
     new_selected_row.ScrollViewToVisible();
 
+    if (!controller_) {
+      // The previous SetSelectedCell() call may have hidden the popup.
+      return;
+    }
     const Suggestion& suggestion =
         controller_->GetSuggestionAt(cell_index->first);
+
     bool can_open_sub_popup =
         !suppress_popup &&
         (cell_index->second == PopupRowView::CellType::kControl ||
-         !suggestion.is_acceptable);
+         CanOpenSubPopupSuggestion(suggestion));
 
     CHECK(!can_open_sub_popup ||
           !controller_->GetSuggestionAt(cell_index->first).children.empty());
@@ -727,6 +735,12 @@ void PopupViewViews::CreateChildViews() {
               std::make_unique<PopupSeparatorView>(kInterItemsPadding)));
           break;
 
+        case PopupItemId::kTitle:
+          rows_.push_back(
+              body_container->AddChildView(std::make_unique<PopupTitleView>(
+                  kSuggestions[current_line_number].main_text.value)));
+          break;
+
         case PopupItemId::kMixedFormMessage:
         case PopupItemId::kInsecureContextPaymentDisabledMessage:
           rows_.push_back(
@@ -743,28 +757,31 @@ void PopupViewViews::CreateChildViews() {
                   /*selection_delegate=*/*this, current_line_number));
           rows_.push_back(row_view);
 
-          const std::string& feature_for_iph =
+          const base::Feature* const feature_for_iph =
               kSuggestions[current_line_number].feature_for_iph;
 
           // Set appropriate element ids for IPH targets, it is important to
           // set them earlier to make sure the elements are discoverable later
           // during popup's visibility change and the promo bubble showing.
           if (feature_for_iph ==
-              feature_engagement::kIPHAutofillVirtualCardSuggestionFeature
-                  .name) {
+              &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature) {
             row_view->SetProperty(views::kElementIdentifierKey,
                                   kAutofillCreditCardSuggestionEntryElementId);
           } else if (feature_for_iph ==
-                     feature_engagement::
-                         kIPHAutofillVirtualCardCVCSuggestionFeature.name) {
+                     &feature_engagement::
+                         kIPHAutofillVirtualCardCVCSuggestionFeature) {
             row_view->SetProperty(views::kElementIdentifierKey,
                                   kAutofillStandaloneCvcSuggestionElementId);
           } else if (feature_for_iph ==
-                     feature_engagement::
-                         kIPHAutofillExternalAccountProfileSuggestionFeature
-                             .name) {
+                     &feature_engagement::
+                         kIPHAutofillExternalAccountProfileSuggestionFeature) {
             row_view->SetProperty(views::kElementIdentifierKey,
                                   kAutofillSuggestionElementId);
+          } else if (feature_for_iph ==
+                     &feature_engagement::
+                         kIPHAutofillCreditCardBenefitFeature) {
+            row_view->SetProperty(views::kElementIdentifierKey,
+                                  kAutofillCreditCardBenefitElementId);
           }
       }
     }
@@ -1049,6 +1066,12 @@ void PopupViewViews::SetRowWithOpenSubPopup(
       }
     }
   }
+}
+
+bool PopupViewViews::CanOpenSubPopupSuggestion(const Suggestion& suggestion) {
+  // Checking both `is_acceptable` and `apply_deactivated_style` because the
+  // latter is used for disabling virtual cards which cannot open a sub popup.
+  return !suggestion.is_acceptable && !suggestion.apply_deactivated_style;
 }
 
 base::WeakPtr<AutofillPopupView> PopupViewViews::GetWeakPtr() {

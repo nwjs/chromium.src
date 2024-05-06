@@ -594,23 +594,6 @@ void ExtensionFrameHelper::OnDestruct() {
   delete this;
 }
 
-void ExtensionFrameHelper::DraggableRegionsChanged() {
-  if (!render_frame()->GetWebFrame()->IsOutermostMainFrame())
-    return;
-
-  blink::WebVector<blink::WebDraggableRegion> webregions =
-      render_frame()->GetWebFrame()->GetDocument().DraggableRegions();
-  std::vector<mojom::DraggableRegionPtr> regions;
-  regions.reserve(webregions.size());
-  for (blink::WebDraggableRegion& webregion : webregions) {
-    render_frame()->ConvertViewportToWindow(&webregion.bounds);
-
-    regions.push_back(
-        mojom::DraggableRegion::New(webregion.draggable, webregion.bounds));
-  }
-  GetLocalFrameHost()->UpdateDraggableRegions(std::move(regions));
-}
-
 void ExtensionFrameHelper::DidClearWindowObject() {
   // DidClearWindowObject() is called right at the end of
   // DocumentLoader::CreateParserPostCommit(). This is late enough in the commit

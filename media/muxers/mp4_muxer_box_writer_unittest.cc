@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -13,6 +14,8 @@
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
 #include "media/base/subsample_entry.h"
+#include "media/base/video_codecs.h"
+#include "media/base/video_color_space.h"
 #include "media/formats/mp2t/es_parser_adts.h"
 #include "media/formats/mp4/bitstream_converter.h"
 #include "media/formats/mp4/box_definitions.h"
@@ -90,7 +93,7 @@ class Mp4MuxerBoxWriterTest : public testing::Test {
   void CreateContext(std::vector<uint8_t>& written_data) {
     auto tracker = std::make_unique<OutputPositionTracker>(base::BindRepeating(
         [&](base::OnceClosure run_loop_quit, std::vector<uint8_t>* written_data,
-            base::StringPiece mp4_data_string) {
+            std::string_view mp4_data_string) {
           // Callback is called per box output.
 
           std::copy(mp4_data_string.begin(), mp4_data_string.end(),
@@ -543,6 +546,7 @@ TEST_F(Mp4MuxerBoxWriterTest, Mp4MovieVisualSampleEntry) {
   mp4::writable_boxes::VisualSampleEntry visual_sample_entry;
   visual_sample_entry.coded_size = gfx::Size(kWidth, kHeight);
   visual_sample_entry.compressor_name = "Chromium AVC Coding";
+  visual_sample_entry.codec = VideoCodec::kH264;
 
   mp4::writable_boxes::AVCDecoderConfiguration avc = {};
   avc.avc_config_record.version = 1;
@@ -559,7 +563,7 @@ TEST_F(Mp4MuxerBoxWriterTest, Mp4MovieVisualSampleEntry) {
 
   visual_sample_entry.avc_decoder_configuration = std::move(avc);
 
-  sample_description.visual_sample_entry = std::move(visual_sample_entry);
+  sample_description.video_sample_entry = std::move(visual_sample_entry);
 
   Mp4MovieSampleDescriptionBoxWriter box_writer(*context(), sample_description);
   FlushAndWait(&box_writer);
@@ -641,8 +645,8 @@ TEST_F(Mp4MuxerBoxWriterTest, Mp4MovieAVCDecoderConfigurationRecord) {
   EXPECT_EQ(0u, avc_config_reader.sps_ext_list.size());
 }
 
-TEST_F(Mp4MuxerBoxWriterTest, Mp4AudioSampleEntryAndESDS) {
-  // Tests `avc1` and its children box writer.
+TEST_F(Mp4MuxerBoxWriterTest, Mp4AacAudioSampleEntry) {
+  // Tests `aac` and its children box writer.
   std::vector<uint8_t> written_data;
   CreateContext(written_data);
 
@@ -650,7 +654,9 @@ TEST_F(Mp4MuxerBoxWriterTest, Mp4AudioSampleEntryAndESDS) {
 
   mp4::writable_boxes::AudioSampleEntry audio_sample_entry;
   constexpr uint32_t kSampleRate = 48000u;
+  audio_sample_entry.channel_count = 2u;
   audio_sample_entry.sample_rate = kSampleRate;
+  audio_sample_entry.codec = AudioCodec::kAAC;
 
   mp4::writable_boxes::ElementaryStreamDescriptor esds;
   constexpr uint32_t kBitRate = 341000u;
@@ -724,6 +730,92 @@ TEST_F(Mp4MuxerBoxWriterTest, Mp4AudioSampleEntryAndESDS) {
   EXPECT_FALSE(metadata_frame);
 }
 #endif
+
+TEST_F(Mp4MuxerBoxWriterTest, Mp4MovieVPConfigurationRecord) {
+  // Tests `vpcC` and its children box writer.
+  std::vector<uint8_t> written_data;
+  CreateContext(written_data);
+
+  mp4::writable_boxes::VPCodecConfiguration vp_config = {};
+  vp_config.profile = VP9PROFILE_MIN;
+  vp_config.level = 0u;
+  vp_config.color_space = gfx::ColorSpace(
+      gfx::ColorSpace::PrimaryID::BT470M, gfx::ColorSpace::TransferID::GAMMA28,
+      gfx::ColorSpace::MatrixID::BT470BG, gfx::ColorSpace::RangeID::FULL);
+
+  Mp4MovieVPCodecConfigurationBoxWriter box_writer(*context(), vp_config);
+  FlushAndWait(&box_writer);
+
+  // MediaInformation will have multiple sample boxes even though they
+  // not added exclusively.
+  std::unique_ptr<mp4::BoxReader> box_reader(
+      mp4::BoxReader::ReadConcatentatedBoxes(written_data.data(),
+                                             written_data.size(), nullptr));
+
+  EXPECT_TRUE(box_reader->ScanChildren());
+
+  mp4::VPCodecConfigurationRecord vp_config_record;
+  EXPECT_TRUE(box_reader->ReadChild(&vp_config_record));
+
+  EXPECT_EQ(VP9PROFILE_MIN, vp_config_record.profile);
+  EXPECT_EQ(0u, vp_config_record.level);
+
+  EXPECT_EQ(gfx::ColorSpace::RangeID::FULL, vp_config_record.color_space.range);
+  EXPECT_EQ(VideoColorSpace::PrimaryID::BT470M,
+            vp_config_record.color_space.primaries);
+  EXPECT_EQ(VideoColorSpace::TransferID::GAMMA28,
+            vp_config_record.color_space.transfer);
+  EXPECT_EQ(VideoColorSpace::MatrixID::BT470BG,
+            vp_config_record.color_space.matrix);
+}
+
+TEST_F(Mp4MuxerBoxWriterTest, Mp4OpusAudioSampleEntry) {
+  // Tests `opus` and its children box writer.
+  std::vector<uint8_t> written_data;
+  CreateContext(written_data);
+
+  mp4::writable_boxes::SampleDescription sample_description;
+
+  mp4::writable_boxes::AudioSampleEntry audio_sample_entry;
+  constexpr uint32_t kSampleRate = 48000u;
+  audio_sample_entry.channel_count = 2u;
+  audio_sample_entry.sample_rate = kSampleRate;
+  audio_sample_entry.codec = AudioCodec::kOpus;
+
+  mp4::writable_boxes::OpusSpecificBox opus_specific_box;
+  opus_specific_box.channel_count = 2u;
+  opus_specific_box.sample_rate = 48000u;
+  audio_sample_entry.opus_specific_box = std::move(opus_specific_box);
+
+  sample_description.audio_sample_entry = std::move(audio_sample_entry);
+
+  Mp4MovieSampleDescriptionBoxWriter box_writer(*context(), sample_description);
+  FlushAndWait(&box_writer);
+
+  // MediaInformation will have multiple sample boxes even though they
+  // not added exclusively.
+  std::unique_ptr<mp4::BoxReader> box_reader(
+      mp4::BoxReader::ReadConcatentatedBoxes(written_data.data(),
+                                             written_data.size(), nullptr));
+
+  EXPECT_TRUE(box_reader->ScanChildren());
+
+  mp4::SampleDescription reader_sample_description;
+  reader_sample_description.type = mp4::kAudio;
+
+  EXPECT_TRUE(box_reader->ReadChild(&reader_sample_description));
+  EXPECT_EQ(1u, reader_sample_description.audio_entries.size());
+
+  const auto& audio_sample = reader_sample_description.audio_entries[0];
+  EXPECT_EQ(1, audio_sample.data_reference_index);
+  EXPECT_EQ(2, audio_sample.channelcount);
+  EXPECT_EQ(16, audio_sample.samplesize);
+  EXPECT_EQ(kSampleRate, audio_sample.samplerate);
+
+  const mp4::OpusSpecificBox& dops_box = audio_sample.dops;
+  EXPECT_EQ(2u, dops_box.channel_count);
+  EXPECT_EQ(48000u, dops_box.sample_rate);
+}
 
 TEST_F(Mp4MuxerBoxWriterTest, Mp4Fragments) {
   // Tests `mvex/trex` box writer.

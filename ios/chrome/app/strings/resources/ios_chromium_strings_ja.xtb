@@ -10,7 +10,6 @@
 <translation id="1185134272377778587">Chromium について</translation>
 <translation id="1257458525759135959">画像を保存するには、[設定] をタップして写真への追加を Chromium に許可してください</translation>
 <translation id="12739128458173458">このタブを別のデバイスに送信するには、両方のデバイスで Chromium にログインしてください。</translation>
-<translation id="1289216811211435351">Chromium に切り替え</translation>
 <translation id="1361748954329991663">Chromium は古いバージョンです。<ph name="BEGIN_LINK" />アプリストア<ph name="END_LINK" />に利用可能なアップデートがない場合は、デバイスで新しいバージョンの Chromium がサポートされなくなった可能性があります。</translation>
 <translation id="1423007117030725713">新しい Chromium タブで検索を開始します。</translation>
 <translation id="1431818719585918472">Chromium でシークレット タブをロックできるようにします。</translation>
@@ -30,11 +29,11 @@
 <translation id="1722370509450468186">パスワードはアカウント（<ph name="EMAIL" />）に保存されます。</translation>
 <translation id="1736662517232558588">Chromium データを削除しました</translation>
 <translation id="1791845338122684020">Chromium の履歴ページを開きます。</translation>
+<translation id="1811860791247653035">パーソナライズなどの機能を利用するには、Chromium を <ph name="FEATURE_NAME_1" /> と、<ph name="FEATURE_NAME_2" /> に追加します</translation>
 <translation id="1838412507805038478">このウェブサイトの証明書が <ph name="ISSUER" /> 発行のものであることが Chromium で確認されました。</translation>
 <translation id="1843424232666537147">Chromium には、インターネットのデータやウェブページの読み込み速度を管理できる機能があります。
 <ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="1847960401032164406">Chromium の Google マップ表示</translation>
-<translation id="186734497270163706">[Chromium]、[デフォルトのブラウザ App] の順にタップします。</translation>
 <translation id="1867772173333403444">4. [Chromium] を選択する</translation>
 <translation id="2006345422933397527">Chromium でアップデートを確認できませんでした。インターネット接続を確認してみてください。</translation>
 <translation id="2042889939382983733">Chromium 履歴を表示する</translation>
@@ -91,9 +90,9 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="3567399274263440288">Chromium を最大限に活用するには、Google アカウントで Chromium にログインしてください。</translation>
 <translation id="3634039384458740619">Chromium の設定を開く</translation>
 <translation id="3639997914391704523">Google アカウントでログインすると、Chromium でパスワードを確認できるようになります。</translation>
-<translation id="3650632991272923014"><ph name="USER_EMAIL1" /> は Chromium を使用しており、ブックマークやパスワードなどの設定がこのデバイスに残っています。</translation>
 <translation id="3688710892786762883">Chromium はアクセスしたサイトで荷物追跡番号を検出し、新しいタブページに最新情報を表示します。データは Google と共有され、この機能の提供と、すべてのユーザーに対するショッピングの利便性向上に役立てられます。</translation>
 <translation id="372658070733623520">Google アカウントで Chromium データを使用して保存するには、本人確認を行ってください。</translation>
+<translation id="3728124580182886854">パーソナライズなどの目的で、Chromium と他の Google サービスをリンクします</translation>
 <translation id="3780779443901618967">標準保護機能より多くのサイトデータを分析して、危険なサイト（Google が認識していなかったサイトも含む）について警告します。Chromium の警告をスキップすることもできます。</translation>
 <translation id="3784369638459513223">Chromium で新しいシークレット タブを開きます。</translation>
 <translation id="3805899903892079518">Chromium で写真または動画にアクセスできません。iOS の [設定] &gt; [プライバシー] &gt; [写真] でアクセスを有効にしてください。</translation>
@@ -105,7 +104,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="394413318816989199">パスフレーズによる暗号化には、お支払い方法と住所は含まれません。
 
 この設定を変更するには、<ph name="BEGIN_LINK" />アカウントの Chromium データを消去<ph name="END_LINK" />します。</translation>
-<translation id="3955621079070267756">他のアプリから Chromium を開く</translation>
 <translation id="4005283307739974863">Chromium で安全チェックを開いて実行します。</translation>
 <translation id="4043291146360695975">パスワードは、このデバイスのパスワード マネージャーにのみ保存されます。</translation>
 <translation id="4076589763479456892">パスフレーズを忘れた場合や、この設定を変更する場合は、<ph name="BEGIN_LINK" />アカウントの Chromium データを消去<ph name="END_LINK" />してください。</translation>
@@ -117,7 +115,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="4195557071150719219">Chromium で最近使ったタブを表示</translation>
 <translation id="4200712796753248893">iOS で Chromium アクションを使用する</translation>
 <translation id="420541179527342563">Chromium のロックダウン モードを無効にするには、iPad でロックダウン モードをオフにします。</translation>
-<translation id="427331839909790668">Chromium と他の Google サービスをリンクすると、相互のデータ使用によりサービスがパーソナライズされます</translation>
 <translation id="4408912345039114853">Chromium で安全チェックを実行する</translation>
 <translation id="4432744876818348753">Chromium を最大限に活用するにはログインしてください。</translation>
 <translation id="4445228361214254027">Google アカウントで Chromium データを使用、保存する機能は組織によって無効にされています。新しいブックマークやパスワードなどは、このデバイスにのみ保存されます。</translation>
@@ -125,7 +122,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="452436063477828504">Google アカウントの Chromium データを常に使用できるようにしてください</translation>
 <translation id="4555020257205549924">この機能を有効にすると、外国語のページを開いたときに翻訳ツールが表示されます。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="4576283463017113841">Chromium でお支払い方法の設定ページを開きます。</translation>
-<translation id="4585809515399340748">メッセージ、ドキュメント、他のアプリでタップしたリンクが常に Chromium で開かれるようになります。</translation>
 <translation id="459080529287102949">Chromium でビジュアルを検索する</translation>
 <translation id="4633738821577273991">この Chromium プロフィールもセーフ ブラウジング保護強化機能で保護されます</translation>
 <translation id="4638625642619341392">Chromium はこちらからダウンロードできます。</translation>
@@ -180,9 +176,7 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="5945387852661427312"><ph name="DOMAIN" /> で管理されているアカウントでログインして、Chromium データの管理を管理者に委ねようとしています。この操作を行うと、データはこのアカウントに恒久的に関連付けられます。Chromium からログアウトすると、データはこのデバイスから削除されますが、Google アカウントには残ります。</translation>
 <translation id="5951593919357934226">Chromium を最大限に活用しましょう。</translation>
 <translation id="5983312940147103417">Chromium の品質を向上</translation>
-<translation id="5985102273857091344">[Chromium] を選択します。</translation>
 <translation id="5985254578475526217">Chromium から通知を受け取るには、iOS の [設定] で通知をオンにしてください。</translation>
-<translation id="6062449165341879460">このアカウントで保存した Chromium のデータ、ブックマーク、履歴、パスワード、その他の設定は、組織（<ph name="DOMAIN" />）からアクセス可能となります。ログアウトすると、データはこのデバイスから消去されますが、管理対象の Google アカウントには保存されたままで、組織はこれを使用できます。また、組織はこのアカウント専用のユーザー ポリシーを設定して、Chromium の動作を変更することも可能です。</translation>
 <translation id="6093744543579359059">Chromium でパスワードを管理する</translation>
 <translation id="6104024151682120539">Chromium で開く</translation>
 <translation id="61109258320235597">Google アカウントで Chromium データを使用して保存するには、パスフレーズを入力してください。</translation>
@@ -219,7 +213,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="6852799557929001644">このデバイスの他のアプリから、Chromium のパスワードなどにアクセスできます。</translation>
 <translation id="6887138405044152640">このタブを別のデバイスに送信するには、送信先のデバイスで Chromium にログインしてください。</translation>
 <translation id="6911341667534646387">Google アカウントの Chromium データを引き続き使用してください</translation>
-<translation id="7002548535535009764">よりパーソナライズされたサービスを利用するには、<ph name="FEATURE_NAME_1" /> と <ph name="FEATURE_NAME_2" /> に Chromium を追加してください</translation>
 <translation id="7006920032187763988">他のアプリや iPad でパスワード マネージャーに保存したパスワードを使用できます。</translation>
 <translation id="7018284295775193585">Chromium を更新できません</translation>
 <translation id="7045244423563602563">Chromium を独自にカスタマイズ</translation>
@@ -229,12 +222,10 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="7165402419892018581">自動入力で Chromium を選択する</translation>
 <translation id="7175400662502680481">データ侵害によってパスワードが漏洩しました。パスワード マネージャーでは、このパスワードを今すぐ変更することをおすすめします。</translation>
 <translation id="7192111075364461693">現在、デバイスの設定で Chromium の通知がオフになっています。</translation>
-<translation id="7198580735512160509">Discover フィードと Chromium をカスタマイズするには、同期をオンにします。</translation>
 <translation id="7222001353246886083">Chromium で「${searchPhrase}」を検索</translation>
 <translation id="725427773388857052">Chromium でデータ侵害や安全でないウェブサイトなどの脅威から保護されているか確認します。</translation>
 <translation id="7269362888766543920">アドオンが原因で Chromium がクラッシュしました。アドオンをアンインストールしてみてください。</translation>
 <translation id="7285031092584344905">他のアプリから Chromium のパスワードなどにアクセスできます。</translation>
-<translation id="7313655110045230863">Chromium をデフォルトのブラウザにするには、[設定] を開き、[デフォルトのブラウザアプリ] をタップして、Chromium を選択します。</translation>
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7357211569052832586">選択したデータが Chromium から削除され、同期されたデバイスからも削除されました。他の Google サービスでの検索や操作など、Google アカウントの他の形式の閲覧履歴が history.google.com に残ることがあります。</translation>
 <translation id="7387082980875012885">Chromium で新しいタブを開く</translation>
@@ -248,8 +239,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="7763454117143368771">Chromium を既定のブラウザとして使用すると、危険なサイトから保護され、パスワードを安全に保つことができます</translation>
 <translation id="78025249032851484">お使いの Chromium は最新ではありません。</translation>
 <translation id="7859018312476869945">Chromium でアドレスバーや検索ボックスに入力を始めると、入力内容がデフォルトの検索エンジンに送信され、より関連性の高い検索候補が表示されます。シークレット モードの場合、この設定はオフになっています。</translation>
-<translation id="786327964234957808">同期アカウントを <ph name="USER_EMAIL1" /> から <ph name="USER_EMAIL2" /> に切り替えようとしています。既存の Chromium データは <ph name="DOMAIN" /> で管理されています。この操作を行うと、データはこのデバイスから削除されますが、<ph name="USER_EMAIL1" /> には残ります。</translation>
-<translation id="7865408467687426957">Chromium にログインすると、保存したパスワードが Google アカウントに保存されます。この機能をオフにするには、<ph name="BEGIN_LINK" />[設定] に移動<ph name="END_LINK" />します。</translation>
 <translation id="7890287942691234100">Chromium のスキャナの使用開始</translation>
 <translation id="7905064834449738336">ウェブ上に公開されたことがあるパスワードを使用すると警告が表示されます。その際、パスワードとユーザー名は Google を含め誰も読み取ることができないよう暗号化されます。</translation>
 <translation id="7911732829884437264">Chromium をデフォルトに設定する</translation>
@@ -259,15 +248,12 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="7934404985878918282">Chromium リーディング リストを表示</translation>
 <translation id="7971753607796745700">Chromium にリーディング リストの項目を追加する</translation>
 <translation id="7980860476903281594">Chromium で、許可したサイトと現在地が共有されます。</translation>
-<translation id="7990085102929105708">Google Pay のお支払い方法と住所は暗号化されません。また、Chromium の閲覧履歴は同期されません。
-
-パスフレーズを知っているユーザーだけが暗号化されたデータを見ることができます。パスフレーズは Google には送信されず、保存されることもありません。パスフレーズを忘れた場合や、この設定を変更する場合は、<ph name="BEGIN_LINK" />アカウントの Chromium データを消去<ph name="END_LINK" />してください。</translation>
 <translation id="7994322153108931467">Chromium を使いこなすヒントを受け取るには、iOS の設定で通知をオンにしてください。</translation>
 <translation id="7995166854192397899">候補は、他のデバイスでの閲覧アクティビティに基づいて表示されます。候補を表示するには、すべてのデバイスで Chromium にログインしてください。</translation>
 <translation id="800195749539500647">Chromium を最大限に活用</translation>
 <translation id="8013573822802650211">どのデバイスからでも Chromium で自分のタブにアクセスするには、すべてのデバイスでログインしてください</translation>
 <translation id="8071041515667087705">Chromium 設定に移動します。</translation>
-<translation id="8073677936375100957">Chromium データをこのデバイスから削除しますか？</translation>
+<translation id="8104697640054703121">Chromium の最高水準のセキュリティで危険なサイトから身を守りましょう</translation>
 <translation id="8115308261377517697">Chromium をデフォルトのブラウザに設定する</translation>
 <translation id="8197822717502700527">お使いのデバイスで Chromium を最大限に活用できるようになりました。</translation>
 <translation id="8234150821523419638">Chromium メニューを開く</translation>
@@ -289,15 +275,7 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="8685813584220679697">このサイトと Chromium にログインしてください。</translation>
 <translation id="8730503818204408000">Chromium の設定を開いて、Chromium を既定のブラウザに設定します。</translation>
 <translation id="8742300022028858275">Chromium で最近使ったタブを開く</translation>
-<translation id="8747378496147986285">オンにした場合:
-<ph name="BEGIN_INDENT" />  • 同じように Chromium を使用する他のユーザーの利便性向上に役立てられます。<ph name="END_INDENT" />
-
-留意事項:
-<ph name="BEGIN_INDENT" />  • Chromium の使用状況に関する情報が Google に送信されますが、ユーザーとは関連付けられません。
-
-  • Chromium がクラッシュした場合、クラッシュに関する情報として、一部の個人情報が送信される場合があります。
-
-  • 同期をオンにした場合、アクセスした URL に関する情報も送信される場合があります。<ph name="END_INDENT" /></translation>
+<translation id="8754966941001340678">Chromium は保護強化機能を推奨しています</translation>
 <translation id="8759037115129007407">現在、ファミリー メンバーはパスワードを受信できません。Chromium を更新してパスワードを同期するようメンバーに依頼してください。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">このアカウントと保存されていないデータは Chromium から削除されます。</translation>
 <translation id="88376265765385899">Chromium ブックマークを開きます。</translation>
@@ -317,7 +295,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="9089354809943900324">Chromium は古いバージョンです</translation>
 <translation id="9110075932708282655">Chromium をデフォルトに設定</translation>
 <translation id="921174536258924340">Chromium ですべてのパスワードを確認できませんでした。明日もう一度お試しいただくか、<ph name="BEGIN_LINK" />Google アカウント内のパスワードをご確認ください<ph name="END_LINK" />。</translation>
-<translation id="971488683725792095">メッセージ、ドキュメント、他のアプリのリンクをタップすると、Chromium が自動的に開きます。</translation>
 <translation id="981812233959540767">Chromium Dino ゲームをプレイ</translation>
 <translation id="985602178874221306">Chromium 開発者</translation>
 </translationbundle>

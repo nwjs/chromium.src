@@ -94,7 +94,6 @@
 <translation id="2501278716633472235">Буцаах</translation>
 <translation id="2546283357679194313">Cookies болон сайтын дата</translation>
 <translation id="2550801787432930915">Үнэ бууралтын карт</translation>
-<translation id="2569468611847789653">{COOKIE_COUNT,plural, =1{1 күүкиг блоклосон}other{# күүкиг блоклосон}}</translation>
 <translation id="2570922361219980984">Энэ төхөөрөмжид байршлын хандалт мөн адил унтраалттай байна. Үүнийг <ph name="BEGIN_LINK" />Андройдын тохиргоо<ph name="END_LINK" /> хэсэгт асаана уу.</translation>
 <translation id="257931822824936280">Өргөжсөн, энд дарж задална уу.</translation>
 <translation id="2586657967955657006">Түр санах ой</translation>
@@ -177,6 +176,7 @@
 <translation id="3895926599014793903">Ямар ч тохиолдолд томруулан харуулах</translation>
 <translation id="3908288065506437185">Нууцлалын горимд гуравдагч талын күүкиг блоклох</translation>
 <translation id="3918378745482005425">Зарим онцлог ажиллахгүй байж магадгүй. Холбоотой сайтууд гуравдагч талын күүки ашиглах боломжтой хэвээр байна.</translation>
+<translation id="3933121352599513978">Хүсээгүй хүсэлтүүдийг хураах (санал болгосон)</translation>
 <translation id="3955193568934677022">Сайтад хамгаалсан агуулгыг тоглохыг зөвшөөрөх (санал болгосон)</translation>
 <translation id="3967822245660637423">Татаж авч дууслаа</translation>
 <translation id="3974105241379491420">Сайтууд таны талаар хадгалсан мэдээллээ ашиглахыг хүсэх боломжтой</translation>
@@ -199,6 +199,7 @@
 <translation id="429312253194641664">Сайт медиа тоглуулж байна</translation>
 <translation id="42981349822642051">Өргөтгөх</translation>
 <translation id="4336566011000459927">Chrome күүкинүүдийг өнөөдөр дахин хязгаарлана</translation>
+<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Таны сүүлийн таб</translation>
 <translation id="4338831206024587507"><ph name="DOMAIN" />-н доорх бүх сайт</translation>
 <translation id="4402755511846832236">Сайтуудыг таныг энэ төхөөрөмжийг хэзээ идэвхтэй ашиглаж буйг мэдэхийг нь блоклоно</translation>
 <translation id="4412992751769744546">Гуравдагч этгээдийн cookies-г зөвшөөрөх</translation>
@@ -289,6 +290,7 @@
 <translation id="5853982612236235577">Асаалттай үед сайтууд мэдэгдэл илгээхийг хүсэх боломжтой. Унтраалттай үед сайтууд мэдэгдэл илгээх боломжгүй.</translation>
 <translation id="5860033963881614850">Идэвхгүй байна</translation>
 <translation id="5876056640971328065">Видеог түр зогсоох</translation>
+<translation id="5877248419911025165">Бүх хүсэлтийг хураах</translation>
 <translation id="5884085660368669834">Сайтын сонголт</translation>
 <translation id="5887687176710214216">Хамгийн сүүлд өчигдөр зочилсон</translation>
 <translation id="5916664084637901428">Асаах</translation>
@@ -457,7 +459,6 @@
 <translation id="8441146129660941386">Буцаж хайх</translation>
 <translation id="8444433999583714703"><ph name="APP_NAME" />-д таны байршилд хандахыг зөвшөөрөхийн тулд байршлыг мөн <ph name="BEGIN_LINK" />Андройдын тохиргоо<ph name="END_LINK" />-нд асаана уу.</translation>
 <translation id="8447861592752582886">Төхөөрөмжийн зөвшөөрлийг хүчингүй болгох</translation>
-<translation id="8451050538944905715">{NUM_SELECTED,plural, =1{1 күүки ашиглаж байна}other{# 1 күүки ашиглаж байна}}</translation>
 <translation id="8487700953926739672">Сүлжээнд холбогдоогүй байна</translation>
 <translation id="848952951823693243">Үргэлж мобайл сайтын хүсэлт тавих</translation>
 <translation id="8499083585497694743">Микрофоны дууг нээх</translation>
@@ -497,6 +498,7 @@
 <translation id="8959122750345127698">Навигацтай холбогдох боломжгүй байна: <ph name="URL" /></translation>
 <translation id="8986362086234534611">Мартах</translation>
 <translation id="8990043154272859344">Таныг бүх сайтаас гаргана</translation>
+<translation id="8993853206419610596">Бүх хүсэлтийг дэлгэх</translation>
 <translation id="9002538116239926534">Асаалттай үед сайтууд таны төхөөрөмжид өгөгдөл хадгалах боломжтой. Унтраалттай үед сайтууд таны төхөөрөмжид өгөгдөл хадгалах боломжгүй.</translation>
 <translation id="9011903857143958461"><ph name="SITE_NAME" />-г зөвшөөрсөн</translation>
 <translation id="9019902583201351841">Эцэг, эх нь хариуцан удирдаж байна</translation>

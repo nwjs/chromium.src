@@ -156,7 +156,7 @@ class TransparentButton : public views::Button {
         [](views::View* host) {
           // This button will be used like a LabelButton, so use the same
           // foreground base color as a label button.
-          // TODO(crbug.com/1423975): Replace by a `ui::ColorId` and use it in
+          // TODO(crbug.com/40260264): Replace by a `ui::ColorId` and use it in
           // `InkDropHost::SetBaseColorId`.
           return color_utils::DeriveDefaultIconColor(
               host->GetColorProvider()->GetColor(
@@ -396,9 +396,10 @@ void DownloadItemView::Layout(PassKey) {
 
     file_name_label_->SetBounds(text_x, CenterY(text_height), text_width,
                                 file_name_height);
-    status_label_->SetBounds(text_x, file_name_label_->bounds().bottom(),
-                             text_width,
-                             status_label_->GetPreferredSize().height());
+    status_label_->SetBounds(
+        text_x, file_name_label_->bounds().bottom(), text_width,
+        status_label_->GetPreferredSize(views::SizeBounds(text_width, {}))
+            .height());
   } else {
     auto* const label = (mode_ == download::DownloadItemMode::kDeepScanning)
                             ? deep_scanning_label_.get()
@@ -553,12 +554,18 @@ gfx::Size DownloadItemView::CalculatePreferredSize() const {
                           : 0;
 
   if (mode_ == download::DownloadItemMode::kNormal) {
-    int label_width =
-        std::max(file_name_label_->GetPreferredSize().width(), kTextWidth);
+    int label_width = std::max(
+        file_name_label_
+            ->GetPreferredSize(views::SizeBounds(file_name_label_->width(), {}))
+            .width(),
+        kTextWidth);
     if (model_->GetDangerType() ==
         download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE) {
-      label_width =
-          std::max(label_width, status_label_->GetPreferredSize().width());
+      label_width = std::max(
+          label_width,
+          status_label_
+              ->GetPreferredSize(views::SizeBounds(status_label_->width(), {}))
+              .width());
     }
     width += kStartPadding + kProgressIndicatorSize + kProgressTextPadding +
              label_width + kEndPadding;
@@ -1043,7 +1050,6 @@ ui::ImageModel DownloadItemView::GetIcon() const {
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_LOCAL_PASSWORD_SCANNING:
       return kInfo;
-    case download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_FAILED:
     case download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS:

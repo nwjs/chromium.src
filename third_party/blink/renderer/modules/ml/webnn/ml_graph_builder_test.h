@@ -23,12 +23,9 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_operand_data_type.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pad_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pool_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_reduce_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_resample_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_softplus_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_split_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_transpose_options.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_graph.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_graph_builder_utils.h"
@@ -98,13 +95,6 @@ MLOperand* BuildPad(V8TestingScope& scope,
                     const Vector<uint32_t>& endingPadding,
                     const MLPadOptions* options = MLPadOptions::Create());
 
-MLOperand* BuildPool2d(
-    V8TestingScope& scope,
-    MLGraphBuilder* builder,
-    webnn::mojom::blink::Pool2d::Kind kind,
-    const MLOperand* input,
-    const MLPool2dOptions* options = MLPool2dOptions::Create());
-
 MLOperand* BuildGemm(V8TestingScope& scope,
                      MLGraphBuilder* builder,
                      const MLOperand* a,
@@ -137,24 +127,11 @@ MLOperand* BuildReduce(
     const MLOperand* input,
     const MLReduceOptions* options = MLReduceOptions::Create());
 
-MLOperand* BuildResample2d(
-    V8TestingScope& scope,
-    MLGraphBuilder* builder,
-    const MLOperand* input,
-    const MLResample2dOptions* options = MLResample2dOptions::Create());
-
 MLOperand* BuildSoftplus(
     V8TestingScope& scope,
     MLGraphBuilder* builder,
     const MLOperand* input,
     const MLSoftplusOptions* options = MLSoftplusOptions::Create());
-
-MLOperand* BuildTranspose(
-    V8TestingScope& scope,
-    MLGraphBuilder* builder,
-    const MLOperand* input,
-    const MLTransposeOptions* options = MLTransposeOptions::Create());
-
 }  // namespace blink
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_MODULES_ML_WEBNN_ML_GRAPH_BUILDER_TEST_H_

@@ -830,6 +830,11 @@ NET_ERROR(ZSTD_WINDOW_SIZE_TOO_BIG, -386)
 // The compression dictionary cannot be loaded.
 NET_ERROR(DICTIONARY_LOAD_FAILED, -387)
 
+// The "content-dictionary" response header is unexpected. This is used both
+// when there is no "content-dictionary" response header and when the received
+// "content-dictionary" response header does not match the expected value.
+NET_ERROR(UNEXPECTED_CONTENT_DICTIONARY_HEADER, -388)
+
 // The cache does not have the requested entry.
 NET_ERROR(CACHE_MISS, -400)
 
@@ -1020,6 +1025,10 @@ NET_ERROR(DNS_NO_MATCHING_SUPPORTED_ALPN, -811)
 
 // Error -812 was removed
 // Error -813 was removed
+
+// When checking whether secure DNS can be used, the response returned for the
+// requested probe record either had no answer or was invalid.
+NET_ERROR(DNS_SECURE_PROBE_RECORD_INVALID, -814)
 
 // CAUTION: Before adding errors here, please check the ranges of errors written
 // in the top of this file.

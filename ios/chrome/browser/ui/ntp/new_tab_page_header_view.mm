@@ -33,6 +33,7 @@
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/gradient_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
+#import "ios/chrome/common/ui/util/ui_util.h"
 #import "ios/public/provider/chrome/browser/lens/lens_api.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/gfx/ios/uikit_util.h"
@@ -54,10 +55,8 @@ const CGFloat kEndButtonFakeboxTrailingSpace = 13.0;
 const CGFloat kEndButtonOmniboxTrailingSpace = 7.0;
 
 // The constants for the constraints the leading-edge aligned UI elements.
-const CGFloat kHintLabelFakeboxLeadingSpace = 18.0;
-const CGFloat kHintLabelOmniboxLeadingSpace = 13.0;
-const CGFloat kLargeFakeboxHintLabelFakeboxLeadingSpace = 26.0;
-const CGFloat kLargeFakeboxHintLabelOmniboxLeadingSpace = 20.0;
+const CGFloat kHintLabelFakeboxLeadingSpace = 26.0;
+const CGFloat kHintLabelOmniboxLeadingSpace = 20.0;
 
 // The amount to inset the Fakebox from the rest of the modules on Home, when
 // Large Fakebox is enabled.
@@ -72,14 +71,12 @@ const CGFloat kIconDividerHeight = 13.0;
 
 // The leading space / padding in the unscrolled fakebox.
 CGFloat HintLabelFakeboxLeadingSpace() {
-  return IsIOSLargeFakeboxEnabled() ? kLargeFakeboxHintLabelFakeboxLeadingSpace
-                                    : kHintLabelFakeboxLeadingSpace;
+  return kHintLabelFakeboxLeadingSpace;
 }
 
 // The leading space / padding in the scrolled fakebox.
 CGFloat HintLabelOmniboxLeadingSpace() {
-  return IsIOSLargeFakeboxEnabled() ? kLargeFakeboxHintLabelOmniboxLeadingSpace
-                                    : kHintLabelOmniboxLeadingSpace;
+  return kHintLabelOmniboxLeadingSpace;
 }
 
 // The amount to inset the Fakebox from the rest of the modules on Home.
@@ -92,28 +89,22 @@ CGFloat FakeboxHorizontalMargin(id<UITraitEnvironment> environment) {
 
 // Returns the top color of the Fakebox's gradient background.
 UIColor* FakeboxTopColor() {
-  if (IsIOSLargeFakeboxEnabled()) {
-    return UIAccessibilityIsReduceTransparencyEnabled()
-               ? [UIColor colorNamed:@"fake_omnibox_solid_background_color"]
-               : [UIColor colorNamed:@"fake_omnibox_top_gradient_color"];
-  }
-  return [UIColor colorNamed:@"fake_omnibox_background_color"];
+  return UIAccessibilityIsReduceTransparencyEnabled()
+             ? [UIColor colorNamed:@"fake_omnibox_solid_background_color"]
+             : [UIColor colorNamed:@"fake_omnibox_top_gradient_color"];
 }
 
 // Returns the bottom color of the Fakebox's gradient background.
 UIColor* FakeboxBottomColor() {
-  if (IsIOSLargeFakeboxEnabled()) {
-    return UIAccessibilityIsReduceTransparencyEnabled()
-               ? [UIColor colorNamed:@"fake_omnibox_solid_background_color"]
-               : [UIColor colorNamed:@"fake_omnibox_bottom_gradient_color"];
-  }
-  return [UIColor colorNamed:@"fake_omnibox_background_color"];
+  return UIAccessibilityIsReduceTransparencyEnabled()
+             ? [UIColor colorNamed:@"fake_omnibox_solid_background_color"]
+             : [UIColor colorNamed:@"fake_omnibox_bottom_gradient_color"];
 }
 
 // Returns the background color for the NTP Header view. This is the color
 // that shows when the fakebox is scrolled up.
 UIColor* HeaderBackgroundColor(id<UITraitEnvironment> environment) {
-  if (IsIOSLargeFakeboxEnabled() && IsSplitToolbarMode(environment)) {
+  if (IsSplitToolbarMode(environment)) {
     return [UIColor colorNamed:kBackgroundColor];
   } else {
     return [UIColor colorNamed:@"ntp_background_color"];
@@ -389,9 +380,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   // If the Lens button was created, layout the header with the Lens button on
   // the end.
   if (self.lensButton) {
-    if (IsIOSLargeFakeboxEnabled()) {
-      [self addVoiceAndLenseDivider];
-    }
+    [self addVoiceAndLenseDivider];
     [NSLayoutConstraint activateConstraints:@[
       // Lens button constraints.
       [self.lensButton.leadingAnchor
@@ -493,9 +482,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   self.backgroundColor =
       [HeaderBackgroundColor(self) colorWithAlphaComponent:percent];
 
-  if (IsIOSLargeFakeboxEnabled()) {
-    [self setFakeboxBackgroundWithProgress:percent];
-  }
+  [self setFakeboxBackgroundWithProgress:percent];
 
   // Offset the hint label constraints with half of the change in width
   // from the original scale, since constraints are calculated before
@@ -630,12 +617,10 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
   if (previousTraitCollection.userInterfaceStyle !=
       self.traitCollection.userInterfaceStyle) {
-    if (IsIOSLargeFakeboxEnabled()) {
-      // The fakebox background can be a blended color, which will not
-      // automatically update when dark/light mode is changed. It needs to be
-      // manually updated here.
-      [self setFakeboxBackgroundWithProgress:_lastAnimationPercent];
-    }
+    // The fakebox background can be a blended color, which will not
+    // automatically update when dark/light mode is changed. It needs to be
+    // manually updated here.
+    [self setFakeboxBackgroundWithProgress:_lastAnimationPercent];
   }
 }
 
@@ -676,7 +661,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
 // Returns the font for the hint label at the given animation percent.
 - (UIFont*)hintLabelFontForPercent:(CGFloat)percent {
-  if (percent == 1) {
+  if (percent == 1 && !self.allowFontScaleAnimation) {
     return _hintLabelFontSmall;
   }
   return _hintLabelFontBig;
@@ -704,7 +689,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
     searchHintLabel.font = font;
   }
 
-  if (percent == 1) {
+  if (percent == 1 && !self.allowFontScaleAnimation) {
     // When pinned, the small font is used without scaling down.
     _currentHintLabelScale = 1;
     searchHintLabel.transform = CGAffineTransformIdentity;

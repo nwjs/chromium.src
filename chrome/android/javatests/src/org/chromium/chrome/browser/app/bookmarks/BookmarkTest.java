@@ -390,7 +390,7 @@ public class BookmarkTest {
 
         // Check that we are in the mobile bookmarks folder.
         assertEquals("Mobile bookmarks", mToolbar.getTitle());
-        assertEquals(NavigationButton.BACK, mToolbar.getNavigationButtonForTests());
+        assertEquals(NavigationButton.SEARCH_BACK, mToolbar.getNavigationButtonForTests());
         assertFalse(mToolbar.getMenu().findItem(R.id.edit_menu_id).isVisible());
 
         // Open the new test folder.
@@ -398,7 +398,7 @@ public class BookmarkTest {
 
         // Check that we are in the editable test folder.
         assertEquals(TEST_FOLDER_TITLE, mToolbar.getTitle());
-        assertEquals(NavigationButton.BACK, mToolbar.getNavigationButtonForTests());
+        assertEquals(NavigationButton.SEARCH_BACK, mToolbar.getNavigationButtonForTests());
         assertTrue(mToolbar.getMenu().findItem(R.id.edit_menu_id).isVisible());
 
         runOnUiThreadBlocking(
@@ -413,7 +413,7 @@ public class BookmarkTest {
 
         // Check that we are back in the mobile folder
         assertEquals("Mobile bookmarks", mToolbar.getTitle());
-        assertEquals(NavigationButton.BACK, mToolbar.getNavigationButtonForTests());
+        assertEquals(NavigationButton.SEARCH_BACK, mToolbar.getNavigationButtonForTests());
         assertFalse(mToolbar.getMenu().findItem(R.id.edit_menu_id).isVisible());
 
         // Call BookmarkToolbar#onClick() to activate the navigation button.
@@ -604,6 +604,7 @@ public class BookmarkTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://issues.chromium.org/331232180")
     public void testSearchBookmarks_Delete_FromInitialQuery() throws Exception {
         // Inspired by https://crbug.com/1434600. Selected item deletion happens during the initial
         // query that's still showing the folder's children.
@@ -878,6 +879,7 @@ public class BookmarkTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://issues.chromium.org/331232180")
     public void testEndIconVisibilityInSearchMode() throws Exception {
         addFolder(TEST_FOLDER_TITLE);
         addFolder(TEST_TITLE_A);
@@ -1565,6 +1567,7 @@ public class BookmarkTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://issues.chromium.org/331232180")
     public void testShowInFolder_OpenOtherFolder() throws Exception {
         BookmarkId testId = addFolder(TEST_FOLDER_TITLE);
         runOnUiThreadBlocking(() -> mBookmarkModel.addBookmark(testId, 0, TEST_TITLE_A, mTestUrlA));
@@ -1640,6 +1643,7 @@ public class BookmarkTest {
 
     @Test
     @SmallTest
+    @DisabledTest(message = "https://issues.chromium.org/331232180")
     public void testDeleteAllSelectedBookmarksInBackground() throws Exception {
         // Select one bookmark and then remove that in background.
         // In the meantime, the toolbar changes from selection mode to normal mode.
@@ -1933,7 +1937,7 @@ public class BookmarkTest {
 
         // Check that we are in the mobile bookmarks folder.
         assertEquals("Tracked products", mToolbar.getTitle());
-        assertEquals(NavigationButton.BACK, mToolbar.getNavigationButtonForTests());
+        assertEquals(NavigationButton.SEARCH_BACK, mToolbar.getNavigationButtonForTests());
     }
 
     @Test
@@ -1997,7 +2001,7 @@ public class BookmarkTest {
         // Don't try to validate the current number of selected items, just visibility.
         NumberRollView numberRollView = mToolbar.findViewById(R.id.selection_mode_number);
         assertEquals(View.VISIBLE, numberRollView.getVisibility());
-        assertEquals(NavigationButton.BACK, mToolbar.getNavigationButtonForTests());
+        assertEquals(NavigationButton.SEARCH_BACK, mToolbar.getNavigationButtonForTests());
     }
 
     /**

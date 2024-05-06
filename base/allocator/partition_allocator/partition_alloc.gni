@@ -196,6 +196,8 @@ declare_args() {
   # This is meant to be used primarily on bots. It is much easier to override
   # the feature flags using a binary flag instead of updating multiple bots's
   # scripts to pass command line arguments.
+  #
+  # TODO(328104161): Remove this flag.
   enable_backup_ref_ptr_feature_flag = false
 
   # Build support for Dangling Ptr Detection (DPD) via BackupRefPtr (BRP),
@@ -209,7 +211,9 @@ declare_args() {
   # This is meant to be used primarily on bots. It is much easier to override
   # the feature flags using a binary flag instead of updating multiple bots's
   # scripts to pass command line arguments.
-  enable_dangling_raw_ptr_feature_flag = false
+  #
+  # TODO(328104161): Remove this flag.
+  enable_dangling_raw_ptr_feature_flag = enable_dangling_raw_ptr_checks_default
 
   enable_backup_ref_ptr_instance_tracer = false
 
@@ -240,10 +244,9 @@ declare_args() {
 # *Scan is currently only used by Chromium, and supports only 64-bit.
 use_starscan = build_with_chromium && has_64_bit_pointers
 
-pcscan_stack_supported =
-    use_starscan &&
-    (current_cpu == "x64" || current_cpu == "x86" || current_cpu == "arm" ||
-     current_cpu == "arm64" || current_cpu == "riscv64")
+stack_scan_supported =
+    current_cpu == "x64" || current_cpu == "x86" || current_cpu == "arm" ||
+    current_cpu == "arm64" || current_cpu == "riscv64"
 
 # We want to provide assertions that guard against inconsistent build
 # args, but there is no point in having them fire if we're not building

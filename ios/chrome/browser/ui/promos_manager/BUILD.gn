@@ -32,6 +32,8 @@ source_set("utils") {
   ]
   deps = [
     "//base",
+    "//ios/chrome/app/application_delegate:app_state_header",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/application_context",
   ]
 }
@@ -92,7 +94,6 @@ source_set("promos_manager") {
     "//ios/chrome/browser/ui/credential_provider_promo",
     "//ios/chrome/browser/ui/default_promo/post_default_abandonment",
     "//ios/chrome/browser/ui/default_promo/post_default_abandonment:features",
-    "//ios/chrome/browser/ui/default_promo/post_restore:features",
     "//ios/chrome/browser/ui/default_promo/post_restore:post_restore_default_browser",
     "//ios/chrome/browser/ui/default_promo/promo_handler",
     "//ios/chrome/browser/ui/first_run/omnibox_position/promo",
@@ -115,8 +116,12 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//components/prefs",
     "//components/prefs:test_support",
+    "//ios/chrome/app/application_delegate:app_state_header",
+    "//ios/chrome/app/application_delegate:test_support",
     "//ios/chrome/browser/promos_manager/model",
     "//ios/chrome/browser/promos_manager/model:features",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/coordinator/scene/test",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
     "//ios/chrome/browser/shared/model/browser_state:test_support",
     "//ios/chrome/browser/shared/model/prefs:pref_names",

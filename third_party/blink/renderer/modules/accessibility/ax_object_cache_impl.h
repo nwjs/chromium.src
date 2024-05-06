@@ -73,11 +73,10 @@ class AbstractInlineTextBox;
 class HTMLAreaElement;
 class WebLocalFrameClient;
 
-// Describes a decision on whether to create an AXNodeObject, an AXLayoutObject,
-// or nothing (which will cause the AX subtree to be pruned at that point).
-// Not that AXLayoutObjects may be backed by a node, if it has one, and most do.
-// Only pseudo element descendants are missing DOM nodes.
-enum AXObjectType { kPruneSubtree = 0, kAXNodeObject, kAXLayoutObject };
+// Describes a decision on whether to create an AXNodeObject with or without a
+// LayoutObject, or to prune the AX subtree at that point. Only pseudo element
+// descendants are missing DOM nodes.
+enum AXObjectType { kPruneSubtree = 0, kCreateFromNode, kCreateFromLayout };
 
 struct TextChangedOperation {
   TextChangedOperation()
@@ -183,7 +182,6 @@ class MODULES_EXPORT AXObjectCacheImpl
   void ListboxActiveIndexChanged(HTMLSelectElement*) override;
   void SetMenuListOptionsBounds(HTMLSelectElement*,
                                 const WTF::Vector<gfx::Rect>&) override;
-  void LocationChanged(const LayoutObject*) override;
   void ImageLoaded(const LayoutObject*) override;
 
   // Removes AXObject backed by passed-in object, if there is one.
@@ -277,7 +275,6 @@ class MODULES_EXPORT AXObjectCacheImpl
   void DidHideMenuListPopup(LayoutObject*) override;
   void HandleLoadStart(Document*) override;
   void HandleLoadComplete(Document*) override;
-  void HandleLayoutComplete(Document*) override;
   void HandleClicked(Node*) override;
   void HandleAttributeChanged(const QualifiedName& attr_name,
                               AccessibleNode*) override;
@@ -315,17 +312,11 @@ class MODULES_EXPORT AXObjectCacheImpl
 
   void HandleScrolledToAnchor(const Node* anchor_node) override;
 
-  // Called when the frame rect changes, which can sometimes happen
-  // without producing any layout or other notifications.
-  void HandleFrameRectsChanged(Document&) override;
-
   // Invalidates the bounding box, which can be later retrieved by
   // SerializeLocationChanges.
   void InvalidateBoundingBox(const LayoutObject*) override;
 
   void SetCachedBoundingBox(AXID id, const ui::AXRelativeBounds& bounds);
-
-  void SerializerClearedNode(AXID id);
 
   const AtomicString& ComputedRoleForNode(Node*) override;
   String ComputedNameForNode(Node*) override;
@@ -468,6 +459,23 @@ class MODULES_EXPORT AXObjectCacheImpl
       AXID id,
       WebAXAutofillSuggestionAvailability suggestion_availability);
 
+  // Plugin support. These could in (along with the tree source/serializer
+  // fields) move to their own subclass of AXObject.
+  void AddPluginTreeToUpdate(ui::AXTreeUpdate* update);
+  ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>*
+  GetPluginTreeSource();
+  void SetPluginTreeSource(
+      ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>*
+          source);
+  ui::AXTreeSerializer<const ui::AXNode*,
+                       std::vector<const ui::AXNode*>,
+                       ui::AXTreeUpdate*,
+                       ui::AXTreeData*,
+                       ui::AXNodeData>*
+  GetPluginTreeSerializer();
+  void ResetPluginTreeSerializer();
+  void MarkPluginDescendantDirty(ui::AXNodeID node_id);
+
   std::pair<ax::mojom::blink::EventFrom, ax::mojom::blink::Action>
   active_event_from_data() const {
     return std::make_pair(active_event_from_, active_event_from_action_);
@@ -483,7 +491,7 @@ class MODULES_EXPORT AXObjectCacheImpl
   Element* GetActiveAriaModalDialog() const;
 
   static bool UseAXMenuList() { return use_ax_menu_list_; }
-  static bool ShouldCreateAXMenuListFor(LayoutObject* layout_object);
+  static bool ShouldCreateAXMenuListFor(const Node*);
   static bool ShouldCreateAXMenuListOptionFor(const Node*);
   static bool IsRelevantPseudoElement(const Node& node);
   static bool IsRelevantPseudoElementDescendant(
@@ -491,11 +499,18 @@ class MODULES_EXPORT AXObjectCacheImpl
   static bool IsRelevantSlotElement(const HTMLSlotElement& slot);
   static Node* GetClosestNodeForLayoutObject(const LayoutObject* layout_object);
 
+  // Token to return this token in the next IPC, so that RenderFrameHostImpl
+  // can discard stale data, when the token does not match the expected token.
+  std::optional<uint32_t> reset_token_;
+  void SetSerializationResetToken(uint32_t token) override {
+    reset_token_ = token;
+  }
+
   // Retrieves a vector of all AXObjects whose bounding boxes may have changed
   // since the last query. Sends the resulting vector over mojo to the browser
   // process. Clears the vector so that the next time it's
   // called, it will only retrieve objects that have changed since now.
-  void SerializeLocationChanges(uint32_t reset_token) override;
+  void SerializeLocationChanges();
 
   bool SerializeEntireTree(
       size_t max_node_count,
@@ -512,13 +527,11 @@ class MODULES_EXPORT AXObjectCacheImpl
           ax::mojom::blink::Action::kNone,
       const std::vector<ui::AXEventIntent>& event_intents = {}) override;
 
-  void SerializeDirtyObjectsAndEvents(WebPluginContainer* plugin_container,
-                                      std::vector<ui::AXTreeUpdate>& updates,
-                                      std::vector<ui::AXEvent>& events,
-                                      bool& had_end_of_test_event,
-                                      bool& had_load_complete_messages,
-                                      bool& need_to_send_location_changes,
-                                      bool& mark_plugin_subtree_dirty) override;
+  void GetUpdatesAndEventsForSerialization(
+      std::vector<ui::AXTreeUpdate>& updates,
+      std::vector<ui::AXEvent>& events,
+      bool& had_end_of_test_event,
+      bool& had_load_complete_messages);
 
   void GetImagesToAnnotate(ui::AXTreeUpdate& updates,
                            std::vector<ui::AXNodeData*>& nodes) override;
@@ -548,6 +561,14 @@ class MODULES_EXPORT AXObjectCacheImpl
 
   static constexpr int kDataTableHeuristicMinRows = 20;
 
+  // Updates the AX tree by walking from the root, calling AXObject::
+  // UpdateChildrenIfNecessary on each AXObject for which NeedsUpdate is true.
+  // This method is part of a11y-during-render, and in particular transitioning
+  // to an eager (as opposed to lazy) AX tree update pattern. See
+  // https://bugs.chromium.org/p/chromium/issues/detail?id=1342801#c12 for more
+  // details.
+  void UpdateTreeIfNeeded();
+
   void UpdateAXForAllDocuments() override;
   void MarkDocumentDirty() override;
   void ResetSerializer() override;
@@ -567,6 +588,8 @@ class MODULES_EXPORT AXObjectCacheImpl
   // Assert that tree is completely up-to-date.
   void CheckTreeIsUpdated();
   void CheckStyleIsComplete(Document& document) const;
+
+  bool SerializeUpdatesAndEvents();
 
   // Returns the `TextChangedOperation` associated with the `id` from the
   // `text_operation_in_node_ids_` map, if `id` is in the map.
@@ -612,6 +635,10 @@ class MODULES_EXPORT AXObjectCacheImpl
   // AXObjectCache and AXTreeSerializer.
   void UpdateIncludedNodeCount(const AXObject* obj);
   size_t GetIncludedNodeCount() const { return included_node_count_; }
+  void UpdatePluginIncludedNodeCount();
+  size_t GetPluginIncludedNodeCount() const {
+    return plugin_included_node_count_;
+  }
   HeapHashMap<AXID, Member<AXObject>>& GetObjects() { return objects_; }
 #endif
 
@@ -662,14 +689,6 @@ class MODULES_EXPORT AXObjectCacheImpl
         "Avoids conversion when passed from/to ui::AXTreeUpdate or "
         "blink::WebAXObject");
   };
-
-  // Updates the AX tree by walking from the root, calling AXObject::
-  // UpdateChildrenIfNecessary on each AXObject for which NeedsUpdate is true.
-  // This method is part of a11y-during-render, and in particular transitioning
-  // to an eager (as opposed to lazy) AX tree update pattern. See
-  // https://bugs.chromium.org/p/chromium/issues/detail?id=1342801#c12 for more
-  // details.
-  void UpdateTreeIfNeeded();
 
   // Make sure a relation cache exists and is initialized. Must be called with
   // clean layout.
@@ -759,7 +778,6 @@ class MODULES_EXPORT AXObjectCacheImpl
     kEditableTextContentChanged = 8,
     kFocusableChanged = 9,
     kIdChanged = 10,
-    kMarkDirtyFromHandleLayout = 11,
     kMarkDirtyFromHandleScroll = 12,
     kNodeGainedFocus = 13,
     kNodeLostFocus = 14,
@@ -873,6 +891,7 @@ class MODULES_EXPORT AXObjectCacheImpl
       inline_text_box_object_mapping_;
 #if DCHECK_IS_ON()
   size_t included_node_count_ = 0;
+  size_t plugin_included_node_count_ = 0;
 #endif
 
   // Used for a mock AXObject representing the message displayed in the
@@ -889,6 +908,9 @@ class MODULES_EXPORT AXObjectCacheImpl
   // If non-null, this is the node that the current aria-activedescendant caused
   // to have the selected state.
   WeakMember<Node> last_selected_from_active_descendant_;
+  // If non-zero, this is the DOMNodeID for the last <option> element selected
+  // in a select with size > 1.
+  DOMNodeId last_selected_list_option_ = 0;
 
   std::unique_ptr<AXRelationCache> relation_cache_;
 
@@ -1060,16 +1082,12 @@ class MODULES_EXPORT AXObjectCacheImpl
 
   // Help de-dupe processing of repetitive events.
   HashSet<AXID> nodes_with_pending_children_changed_;
-  HashSet<AXID> nodes_with_pending_location_changed_;
 
   // Nodes with document markers that have received accessibility updates.
   HashSet<AXID> nodes_with_spelling_or_grammar_markers_;
 
   // Nodes renoved from flat tree.
   HeapVector<std::pair<Member<Node>, bool>> nodes_for_subtree_removal_;
-
-  // True when layout has changed, and changed locations must be serialized.
-  bool need_to_send_location_changes_ = false;
 
   AXID last_value_change_node_ = ui::AXNodeData::kInvalidAXID;
 
@@ -1151,7 +1169,11 @@ class MODULES_EXPORT AXObjectCacheImpl
       render_accessibility_host_;
 
   Member<BlinkAXTreeSource> ax_tree_source_;
-  std::unique_ptr<ui::AXTreeSerializer<AXObject*, HeapVector<Member<AXObject>>>>
+  std::unique_ptr<ui::AXTreeSerializer<AXObject*,
+                                       HeapVector<Member<AXObject>>,
+                                       ui::AXTreeUpdate*,
+                                       ui::AXTreeData*,
+                                       ui::AXNodeData>>
       ax_tree_serializer_;
 
   HeapVector<Member<AXDirtyObject>> dirty_objects_;
@@ -1175,6 +1197,18 @@ class MODULES_EXPORT AXObjectCacheImpl
   AXID image_data_node_id_ = ui::AXNodeData::kInvalidAXID;
 
   gfx::Size max_image_data_size_;
+
+  using PluginAXTreeSerializer =
+      ui::AXTreeSerializer<const ui::AXNode*,
+                           std::vector<const ui::AXNode*>,
+                           ui::AXTreeUpdate*,
+                           ui::AXTreeData*,
+                           ui::AXNodeData>;
+  // AXTreeSerializer's AXSourceNodeVectorType is not a vector<raw_ptr> due to
+  // performance regressions detected in blink_perf.accessibility tests.
+  RAW_PTR_EXCLUSION std::unique_ptr<PluginAXTreeSerializer> plugin_serializer_;
+  raw_ptr<ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>>
+      plugin_tree_source_;
 
   // So we can ensure the serialization pipeline never stalls with dirty objects
   // remaining to be serialized.

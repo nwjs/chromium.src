@@ -311,8 +311,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         }
 
         WebsitePermissionsFetcher fetcher =
-                new WebsitePermissionsFetcher(
-                        getSiteSettingsDelegate().getBrowserContextHandle(), false);
+                new WebsitePermissionsFetcher(getSiteSettingsDelegate(), false);
         fetcher.fetchPreferencesForCategory(mCategory, new ResultsPopulator());
     }
 
@@ -1093,9 +1092,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
             preference.setIcon(
                     SettingsUtils.getTintedIcon(
                             getContext(),
-                            ContentSettingsResources.getIcon(
-                                    mCategory.getContentSettingsType(),
-                                    getSiteSettingsDelegate())));
+                            ContentSettingsResources.getIcon(mCategory.getContentSettingsType())));
             preference.setTitle(entry.first.get(0).getName());
             preference.setFragment(ChosenObjectSettings.class.getCanonicalName());
             getPreferenceScreen().addPreference(preference);
@@ -1353,8 +1350,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
 
     private void configureBinaryToggle(ChromeSwitchPreference binaryToggle, int contentType) {
         binaryToggle.setOnPreferenceChangeListener(this);
-        binaryToggle.setTitle(
-                ContentSettingsResources.getTitle(contentType, getSiteSettingsDelegate()));
+        binaryToggle.setTitle(ContentSettingsResources.getTitle(contentType));
 
         // Set summary on or off.
         BrowserContextHandle browserContextHandle =
@@ -1363,16 +1359,11 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 && WebsitePreferenceBridge.isLocationAllowedByPolicy(browserContextHandle)) {
             binaryToggle.setSummaryOn(ContentSettingsResources.getGeolocationAllowedSummary());
         } else {
-            binaryToggle.setSummaryOn(
-                    ContentSettingsResources.getEnabledSummary(
-                            contentType, getSiteSettingsDelegate()));
+            binaryToggle.setSummaryOn(ContentSettingsResources.getEnabledSummary(contentType));
         }
-        binaryToggle.setSummaryOff(
-                ContentSettingsResources.getDisabledSummary(
-                        contentType, getSiteSettingsDelegate()));
+        binaryToggle.setSummaryOff(ContentSettingsResources.getDisabledSummary(contentType));
         int summaryForAccessibility =
-                ContentSettingsResources.getSummaryOverrideForScreenReader(
-                        contentType, getSiteSettingsDelegate());
+                ContentSettingsResources.getSummaryOverrideForScreenReader(contentType);
         if (summaryForAccessibility != 0) {
             binaryToggle.setSummaryOverrideForScreenReader(
                     getContext().getString(summaryForAccessibility));
@@ -1411,7 +1402,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         }
     }
 
-    // TODO(crbug.com/1343640): Looking at a different class setup for SingleCategorySettings that
+    // TODO(crbug.com/40852484): Looking at a different class setup for SingleCategorySettings that
     // allows category specific logic to live in separate files.
     private void updateDesktopSiteWindowSetting() {
         if (!ContentFeatureMap.isEnabled(ContentFeatureList.REQUEST_DESKTOP_SITE_WINDOW_SETTING)) {
@@ -1562,7 +1553,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         RecordHistogram.recordEnumeratedHistogram(
                 "Android.RequestDesktopSite.Changed", layout, SiteLayout.NUM_ENTRIES);
 
-        // TODO(crbug.com/1069897): Use SharedPreferencesManager if it is componentized.
+        // TODO(crbug.com/40126122): Use SharedPreferencesManager if it is componentized.
         ContextUtils.getAppSharedPreferences()
                 .edit()
                 .putBoolean(

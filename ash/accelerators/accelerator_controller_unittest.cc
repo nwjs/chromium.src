@@ -72,6 +72,7 @@
 #include "base/test/scoped_chromeos_version_info.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/ui/base/window_state_type.h"
+#include "chromeos/ui/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "chromeos/ui/frame/caption_buttons/frame_size_button.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
@@ -195,6 +196,11 @@ class DummyBrightnessControlDelegate : public BrightnessControlDelegate {
       base::OnceCallback<void(std::optional<double>)> callback) override {
     std::move(callback).Run(100.0);
   }
+  void SetAmbientLightSensorEnabled(bool enabled) override {}
+  void HasAmbientLightSensor(
+      base::OnceCallback<void(std::optional<bool>)> callback) override {
+    std::move(callback).Run(true);
+  }
 
   int handle_brightness_down_count() const {
     return handle_brightness_down_count_;
@@ -239,6 +245,11 @@ class DummyKeyboardBrightnessControlDelegate
   }
 
   void HandleSetKeyboardBrightness(double percent, bool gradual) override {}
+
+  void HandleGetKeyboardBrightness(
+      base::OnceCallback<void(std::optional<double>)> callback) override {
+    std::move(callback).Run(100.0);
+  }
 
   int handle_keyboard_brightness_down_count() const {
     return handle_keyboard_brightness_down_count_;
@@ -3393,16 +3404,18 @@ TEST_P(MediaSessionAcceleratorTest,
   }
 }
 
+// TODO(b:332383246): Remove once the feature is enabled permanently.
 class AcceleratorControllerGameDashboardTests
     : public AcceleratorControllerTest {
  public:
-  AcceleratorControllerGameDashboardTests()
-      : scoped_version_info_("CHROMEOS_RELEASE_TRACK=testimage-channel",
-                             base::SysInfo::GetLsbReleaseTime()) {}
+  AcceleratorControllerGameDashboardTests() = default;
+  AcceleratorControllerGameDashboardTests(
+      const AcceleratorControllerTestWithClamshellSplitView&) = delete;
+  AcceleratorControllerGameDashboardTests& operator=(
+      const AcceleratorControllerGameDashboardTests&) = delete;
   ~AcceleratorControllerGameDashboardTests() override = default;
 
   void SetUp() override {
-    EXPECT_FALSE(features::IsGameDashboardEnabled());
     scoped_feature_list_.InitAndEnableFeature(features::kGameDashboard);
     AcceleratorControllerTest::SetUp();
     EXPECT_TRUE(features::IsGameDashboardEnabled());
@@ -3410,7 +3423,6 @@ class AcceleratorControllerGameDashboardTests
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
-  base::test::ScopedChromeOSVersionInfo scoped_version_info_;
 };
 
 TEST_F(AcceleratorControllerGameDashboardTests,
@@ -3420,30 +3432,28 @@ TEST_F(AcceleratorControllerGameDashboardTests,
   // No active window.
   EXPECT_FALSE(ProcessInController(accelerator));
 
-  // Verify cannot toggle for unsupported app types.
-  const AppType unsupported_window_types[] = {
-      AppType::NON_APP,      AppType::BROWSER,    AppType::CHROME_APP,
-      AppType::CROSTINI_APP, AppType::SYSTEM_APP, AppType::LACROS};
-  for (AppType unsupported_window_type : unsupported_window_types) {
-    std::unique_ptr<aura::Window> window =
-        CreateAppWindow(gfx::Rect(5, 5, 20, 20), unsupported_window_type);
-    window->SetProperty(aura::client::kAppType,
-                        static_cast<int>(unsupported_window_type));
-    EXPECT_FALSE(ProcessInController(accelerator));
-  }
-
+  // Create an ARC app window.
   std::unique_ptr<aura::Window> window =
       CreateAppWindow(gfx::Rect(5, 5, 20, 20), AppType::ARC_APP);
   window->SetProperty(kAppIDKey,
                       std::string(TestGameDashboardDelegate::kGameAppId));
+  // Verify the accelerator is not processed until the game controls status is
+  // known for ARC apps.
   EXPECT_FALSE(ProcessInController(accelerator));
   window->SetProperty(kArcGameControlsFlagsKey, ArcGameControlsFlag::kKnown);
   EXPECT_TRUE(ProcessInController(accelerator));
+  // Verify the accelerator is not processed when game controls is in edit mode.
   window->SetProperty(
       kArcGameControlsFlagsKey,
-      static_cast<ash::ArcGameControlsFlag>(ArcGameControlsFlag::kKnown |
-                                            ArcGameControlsFlag::kEdit));
+      static_cast<ArcGameControlsFlag>(ArcGameControlsFlag::kKnown |
+                                       ArcGameControlsFlag::kEdit));
   EXPECT_FALSE(ProcessInController(accelerator));
+
+  // Create a non-ARC app window.
+  window = CreateAppWindow(gfx::Rect(5, 5, 20, 20), AppType::BROWSER);
+  window->SetProperty(
+      kAppIDKey, std::string(TestGameDashboardDelegate::kAllowlistedAppId));
+  EXPECT_TRUE(ProcessInController(accelerator));
 }
 
 }  // namespace ash

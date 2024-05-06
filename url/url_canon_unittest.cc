@@ -2103,9 +2103,7 @@ TEST(URLCanonTest, ReplaceFileSystemURL) {
 
   for (const auto& replace_case : replace_cases) {
     const ReplaceCase& cur = replace_case;
-    int base_len = static_cast<int>(strlen(cur.base));
-    Parsed parsed;
-    ParseFileSystemURL(cur.base, base_len, &parsed);
+    Parsed parsed = ParseFileSystemURL(cur.base);
 
     Replacements<char> r;
     typedef Replacements<char> R;  // Clean up syntax.
@@ -2208,9 +2206,7 @@ TEST(URLCanonTest, ReplaceMailtoURL) {
 
   for (const auto& replace_case : replace_cases) {
     const ReplaceCase& cur = replace_case;
-    int base_len = static_cast<int>(strlen(cur.base));
-    Parsed parsed;
-    ParseMailtoURL(cur.base, base_len, &parsed);
+    Parsed parsed = ParseMailtoURL(cur.base);
 
     Replacements<char> r;
     typedef Replacements<char> R;
@@ -2369,9 +2365,7 @@ TEST(URLCanonTest, CanonicalizeFileSystemURL) {
   };
 
   for (const auto& i : cases) {
-    int url_len = static_cast<int>(strlen(i.input));
-    Parsed parsed;
-    ParseFileSystemURL(i.input, url_len, &parsed);
+    Parsed parsed = ParseFileSystemURL(i.input);
 
     Parsed out_parsed;
     std::string out_str;
@@ -2536,7 +2530,6 @@ TEST(URLCanonTest, CanonicalizeMailtoURL) {
   };
 
   // Define outside of loop to catch bugs where components aren't reset
-  Parsed parsed;
   Parsed out_parsed;
 
   for (size_t i = 0; i < std::size(cases); i++) {
@@ -2546,12 +2539,13 @@ TEST(URLCanonTest, CanonicalizeMailtoURL) {
       // as the string terminator.
       url_len = 22;
     }
-    ParseMailtoURL(cases[i].input, url_len, &parsed);
 
     std::string out_str;
     StdStringCanonOutput output(&out_str);
-    bool success = CanonicalizeMailtoURL(cases[i].input, url_len, parsed,
-                                         &output, &out_parsed);
+    bool success = CanonicalizeMailtoURL(
+        cases[i].input, url_len,
+        ParseMailtoURL(std::string_view(cases[i].input, url_len)), &output,
+        &out_parsed);
     output.Complete();
 
     EXPECT_EQ(cases[i].expected_success, success);

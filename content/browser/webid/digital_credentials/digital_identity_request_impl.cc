@@ -58,6 +58,7 @@ void DigitalIdentityRequestImpl::CompleteRequestWithStatus(
     RequestStatusForMetrics status_for_metrics) {
   // Invalidate pending requests in case that the request gets aborted.
   weak_ptr_factory_.InvalidateWeakPtrs();
+  provider_.reset();
 
   base::UmaHistogramEnumeration("Blink.DigitalIdentityRequest.Status",
                                 status_for_metrics);
@@ -157,27 +158,41 @@ void DigitalIdentityRequestImpl::Request(
     return;
   }
 
-  // provider_ is not destroyed after a successful wallet request so we need to
-  // have the nullcheck to avoid duplicated creation.
-  if (!provider_) {
-    provider_ = CreateProvider();
-  }
+  provider_ = CreateProvider();
   if (!provider_) {
     CompleteRequest("", RequestStatusForMetrics::kErrorOther);
     return;
   }
 
   auto request = BuildRequest(std::move(digital_credential_provider));
-
   provider_->Request(
       WebContents::FromRenderFrameHost(&render_frame_host()), origin(), request,
-      base::BindOnce(&DigitalIdentityRequestImpl::CompleteRequest,
+      base::BindOnce(&DigitalIdentityRequestImpl::ShowInterstitialIfNeeded,
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
 void DigitalIdentityRequestImpl::Abort() {
   CompleteRequestWithStatus(RequestDigitalIdentityStatus::kErrorCanceled, "",
                             RequestStatusForMetrics::kErrorAborted);
+}
+
+void DigitalIdentityRequestImpl::ShowInterstitialIfNeeded(
+    const std::string& response,
+    RequestStatusForMetrics status_for_metrics) {
+  if (status_for_metrics != RequestStatusForMetrics::kSuccess) {
+    CompleteRequest("", status_for_metrics);
+    return;
+  }
+
+  if (!render_frame_host().IsActive()) {
+    CompleteRequest("", RequestStatusForMetrics::kErrorOther);
+    return;
+  }
+
+  GetContentClient()->browser()->ShowDigitalIdentityInterstitialIfNeeded(
+      *WebContents::FromRenderFrameHost(&render_frame_host()), origin(),
+      base::BindOnce(&DigitalIdentityRequestImpl::CompleteRequest,
+                     weak_ptr_factory_.GetWeakPtr(), response));
 }
 
 std::unique_ptr<DigitalIdentityProvider>

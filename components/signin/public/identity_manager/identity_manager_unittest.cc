@@ -60,10 +60,6 @@
 #include "components/signin/internal/identity_manager/child_account_info_fetcher_android.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include <optional>
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "components/account_manager_core/account.h"
@@ -477,7 +473,7 @@ class IdentityManagerTest : public testing::Test {
     // behavior from all platforms, even from ones where tokens are loaded
     // asynchronously (e.g., ChromeOS). Wait for loading to finish to meet these
     // expectations.
-    // TODO(https://crbug.com/1195170): Move waiting to tests that need it.
+    // TODO(crbug.com/40175926): Move waiting to tests that need it.
     signin::WaitForRefreshTokensLoaded(identity_manager());
   }
 
@@ -1578,7 +1574,7 @@ TEST_F(IdentityManagerTest,
 
 TEST_F(IdentityManagerTest,
        CallbackSentOnPrimaryAccountRefreshTokenUpdateWithInvalidToken) {
-  SetInvalidRefreshTokenForPrimaryAccount(identity_manager());
+  signin::SetInvalidRefreshTokenForPrimaryAccount(identity_manager());
 
   CoreAccountInfo account_info =
       identity_manager_observer()->AccountFromRefreshTokenUpdatedCallback();

@@ -80,6 +80,7 @@
 #include "chrome/updater/win/test/test_executables.h"
 #include "chrome/updater/win/test/test_strings.h"
 #include "chrome/updater/win/ui/l10n_util.h"
+#include "chrome/updater/win/ui/resources/resources.grh"
 #include "chrome/updater/win/ui/resources/updater_installer_strings.h"
 #include "chrome/updater/win/win_constants.h"
 #include "components/crx_file/crx_verifier.h"
@@ -177,42 +178,6 @@ HRESULT CreateLocalServer(GUID clsid,
               .HasValue(service_name.c_str());
 }
 
-// Checks that only `LastInstaller*` values and, if a user install, active bits
-// under `ClientState` are in the registry.
-void ExpectUpdateRegKeyClean(UpdaterScope scope) {
-  const HKEY root = UpdaterScopeToHKeyRoot(scope);
-
-  if (IsSystemInstall(scope)) {
-    EXPECT_EQ(RegKeyExists(root, CLIENT_STATE_KEY), false);
-    return;
-  }
-
-  // `ClientState` may exist with lastrun values for user installs.
-  if (!RegKeyExists(root, CLIENT_STATE_KEY)) {
-    return;
-  }
-  EXPECT_THAT(base::win::RegKey(root, CLIENT_STATE_KEY, Wow6432(KEY_READ))
-                  .GetValueCount(),
-              base::test::ValueIs(0u));
-  const std::vector<std::wstring> allowed_values = {kDidRun, L"lastrun"};
-  for (base::win::RegistryKeyIterator client_state_iter(root, CLIENT_STATE_KEY,
-                                                        KEY_WOW64_32KEY);
-       client_state_iter.Valid(); ++client_state_iter) {
-    const std::wstring app_client_state_key_name =
-        GetAppClientStateKey(client_state_iter.Name());
-    for (base::win::RegistryValueIterator value_iter(
-             root, app_client_state_key_name.c_str(), KEY_WOW64_32KEY);
-         value_iter.Valid(); ++value_iter) {
-      EXPECT_TRUE(base::Contains(allowed_values, value_iter.Name()))
-          << value_iter.Name();
-    }
-    EXPECT_EQ(base::win::RegistryKeyIterator(
-                  root, app_client_state_key_name.c_str(), KEY_WOW64_32KEY)
-                  .SubkeyCount(),
-              0u);
-  }
-}
-
 // Checks the installation states (installed or uninstalled) and versions (SxS
 // only, or both active and SxS). The installation state includes
 // Client/ClientState registry, COM server registration, COM service
@@ -229,6 +194,10 @@ void CheckInstallation(UpdaterScope scope,
 
   if (is_active_and_sxs) {
     EXPECT_EQ(is_installed, base::PathExists(*GetGoogleUpdateExePath(scope)));
+    EXPECT_EQ(is_installed,
+              RegKeyExists(UpdaterScopeToHKeyRoot(scope),
+                           base::StrCat({CLIENT_STATE_KEY,
+                                         base::UTF8ToWide(kUpdaterAppId)})));
 
     if (is_installed) {
       for (const wchar_t* key : {CLIENTS_KEY, CLIENT_STATE_KEY, UPDATER_KEY}) {
@@ -278,9 +247,6 @@ void CheckInstallation(UpdaterScope scope,
           EXPECT_FALSE(RegKeyExists(HKEY_LOCAL_MACHINE, key));
         }
       }
-      EXPECT_FALSE(RegKeyExists(root, CLIENT_STATE_KEY));
-      ExpectUpdateRegKeyClean(scope);
-
       if (!IsSystemInstall(scope)) {
         ForEachRegistryRunValueWithPrefix(
             base::ASCIIToWide(PRODUCT_FULLNAME_STRING),
@@ -692,9 +658,11 @@ void RunOfflineInstallWithManifest(UpdaterScope scope,
     CloseInstallCompleteDialog(GetLocalizedString(string_resource_id_to_find));
   }
 
+  scoped_refptr<GlobalPrefs> global_prefs = CreateGlobalPrefs(scope);
+  ASSERT_TRUE(global_prefs);
   const base::Version pv =
-      base::MakeRefCounted<PersistedData>(
-          scope, CreateGlobalPrefs(scope)->GetPrefService(), nullptr)
+      base::MakeRefCounted<PersistedData>(scope, global_prefs->GetPrefService(),
+                                          nullptr)
           ->GetProductVersion(base::WideToASCII(kTestAppID));
 
   base::win::RegKey key;
@@ -836,11 +804,13 @@ void Clean(UpdaterScope scope) {
 void EnterTestMode(const GURL& update_url,
                    const GURL& crash_upload_url,
                    const GURL& device_management_url,
+                   const GURL& app_logo_url,
                    const base::TimeDelta& idle_timeout) {
   ASSERT_TRUE(ExternalConstantsBuilder()
                   .SetUpdateURL(std::vector<std::string>{update_url.spec()})
                   .SetCrashUploadURL(crash_upload_url.spec())
                   .SetDeviceManagementURL(device_management_url.spec())
+                  .SetAppLogoURL(app_logo_url.spec())
                   .SetUseCUP(false)
                   .SetInitialDelay(base::Milliseconds(100))
                   .SetServerKeepAliveTime(base::Seconds(1))
@@ -962,7 +932,7 @@ void VerifyInterfacesRegistryEntries(UpdaterScope scope) {
       const HKEY root = UpdaterScopeToHKeyRoot(scope);
       const std::wstring iid_reg_path = GetComIidRegistryPath(iid);
       const std::wstring typelib_reg_path = GetComTypeLibRegistryPath(iid);
-      const std::wstring iid_string = base::win::WStringFromGUID(iid);
+      const std::wstring iid_string = StringFromGuid(iid);
 
       for (const auto& key_flag : {KEY_WOW64_32KEY, KEY_WOW64_64KEY}) {
         std::wstring val;
@@ -1110,7 +1080,7 @@ void ExpectMarshalInterfaceSucceeds(UpdaterScope scope) {
                                     ? __uuidof(IUpdaterInternalSystem)
                                     : __uuidof(IUpdaterInternalUser);
   EXPECT_HRESULT_SUCCEEDED(::CoGetPSClsid(iupdaterinternal_iid, &psclsid));
-  EXPECT_EQ(base::ToUpperASCII(base::win::WStringFromGUID(psclsid)),
+  EXPECT_EQ(base::ToUpperASCII(StringFromGuid(psclsid)),
             L"{00020424-0000-0000-C000-000000000046}");
 
   // Get the proxy/stub factory buffer.
@@ -1396,10 +1366,17 @@ void SetupLaunchCommandElevated(const std::wstring& app_id,
       app_id, name, pv, command_id,
       base::StrCat({cmd_exe_command_line.GetCommandLineString(),
                     command_parameters.c_str()}));
+
+  // Enable usage stats to allow this launch command to send an app command
+  // ping.
+  base::win::RegKey client_state_key(
+      CreateAppClientStateKey(UpdaterScope::kSystem, app_id));
+  EXPECT_EQ(client_state_key.WriteValue(L"usagestats", 1), ERROR_SUCCESS);
 }
 
 void DeleteLaunchCommandElevated(const std::wstring& app_id,
                                  const std::wstring& command_id) {
+  DeleteAppClientStateKey(UpdaterScope::kSystem, app_id);
   EXPECT_EQ(CreateAppClientKey(UpdaterScope::kSystem, app_id)
                 .DeleteValue(command_id.c_str()),
             ERROR_SUCCESS);
@@ -1464,6 +1441,9 @@ void ExpectLegacyProcessLauncherSucceeds(UpdaterScope scope) {
   // Succeeds when the command is present in the registry.
   ASSERT_HRESULT_SUCCEEDED(
       ProcessLaunchCmdElevated(process_launcher, kAppId1, kCommandId, 5420));
+
+  // Allows time for the app command ping to be sent.
+  base::PlatformThread::Sleep(base::Seconds(1));
 
   DeleteLaunchCommandElevated(kAppId1, kCommandId);
   EXPECT_EQ(
@@ -1865,7 +1845,8 @@ void RunFakeLegacyUpdater(UpdaterScope scope) {
   }
 }
 
-void CloseInstallCompleteDialog(const std::wstring& child_window_text_to_find) {
+void CloseInstallCompleteDialog(const std::wstring& child_window_text_to_find,
+                                bool verify_app_logo_loaded) {
   const std::wstring window_title =
       GetLocalizedStringF(IDS_INSTALLER_DISPLAY_NAME_BASE,
                           GetLocalizedString(IDS_FRIENDLY_COMPANY_NAME_BASE));
@@ -1887,6 +1868,12 @@ void CloseInstallCompleteDialog(const std::wstring& child_window_text_to_find) {
                     hwnd, base::BindLambdaForTesting([&](HWND hwnd) {
                       if (!base::Contains(base::win::GetWindowTextString(hwnd),
                                           child_window_text_to_find)) {
+                        return false;
+                      }
+                      if (verify_app_logo_loaded &&
+                          !::SendDlgItemMessage(::GetParent(hwnd),
+                                                IDC_APP_BITMAP, STM_GETIMAGE,
+                                                IMAGE_BITMAP, 0)) {
                         return false;
                       }
                       found = true;

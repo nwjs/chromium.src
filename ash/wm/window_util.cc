@@ -158,7 +158,7 @@ aura::Window* FindTopMostChild(aura::Window* parent,
                                const aura::Window::Windows& windows) {
   for (aura::Window* child : base::Reversed(parent->children())) {
     for (aura::Window* window : windows) {
-      if (child == window) {
+      if (child == window && !window->is_destroying()) {
         return window;
       }
       if (child->Contains(window)) {
@@ -187,21 +187,40 @@ gfx::RoundedCornersF GetMiniWindowRoundedCorners(const aura::Window* window,
   if (SnapGroupController* snap_group_controller = SnapGroupController::Get()) {
     if (SnapGroup* snap_group =
             snap_group_controller->GetSnapGroupForGivenWindow(window)) {
-      return window == snap_group->window1()
+      const bool is_in_horizontal_snap_group =
+          snap_group->IsSnapGroupLayoutHorizontal();
+      if (window == snap_group->window1()) {
+        return is_in_horizontal_snap_group
+                   ? gfx::RoundedCornersF(
+                         /*upper_left=*/include_header_rounding
+                             ? scaled_corner_radius
+                             : 0,
+                         /*upper_right=*/0, /*lower_right=*/0,
+                         /*lower_left=*/scaled_corner_radius)
+                   : gfx::RoundedCornersF(
+                         /*upper_left=*/include_header_rounding
+                             ? scaled_corner_radius
+                             : 0,
+                         /*upper_right=*/
+                         include_header_rounding ? scaled_corner_radius : 0,
+                         /*lower_right=*/0,
+                         /*lower_left=*/0);
+      }
+
+      return is_in_horizontal_snap_group
                  ? gfx::RoundedCornersF(
-                       /*upper_left=*/include_header_rounding
-                           ? scaled_corner_radius
-                           : 0,
-                       /*upper_right=*/0, /*lower_right=*/0,
-                       /*lower_left=*/
-                       scaled_corner_radius)
-                 : gfx::RoundedCornersF(
                        /*upper_left=*/0,
                        /*upper_right=*/
                        include_header_rounding ? scaled_corner_radius : 0,
                        /*lower_right=*/
                        scaled_corner_radius,
-                       /*lower_left=*/0);
+                       /*lower_left=*/0)
+                 : gfx::RoundedCornersF(
+                       /*upper_left=*/0,
+                       /*upper_right=*/0,
+                       /*lower_right=*/
+                       scaled_corner_radius,
+                       /*lower_left=*/scaled_corner_radius);
     }
   }
 
@@ -412,38 +431,49 @@ bool ShouldExcludeForCycleList(const aura::Window* window) {
 }
 
 bool ShouldExcludeForOverview(const aura::Window* window) {
-  // A window should be excluded from being shown in overview when:
-  // 1. In tablet split view mode on one window snapped;
-  // 2. In clamshell `SplitViewOverviewSession`,
-  // 3. If the window is not the mru window in snap group i.e. the corresponding
-  // overview item representation for the snap group has been created.
-  auto should_exclude_in_clamshell = [&]() -> bool {
-    if (auto* split_view_overview_session =
-            RootWindowController::ForWindow(window)
-                ->split_view_overview_session();
-        split_view_overview_session &&
-        split_view_overview_session->window() == window) {
-      return true;
-    }
-
-    if (auto* snap_group_controller = SnapGroupController::Get()) {
-      if (SnapGroup* snap_group =
-              snap_group_controller->GetSnapGroupForGivenWindow(window)) {
-        return window != snap_group->GetTopMostWindowInGroup();
-      }
-    }
-
-    return false;
-  };
-
   if (ShouldExcludeForCycleList(window)) {
     return true;
   }
 
-  return display::Screen::GetScreen()->InTabletMode()
-             ? (window == SplitViewController::Get(window->GetRootWindow())
-                              ->GetDefaultSnappedWindow())
-             : should_exclude_in_clamshell();
+  if (display::Screen::GetScreen()->InTabletMode()) {
+    return window == SplitViewController::Get(window->GetRootWindow())
+                         ->GetDefaultSnappedWindow();
+  }
+
+  // A window should be excluded from being shown in Overview in clamshell mode
+  // when:
+  // 1. In partial Overview:
+  //   - The window itself is the snapped window;
+  //   - The window belongs to a snap group.
+  SplitViewController* split_view_controller = SplitViewController::Get(window);
+  SplitViewController::State split_view_state = split_view_controller->state();
+  SnapGroupController* snap_group_controller = SnapGroupController::Get();
+  if (split_view_state == SplitViewController::State::kPrimarySnapped ||
+      split_view_state == SplitViewController::State::kSecondarySnapped) {
+    if (window == split_view_controller->GetDefaultSnappedWindow()) {
+      return true;
+    }
+
+    if (snap_group_controller &&
+        snap_group_controller->GetSnapGroupForGivenWindow(window)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // 2. In full Overview:
+  //   -  The window is not the most recently used (MRU) window within its snap
+  //   group. i.e. the corresponding overview item representation for the snap
+  //   group has been created.
+  if (snap_group_controller) {
+    if (SnapGroup* snap_group =
+            snap_group_controller->GetSnapGroupForGivenWindow(window)) {
+      return window != snap_group->GetTopMostWindowInGroup();
+    }
+  }
+
+  return false;
 }
 
 void EnsureTransientRoots(

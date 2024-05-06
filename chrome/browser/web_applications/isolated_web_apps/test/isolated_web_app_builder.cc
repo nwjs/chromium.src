@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 
+#include "base/base_paths.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_file.h"
@@ -16,6 +17,7 @@
 #include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/path_service.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
@@ -93,7 +95,8 @@ void FakeInstallPageState(Profile* profile,
   GURL install_url = base_url.Resolve(kInstallPagePath);
   FakeWebContentsManager::FakePageState& install_page_state =
       fake_web_contents_manager.GetOrCreatePageState(install_url);
-  install_page_state.url_load_result = WebAppUrlLoaderResult::kUrlLoaded;
+  install_page_state.url_load_result =
+      webapps::WebAppUrlLoaderResult::kUrlLoaded;
   install_page_state.error_code =
       webapps::InstallableStatusCode::NO_ERROR_DETECTED;
   install_page_state.manifest_url = base_url.Resolve(kManifestPath);
@@ -234,7 +237,7 @@ IsolatedWebAppUrlInfo ScopedProxyIsolatedWebApp::InstallChecked(
 base::expected<IsolatedWebAppUrlInfo, std::string>
 ScopedProxyIsolatedWebApp::Install(Profile* profile) {
   return Install(profile,
-                 web_package::SignedWebBundleId::CreateRandomForDevelopment());
+                 web_package::SignedWebBundleId::CreateRandomForProxyMode());
 }
 
 base::expected<IsolatedWebAppUrlInfo, std::string>
@@ -628,10 +631,11 @@ IsolatedWebAppBuilder& IsolatedWebAppBuilder::AddFolderFromDisk(
 IsolatedWebAppBuilder& IsolatedWebAppBuilder::AddFolderFromDisk(
     std::string_view resource_path,
     const std::string& chrome_test_data_relative_path) {
+  base::FilePath base_path;
+  CHECK(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &base_path));
   base::FilePath absolute_path =
-      base::FilePath(FILE_PATH_LITERAL("chrome/test/data"))
-          .Append(
-              base::FilePath::FromUTF8Unsafe(chrome_test_data_relative_path));
+      base_path.AppendASCII("chrome/test/data")
+          .AppendASCII(chrome_test_data_relative_path);
   return AddFolderFromDisk(resource_path, absolute_path);
 }
 

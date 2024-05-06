@@ -32,11 +32,14 @@
 
 #include "base/containers/adapters.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
+#include "third_party/blink/public/web/web_print_page_description.h"
+#include "third_party/blink/public/web/web_print_params.h"
 #include "third_party/blink/renderer/core/animation/css/compositor_keyframe_value_factory.h"
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 #include "third_party/blink/renderer/core/animation/document_animations.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/invalidatable_interpolation.h"
+#include "third_party/blink/renderer/core/css/anchor_evaluator.h"
 #include "third_party/blink/renderer/core/css/cascade_layer_map.h"
 #include "third_party/blink/renderer/core/css/container_query_evaluator.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
@@ -257,11 +260,6 @@ String ComputeBaseComputedStyleDiff(const ComputedStyle* base_computed_style,
   }
   if (!CSSPropertyEquality::PropertiesEqual(
           PropertyHandle(CSSProperty::Get(CSSPropertyID::kMaskImage)),
-          *base_computed_style, computed_style)) {
-    exclusions.insert(DebugField::mask_);
-  }
-  if (!CSSPropertyEquality::PropertiesEqual(
-          PropertyHandle(CSSProperty::Get(CSSPropertyID::kWebkitMaskImage)),
           *base_computed_style, computed_style)) {
     exclusions.insert(DebugField::mask_);
   }
@@ -1123,6 +1121,8 @@ const ComputedStyle* StyleResolver::ResolveStyle(
         state, style_request.IsPseudoStyleRequest() ? nullptr : element);
   }
 
+  ApplyAnchorData(state);
+
   IncrementResolvedStyleCounters(style_request, GetDocument());
 
   if (!style_request.IsPseudoStyleRequest()) {
@@ -1365,6 +1365,14 @@ bool CanApplyInlineStyleIncrementally(Element* element,
   // and we don't support that. It should be rare to animate elements
   // _both_ with animations and mutating inline style anyway.
   if (GetElementAnimations(state) || element->GetComputedStyle()->BaseData()) {
+    return false;
+  }
+
+  // ComputedStyles produced by OOF-interleaving (StyleEngine::
+  // UpdateStyleForOutOfFlow) have this flag set. We can not apply the style
+  // incrementally on top of this, because ComputedStyles produced by normal
+  // style recalcs should not have this flag.
+  if (element->GetComputedStyle()->HasAnchorEvaluator()) {
     return false;
   }
 
@@ -1777,7 +1785,7 @@ const ComputedStyle* StyleResolver::StyleForPage(
   StyleResolverState state(GetDocument(), *root_element,
                            nullptr /* StyleRecalcContext */,
                            StyleRequest(parent_style));
-  state.CreateNewStyle(*parent_style, *parent_style);
+  state.CreateNewStyle(*InitialStyleForElement(), *parent_style);
 
   STACK_UNINITIALIZED StyleCascade cascade(state);
 
@@ -1789,12 +1797,44 @@ const ComputedStyle* StyleResolver::StyleForPage(
       CascadeOrigin::kUserAgent, nullptr /* tree_scope */,
       nullptr /* layer_map */);
 
+  // Calling this function without being in print mode is unusual and special,
+  // but it happens from unit tests, if nothing else.
+  if (GetDocument().Printing()) {
+    const WebPrintParams& params = GetDocument().GetFrame()->GetPrintParams();
+    const WebPrintPageDescription& description =
+        params.default_page_description;
+    // Set margins from print settings. They may be overridden by author styles,
+    // unless params.ignore_css_margins is set.
+    auto* set =
+        MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLStandardMode);
+    auto* value = CSSNumericLiteralValue::Create(
+        description.margin_top, CSSPrimitiveValue::UnitType::kPixels);
+    set->SetProperty(CSSPropertyID::kMarginTop, *value,
+                     /*important=*/params.ignore_css_margins);
+    value = CSSNumericLiteralValue::Create(
+        description.margin_right, CSSPrimitiveValue::UnitType::kPixels);
+    set->SetProperty(CSSPropertyID::kMarginRight, *value,
+                     /*important=*/params.ignore_css_margins);
+    value = CSSNumericLiteralValue::Create(
+        description.margin_bottom, CSSPrimitiveValue::UnitType::kPixels);
+    set->SetProperty(CSSPropertyID::kMarginBottom, *value,
+                     /*important=*/params.ignore_css_margins);
+    value = CSSNumericLiteralValue::Create(
+        description.margin_left, CSSPrimitiveValue::UnitType::kPixels);
+    set->SetProperty(CSSPropertyID::kMarginLeft, *value,
+                     /*important=*/params.ignore_css_margins);
+    cascade.MutableMatchResult().AddMatchedProperties(
+        set, CascadeOrigin::kUserAgent);
+  }
+
   if (ScopedStyleResolver* scoped_resolver =
           GetDocument().GetScopedStyleResolver()) {
     scoped_resolver->MatchPageRules(collector);
   }
 
   cascade.Apply();
+
+  state.LoadPendingResources();
 
   // Now return the style.
   return state.TakeStyle();
@@ -2068,6 +2108,23 @@ bool StyleResolver::ApplyAnimatedStyle(StyleResolverState& state,
       *animating_element, state.AnimationUpdate(), state.StyleBuilder());
 
   return apply;
+}
+
+void StyleResolver::ApplyAnchorData(StyleResolverState& state) {
+  if (AnchorEvaluator* evaluator =
+          state.CssToLengthConversionData().GetAnchorEvaluator()) {
+    // Pre-compute anchor-center offset so that the OOF layout code does not
+    // need to set up an AnchorEvaluator but simply retrieve the offsets from
+    // the ComputedStyle.
+    if (std::optional<PhysicalOffset> offset =
+            evaluator->ComputeAnchorCenterOffsets(state.StyleBuilder());
+        offset.has_value()) {
+      state.StyleBuilder().SetAnchorCenterOffset(offset);
+    }
+
+    // See ComputedStyle::HasAnchorFunctionsWithoutEvaluator.
+    state.StyleBuilder().SetHasAnchorEvaluator();
+  }
 }
 
 StyleResolver::FindKeyframesRuleResult StyleResolver::FindKeyframesRule(
@@ -2384,7 +2441,7 @@ bool StyleResolver::CanReuseBaseComputedStyle(const StyleResolverState& state) {
     return false;
   }
 
-  if (base_style->HasAnchorFunctions()) {
+  if (base_style->HasAnchorFunctions() || base_style->HasAnchorEvaluator()) {
     // TODO(crbug.com/41483417): Enable this optimization for styles with
     // anchor queries.
     return false;
@@ -2983,7 +3040,7 @@ void StyleResolver::PropagateStyleToViewport() {
     PROPAGATE_FROM(document_element_style, ScrollbarWidth, SetScrollbarWidth,
                    EScrollbarWidth::kAuto);
     PROPAGATE_FROM(document_element_style, ScrollbarColor, SetScrollbarColor,
-                   std::nullopt);
+                   nullptr);
     PROPAGATE_FROM(document_element_style, ForcedColorAdjust,
                    SetForcedColorAdjust, EForcedColorAdjust::kAuto);
     if (RuntimeEnabledFeatures::UsedColorSchemeRootScrollbarsEnabled()) {

@@ -15,12 +15,14 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_elu_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gather_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gemm_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_cell_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_hard_sigmoid_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_instance_normalization_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_layer_normalization_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_leaky_relu_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_linear_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_cell_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pad_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pool_2d_options.h"
@@ -74,23 +76,23 @@ blink_mojom::RecurrentNetworkDirection BlinkRecurrentNetworkDirectionToMojo(
   }
 }
 
-blink_mojom::Lstm::WeightLayout BlinkLstmWeightLayoutToMojo(
+blink_mojom::LstmWeightLayout BlinkLstmWeightLayoutToMojo(
     blink::V8MLLstmWeightLayout::Enum layout) {
   switch (layout) {
     case blink::V8MLLstmWeightLayout::Enum::kIofg:
-      return blink_mojom::Lstm::WeightLayout::kIofg;
+      return blink_mojom::LstmWeightLayout::kIofg;
     case blink::V8MLLstmWeightLayout::Enum::kIfgo:
-      return blink_mojom::Lstm::WeightLayout::kIfgo;
+      return blink_mojom::LstmWeightLayout::kIfgo;
   }
 }
 
-blink_mojom::Gru::GruWeightLayout BlinkGruWeightLayoutToMojo(
+blink_mojom::GruWeightLayout BlinkGruWeightLayoutToMojo(
     blink::V8MLGruWeightLayout::Enum layout) {
   switch (layout) {
     case blink::V8MLGruWeightLayout::Enum::kZrn:
-      return blink_mojom::Gru::GruWeightLayout::kZrn;
+      return blink_mojom::GruWeightLayout::kZrn;
     case blink::V8MLGruWeightLayout::Enum::kRzn:
-      return blink_mojom::Gru::GruWeightLayout::kRzn;
+      return blink_mojom::GruWeightLayout::kRzn;
   }
 }
 
@@ -312,9 +314,8 @@ blink_mojom::InputOperandLayout BlinkInputOperandLayoutToMojo(
   NOTREACHED_NORETURN();
 }
 
-base::expected<ActivationPtr, String> CreateActivation(
-    const OperandToIdMap& operand_to_id_map,
-    const MLActivation* ml_activation) {
+ActivationPtr CreateActivation(const OperandToIdMap& operand_to_id_map,
+                               const MLActivation* ml_activation) {
   switch (ml_activation->Kind()) {
     case blink_mojom::Activation::Tag::kClamp:
       return blink_mojom::Activation::NewClamp(
@@ -347,10 +348,9 @@ base::expected<ActivationPtr, String> CreateActivation(
   }
 }
 
-base::expected<OperationPtr, String> CreateArgMinMaxOperation(
-    const OperandToIdMap& operand_to_id_map,
-    const MLOperator* arg_min_max,
-    blink_mojom::ArgMinMax::Kind kind) {
+OperationPtr CreateArgMinMaxOperation(const OperandToIdMap& operand_to_id_map,
+                                      const MLOperator* arg_min_max,
+                                      blink_mojom::ArgMinMax::Kind kind) {
   auto arg_min_max_mojo = blink_mojom::ArgMinMax::New();
   arg_min_max_mojo->kind = kind;
   arg_min_max_mojo->input_operand_id =
@@ -371,7 +371,7 @@ base::expected<OperationPtr, String> CreateArgMinMaxOperation(
   return blink_mojom::Operation::NewArgMinMax(std::move(arg_min_max_mojo));
 }
 
-base::expected<OperationPtr, String> CreateBatchNormalizationOperation(
+OperationPtr CreateBatchNormalizationOperation(
     const OperandToIdMap& operand_to_id_map,
     const MLOperator* batch_normalization) {
   auto batch_normalization_mojo =
@@ -399,13 +399,8 @@ base::expected<OperationPtr, String> CreateBatchNormalizationOperation(
   batch_normalization_mojo->axis = options->axis();
   batch_normalization_mojo->epsilon = options->epsilon();
   if (options->hasActivation()) {
-    auto activation =
+    batch_normalization_mojo->activation =
         CreateActivation(operand_to_id_map, options->activation());
-    if (activation.has_value()) {
-      batch_normalization_mojo->activation = std::move(activation.value());
-    } else {
-      return base::unexpected(activation.error());
-    }
   }
   return webnn::mojom::blink::Operation::NewBatchNormalization(
       std::move(batch_normalization_mojo));
@@ -551,13 +546,8 @@ base::expected<OperationPtr, String> CreateConv2dOperation(
 
   // Convert `MLActivition` to `mojo::Operator` if it's configured.
   if (options->hasActivation()) {
-    auto activation =
+    conv2d_mojo->activation =
         CreateActivation(operand_to_id_map, options->activation());
-    if (activation.has_value()) {
-      conv2d_mojo->activation = std::move(activation.value());
-    } else {
-      return base::unexpected(activation.error());
-    }
   }
   return blink_mojom::Operation::NewConv2d(std::move(conv2d_mojo));
 }
@@ -575,9 +565,9 @@ OperationPtr CreateElementWiseBinaryOperator(
 
   auto operator_mojo = ElementWiseBinary::New();
   operator_mojo->kind = kind;
-  operator_mojo->lhs_operand = lhs_operand_id;
-  operator_mojo->rhs_operand = rhs_operand_id;
-  operator_mojo->output_operand = output_operand_id;
+  operator_mojo->lhs_operand_id = lhs_operand_id;
+  operator_mojo->rhs_operand_id = rhs_operand_id;
+  operator_mojo->output_operand_id = output_operand_id;
   return webnn::mojom::blink::Operation::NewElementWiseBinary(
       std::move(operator_mojo));
 }
@@ -633,9 +623,8 @@ OperationPtr CreateGemmOperation(const OperandToIdMap& operand_to_id_map,
   return webnn::mojom::blink::Operation::NewGemm(std::move(gemm_mojo));
 }
 
-base::expected<OperationPtr, String> CreateGruOperation(
-    const OperandToIdMap& operand_to_id_map,
-    const MLOperator* gru) {
+OperationPtr CreateGruOperation(const OperandToIdMap& operand_to_id_map,
+                                const MLOperator* gru) {
   auto gru_mojo = blink_mojom::Gru::New();
   gru_mojo->input_operand_id = GetOperatorInputId(gru, operand_to_id_map, 0);
   gru_mojo->weight_operand_id = GetOperatorInputId(gru, operand_to_id_map, 1);
@@ -668,13 +657,11 @@ base::expected<OperationPtr, String> CreateGruOperation(
       mojo::BlinkGruWeightLayoutToMojo(options->layout().AsEnum());
 
   const auto& activations = options->activations();
+  CHECK_EQ(activations.size(), 2u);
   gru_mojo->activations.reserve(activations.size());
   for (const auto& activation : activations) {
-    auto validated_activation = CreateActivation(operand_to_id_map, activation);
-    if (!validated_activation.has_value()) {
-      return base::unexpected(validated_activation.error());
-    }
-    gru_mojo->activations.push_back(std::move(validated_activation.value()));
+    gru_mojo->activations.push_back(
+        CreateActivation(operand_to_id_map, activation));
   }
 
   const wtf_size_t output_count = gru->Outputs().size();
@@ -687,6 +674,65 @@ base::expected<OperationPtr, String> CreateGruOperation(
   return blink_mojom::Operation::NewGru(std::move(gru_mojo));
 }
 
+base::expected<OperationPtr, String> CreateGruCellOperation(
+    const OperandToIdMap& operand_to_id_map,
+    const MLOperator* gru_cell) {
+  uint64_t input_operand_id =
+      GetOperatorInputId(gru_cell, operand_to_id_map, 0);
+  uint64_t weight_operand_id =
+      GetOperatorInputId(gru_cell, operand_to_id_map, 1);
+  uint64_t recurrent_weight_operand_id =
+      GetOperatorInputId(gru_cell, operand_to_id_map, 2);
+  uint64_t hidden_state_operand_id =
+      GetOperatorInputId(gru_cell, operand_to_id_map, 3);
+
+  const auto* gru_cell_operator =
+      static_cast<const MLGruCellOperator*>(gru_cell);
+  uint32_t hidden_size = gru_cell_operator->hidden_size();
+
+  const auto* options =
+      static_cast<const MLGruCellOptions*>(gru_cell->Options());
+  CHECK(options);
+
+  std::optional<uint64_t> bias_operand_id;
+  if (options->hasBias()) {
+    bias_operand_id = operand_to_id_map.at(options->bias());
+  }
+  std::optional<uint64_t> recurrent_bias_operand_id;
+  if (options->hasRecurrentBias()) {
+    recurrent_bias_operand_id = operand_to_id_map.at(options->recurrentBias());
+  }
+  // gru_cell_mojo->reset_after = options->resetAfter();
+  // gru_cell_mojo->layout =
+  //     mojo::BlinkGruWeightLayoutToMojo(options->layout().AsEnum());
+
+  // const auto& activations = options->activations();
+  const HeapVector<Member<MLActivation>>& ml_activations =
+      options->activations();
+  CHECK_EQ(ml_activations.size(), 2u);
+  Vector<ActivationPtr> activations;
+  activations.reserve(ml_activations.size());
+  for (const auto& activation : ml_activations) {
+    base::expected<ActivationPtr, String> validated_activation =
+        CreateActivation(operand_to_id_map, activation);
+    if (!validated_activation.has_value()) {
+      return base::unexpected(validated_activation.error());
+    }
+    activations.push_back(std::move(validated_activation.value()));
+  }
+
+  uint64_t output_operand_id = GetOperatorOutputId(gru_cell, operand_to_id_map);
+
+  auto gru_cell_mojo = blink_mojom::GruCell::New(
+      input_operand_id, weight_operand_id, recurrent_weight_operand_id,
+      hidden_state_operand_id, hidden_size, output_operand_id, bias_operand_id,
+      recurrent_bias_operand_id, options->resetAfter(),
+      mojo::BlinkGruWeightLayoutToMojo(options->layout().AsEnum()),
+      std::move(activations));
+
+  return blink_mojom::Operation::NewGruCell(std::move(gru_cell_mojo));
+}
+
 OperationPtr CreateHardSwishOperation(const OperandToIdMap& operand_to_id_map,
                                       const MLOperator* hard_swish) {
   auto hard_swish_mojo = blink_mojom::HardSwish::New();
@@ -697,7 +743,7 @@ OperationPtr CreateHardSwishOperation(const OperandToIdMap& operand_to_id_map,
   return blink_mojom::Operation::NewHardSwish(std::move(hard_swish_mojo));
 }
 
-base::expected<OperationPtr, String> CreateLayerNormalizationOperation(
+OperationPtr CreateLayerNormalizationOperation(
     const OperandToIdMap& operand_to_id_map,
     const MLOperator* layer_normalization) {
   auto layer_normalization_mojo =
@@ -730,7 +776,7 @@ base::expected<OperationPtr, String> CreateLayerNormalizationOperation(
       std::move(layer_normalization_mojo));
 }
 
-base::expected<OperationPtr, String> CreateInstanceNormalizationOperation(
+OperationPtr CreateInstanceNormalizationOperation(
     const OperandToIdMap& operand_to_id_map,
     const MLOperator* instance_normalization) {
   auto instance_normalization_mojo =
@@ -759,9 +805,8 @@ base::expected<OperationPtr, String> CreateInstanceNormalizationOperation(
       std::move(instance_normalization_mojo));
 }
 
-base::expected<OperationPtr, String> CreateLstmOperation(
-    const OperandToIdMap& operand_to_id_map,
-    const MLOperator* lstm) {
+OperationPtr CreateLstmOperation(const OperandToIdMap& operand_to_id_map,
+                                 const MLOperator* lstm) {
   auto lstm_mojo = blink_mojom::Lstm::New();
   lstm_mojo->input_operand_id = GetOperatorInputId(lstm, operand_to_id_map, 0);
   lstm_mojo->weight_operand_id = GetOperatorInputId(lstm, operand_to_id_map, 1);
@@ -803,11 +848,8 @@ base::expected<OperationPtr, String> CreateLstmOperation(
   const auto& activations = options->activations();
   lstm_mojo->activations.reserve(activations.size());
   for (const auto& activation : activations) {
-    auto validated_activation = CreateActivation(operand_to_id_map, activation);
-    if (!validated_activation.has_value()) {
-      return base::unexpected(validated_activation.error());
-    }
-    lstm_mojo->activations.push_back(std::move(validated_activation.value()));
+    lstm_mojo->activations.push_back(
+        CreateActivation(operand_to_id_map, activation));
   }
 
   const wtf_size_t output_count = lstm->Outputs().size();
@@ -818,6 +860,73 @@ base::expected<OperationPtr, String> CreateLstmOperation(
   }
 
   return blink_mojom::Operation::NewLstm(std::move(lstm_mojo));
+}
+
+base::expected<OperationPtr, String> CreateLstmCellOperation(
+    const OperandToIdMap& operand_to_id_map,
+    const MLOperator* lstm_cell) {
+  uint64_t input_operand_id =
+      GetOperatorInputId(lstm_cell, operand_to_id_map, 0);
+  uint64_t weight_operand_id =
+      GetOperatorInputId(lstm_cell, operand_to_id_map, 1);
+  uint64_t recurrent_weight_operand_id =
+      GetOperatorInputId(lstm_cell, operand_to_id_map, 2);
+  uint64_t hidden_state_operand_id =
+      GetOperatorInputId(lstm_cell, operand_to_id_map, 3);
+  uint64_t cell_state_operand_id =
+      GetOperatorInputId(lstm_cell, operand_to_id_map, 4);
+
+  const auto* options =
+      static_cast<const MLLstmCellOptions*>(lstm_cell->Options());
+  CHECK(options);
+
+  std::optional<uint64_t> bias_operand_id;
+  if (options->hasBias()) {
+    bias_operand_id = operand_to_id_map.at(options->bias());
+  }
+  std::optional<uint64_t> recurrent_bias_operand_id;
+  if (options->hasRecurrentBias()) {
+    recurrent_bias_operand_id = operand_to_id_map.at(options->recurrentBias());
+  }
+  std::optional<uint64_t> peephole_weight_operand_id;
+  if (options->hasPeepholeWeight()) {
+    peephole_weight_operand_id =
+        operand_to_id_map.at(options->peepholeWeight());
+  }
+
+  const HeapVector<Member<MLActivation>>& ml_activations =
+      options->activations();
+  Vector<ActivationPtr> activations;
+  activations.reserve(activations.size());
+  for (const auto& activation : ml_activations) {
+    base::expected<ActivationPtr, String> validated_activation =
+        CreateActivation(operand_to_id_map, activation);
+    if (!validated_activation.has_value()) {
+      return base::unexpected(validated_activation.error());
+    }
+    activations.push_back(std::move(validated_activation.value()));
+  }
+
+  Vector<uint64_t> output_operand_ids;
+  CHECK_EQ(lstm_cell->Outputs().size(), 2u);
+  output_operand_ids.reserve(lstm_cell->Outputs().size());
+  output_operand_ids.push_back(
+      GetOperatorOutputId(lstm_cell, operand_to_id_map, 0));
+  output_operand_ids.push_back(
+      GetOperatorOutputId(lstm_cell, operand_to_id_map, 1));
+
+  const auto* lstm_cell_operator =
+      static_cast<const MLLstmCellOperator*>(lstm_cell);
+
+  auto lstm_cell_mojo = blink_mojom::LstmCell::New(
+      input_operand_id, weight_operand_id, recurrent_weight_operand_id,
+      hidden_state_operand_id, cell_state_operand_id,
+      std::move(output_operand_ids), lstm_cell_operator->hidden_size(),
+      bias_operand_id, recurrent_bias_operand_id, peephole_weight_operand_id,
+      mojo::BlinkLstmWeightLayoutToMojo(options->layout().AsEnum()),
+      std::move(activations));
+
+  return blink_mojom::Operation::NewLstmCell(std::move(lstm_cell_mojo));
 }
 
 OperationPtr CreateMatmulOperation(const OperandToIdMap& operand_to_id_map,
@@ -1180,6 +1289,8 @@ base::expected<OperationPtr, String> ConvertToMojoOperation(
       return CreateGemmOperation(operand_to_id_map, op);
     case blink_mojom::Operation::Tag::kGru:
       return CreateGruOperation(operand_to_id_map, op);
+    case blink_mojom::Operation::Tag::kGruCell:
+      return CreateGruCellOperation(operand_to_id_map, op);
     case blink_mojom::Operation::Tag::kHardSigmoid:
       return blink_mojom::Operation::NewHardSigmoid(
           CreateHardSigmoid(operand_to_id_map, op, false));
@@ -1197,6 +1308,8 @@ base::expected<OperationPtr, String> ConvertToMojoOperation(
           CreateLinear(operand_to_id_map, op, false));
     case blink_mojom::Operation::Tag::kLstm:
       return CreateLstmOperation(operand_to_id_map, op);
+    case blink_mojom::Operation::Tag::kLstmCell:
+      return CreateLstmCellOperation(operand_to_id_map, op);
     case blink_mojom::Operation::Tag::kMatmul:
       return CreateMatmulOperation(operand_to_id_map, op);
     case blink_mojom::Operation::Tag::kPad:

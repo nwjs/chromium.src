@@ -11,6 +11,8 @@
 
 namespace password_manager {
 
+class PasswordStoreSyncInterface;
+
 class MockPasswordStoreInterface : public PasswordStoreInterface {
  public:
   MockPasswordStoreInterface();
@@ -77,13 +79,13 @@ class MockPasswordStoreInterface : public PasswordStoreInterface {
   MOCK_METHOD(void, AddObserver, (Observer*), (override));
   MOCK_METHOD(void, RemoveObserver, (Observer*), (override));
   MOCK_METHOD(SmartBubbleStatsStore*, GetSmartBubbleStatsStore, (), (override));
-  MOCK_METHOD(std::unique_ptr<syncer::ProxyModelTypeControllerDelegate>,
+  MOCK_METHOD(std::unique_ptr<syncer::ModelTypeControllerDelegate>,
               CreateSyncControllerDelegate,
               (),
               (override));
-  MOCK_METHOD(base::CallbackListSubscription,
-              AddSyncEnabledOrDisabledCallback,
-              (base::RepeatingClosure),
+  MOCK_METHOD(PasswordStoreSyncInterface*,
+              GetPasswordStoreSyncInterface,
+              (),
               (override));
   MOCK_METHOD(PasswordStoreBackend*, GetBackendForTesting, (), (override));
   MOCK_METHOD(void,

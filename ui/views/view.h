@@ -587,16 +587,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // return value is relative to the preferred height.
   virtual int GetBaseline() const;
 
-  // Get the size the View would like to be under the current bounds.
-  // If the View is never laid out before, assume it to be laid out in an
-  // unbounded space.
-  // TODO(crbug.com/1346889): Don't use this. Use the size-constrained
-  //                          GetPreferredSize(const SizeBounds&) instead.
-  gfx::Size GetPreferredSize() const;
-
   // Get the size the View would like to be given `available_size`, ignoring the
   // current bounds.
-  gfx::Size GetPreferredSize(const SizeBounds& available_size) const;
+  gfx::Size GetPreferredSize(const SizeBounds& available_size = {}) const;
 
   // Sets or unsets the size that this View will request during layout. The
   // actual size may differ. It should rarely be necessary to set this; usually
@@ -1337,10 +1330,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Returns true if this view is focusable, |enabled_| and drawn.
   bool IsFocusable() const;
-
-  // Return whether this view is focusable when the user requires full keyboard
-  // access, even though it may not be normally focusable.
-  bool IsAccessibilityFocusable() const;
 
   // Convenience method to retrieve the FocusManager associated with the
   // Widget that contains this view.  This can return NULL if this view is not
@@ -2511,6 +2500,31 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // View Controller Interfaces
   base::RepeatingClosureList notify_view_controller_callback_list_;
 };
+
+namespace internal {
+
+#if DCHECK_IS_ON()
+class ScopedChildrenLock {
+ public:
+  explicit ScopedChildrenLock(const View* view);
+
+  ScopedChildrenLock(const ScopedChildrenLock&) = delete;
+  ScopedChildrenLock& operator=(const ScopedChildrenLock&) = delete;
+
+  ~ScopedChildrenLock();
+
+ private:
+  base::AutoReset<bool> reset_;
+};
+#else
+class ScopedChildrenLock {
+ public:
+  explicit ScopedChildrenLock(const View* view);
+  ~ScopedChildrenLock();
+};
+#endif
+
+}  // namespace internal
 
 class VIEWS_EXPORT BaseActionViewInterface : public ActionViewInterface {
  public:

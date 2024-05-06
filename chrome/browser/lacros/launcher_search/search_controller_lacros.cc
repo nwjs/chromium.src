@@ -20,7 +20,7 @@
 
 namespace crosapi {
 
-SearchControllerLacros::SearchControllerLacros()
+SearchControllerLacros::SearchControllerLacros(int provider_types)
     : profile_(g_browser_process->profile_manager()->GetProfileByPath(
           ProfileManager::GetPrimaryUserProfilePath())) {
   if (!profile_) {
@@ -32,7 +32,7 @@ SearchControllerLacros::SearchControllerLacros()
 
   autocomplete_controller_ = std::make_unique<AutocompleteController>(
       std::make_unique<ChromeAutocompleteProviderClient>(profile_),
-      ProviderTypes(), /*is_cros_launcher=*/true);
+      provider_types, /*is_cros_launcher=*/true);
   autocomplete_controller_->AddObserver(this);
 
   favicon_cache_ = std::make_unique<FaviconCache>(
@@ -40,12 +40,6 @@ SearchControllerLacros::SearchControllerLacros()
                                            ServiceAccessType::EXPLICIT_ACCESS),
       HistoryServiceFactory::GetForProfile(profile_,
                                            ServiceAccessType::EXPLICIT_ACCESS));
-
-  chromeos::LacrosService* service = chromeos::LacrosService::Get();
-  if (!service->IsAvailable<mojom::SearchControllerRegistry>())
-    return;
-  service->GetRemote<mojom::SearchControllerRegistry>()
-      ->RegisterSearchController(receiver_.BindNewPipeAndPassRemote());
 }
 
 SearchControllerLacros::~SearchControllerLacros() = default;
@@ -61,6 +55,15 @@ void SearchControllerLacros::OnProfileWillBeDestroyed(Profile* profile) {
   favicon_cache_.reset();
   profile_observation_.Reset();
   profile_ = nullptr;
+}
+
+void SearchControllerLacros::RegisterWithAsh() {
+  chromeos::LacrosService* service = chromeos::LacrosService::Get();
+  if (!service->IsAvailable<mojom::SearchControllerRegistry>()) {
+    return;
+  }
+  service->GetRemote<mojom::SearchControllerRegistry>()
+      ->RegisterSearchController(receiver_.BindNewPipeAndPassRemote());
 }
 
 void SearchControllerLacros::Search(const std::u16string& query,

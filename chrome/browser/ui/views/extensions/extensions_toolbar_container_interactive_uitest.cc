@@ -17,7 +17,7 @@
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/extensions/scripting_permissions_modifier.h"
+#include "chrome/browser/extensions/permissions/scripting_permissions_modifier.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -233,8 +233,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerUITest,
 
 // Tests that clicking on a second extension action will close a first if its
 // popup was open.
+// TODO(crbug.com/332299695): Test failing on linux-lacros-tester-rel.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#define MAYBE_ClickingOnASecondActionClosesTheFirst \
+  DISABLED_ClickingOnASecondActionClosesTheFirst
+#else
+#define MAYBE_ClickingOnASecondActionClosesTheFirst \
+  ClickingOnASecondActionClosesTheFirst
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerUITest,
-                       ClickingOnASecondActionClosesTheFirst) {
+                       MAYBE_ClickingOnASecondActionClosesTheFirst) {
   std::vector<extensions::TestExtensionDir> test_dirs;
   auto load_extension = [&](const char* extension_name) {
     constexpr char kManifestTemplate[] =
@@ -1032,7 +1040,7 @@ IN_PROC_BROWSER_TEST_P(
     // button should be hidden, even without a reload, because the user granted
     // access to the extensions.
     EXPECT_FALSE(request_access_button()->GetVisible());
-    // TODO(crbug.com/1400812): Is there a way to confirm we didn't inject the
+    // TODO(crbug.com/40883928): Is there a way to confirm we didn't inject the
     // script besides reusing the
     // chrome/test/data/extensions/blocked_actions/content_scripts/ test
     // extension?
@@ -1199,7 +1207,7 @@ IN_PROC_BROWSER_TEST_F(
 // Tests that when the user clicks on the request access button and immediately
 // navigates to a different site, the confirmation text is collapsed and the
 // button displays the extensions requesting access to the new site (if any).
-// TODO(crbug.com/1457026): Flaky on mac and win.
+// TODO(crbug.com/40918196): Flaky on mac and win.
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #define MAYBE_ClickingRequestAccessButton_ConfirmationCollapsedOnNavigation \
   DISABLED_ClickingRequestAccessButton_ConfirmationCollapsedOnNavigation

@@ -111,6 +111,9 @@ class CORE_EXPORT FragmentItem final {
                TextDirection resolved_direction);
   // Create a line item.
   explicit FragmentItem(const PhysicalLineBoxFragment& line);
+  // Create an annotation line item.
+  FragmentItem(const PhysicalSize& size,
+               const PhysicalLineBoxFragment& base_line);
 
   // The copy/move constructors.
   FragmentItem(const FragmentItem&);
@@ -295,7 +298,8 @@ class CORE_EXPORT FragmentItem final {
     if (const PhysicalLineBoxFragment* line_box = LineBoxFragment()) {
       return To<InlineBreakToken>(line_box->GetBreakToken());
     }
-    NOTREACHED();
+    DCHECK_EQ(Type(), kLine);
+    // Nested kLine item doesn't have a line box fragment.
     return nullptr;
   }
 

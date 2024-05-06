@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/css/anchor_results.h"
 
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/scoped_css_name.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/geometry/calculation_expression_node.h"
@@ -239,7 +240,8 @@ TEST_F(AnchorResultsTest, IsAnyResultDifferent_NoDiff) {
   AnchorResults results2;
   results2.Set(AnchorScope::Mode::kTop, CreateItem(Options{})->Query(),
                LayoutUnit(42.0));
-  EXPECT_FALSE(results1.IsAnyResultDifferent(&results2));
+  EXPECT_FALSE(results1.IsAnyResultDifferent(
+      *ComputedStyle::GetInitialStyleSingleton(), &results2));
 }
 
 TEST_F(AnchorResultsTest, IsAnyResultDifferent_Empty) {
@@ -247,7 +249,8 @@ TEST_F(AnchorResultsTest, IsAnyResultDifferent_Empty) {
   AnchorResults results2;
   results2.Set(AnchorScope::Mode::kTop, CreateItem(Options{})->Query(),
                LayoutUnit(42.0));
-  EXPECT_FALSE(results1.IsAnyResultDifferent(&results2));
+  EXPECT_FALSE(results1.IsAnyResultDifferent(
+      *ComputedStyle::GetInitialStyleSingleton(), &results2));
 }
 
 TEST_F(AnchorResultsTest, IsAnyResultDifferent_Diff) {
@@ -257,7 +260,8 @@ TEST_F(AnchorResultsTest, IsAnyResultDifferent_Diff) {
   AnchorResults results2;
   results2.Set(AnchorScope::Mode::kTop, CreateItem(Options{})->Query(),
                LayoutUnit(84.0));
-  EXPECT_TRUE(results1.IsAnyResultDifferent(&results2));
+  EXPECT_TRUE(results1.IsAnyResultDifferent(
+      *ComputedStyle::GetInitialStyleSingleton(), &results2));
 }
 
 TEST_F(AnchorResultsTest, IsAnyResultDifferent_Missing) {
@@ -267,13 +271,16 @@ TEST_F(AnchorResultsTest, IsAnyResultDifferent_Missing) {
   AnchorResults results1;
   {
     AnchorScope anchor_scope(AnchorScope::Mode::kTop, &results1);
-    results1.Evaluate(CreateItem(Options{})->Query());
+    results1.Evaluate(CreateItem(Options{})->Query(),
+                      /* position_anchor */ nullptr,
+                      /* inset_area_offsets */ std::nullopt);
   }
 
   AnchorResults results2;
   results2.Set(AnchorScope::Mode::kTop, CreateItem(Options{})->Query(),
                LayoutUnit(42.0));
-  EXPECT_TRUE(results1.IsAnyResultDifferent(&results2));
+  EXPECT_TRUE(results1.IsAnyResultDifferent(
+      *ComputedStyle::GetInitialStyleSingleton(), &results2));
 }
 
 TEST_F(AnchorResultsTest, Evaluate) {
@@ -287,7 +294,9 @@ TEST_F(AnchorResultsTest, Evaluate) {
   results.Set(mode, item->Query(), LayoutUnit(42.0));
 
   AnchorScope anchor_scope(mode, &results);
-  EXPECT_EQ(LayoutUnit(42.0), results.Evaluate(item->Query()));
+  EXPECT_EQ(LayoutUnit(42.0),
+            results.Evaluate(item->Query(), /* position_anchor */ nullptr,
+                             /* inset_area_offsets */ std::nullopt));
 }
 
 TEST_F(AnchorResultsTest, EvaluateWrongMode) {
@@ -301,7 +310,9 @@ TEST_F(AnchorResultsTest, EvaluateWrongMode) {
   results.Set(mode, item->Query(), LayoutUnit(42.0));
 
   AnchorScope anchor_scope(AnchorScope::Mode::kTop, &results);
-  EXPECT_EQ(std::nullopt, results.Evaluate(item->Query()));
+  EXPECT_EQ(std::nullopt,
+            results.Evaluate(item->Query(), /* position_anchor */ nullptr,
+                             /* inset_area_offsets */ std::nullopt));
 }
 
 }  // namespace blink

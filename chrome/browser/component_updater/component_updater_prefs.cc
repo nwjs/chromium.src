@@ -11,6 +11,9 @@
 #include "components/component_updater/component_updater_service.h"
 #include "components/component_updater/installer_policies/autofill_states_component_installer.h"
 
+#include "components/autofill/core/common/autofill_prefs.h"
+#include "components/prefs/pref_registry_simple.h"
+
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/component_updater/soda_component_installer.h"
 #endif
@@ -20,6 +23,7 @@ namespace component_updater {
 void RegisterPrefs(PrefRegistrySimple* registry) {
   RegisterComponentUpdateServicePrefs(registry);
   RegisterPrefsForRecoveryComponent(registry);
+  registry->RegisterStringPref(autofill::prefs::kAutofillStatesDataDir, "");
   //AutofillStatesComponentInstallerPolicy::RegisterPrefs(registry);
 }
 

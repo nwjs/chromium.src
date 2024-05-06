@@ -44,12 +44,6 @@ BASE_FEATURE(kAutofillEnableCardArtServerSideStretching,
              "AutofillEnableCardArtServerSideStretching",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, card benefits offered by issuers will be shown in Payments
-// Autofill UI.
-BASE_FEATURE(kAutofillEnableCardBenefits,
-             "AutofillEnableCardBenefits",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, card benefits offered by American Express will be shown in
 // Payments Autofill UI.
 BASE_FEATURE(kAutofillEnableCardBenefitsForAmericanExpress,
@@ -92,8 +86,8 @@ BASE_FEATURE(kAutofillEnableNewCardArtAndNetworkImages,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, a progress dialog will display while authenticating with FIDO.
-// TODO(crbug.com/1337380): Clean up kAutofillEnableFIDOProgressDialog when it's
-// fully rolled out.
+// TODO(crbug.com/40229268): Clean up kAutofillEnableFIDOProgressDialog when
+// it's fully rolled out.
 BASE_FEATURE(kAutofillEnableFIDOProgressDialog,
              "AutofillEnableFIDOProgressDialog",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -137,12 +131,6 @@ BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-// When enabled, the bottom sheet for save card and VCN enrollment will be
-// displayed instead of the info bar on Android.
-BASE_FEATURE(kAutofillEnablePaymentsAndroidBottomSheet,
-             "AutofillEnablePaymentsAndroidBottomSheet",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, the account email is included in the legal message provided
 // from the payments server. Only on Android.
 BASE_FEATURE(kAutofillEnablePaymentsAndroidBottomSheetAccountEmail,
@@ -155,11 +143,19 @@ BASE_FEATURE(kAutofillEnablePaymentsAndroidBottomSheetAccountEmail,
 // authentication.
 BASE_FEATURE(kAutofillEnablePaymentsMandatoryReauth,
              "AutofillEnablePaymentsMandatoryReauth",
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
+    BUILDFLAG(IS_IOS)
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
+        // BUILDFLAG(IS_IOS)
+
+// When enabled, risk data is prefetched during payments autofill flows to reduce
+// user-perceived latency.
+BASE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval,
+             "AutofillEnablePrefetchingRiskDataForRetrieval",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, some extra metrics logging for Autofill Downstream will start.
 BASE_FEATURE(kAutofillEnableRemadeDownstreamMetrics,

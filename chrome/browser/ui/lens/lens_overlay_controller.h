@@ -5,12 +5,19 @@
 #ifndef CHROME_BROWSER_UI_LENS_LENS_OVERLAY_CONTROLLER_H_
 #define CHROME_BROWSER_UI_LENS_LENS_OVERLAY_CONTROLLER_H_
 
-#include "base/memory/raw_ptr.h"
+#include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/lens/core/mojom/lens.mojom.h"
+#include "chrome/browser/lens/core/mojom/overlay_object.mojom.h"
+#include "chrome/browser/lens/core/mojom/text.mojom.h"
+#include "chrome/browser/resources/lens/server/proto/lens_overlay_response.pb.h"
+#include "chrome/browser/ui/tabs/tab_model_observer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/webui/searchbox/lens_searchbox_client.h"
+#include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -43,13 +50,20 @@ class WebUI;
 // This class is not thread safe. It should only be used from the browser
 // thread.
 class LensOverlayController : public TabStripModelObserver,
+                              public LensSearchboxClient,
                               public lens::mojom::LensPageHandler,
-                              public lens::mojom::LensSidePanelPageHandler {
+                              public lens::mojom::LensSidePanelPageHandler,
+                              public tabs::TabModelObserver {
  public:
   explicit LensOverlayController(tabs::TabModel* tab_model);
   ~LensOverlayController() override;
 
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kOverlaySidePanelWebViewId);
+
+  // Returns whether the lens overlay feature is enabled. This value is
+  // guaranteed not to change over the lifetime of a LensOverlayController.
+  bool Enabled();
 
   // This is entry point for showing the overlay UI. This has no effect if state
   // is not kOff. This has no effect if the tab is not in the foreground.
@@ -66,11 +80,18 @@ class LensOverlayController : public TabStripModelObserver,
   // controller.
   static LensOverlayController* GetController(content::WebUI* web_ui);
 
+  // Given a `content::WebContents` associated with a tab, returns the
+  // associated controller. Returns `nullptr` if there is no controller (e.g.
+  // the WebContents is not a tab).
+  static LensOverlayController* GetController(
+      content::WebContents* tab_contents);
+
   // This method is used to set up communication between this instance and the
   // overlay WebUI. This is called by the WebUIController when the WebUI is
   // executing javascript and ready to bind.
-  void BindOverlay(mojo::PendingReceiver<lens::mojom::LensPageHandler> receiver,
-                   mojo::PendingRemote<lens::mojom::LensPage> page);
+  virtual void BindOverlay(
+      mojo::PendingReceiver<lens::mojom::LensPageHandler> receiver,
+      mojo::PendingRemote<lens::mojom::LensPage> page);
 
   // This method is used to set up communication between this instance and the
   // side panel WebUI. This is called by the WebUIController when the WebUI is
@@ -78,6 +99,17 @@ class LensOverlayController : public TabStripModelObserver,
   void BindSidePanel(
       mojo::PendingReceiver<lens::mojom::LensSidePanelPageHandler> receiver,
       mojo::PendingRemote<lens::mojom::LensSidePanelPage> page);
+
+  // This method is used to set up communication between this instance and the
+  // searchbox WebUI. This is called by the WebUIController when the WebUI is
+  // executing javascript and has bound the handler. Takes ownership of
+  // `handler`.
+  void SetSearchboxHandler(std::unique_ptr<RealboxHandler> handler);
+
+  // This method is used to release the owned `SearchboxHandler`. It should be
+  // called before the embedding web contents is destroyed since it contains a
+  // reference to that web contents.
+  void ResetSearchboxHandler();
 
   // Internal state machine. States are mutually exclusive. Exposed for testing.
   enum class State {
@@ -127,6 +159,28 @@ class LensOverlayController : public TabStripModelObserver,
   // view is not glued.
   void RemoveGlueForWebView(views::WebView* web_view);
 
+  // Send text data to the WebUI.
+  void SendText(lens::mojom::TextPtr text);
+
+  // Send overlay object data to the WebUI.
+  void SendObjects(std::vector<lens::mojom::OverlayObjectPtr> objects);
+
+  // Returns true if the overlay is open and covering the current active tab.
+  bool IsOverlayShowing();
+
+  // Handles the response to the Lens start query request.
+  void HandleStartQueryResponse(
+      std::vector<lens::mojom::OverlayObjectPtr> objects,
+      lens::mojom::TextPtr text);
+
+  // Handles when the side panel has been deregistered to do any required
+  // cleanup.
+  void OnSidePanelEntryDeregistered();
+
+  // Testing function to issue a text request.
+  // TODO(b/328294794): Remove this function when connecting the mojo call.
+  void IssueTextSelectionRequestForTesting(const std::string& text_query);
+
  private:
   class UnderlyingWebContentsObserver;
 
@@ -152,6 +206,15 @@ class LensOverlayController : public TabStripModelObserver,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
 
+  // Overridden from LensSearchboxClient:
+  const GURL& GetPageURL() const override;
+  metrics::OmniboxEventProto::PageClassification GetPageClassification()
+      const override;
+  const std::string& GetThumbnail() const override;
+  const lens::LensOverlayInteractionResponse& GetLensResponse() const override;
+  void OnThumbnailRemoved() const override;
+  void OnSuggestionAccepted(const GURL& destination_url) override;
+
   // Called when the associated tab enters the foreground.
   void TabForegrounded();
 
@@ -160,10 +223,33 @@ class LensOverlayController : public TabStripModelObserver,
 
   // lens::mojom::LensPageHandler overrides.
   void CloseRequestedByOverlay() override;
-  void IssueLensRequest(const ::gfx::RectF& region) override;
+  // TODO: rename this to IssueRegionSearchRequest.
+  void IssueLensRequest(lens::mojom::CenterRotatedBoxPtr region) override;
+
+  // Handles an object selection by sending the request to the query
+  // controller.
+  void IssueObjectSelectionRequest(const std::string& object_id);
+
+  // Handles a text selection by sending a text-only request to the query
+  // controller and to the search box.
+  void IssueTextSelectionRequest(const std::string& text_query);
 
   // Calls CloseUI() asynchronously.
   void CloseUIAsync();
+
+  // Handles the URL response to the Lens interaction request.
+  void HandleInteractionURLResponse(
+      lens::proto::LensOverlayUrlResponse response);
+
+  // Handles the suggest signals response to the Lens interaction request.
+  void HandleInteractionDataResponse(
+      lens::proto::LensOverlayInteractionResponse response);
+
+  // tabs::TabModelObserver overrides:
+  void WillRemoveContents(tabs::TabModel* tab,
+                          content::WebContents* contents) override;
+  void DidAddContents(tabs::TabModel* tab,
+                      content::WebContents* contents) override;
 
   // Owns this class.
   raw_ptr<tabs::TabModel> tab_model_;
@@ -185,6 +271,10 @@ class LensOverlayController : public TabStripModelObserver,
   // The screenshot that is currently being rendered by the WebUI.
   SkBitmap current_screenshot_;
 
+  // A pending url to be loaded in the side panel. Needed when the side
+  // panel is not bound at the time of a text request.
+  std::optional<GURL> pending_side_panel_url_ = std::nullopt;
+
   // Connections to and from the overlay WebUI. Only valid while
   // `overlay_widget_` is showing, and after the WebUI has started executing JS
   // and has bound the connection.
@@ -202,6 +292,9 @@ class LensOverlayController : public TabStripModelObserver,
   std::unique_ptr<lens::LensOverlaySidePanelCoordinator>
       results_side_panel_coordinator_;
 
+  // Searchbox handler for passing in image and text selections.
+  std::unique_ptr<RealboxHandler> searchbox_handler_;
+
   // Observer for the WebContents of the associated tab. Only valid while the
   // overlay widget is showing.
   std::unique_ptr<UnderlyingWebContentsObserver> tab_contents_observer_;
@@ -209,6 +302,15 @@ class LensOverlayController : public TabStripModelObserver,
   // Query controller.
   std::unique_ptr<lens::LensOverlayQueryController>
       lens_overlay_query_controller_;
+
+  // The selected region. Stored so that it can be used for multiple
+  // requests, such as if the user changes the text query without changing
+  // the region. Cleared if the user makes a text-only or object selection
+  // query.
+  lens::mojom::CenterRotatedBoxPtr selected_region_;
+
+  base::ScopedObservation<tabs::TabModel, tabs::TabModelObserver>
+      tab_model_observer_{this};
 
   // Must be the last member.
   base::WeakPtrFactory<LensOverlayController> weak_factory_{this};

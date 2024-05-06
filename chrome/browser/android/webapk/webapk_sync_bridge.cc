@@ -392,8 +392,13 @@ std::vector<std::vector<std::string>> WebApkSyncBridge::GetRestorableAppsInfo()
   return results;
 }
 
-void WebApkSyncBridge::GetData(StorageKeyList storage_keys,
-                               DataCallback callback) {
+const WebApkProto* WebApkSyncBridge::GetWebApkByAppId(
+    webapps::AppId app_id) const {
+  return GetAppById(registry_, app_id);
+}
+
+void WebApkSyncBridge::GetDataForCommit(StorageKeyList storage_keys,
+                                        DataCallback callback) {
   auto data_batch = std::make_unique<syncer::MutableDataBatch>();
 
   for (const webapps::AppId& app_id : storage_keys) {

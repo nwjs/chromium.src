@@ -19,7 +19,7 @@ WebIdentityRequester::WebIdentityRequester(ExecutionContext* context,
     : execution_context_(context), requirement_(requirement) {}
 
 WebIdentityRequester::ResolverAndProviders::ResolverAndProviders(
-    ScriptPromiseResolverTyped<IDLNullable<Credential>>* resolver,
+    ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
     Vector<KURL> providers)
     : resolver_(resolver), providers_(std::move(providers)) {}
 
@@ -99,7 +99,7 @@ void WebIdentityRequester::RequestToken() {
 }
 
 void WebIdentityRequester::AppendGetCall(
-    ScriptPromiseResolverTyped<IDLNullable<Credential>>* resolver,
+    ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
     const HeapVector<Member<IdentityProviderRequestOptions>>& providers,
     mojom::blink::RpContext rp_context,
     mojom::blink::RpMode rp_mode) {
@@ -141,7 +141,11 @@ void WebIdentityRequester::AppendGetCall(
   if (window_onload_event_listener_ || has_posted_task_)
     return;
 
-  Document* document = resolver->DomWindow()->document();
+  ExecutionContext* execution_context = resolver->GetExecutionContext();
+  if (!execution_context) {
+    return;
+  }
+  Document* document = To<LocalDOMWindow>(*execution_context_).document();
   // Checking if document load is not completed is equivalent to checking if
   // this method was called before the window.onload event.
   if (!document->IsLoadCompleted()) {
@@ -168,20 +172,21 @@ void WebIdentityRequester::InsertScopedAbortState(
 }
 
 void WebIdentityRequester::InitWindowOnloadEventListener(
-    ScriptPromiseResolverTyped<IDLNullable<Credential>>* resolver) {
+    ScriptPromiseResolver<IDLNullable<Credential>>* resolver) {
+  auto* window = To<LocalDOMWindow>(execution_context_.Get());
   window_onload_event_listener_ =
       MakeGarbageCollected<WebIdentityWindowOnloadEventListener>(
-          resolver->DomWindow()->document(), WrapPersistent(this));
-  resolver->DomWindow()->addEventListener(event_type_names::kLoad,
-                                          window_onload_event_listener_);
+          window->document(), WrapPersistent(this));
+  window->addEventListener(event_type_names::kLoad,
+                           window_onload_event_listener_);
 }
 
 void WebIdentityRequester::StartDelayTimer(
-    ScriptPromiseResolverTyped<IDLNullable<Credential>>* resolver) {
+    ScriptPromiseResolver<IDLNullable<Credential>>* resolver) {
   DCHECK(!RuntimeEnabledFeatures::FedCmMultipleIdentityProvidersEnabled(
       execution_context_));
 
-  Document* document = resolver->DomWindow()->document();
+  Document* document = To<LocalDOMWindow>(*execution_context_).document();
   delay_start_time_ = base::TimeTicks::Now();
   bool timer_started_before_onload = !document->IsLoadCompleted();
 

@@ -23,6 +23,9 @@ BASE_DECLARE_FEATURE(kLocalWebApprovals);
 BASE_DECLARE_FEATURE(
     kEnableSupervisedUserSkipParentApprovalToInstallExtensions);
 
+// Applies new informative strings during the parental extension approval flow.
+BASE_DECLARE_FEATURE(kUpdatedSupervisedUserExtensionApprovalStrings);
+
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
 #endif
@@ -36,9 +39,6 @@ BASE_DECLARE_FEATURE(kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
 // `kEnableExtensionsPermissionsForSupervisedUsersOnDesktop` is also enabled.
 bool IsSupervisedUserSkipParentApprovalToInstallExtensionsEnabled();
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-
-// Request priority experiment for ClassifyUrl (for critical path of rendering).
-BASE_DECLARE_FEATURE(kHighestRequestPriorityForClassifyUrl);
 
 // Enable different web sign in interception behaviour for supervised users:
 //
@@ -63,6 +63,10 @@ BASE_DECLARE_FEATURE(kMigrateAccountManagementSettingsToCapabilities);
 // Sets kForceYouTubeRestrict to be applied according to parental controls set
 // on Family Link
 BASE_DECLARE_FEATURE(kRemoveForceAppliedYoutubeRestrictPolicy);
+
+// Uses PrimaryAccountAccessTokenFetcher::Mode::kWaitUntilAvailable for
+// ClassifyUrl fetches.
+BASE_DECLARE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl);
 
 // Returns whether local parent approvals on Family Link user's device are
 // enabled.

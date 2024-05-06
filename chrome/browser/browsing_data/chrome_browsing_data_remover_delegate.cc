@@ -76,6 +76,7 @@
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_service.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/tpcd/metadata/manager_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/find_bar/find_bar_state.h"
 #include "chrome/browser/ui/find_bar/find_bar_state_factory.h"
@@ -125,6 +126,7 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
+#include "components/tpcd/metadata/manager.h"
 #include "components/web_cache/browser/web_cache_manager.h"
 #include "components/webrtc_logging/browser/log_cleanup.h"
 #include "components/webrtc_logging/browser/text_log_list.h"
@@ -649,7 +651,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
                                                    website_settings_filter,
                                                    host_content_settings_map_);
 
-    if (!filter_builder->IsCrossSiteClearSiteDataForCookies()) {
+    if (!filter_builder->PartitionedCookiesOnly()) {
       browsing_data::RemoveEmbedderCookieData(
           delete_begin, delete_end, filter_builder, host_content_settings_map_,
           safe_browsing_context,
@@ -659,7 +661,12 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
 #if 0
       safe_browsing::VerdictCacheManagerFactory::GetForProfile(profile_)
           ->OnCookiesDeleted();
+
 #endif
+      if (tpcd::metadata::Manager* manager =
+              tpcd::metadata::ManagerFactory::GetForProfile(profile_)) {
+        manager->ResetCohorts(website_settings_filter);
+      }
     }
 
     if (filter_builder->GetMode() ==
@@ -678,7 +685,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
 
 #if !BUILDFLAG(IS_ANDROID)
     if (nullable_filter.is_null() ||
-        (!filter_builder->IsCrossSiteClearSiteDataForCookies() &&
+        (!filter_builder->PartitionedCookiesOnly() &&
          nullable_filter.Run(GaiaUrls::GetInstance()->google_url()))) {
       // Set a flag to clear account storage settings later instead of clearing
       // it now as we can not reset this setting before passwords are deleted.
@@ -863,6 +870,10 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         delete_end_, website_settings_filter);
 
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
+        ContentSettingsType::REVOKED_ABUSIVE_NOTIFICATION_PERMISSIONS,
+        delete_begin_, delete_end_, website_settings_filter);
+
+    host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
         ContentSettingsType::PRIVATE_NETWORK_GUARD, delete_begin_, delete_end_,
         website_settings_filter);
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
@@ -882,7 +893,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   // DATA_TYPE_COOKIES.
   DIPSEventRemovalType dips_mask = DIPSEventRemovalType::kNone;
   if ((remove_mask & content::BrowsingDataRemover::DATA_TYPE_COOKIES) &&
-      !filter_builder->IsCrossSiteClearSiteDataForCookies()) {
+      !filter_builder->PartitionedCookiesOnly()) {
     dips_mask |= DIPSEventRemovalType::kStorage;
   }
   if (remove_mask & constants::DATA_TYPE_HISTORY) {
@@ -987,7 +998,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   CHECK(deferred_disable_passwords_auto_signin_cb_.is_null(),
         base::NotFatalUntil::M125);
   if ((remove_mask & content::BrowsingDataRemover::DATA_TYPE_COOKIES) &&
-      !filter_builder->IsCrossSiteClearSiteDataForCookies()) {
+      !filter_builder->PartitionedCookiesOnly()) {
     // Unretained() is safe, this is only executed in OnTasksComplete() if the
     // object is still alive. Also, see the field docs for motivation.
     deferred_disable_passwords_auto_signin_cb_ = base::BindOnce(
@@ -1197,7 +1208,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   // results only when their respective URLs are in the filter.
   if ((remove_mask & (content::BrowsingDataRemover::DATA_TYPE_CACHE |
                       content::BrowsingDataRemover::DATA_TYPE_COOKIES)) &&
-      !filter_builder->IsCrossSiteClearSiteDataForCookies()) {
+      !filter_builder->PartitionedCookiesOnly()) {
     // If there is no template service or DSE, clear the caches.
     bool should_clear_zero_suggest_and_session_token = true;
     bool should_clear_search_prefetch = true;

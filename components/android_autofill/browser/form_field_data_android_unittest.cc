@@ -21,10 +21,10 @@ namespace {
 
 FormFieldData CreateTestField() {
   FormFieldData f;
-  f.name = u"SomeName";
-  f.name_attribute = f.name;
+  f.set_name(u"SomeName");
+  f.name_attribute = f.name();
   f.id_attribute = u"some_id";
-  f.form_control_type = FormControlType::kInputText;
+  f.set_form_control_type(FormControlType::kInputText);
   f.check_status = FormFieldData::CheckStatus::kChecked;
   return f;
 }
@@ -110,7 +110,7 @@ TEST_F(FormFieldDataAndroidTest, OnFormFieldDidChange) {
   EXPECT_CALL(bridge(), UpdateValue(kSampleValue));
   field_android.OnFormFieldDidChange(kSampleValue);
   EXPECT_FALSE(field.is_autofilled);
-  EXPECT_EQ(field.value, kSampleValue);
+  EXPECT_EQ(field.value(), kSampleValue);
 }
 
 // Tests that updating the field visibility calls the Java bridge and also
@@ -149,7 +149,7 @@ TEST_F(FormFieldDataAndroidTest, SimilarFieldsAs) {
   EXPECT_TRUE(af.SimilarFieldAs(f2));
 
   // If names differ, they are not similar.
-  f2.name = f1.name + u"x";
+  f2.set_name(f1.name() + u"x");
   EXPECT_FALSE(af.SimilarFieldAs(f2));
 
   // If name attributes differ, they are not similar.
@@ -164,12 +164,12 @@ TEST_F(FormFieldDataAndroidTest, SimilarFieldsAs) {
 
   // If form control types differ, they are not similar.
   f2 = f1;
-  f2.form_control_type = FormControlType::kInputPassword;
+  f2.set_form_control_type(FormControlType::kInputPassword);
   EXPECT_FALSE(af.SimilarFieldAs(f2));
 
   // If global ids differ, they are not similar.
   f2 = f1;
-  f2.renderer_id = FieldRendererId(f1.renderer_id.value() + 1);
+  f2.set_renderer_id(FieldRendererId(f1.renderer_id().value() + 1));
   EXPECT_FALSE(af.SimilarFieldAs(f2));
 }
 

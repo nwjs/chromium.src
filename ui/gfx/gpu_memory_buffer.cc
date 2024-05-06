@@ -10,6 +10,7 @@
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
+
 #include "base/win/scoped_handle.h"
 #endif
 
@@ -21,7 +22,7 @@ base::win::ScopedHandle CloneDXGIHandle(HANDLE handle) {
   HANDLE target_handle = nullptr;
   if (!::DuplicateHandle(GetCurrentProcess(), handle, GetCurrentProcess(),
                          &target_handle, 0, FALSE, DUPLICATE_SAME_ACCESS)) {
-    DVLOG(1) << "Error duplicating GMB DXGI handle. error=" << GetLastError();
+    DVPLOG(1) << "Error duplicating GMB DXGI handle";
   }
   return base::win::ScopedHandle(target_handle);
 }
@@ -59,7 +60,9 @@ GpuMemoryBufferHandle GpuMemoryBufferHandle::Clone() const {
 #elif BUILDFLAG(IS_APPLE)
   handle.io_surface = io_surface;
 #elif BUILDFLAG(IS_WIN)
-  handle.dxgi_handle = CloneDXGIHandle(dxgi_handle.Get());
+  if (dxgi_handle.is_valid()) {
+    handle.dxgi_handle = CloneDXGIHandle(dxgi_handle.Get());
+  }
   handle.dxgi_token = dxgi_token;
 #elif BUILDFLAG(IS_ANDROID)
   NOTIMPLEMENTED();

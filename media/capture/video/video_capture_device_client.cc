@@ -20,11 +20,14 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "media/base/video_frame.h"
+#include "media/base/video_types.h"
+#include "media/capture/mojom/video_capture_buffer.mojom-forward.h"
 #include "media/capture/video/scoped_buffer_pool_reservation.h"
 #include "media/capture/video/video_capture_buffer_handle.h"
 #include "media/capture/video/video_capture_buffer_pool.h"
 #include "media/capture/video/video_frame_receiver.h"
 #include "media/capture/video_capture_types.h"
+#include "services/video_effects/public/mojom/video_effects_processor.mojom.h"
 #include "third_party/libyuv/include/libyuv.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -231,6 +234,21 @@ class BufferPoolBufferHandleProvider
   const int buffer_id_;
 };
 
+VideoEffectsContext::VideoEffectsContext(
+    mojo::PendingRemote<video_effects::mojom::VideoEffectsProcessor> remote)
+    : video_effects_processor_(std::move(remote)) {}
+
+VideoEffectsContext::VideoEffectsContext(VideoEffectsContext&& other) = default;
+VideoEffectsContext& VideoEffectsContext::operator=(
+    VideoEffectsContext&& other) = default;
+
+VideoEffectsContext::~VideoEffectsContext() = default;
+
+mojo::PendingRemote<video_effects::mojom::VideoEffectsProcessor>&&
+VideoEffectsContext::TakeVideoEffectsProcessor() {
+  return std::move(video_effects_processor_);
+}
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 VideoCaptureDeviceClient::VideoCaptureDeviceClient(
     std::unique_ptr<VideoFrameReceiver> receiver,
@@ -249,13 +267,14 @@ VideoCaptureDeviceClient::VideoCaptureDeviceClient(
 VideoCaptureDeviceClient::VideoCaptureDeviceClient(
     std::unique_ptr<VideoFrameReceiver> receiver,
     scoped_refptr<VideoCaptureBufferPool> buffer_pool,
-    mojo::PendingRemote<media::mojom::VideoEffectsManager>
-        video_effects_manager)
+    VideoEffectsContext video_effects_context)
     : receiver_(std::move(receiver)),
       buffer_pool_(std::move(buffer_pool)),
       last_captured_pixel_format_(PIXEL_FORMAT_UNKNOWN),
       mojo_task_runner_(base::SequencedTaskRunner::GetCurrentDefault()),
-      effects_manager_(std::move(video_effects_manager), mojo_task_runner_) {}
+      effects_processor_(
+          std::move(video_effects_context.TakeVideoEffectsProcessor()),
+          mojo_task_runner_) {}
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 VideoCaptureDeviceClient::~VideoCaptureDeviceClient() {
@@ -263,7 +282,7 @@ VideoCaptureDeviceClient::~VideoCaptureDeviceClient() {
   // Make sure that the remote is destroyed from the same sequence that it was
   // created on.
   mojo_task_runner_->PostTask(
-      FROM_HERE, base::DoNothingWithBoundArgs(std::move(effects_manager_)));
+      FROM_HERE, base::DoNothingWithBoundArgs(std::move(effects_processor_)));
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
   for (int buffer_id : buffer_ids_known_by_receiver_) {
     receiver_->OnBufferRetired(buffer_id);
@@ -355,7 +374,8 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
 
   Buffer buffer;
   auto reservation_result_code = ReserveOutputBuffer(
-      dimensions, PIXEL_FORMAT_I420, frame_feedback_id, &buffer);
+      dimensions, PIXEL_FORMAT_I420, frame_feedback_id, &buffer,
+      /*require_new_buffer_id=*/nullptr, /*retire_old_buffer_id=*/nullptr);
   if (reservation_result_code != ReserveResult::kSucceeded) {
     receiver_->OnFrameDropped(
         ConvertReservationFailureToFrameDropReason(reservation_result_code));
@@ -447,7 +467,8 @@ void VideoCaptureDeviceClient::OnIncomingCapturedGfxBuffer(
   const gfx::Size dimensions(destination_width, destination_height);
   Buffer output_buffer;
   const auto reservation_result_code = ReserveOutputBuffer(
-      dimensions, PIXEL_FORMAT_I420, frame_feedback_id, &output_buffer);
+      dimensions, PIXEL_FORMAT_I420, frame_feedback_id, &output_buffer,
+      /*require_new_buffer_id=*/nullptr, /*retire_old_buffer_id=*/nullptr);
 
   // Failed to reserve I420 output buffer, so drop the frame.
   if (reservation_result_code != ReserveResult::kSucceeded) {
@@ -600,13 +621,21 @@ VideoCaptureDevice::Client::ReserveResult
 VideoCaptureDeviceClient::ReserveOutputBuffer(const gfx::Size& frame_size,
                                               VideoPixelFormat pixel_format,
                                               int frame_feedback_id,
-                                              Buffer* buffer) {
+                                              Buffer* buffer,
+                                              int* require_new_buffer_id,
+                                              int* retire_old_buffer_id) {
   DFAKE_SCOPED_RECURSIVE_LOCK(call_from_producer_);
   CHECK_GT(frame_size.width(), 0);
   CHECK_GT(frame_size.height(), 0);
   CHECK(IsFormatSupported(pixel_format));
 
   int buffer_id_to_drop = VideoCaptureBufferPool::kInvalidId;
+  if (require_new_buffer_id) {
+    *require_new_buffer_id = VideoCaptureBufferPool::kInvalidId;
+  }
+  if (retire_old_buffer_id) {
+    *retire_old_buffer_id = VideoCaptureBufferPool::kInvalidId;
+  }
   int buffer_id = VideoCaptureBufferPool::kInvalidId;
   auto reservation_result_code = buffer_pool_->ReserveForProducer(
       frame_size, pixel_format, nullptr, frame_feedback_id, &buffer_id,
@@ -618,6 +647,9 @@ VideoCaptureDeviceClient::ReserveOutputBuffer(const gfx::Size& frame_size,
         base::ranges::find(buffer_ids_known_by_receiver_, buffer_id_to_drop);
     if (entry_iter != buffer_ids_known_by_receiver_.end()) {
       buffer_ids_known_by_receiver_.erase(entry_iter);
+      if (retire_old_buffer_id) {
+        *retire_old_buffer_id = buffer_id_to_drop;
+      }
       receiver_->OnBufferRetired(buffer_id_to_drop);
     }
   }
@@ -647,6 +679,9 @@ VideoCaptureDeviceClient::ReserveOutputBuffer(const gfx::Size& frame_size,
         break;
     }
     receiver_->OnNewBuffer(buffer_id, std::move(buffer_handle));
+    if (require_new_buffer_id) {
+      *require_new_buffer_id = buffer_id;
+    }
     buffer_ids_known_by_receiver_.push_back(buffer_id);
   }
 
@@ -742,7 +777,8 @@ void VideoCaptureDeviceClient::OnIncomingCapturedY16Data(
     int frame_feedback_id) {
   Buffer buffer;
   const auto reservation_result_code = ReserveOutputBuffer(
-      format.frame_size, PIXEL_FORMAT_Y16, frame_feedback_id, &buffer);
+      format.frame_size, PIXEL_FORMAT_Y16, frame_feedback_id, &buffer,
+      /*require_new_buffer_id=*/nullptr, /*retire_old_buffer_id=*/nullptr);
   // The input |length| can be greater than the required buffer size because of
   // paddings and/or alignments, but it cannot be smaller.
   CHECK_GE(static_cast<size_t>(length),

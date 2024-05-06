@@ -13,9 +13,13 @@
 // The title of the cell.
 @property(nonatomic, copy) NSString* title;
 
-// The group color of the cell. If the cell is not in a group then this should
-// be nil.
-@property(nonatomic, strong) UIColor* groupColor;
+// Preview parameters of the cell when dragged.
+@property(nonatomic, readonly) UIDragPreviewParameters* dragPreviewParameters;
+
+// Sets the color of this cell's group stroke.
+// Subclasses should override this method. Default implementation is no-op.
+- (void)setGroupStrokeColor:(UIColor*)groupStrokeColor
+    NS_SWIFT_NAME(setGroupStrokeColor(_:));
 
 @end
 

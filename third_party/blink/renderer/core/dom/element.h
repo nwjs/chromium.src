@@ -179,6 +179,42 @@ enum class NamedItemType {
   kNameOrIdWithName,
 };
 
+enum class InvokeAction {
+  // Action is neither custom, nor built-in (effectively invalid)
+  kNone,
+
+  // Custom actions include a `-`.
+  kCustom,
+
+  // The "auto" state (empty string or missing)
+  kAuto,
+  // Popover
+  kTogglePopover,
+  kHidePopover,
+  kShowPopover,
+  // Dialog
+  kShowModal,
+  kClose,
+  // Details
+  kToggle,
+  kOpen,
+  // kClose
+  // Input / Select
+  kShowPicker,
+  // Number Input
+  kStepUp,
+  kStepDown,
+  // Fullscreen
+  kToggleFullscreen,
+  kRequestFullscreen,
+  kExitFullscreen,
+  // Audio/Video
+  kPlaypause,
+  kPause,
+  kPlay,
+  kToggleMuted,
+};
+
 typedef HeapVector<Member<Attr>> AttrNodeList;
 
 typedef HashMap<AtomicString, SpecificTrustedType> AttrNameToTrustedType;
@@ -503,8 +539,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   const AtomicString& prefix() const { return tag_name_.Prefix(); }
   const AtomicString& namespaceURI() const { return tag_name_.NamespaceURI(); }
 
-  bool IsHTMLWithTagName(const String& tag_name) const;
-
   const AtomicString& LocateNamespacePrefix(
       const AtomicString& namespace_uri) const;
 
@@ -640,9 +674,17 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
                                                NodeCloningData&) {}
 
   // NOTE: This shadows Node::GetComputedStyle().
-  // The definition is in node_computed_style.h.
-  inline const ComputedStyle* GetComputedStyle() const;
-  inline const ComputedStyle& ComputedStyleRef() const;
+  const ComputedStyle* GetComputedStyle() const {
+    return computed_style_.Get();
+  }
+  const ComputedStyle& ComputedStyleRef() const {
+    DCHECK(computed_style_);
+    return *computed_style_;
+  }
+
+  void SetComputedStyle(const ComputedStyle* computed_style) {
+    computed_style_ = computed_style;
+  }
 
   using Node::DetachLayoutTree;
   void AttachLayoutTree(AttachContext&) override;
@@ -838,7 +880,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // Returns true if this is a shadow host, and its ShadowRoot has
   // delegatesFocus flag.
-  bool DelegatesFocus() const;
+  bool IsShadowHostWithDelegatesFocus() const;
   // in_descendant_traversal is used in GetFocusableArea and GetFocusDelegate to
   // indicate that GetFocusDelegate is currently iterating over all descendants
   // in a DOM subtree. Since GetFocusDelegate calls GetFocusableArea and
@@ -924,10 +966,18 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // This allows customization of how Invokes are handled, per element.
   // See: crbug.com/1490919, https://open-ui.org/components/invokers.explainer/
-  virtual bool HandleInvokeInternal(HTMLElement& invoker,
-                                    AtomicString& action) {
+  virtual bool IsValidInvokeAction(HTMLElement& invoker, InvokeAction action) {
+    return action == InvokeAction::kAuto;
+  }
+  virtual bool HandleInvokeInternal(HTMLElement& invoker, InvokeAction action) {
+    CHECK(action != InvokeAction::kCustom && action != InvokeAction::kNone);
     return false;
   }
+
+  void InterestGained();
+
+  virtual Element* interestTargetElement() { return nullptr; }
+  virtual AtomicString interestAction() const { return g_null_atom; }
 
   // The implementations of |innerText()| and |GetInnerTextWithoutUpdate()| are
   // found in "element_inner_text.cc".
@@ -1313,6 +1363,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // Retrieves the element pointed to by this element's 'anchor' content
   // attribute, if that element exists.
+  // TODO(crbug.com/40059176) If the HTMLAnchorAttribute feature is disabled,
+  // this will return nullptr;
   Element* anchorElement() const;
   void setAnchorElement(Element*);
 
@@ -1481,12 +1533,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void ScrollFrameBy(const ScrollToOptions*);
   void ScrollFrameTo(const ScrollToOptions*);
 
-  bool HasElementFlag(ElementFlags mask) const {
-    return HasRareData() && HasElementFlagInternal(mask);
-  }
+  bool HasElementFlag(ElementFlags mask) const;
   void SetElementFlag(ElementFlags, bool value = true);
   void ClearElementFlag(ElementFlags);
-  bool HasElementFlagInternal(ElementFlags) const;
 
   bool IsElementNode() const =
       delete;  // This will catch anyone doing an unnecessary check.
@@ -1730,8 +1779,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   virtual Element& CloneWithoutAttributesAndChildren(Document& factory) const;
 
-  QualifiedName tag_name_;
-
   void UpdateNamedItemRegistration(NamedItemType,
                                    const AtomicString& old_name,
                                    const AtomicString& new_name);
@@ -1803,6 +1850,10 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       const QualifiedName& name,
       const HeapVector<Member<Element>>* given_elements);
 
+  QualifiedName tag_name_;
+  // This `ComputedStyle` field is a hot accessed member. Keep uncompressed for
+  // performance reasons.
+  subtle::UncompressedMember<const ComputedStyle> computed_style_;
   Member<ElementData> element_data_;
 };
 

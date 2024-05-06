@@ -4,10 +4,13 @@
 
 static_library("history_embeddings") {
   sources = [
+    "embedder.h",
     "history_embeddings_features.cc",
     "history_embeddings_features.h",
     "history_embeddings_service.cc",
     "history_embeddings_service.h",
+    "mock_embedder.cc",
+    "mock_embedder.h",
     "passages_util.cc",
     "passages_util.h",
     "sql_database.cc",
@@ -22,6 +25,7 @@ static_library("history_embeddings") {
     "//components/history_embeddings/proto:history_embeddings_proto",
     "//components/keyed_service/core",
     "//components/os_crypt/sync",
+    "//components/page_content_annotations/core",
     "//content/public/browser",
     "//content/public/common",
     "//mojo/public/cpp/bindings",
@@ -46,8 +50,10 @@ source_set("unit_tests") {
     "//components/history/core/browser",
     "//components/history/core/test",
     "//components/history_embeddings/proto:history_embeddings_proto",
+    "//components/optimization_guide/core:test_support",
     "//components/os_crypt/sync",
     "//components/os_crypt/sync:test_support",
+    "//components/page_content_annotations/core:test_support",
     "//testing/gtest",
   ]
 }

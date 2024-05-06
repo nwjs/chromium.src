@@ -39,6 +39,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkImageFilter.h"
+#include "third_party/skia/include/core/SkMaskFilter.h"
 #include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkPoint.h"
@@ -690,10 +691,6 @@ void SoftwareRenderer::DidChangeVisibility() {
     output_surface_->DiscardBackbuffer();
 }
 
-void SoftwareRenderer::GenerateMipmap() {
-  NOTIMPLEMENTED();
-}
-
 bool SoftwareRenderer::ShouldApplyBackdropFilters(
     const cc::FilterOperations* backdrop_filters,
     const AggregatedRenderPassDrawQuad* quad) const {
@@ -880,7 +877,8 @@ sk_sp<SkShader> SoftwareRenderer::GetBackdropFilterShader(
   DCHECK(!FiltersForPass(quad->render_pass_id))
       << "Filters should always be in a separate Effect node";
 
-  // TODO(989238): Software renderer does not support/implement kClamp_TileMode.
+  // TODO(crbug.com/40036319): Software renderer does not support/implement
+  // kClamp_TileMode.
   SkIRect result_rect;
   sk_sp<SkImage> filtered_image =
       ApplyImageFilter(filter.get(), quad, backdrop_bitmap,

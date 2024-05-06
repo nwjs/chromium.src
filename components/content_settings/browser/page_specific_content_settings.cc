@@ -5,7 +5,6 @@
 #include "components/content_settings/browser/page_specific_content_settings.h"
 
 #include <list>
-#include <optional>
 #include <vector>
 
 #include "base/command_line.h"
@@ -18,7 +17,6 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/browsing_data/content/cookie_helper.h"
-#include "components/browsing_data/core/features.h"
 #include "components/content_settings/common/content_settings_agent.mojom.h"
 #include "components/content_settings/core/browser/content_settings_info.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
@@ -402,7 +400,7 @@ void WebContentsHandler::ReadyToCommitNavigation(
 
   mojo::AssociatedRemote<content_settings::mojom::ContentSettingsAgent> agent;
   rfh->GetRemoteAssociatedInterfaces()->GetInterface(&agent);
-  // TODO(crbug.com/1187618): We shouldn't be sending the primary patterns here
+  // TODO(crbug.com/40172977): We shouldn't be sending the primary patterns here
   // because: a) we have already filtered based on them and they are not needed
   // in the renderer, and b) they could leak the embedder origin to embedded
   // pages like fenced frames.
@@ -411,10 +409,13 @@ void WebContentsHandler::ReadyToCommitNavigation(
   const GURL& secondary_url = navigation_handle->GetURL();
 
   auto content_settings = blink::CreateDefaultRendererContentSettings();
+  // The `Delegate` may have use cases for allowing JavaScript in a frame,
+  // regardless of the content setting.
   content_settings->allow_script =
+      delegate()->IsFrameAllowlistedForJavaScript(rfh) ||
       map_->GetContentSetting(primary_url, secondary_url,
                               ContentSettingsType::JAVASCRIPT) ==
-      CONTENT_SETTING_ALLOW;
+          CONTENT_SETTING_ALLOW;
   content_settings->allow_popup =
       map_->GetContentSetting(primary_url, secondary_url,
                               ContentSettingsType::POPUPS) ==
@@ -572,20 +573,6 @@ PageSpecificContentSettings::PageSpecificContentSettings(content::Page& page,
     : content::PageUserData<PageSpecificContentSettings>(page),
       delegate_(delegate),
       map_(delegate_->GetSettingsMap()),
-      allowed_local_shared_objects_(
-          GetWebContents()->GetPrimaryMainFrame()->GetStoragePartition(),
-#if !BUILDFLAG(IS_ANDROID)
-          // TODO(crbug.com/1404234): Remove the async local storage pathway
-          // completely when the new dialog has launched.
-          /*ignore_empty_localstorage=*/false,
-#else
-          /*ignore_empty_localstorage=*/true,
-#endif
-          delegate_->GetIsDeletionDisabledCallback()),
-      blocked_local_shared_objects_(
-          GetWebContents()->GetPrimaryMainFrame()->GetStoragePartition(),
-          /*ignore_empty_localstorage=*/false,
-          delegate_->GetIsDeletionDisabledCallback()),
       allowed_browsing_data_model_(BrowsingDataModel::BuildEmpty(
           GetWebContents()->GetPrimaryMainFrame()->GetStoragePartition(),
           delegate_->CreateBrowsingDataModelDelegate())),
@@ -1010,21 +997,13 @@ void PageSpecificContentSettings::OnCookiesAccessed(
   if (details.cookie_list.empty())
     return;
 
-  if (base::FeatureList::IsEnabled(
-          browsing_data::features::kDeprecateCookiesTreeModel)) {
-    auto& model = details.blocked_by_policy ? blocked_browsing_data_model_
-                                            : allowed_browsing_data_model_;
-    for (const auto& cookie : details.cookie_list) {
-      // The size isn't relevant here and won't be displayed in the UI.
-      model->AddBrowsingData(cookie, BrowsingDataModel::StorageType::kCookie,
-                             /*storage_size=*/0,
-                             /*cookie_count=*/1);
-    }
-  } else {
-    auto& local_shared_objects = details.blocked_by_policy
-                                     ? blocked_local_shared_objects_
-                                     : allowed_local_shared_objects_;
-    local_shared_objects.cookies()->AddCookies(details);
+  auto& model = details.blocked_by_policy ? blocked_browsing_data_model_
+                                          : allowed_browsing_data_model_;
+  for (const auto& cookie : details.cookie_list) {
+    // The size isn't relevant here and won't be displayed in the UI.
+    model->AddBrowsingData(cookie, BrowsingDataModel::StorageType::kCookie,
+                           /*storage_size=*/0,
+                           /*cookie_count=*/1);
   }
 
   if (details.blocked_by_policy) {
@@ -1272,6 +1251,15 @@ void PageSpecificContentSettings::OnMediaStreamPermissionSet(
   }
 }
 
+void PageSpecificContentSettings::AddPermissionUsageObserver(
+    PermissionUsageObserver* observer) {
+  permission_usage_observers_.AddObserver(observer);
+}
+void PageSpecificContentSettings::RemovePermissionUsageObserver(
+    PermissionUsageObserver* observer) {
+  permission_usage_observers_.RemoveObserver(observer);
+}
+
 void PageSpecificContentSettings::ClearPopupsBlocked() {
   ContentSettingsStatus& status =
       content_settings_status_[ContentSettingsType::POPUPS];
@@ -1478,7 +1466,7 @@ void PageSpecificContentSettings::OnPrerenderingPageActivation() {
   }
 
   if (updates_queued_during_prerender_->site_data_accessed) {
-    // TODO(crbug.com/1447929): Re-attribute the
+    // TODO(crbug.com/40269100): Re-attribute the
     // `access_details.is_from_primary_page`.
     WebContentsHandler::FromWebContents(GetWebContents())
         ->NotifySiteDataObservers(
@@ -1698,6 +1686,10 @@ void PageSpecificContentSettings::MaybeUpdateLocationBar() {
   if (IsPagePrerendering())
     return;
   delegate_->UpdateLocationBar();
+
+  for (PermissionUsageObserver& observer : permission_usage_observers_) {
+    observer.OnPermissionUsageChange();
+  }
 }
 
 content::WebContents* PageSpecificContentSettings::GetWebContents() const {

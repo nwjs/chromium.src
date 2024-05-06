@@ -662,7 +662,7 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
     // See crbug.com/972960 .
     //
     // We use the v8 promise API directly here.
-    // We can't use ScriptPromiseResolver here since it assumes a valid
+    // We can't use ScriptPromiseResolverBase here since it assumes a valid
     // ScriptState.
     v8::Local<v8::Promise::Resolver> resolver;
     if (!v8::Promise::Resolver::New(script_state->GetContext())
@@ -697,10 +697,9 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
           script_state->GetContext(), v8::Local<v8::Module>(),
           v8_import_assertions, /*v8_import_assertions_has_positions=*/false));
 
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolverTyped<IDLAny>>(
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLAny>>(
       script_state,
       ExceptionContext(ExceptionContextType::kUnknown, "", "import"));
-  ScriptPromise promise = resolver->Promise();
 
   String invalid_attribute_key;
   if (module_request.HasInvalidImportAttributeKey(&invalid_attribute_key)) {
@@ -715,7 +714,7 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
     modulator->ResolveDynamically(module_request, referrer_info, resolver);
   }
 
-  return v8::Local<v8::Promise>::Cast(promise.V8Value());
+  return resolver->Promise().V8Promise();
 }
 
 // https://html.spec.whatwg.org/C/#hostgetimportmetaproperties

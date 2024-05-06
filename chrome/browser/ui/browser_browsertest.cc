@@ -99,8 +99,6 @@
 #include "components/javascript_dialogs/app_modal_dialog_queue.h"
 #include "components/javascript_dialogs/app_modal_dialog_view.h"
 #include "components/javascript_dialogs/tab_modal_dialog_manager.h"
-#include "components/omnibox/browser/location_bar_model.h"
-#include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/common/omnibox_focus_state.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -159,6 +157,7 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "base/i18n/rtl.h"
+#include "base/test/file_path_reparse_point_win.h"
 #endif
 
 using base::ASCIIToUTF16;
@@ -373,7 +372,8 @@ class BrowserTest : public extensions::ExtensionBrowserTest,
   }
 
   void OpenURLFromTab(WebContents* source, OpenURLParams params) {
-    browser()->OpenURLFromTab(source, params);
+    browser()->OpenURLFromTab(source, params,
+                              /*navigation_handle_callback=*/{});
   }
 
   // Returns the app extension aptly named "App Test".
@@ -604,9 +604,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, ClearPendingOnFailUnlessNTP) {
   GURL abort_url(embedded_test_server()->GetURL("/nocontent"));
   {
     content::LoadStopObserver stop_observer(web_contents);
-    browser()->OpenURL(OpenURLParams(abort_url, Referrer(),
-                                     WindowOpenDisposition::CURRENT_TAB,
-                                     ui::PAGE_TRANSITION_TYPED, false));
+    browser()->OpenURL(
+        OpenURLParams(abort_url, Referrer(), WindowOpenDisposition::CURRENT_TAB,
+                      ui::PAGE_TRANSITION_TYPED, false),
+        /*navigation_handle_callback=*/{});
     stop_observer.Wait();
     EXPECT_TRUE(web_contents->GetController().GetPendingEntry());
     EXPECT_EQ(abort_url, web_contents->GetVisibleURL());
@@ -620,9 +621,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, ClearPendingOnFailUnlessNTP) {
   // Now navigating to a 204 URL should clear the pending entry.
   {
     content::LoadStopObserver stop_observer(web_contents);
-    browser()->OpenURL(OpenURLParams(abort_url, Referrer(),
-                                     WindowOpenDisposition::CURRENT_TAB,
-                                     ui::PAGE_TRANSITION_TYPED, false));
+    browser()->OpenURL(
+        OpenURLParams(abort_url, Referrer(), WindowOpenDisposition::CURRENT_TAB,
+                      ui::PAGE_TRANSITION_TYPED, false),
+        /*navigation_handle_callback=*/{});
     stop_observer.Wait();
     EXPECT_FALSE(web_contents->GetController().GetPendingEntry());
     EXPECT_EQ(real_url, web_contents->GetVisibleURL());
@@ -946,9 +948,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, BeforeUnloadVsBeforeReload) {
 
   // Navigate to another url, and check that we get a "before unload" dialog.
   GURL url2(url::kAboutBlankURL);
-  browser()->OpenURL(OpenURLParams(url2, Referrer(),
-                                   WindowOpenDisposition::CURRENT_TAB,
-                                   ui::PAGE_TRANSITION_TYPED, false));
+  browser()->OpenURL(
+      OpenURLParams(url2, Referrer(), WindowOpenDisposition::CURRENT_TAB,
+                    ui::PAGE_TRANSITION_TYPED, false),
+      /*navigation_handle_callback=*/{});
 
   alert = ui_test_utils::WaitForAppModalDialog();
   EXPECT_FALSE(alert->is_reload());
@@ -957,7 +960,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, BeforeUnloadVsBeforeReload) {
   alert->view()->AcceptAppModalDialog();
 }
 
-// TODO(crbug.com/997344): Test this with implicitly-created links.
+// TODO(crbug.com/40641945): Test this with implicitly-created links.
 IN_PROC_BROWSER_TEST_F(BrowserTest, TargetBlankLinkOpensInGroup) {
   ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -1377,10 +1380,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, RestorePinnedTabs) {
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-// TODO(1126339): fix the way how exo creates accelerated widgets. At the
-// moment, they are created only after the client attaches a buffer to a surface,
-// which is incorrect and results in the "[destroyed object]: error 1: popup
-// parent not constructed" error.
+// TODO(crbug.com/40148102): fix the way how exo creates accelerated widgets. At
+// the moment, they are created only after the client attaches a buffer to a
+// surface, which is incorrect and results in the "[destroyed object]: error 1:
+// popup parent not constructed" error.
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #define MAYBE_CloseWithAppMenuOpen DISABLED_CloseWithAppMenuOpen
 #else
@@ -1465,7 +1468,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, StartMaximized) {
   }
 }
 
-// TODO(crbug.com/1394195) This test is flaky on asan lacros and may crash ash.
+// TODO(crbug.com/40248487) This test is flaky on asan lacros and may crash ash.
 #if BUILDFLAG(IS_CHROMEOS_LACROS) && defined(ADDRESS_SANITIZER)
 #define MAYBE_StartMinimized DISABLED_StartMinimized
 #else
@@ -2008,6 +2011,46 @@ class LaunchBrowserWithNonAsciiUserDatadir : public BrowserTest {
 
 IN_PROC_BROWSER_TEST_F(LaunchBrowserWithNonAsciiUserDatadir,
                        TestNonAsciiUserDataDir) {
+  // Verify that the window is present.
+  ASSERT_TRUE(browser());
+  ASSERT_TRUE(browser()->profile());
+  // Verify that the profile has been added correctly to the
+  // ProfileAttributesStorage.
+  ASSERT_EQ(1u, g_browser_process->profile_manager()
+                    ->GetProfileAttributesStorage()
+                    .GetNumberOfProfiles());
+}
+
+// This test verifies that Chrome can be launched with a user-data-dir path
+// which contains a reparse point. This is important because sandbox
+// policy validates that paths passed to policy rules do not contain
+// reparse points. New code in Chrome that adjusts the sandbox can
+// accidentally pass paths with reparse points to the sandbox and cause
+// Chrome not to start anymore.
+class LaunchBrowserWithReparsePointUserDatadir : public BrowserTest {
+ public:
+  LaunchBrowserWithReparsePointUserDatadir() {}
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    base::FilePath tmp_profile = temp_dir_.GetPath().AppendASCII("profile");
+    ASSERT_TRUE(base::CreateDirectory(tmp_profile));
+    base::FilePath reparse_profile =
+        temp_dir_.GetPath().AppendASCII("profile_reparse");
+    ASSERT_TRUE(base::CreateDirectory(reparse_profile));
+    auto reparse_point =
+        base::test::FilePathReparsePoint::Create(reparse_profile, tmp_profile);
+    ASSERT_TRUE(reparse_point.has_value());
+    reparse_point_.emplace(std::move(reparse_point.value()));
+    command_line->AppendSwitchPath(switches::kUserDataDir, reparse_profile);
+  }
+
+  base::ScopedTempDir temp_dir_;
+  std::optional<base::test::FilePathReparsePoint> reparse_point_;
+};
+
+IN_PROC_BROWSER_TEST_F(LaunchBrowserWithReparsePointUserDatadir,
+                       TestReparsePointUserDataDir) {
   // Verify that the window is present.
   ASSERT_TRUE(browser());
   ASSERT_TRUE(browser()->profile());
@@ -3009,42 +3052,6 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(back_observer.has_committed());
   EXPECT_FALSE(back_observer.was_same_document());
 }
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-// Tests that an extension that disables omnibox URL elision sets a pref and
-// unelides URLs appropriately. This is temporary migration code along the way
-// to deprecating this special extension.
-// TODO(crbug/324934130): remove after ~M125 or so.
-IN_PROC_BROWSER_TEST_F(BrowserTest, URLElisionExtensionSetsPref) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL url(embedded_test_server()->GetURL("/empty.html"));
-
-  // Smoke test: by default, the URL elision pref should be false, and when
-  // navigating to a URL, the URL should be elided.
-  ASSERT_FALSE(browser()->profile()->GetPrefs()->GetBoolean(
-      omnibox::kPreventUrlElisionsInOmnibox));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-  ASSERT_EQ(base::ASCIIToUTF16(url.host() + ":" + url.port() + "/empty.html"),
-            browser()->location_bar_model()->GetURLForDisplay());
-
-  ASSERT_TRUE(LoadExtension(test_data_dir_.AppendASCII("app/")));
-  const Extension* extension_app = GetExtension();
-  browser()->SetURLElisionExtensionIDForTesting(extension_app->id().c_str());
-
-  // After setting the test extension ID, a newly created browser should set the
-  // relevant pref to prevent URL elision.
-  Browser* new_browser = Browser::Create(
-      Browser::CreateParams(Browser::TYPE_NORMAL, browser()->profile(), true));
-  EXPECT_TRUE(new_browser->profile()->GetPrefs()->GetBoolean(
-      omnibox::kPreventUrlElisionsInOmnibox));
-
-  // When navigating to a URL, the URL should not be elided.
-  chrome::NewTab(new_browser);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(new_browser, url));
-  EXPECT_EQ(base::ASCIIToUTF16(url.spec()),
-            new_browser->location_bar_model()->GetURLForDisplay());
-}
-#endif  // !
 
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
 IN_PROC_BROWSER_TEST_F(BrowserTest, CreatePictureInPicture) {

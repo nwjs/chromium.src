@@ -18,7 +18,6 @@
 #import "base/test/gmock_move_support.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
-#import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "base/values.h"
 #import "components/autofill/core/browser/test_autofill_client.h"
@@ -27,7 +26,6 @@
 #import "components/autofill/ios/browser/autofill_driver_ios_factory.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
 #import "components/autofill/ios/form_util/form_util_java_script_feature.h"
-#import "components/autofill/ios/form_util/unique_id_data_tab_helper.h"
 #import "components/password_manager/core/browser/leak_detection/mock_leak_detection_check_factory.h"
 #import "components/password_manager/core/browser/password_form_manager.h"
 #import "components/password_manager/core/browser/password_form_metrics_recorder.h"
@@ -253,7 +251,6 @@ class PasswordControllerTest : public PlatformTest {
     // predictions on.
     PasswordFormManager::set_wait_for_server_predictions_for_filling(false);
 
-    UniqueIDDataTabHelper::CreateForWebState(web_state());
     autofill::AutofillDriverIOSFactory::CreateForWebState(
         web_state(), &autofill_client_, /*bridge=*/nil, /*locale=*/"en");
 
@@ -282,7 +279,8 @@ class PasswordControllerTest : public PlatformTest {
                                           profilePasswordStore:nullptr
                                           accountPasswordStore:nullptr
                                           securityAlertHandler:nil
-                                        reauthenticationModule:nil];
+                                        reauthenticationModule:nil
+                                             engagementTracker:nil];
       [accessoryMediator_ injectWebState:web_state()];
       [accessoryMediator_ injectProvider:suggestionController_];
     }
@@ -293,36 +291,18 @@ class PasswordControllerTest : public PlatformTest {
     PlatformTest::TearDown();
   }
 
-  bool SetUpUniqueIDs() {
+  bool WaitForMainFrame() {
     autofill::FormUtilJavaScriptFeature* feature =
         autofill::FormUtilJavaScriptFeature::GetInstance();
-    __block web::WebFrame* main_frame = nullptr;
-    bool success =
-        WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool {
-          main_frame =
-              feature->GetWebFramesManager(web_state())->GetMainWebFrame();
-          return main_frame != nullptr;
-        });
-    if (!success) {
-      return false;
-    }
-    DCHECK(main_frame);
-
-    constexpr uint32_t next_available_id = 1;
-    feature->SetUpForUniqueIDsWithInitialState(main_frame, next_available_id);
-
-    // Wait for `SetUpForUniqueIDsWithInitialState` to complete.
     return WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool {
-      return
-          [ExecuteJavaScriptInFeatureWorld(@"document[__gCrWeb.fill.ID_SYMBOL]")
-              intValue] == int{next_available_id};
+      return feature->GetWebFramesManager(web_state())->GetMainWebFrame() !=
+             nullptr;
     });
   }
 
   void WaitForFormManagersCreation() {
-    auto& form_managers = passwordController_.passwordManager->form_managers();
     ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForActionTimeout, ^bool() {
-      return !form_managers.empty();
+      return !passwordController_.passwordManager->form_managers().empty();
     }));
   }
 
@@ -336,7 +316,7 @@ class PasswordControllerTest : public PlatformTest {
         feature->GetWebFramesManager(web_state())->GetMainWebFrame();
     FormActivityParams params;
     params.type = type;
-    params.unique_form_id = form_id;
+    params.form_renderer_id = form_id;
     params.frame_id = frame->GetFrameId();
     params.value = value;
     [passwordController_.sharedPasswordController webState:web_state()
@@ -345,14 +325,14 @@ class PasswordControllerTest : public PlatformTest {
   }
 
   void SimulateFormRemovalObserverSignal(
-      FormRendererId form_id,
+      std::vector<FormRendererId> form_ids,
       std::vector<FieldRendererId> field_ids) {
     password_manager::PasswordManagerJavaScriptFeature* feature =
         password_manager::PasswordManagerJavaScriptFeature::GetInstance();
     WebFrame* frame =
         feature->GetWebFramesManager(web_state())->GetMainWebFrame();
     FormRemovalParams params;
-    params.unique_form_id = form_id;
+    params.removed_forms = form_ids;
     params.removed_unowned_fields = field_ids;
     params.frame_id = frame->GetFrameId();
     [passwordController_.sharedPasswordController webState:web_state()
@@ -386,18 +366,18 @@ class PasswordControllerTest : public PlatformTest {
   }
 
   void SimulateUserTyping(const std::string& form_name,
-                          FormRendererId uniqueFormID,
+                          FormRendererId formRendererID,
                           const std::string& field_identifier,
-                          FieldRendererId uniqueFieldID,
+                          FieldRendererId fieldRendererID,
                           const std::string& typed_value,
                           const std::string& main_frame_id) {
     __block BOOL completion_handler_called = NO;
     FormSuggestionProviderQuery* form_query =
         [[FormSuggestionProviderQuery alloc]
             initWithFormName:SysUTF8ToNSString(form_name)
-                uniqueFormID:uniqueFormID
+              formRendererID:formRendererID
              fieldIdentifier:SysUTF8ToNSString(field_identifier)
-               uniqueFieldID:uniqueFieldID
+             fieldRendererID:fieldRendererID
                    fieldType:@"not_important"
                         type:@"input"
                   typedValue:SysUTF8ToNSString(typed_value)
@@ -455,17 +435,17 @@ class PasswordControllerTest : public PlatformTest {
 
   void LoadHtml(NSString* html) {
     web::test::LoadHtml(html, web_state());
-    ASSERT_TRUE(SetUpUniqueIDs());
+    ASSERT_TRUE(WaitForMainFrame());
   }
 
   void LoadHtml(NSString* html, const GURL& url) {
     web::test::LoadHtml(html, url, web_state());
-    ASSERT_TRUE(SetUpUniqueIDs());
+    ASSERT_TRUE(WaitForMainFrame());
   }
 
   [[nodiscard]] bool LoadHtml(const std::string& html) {
     web::test::LoadHtml(base::SysUTF8ToNSString(html), web_state());
-    return SetUpUniqueIDs();
+    return WaitForMainFrame();
   }
 
   std::string BaseUrl() const {
@@ -532,7 +512,6 @@ struct FindPasswordFormTestData {
   const size_t expected_number_of_fields;
   // Expected form name.
   const char* expected_form_name;
-  const uint32_t maxID;
 };
 
 // A script that we run after autofilling forms.  It returns
@@ -595,9 +574,9 @@ void PasswordControllerTest::FillFormAndValidate(TestPasswordFormData test_data,
 
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
       initWithFormName:SysUTF8ToNSString(test_data.form_name)
-          uniqueFormID:FormRendererId(test_data.form_renderer_id)
+        formRendererID:FormRendererId(test_data.form_renderer_id)
        fieldIdentifier:SysUTF8ToNSString(test_data.username_element)
-         uniqueFieldID:FieldRendererId(test_data.username_renderer_id)
+       fieldRendererID:FieldRendererId(test_data.username_renderer_id)
              fieldType:@"text"
                   type:@"focus"
             typedValue:@""
@@ -657,9 +636,9 @@ void PasswordControllerTest::FillFormAndValidate(TestPasswordFormData test_data,
   [passwordController_.sharedPasswordController
       didSelectSuggestion:suggestion
                      form:SysUTF8ToNSString(test_data.form_name)
-             uniqueFormID:FormRendererId(test_data.form_renderer_id)
+           formRendererID:FormRendererId(test_data.form_renderer_id)
           fieldIdentifier:SysUTF8ToNSString(test_data.username_element)
-            uniqueFieldID:FieldRendererId(test_data.username_renderer_id)
+          fieldRendererID:FieldRendererId(test_data.username_renderer_id)
                   frameID:SysUTF8ToNSString(frame->GetFrameId())
         completionHandler:completion];
 
@@ -683,9 +662,8 @@ PasswordForm MakeSimpleForm() {
   return form;
 }
 
-// TODO(crbug.com/403705) This test is flaky.
 // Check that HTML forms are converted correctly into FormDatas.
-TEST_F(PasswordControllerTest, DISABLED_FindPasswordFormsInView) {
+TEST_F(PasswordControllerTest, FindPasswordFormsInView) {
   // clang-format off
   FindPasswordFormTestData test_data[] = {
      // Normal form: a username and a password element.
@@ -694,7 +672,7 @@ TEST_F(PasswordControllerTest, DISABLED_FindPasswordFormsInView) {
       "<input type='text' name='user0'>"
       "<input type='password' name='pass0'>"
       "</form>",
-      true, 2, "form1", 2
+      true, 2, "form1"
     },
     // User name is captured as an email address (HTML5).
     {
@@ -702,12 +680,12 @@ TEST_F(PasswordControllerTest, DISABLED_FindPasswordFormsInView) {
       "<input type='email' name='email1'>"
       "<input type='password' name='pass1'>"
       "</form>",
-      true, 2, "form1", 5
+      true, 2, "form1"
     },
     // No form found.
     {
       @"<div>",
-      false, 0, nullptr, 0
+      false, 0, nullptr
     },
     // Disabled username element.
     {
@@ -715,14 +693,14 @@ TEST_F(PasswordControllerTest, DISABLED_FindPasswordFormsInView) {
       "<input type='text' name='user2' disabled='disabled'>"
       "<input type='password' name='pass2'>"
       "</form>",
-      true, 2, "form1", 8
+      true, 2, "form1"
     },
     // No password element.
     {
       @"<form name='form1'>"
       "<input type='text' name='user3'>"
       "</form>",
-      false, 0, nullptr, 0
+      false, 0, nullptr
     },
   };
   // clang-format on
@@ -732,14 +710,11 @@ TEST_F(PasswordControllerTest, DISABLED_FindPasswordFormsInView) {
     LoadHtml(data.html_string);
     __block std::vector<FormData> forms;
     __block BOOL block_was_called = NO;
-    __block uint32_t maxExtractedID;
     [passwordController_.sharedPasswordController.formHelper
         findPasswordFormsInFrame:GetWebFrame(/*is_main_frame=*/true)
-               completionHandler:^(const std::vector<FormData>& result,
-                                   uint32_t maxID) {
+               completionHandler:^(const std::vector<FormData>& result) {
                  block_was_called = YES;
                  forms = result;
-                 maxExtractedID = maxID;
                }];
     EXPECT_TRUE(
         WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool() {
@@ -752,7 +727,6 @@ TEST_F(PasswordControllerTest, DISABLED_FindPasswordFormsInView) {
     } else {
       ASSERT_TRUE(forms.empty());
     }
-    EXPECT_EQ(data.maxID, maxExtractedID);
   }
 }
 
@@ -1279,7 +1253,6 @@ class PasswordControllerTestSimple : public PlatformTest {
         {autofill::FormUtilJavaScriptFeature::GetInstance(),
          password_manager::PasswordManagerJavaScriptFeature::GetInstance()});
 
-    UniqueIDDataTabHelper::CreateForWebState(&web_state_);
     autofill::AutofillDriverIOSFactory::CreateForWebState(
         &web_state_, &autofill_client_, /*bridge=*/nil, /*locale=*/"en");
 
@@ -1518,17 +1491,15 @@ TEST_F(PasswordControllerTest, CheckAsyncSuggestions) {
     __block BOOL completion_handler_success = NO;
     __block BOOL completion_handler_called = NO;
 
-    FormRendererId form_id =
-        store_has_credentials ? FormRendererId(4) : FormRendererId(1);
-    FieldRendererId field_id =
-        store_has_credentials ? FieldRendererId(5) : FieldRendererId(2);
+    FormRendererId form_id = FormRendererId(1);
+    FieldRendererId field_id = FieldRendererId(2);
 
     FormSuggestionProviderQuery* form_query =
         [[FormSuggestionProviderQuery alloc]
             initWithFormName:@"dynamic_form"
-                uniqueFormID:form_id
+              formRendererID:form_id
              fieldIdentifier:@"username"
-               uniqueFieldID:field_id
+             fieldRendererID:field_id
                    fieldType:@"text"
                         type:@"focus"
                   typedValue:@""
@@ -1571,9 +1542,9 @@ TEST_F(PasswordControllerTest, CheckNoAsyncSuggestionsOnNonUsernameField) {
 
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
       initWithFormName:@"dynamic_form"
-          uniqueFormID:FormRendererId(1)
+        formRendererID:FormRendererId(1)
        fieldIdentifier:@"address"
-         uniqueFieldID:FieldRendererId(4)
+       fieldRendererID:FieldRendererId(4)
              fieldType:@"text"
                   type:@"focus"
             typedValue:@""
@@ -1605,9 +1576,9 @@ TEST_F(PasswordControllerTest, CheckNoAsyncSuggestionsOnNoPasswordForms) {
   EXPECT_CALL(*store_, GetLogins).Times(0);
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
       initWithFormName:@"form"
-          uniqueFormID:FormRendererId(1)
+        formRendererID:FormRendererId(1)
        fieldIdentifier:@"address"
-         uniqueFieldID:FieldRendererId(2)
+       fieldRendererID:FieldRendererId(2)
              fieldType:@"text"
                   type:@"focus"
             typedValue:@""
@@ -1875,9 +1846,7 @@ TEST_F(PasswordControllerTest, SavingOnNavigateMainFrame) {
         } else {
           EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
         }
-        form_id.value() += 3;
-        username_id.value() += 3;
-        password_id.value() += 3;
+
         web::FakeNavigationContext context;
         context.SetHasCommitted(has_commited);
         context.SetIsSameDocument(is_same_document);
@@ -1951,7 +1920,7 @@ TEST_F(PasswordControllerTest, FindDynamicallyAddedForm2) {
                                      FieldRendererId(), std::string());
   WaitForFormManagersCreation();
 
-  auto& form_managers = passwordController_.passwordManager->form_managers();
+  auto form_managers = passwordController_.passwordManager->form_managers();
   ASSERT_EQ(1u, form_managers.size());
   auto* password_form = form_managers[0]->observed_form();
   EXPECT_EQ(u"dynamic_form", password_form->name);
@@ -1959,6 +1928,8 @@ TEST_F(PasswordControllerTest, FindDynamicallyAddedForm2) {
 
 // Tests that submission is detected on removal of the form that had user input.
 TEST_F(PasswordControllerTest, DetectSubmissionOnRemovedForm) {
+  // TODO(crbug.com/330909663): Add test coverage for multiple removed forms,
+  // including non-password forms.
   ON_CALL(*store_, GetLogins)
       .WillByDefault(WithArg<1>(InvokeEmptyConsumerWithForms(store_.get())));
   for (bool has_form_tag : {true, false}) {
@@ -1971,8 +1942,8 @@ TEST_F(PasswordControllerTest, DetectSubmissionOnRemovedForm) {
 
     std::string form_name = has_form_tag ? "login_form" : "";
     FormRendererId form_id(has_form_tag ? 1 : 0);
-    FieldRendererId username_id(has_form_tag ? 2 : 4);
-    FieldRendererId password_id(has_form_tag ? 3 : 5);
+    FieldRendererId username_id(has_form_tag ? 2 : 1);
+    FieldRendererId password_id(has_form_tag ? 3 : 2);
 
     SimulateUserTyping(form_name, form_id, "un", username_id, "user1",
                        mainFrameID);
@@ -1985,10 +1956,11 @@ TEST_F(PasswordControllerTest, DetectSubmissionOnRemovedForm) {
 
     std::vector<FieldRendererId> removed_ids;
     if (!has_form_tag) {
-      removed_ids.push_back(FieldRendererId(4));
-      removed_ids.push_back(FieldRendererId(5));
+      removed_ids.push_back(FieldRendererId(1));
+      removed_ids.push_back(FieldRendererId(2));
     }
-    SimulateFormRemovalObserverSignal(form_id, removed_ids);
+
+    SimulateFormRemovalObserverSignal({form_id}, removed_ids);
 
     auto& form_manager_check = form_manager_to_save;
     ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForActionTimeout, ^bool() {
@@ -2248,9 +2220,9 @@ TEST_F(PasswordControllerTest, PasswordGenerationFieldFocus) {
   FormSuggestionProviderQuery* focus_query =
       [[FormSuggestionProviderQuery alloc]
           initWithFormName:@"signup_form"
-              uniqueFormID:FormRendererId(1)
+            formRendererID:FormRendererId(1)
            fieldIdentifier:@"pw"
-             uniqueFieldID:FieldRendererId(3)
+           fieldRendererID:FieldRendererId(3)
                  fieldType:@"password"
                       type:@"focus"
                 typedValue:@""
@@ -2290,9 +2262,9 @@ TEST_F(PasswordControllerTest, PasswordGenerationFieldInput) {
   FormSuggestionProviderQuery* extend_query =
       [[FormSuggestionProviderQuery alloc]
           initWithFormName:@"signup_form"
-              uniqueFormID:FormRendererId(1)
+            formRendererID:FormRendererId(1)
            fieldIdentifier:@"pw"
-             uniqueFieldID:FieldRendererId(3)
+           fieldRendererID:FieldRendererId(3)
                  fieldType:@"password"
                       type:@"input"
                 typedValue:@"generated_password_long"
@@ -2332,9 +2304,9 @@ TEST_F(PasswordControllerTest, PasswordGenerationFieldClear) {
   FormSuggestionProviderQuery* clear_query =
       [[FormSuggestionProviderQuery alloc]
           initWithFormName:@"signup_form"
-              uniqueFormID:FormRendererId(1)
+            formRendererID:FormRendererId(1)
            fieldIdentifier:@"pw"
-             uniqueFieldID:FieldRendererId(3)
+           fieldRendererID:FieldRendererId(3)
                  fieldType:@"password"
                       type:@"input"
                 typedValue:@""

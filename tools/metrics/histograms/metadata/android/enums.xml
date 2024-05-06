@@ -199,6 +199,7 @@ chromium-metrics-reviews@google.com.
   <int value="6"
       label="Previous attempt to persist search engine metadata failed"/>
   <int value="7" label="Request success"/>
+  <int value="8" label="Choice was already applied"/>
 </enum>
 
 <enum name="AndroidSearchEngineLogoEvents">
@@ -717,25 +718,6 @@ chromium-metrics-reviews@google.com.
   </int>
 </enum>
 
-<enum name="AppPackageNameAllowlistParseStatus">
-  <int value="0" label="Allowlist is loaded successfully"/>
-  <int value="1" label="Used allowlist from cache"/>
-  <int value="2" label="Manifest is missing fileds"/>
-  <int value="3" label="Allowlist is expired"/>
-  <int value="4" label="Allowlist file is missing"/>
-  <int value="5" label="IO error"/>
-  <int value="6" label="Allowlist bloomfilter is malformatted"/>
-</enum>
-
-<enum name="AppPackageNameLoggingRuleStatus">
-  <int value="0" label="Not loaded and no cache"/>
-  <int value="1" label="Not loaded and using cached"/>
-  <int value="2" label="Loading new version failed and no cache"/>
-  <int value="3" label="Loading new version failed and using cached"/>
-  <int value="4" label="New version is loaded"/>
-  <int value="5" label="New version is the same as cached"/>
-</enum>
-
 <enum name="ArmCpuPart">
   <summary>
     Defines a subset of ARM CPU (implementer, part-number) pairs composed as a
@@ -805,6 +787,7 @@ chromium-metrics-reviews@google.com.
   <int value="29" label="Download auto-resumption unmetered task"/>
   <int value="30" label="Download auto-resumption any network task"/>
   <int value="31" label="Notification pre-unsubscribe action"/>
+  <int value="32" label="Safety Hub fetch task"/>
 </enum>
 
 <enum name="BackPressConsumer">
@@ -958,6 +941,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="IGNORED_TAB_SWITCHER"/>
   <int value="4" label="IGNORED_SAME_INSTANCE"/>
   <int value="5" label="ERROR_TAB_NOT_FOUND"/>
+  <int value="6" label="IGNORED_MAX_INSTANCES"/>
 </enum>
 
 <enum name="DragDropType">
@@ -1282,6 +1266,16 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="QUERY_TILES"/>
 </enum>
 
+<enum name="PageSummaryShareSheetVisibility">
+  <int value="0" label="Shown"/>
+  <int value="1" label="Not shown, model not available"/>
+  <int value="2" label="Not shown, model session already running"/>
+  <int value="3" label="Not shown, tab is not valid"/>
+  <int value="4" label="Not shown, URL is not http/https"/>
+  <int value="5" label="Not shown, profile does not support summarization"/>
+  <int value="6" label="Not shown, tab does not support summarization"/>
+</enum>
+
 <enum name="PartnerCustomizationProviderDelegate">
   <int value="0" label="None: default delegate inValid"/>
   <int value="1" label="Phenotype config"/>
@@ -1554,6 +1548,24 @@ chromium-metrics-reviews@google.com.
   <summary>The edge from which the gesture is swiped from.</summary>
   <int value="0" label="LeftEdge"/>
   <int value="1" label="RightEdge"/>
+</enum>
+
+<enum name="TabGroupColorChangeActionType">
+  <int value="0" label="VIA_COLOR_ICON"/>
+  <int value="1" label="VIA_OVERFLOW_MENU"/>
+</enum>
+
+<enum name="TabGroupCreationDialogResultAction">
+  <int value="0" label="ACCEPTED"/>
+  <int value="1" label="DISMISSED_SCRIM_OR_BACKPRESS"/>
+  <int value="2" label="DISMISSED_OTHER"/>
+</enum>
+
+<enum name="TabGroupCreationFinalSelections">
+  <int value="0" label="DEFAULT_COLOR_AND_TITLE"/>
+  <int value="1" label="CHANGED_COLOR"/>
+  <int value="2" label="CHANGED_TITLE"/>
+  <int value="3" label="CHANGED_COLOR_AND_TITLE"/>
 </enum>
 
 <enum name="TabListEditorShareActionState">

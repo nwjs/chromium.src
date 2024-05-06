@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "ash/app_list/app_collections_constants.h"
+#include "ash/app_list/app_list_metrics.h"
 #include "ash/app_list/app_list_view_delegate.h"
+#include "ash/app_list/model/app_list_folder_item.h"
 #include "ash/app_list/model/app_list_item.h"
 #include "ash/app_list/model/app_list_item_list.h"
 #include "ash/app_list/model/app_list_model.h"
@@ -25,6 +27,7 @@
 #include "ui/views/border.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/view_class_properties.h"
 
 namespace ash {
 namespace {
@@ -49,8 +52,17 @@ std::vector<AppListItem*> GetAppListItemsForCollection(
   AppListItemList* items = model->top_level_item_list();
 
   for (size_t i = 0; i < items->item_count(); i++) {
-    if (items->item_at(i)->collection_id() == collection_id) {
-      collection.emplace_back(items->item_at(i));
+    AppListItem* app_item = items->item_at(i);
+    if (app_item->is_folder()) {
+      // Ignore app folder items.
+      continue;
+    }
+    if (app_item->app_status() != AppStatus::kReady) {
+      // Ignore apps that are not ready.
+      continue;
+    }
+    if (app_item->collection_id() == collection_id) {
+      collection.emplace_back(app_item);
     }
   }
   return collection;
@@ -94,8 +106,11 @@ class AppsCollectionSectionView::GridDelegateImpl
   void OnAppListItemViewActivated(AppListItemView* pressed_item_view,
                                   const ui::Event& event) override {
     const std::string id = pressed_item_view->item()->id();
-    view_delegate_->ActivateItem(id, event.flags(),
-                                 AppListLaunchedFrom::kLaunchedFromRecentApps);
+    view_delegate_->ActivateItem(
+        id, event.flags(), AppListLaunchedFrom::kLaunchedFromAppsCollections);
+    RecordAppListByCollectionLaunched(
+        pressed_item_view->item()->collection_id(),
+        /*is_apps_collections_page=*/true);
     // `this` may be deleted.
   }
 
@@ -126,9 +141,9 @@ AppsCollectionSectionView::AppsCollectionSectionView(
   label->SetBorder(views::CreateEmptyBorder(kTitleLabelPadding));
 
   apps_container_ = AddChildView(std::make_unique<views::View>());
+  apps_container_->SetProperty(views::kMarginsKey, kAppsGridPadding);
   apps_container_->SetLayoutManager(
       std::make_unique<SimpleGridLayout>(kAppsPerColumn, 0, 0));
-  apps_container_->SetBorder(views::CreateEmptyBorder(kAppsGridPadding));
 
   SetBackground(views::CreateThemedRoundedRectBackground(
       cros_tokens::kCrosSysSystemOnBase, kCornerRadius));
@@ -164,19 +179,14 @@ void AppsCollectionSectionView::UpdateAppsForCollection() {
       GetAppListItemsForCollection(model_, collection_);
 
   for (AppListItem* app : apps) {
-    auto* item_view =
-        apps_container_->AddChildView(std::make_unique<AppListItemView>(
-            app_list_config_, grid_delegate_.get(), app, view_delegate_,
-            AppListItemView::Context::kAppsCollection));
-    item_view->UpdateAppListConfig(app_list_config_);
-    item_views_.Add(item_view, item_views_.view_size());
-    item_view->InitializeIconLoader();
+    CreateAndAddAppItemView(app);
   }
 
   SetVisible(!apps.empty());
 
   NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
                            /*send_native_event=*/true);
+  PreferredSizeChanged();
 }
 
 void AppsCollectionSectionView::SetModel(AppListModel* model) {
@@ -208,7 +218,8 @@ int AppsCollectionSectionView::CalculateTilePadding() const {
   DCHECK(app_list_config_);
   int content_width = GetContentsBounds().width();
   int tile_width = app_list_config_->grid_tile_width();
-  int width_to_distribute = content_width - kAppsPerColumn * tile_width;
+  int width_to_distribute =
+      content_width - kAppsGridPadding.width() - kAppsPerColumn * tile_width;
 
   return width_to_distribute / ((kAppsPerColumn - 1) * 2);
 }
@@ -228,8 +239,17 @@ void AppsCollectionSectionView::OnAppListModelStatusChanged() {
 }
 
 void AppsCollectionSectionView::OnAppListItemAdded(AppListItem* item) {
+  if (item->is_folder()) {
+    // Ignore app folder items.
+    return;
+  }
+  if (item->app_status() != AppStatus::kReady) {
+    // Ignore apps that are not ready.
+    return;
+  }
   if (item->collection_id() == collection_) {
-    UpdateAppsForCollection();
+    CreateAndAddAppItemView(item);
+    PreferredSizeChanged();
   }
 }
 
@@ -241,9 +261,21 @@ void AppsCollectionSectionView::OnAppListItemWillBeDeleted(AppListItem* item) {
   std::optional<size_t> index_to_be_deleted = GetViewIndexForItem(item->id());
 
   if (index_to_be_deleted) {
+    AppListItemView* view = item_views_.view_at(index_to_be_deleted.value());
     item_views_.Remove(index_to_be_deleted.value());
+    delete view;
     PreferredSizeChanged();
   }
+}
+
+void AppsCollectionSectionView::CreateAndAddAppItemView(AppListItem* item) {
+  auto* item_view =
+      apps_container_->AddChildView(std::make_unique<AppListItemView>(
+          app_list_config_, grid_delegate_.get(), item, view_delegate_,
+          AppListItemView::Context::kAppsCollection));
+  item_view->UpdateAppListConfig(app_list_config_);
+  item_views_.Add(item_view, item_views_.view_size());
+  item_view->InitializeIconLoader();
 }
 
 BEGIN_METADATA(AppsCollectionSectionView)

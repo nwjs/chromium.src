@@ -116,6 +116,8 @@ generated_dictionary_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_aac_encoder_config.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ad_auction_data.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ad_auction_data.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ad_auction_data_buyer_config.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ad_auction_data_buyer_config.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ad_auction_data_config.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ad_auction_data_config.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ad_properties.cc",
@@ -286,8 +288,8 @@ generated_dictionary_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_channel_merger_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_channel_splitter_options.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_channel_splitter_options.h",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_chapter_information.cc",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_chapter_information.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_chapter_information_init.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_chapter_information_init.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_client_query_options.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_client_query_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_clipboard_permission_descriptor.cc",
@@ -630,6 +632,10 @@ generated_dictionary_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_config.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_request_options.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_request_options.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_request_provider.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_request_provider.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_resolve_options.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_resolve_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_standard_claims.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_standard_claims.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_identity_user_info.cc",
@@ -762,6 +768,8 @@ generated_dictionary_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_gemm_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_options.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_options.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_cell_options.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_cell_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_hard_sigmoid_options.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_hard_sigmoid_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_instance_normalization_options.cc",
@@ -774,6 +782,8 @@ generated_dictionary_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_linear_options.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_options.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_options.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_cell_options.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_cell_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_operand_descriptor.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_operand_descriptor.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_ml_pad_options.cc",
@@ -1898,6 +1908,8 @@ generated_interface_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_channel_merger_node.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_channel_splitter_node.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_channel_splitter_node.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_chapter_information.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_chapter_information.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_client.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_client.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_clients.cc",
@@ -2316,6 +2328,8 @@ generated_interface_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_event.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track_audio_stats.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track_audio_stats.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track_video_stats.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track_video_stats.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track_event.cc",
@@ -3095,6 +3109,8 @@ generated_union_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_mediasourcehandle_mediastream.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_mediastreamtrack_string.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_mediastreamtrack_string.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_mediastreamtrackaudiostats_mediastreamtrackvideostats.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_mediastreamtrackaudiostats_mediastreamtrackvideostats.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_path2d_string.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_path2d_string.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_presentationsource_usvstring.cc",
@@ -3117,7 +3133,7 @@ generated_union_sources_in_modules = [
 # generating the snapshot for android, blink is compiled with
 # current_os="linux" and target_os="android". Using target_os is necessary as
 # we need to compile in the same way as would happen when current_os="android".
-if (target_os != "android") {
+if (!target_os_is_android) {
   generated_dictionary_sources_in_modules += [
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_socket_open_info.cc",
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_socket_open_info.h",
@@ -3158,7 +3174,7 @@ if (target_os != "android") {
 # generating the snapshot for Android, Blink is compiled with
 # current_os = "linux" and target_os = "android". Using target_os is necessary as
 # we need to compile in the same way as would happen when current_os = "android".
-if (target_os != "android") {
+if (!target_os_is_android) {
   generated_union_sources_in_modules += [
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_unsignedlong_webprintingrange.cc",
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_unsignedlong_webprintingrange.h",
@@ -3223,7 +3239,7 @@ if (target_os != "android") {
 # generating the snapshot for android, blink is compiled with
 # current_os="linux" and target_os="android". Using target_os is necessary as
 # we need to compile in the same way as would happen when current_os="android".
-if (target_os != "android") {
+if (!target_os_is_android) {
   generated_dictionary_sources_in_modules += [
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_serial_input_signals.cc",
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_serial_input_signals.h",
@@ -3258,7 +3274,7 @@ if (target_os != "android") {
 # generating the snapshot for android, blink is compiled with
 # current_os="linux" and target_os="android". Using target_os is necessary as
 # we need to compile in the same way as would happen when current_os="android".
-if (target_os != "android") {
+if (!target_os_is_android) {
   generated_callback_function_sources_in_modules += [
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_smart_card_transaction_callback.cc",
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_smart_card_transaction_callback.h",
@@ -3319,7 +3335,7 @@ if (target_os != "android") {
 # generating the snapshot for android, blink is compiled with
 # current_os="linux" and target_os="android". Using target_os is necessary as
 # we need to compile in the same way as would happen when current_os="android".
-if (target_os != "android") {
+if (!target_os_is_android) {
   generated_dictionary_sources_in_modules += [
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_window_controls_overlay_geometry_change_event_init.cc",
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_window_controls_overlay_geometry_change_event_init.h",
@@ -3338,7 +3354,7 @@ if (target_os != "android") {
 # generating the snapshot for android, blink is compiled with
 # current_os="linux" and target_os="android". Using target_os is necessary as
 # we need to compile in the same way as would happen when current_os="android".
-if (target_os != "android") {
+if (!target_os_is_android) {
   generated_dictionary_sources_in_modules += [
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_document_picture_in_picture_event_init.cc",
     "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_document_picture_in_picture_event_init.h",

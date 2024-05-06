@@ -12,13 +12,14 @@
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
-#include "chrome/android/chrome_jni_headers/PwaRestorePromoUtils_jni.h"
-#include "chrome/android/chrome_jni_headers/WebApkSyncService_jni.h"
 #include "chrome/browser/android/webapk/webapk_sync_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_android.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "components/sync/base/features.h"
+
+// Must come after other includes, because FromJniType() uses Profile.
+#include "chrome/android/chrome_jni_headers/PwaRestorePromoUtils_jni.h"
+#include "chrome/android/chrome_jni_headers/WebApkSyncService_jni.h"
 
 using base::android::ConvertJavaStringToUTF8;
 using base::android::JavaParamRef;
@@ -36,6 +37,7 @@ WebApkSyncService::WebApkSyncService(Profile* profile) {
   database_factory_ = std::make_unique<WebApkDatabaseFactory>(profile);
   sync_bridge_ = std::make_unique<WebApkSyncBridge>(database_factory_.get(),
                                                     base::DoNothing());
+  restore_manager_ = std::make_unique<WebApkRestoreManager>(profile);
 }
 
 WebApkSyncService::~WebApkSyncService() = default;
@@ -85,6 +87,17 @@ std::vector<std::vector<std::string>> WebApkSyncService::GetRestorableAppsInfo()
   return sync_bridge_->GetRestorableAppsInfo();
 }
 
+void WebApkSyncService::RestoreAppList(
+    std::vector<std::string> app_ids_to_restore) {
+  for (auto app_id : app_ids_to_restore) {
+    const WebApkProto* webapk_proto = sync_bridge_->GetWebApkByAppId(app_id);
+    if (!webapk_proto || webapk_proto->is_locally_installed()) {
+      continue;
+    }
+    restore_manager_->ScheduleTask(webapk_proto->sync_data());
+  }
+}
+
 // static
 static void JNI_WebApkSyncService_OnWebApkUsed(
     JNIEnv* env,
@@ -115,7 +128,7 @@ static void JNI_WebApkSyncService_OnWebApkUsed(
 
 static void JNI_WebApkSyncService_OnWebApkUninstalled(
     JNIEnv* env,
-    const JavaParamRef<jstring>& java_manifest_id) {
+    std::string& java_manifest_id) {
   if (!base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
     return;
   }
@@ -126,7 +139,7 @@ static void JNI_WebApkSyncService_OnWebApkUninstalled(
   }
 
   WebApkSyncService::GetForProfile(profile)->OnWebApkUninstalled(
-      ConvertJavaStringToUTF8(env, java_manifest_id));
+      java_manifest_id);
 }
 
 static void JNI_WebApkSyncService_RemoveOldWebAPKsFromSync(
@@ -147,12 +160,9 @@ static void JNI_WebApkSyncService_RemoveOldWebAPKsFromSync(
 
 static void JNI_WebApkSyncService_FetchRestorableApps(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jprofile,
+    Profile* profile,
     const JavaParamRef<jobject>& jwindow_android,
     int arrow_resource_id) {
-  Profile* profile =
-      ProfileAndroid::FromProfileAndroid(jprofile)->GetWeakPtr().get();
-
   if (profile == nullptr) {
     return;
   }

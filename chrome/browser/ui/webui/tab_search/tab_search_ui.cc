@@ -33,8 +33,8 @@
 #include "ui/webui/color_change_listener/color_change_handler.h"
 
 TabSearchUI::TabSearchUI(content::WebUI* web_ui)
-    : ui::MojoBubbleWebUIController(web_ui,
-                                    true /* Needed for webui browser tests */),
+    : TopChromeWebUIController(web_ui,
+                               true /* Needed for webui browser tests */),
       webui_load_timer_(web_ui->GetWebContents(),
                         "Tabs.TabSearch.WebUI.LoadDocumentTime",
                         "Tabs.TabSearch.WebUI.LoadCompletedTime") {
@@ -72,9 +72,12 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"tabCount", IDS_TAB_SEARCH_TAB_COUNT},
       {"tabSearchTabName", IDS_TAB_SEARCH_TAB_NAME},
       // Tab organization UI strings
+      {"clearAriaLabel", IDS_TAB_ORGANIZATION_CLEAR_ARIA_LABEL},
+      {"clearSuggestions", IDS_TAB_ORGANIZATION_CLEAR_SUGGESTIONS},
       {"createGroup", IDS_TAB_ORGANIZATION_CREATE_GROUP},
       {"createGroups", IDS_TAB_ORGANIZATION_CREATE_GROUPS},
       {"dismiss", IDS_TAB_ORGANIZATION_DISMISS},
+      {"editAriaLabel", IDS_TAB_ORGANIZATION_EDIT_ARIA_LABEL},
       {"failureBodyGenericPreLink",
        IDS_TAB_ORGANIZATION_FAILURE_BODY_GENERIC_PRE_LINK},
       {"failureBodyGroupingPreLink",
@@ -94,6 +97,7 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"learnMore", IDS_TAB_ORGANIZATION_LEARN_MORE},
       {"learnMoreAriaLabel", IDS_TAB_ORGANIZATION_LEARN_MORE_ARIA_LABEL},
       {"learnMoreDisclaimer", IDS_TAB_ORGANIZATION_DISCLAIMER},
+      {"newTabs", IDS_TAB_ORGANIZATION_NEW_TABS},
       {"notStartedBody", IDS_TAB_ORGANIZATION_NOT_STARTED_BODY},
       {"notStartedBodyFRE", IDS_TAB_ORGANIZATION_NOT_STARTED_BODY_FRE},
       {"notStartedBodyLinkFRE", IDS_TAB_ORGANIZATION_NOT_STARTED_BODY_LINK_FRE},
@@ -125,7 +129,7 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
        IDS_TAB_ORGANIZATION_NOT_STARTED_BUTTON_UNSYNCED_HISTORY_ARIA_LABEL},
       {"notStartedTitle", IDS_TAB_ORGANIZATION_NOT_STARTED_TITLE},
       {"notStartedTitleFRE", IDS_TAB_ORGANIZATION_NOT_STARTED_TITLE_FRE},
-      {"clearSuggestions", IDS_TAB_ORGANIZATION_CLEAR_SUGGESTIONS},
+      {"rejectAriaLabel", IDS_TAB_ORGANIZATION_REJECT_ARIA_LABEL},
       {"successTitle", IDS_TAB_ORGANIZATION_SUCCESS_TITLE},
       {"successTitleSingle", IDS_TAB_ORGANIZATION_SUCCESS_TITLE_SINGLE},
       {"successTitleMulti", IDS_TAB_ORGANIZATION_SUCCESS_TITLE_MULTI},

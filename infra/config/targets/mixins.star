@@ -237,7 +237,7 @@ targets.mixin(
     name = "android_u",
     swarming = targets.swarming(
         dimensions = {
-            "device_os": "UQ1A.240105.002",
+            "device_os": "UQ1A.240105.002|UQ1A.240205.002|AP1A.240405.002",
         },
     ),
 )
@@ -309,6 +309,16 @@ targets.mixin(
     swarming = targets.swarming(
         service_account = "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
     ),
+)
+
+targets.mixin(
+    name = "shards-10",
+    shards = 10,
+)
+
+targets.mixin(
+    name = "shards-20",
+    shards = 20,
 )
 
 targets.mixin(
@@ -421,15 +431,13 @@ targets.mixin(
 
             # Tests using the default gaia pool cannot be run by public builders.
             # These variables are fed by private bundles, thus not for public builders.
-            "maybemissingvars=ui\\.(gaiaPoolDefault|signinProfileTestExtensionManifestKey)",
+            "maybemissingvars=ui\\.(gaiaPoolDefault|signinProfileTestExtensionManifestKey)|uidetection\\.(key|key_type|server)",
+
+            # Use "hash" method to shrding of test tests. This should balance the
+            # execution time among shards in a better way.
+            "shard_method=hash",
         ],
     ),
-)
-
-targets.mixin(
-    name = "chromeos-jacuzzi-skylab-chrome-all-tast-tests",
-    # jacuzzi is slow. So that we use more number of shards.
-    shards = 20,
 )
 
 targets.mixin(
@@ -469,12 +477,6 @@ targets.mixin(
             ),
         ],
     ),
-)
-
-targets.mixin(
-    name = "chromeos-trogdor-skylab-chrome-all-tast-tests",
-    # jacuzzi is slow. So that we use more number of shards.
-    shards = 20,
 )
 
 targets.mixin(
@@ -733,18 +735,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "ios_runtime_cache_17_2",
-    swarming = targets.swarming(
-        named_caches = [
-            swarming.cache(
-                name = "runtime_ios_17_2",
-                path = "Runtime-ios-17.2",
-            ),
-        ],
-    ),
-)
-
-targets.mixin(
     name = "ios_runtime_cache_17_4",
     swarming = targets.swarming(
         named_caches = [
@@ -832,8 +822,9 @@ targets.mixin(
     name = "linux_amd_rx_5500_xt",
     swarming = targets.swarming(
         dimensions = {
-            "gpu": "1002:7340",
-            "os": "Ubuntu-22.04.3",
+            "gpu": "1002:7340-23.2.1",
+            "os": "Ubuntu-22.04",
+            "display_attached": "1",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -843,8 +834,9 @@ targets.mixin(
     name = "linux_intel_uhd_630_experimental",
     swarming = targets.swarming(
         dimensions = {
-            "gpu": "8086:9bc5-20.0.8",
-            "os": "Ubuntu-18.04.6",
+            "gpu": "8086:9bc5-23.2.1",
+            "os": "Ubuntu-22.04.4",
+            "display_attached": "1",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -867,6 +859,7 @@ targets.mixin(
         dimensions = {
             "gpu": "8086:4680-23.2.1",
             "os": "Ubuntu-22.04.4",
+            "display_attached": "1",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1050,7 +1043,7 @@ targets.mixin(
             "cpu": "arm64",
             "gpu": "apple:m1",
             "mac_model": "Macmini9,1",
-            "os": "Mac-14.3.1",
+            "os": "Mac-14.4.1",
             "pool": "chromium.tests",
             "display_attached": "1",
         },
@@ -1064,7 +1057,7 @@ targets.mixin(
             "cpu": "arm64",
             "gpu": "apple:m1",
             "mac_model": "Macmini9,1",
-            "os": "Mac-13.5.2",
+            "os": "Mac-13.5.2|Mac-14.3.1",
             "pool": "chromium.tests",
             "display_attached": "1",
         },
@@ -1078,7 +1071,7 @@ targets.mixin(
             "cpu": "arm64",
             "gpu": "apple:m2",
             "mac_model": "Mac14,7",
-            "os": "Mac-14.3.1",
+            "os": "Mac-14.3.1|Mac-14.4.1",
             "pool": "chromium.tests.gpu",
             "display_attached": "1",
             "hidpi": "1",
@@ -1093,7 +1086,7 @@ targets.mixin(
             "cpu": "arm64",
             "gpu": "apple:m2",
             "mac_model": "Mac14,7",
-            "os": "Mac-13.3.1",
+            "os": "Mac-13.3.1|Mac-14.3.1",
             "pool": "chromium.tests.gpu",
             "display_attached": "1",
             "hidpi": "1",
@@ -1150,7 +1143,7 @@ targets.mixin(
         dimensions = {
             "cpu": "x86-64",
             "gpu": "8086:3e9b",
-            "os": "Mac-14.3.1",
+            "os": "Mac-14.4.1",
             "display_attached": "1",
         },
     ),
@@ -1178,7 +1171,7 @@ targets.mixin(
         dimensions = {
             "cpu": "x86-64",
             "gpu": "1002:679e",
-            "os": "Mac-12.4",
+            "os": "Mac-12.7",
             "pool": "chromium.tests.gpu",
             "display_attached": "1",
         },
@@ -1192,7 +1185,7 @@ targets.mixin(
             "cpu": "x86-64",
             "gpu": "1002:67ef",
             "hidpi": "1",
-            "os": "Mac-14.3.1",
+            "os": "Mac-14.3.1|Mac-14.4.1",
             "pool": "chromium.tests.gpu",
             "display_attached": "1",
         },
@@ -1292,6 +1285,19 @@ targets.mixin(
         dimensions = {
             "device_type": "mdarcy",
             "os": "Android",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "motorola_moto_g_power_5g",
+    swarming = targets.swarming(
+        dimensions = {
+            "device_type": "devonn",
+            "device_os": "T1TOS33.33-45-23-12",
+            "device_os_flavor": "motorola",
+            "os": "Android",
+            "pool": "chromium.tests.gpu",
         },
     ),
 )
@@ -1493,6 +1499,38 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "samsung_s23",
+    swarming = targets.swarming(
+        dimensions = {
+            # Unfortunately, "s23" is not exposed as a dimension. "dm1q" appears
+            # to refer to the S23 specifically, while "kalama" is for the entire
+            # S23 family.
+            "device_type": "dm1q",
+            "device_os": "UP1A.231005.007",
+            "device_os_type": "user",
+            "os": "Android",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "samsung_s24",
+    swarming = targets.swarming(
+        dimensions = {
+            # Unfortunately, "s24" is not exposed as a dimension. "e2s" appears
+            # to refer to the S24 specifically, while "s5e9945" is for the
+            # entire S24 family.
+            "device_type": "e2s",
+            "device_os": "UP1A.231005.007",
+            "device_os_type": "user",
+            "os": "Android",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
     name = "skia_gold_test",
     args = [
         "--git-revision=${got_revision}",
@@ -1689,7 +1727,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
-            "gpu": "8086:9bc5-31.0.101.2114",
+            "gpu": "8086:9bc5-31.0.101.2127",
             "os": "Windows-10",
             "pool": "chromium.tests.gpu",
         },
@@ -1703,6 +1741,18 @@ targets.mixin(
             "display_attached": "1",
             "gpu": "8086:9bc5-31.0.101.2111",
             "os": "Windows-10",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "win10_intel_uhd_770_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "gpu": "8086:4680-31.0.101.5333",
+            "os": "Windows-10-19045.3930",
             "pool": "chromium.tests.gpu",
         },
     ),

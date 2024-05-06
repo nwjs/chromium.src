@@ -5,7 +5,9 @@
 #include <string>
 #include <unordered_map>
 
+#include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/autofill/autofill_uitest_util.h"
@@ -67,9 +69,8 @@ class AutofillPolicyTest : public PolicyTest {
     if (personal_data_manager()->GetProfiles().size() != 0u) {
       return testing::AssertionFailure() << "Should be empty profile.";
     }
-    autofill::PdmChangeWaiter observer(browser()->profile());
-    personal_data_manager()->AddProfile(autofill::test::GetFullProfile());
-    observer.Wait();
+    autofill::AddTestProfile(browser()->profile(),
+                             autofill::test::GetFullProfile());
     expected_suggestions_["name"] = u"John H. Doe";
     expected_suggestions_["street-address"] = u"666 Erebus St., Apt 8";
     expected_suggestions_["postal-code"] = u"91111";
@@ -191,7 +192,10 @@ IN_PROC_BROWSER_TEST_F(AutofillPolicyTest, AutofillEnabledByPolicy) {
   for (const auto& [element, expectation] : GetExpectedSuggestions()) {
     content::SimulateMouseClickOrTapElementWithId(GetWebContents(), element);
     autofill_manager()->WaitForAskForValuesToFill();
-    EXPECT_TRUE(autofill_client()->HasShownAutofillPopup());
+    // Showing the Autofill Popup is an asynchronous task.
+    EXPECT_TRUE(base::test::RunUntil([&]() {
+      return autofill_client()->HasShownAutofillPopup();
+    })) << "Showing the Autofill Popup timed out.";
     // There may be more suggestions, but the first one in the vector
     // should be the expected and shown in the popup.
     std::vector<autofill::Suggestion> suggestions =
@@ -212,6 +216,8 @@ IN_PROC_BROWSER_TEST_F(AutofillPolicyTest, AutofillDisabledByPolicy) {
   for (const auto& [element, _] : GetExpectedSuggestions()) {
     content::SimulateMouseClickOrTapElementWithId(GetWebContents(), element);
     autofill_manager()->WaitForAskForValuesToFill();
+    // Showing the Autofill Popup is an asynchronous task.
+    base::RunLoop().RunUntilIdle();
     EXPECT_FALSE(autofill_client()->HasShownAutofillPopup());
     EXPECT_EQ(autofill_client()->GetPopupSuggestions().size(), 0u);
   }

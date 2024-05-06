@@ -198,8 +198,22 @@ message OmniboxEventProto {
     // enum is used in other places too, and not only OmniboxEventProto.)
     OTHER_ZPS_PREFETCH = 23;
 
-    // The contextual searchbox in the lens overlay or the side panel.
+    // The searchbox in the lens overlay.
     CONTEXTUAL_SEARCHBOX = 24;
+
+    // The searchbox in the search side panel.
+    SEARCH_SIDE_PANEL_SEARCHBOX = 25;
+
+    // The searchbox in the lens side panel.
+    LENS_SIDE_PANEL_SEARCHBOX = 26;
+
+    // The user is visiting a search result page using Chrome Custom Tab.
+    // Equivalent of SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT for CCT.
+    SEARCH_RESULT_PAGE_ON_CCT = 27;
+
+    // The user is visiting a non DSE web page using Chrome Custom Tab.
+    // Equivalent of OTHER for CCT.
+    OTHER_ON_CCT = 28;
 
     // When adding new classifications, please consider adding them in
     // chromium's chrome/browser/resources/omnibox/omnibox.html

@@ -1,0 +1,10 @@
+<style>
+  .object {
+    cursor: pointer;
+    pointer-events: all;
+    position: absolute;
+  }
+</style>
+<template id="objectsContainer" is="dom-repeat" items="[[renderedObjects]]">
+  <div style$="[[getObjectStyle(item)]]" class="object"></div>
+</template>

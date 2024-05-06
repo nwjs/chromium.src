@@ -64,8 +64,16 @@ std::ostream& operator<<(std::ostream& os, WebappInstallSource source) {
       return os << "rich install ui weblayer";
     case WebappInstallSource::KIOSK:
       return os << "kiosk";
-    case WebappInstallSource::ISOLATED_APP_DEV_INSTALL:
-      return os << "isolated app dev install";
+    case WebappInstallSource::IWA_GRAPHICAL_INSTALLER:
+      return os << "isolated web app: graphical installer";
+    case WebappInstallSource::IWA_DEV_COMMAND_LINE:
+      return os << "isolated web app: dev command line";
+    case WebappInstallSource::IWA_DEV_UI:
+      return os << "isolated web app: dev UI";
+    case WebappInstallSource::IWA_EXTERNAL_POLICY:
+      return os << "isolated web app: external policy";
+    case WebappInstallSource::IWA_SHIMLESS_RMA:
+      return os << "isolated web app: shimless RMA";
     case WebappInstallSource::EXTERNAL_LOCK_SCREEN:
       return os << "external lock screen";
     case WebappInstallSource::PRELOADED_OEM:
@@ -78,6 +86,10 @@ std::ostream& operator<<(std::ostream& os, WebappInstallSource source) {
       return os << "ml promotion";
     case WebappInstallSource::PRELOADED_DEFAULT:
       return os << "preloaded default";
+    case WebappInstallSource::ALMANAC_INSTALL_APP_URI:
+      return os << "app install uri";
+    case WebappInstallSource::WEBAPK_RESTORE:
+      return os << "webapk restore";
     case WebappInstallSource::COUNT:
       return os << "count";
   }
@@ -199,8 +211,14 @@ bool InstallableMetrics::IsReportableInstallSource(WebappInstallSource source) {
     case WebappInstallSource::RICH_INSTALL_UI_WEBLAYER:
     case WebappInstallSource::SYSTEM_DEFAULT:
     case WebappInstallSource::PRELOADED_DEFAULT:
+    case WebappInstallSource::ALMANAC_INSTALL_APP_URI:
+    case WebappInstallSource::WEBAPK_RESTORE:
       return true;
-    case WebappInstallSource::ISOLATED_APP_DEV_INSTALL:
+    case WebappInstallSource::IWA_GRAPHICAL_INSTALLER:
+    case WebappInstallSource::IWA_DEV_UI:
+    case WebappInstallSource::IWA_DEV_COMMAND_LINE:
+    case WebappInstallSource::IWA_EXTERNAL_POLICY:
+    case WebappInstallSource::IWA_SHIMLESS_RMA:
     case WebappInstallSource::MANAGEMENT_API:
     case WebappInstallSource::SUB_APP:
     case WebappInstallSource::SYNC:

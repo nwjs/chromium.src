@@ -44,6 +44,7 @@
 #include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/webauthn/change_pin_controller.h"
 #include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/extensions/api/passwords_private.h"
@@ -365,8 +366,8 @@ void PasswordsPrivateDelegateImpl::GetSavedPasswordsList(
 PasswordsPrivateDelegate::CredentialsGroups
 PasswordsPrivateDelegateImpl::GetCredentialGroups() {
   std::vector<api::passwords_private::CredentialGroup> groups;
-  // TODO(crbug.com/1464264): Migrate away from `ConsentLevel::kSync` on desktop
-  // platforms.
+  // TODO(crbug.com/40067296): Migrate away from `ConsentLevel::kSync` on
+  // desktop platforms.
   bool sync_enabled =
       password_manager::sync_util::IsSyncFeatureEnabledIncludingPasswords(
           SyncServiceFactory::GetForProfile(profile_));
@@ -844,10 +845,8 @@ void PasswordsPrivateDelegateImpl::SetAccountStorageOptIn(
     return;
   }
 
-  // When account storage is enabled by default, don't require reauth to
-  // re-enable it.
-  if (password_manager::features_util::IsAccountStorageEnabledByDefault(
-          profile_->GetPrefs())) {
+  if (!password_manager::features_util::AreAccountStorageOptInPromosAllowed()) {
+    // No need to show a reauth dialog in this case, just opt-in directly.
     client->GetPasswordFeatureManager()->OptInToAccountStorage();
     return;
   }
@@ -933,6 +932,25 @@ void PasswordsPrivateDelegateImpl::ShowExportedFileInShell(
   base::FilePath path(base::UTF8ToWide(file_path));
 #endif
   platform_util::ShowItemInFolder(browser->profile(), path);
+}
+
+void PasswordsPrivateDelegateImpl::ChangePasswordManagerPin(
+    content::WebContents* web_contents) {
+  ChangePinController* controller =
+      ChangePinController::ForWebContents(web_contents);
+  if (controller) {
+    controller->StartChangePin();
+  }
+}
+
+bool PasswordsPrivateDelegateImpl::IsPasswordManagerPinAvailable(
+    content::WebContents* web_contents) {
+  ChangePinController* controller =
+      ChangePinController::ForWebContents(web_contents);
+  if (!controller) {
+    return false;
+  }
+  return controller->IsChangePinFlowAvailable();
 }
 
 base::WeakPtr<PasswordsPrivateDelegate>
@@ -1172,7 +1190,7 @@ void PasswordsPrivateDelegateImpl::AuthenticateUser(
   CHECK(web_contents);
 
   // Authentication on Windows cannot be canceled.
-  // TODO(crbug.com/1371026): Remove Cancel and instead simply destroy
+  // TODO(crbug.com/40241199): Remove Cancel and instead simply destroy
   // |device_authenticator_|.
   if (device_authenticator_) {
 #if BUILDFLAG(IS_WIN)

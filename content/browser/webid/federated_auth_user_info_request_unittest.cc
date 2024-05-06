@@ -175,7 +175,7 @@ class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
           kAccountName, kAccountGivenName, GURL(kAccountPicture),
           /*login_hints=*/std::vector<std::string>(),
           /*domain_hints=*/std::vector<std::string>(),
-          account_config.login_state);
+          /*labels=*/std::vector<std::string>(), account_config.login_state);
     }
 
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -444,9 +444,6 @@ TEST_F(FederatedAuthUserInfoRequestTest, InApprovedClientsList) {
 
 TEST_F(FederatedAuthUserInfoRequestTest,
        NoSharingPermissionButIdpHasThirdPartyCookiesAccessAndClaimsSignin) {
-  base::test::ScopedFeatureList list;
-  list.InitAndEnableFeature(features::kFedCmExemptIdpWithThirdPartyCookies);
-
   const char kAccountId[] = "account";
 
   Config config = kValidConfig;
@@ -468,9 +465,6 @@ TEST_F(FederatedAuthUserInfoRequestTest,
 
 TEST_F(FederatedAuthUserInfoRequestTest,
        NoSharingPermissionButIdpHasThirdPartyCookiesAccessButNotSignin) {
-  base::test::ScopedFeatureList list;
-  list.InitAndEnableFeature(features::kFedCmExemptIdpWithThirdPartyCookies);
-
   const char kAccountId[] = "account";
 
   Config config = kValidConfig;

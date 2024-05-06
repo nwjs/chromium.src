@@ -13,7 +13,7 @@
 // no-include-guard-because-multiply-included
 
 #include "chrome/browser/page_info/page_info_buildflags.h"
-#include "chrome/browser/password_manager/password_manager_buildflags.h"
+#include "components/password_manager/core/browser/password_manager_buildflags.h"
 
 // LINK_RESOURCE_ID is used for IDs that come from a .grd file.
 #ifndef LINK_RESOURCE_ID
@@ -49,6 +49,9 @@ DECLARE_RESOURCE_ID(IDR_ANDORID_MESSAGE_PERMISSION_STORAGE,
                     R.drawable.ic_storage)
 DECLARE_RESOURCE_ID(IDR_ANDORID_MESSAGE_PERMISSION_CAMERA,
                     R.drawable.ic_photo_camera_black)
+// TODO(https://crbug.com/331489777) Finalize.
+DECLARE_RESOURCE_ID(IDR_ANDROID_MESSAGE_PERMISSION_XR,
+                    R.drawable.gm_filled_cardboard_24)
 DECLARE_RESOURCE_ID(IDR_ANDROID_MESSAGE_SETTINGS, R.drawable.settings_cog)
 DECLARE_RESOURCE_ID(IDR_ANDROID_MESSAGE_SAFETY_CHECK, R.drawable.safety_check)
 DECLARE_RESOURCE_ID(IDR_ANDROID_MESSAGE_SHIELD, R.drawable.shield)

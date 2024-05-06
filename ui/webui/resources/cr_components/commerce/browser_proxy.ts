@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {String16} from 'chrome://resources/mojo/mojo/public/mojom/base/string16.mojom-webui.js';
-import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
+import type {String16} from '//resources/mojo/mojo/public/mojom/base/string16.mojom-webui.js';
+import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
-import type {BookmarkProductInfo, PriceInsightsInfo, ProductInfo} from './shopping_service.mojom-webui.js';
+import type {BookmarkProductInfo, PriceInsightsInfo, ProductInfo, ProductSpecifications, UrlInfo} from './shopping_service.mojom-webui.js';
 import {PageCallbackRouter, ShoppingServiceHandlerFactory, ShoppingServiceHandlerRemote} from './shopping_service.mojom-webui.js';
 
 let instance: BrowserProxy|null = null;
@@ -21,6 +21,7 @@ export interface BrowserProxy {
   getPriceInsightsInfoForCurrentUrl():
       Promise<{priceInsightsInfo: PriceInsightsInfo}>;
   showInsightsSidePanelUi(): void;
+  getUrlInfosForOpenTabs(): Promise<{urlInfos: UrlInfo[]}>;
   isShoppingListEligible(): Promise<{eligible: boolean}>;
   getShoppingCollectionBookmarkFolderId(): Promise<{collectionId: bigint}>;
   getPriceTrackingStatusForCurrentUrl(): Promise<{tracked: boolean}>;
@@ -30,6 +31,9 @@ export interface BrowserProxy {
   showBookmarkEditorForCurrentUrl(): void;
   showFeedback(): void;
   getCallbackRouter(): PageCallbackRouter;
+  getProductInfoForUrl(url: Url): Promise<{productInfo: ProductInfo}>;
+  getProductSpecificationsForUrls(urls: Url[]):
+      Promise<{productSpecs: ProductSpecifications}>;
 }
 
 export class BrowserProxyImpl implements BrowserProxy {
@@ -77,6 +81,10 @@ export class BrowserProxyImpl implements BrowserProxy {
 
   getProductSpecificationsForUrls(urls: Url[]) {
     return this.handler.getProductSpecificationsForUrls(urls);
+  }
+
+  getUrlInfosForOpenTabs() {
+    return this.handler.getUrlInfosForOpenTabs();
   }
 
   showInsightsSidePanelUi() {

@@ -10,6 +10,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -115,7 +116,7 @@ constexpr net::NetworkTrafficAnnotationTag kReportingBeaconNetworkTag =
         }
       )");
 
-base::StringPiece ReportingDestinationAsString(
+std::string_view ReportingDestinationAsString(
     const blink::FencedFrame::ReportingDestination& destination) {
   switch (destination) {
     case blink::FencedFrame::ReportingDestination::kBuyer:
@@ -132,7 +133,7 @@ base::StringPiece ReportingDestinationAsString(
   NOTREACHED();
 }
 
-base::StringPiece InvokingAPIAsString(
+std::string_view InvokingAPIAsString(
     const PrivacySandboxInvokingAPI invoking_api) {
   switch (invoking_api) {
     case PrivacySandboxInvokingAPI::kProtectedAudience:
@@ -335,6 +336,14 @@ FencedFrameReporter::~FencedFrameReporter() {
           pending_event.attribution_reporting_data);
     }
   }
+
+  base::UmaHistogramCustomCounts(blink::kFencedFrameBeaconReportingCountUMA,
+                                 beacons_sent_same_origin_, /*min=*/1,
+                                 /*exclusive_max=*/20, /*buckets=*/20);
+  base::UmaHistogramCustomCounts(
+      blink::kFencedFrameBeaconReportingCountCrossOriginUMA,
+      beacons_sent_cross_origin_, /*min=*/1, /*exclusive_max=*/20,
+      /*buckets=*/20);
 }
 
 void FencedFrameReporter::OnUrlMappingReady(
@@ -804,6 +813,22 @@ bool FencedFrameReporter::SendReportInternal(
             event_variant, std::move(simple_url_loader),
             initiator_frame_tree_node_id, devtools_request_id));
   }
+
+  // The associated histograms will be sent out in the FencedFrameReporter
+  // destructor.
+  absl::visit(
+      [&](const auto& event) {
+        using Event = std::decay_t<decltype(event)>;
+        if constexpr (std::is_same_v<Event, DestinationEnumEvent> ||
+                      std::is_same_v<Event, DestinationURLEvent>) {
+          if (event.cross_origin_exposed) {
+            beacons_sent_cross_origin_++;
+          } else {
+            beacons_sent_same_origin_++;
+          }
+        }
+      },
+      event_variant);
 
   return true;
 }

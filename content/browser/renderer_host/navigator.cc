@@ -921,7 +921,7 @@ void Navigator::RequestOpenURL(
   params.href_translate = href_translate;
   params.impression = impression;
 
-  delegate_->OpenURL(params);
+  delegate_->OpenURL(params, /*navigation_handle_callback=*/{});
 }
 
 void Navigator::NavigateFromFrameProxy(

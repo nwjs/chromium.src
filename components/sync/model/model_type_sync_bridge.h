@@ -105,7 +105,15 @@ class ModelTypeSyncBridge {
   // Asynchronously retrieve the corresponding sync data for `storage_keys`.
   // `callback` should be invoked if the operation is successful, otherwise
   // the processor's ReportError method should be called.
-  virtual void GetData(StorageKeyList storage_keys, DataCallback callback) = 0;
+  // Deprecated: implement/use GetDataForCommit().
+  virtual void GetData(StorageKeyList storage_keys, DataCallback callback);
+
+  // Asynchronously retrieve the corresponding sync data for `storage_keys`.
+  // `callback` should be invoked if the operation is successful, otherwise
+  // the processor's ReportError method should be called. Used only to commit
+  // the data.
+  virtual void GetDataForCommit(StorageKeyList storage_keys,
+                                DataCallback callback);
 
   // Asynchronously retrieve all of the local sync data. `callback` should be
   // invoked if the operation is successful, otherwise the processor's
@@ -215,7 +223,7 @@ class ModelTypeSyncBridge {
   // * Known fields that are just defined in the proto and not actively used
   // (e.g. a partially-implemented functionality or a functionality guarded by a
   // feature toggle).
-  // TODO(crbug.com/1408144): Consider changing the default to preserve unknown
+  // TODO(crbug.com/40253395): Consider changing the default to preserve unknown
   // fields at least.
   // By default, empty EntitySpecifics is returned.
   virtual sync_pb::EntitySpecifics TrimAllSupportedFieldsFromRemoteSpecifics(

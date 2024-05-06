@@ -11,6 +11,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/web_applications/commands/set_user_display_mode_command.h"
 #include "chrome/browser/web_applications/extensions/web_app_extension_shortcut.h"
 #include "chrome/browser/web_applications/locks/with_app_resources.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -79,7 +80,7 @@ WebAppUninstallAndReplaceJob::WebAppUninstallAndReplaceJob(
 WebAppUninstallAndReplaceJob::~WebAppUninstallAndReplaceJob() = default;
 
 void WebAppUninstallAndReplaceJob::Start() {
-  DCHECK(to_app_lock_->registrar().IsInstalled(to_app_));
+  CHECK(to_app_lock_->registrar().GetAppById(to_app_));
 
   std::vector<webapps::AppId> apps_to_replace;
   for (const webapps::AppId& from_app : from_apps_or_extensions_) {
@@ -137,8 +138,9 @@ void WebAppUninstallAndReplaceJob::OnMigrateLauncherState(
         to_app_, app_sorting->GetAppLaunchOrdinal(from_app));
     app_sorting->SetPageOrdinal(to_app_, app_sorting->GetPageOrdinal(from_app));
 
-    to_app_lock_->sync_bridge().SetAppUserDisplayMode(
-        to_app_, GetExtensionUserDisplayMode(&profile_.get(), from_extension),
+    SetUserDisplayModeCommand::DoSetDisplayMode(
+        *to_app_lock_, to_app_,
+        GetExtensionUserDisplayMode(&profile_.get(), from_extension),
         /*is_user_action=*/false);
 
     auto shortcut_info = web_app::ShortcutInfoForExtensionAndProfile(
@@ -192,10 +194,10 @@ void WebAppUninstallAndReplaceJob::OnShortcutLocationGathered(
     // UninstallSilently might synchronously finish, so the wait won't get
     // finished if called after.
     WaitForExtensionShortcutsDeleted(
-        from_app,
-        base::BindOnce(
-            &WebAppUninstallAndReplaceJob::InstallOsHooksForReplacementApp,
-            weak_ptr_factory_.GetWeakPtr(), std::move(on_complete), locations));
+        from_app, base::BindOnce(&WebAppUninstallAndReplaceJob::
+                                     SynchronizeOSIntegrationForReplacementApp,
+                                 weak_ptr_factory_.GetWeakPtr(),
+                                 std::move(on_complete), locations));
   }
 
   // When the `from_app` is a web app, we can't wait for it to finish because it
@@ -205,28 +207,17 @@ void WebAppUninstallAndReplaceJob::OnShortcutLocationGathered(
   proxy->UninstallSilently(from_app, apps::UninstallSource::kMigration);
 
   if (!is_extension) {
-    InstallOsHooksForReplacementApp(std::move(on_complete), locations);
+    SynchronizeOSIntegrationForReplacementApp(std::move(on_complete),
+                                              locations);
   }
 }
 
-void WebAppUninstallAndReplaceJob::InstallOsHooksForReplacementApp(
+void WebAppUninstallAndReplaceJob::SynchronizeOSIntegrationForReplacementApp(
     base::OnceClosure on_complete,
     ShortcutLocations locations) {
-  // This ensures that the os integration matches the app that we are replacing.
-  InstallOsHooksOptions options;
-  options.os_hooks[OsHookType::kShortcuts] =
-      locations.on_desktop || locations.applications_menu_location ||
-      locations.in_quick_launch_bar || locations.in_startup;
-  options.add_to_desktop = locations.on_desktop;
-  options.add_to_quick_launch_bar = locations.in_quick_launch_bar;
-
   ValueWithPolicy<RunOnOsLoginMode> run_on_os_login =
       to_app_lock_->registrar().GetAppRunOnOsLoginMode(to_app_);
-  // Only update run on os login when it's not controlled by policy.
   if (run_on_os_login.user_controllable) {
-    options.os_hooks[OsHookType::kRunOnOsLogin] = locations.in_startup;
-    // TODO(crbug.com/1091964): Support Run on OS Login mode selection when
-    // `from_app` is a web app.
     RunOnOsLoginMode new_mode = locations.in_startup
                                     ? RunOnOsLoginMode::kWindowed
                                     : RunOnOsLoginMode::kNotRun;
@@ -237,28 +228,13 @@ void WebAppUninstallAndReplaceJob::InstallOsHooksForReplacementApp(
       }
     }
   }
-  options.reason = SHORTCUT_CREATION_AUTOMATED;
-  // TODO(crbug.com/1401125): Remove InstallOsHooks() once OS integration
-  // sub managers have been implemented.
-  auto os_hooks_barrier = OsIntegrationManager::GetBarrierForSynchronize(
-      base::BindOnce(&WebAppUninstallAndReplaceJob::OnInstallOsHooksCompleted,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(on_complete)));
-  to_app_lock_->os_integration_manager().InstallOsHooks(
-      to_app_, os_hooks_barrier,
-      /*web_app_info=*/nullptr, options);
-  SynchronizeOsOptions synchronize_options;
-  synchronize_options.add_shortcut_to_desktop = options.add_to_desktop;
-  synchronize_options.add_to_quick_launch_bar = options.add_to_quick_launch_bar;
-  synchronize_options.reason = options.reason;
-  to_app_lock_->os_integration_manager().Synchronize(
-      to_app_, base::BindOnce(os_hooks_barrier, OsHooksErrors()));
-}
 
-void WebAppUninstallAndReplaceJob::OnInstallOsHooksCompleted(
-    base::OnceClosure on_complete,
-    OsHooksErrors errors) {
-  debug_value_->Set("complete_errors", errors.any());
-  std::move(on_complete).Run();
+  SynchronizeOsOptions synchronize_options;
+  synchronize_options.add_shortcut_to_desktop = locations.on_desktop;
+  synchronize_options.add_to_quick_launch_bar = locations.in_quick_launch_bar;
+  synchronize_options.reason = SHORTCUT_CREATION_AUTOMATED;
+  to_app_lock_->os_integration_manager().Synchronize(to_app_,
+                                                     std::move(on_complete));
 }
 
 }  // namespace web_app

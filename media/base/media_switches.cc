@@ -590,19 +590,13 @@ BASE_FEATURE(kMemoryPressureBasedSourceBufferGC,
 // image.
 BASE_FEATURE(kUseWritePixelsYUV,
              "UseWritePixelsYUV",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables creating single shared image and mailbox for multi-planar formats for
 // hardware video decoders.
 BASE_FEATURE(kUseMultiPlaneFormatForHardwareVideo,
              "UseMultiPlaneFormatForHardwareVideo",
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_FUCHSIA) || \
-    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables creating single shared image and mailbox for multi-planar formats for
 // software video decoders.
@@ -615,14 +609,6 @@ BASE_FEATURE(kUseMultiPlaneFormatForSoftwareVideo,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-
-#if BUILDFLAG(IS_ANDROID)
-// Enables using RasterInterface in VideoResourceUpdater (note: this is
-// unconditionally the case on all other platforms).
-BASE_FEATURE(kRasterInterfaceInVideoResourceUpdater,
-             "RasterInterfaceInVideoResourceUpdater",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // Enables binding software video NV12/P010 GMBs as separate shared images.
 BASE_FEATURE(kMultiPlaneSoftwareVideoSharedImages,
@@ -871,7 +857,7 @@ BASE_FEATURE(kVaapiVp8TemporalLayerHWEncoding,
 // Enable VP9 S-mode encoding with HW encoder for webrtc use case on ChromeOS.
 BASE_FEATURE(kVaapiVp9SModeHWEncoding,
              "VaapiVp9SModeHWEncoding",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 // Enables the new V4L2 flat video decoder clients instead of V4L2VideoDecoder.
@@ -945,6 +931,11 @@ BASE_FEATURE(kExternalClearKeyForTesting,
 const base::FeatureParam<std::string> kMediaFoundationClearKeyCdmPathForTesting{
     &kExternalClearKeyForTesting, "media_foundation_cdm_path", ""};
 #endif  // BUILDFLAG(IS_WIN)
+
+// Enables the On-Device Web Speech feature on supported devices.
+BASE_FEATURE(kOnDeviceWebSpeech,
+             "OnDeviceWebSpeech",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the Live Caption feature on supported devices.
 BASE_FEATURE(kLiveCaption, "LiveCaption", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1079,7 +1070,7 @@ BASE_FEATURE(kHardwareSecureDecryptionFallback,
 // (CDM) after failures or crashes to fallback to software secure CDMs should
 // use per site logic.
 const base::FeatureParam<bool> kHardwareSecureDecryptionFallbackPerSite{
-    &kHardwareSecureDecryptionFallback, "per_site", false};
+    &kHardwareSecureDecryptionFallback, "per_site", true};
 
 // The minimum and maximum number of days to disable hardware secure Content
 // Decryption Module (CDM) as part of the fallback logic.
@@ -1251,15 +1242,11 @@ BASE_FEATURE(kAllowMediaCodecSoftwareDecoder,
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
 BASE_FEATURE(kBuiltInHlsPlayer,
              "BuiltInHlsPlayer",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
              base::FEATURE_DISABLED_BY_DEFAULT
-#endif
 );
 
 BASE_FEATURE(kBuiltInHlsMP4,
-             "kBuiltInHlsMP4",
+             "BuiltInHlsMP4",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
 
@@ -1768,6 +1755,15 @@ BASE_FEATURE(kFFmpegAllowLists,
              "FFmpegAllowLists",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_WIN)
+// Enables audio offload when supported by endpoints.
+BASE_FEATURE(kAudioOffload, "AudioOffload", base::FEATURE_DISABLED_BY_DEFAULT);
+
+// The buffer time in milliseconds for audio offload.
+const base::FeatureParam<double> kAudioOffloadBufferTimeMs{
+    &kAudioOffload, "buffer_time_ms", 50};
+#endif
+
 // Enables sending MediaLog to the log stream, which is useful for easier
 // development by ensuring logs can be seen without a remote desktop session.
 // Only affects builds when DCHECK is on for non-ERROR logs (ERROR logs are
@@ -1816,6 +1812,17 @@ bool IsChromeWideEchoCancellationEnabled() {
 #endif
 }
 
+bool IsDedicatedMediaServiceThreadEnabled(gl::ANGLEImplementation impl) {
+#if BUILDFLAG(IS_WIN)
+  // Only D3D11 device supports multi-threaded use.
+  if (impl != gl::ANGLEImplementation::kD3D11) {
+    return false;
+  }
+#endif
+
+  return base::FeatureList::IsEnabled(kDedicatedMediaServiceThread);
+}
+
 int GetProcessingAudioFifoSize() {
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
   if (!IsChromeWideEchoCancellationEnabled()) {
@@ -1852,8 +1859,12 @@ bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
 }
 
 bool IsMultiPlaneFormatForHardwareVideoEnabled() {
+#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_APPLE)
+  return true;
+#else
   return
       base::FeatureList::IsEnabled(kUseMultiPlaneFormatForHardwareVideo);
+#endif
 }
 
 bool IsWritePixelsYUVEnabled() {

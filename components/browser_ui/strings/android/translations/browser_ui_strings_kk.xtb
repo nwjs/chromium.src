@@ -94,7 +94,6 @@
 <translation id="2501278716633472235">Артқа қайту</translation>
 <translation id="2546283357679194313">Cookie файлдары және торап деректері</translation>
 <translation id="2550801787432930915">Баға түсуінің картасы</translation>
-<translation id="2569468611847789653">{COOKIE_COUNT,plural, =1{1 cookie файлы бөгелді.}other{# cookie файлы бөгелді.}}</translation>
 <translation id="2570922361219980984">Бұл құрылғыда да орынды анықтау қызметі өшірулі. Оны <ph name="BEGIN_LINK" />Android параметрлері<ph name="END_LINK" /> арқылы қосыңыз.</translation>
 <translation id="257931822824936280">Жайылған – жию үшін басыңыз.</translation>
 <translation id="2586657967955657006">Буфер</translation>
@@ -177,6 +176,7 @@
 <translation id="3895926599014793903">Масштабтауды мәжбүрлі түрде қосу</translation>
 <translation id="3908288065506437185">Инкогнито режимінде үшінші тарап cookie файлдарын бөгеу</translation>
 <translation id="3918378745482005425">Кейбір мүмкіндіктер жұмыс істемеуі мүмкін. Қатысты сайттарда әлі де үшінші тарап cookie файлдары пайдаланылуы мүмкін.</translation>
+<translation id="3933121352599513978">Қажетсіз сұрауларды жию (ұсынылады)</translation>
 <translation id="3955193568934677022">Сайттарға қорғалған контентті ойнатуға рұқсат беру (ұсынылады)</translation>
 <translation id="3967822245660637423">Жүктеп алынды</translation>
 <translation id="3974105241379491420">Сайттар сіз туралы сақталған ақпаратты пайдалануды сұрауы мүмкін</translation>
@@ -199,6 +199,7 @@
 <translation id="429312253194641664">Сайтта мультимедиа ойнатылуда</translation>
 <translation id="42981349822642051">Жаю</translation>
 <translation id="4336566011000459927">Chrome бүгін cookie файлдарына қайта шектеу қояды.</translation>
+<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Соңғы қойындыңыз</translation>
 <translation id="4338831206024587507"><ph name="DOMAIN" /> доменіндегі барлық сайт</translation>
 <translation id="4402755511846832236">Сайттарды бөгеу арқылы олардың құрылғыны қашан белсенді пайдаланғаныңыз туралы ақпаратты алуына жол берілмейді.</translation>
 <translation id="4412992751769744546">Үшінші тарап cookie файлдарына рұқсат беру</translation>
@@ -289,6 +290,7 @@
 <translation id="5853982612236235577">Қосылса, сайттар хабарландыру жіберуге рұқсат сұрай алады. Өшірілсе, жібере алмайды.</translation>
 <translation id="5860033963881614850">Өшірулі</translation>
 <translation id="5876056640971328065">Бейнені кідірту</translation>
+<translation id="5877248419911025165">Барлық сұрауды жию</translation>
 <translation id="5884085660368669834">Сайт параметрі</translation>
 <translation id="5887687176710214216">Соңғы кіру: кеше</translation>
 <translation id="5916664084637901428">Қосулы</translation>
@@ -457,7 +459,6 @@
 <translation id="8441146129660941386">Артқа</translation>
 <translation id="8444433999583714703"><ph name="APP_NAME" /> браузері геодерегіңізді пайдалануы үшін, <ph name="BEGIN_LINK" />Android параметрлерінде<ph name="END_LINK" /> оны да қосыңыз.</translation>
 <translation id="8447861592752582886">Құрылғыға кіру рұқсатының күшін жою</translation>
-<translation id="8451050538944905715">{NUM_SELECTED,plural, =1{1 cookie файлы қолданылып жатыр}other{# cookie файлы қолданылып жатыр}}</translation>
 <translation id="8487700953926739672">Желіден тыс істейді</translation>
 <translation id="848952951823693243">Әрдайым сайттың мобильдік нұсқасын сұрау</translation>
 <translation id="8499083585497694743">Микрофон дыбысын қосу</translation>
@@ -497,6 +498,7 @@
 <translation id="8959122750345127698"><ph name="URL" /> мекенжайына өту мүмкін емес</translation>
 <translation id="8986362086234534611">Ұмыту</translation>
 <translation id="8990043154272859344">Сіз барлық сайттағы аккаунттан шығарыласыз</translation>
+<translation id="8993853206419610596">Барлық сұрауды жаю</translation>
 <translation id="9002538116239926534">Қосылса, сайттар деректерді құрылғыға сақтай алады. Өшірілсе, сақтай алмайды.</translation>
 <translation id="9011903857143958461"><ph name="SITE_NAME" /> үшін рұқсат етілген.</translation>
 <translation id="9019902583201351841">Ата-аналар басқарады</translation>

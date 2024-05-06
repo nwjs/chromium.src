@@ -1159,7 +1159,7 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     // * They have not yet opened auto dark settings.
     // * The dialog has been shown 0 times before.
     // * They have done so at least 3 times.
-    // TODO(crbug.com/1251737): Update this config from test values; Will
+    // TODO(crbug.com/40198496): Update this config from test values; Will
     // likely depend on giving feedback instead of opening settings, since the
     // primary purpose  of the dialog has changed.
     std::optional<FeatureConfig> config = FeatureConfig();
@@ -1395,6 +1395,26 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
 
+  if (kIPHAutofillCreditCardBenefitFeature.name == feature->name) {
+    // Credit card benefit IPH is shown:
+    // * once for an installation, 10-year window is used as the maximum
+    // * when a credit card benefit is displayed for the first time
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->trigger =
+        EventConfig("autofill_credit_card_benefit_iph_trigger",
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    config->used =
+        EventConfig("autofill_credit_card_benefit_iph_accepted",
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    return config;
+  }
+
   if (kIPHAutofillExternalAccountProfileSuggestionFeature.name ==
       feature->name) {
     // Externally created account profile suggestion IPH is shown:
@@ -1424,8 +1444,9 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
   }
 
   if (kIPHAutofillManualFallbackFeature.name == feature->name) {
-    // Autofill Manual Fallback IPH is shown when it has not been shown before
-    // in the last 90 days.
+    // Autofill Manual Fallback IPH is shown if all of the following are true:
+    // * it has not been shown before in the last 90 days;
+    // * the user has never used the autofill manual fallback.
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
@@ -1433,6 +1454,10 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->session_rate_impact.type = SessionRateImpact::Type::NONE;
     config->trigger = EventConfig("autofill_manual_fallback_trigger",
                                   Comparator(LESS_THAN, 1), 90, 360);
+    config->used =
+        EventConfig("autofill_manual_fallback_accepted", Comparator(EQUAL, 0),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
     return config;
   }
 
@@ -1610,6 +1635,10 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                                Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 360);
     config->event_configs.insert(EventConfig("default_browser_promo_shown",
                                              Comparator(EQUAL, 0), 14, 360));
+    config->event_configs.insert(EventConfig("default_browser_fre_shown",
+                                             Comparator(EQUAL, 0), 14, 360));
+    config->event_configs.insert(EventConfig(
+        "default_browser_promos_group_trigger", Comparator(EQUAL, 0), 14, 360));
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;
     return config;
@@ -1640,6 +1669,10 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                     Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 360));
     config->event_configs.insert(EventConfig("default_browser_promo_shown",
                                              Comparator(EQUAL, 0), 14, 360));
+    config->event_configs.insert(EventConfig("default_browser_fre_shown",
+                                             Comparator(EQUAL, 0), 14, 360));
+    config->event_configs.insert(EventConfig(
+        "default_browser_promos_group_trigger", Comparator(EQUAL, 0), 14, 360));
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;
     return config;
@@ -1671,6 +1704,10 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                     Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 360));
     config->event_configs.insert(EventConfig("default_browser_promo_shown",
                                              Comparator(EQUAL, 0), 14, 360));
+    config->event_configs.insert(EventConfig("default_browser_fre_shown",
+                                             Comparator(EQUAL, 0), 14, 360));
+    config->event_configs.insert(EventConfig(
+        "default_browser_promos_group_trigger", Comparator(EQUAL, 0), 14, 360));
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;
     return config;
@@ -1911,6 +1948,40 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHiOSPageInfoRevampFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->trigger = EventConfig("IPH_iOSPageInfoRevamp_trigger",
+                                  Comparator(LESS_THAN_OR_EQUAL, 3), 365, 365);
+    config->used =
+        EventConfig("IPH_iOSPageInfoRevamp_used", Comparator(ANY, 0), 365, 365);
+    return config;
+  }
+
+  if (kIPHiOSInlineEnhancedSafeBrowsingPromoFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(LESS_THAN, 1);
+    config->trigger = EventConfig("inline_enhanced_safe_browsing_promo_trigger",
+                                  Comparator(LESS_THAN_OR_EQUAL, 10), 360, 360);
+    config->event_configs.insert(EventConfig(
+        feature_engagement::events::kEnhancedSafeBrowsingPromoCriterionMet,
+        Comparator(GREATER_THAN_OR_EQUAL, 1), 7, 360));
+    config->event_configs.insert(EventConfig(
+        feature_engagement::events::kInlineEnhancedSafeBrowsingPromoClosed,
+        Comparator(EQUAL, 0), 360, 360));
+    config->used =
+        EventConfig("inline_enhanced_safe_browsing_promo_used",
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    config->blocked_by.type = BlockedBy::Type::NONE;
+    config->blocking.type = Blocking::Type::NONE;
+    return config;
+  }
+
   // iOS Promo Configs are split out into a separate file, so check that too.
   if (std::optional<FeatureConfig> ios_promo_feature_config =
           GetClientSideiOSPromoFeatureConfig(feature)) {
@@ -1963,26 +2034,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         EventConfig("dummy_feature_action", Comparator(LESS_THAN, 0), 1, 1);
     return config;
   }
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
-  if (kIPHDeepScanPromptRemovalFeature.name == feature->name) {
-    std::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = true;
-    config->availability = Comparator(ANY, 0);
-    // Don't show if user has already seen an IPH this session.
-    config->session_rate = Comparator(EQUAL, 0);
-    // Only show the IPH if the user hasn't seen it before
-    config->trigger =
-        EventConfig("deep_scan_prompt_removal_iph_trigger",
-                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
-                    feature_engagement::kMaxStoragePeriod);
-    // Only show the IPH if the user has done a download in the last day.
-    config->used =
-        EventConfig("user_downloaded_file", Comparator(GREATER_THAN, 0), 1, 1);
-    return config;
-  }
-#endif
 
   return std::nullopt;
 }

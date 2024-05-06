@@ -33,6 +33,7 @@ import androidx.browser.customtabs.PostMessageServiceConnection;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -43,7 +44,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
-import org.chromium.base.StrictModeContext;
 import org.chromium.base.SysUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
@@ -78,6 +78,7 @@ import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImp
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams;
 import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -1723,10 +1724,7 @@ public class CustomTabsConnection {
         // world-readable.
         String cgroupFilename = "/proc/" + pid + "/cgroup";
         String controllerName = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? "cpuset" : "cpu";
-        // Reading from /proc does not cause disk IO, but strict mode doesn't like it.
-        // crbug.com/567143
-        try (StrictModeContext ignored = StrictModeContext.allowDiskReads();
-                BufferedReader reader = new BufferedReader(new FileReader(cgroupFilename))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(cgroupFilename))) {
             String line = null;
             while ((line = reader.readLine()) != null) {
                 // line format: 2:cpu:/bg_non_interactive
@@ -1793,12 +1791,12 @@ public class CustomTabsConnection {
         if (!DeviceClassManager.enablePrerendering()) {
             return false;
         }
-        if (UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
-                        .getInteger(COOKIE_CONTROLS_MODE)
+        Profile profile = ProfileManager.getLastUsedRegularProfile();
+        if (UserPrefs.get(profile).getInteger(COOKIE_CONTROLS_MODE)
                 == CookieControlsMode.BLOCK_THIRD_PARTY) {
             return false;
         }
-        if (PreloadPagesSettingsBridge.getState() == PreloadPagesState.NO_PRELOADING) {
+        if (PreloadPagesSettingsBridge.getState(profile) == PreloadPagesState.NO_PRELOADING) {
             return false;
         }
         return true;
@@ -1970,8 +1968,17 @@ public class CustomTabsConnection {
         return false;
     }
 
+    /** Specifies what content should be presented by the CustomTabs instance in location bar. */
+    public int getTitleVisibilityState(BrowserServicesIntentDataProvider intentData) {
+        if (shouldEnableOmniboxForIntent(intentData)) {
+            return CustomTabsIntent.NO_TITLE;
+        }
+        return intentData.getTitleVisibilityState();
+    }
+
     /**
      * Whether PageInsight Hub is enabled by the launching Intent. False by default.
+     *
      * @param intentData {@link BrowserServicesIntentDataProvider} built from the Intent that
      *     launched this CCT.
      */
@@ -2034,6 +2041,11 @@ public class CustomTabsConnection {
         return false;
     }
 
+    public GoogleBottomBarIntentParams getGoogleBottomBarIntentParams(
+            BrowserServicesIntentDataProvider intentData) {
+        return GoogleBottomBarIntentParams.getDefaultInstance();
+    }
+
     /**
      * Called when text fragment lookups on the current page has completed.
      *
@@ -2071,7 +2083,7 @@ public class CustomTabsConnection {
     @NativeMethods
     interface Natives {
         void createAndStartDetachedResourceRequest(
-                Profile profile,
+                @JniType("Profile*") Profile profile,
                 CustomTabsSessionToken session,
                 String packageName,
                 String url,

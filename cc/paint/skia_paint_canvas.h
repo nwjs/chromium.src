@@ -104,6 +104,10 @@ class CC_PAINT_EXPORT SkiaPaintCanvas final : public PaintCanvas {
                 SkScalar x1,
                 SkScalar y1,
                 const PaintFlags& flags) override;
+  void drawArc(const SkRect& oval,
+               SkScalar start_angle_degrees,
+               SkScalar sweep_angle_degrees,
+               const PaintFlags& flags) override;
   void drawRect(const SkRect& rect, const PaintFlags& flags) override;
   void drawIRect(const SkIRect& rect, const PaintFlags& flags) override;
   void drawOval(const SkRect& oval, const PaintFlags& flags) override;
@@ -174,7 +178,7 @@ class CC_PAINT_EXPORT SkiaPaintCanvas final : public PaintCanvas {
   // raster callback.
   void drawPicture(
       PaintRecord record,
-      PlaybackParams::CustomDataRasterCallback custom_raster_callback,
+      PlaybackCallbacks::CustomDataRasterCallback custom_raster_callback,
       bool local_ctm = true);
 
   int pendingOps() const { return num_of_ops_; }

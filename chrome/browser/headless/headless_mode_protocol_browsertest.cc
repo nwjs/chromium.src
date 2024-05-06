@@ -4,6 +4,8 @@
 
 #include "chrome/browser/headless/headless_mode_protocol_browsertest.h"
 
+#include <string_view>
+
 #include "base/base_paths.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -51,7 +53,7 @@ base::Value::Dict HeadlessModeProtocolBrowserTest::GetPageUrlExtraParams() {
 }
 
 void HeadlessModeProtocolBrowserTest::RunTestScript(
-    base::StringPiece script_name) {
+    std::string_view script_name) {
   test_folder_ = "/protocol/";
   script_name_ = script_name;
   RunTest();
@@ -210,7 +212,7 @@ HEADLESS_MODE_PROTOCOL_TEST(FocusEvent, "input/focus-event.js")
 HEADLESS_MODE_PROTOCOL_TEST(DISABLED_FocusBlurNotifications,
                             "input/focus-blur-notifications.js")
 // TODO(crbug.com/1416882): Re-enable this test
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #define MAYBE_InputClipboardOps DISABLED_InputClipboardOps
 #else
 #define MAYBE_InputClipboardOps InputClipboardOps

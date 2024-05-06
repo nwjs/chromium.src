@@ -43,6 +43,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "services/network/public/cpp/cors/cors.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
@@ -265,7 +266,6 @@ class WebIdBrowserTest : public ContentBrowserTest {
 
     test_browser_client_ = std::make_unique<WebIdTestContentBrowserClient>();
     SetTestIdentityRequestDialogController("not_real_account");
-    SetTestDigitalIdentityProvider();
     SetTestModalDialogViewDelegate();
   }
 
@@ -319,12 +319,36 @@ class WebIdBrowserTest : public ContentBrowserTest {
         "/fedcm/client_metadata_endpoint.json";
     std::string id_assertion_endpoint_url = "/fedcm/id_assertion_endpoint.json";
     std::string login_url = "/fedcm/login.html";
+    std::map<std::string, base::RepeatingCallback<std::unique_ptr<HttpResponse>(
+                              const HttpRequest&)>>
+        servlets;
+    servlets[id_assertion_endpoint_url] = base::BindRepeating(
+        [](const HttpRequest& request) -> std::unique_ptr<HttpResponse> {
+          EXPECT_EQ(request.method, HttpMethod::METHOD_POST);
+          EXPECT_EQ(request.has_content, true);
+          auto response = std::make_unique<BasicHttpResponse>();
+          response->set_code(net::HTTP_OK);
+          response->set_content_type("text/json");
+          CHECK(request.headers.contains("Origin"));
+          response->AddCustomHeader(
+              network::cors::header_names::kAccessControlAllowOrigin,
+              request.headers.at("Origin"));
+          response->AddCustomHeader(
+              network::cors::header_names::kAccessControlAllowCredentials,
+              "true");
+          // Standard scopes were used, so no extra permission needed.
+          // Return a token immediately.
+          response->set_content(R"({"token": ")" + std::string(kToken) +
+                                R"("})");
+          return response;
+        });
     return {net::HTTP_OK,
             kTestContentType,
             accounts_endpoint_url,
             client_metadata_endpoint_url,
             id_assertion_endpoint_url,
-            login_url};
+            login_url,
+            servlets};
   }
 
   IdpTestServer* idp_server() { return idp_server_.get(); }
@@ -421,23 +445,6 @@ class WebIdAuthzBrowserTest : public WebIdBrowserTest {
     scoped_feature_list_.InitWithFeatures(features, {});
 
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
-  }
-};
-
-class WebIdExemptIdpBrowserTest : public WebIdBrowserTest {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    std::vector<base::test::FeatureRef> features;
-    features.push_back(features::kFedCmExemptIdpWithThirdPartyCookies);
-    scoped_feature_list_.InitWithFeatures(features, {});
-
-    command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
-  }
-
-  ShellFederatedPermissionContext* sharing_context() {
-    BrowserContext* context = shell()->web_contents()->GetBrowserContext();
-    return static_cast<ShellFederatedPermissionContext*>(
-        context->GetFederatedIdentityPermissionContext());
   }
 };
 
@@ -944,6 +951,12 @@ class WebIdDigitalCredentialsBrowserTest : public WebIdBrowserTest {
     return static_cast<ShellFederatedPermissionContext*>(
         context->GetFederatedIdentityPermissionContext());
   }
+
+  void SetUpOnMainThread() override {
+    WebIdBrowserTest::SetUpOnMainThread();
+
+    SetTestDigitalIdentityProvider();
+  }
 };
 
 std::string BuildDigitalIdentityValidJsRequestDictionary() {
@@ -1041,63 +1054,59 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
       static_cast<MockDigitalIdentityProvider*>(
           test_browser_client_->GetDigitalIdentityProviderForTests());
 
-  const char request[] = R"(
+  std::string_view request = R"(
   {
    "providers": [ {
-      "params": {
-         "extraParamAsNeededByDigitalCredentials": "true",
-         "nonce": "1234",
-         "readerPublicKey": "test_reader_public_key"
-      },
-      "responseFormat": [ "mdoc" ],
-      "selector": {
-         "fields": [ {
-            "equals": "org.iso.18013.5.1.mDL",
-            "name": "doctype"
-         }, {
-            "name": "org.iso.18013.5.1.family_name"
-         }, {
-            "name": "org.iso.18013.5.1.portrait"
-         } ]
-      }
+      "protocol": "urn:openid.net:oid4vp",
+      "request": "{
+        \"client_id\": \"client.example.org\",
+        \"client_id_scheme\": \"web-origin\",
+        \"nonce\": \"n-0S6_WzA2Mj\",
+        \"presentation_definition\": {
+        }
+      }",
    } ]
   }
   )";
 
-  EXPECT_CALL(*digital_identity_provider, Request(_, _, IsJson(request), _))
+  std::string json;
+  // Invalid whitespace and newlines are added to the request string to make it
+  // easier to read in this test, so we remove them before actually making the
+  // JSON comparison in IsJson below.
+  base::RemoveChars(request, "\n ", &json);
+
+  EXPECT_CALL(*digital_identity_provider, Request(_, _, IsJson(json), _))
       .WillOnce(WithArg<3>(
           [](DigitalIdentityProvider::DigitalIdentityCallback callback) {
             std::move(callback).Run(
-                "test-mdoc",
+                "&vp_token=token&presentation_submission=bar",
                 DigitalIdentityProvider::RequestStatusForMetrics::kSuccess);
           }));
 
   std::string script = R"(
         (async () => {
-          const credential = await navigator.identity.get({
+          const {data} = await navigator.identity.get({
             digital: {
               providers: [{
-                selector: {
-                  format: ['mdoc'],
-                  doctype: 'org.iso.18013.5.1.mDL',
-                  fields: [
-                    'org.iso.18013.5.1.family_name',
-                    'org.iso.18013.5.1.portrait',
-                  ]
-                },
-                params: {
-                  nonce: '1234',
-                  readerPublicKey: 'test_reader_public_key',
-                  extraParamAsNeededByDigitalCredentials: true,
-                },
+                protocol: "urn:openid.net:oid4vp",
+                request: JSON.stringify({
+                  // Based on https://github.com/openid/OpenID4VP/issues/125
+                  client_id: "client.example.org",
+                  client_id_scheme: "web-origin",
+                  nonce: "n-0S6_WzA2Mj",
+                  presentation_definition: {
+                    // Presentation Exchange request, omitted for brevity
+                  }
+                })
               }],
             },
           });
-          return credential.data;
+          const response = new URLSearchParams(data);
+          return response.get("vp_token");
         }) ()
     )";
 
-  EXPECT_EQ("test-mdoc", EvalJs(shell(), script));
+  EXPECT_EQ("token", EvalJs(shell(), script));
 }
 
 // Test that when there's a pending mdoc request, a second `get` call should be
@@ -1205,6 +1214,13 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_noPopUpWindow) {
             auto response = std::make_unique<BasicHttpResponse>();
             response->set_code(net::HTTP_OK);
             response->set_content_type("text/json");
+            DCHECK(request.headers.contains("Origin"));
+            response->AddCustomHeader(
+                network::cors::header_names::kAccessControlAllowOrigin,
+                request.headers.at("Origin"));
+            response->AddCustomHeader(
+                network::cors::header_names::kAccessControlAllowCredentials,
+                "true");
             // Standard scopes were used, so no extra permission needed.
             // Return a token immediately.
             response->set_content(R"({"token": "[request lgtm!]"})");
@@ -1278,6 +1294,13 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_openPopUpWindow) {
             // return a continuation url instead of a token.
             auto body = R"({"continue_on": ")" + url + R"("})";
             response->set_content(body);
+            DCHECK(request.headers.contains("Origin"));
+            response->AddCustomHeader(
+                network::cors::header_names::kAccessControlAllowOrigin,
+                request.headers.at("Origin"));
+            response->AddCustomHeader(
+                network::cors::header_names::kAccessControlAllowCredentials,
+                "true");
             return response;
           },
           continue_on);
@@ -1359,19 +1382,8 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_openPopUpWindow) {
   EXPECT_EQ(token, EvalJs(shell(), "result"));
 }
 
-class WebIdErrorBrowserTest : public WebIdBrowserTest {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    std::vector<base::test::FeatureRef> features;
-    features.push_back(features::kFedCmError);
-    scoped_feature_list_.InitWithFeatures(features, {});
-
-    command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
-  }
-};
-
 // Verify that an IdentityCredentialError exception is returned.
-IN_PROC_BROWSER_TEST_F(WebIdErrorBrowserTest, IdentityCredentialError) {
+IN_PROC_BROWSER_TEST_F(WebIdBrowserTest, IdentityCredentialError) {
   IdpTestServer::ConfigDetails config_details = BuildValidConfigDetails();
 
   // Points the id assertion endpoint to a servlet.
@@ -1386,6 +1398,13 @@ IN_PROC_BROWSER_TEST_F(WebIdErrorBrowserTest, IdentityCredentialError) {
         response->set_content_type("text/json");
         response->set_content(
             R"({"error": {"code": "invalid_request", "url": "https://idp.com/error"}})");
+        DCHECK(request.headers.contains("Origin"));
+        response->AddCustomHeader(
+            network::cors::header_names::kAccessControlAllowOrigin,
+            request.headers.at("Origin"));
+        response->AddCustomHeader(
+            network::cors::header_names::kAccessControlAllowCredentials,
+            "true");
         return response;
       });
 
@@ -1399,7 +1418,7 @@ IN_PROC_BROWSER_TEST_F(WebIdErrorBrowserTest, IdentityCredentialError) {
 
 // Verify that auto re-authn can be triggered if the Rp is on the
 // approved_clients list and the IdP has third party cookies access.
-IN_PROC_BROWSER_TEST_F(WebIdExemptIdpBrowserTest,
+IN_PROC_BROWSER_TEST_F(WebIdBrowserTest,
                        IdpHas3PCAccessAndAddsRPInApprovedClients) {
   // Does not manually select any account. If auto re-authn is not triggered,
   // the test will time out.
@@ -1409,8 +1428,12 @@ IN_PROC_BROWSER_TEST_F(WebIdExemptIdpBrowserTest,
   // The client id `client_id_1` is on the `approved_clients` list defined in
   // content/test/data/fedcm/accounts_endpoint.json so by exempting the IdP from
   // the check, auto re-authn can be triggered and a token can be returned.
-  sharing_context()->SetHasThirdPartyCookiesAccessForTesting(BaseIdpUrl(),
-                                                             BaseRpUrl());
+  static_cast<ShellFederatedPermissionContext*>(
+      shell()
+          ->web_contents()
+          ->GetBrowserContext()
+          ->GetFederatedIdentityPermissionContext())
+      ->SetHasThirdPartyCookiesAccessForTesting(BaseIdpUrl(), BaseRpUrl());
 
   idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
 

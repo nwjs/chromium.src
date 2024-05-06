@@ -27,6 +27,7 @@ import org.chromium.chrome.browser.bluetooth.BluetoothNotificationManager;
 import org.chromium.chrome.browser.display_cutout.DisplayCutoutTabHelper;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.media.MediaCaptureNotificationServiceImpl;
+import org.chromium.chrome.browser.pdf.PdfUtils;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditor.AuditEvent;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
@@ -168,7 +169,11 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
             // content. The URL check is done in addition to the isNativePage to ensure a navigation
             // off the native page did not result in the crash.
             if (mTab.isNativePage()
-                    && NativePage.isNativePageUrl(mTab.getUrl(), mTab.isIncognito())) {
+                    && (mTab.getNativePage().getUrl().equals(mTab.getUrl().getSpec())
+                            || NativePage.isNativePageUrl(
+                                    mTab.getUrl(),
+                                    mTab.isIncognito(),
+                                    PdfUtils.isPdfNavigation(mTab.getUrl().getSpec(), null)))) {
                 return;
             }
 
@@ -258,8 +263,6 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                 mTab.didStartPageLoad(navigation.getUrl());
             }
 
-            mTab.handleDidStartNavigationInPrimaryMainFrame();
-
             RewindableIterator<TabObserver> observers = mTab.getTabObservers();
             while (observers.hasNext()) {
                 observers.next().onDidStartNavigationInPrimaryMainFrame(mTab, navigation);
@@ -286,17 +289,11 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
             }
             mLastUrl = navigation.getUrl();
 
-            if (!navigation.hasCommitted()) {
-                mTab.handleDidFinishNavigationInPrimaryMainFrame(
-                        navigation.getUrl(),
-                        navigation.pageTransition(),
-                        navigation.hasCommitted());
-                return;
-            }
+            if (!navigation.hasCommitted()) return;
 
             mTab.updateTitle();
-            mTab.handleDidFinishNavigationInPrimaryMainFrame(
-                    navigation.getUrl(), navigation.pageTransition(), navigation.hasCommitted());
+            mTab.handleDidFinishNavigation(
+                    navigation.getUrl(), navigation.pageTransition(), navigation.isPdf());
             mTab.setIsShowingErrorPage(navigation.isErrorPage());
 
             // TODO(crbug.com/1434461) remove this call. onUrlUpdated should have been called

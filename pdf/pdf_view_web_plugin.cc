@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,7 +34,6 @@
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
@@ -131,14 +131,14 @@ constexpr base::TimeDelta kAccessibilityPageDelay = base::Milliseconds(100);
 
 constexpr base::TimeDelta kFindResultCooldown = base::Milliseconds(100);
 
-constexpr base::StringPiece kChromeExtensionHost =
+constexpr std::string_view kChromeExtensionHost =
     "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/";
 
 // Print Preview base URL.
-constexpr base::StringPiece kChromePrintHost = "chrome://print/";
+constexpr std::string_view kChromePrintHost = "chrome://print/";
 
 // Untrusted Print Preview base URL.
-constexpr base::StringPiece kChromeUntrustedPrintHost =
+constexpr std::string_view kChromeUntrustedPrintHost =
     "chrome-untrusted://print/";
 
 // Same value as `printing::COMPLETE_PREVIEW_DOCUMENT_INDEX`.
@@ -219,14 +219,14 @@ base::Value::Dict DictFromRect(const gfx::Rect& rect) {
   return dict;
 }
 
-bool IsPrintPreviewUrl(base::StringPiece url) {
+bool IsPrintPreviewUrl(std::string_view url) {
   return base::StartsWith(url, kChromeUntrustedPrintHost);
 }
 
-int ExtractPrintPreviewPageIndex(base::StringPiece src_url) {
+int ExtractPrintPreviewPageIndex(std::string_view src_url) {
   // Sample `src_url` format: chrome-untrusted://print/id/page_index/print.pdf
   // The page_index is zero-based, but can be negative with special meanings.
-  std::vector<base::StringPiece> url_substr =
+  std::vector<std::string_view> url_substr =
       base::SplitStringPiece(src_url.substr(kChromeUntrustedPrintHost.size()),
                              "/", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
   if (url_substr.size() != 3)
@@ -249,7 +249,7 @@ bool IsPreviewingPDF(int print_preview_page_count) {
 // If the "type" value of `message` is "foo", then the `reply_type` must be
 // "fooReply". The `message` from the embedder must have a "messageId" value
 // that will be copied to the reply message.
-base::Value::Dict PrepareReplyMessage(base::StringPiece reply_type,
+base::Value::Dict PrepareReplyMessage(std::string_view reply_type,
                                       const base::Value::Dict& message) {
   DCHECK_EQ(reply_type, *message.FindString("type") + "Reply");
 
@@ -281,13 +281,13 @@ PdfViewWebPlugin::Client::CreateAccessibilityDataHandler(
 
 PdfViewWebPlugin::PdfViewWebPlugin(
     std::unique_ptr<Client> client,
-    mojo::AssociatedRemote<pdf::mojom::PdfService> pdf_service,
+    mojo::AssociatedRemote<pdf::mojom::PdfHost> pdf_host,
     const blink::WebPluginParams& params)
     : client_(std::move(client)),
-      pdf_service_(std::move(pdf_service)),
+      pdf_host_(std::move(pdf_host)),
       initial_params_(params) {
-  DCHECK(pdf_service_);
-  pdf_service_->SetListener(listener_receiver_.BindNewPipeAndPassRemote());
+  DCHECK(pdf_host_);
+  pdf_host_->SetListener(listener_receiver_.BindNewPipeAndPassRemote());
 }
 
 PdfViewWebPlugin::~PdfViewWebPlugin() = default;
@@ -964,8 +964,7 @@ std::string PdfViewWebPlugin::GetURL() {
   return url_;
 }
 
-void PdfViewWebPlugin::LoadUrl(base::StringPiece url,
-                               LoadUrlCallback callback) {
+void PdfViewWebPlugin::LoadUrl(std::string_view url, LoadUrlCallback callback) {
   UrlRequest request;
   request.url = std::string(url);
   request.method = "GET";
@@ -1068,8 +1067,8 @@ std::unique_ptr<UrlLoader> PdfViewWebPlugin::CreateUrlLoader() {
     // Disable save and print until the document is fully loaded, since they
     // would generate an incomplete document. This needs to be done each time
     // DidStartLoading() is called because that resets the content restrictions.
-    pdf_service_->UpdateContentRestrictions(kContentRestrictionSave |
-                                            kContentRestrictionPrint);
+    pdf_host_->UpdateContentRestrictions(kContentRestrictionSave |
+                                         kContentRestrictionPrint);
   }
 
   return std::make_unique<UrlLoader>(weak_factory_.GetWeakPtr());
@@ -1134,7 +1133,7 @@ void PdfViewWebPlugin::DocumentLoadComplete() {
     return;
 
   DidStopLoading();
-  pdf_service_->UpdateContentRestrictions(GetContentRestrictions());
+  pdf_host_->UpdateContentRestrictions(GetContentRestrictions());
 }
 
 void PdfViewWebPlugin::DocumentLoadFailed() {
@@ -1162,7 +1161,7 @@ void PdfViewWebPlugin::DocumentHasUnsupportedFeature(
     return;
 
   notified_browser_about_unsupported_feature_ = true;
-  pdf_service_->HasUnsupportedFeature();
+  pdf_host_->HasUnsupportedFeature();
 }
 
 void PdfViewWebPlugin::DocumentLoadProgress(uint32_t available,
@@ -1210,13 +1209,6 @@ SkColor PdfViewWebPlugin::GetBackgroundColor() const {
   return background_color_;
 }
 
-void PdfViewWebPlugin::SetIsSelecting(bool is_selecting) {
-  base::Value::Dict message;
-  message.Set("type", "setIsSelecting");
-  message.Set("isSelecting", is_selecting);
-  client_->PostMessage(std::move(message));
-}
-
 void PdfViewWebPlugin::SelectionChanged(const gfx::Rect& left,
                                         const gfx::Rect& right) {
   gfx::PointF left_point(left.x() + available_area_.x(), left.y());
@@ -1226,8 +1218,8 @@ void PdfViewWebPlugin::SelectionChanged(const gfx::Rect& left,
   left_point.Scale(inverse_scale);
   right_point.Scale(inverse_scale);
 
-  pdf_service_->SelectionChanged(left_point, left.height() * inverse_scale,
-                                 right_point, right.height() * inverse_scale);
+  pdf_host_->SelectionChanged(left_point, left.height() * inverse_scale,
+                              right_point, right.height() * inverse_scale);
 
   if (accessibility_state_ == AccessibilityState::kLoaded)
     PrepareAndSetAccessibilityViewportInfo();
@@ -1235,7 +1227,7 @@ void PdfViewWebPlugin::SelectionChanged(const gfx::Rect& left,
 
 void PdfViewWebPlugin::EnteredEditMode() {
   edit_mode_ = true;
-  pdf_service_->SetPluginCanSave(true);
+  pdf_host_->SetPluginCanSave(true);
 
   base::Value::Dict message;
   message.Set("type", "setIsEditing");
@@ -1309,7 +1301,7 @@ void PdfViewWebPlugin::OnMessage(const base::Value::Dict& message) {
   using MessageHandler = void (PdfViewWebPlugin::*)(const base::Value::Dict&);
 
   static constexpr auto kMessageHandlers =
-      base::MakeFixedFlatMap<base::StringPiece, MessageHandler>({
+      base::MakeFixedFlatMap<std::string_view, MessageHandler>({
           {"displayAnnotations",
            &PdfViewWebPlugin::HandleDisplayAnnotationsMessage},
           {"getNamedDestination",
@@ -1472,16 +1464,16 @@ void PdfViewWebPlugin::HandleSaveMessage(const base::Value::Dict& message) {
 #if BUILDFLAG(ENABLE_INK)
       // In annotation mode, assume the user will make edits and prefer saving
       // using the plugin data.
-      pdf_service_->SetPluginCanSave(true);
+      pdf_host_->SetPluginCanSave(true);
       SaveToBuffer(token);
 #else
       NOTREACHED();
 #endif  // BUILDFLAG(ENABLE_INK)
       break;
     case SaveRequestType::kOriginal:
-      pdf_service_->SetPluginCanSave(false);
+      pdf_host_->SetPluginCanSave(false);
       SaveToFile(token);
-      pdf_service_->SetPluginCanSave(edit_mode_);
+      pdf_host_->SetPluginCanSave(edit_mode_);
       break;
     case SaveRequestType::kEdited:
       SaveToBuffer(token);
@@ -1687,7 +1679,7 @@ void PdfViewWebPlugin::SaveToFile(const std::string& token) {
   message.Set("token", token);
   client_->PostMessage(std::move(message));
 
-  pdf_service_->SaveUrlAs(GURL(url_), network::mojom::ReferrerPolicy::kDefault);
+  pdf_host_->SaveUrlAs(GURL(url_), network::mojom::ReferrerPolicy::kDefault);
 }
 
 void PdfViewWebPlugin::InvalidatePluginContainer() {
@@ -2110,8 +2102,6 @@ void PdfViewWebPlugin::RecordDocumentMetrics() {
     return;
 
   metrics_handler_->RecordDocumentMetrics(engine_->GetDocumentMetadata());
-  metrics_handler_->RecordAttachmentTypes(
-      engine_->GetDocumentAttachmentInfoList());
 }
 
 void PdfViewWebPlugin::SendAttachments() {

@@ -414,6 +414,14 @@ inline constexpr char kPrivacyLearnMoreURL[] =
     "https://support.google.com/chrome?p=settings_privacy";
 #endif
 
+// "Chrome Settings" URL for Ad Topics page
+inline constexpr char kPrivacySandboxAdTopicsURL[] =
+    "chrome://settings/adPrivacy/interests";
+
+// "Chrome Settings" URL for Managing Topics page
+inline constexpr char kPrivacySandboxManageTopicsURL[] =
+    "chrome://settings/adPrivacy/interests/manage";
+
 // The URL for the Learn More link of the non-CWS bubble.
 inline constexpr char kRemoveNonCWSExtensionURL[] =
     "https://support.google.com/chrome?p=ui_remove_non_cws_extensions";
@@ -437,6 +445,10 @@ inline constexpr char16_t kSafeBrowsingInChromeHelpCenterURL[] =
 // The URL for Safe Browsing link in Safety Check page.
 inline constexpr char16_t kSafeBrowsingUseInChromeURL[] =
     u"https://support.google.com/chrome/answer/9890866";
+
+// "Learn more" URL for Safety Check page.
+inline constexpr char16_t kSafetyHubHelpCenterURL[] =
+    u"https://support.google.com/chrome?p=safety_check";
 
 // "Learn more" URL for safety tip bubble.
 inline constexpr char kSafetyTipHelpCenterURL[] =
@@ -806,9 +818,8 @@ inline constexpr char kRecoveryLearnMoreURL[] =
 
 // The URL for the learn more link about extended automatic updates for
 // ChromeOS devices.
-// TODO(b/324303395): Update link to landing page.
 inline constexpr char16_t kDeviceExtendedUpdatesLearnMoreURL[] =
-    u"https://support.google.com/chromebook?p=extended_updates_support";
+    u"https://www.google.com/chromebook/autoupdates-opt-in/";
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_MAC)

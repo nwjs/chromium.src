@@ -1387,7 +1387,10 @@ void SearchResultView::Layout(PassKey) {
 
         SetFlexBehaviorForTextContents(
             centered_text_bounds.width(),
-            result_text_separator_label_->GetPreferredSize().width(),
+            result_text_separator_label_
+                ->GetPreferredSize(views::SizeBounds(
+                    result_text_separator_label_->width(), {}))
+                .width(),
             non_elided_details_label_width_, title_container_,
             details_container_);
         break;
@@ -1444,6 +1447,11 @@ bool SearchResultView::OnKeyPressed(const ui::KeyEvent& event) {
       return true;
     case ui::VKEY_DELETE:
     case ui::VKEY_BROWSER_BACK:
+      if (!actions_view()->IsValidActionIndex(
+              SearchResultActionType::kRemove)) {
+        return false;
+      }
+
       // Allows alt+(back or delete) to trigger the 'remove result' dialog.
       OnSearchResultActionActivated(SearchResultActionType::kRemove);
       return true;
@@ -1505,10 +1513,6 @@ void SearchResultView::OnMouseEntered(const ui::MouseEvent& event) {
 
 void SearchResultView::OnMouseExited(const ui::MouseEvent& event) {
   actions_view()->UpdateButtonsOnStateChanged();
-}
-
-void SearchResultView::VisibilityChanged(View* starting_from, bool is_visible) {
-  NotifyAccessibilityEvent(ax::mojom::Event::kLayoutComplete, true);
 }
 
 void SearchResultView::OnThemeChanged() {

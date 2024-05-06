@@ -40,7 +40,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/search_engines/default_search_manager.h"
 #include "components/search_engines/prepopulated_engines.h"
-#include "components/search_engines/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/search_engines_test_util.h"
@@ -496,8 +496,7 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
       search_engines::SearchEngineChoiceScreenConditions::kEligible, 1);
 
   // Choose the first search engine to close the dialog.
-  std::unique_ptr<TemplateURL> first_search_engine =
-      std::move(service->GetSearchEngines().at(0));
+  TemplateURL* first_search_engine = service->GetSearchEngines().at(0);
   service->NotifyChoiceMade(first_search_engine->prepopulate_id(),
                             EntryPoint::kDialog);
 }

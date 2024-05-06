@@ -194,8 +194,8 @@ class NativeLibraryBuildVariant:
 class ClankCompiler:
   """Handles compilation of clank."""
 
-  def __init__(self, out_dir: pathlib.Path, step_recorder, options,
-               orderfile_location, native_library_build_variant):
+  def __init__(self, out_dir: pathlib.Path, step_recorder: StepRecorder,
+               options, orderfile_location, native_library_build_variant):
     self._out_dir = out_dir
     self._step_recorder = step_recorder
     self._options = options
@@ -260,8 +260,10 @@ class ClankCompiler:
     self._step_recorder.RunCommand(
         ['gn', 'gen',
          str(self._out_dir), '--args=' + ' '.join(gn_args)])
+    # Always build dump_syms as it's required by
+    # generate_breakpad_symbols.GetDumpSymsBinary in order to symbolize stacks.
     self._step_recorder.RunCommand(self._ninja_command +
-                                   [str(self._out_dir), target])
+                                   [str(self._out_dir), target, 'dump_syms'])
 
   def _ForceRelink(self):
     """Forces libmonochrome.so to be re-linked.
@@ -473,17 +475,7 @@ class OrderfileGenerator:
 
   def _GetPathToOrderfile(self):
     """Gets the path to the architecture-specific orderfile."""
-    # TODO(https://crbug.com/1517659): We are testing if arm64 can improve perf
-    #     while not regressing arm32 memory or perf by too much. For now we are
-    #     keeping the fake arch as 'arm' to avoid needing to change the path. In
-    #     the future we should consider either generating multiple orderfiles,
-    #     one per architecture, or remove the fake arch as it would no longer be
-    #     accurate.
-    # Build GN files use the ".arm" orderfile irrespective of the actual
-    # architecture. Fake it, otherwise the orderfile we generate here is not
-    # going to be picked up by builds.
-    orderfile_fake_arch = 'arm'
-    return str(self._orderfiles_dir / f'orderfile.{orderfile_fake_arch}.out')
+    return str(self._orderfiles_dir / f'orderfile.{self._options.arch}.out')
 
   def _GetUnpatchedOrderfileFilename(self):
     """Gets the path to the architecture-specific unpatched orderfile."""
@@ -545,17 +537,13 @@ class OrderfileGenerator:
       self._host_profile_root = _SRC_PATH / 'profile_data'
       urls = [profile_android_startup.AndroidProfileTool.TEST_URL]
       use_wpr = True
-      simulate_user = False
       urls = options.urls
       use_wpr = not options.no_wpr
-      simulate_user = options.simulate_user
       device = self._SetDevice()
       self._profiler = profile_android_startup.AndroidProfileTool(
-          str(self._instrumented_out_dir),
           str(self._host_profile_root),
           use_wpr,
           urls,
-          simulate_user,
           device,
           debug=self._options.streamline_for_debugging,
           verbosity=self._options.verbosity)
@@ -686,6 +674,7 @@ class OrderfileGenerator:
     return_code = self._step_recorder.RunCommand(cmd, raise_on_error=False)
     if return_code:
       self._step_recorder.FailStep('Orderfile check returned %d.' % return_code)
+    return return_code == 0
 
   def _RecordHash(self, file_name):
     """Records the hash of the file into the output_data dictionary."""
@@ -999,8 +988,10 @@ class OrderfileGenerator:
       self._PatchOrderfile()
       self._compiler.CompileLibchrome(instrumented=False,
                                       force_relink=True)
-      self._VerifySymbolOrder()
-      self._MaybeArchiveOrderfile(self._GetPathToOrderfile())
+      if self._VerifySymbolOrder():
+        self._MaybeArchiveOrderfile(self._GetPathToOrderfile())
+      else:
+        self._SaveForDebugging(self._GetPathToOrderfile())
 
     if self._options.benchmark:
       self._output_data['orderfile_benchmark_results'] = self.RunBenchmark(

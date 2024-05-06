@@ -111,7 +111,7 @@ constexpr size_t kMaxShadowLevelsUp = 2;
 
 // Text features to detect form submission buttons. Features are selected based
 // on analysis of real forms and their buttons.
-// TODO(crbug.com/910546): Consider to add more features (e.g. non-English
+// TODO(crbug.com/41429204): Consider to add more features (e.g. non-English
 // features).
 const char* const kButtonFeatures[] = {"button", "btn", "submit",
                                        "boton" /* "button" in Spanish */};
@@ -981,30 +981,44 @@ void FilterOptionElementsAndGetOptionStrings(
 bool ShouldSkipFillField(const FormFieldData::FillData& field,
                          const WebFormControlElement& element,
                          bool is_initiating_element) {
+  enum class SkipReason {
+    kUnfillable = 0,
+    kNoValueToFill = 1,
+    kPreviouslyAutofilled = 2,
+    kUserEditedText = 3,
+    kUserEditedSelect = 4,
+    kMaxValue = kUserEditedSelect
+  };
+  constexpr char kSkipReasonHistogram[] = "Autofill.RendererFillSkipReason";
   // Skip all checkable or non-modifiable elements, except select fields because
   // some synthetic select element use a hidden select element.
   if (!IsAutofillableElement(element) || !element.IsEnabled() ||
       element.IsReadOnly() || IsCheckableElement(element) ||
       (!IsWebElementFocusableForAutofill(element) &&
        !IsSelectElement(element))) {
+    base::UmaHistogramEnumeration(kSkipReasonHistogram,
+                                  SkipReason::kUnfillable);
     return true;
   }
-
   // Skip if there is no value to fill.
   if (field.value.empty() || !field.is_autofilled) {
+    base::UmaHistogramEnumeration(kSkipReasonHistogram,
+                                  SkipReason::kNoValueToFill);
     return true;
   }
-
   if (is_initiating_element) {
     return false;
   }
-
+  if (field.force_override) {
+    return false;
+  }
   // Skip filling previously autofilled fields unless autofill is instructed to
   // override it.
-  if (element.IsAutofilled() && !field.force_override) {
+  if (element.IsAutofilled()) {
+    base::UmaHistogramEnumeration(kSkipReasonHistogram,
+                                  SkipReason::kPreviouslyAutofilled);
     return true;
   }
-
   // A text field is skipped if it has a non-empty value that is entered by
   // the user and is NOT the value of the input field's "value" or "placeholder"
   // attribute. (The "value" attribute in <input value="foo"> indicates the
@@ -1028,19 +1042,21 @@ bool ShouldSkipFillField(const FormFieldData::FillData& field,
   if ((IsAutofillableInputElement(input_element) ||
        IsTextAreaElement(element)) &&
       element.UserHasEditedTheField() &&
-      !SanitizedFieldIsEmpty(current_element_value) && !field.force_override &&
+      !SanitizedFieldIsEmpty(current_element_value) &&
       !HasAttributeWithValue(GetWebString<kValue>(), current_element_value) &&
       !HasAttributeWithValue(GetWebString<kPlaceholder>(),
                              current_element_value)) {
+    base::UmaHistogramEnumeration(kSkipReasonHistogram,
+                                  SkipReason::kUserEditedText);
     return true;
   }
-
   // Check if we should autofill/preview/clear a select element or leave it.
   if (IsSelectOrSelectListElement(element) && element.UserHasEditedTheField() &&
-      !SanitizedFieldIsEmpty(current_element_value) && !field.force_override) {
+      !SanitizedFieldIsEmpty(current_element_value)) {
+    base::UmaHistogramEnumeration(kSkipReasonHistogram,
+                                  SkipReason::kUserEditedSelect);
     return true;
   }
-
   return false;
 }
 
@@ -1122,17 +1138,17 @@ struct CompareByRendererId {
   bool operator()(const std::pair<FormFieldData*, ShadowFieldData>& f,
                   const std::pair<FormFieldData*, ShadowFieldData>& g) const {
     DCHECK(f.first && g.first);
-    return f.first->renderer_id < g.first->renderer_id;
+    return f.first->renderer_id() < g.first->renderer_id();
   }
   bool operator()(const FieldRendererId f,
                   const std::pair<FormFieldData*, ShadowFieldData>& g) const {
     DCHECK(g.first);
-    return f < g.first->renderer_id;
+    return f < g.first->renderer_id();
   }
   bool operator()(const std::pair<FormFieldData*, ShadowFieldData>& f,
                   FieldRendererId g) const {
     DCHECK(f.first);
-    return f.first->renderer_id < g;
+    return f.first->renderer_id() < g;
   }
 };
 
@@ -1148,7 +1164,7 @@ FormFieldData* SearchForFormControlByName(
   if (field_name.empty())
     return nullptr;
 
-  auto get_field_name = [](const auto& p) { return p.first->name; };
+  auto get_field_name = [](const auto& p) { return p.first->name(); };
   auto it = base::ranges::find(field_set, field_name, get_field_name);
   auto end = field_set.end();
   if (it == end ||
@@ -1546,7 +1562,7 @@ std::vector<WebElement> GetWebElementsFromIdList(const WebDocument& document,
                                                  const WebString& id_list) {
   std::vector<WebElement> web_elements;
   std::u16string id_list_utf16 = id_list.Utf16();
-  for (const auto& id : base::SplitStringPiece(
+  for (std::u16string_view id : base::SplitStringPiece(
            id_list_utf16, base::kWhitespaceUTF16, base::KEEP_WHITESPACE,
            base::SPLIT_WANT_NONEMPTY)) {
     web_elements.push_back(document.GetElementById(WebString(id)));
@@ -1906,14 +1922,14 @@ void WebFormControlElementToFormField(
   const FieldRendererId renderer_id = GetFieldRendererId(element);
   // Save both id and name attributes, if present. If there is only one of them,
   // it will be saved to |name|. See HTMLFormControlElement::nameForAutofill.
-  field->name = element.NameForAutofill().Utf16();
+  field->set_name(element.NameForAutofill().Utf16());
   field->id_attribute = element.GetIdAttribute().Utf16();
   field->name_attribute = GetAttribute<kName>(element).Utf16();
-  field->renderer_id = renderer_id;
+  field->set_renderer_id(renderer_id);
   field->host_form_id = GetFormRendererId(form_element);
   field->form_control_ax_id = element.GetAxId();
-  field->form_control_type =
-      ToAutofillFormControlType(element.FormControlTypeForAutofill());
+  field->set_form_control_type(
+      ToAutofillFormControlType(element.FormControlTypeForAutofill()));
   field->max_length = GetMaxLength(element);
   field->autocomplete_attribute = GetAutocompleteAttribute(element);
   field->parsed_autocomplete =
@@ -1942,7 +1958,7 @@ void WebFormControlElementToFormField(
 
   // Traverse up through shadow hosts to see if we can gather missing
   // attributes.
-  // TODO(crbug.com/1268085): Make sure this works for all shadow DOM cases,
+  // TODO(crbug.com/40204601): Make sure this works for all shadow DOM cases,
   // including cases in which the owning form is multiple (shadow DOM) levels
   // apart from the form control element. Also check whether we cannot simplify
   // some of the shadow DOM traversals here.
@@ -1962,9 +1978,9 @@ void WebFormControlElementToFormField(
       field->id_attribute = host.GetIdAttribute().Utf16();
     if (field->name_attribute.empty())
       field->name_attribute = GetAttribute<kName>(host).Utf16();
-    if (field->name.empty()) {
-      field->name = field->name_attribute.empty() ? field->id_attribute
-                                                  : field->name_attribute;
+    if (field->name().empty()) {
+      field->set_name(field->name_attribute.empty() ? field->id_attribute
+                                                    : field->name_attribute);
     }
     if (field->autocomplete_attribute.empty()) {
       field->autocomplete_attribute = GetAutocompleteAttribute(host);
@@ -2007,8 +2023,9 @@ void WebFormControlElementToFormField(
     DCHECK(IsSelectOrSelectListElement(element));
     WebVector<WebElement> element_list_items =
         GetListItemsForSelectOrSelectList(element);
-    FilterOptionElementsAndGetOptionStrings(element_list_items,
-                                            &field->options);
+    std::vector<SelectOption> options;
+    FilterOptionElementsAndGetOptionStrings(element_list_items, &options);
+    field->options = std::move(options);
   }
   if (extract_options.contains(ExtractOption::kBounds)) {
     if (auto* local_frame = element.GetDocument().GetFrame()) {
@@ -2021,7 +2038,9 @@ void WebFormControlElementToFormField(
   if (extract_options.contains(ExtractOption::kDatalist)) {
     if (WebInputElement input = element.DynamicTo<WebInputElement>();
         !input.IsNull()) {
-      GetDataListSuggestions(input, &field->datalist_options);
+      std::vector<SelectOption> datalist_options;
+      GetDataListSuggestions(input, &datalist_options);
+      field->datalist_options = std::move(datalist_options);
     }
   }
 
@@ -2048,7 +2067,7 @@ void WebFormControlElementToFormField(
     }
   }
 
-  field->value = std::move(value).substr(0, kMaxStringLength);
+  field->set_value(std::move(value).substr(0, kMaxStringLength));
   field->selected_text =
       element.SelectedText().Utf16().substr(0, kMaxSelectedTextLength);
 
@@ -2067,9 +2086,9 @@ void WebFormControlElementToFormField(
     // The typed value is preserved for all passwords. It is also preserved for
     // potential usernames and credit cards, as long as the |value| is not
     // deemed acceptable.
-    if (field->form_control_type == FormControlType::kInputPassword ||
+    if (field->form_control_type() == FormControlType::kInputPassword ||
         !ScriptModifiedUsernameOrCreditCardNumberAcceptable(
-            field->value, user_input, *field_data_manager)) {
+            field->value(), user_input, *field_data_manager)) {
       field->user_input = user_input.substr(0, kMaxStringLength);
     }
   }
@@ -2164,11 +2183,11 @@ std::optional<FormData> FindFormForContentEditable(
   WebDocument document = content_editable.GetDocument();
   field.id_attribute = content_editable.GetIdAttribute().Utf16();
   field.name_attribute = GetAttribute<kName>(content_editable).Utf16();
-  field.name =
-      !field.id_attribute.empty() ? field.id_attribute : field.name_attribute;
-  field.renderer_id = GetFieldRendererId(content_editable);
+  field.set_name(!field.id_attribute.empty() ? field.id_attribute
+                                             : field.name_attribute);
+  field.set_renderer_id(GetFieldRendererId(content_editable));
   field.host_form_id = GetFormRendererId(content_editable);
-  field.form_control_type = FormControlType::kContentEditable;
+  field.set_form_control_type(FormControlType::kContentEditable);
   field.autocomplete_attribute = GetAutocompleteAttribute(content_editable);
   field.parsed_autocomplete =
       ParseAutocompleteAttribute(field.autocomplete_attribute);
@@ -2192,8 +2211,9 @@ std::optional<FormData> FindFormForContentEditable(
   // inserts whitespace at the right places and it ignores "display:none"
   // subtrees), but is significantly more expensive because it triggers a
   // layout.
-  field.value = content_editable.TextContentAbridged(kMaxStringLength).Utf16();
-  DCHECK_LE(field.value.length(), kMaxStringLength);
+  field.set_value(
+      content_editable.TextContentAbridged(kMaxStringLength).Utf16());
+  DCHECK_LE(field.value().length(), kMaxStringLength);
   field.selected_text =
       content_editable.SelectedText().Utf16().substr(0, kMaxSelectedTextLength);
   return form;
@@ -2309,7 +2329,6 @@ std::vector<std::pair<FieldRef, WebAutofillState>> ApplyFieldsAction(
 }
 
 void ClearPreviewedElements(
-    mojom::FormActionType action_type,
     base::span<std::pair<WebFormControlElement, WebAutofillState>>
         previewed_elements,
     const WebFormControlElement& initiating_element) {

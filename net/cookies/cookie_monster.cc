@@ -49,8 +49,10 @@
 #include <numeric>
 #include <optional>
 #include <set>
+#include <string_view>
 #include <utility>
 
+#include "base/check_is_test.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -62,7 +64,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
@@ -117,6 +118,19 @@ static const int kDaysInTenYears = 10 * 365;
 static const int kMinutesInTenYears = kDaysInTenYears * 24 * 60;
 
 namespace {
+
+// This enum is used to generate a histogramed bitmask measureing the types
+// of stored cookies. Please do not reorder the list when adding new entries.
+// New items MUST be added at the end of the list, just before
+// COOKIE_TYPE_LAST_ENTRY;
+// There will be 2^COOKIE_TYPE_LAST_ENTRY buckets in the linear histogram.
+enum CookieType {
+  COOKIE_TYPE_SAME_SITE = 0,
+  COOKIE_TYPE_HTTPONLY,
+  COOKIE_TYPE_SECURE,
+  COOKIE_TYPE_PERSISTENT,
+  COOKIE_TYPE_LAST_ENTRY
+};
 
 void MaybeRunDeleteCallback(base::WeakPtr<net::CookieMonster> cookie_monster,
                             base::OnceClosure callback) {
@@ -173,6 +187,23 @@ size_t NumBytesInCookieItVector(
     result += NameValueSizeBytes(*it->second);
   }
   return result;
+}
+
+void LogStoredCookieToUMA(const net::CanonicalCookie& cc,
+                          const net::CookieAccessResult& access_result) {
+  // Cookie.Type2 collects a bitvector of important cookie attributes.
+  int32_t type_sample =
+      !cc.IsEffectivelySameSiteNone(access_result.access_semantics)
+          ? 1 << COOKIE_TYPE_SAME_SITE
+          : 0;
+  type_sample |= cc.IsHttpOnly() ? 1 << COOKIE_TYPE_HTTPONLY : 0;
+  type_sample |= cc.SecureAttribute() ? 1 << COOKIE_TYPE_SECURE : 0;
+  type_sample |= cc.IsPersistent() ? 1 << COOKIE_TYPE_PERSISTENT : 0;
+  UMA_HISTOGRAM_EXACT_LINEAR("Cookie.Type2", type_sample,
+                             (1 << COOKIE_TYPE_LAST_ENTRY));
+
+  // Cookie.SourceType collects the CookieSourceType of the stored cookie.
+  UMA_HISTOGRAM_ENUMERATION("Cookie.SourceType", cc.SourceType());
 }
 
 }  // namespace
@@ -1562,7 +1593,7 @@ CookieMonster::CookieMap::iterator CookieMonster::InternalInsertCookie(
 
   auto inserted = cookies_.insert(CookieMap::value_type(key, std::move(cc)));
 
-  LogCookieTypeToUMA(cc_ptr, access_result);
+  LogStoredCookieToUMA(*cc_ptr, access_result);
 
   DCHECK(access_result.status.IsInclude());
   if (dispatch_change) {
@@ -1590,19 +1621,6 @@ CookieMonster::CookieMap::iterator CookieMonster::InternalInsertCookie(
 
 bool CookieMonster::ShouldUpdatePersistentStore(CanonicalCookie* cc) {
   return (cc->IsPersistent() || persist_session_cookies_) && store_.get();
-}
-
-void CookieMonster::LogCookieTypeToUMA(
-    CanonicalCookie* cc,
-    const CookieAccessResult& access_result) {
-  int32_t type_sample =
-      !cc->IsEffectivelySameSiteNone(access_result.access_semantics)
-          ? 1 << COOKIE_TYPE_SAME_SITE
-          : 0;
-  type_sample |= cc->IsHttpOnly() ? 1 << COOKIE_TYPE_HTTPONLY : 0;
-  type_sample |= cc->SecureAttribute() ? 1 << COOKIE_TYPE_SECURE : 0;
-  UMA_HISTOGRAM_EXACT_LINEAR("Cookie.Type", type_sample,
-                             (1 << COOKIE_TYPE_LAST_ENTRY));
 }
 
 CookieMonster::PartitionedCookieMapIterators
@@ -1651,7 +1669,7 @@ CookieMonster::InternalInsertPartitionedCookie(
   }
   CHECK_GE(num_partitioned_cookies_, num_nonced_partitioned_cookies_);
 
-  LogCookieTypeToUMA(cc_ptr, access_result);
+  LogStoredCookieToUMA(*cc_ptr, access_result);
 
   DCHECK(access_result.status.IsInclude());
   if (dispatch_change) {
@@ -1670,6 +1688,17 @@ void CookieMonster::SetCanonicalCookie(
     SetCookiesCallback callback,
     std::optional<CookieAccessResult> cookie_access_result) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+// TODO(crbug.com/1482799): Fix macos specific issue with CHECK_IS_TEST crashing
+// network service process.
+#if !BUILDFLAG(IS_MAC)
+  // Only tests should be adding new cookies with source type kUnknown. If this
+  // line causes a fatal track down the callsite and have it correctly set the
+  // source type to kOther (or kHTTP/kScript where applicable). See
+  // CookieSourceType in net/cookies/cookie_constants.h for more.
+  if (cc->SourceType() == CookieSourceType::kUnknown) {
+    CHECK_IS_TEST(base::NotFatalUntil::M126);
+  }
+#endif
 
   bool delegate_treats_url_as_trustworthy =
       cookie_access_delegate() &&
@@ -2482,7 +2511,7 @@ size_t CookieMonster::GarbageCollectLeastRecentlyAccessed(
 // non-problem).
 //
 // static
-std::string CookieMonster::GetKey(base::StringPiece domain) {
+std::string CookieMonster::GetKey(std::string_view domain) {
   std::string effective_domain(
       registry_controlled_domains::GetDomainAndRegistry(
           domain, registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES));
@@ -2678,7 +2707,7 @@ void CookieMonster::DoCookieCallbackForURL(base::OnceClosure callback,
 
 void CookieMonster::DoCookieCallbackForHostOrDomain(
     base::OnceClosure callback,
-    base::StringPiece host_or_domain) {
+    std::string_view host_or_domain) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   MarkCookieStoreAsInitialized();
   FetchAllCookiesIfNecessary();

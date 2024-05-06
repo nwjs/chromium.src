@@ -6,7 +6,6 @@
 
 #include <memory>
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/common/chrome_render_frame.mojom.h"
 
 #include "base/check_op.h"
 #include "base/functional/bind.h"
@@ -21,7 +20,7 @@
 #include "chrome/browser/extensions/install_observer.h"
 #include "chrome/browser/extensions/install_tracker.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
-#include "chrome/browser/extensions/site_permissions_helper.h"
+#include "chrome/browser/extensions/permissions/site_permissions_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/shell_integration.h"
@@ -259,22 +258,6 @@ void TabHelper::InvokeForContentRulesRegistries(const Func& func) {
 
 void TabHelper::RenderFrameCreated(content::RenderFrameHost* host) {
   SetTabId(host);
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
-  if (browser && browser->is_frameless()) {
-    mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
-    host->GetRemoteAssociatedInterfaces()->GetInterface(&client);
-    client->SetSupportsAppRegion(true);
-  }
-}
-
-void TabHelper::PrimaryPageChanged(content::Page& page) {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
-  if (browser && browser->is_frameless()) {
-    mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
-    content::RenderFrameHost& host = page.GetMainDocument();
-    host.GetRemoteAssociatedInterfaces()->GetInterface(&client);
-    client->SetSupportsAppRegion(true);
-  }
 }
 
 void TabHelper::DidFinishNavigation(
@@ -323,7 +306,10 @@ void TabHelper::ClearDismissedExtensions() {
 }
 
 void TabHelper::UpdateDraggableRegions(
-    const std::vector<mojom::DraggableRegionPtr>& regions) {
+    content::RenderFrameHost* sender,
+    const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
+  if (sender->GetParent())
+    return;
   Browser* browser = chrome::FindBrowserWithTab(web_contents());
   if (!browser)
     return;

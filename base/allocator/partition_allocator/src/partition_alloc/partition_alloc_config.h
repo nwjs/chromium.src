@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef BASE_ALLOCATOR_PARTITION_ALLOCATOR_SRC_PARTITION_ALLOC_PARTITION_ALLOC_CONFIG_H_
-#define BASE_ALLOCATOR_PARTITION_ALLOCATOR_SRC_PARTITION_ALLOC_PARTITION_ALLOC_CONFIG_H_
+#ifndef PARTITION_ALLOC_PARTITION_ALLOC_CONFIG_H_
+#define PARTITION_ALLOC_PARTITION_ALLOC_CONFIG_H_
 
 #include "build/build_config.h"
 #include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
@@ -146,17 +146,11 @@ static_assert(sizeof(void*) != 8, "");
 // Enable free list shadow entry to strengthen hardening as much as possible.
 // The shadow entry is an inversion (bitwise-NOT) of the encoded `next` pointer.
 //
-// Since the free list pointer and ref-count can share slot at the same time in
-// the "previous slot" mode, disable, as the ref-count will overlap with the
-// shadow for the smallest slots.
-// TODO(crbug.com/1511221): Enable in the "same slot" mode. It should work just
-// fine, because it's either-or. A slot never hosts both at the same time.
-//
 // Disabled on Big Endian CPUs, because encoding is also a bitwise-NOT there,
 // making the shadow entry equal to the original, valid pointer to the next
 // slot. In case Use-after-Free happens, we'd rather not hand out a valid,
 // ready-to-use pointer.
-#if !BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) && defined(ARCH_CPU_LITTLE_ENDIAN)
+#if defined(ARCH_CPU_LITTLE_ENDIAN)
 #define PA_CONFIG_HAS_FREELIST_SHADOW_ENTRY() 1
 #else
 #define PA_CONFIG_HAS_FREELIST_SHADOW_ENTRY() 0
@@ -165,20 +159,6 @@ static_assert(sizeof(void*) != 8, "");
 #if BUILDFLAG(HAS_MEMORY_TAGGING)
 static_assert(sizeof(void*) == 8);
 #endif
-
-// If memory tagging is enabled with BRP in "previous slot" mode, the MTE tag
-// and BRP ref count will cause a race (crbug.com/1445816). To prevent this, the
-// in_slot_metadata_size is increased to the MTE granule size and is excluded
-// from MTE tagging.
-//
-// The settings has MAYBE_ in the name, because the final decision to enable is
-// based on whether both MTE and BRP are enabled, and also on BRP mode.
-#if BUILDFLAG(HAS_MEMORY_TAGGING) && BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
-#define PA_CONFIG_MAYBE_INCREASE_IN_SLOT_METADATA_SIZE_FOR_MTE() 1
-#else
-#define PA_CONFIG_MAYBE_INCREASE_IN_SLOT_METADATA_SIZE_FOR_MTE() 0
-#endif  // BUILDFLAG(HAS_MEMORY_TAGGING) &&
-        // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 
 // Specifies whether allocation extras need to be added.
 #if BUILDFLAG(PA_DCHECK_IS_ON) || BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
@@ -261,11 +241,10 @@ constexpr bool kUseLazyCommit = false;
 #define PA_CONFIG_USE_PARTITION_ROOT_ENUMERATOR() 0
 #endif
 
-// Due to potential conflict with the free list pointer in the "previous slot"
-// mode in the smallest bucket, we can't check both the cookie and the dangling
-// raw_ptr at the same time.
-// TODO(crbug.com/1511221): Allow in the "same slot" mode. It should work just
-// fine, because it's either-or. A slot never hosts both at the same time.
+// Enable in-slot metadata cookie checks when dcheck_is_on or BRP slow checks
+// are on. However, don't do this if that would cause InSlotMetadata to grow
+// past the size that would fit in InSlotMetadataTable (see
+// partition_alloc_constants.h), which currently can happen only when DPD is on.
 #define PA_CONFIG_IN_SLOT_METADATA_CHECK_COOKIE() \
   (!(BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS) && \
      BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)) && \
@@ -362,4 +341,4 @@ static_assert(__cplusplus >= 202002L,
               "PartitionAlloc targets C++20 or higher.");
 #endif  // BUILDFLAG(ASSERT_CPP_20)
 
-#endif  // BASE_ALLOCATOR_PARTITION_ALLOCATOR_SRC_PARTITION_ALLOC_PARTITION_ALLOC_CONFIG_H_
+#endif  // PARTITION_ALLOC_PARTITION_ALLOC_CONFIG_H_

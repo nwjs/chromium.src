@@ -54,12 +54,16 @@ uint64_t GraphInfoBuilder::BuildConstant(
   return operand_id;
 }
 
+void GraphInfoBuilder::AddOutput(const std::string& name, uint64_t operand_id) {
+  graph_info_->id_to_operand_map[operand_id]->name = name;
+  graph_info_->output_operands.push_back(operand_id);
+}
+
 uint64_t GraphInfoBuilder::BuildOutput(const std::string& name,
                                        const std::vector<uint32_t>& dimensions,
                                        mojom::Operand::DataType type) {
   uint64_t operand_id = BuildOperand(dimensions, type);
-  graph_info_->id_to_operand_map[operand_id]->name = name;
-  graph_info_->output_operands.push_back(operand_id);
+  AddOutput(name, operand_id);
   return operand_id;
 }
 
@@ -192,9 +196,9 @@ void GraphInfoBuilder::BuildElementWiseBinary(
     uint64_t output_operand) {
   mojom::ElementWiseBinaryPtr binary = mojom::ElementWiseBinary::New();
   binary->kind = kind;
-  binary->lhs_operand = lhs_operand;
-  binary->rhs_operand = rhs_operand;
-  binary->output_operand = output_operand;
+  binary->lhs_operand_id = lhs_operand;
+  binary->rhs_operand_id = rhs_operand;
+  binary->output_operand_id = output_operand;
   graph_info_->operations.push_back(
       mojom::Operation::NewElementWiseBinary(std::move(binary)));
 }
@@ -423,7 +427,7 @@ mojom::GraphInfoPtr GraphInfoBuilder::CloneGraphInfo() const {
   for (auto& [constant_id, constant_buffer] :
        graph_info_->constant_id_to_buffer_map) {
     cloned_graph_info->constant_id_to_buffer_map[constant_id] =
-        mojo_base::BigBuffer(constant_buffer.byte_span());
+        constant_buffer.Clone();
   }
   return cloned_graph_info;
 }

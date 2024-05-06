@@ -10,15 +10,15 @@
 
 namespace plus_addresses::test {
 
-PlusProfile GetPlusProfile() {
-  return {.profile_id = 123,
+PlusProfile CreatePlusProfile() {
+  return {.profile_id = "123",
           .facet = "foo.com",
           .plus_address = "plus+foo@plus.plus",
           .is_confirmed = true};
 }
 
-PlusProfile GetPlusProfile2() {
-  return {.profile_id = 234,
+PlusProfile CreatePlusProfile2() {
+  return {.profile_id = "234",
           .facet = "bar.com",
           .plus_address = "plus+bar@plus.plus",
           .is_confirmed = true};
@@ -57,14 +57,15 @@ std::string MakePlusProfile(const PlusProfile& profile) {
   std::string json = base::ReplaceStringPlaceholders(
       R"(
           {
-            "facet": "$1",
+            "ProfileId": "$1",
+            "facet": "$2",
             "plusEmail": {
-              "plusAddress": "$2",
-              "plusMode": "$3"
+              "plusAddress": "$3",
+              "plusMode": "$4"
             }
           }
         )",
-      {profile.facet, profile.plus_address, mode}, nullptr);
+      {profile.profile_id, profile.facet, profile.plus_address, mode}, nullptr);
   DCHECK(base::JSONReader::Read(json));
   return json;
 }

@@ -36,10 +36,20 @@
       description="23 bookmarks">
   </cr-url-list-item>
 
-  <cr-url-list-item count="23" always-show-suffix-icons
+  <cr-url-list-item count="23" always-show-suffix
       title="A folder with the X icon always visible"
       description="23 bookmarks">
-    <cr-icon-button iron-icon="cr:close" slot="suffix-icon">
+    <cr-icon-button iron-icon="cr:close" slot="suffix">
+    </cr-icon-button>
+  </cr-url-list-item>
+
+  <cr-url-list-item url="http://www.google.com"
+      title="Google (as anchor)"
+      description="google.com"
+      description-meta="3 days ago" as-anchor>
+    <cr-icon-button iron-icon="cr:check-circle" slot="suffix">
+    </cr-icon-button>
+    <cr-icon-button iron-icon="cr:more-vert" slot="suffix">
     </cr-icon-button>
   </cr-url-list-item>
 
@@ -47,9 +57,8 @@
       title="Google"
       description="google.com"
       description-meta="3 days ago">
-    <cr-icon-button iron-icon="cr:check-circle" slot="suffix-icon">
-    </cr-icon-button>
-    <cr-icon-button iron-icon="cr:more-vert" slot="suffix-icon">
+    <div slot="suffix">More descriptive text</div>
+    <cr-icon-button iron-icon="cr:more-vert" slot="suffix">
     </cr-icon-button>
   </cr-url-list-item>
 
@@ -62,9 +71,9 @@
     <div class="badge" slot="badges">
       <iron-icon icon="cr:insert-drive-file"></iron-icon> Badge 2
     </div>
-    <cr-icon-button iron-icon="cr:check-circle" slot="suffix-icon">
+    <cr-icon-button iron-icon="cr:check-circle" slot="suffix">
     </cr-icon-button>
-    <cr-icon-button iron-icon="cr:more-vert" slot="suffix-icon">
+    <cr-icon-button iron-icon="cr:more-vert" slot="suffix">
     </cr-icon-button>
   </cr-url-list-item>
 
@@ -100,7 +109,7 @@
 
   <cr-url-list-item count="23" size="compact"
       title="Bookmark folder" description="23 bookmarks">
-    <cr-icon-button iron-icon="cr:more-vert" slot="suffix-icon">
+    <cr-icon-button iron-icon="cr:more-vert" slot="suffix">
     </cr-icon-button>
   </cr-url-list-item>
 </div>
@@ -122,9 +131,10 @@
 
 <h2>With other types of content</h2>
 <div class="demos">
-  <cr-url-list-item count="23" size="compact">
+  <cr-url-list-item count="23" size="compact"
+      title="This should not be visible">
     <div slot="content"><cr-input value="Item name"></cr-input></div>
-    <cr-icon-button iron-icon="cr:more-vert" slot="suffix-icon" disabled>
+    <cr-icon-button iron-icon="cr:more-vert" slot="suffix" disabled>
     </cr-icon-button>
   </cr-url-list-item>
 

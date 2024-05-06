@@ -5,6 +5,10 @@
 #ifndef ASH_SYSTEM_UNIFIED_GLANCEABLE_TRAY_BUBBLE_VIEW_H_
 #define ASH_SYSTEM_UNIFIED_GLANCEABLE_TRAY_BUBBLE_VIEW_H_
 
+#include <memory>
+#include <vector>
+
+#include "ash/glanceables/classroom/glanceables_classroom_student_view.h"
 #include "ash/glanceables/tasks/glanceables_tasks_view.h"
 #include "ash/system/screen_layout_observer.h"
 #include "ash/system/tray/tray_bubble_view.h"
@@ -27,8 +31,8 @@ struct TaskList;
 }  // namespace api
 
 class CalendarView;
-class ClassroomBubbleStudentView;
 class Shelf;
+struct GlanceablesClassroomAssignment;
 
 // The bubble associated with the `GlanceableTrayBubble`. This bubble is the
 // container for the child `tasks` and `classroom` glanceables.
@@ -45,7 +49,7 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
   void InitializeContents();
 
   views::View* GetTasksView() { return tasks_bubble_view_; }
-  ClassroomBubbleStudentView* GetClassroomStudentView() {
+  views::View* GetClassroomStudentView() {
     return classroom_bubble_student_view_;
   }
   CalendarView* GetCalendarView() { return calendar_view_; }
@@ -88,6 +92,16 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
   // initialization and when the `calendar_view_` height changes.
   void ClipScrollViewHeight(int screen_max_height) const;
 
+  // Creates `time_management_container_view_` if needed.
+  void MaybeCreateTimeManagementContainer();
+
+  // Temporary method for `GlanceablesTimeManagementClassroomStudentData`
+  // feature.
+  void OnPotentialStudentAssignmentsLoaded(
+      bool success,
+      std::vector<std::unique_ptr<GlanceablesClassroomAssignment>> assignments)
+      const;
+
   const raw_ptr<Shelf> shelf_;
 
   // Whether the bubble view has been initialized.
@@ -100,11 +114,12 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
   raw_ptr<views::FlexLayoutView> time_management_container_view_ = nullptr;
 
   // Child bubble view for the tasks glanceable. Owned by this view.
-  raw_ptr<GlanceablesTasksViewBase> tasks_bubble_view_ = nullptr;
+  raw_ptr<GlanceablesTasksView> tasks_bubble_view_ = nullptr;
 
   // Child bubble view for the student classrooms glanceable. Owned by
   // this view.
-  raw_ptr<ClassroomBubbleStudentView> classroom_bubble_student_view_ = nullptr;
+  raw_ptr<GlanceablesClassroomStudentView> classroom_bubble_student_view_ =
+      nullptr;
 
   // The parent container of `calendar_view_`. Only exists if the glanceables
   // calendar flag is on.

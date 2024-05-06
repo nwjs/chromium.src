@@ -34,6 +34,7 @@ namespace autofill {
 
 class AutofillPopupController;
 class PopupSeparatorView;
+class PopupTitleView;
 class PopupWarningView;
 
 // Sub-popups and their parent popups are connected by providing children
@@ -59,8 +60,10 @@ class PopupViewViews : public PopupBaseView,
   METADATA_HEADER(PopupViewViews, PopupBaseView)
 
  public:
-  using RowPointer =
-      absl::variant<PopupRowView*, PopupSeparatorView*, PopupWarningView*>;
+  using RowPointer = absl::variant<PopupRowView*,
+                                   PopupSeparatorView*,
+                                   PopupTitleView*,
+                                   PopupWarningView*>;
 
   // The time it takes for a selected cell to open a sub-popup if it has one.
   static constexpr base::TimeDelta kMouseOpenSubPopupDelay =
@@ -210,6 +213,11 @@ class PopupViewViews : public PopupBaseView,
       std::optional<size_t> row_index,
       AutoselectFirstSuggestion autoselect_first_suggestion =
           AutoselectFirstSuggestion(false));
+
+  // Returns true when fields `is_acceptable` and `apply_style_deactivated` are
+  // false for the suggestion as it indicates that the suggestion is a manual
+  // fallback suggestion.
+  bool CanOpenSubPopupSuggestion(const Suggestion& suggestion);
 
   // Controller for this view.
   base::WeakPtr<AutofillPopupController> controller_ = nullptr;

@@ -52,6 +52,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/render_blocking_behavior.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_load_priority.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_load_scheduler.h"
+#include "third_party/blink/renderer/platform/loader/fetch/service_worker_router_info.h"
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/url_loader.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_wrapper_mode.h"
@@ -243,7 +244,8 @@ class PLATFORM_EXPORT ResourceFetcher
 
   int CountPreloads() const { return preloads_.size(); }
   void ClearPreloads(ClearPreloadsPolicy = kClearAllPreloads);
-  void ScheduleWarnUnusedPreloads();
+  void ScheduleWarnUnusedPreloads(
+      base::OnceCallback<void(Vector<KURL> unused_preloads)> callback);
 
   MHTMLArchive* Archive() const { return archive_.Get(); }
 
@@ -364,11 +366,16 @@ class PLATFORM_EXPORT ResourceFetcher
   void OnMemoryPressure(
       base::MemoryPressureListener::MemoryPressureLevel) override;
 
-  void RecordLCPPSubresourceMetrics();
+  void MaybeRecordLCPPSubresourceMetrics(const KURL& document_url);
 
   // For every image resource that was deferred, check to see if state has
   // changed such that the load should no longer be deferred.
   void ReloadImagesIfNotDeferred();
+
+  // Check if a resource is preloaded by earlyhints when response received.
+  void MarkEarlyHintConsumedIfNeeded(uint64_t inspector_id,
+                                     Resource* resource,
+                                     const ResourceResponse& response);
 
  private:
   friend class ResourceCacheValidationSuppressor;
@@ -408,13 +415,14 @@ class PLATFORM_EXPORT ResourceFetcher
       ResourcePriority::VisibilityStatus,
       const FetchParameters& params);
   ResourceLoadPriority AdjustImagePriority(
-      ResourceLoadPriority priority_so_far,
-      ResourceType type,
+      const ResourceLoadPriority priority_so_far,
+      const ResourceType type,
       const ResourceRequestHead& resource_request,
-      FetchParameters::SpeculativePreloadType speculative_preload_type,
-      bool is_link_preload,
+      const FetchParameters::SpeculativePreloadType speculative_preload_type,
+      const bool is_link_preload,
       const std::optional<float> resource_width,
-      const std::optional<float> resource_height);
+      const std::optional<float> resource_height,
+      const bool is_potentially_lcp_element);
 
   // |virtual_time_pauser| is an output parameter. PrepareRequest may
   // create a new WebScopedVirtualTimePauser and set it to
@@ -443,11 +451,6 @@ class PLATFORM_EXPORT ResourceFetcher
   void StopFetchingIncludingKeepaliveLoaders();
 
   void MaybeSaveResourceToStrongReference(Resource* resource);
-
-  void MarkEarlyHintConsumedAndOverrideInitiatorTypeIfNeeded(
-      const KURL& resource_inital_url,
-      Resource* resource,
-      AtomicString* origin_initiator_type);
 
   enum class RevalidationPolicy {
     kUse,
@@ -528,7 +531,8 @@ class PLATFORM_EXPORT ResourceFetcher
   void ScheduleStaleRevalidate(Resource* stale_resource);
   void RevalidateStaleResource(Resource* stale_resource);
 
-  void WarnUnusedPreloads();
+  void WarnUnusedPreloads(
+      base::OnceCallback<void(Vector<KURL> unused_preloads)> callback);
 
   void RemoveResourceStrongReference(Resource* resource);
 
@@ -553,8 +557,10 @@ class PLATFORM_EXPORT ResourceFetcher
                                         const PendingResourceTimingInfo& info,
                                         base::TimeTicks response_end);
   SubresourceWebBundle* GetMatchingBundle(const KURL& url) const;
-  void UpdateServiceWorkerSubresourceMetrics(ResourceType resource_type,
-                                             bool handled_by_serviceworker);
+  void UpdateServiceWorkerSubresourceMetrics(
+      ResourceType resource_type,
+      bool handled_by_serviceworker,
+      const blink::ServiceWorkerRouterInfo* router_info);
 
   void RecordResourceHistogram(base::StringPiece prefix,
                                ResourceType type,

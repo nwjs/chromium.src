@@ -14,7 +14,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/extensions/active_tab_permission_granter.h"
+#include "chrome/browser/extensions/permissions/active_tab_permission_granter.h"
 #include "chrome/common/extensions/webstore_install_result.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -51,7 +51,8 @@ class TabHelper : public content::WebContentsObserver,
 
   ~TabHelper() override;
 
-  void UpdateDraggableRegions(const std::vector<mojom::DraggableRegionPtr>& regions);
+  void UpdateDraggableRegions(content::RenderFrameHost* sender,
+                              const std::vector<chrome::mojom::DraggableRegionPtr>& regions);
 
   // Sets the extension denoting this as an app. If |extension| is non-null this
   // tab becomes an app-tab. WebContents does not listen for unload events for
@@ -132,7 +133,6 @@ class TabHelper : public content::WebContentsObserver,
       content::WebContents* old_web_contents,
       content::WebContents* new_web_contents) override;
   void WebContentsDestroyed() override;
-  void PrimaryPageChanged(content::Page& page) override;
 
   // ExtensionFunctionDispatcher::Delegate overrides.
   WindowController* GetExtensionWindowController() const override;

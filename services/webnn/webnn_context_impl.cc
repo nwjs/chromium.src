@@ -45,7 +45,7 @@ void WebNNContextImpl::CreateGraph(
 }
 
 void WebNNContextImpl::CreateBuffer(
-    mojo::PendingReceiver<mojom::WebNNBuffer> receiver,
+    mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
     mojom::BufferInfoPtr buffer_info,
     const base::UnguessableToken& buffer_handle) {
   // It is illegal to create the same buffer twice, a buffer is uniquely
@@ -83,6 +83,31 @@ void WebNNContextImpl::DisconnectAndDestroyWebNNBufferImpl(
   // Upon calling erase, the handle will no longer refer to a valid
   // `WebNNBufferImpl`.
   buffer_impls_.erase(it);
+}
+
+void WebNNContextImpl::ReadBuffer(
+    const WebNNBufferImpl& src_buffer,
+    mojom::WebNNBuffer::ReadBufferCallback callback) {
+  // Call ReadBufferImpl() implemented by a backend.
+  ReadBufferImpl(src_buffer, std::move(callback));
+}
+
+void WebNNContextImpl::WriteBuffer(const WebNNBufferImpl& dst_buffer,
+                                   mojo_base::BigBuffer src_buffer) {
+  // TODO(crbug.com/1472888): Generate error using MLContext.
+  if (dst_buffer.size() < src_buffer.size()) {
+    receiver_.ReportBadMessage(kBadMessageInvalidBuffer);
+    return;
+  }
+
+  // Call WriteBufferImpl() implemented by a backend.
+  WriteBufferImpl(dst_buffer, std::move(src_buffer));
+}
+
+void WebNNContextImpl::OnWebNNGraphImplCreated(
+    mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+    std::unique_ptr<WebNNGraphImpl> graph_impl) {
+  graph_impls_.Add(std::move(graph_impl), std::move(receiver));
 }
 
 }  // namespace webnn

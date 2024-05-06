@@ -84,7 +84,12 @@
 	],
     "es": [
       {
-        "positive_pattern": "interior|número.*apartamento|departamento",
+        // "(?:no|núm|num).*int" would be simpler than splitting the number
+        // and "int" via "\\.?\\s+" but generates false positives
+        // (e.g. "enter *no.* of po*int*s").
+        // We also go some extra mile to make sure that "teléfono internacional"
+        // (which contains "no int" does not match this regex).
+        "positive_pattern": "interior|número.*apartamento|departamento|(?:(?<!teléfo)no|n[úu]m(?:ero)?)\\.?\\s*(int\\b|interno)",
         "positive_score": 1.1,
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
@@ -140,7 +145,7 @@
     ],
     "de": [
       {
-        "positive_pattern": "(haus|^)(nummer|nr)",
+        "positive_pattern": "(haus.?|^)(nummer|nr)",
         "positive_score": 1.1,
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
@@ -158,7 +163,10 @@
     ],
     "es": [
       {
-        "positive_pattern": "exterior",
+        // "(?:no|núm|num).*ext" would be simpler than splitting the number
+        // and "ext" via "\\.?\\s+" but generates false positives
+        // (e.g. "*no*te_t*ext*").
+        "positive_pattern": "exterior|(?:no|n[úu]m(?:ero)?)\\.?\\s*ext",
         "positive_score": 1.1,
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
@@ -550,7 +558,7 @@
     ],
     "de": [
       {
-        "positive_pattern": "adresszusatz|ergänzende.?angaben",
+        "positive_pattern": "adresszusatz|ergänzende.?angaben|adresszeile 2",
         "positive_score": 1.1,
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
@@ -559,7 +567,7 @@
     ],
     "es": [
       {
-        "positive_pattern": "direccion2|adicional",
+        "positive_pattern": "direcci[óo]n.*2|informaci[óo]n\\s*adicional|complemento.*direcci[óo]n",
         "positive_score": 1.1,
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
@@ -804,7 +812,7 @@
     ],
     "de": [
       {
-        "positive_pattern": "postleitzahl",
+        "positive_pattern": "postleitzahl|\\bplz\\b",
         "positive_score": 1.1,
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
@@ -1626,9 +1634,17 @@
     ],
     "de": [
       {
+        "__comment__": "Note that this is not limited to German. The term 'nummer' is relevant to many languages and the negative patterns apply to many languages as well.",
         "positive_pattern": "nummer",
         "positive_score": 1.0,
-        "negative_pattern": "(telefon|haus|person|fødsels|kunden)nummer",
+        "negative_pattern": "telefon|telefoon|haus|person|fødsels|kunden|post|mobil|mobiel|handy|produkt|sendungs|verfolgungs|artikel|konto",
+        "match_field_attributes": ["LABEL", "NAME"],
+        "form_control_types": ["INPUT_TEXT", "INPUT_TELEPHONE", "INPUT_PASSWORD", "INPUT_NUMBER"]
+      },
+      {
+        "positive_pattern": "karten.?nr",
+        "positive_score": 1.0,
+        "negative_pattern": "sim|kunden|geschenk|freundschafts|benachrichtigungs|service|personal|more|leistungs",
         "match_field_attributes": ["LABEL", "NAME"],
         "form_control_types": ["INPUT_TEXT", "INPUT_TELEPHONE", "INPUT_PASSWORD", "INPUT_NUMBER"]
       }
@@ -1728,6 +1744,16 @@
     "br": [
       {
         "positive_pattern": "código de segurança",
+        "positive_score": 1.0,
+        "negative_pattern": null,
+        "match_field_attributes": ["LABEL", "NAME"],
+        "form_control_types": ["INPUT_TEXT", "INPUT_TELEPHONE", "INPUT_PASSWORD", "INPUT_NUMBER"]
+      }
+    ],
+    "de": [
+      {
+        // kartenprüfnummer and kartenprüfnr.
+        "positive_pattern": "karten.?prüfn",
         "positive_score": 1.0,
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
@@ -3133,6 +3159,28 @@
         "negative_pattern": null,
         "match_field_attributes": ["LABEL", "NAME"],
         "form_control_types": ["INPUT_TEXT", "TEXT_AREA", "INPUT_NUMBER"]
+      }
+    ]
+  },
+  "IN_STREET_LOCATION": {
+    "en": [
+      {
+        "positive_pattern": "house.?no|building|flat|apartment",
+        "positive_score": 1.1,
+        "negative_pattern": null,
+        "match_field_attributes": ["LABEL", "NAME"],
+        "form_control_types": ["INPUT_TEXT", "INPUT_SEARCH"]
+      }
+    ]
+  },
+  "IN_DEPENDENT_LOCALITY": {
+    "en": [
+      {
+        "positive_pattern": "area|locality|street|colony|sector|town|village",
+        "positive_score": 1.1,
+        "negative_pattern": null,
+        "match_field_attributes": ["LABEL", "NAME"],
+        "form_control_types": ["INPUT_TEXT", "INPUT_SEARCH"]
       }
     ]
   }

@@ -6,10 +6,14 @@
 
 #import <Foundation/Foundation.h>
 
+#include <memory>
+
 #include "base/apple/foundation_util.h"
 #include "base/barrier_closure.h"
+#include "base/command_line.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/checked_math.h"
 #include "base/strings/string_number_conversions.h"
@@ -17,10 +21,11 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
-#include "base/uuid.h"
-#include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#include "base/types/expected_macros.h"
+#include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "services/webnn/coreml/graph_builder.h"
 #include "services/webnn/error.h"
+#include "services/webnn/webnn_switches.h"
 
 @interface WebNNMLFeatureProvider : NSObject <MLFeatureProvider>
 - (MLFeatureValue*)featureValueForName:(NSString*)featureName;
@@ -66,21 +71,6 @@ void GraphImpl::CreateAndBuildOnBackgroundThread(
     scoped_refptr<base::SequencedTaskRunner> originating_sequence,
     mojom::WebNNContext::CreateGraphCallback callback) {
   CHECK(graph_info);
-  // Generate the .mlmodel file
-  const base::ElapsedTimer ml_model_translate_timer;
-  auto build_result = GraphBuilder::CreateAndBuild(*graph_info.get());
-  UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.MLModelTranslate",
-                             ml_model_translate_timer.Elapsed());
-  if (!build_result.has_value()) {
-    originating_sequence->PostTask(
-        FROM_HERE,
-        base::BindOnce(&GraphImpl::OnCreateAndBuildFailure, std::move(callback),
-                       "Model graph build error: " + build_result.error()));
-    return;
-  }
-  base::ElapsedTimer ml_model_write_timer;
-  auto graph_builder = std::move(build_result.value());
-  std::string model_contents = graph_builder->GetSerializedCoreMLModel();
   base::ScopedTempDir model_file_dir;
   if (!model_file_dir.CreateUniqueTempDir()) {
     originating_sequence->PostTask(
@@ -89,27 +79,21 @@ void GraphImpl::CreateAndBuildOnBackgroundThread(
                        "Model allocation error."));
     return;
   }
-  // Use a UUID for the model file name, because MLModel compileModelAtURL
-  // creates a folder directly in the NSTemporaryDirectory with the name
-  // of the .mlmodel file.
-  // Using a UUID will avoid any potential name collision of that dir.
-  std::string uuid(base::Uuid::GenerateRandomV4().AsLowercaseString());
-  base::FilePath file_path = model_file_dir.GetPath().AppendASCII(uuid);
-  base::FilePath model_file_path = file_path.AddExtension(".mlmodel");
-  base::File model_file(model_file_path,
-                        base::File::FLAG_CREATE | base::File::FLAG_WRITE);
-  if (!model_file.WriteAtCurrentPosAndCheck(base::as_bytes(
-          base::make_span(model_contents.data(), model_contents.size())))) {
-    originating_sequence->PostTask(
-        FROM_HERE,
-        base::BindOnce(&GraphImpl::OnCreateAndBuildFailure, std::move(callback),
-                       "Model serialization error."));
-    return;
-  }
-  model_file.Flush();
-  model_file.Close();
-  UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.MLModelWrite",
+  base::ElapsedTimer ml_model_write_timer;
+  // Generate .mlpackage.
+  ASSIGN_OR_RETURN(
+      std::unique_ptr<GraphBuilder::Result> build_graph_result,
+      GraphBuilder::CreateAndBuild(*graph_info.get(), model_file_dir.GetPath()),
+      [&](mojom::ErrorPtr error) {
+        originating_sequence->PostTask(
+            FROM_HERE, base::BindOnce(std::move(callback),
+                                      mojom::CreateGraphResult::NewError(
+                                          std::move(error))));
+        return;
+      });
+  UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.MLModelTranslate",
                              ml_model_write_timer.Elapsed());
+
   // Collect information about model inputs that are required
   // later for model evaluation.
   ComputeResourceInfo compute_resource_info(graph_info);
@@ -119,8 +103,8 @@ void GraphImpl::CreateAndBuildOnBackgroundThread(
       compute_resource_info.input_name_to_byte_length_map.size());
   for (auto const& [name, size] :
        compute_resource_info.input_name_to_byte_length_map) {
-    auto coreml_feature_info =
-        GetCoreMLFeatureInfo(graph_builder->FindInputOperandInfo(name));
+    std::optional<GraphImpl::CoreMLFeatureInfo> coreml_feature_info =
+        GetCoreMLFeatureInfo(build_graph_result->FindInputOperandInfo(name));
     if (!coreml_feature_info.has_value()) {
       originating_sequence->PostTask(
           FROM_HERE,
@@ -153,9 +137,9 @@ void GraphImpl::CreateAndBuildOnBackgroundThread(
       std::move(coreml_name_to_operand_name), std::move(model_file_dir),
       std::move(callback));
 
-  // TODO(https://crbug.com/1522278): Add metrics to measure compilation time.
   [MLModel
-      compileModelAtURL:base::apple::FilePathToNSURL(model_file_path)
+      compileModelAtURL:base::apple::FilePathToNSURL(
+                            build_graph_result->GetModelFilePath())
       completionHandler:^(NSURL* compiled_model_url, NSError* error) {
         UMA_HISTOGRAM_MEDIUM_TIMES(
             "WebNN.CoreML.TimingMs.MLModelCompile",
@@ -215,14 +199,14 @@ void GraphImpl::OnCreateAndBuildSuccess(
     std::unique_ptr<CompilationContext> context) {
   CHECK(context->ml_model);
   // The remote sent to the renderer.
-  mojo::PendingRemote<mojom::WebNNGraph> webnn_graph;
+  mojo::PendingAssociatedRemote<mojom::WebNNGraph> webnn_graph;
   // The receiver bound to GraphImpl.
-  mojo::MakeSelfOwnedReceiver<mojom::WebNNGraph>(
+  mojo::MakeSelfOwnedAssociatedReceiver<mojom::WebNNGraph>(
       base::WrapUnique(new GraphImpl(
           std::move(context->compute_resource_info),
           std::move(context->input_feature_info),
           std::move(context->coreml_name_to_operand_name), context->ml_model)),
-      webnn_graph.InitWithNewPipeAndPassReceiver());
+      webnn_graph.InitWithNewEndpointAndPassReceiver());
   std::move(context->callback)
       .Run(mojom::CreateGraphResult::NewGraphRemote(std::move(webnn_graph)));
 }
@@ -249,10 +233,9 @@ MLFeatureValue* GraphImpl::CreateFeatureValue(
 
 // static
 std::optional<GraphImpl::CoreMLFeatureInfo> GraphImpl::GetCoreMLFeatureInfo(
-    const GraphBuilder::OperandInfo* operand_info) {
-  CHECK(operand_info);
+    const GraphBuilder::OperandInfo& operand_info) {
   enum MLMultiArrayDataType data_type;
-  switch (operand_info->data_type) {
+  switch (operand_info.data_type) {
     case webnn::mojom::Operand_DataType::kFloat32:
       data_type = MLMultiArrayDataTypeFloat32;
       break;
@@ -271,11 +254,11 @@ std::optional<GraphImpl::CoreMLFeatureInfo> GraphImpl::GetCoreMLFeatureInfo(
       return std::nullopt;
   }
   NSMutableArray* shape =
-      [[NSMutableArray alloc] initWithCapacity:operand_info->dimensions.size()];
+      [[NSMutableArray alloc] initWithCapacity:operand_info.dimensions.size()];
   NSMutableArray* stride =
-      [[NSMutableArray alloc] initWithCapacity:operand_info->dimensions.size()];
+      [[NSMutableArray alloc] initWithCapacity:operand_info.dimensions.size()];
   base::CheckedNumeric<uint32_t> expected_size = 1;
-  for (uint32_t dimension : operand_info->dimensions) {
+  for (uint32_t dimension : operand_info.dimensions) {
     expected_size *= dimension;
   }
   if (!expected_size.IsValid()) {
@@ -284,7 +267,7 @@ std::optional<GraphImpl::CoreMLFeatureInfo> GraphImpl::GetCoreMLFeatureInfo(
     return std::nullopt;
   }
   uint32_t current_stride = expected_size.ValueOrDie();
-  for (uint32_t dimension : operand_info->dimensions) {
+  for (uint32_t dimension : operand_info.dimensions) {
     [shape addObject:@(dimension)];
     // since expected_size was computed by multiplying all dimensions together
     // current_stride has to be perfectly divisible by dimension.
@@ -330,6 +313,20 @@ void GraphImpl::ComputeImpl(
       return;
     }
     feature_values[feature_name] = feature_value;
+  }
+
+  if (named_inputs.empty()) {
+    NSString* placeholder_name = base::SysUTF8ToNSString(kPlaceholderInputName);
+    [feature_names addObject:placeholder_name];
+    NSError* error;
+    MLMultiArray* placeholder_input =
+        [[MLMultiArray alloc] initWithShape:@[ @1 ]
+                                   dataType:MLMultiArrayDataTypeFloat16
+                                      error:&error];
+    placeholder_input[0] = @0;
+    CHECK(!error);
+    feature_values[placeholder_name] =
+        [MLFeatureValue featureValueWithMultiArray:placeholder_input];
   }
 
   // Run the MLModel
@@ -385,7 +382,10 @@ void GraphImpl::ComputeImpl(
         compute_resource_info().output_name_to_byte_length_map.at(name);
     [feature_value.multiArrayValue
         getBytesWithHandler:^(const void* bytes, NSInteger size) {
-          CHECK_EQ(static_cast<uint32_t>(size), expected_size);
+          // CoreML sometimes returns a buffer larger than expected.
+          // For an FP16 6 value buffer, an output of size 384 is observed
+          // when running the BuildAndComputeSingleOperatorCast unit test.
+          CHECK_GE(static_cast<uint32_t>(size), expected_size);
           named_outputs_raw_ptr->push_back(std::make_pair(
               name, mojo_base::BigBuffer(base::make_span(
                         static_cast<const uint8_t*>(bytes), expected_size))));
@@ -407,9 +407,29 @@ GraphImpl::CompilationContext::CompilationContext(
       callback(std::move(callback)) {}
 
 GraphImpl::CompilationContext::~CompilationContext() {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWebNNCoreMlDumpModel)) {
+    const auto dump_directory =
+        base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
+            switches::kWebNNCoreMlDumpModel);
+    LOG(INFO) << "webnn::coreml Copying model files to " << dump_directory;
+    if (dump_directory.empty()) {
+      LOG(ERROR) << "webnn::coreml Dump directory not specified.";
+    } else {
+      if (!model_file_dir.IsValid() ||
+          !base::CopyDirectory(model_file_dir.GetPath(), dump_directory,
+                               /*recursive=*/true)) {
+        LOG(ERROR) << "webnn::coreml Failed to copy model file directory.";
+      }
+      if (!compiled_model_dir.IsValid() ||
+          !base::CopyDirectory(compiled_model_dir.GetPath(), dump_directory,
+                               /*recursive=*/true)) {
+        LOG(ERROR) << "webnn::coreml Failed to copy compiled model directory.";
+      }
+    }
+  }
   // Though the destructors of ScopedTempDir will delete these directories.
   // Explicitly delete them here to check for success.
-  // TODO(https://crbug.com/1522278): Add debug flag to skip cleanup.
   if (model_file_dir.IsValid()) {
     CHECK(model_file_dir.Delete());
   }

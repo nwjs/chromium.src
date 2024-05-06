@@ -65,9 +65,6 @@ namespace {
 // loaded before a scene is attached.
 NSString* const kLoadTimePreferenceKey = @"LoadTimePreferenceKey";
 
-// The time when Objective C objects are loaded.
-base::TimeTicks g_load_time;
-
 // The amount of time (in seconds) to wait for the user to start a new task.
 const NSTimeInterval kFirstUserActionTimeout = 30.0;
 
@@ -104,6 +101,7 @@ enum class TabsAgeGroup {
   kMaxValue = kMoreThanThirtyDays,
 };
 
+#if BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
 // Returns time delta since app launch as retrieved from kernel info about
 // the current process.
 base::TimeDelta TimeDeltaSinceAppLaunchFromProcess() {
@@ -120,7 +118,6 @@ base::TimeDelta TimeDeltaSinceAppLaunchFromProcess() {
   return base::Seconds(-date.timeIntervalSinceNow);
 }
 
-#if BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
 void DumpEnvironment(id<StartupInformation> startup_information) {
   if (![[NSUserDefaults standardUserDefaults]
           boolForKey:@"EnableDumpEnvironment"]) {
@@ -153,7 +150,6 @@ void DumpEnvironment(id<StartupInformation> startup_information) {
   base::TimeTicks now = base::TimeTicks::Now();
   const base::TimeDelta processStartToNowTime =
       TimeDeltaSinceAppLaunchFromProcess();
-  const base::TimeDelta loadToNowTime = now - g_load_time;
   const base::TimeDelta mainToNowTime =
       now - [startup_information appLaunchTime];
   const base::TimeDelta didFinishLaunchingToNowTime =
@@ -165,7 +161,6 @@ void DumpEnvironment(id<StartupInformation> startup_information) {
     @"environment" : environment,
     @"now" : file_name,
     @"processStartToNowTime" : @(processStartToNowTime.InMilliseconds()),
-    @"loadToNowTime" : @(loadToNowTime.InMilliseconds()),
     @"mainToNowTime" : @(mainToNowTime.InMilliseconds()),
     @"didFinishLaunchingToNowTime" :
         @(didFinishLaunchingToNowTime.InMilliseconds()),
@@ -216,19 +211,6 @@ std::string WarmStartHistogramPrefix(bool version_mismatch) {
 }
 }  // namespace
 
-// A class to log the "load" time in uma.
-@interface ObjectLoadTimeLogger : NSObject
-@end
-
-@implementation ObjectLoadTimeLogger
-+ (void)load {
-  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-  [defaults setInteger:[defaults integerForKey:kLoadTimePreferenceKey] + 1
-                forKey:kLoadTimePreferenceKey];
-  g_load_time = base::TimeTicks::Now();
-}
-@end
-
 namespace metrics_mediator {
 NSString* const kAppEnteredBackgroundDateKey = @"kAppEnteredBackgroundDate";
 NSString* const kAppDidFinishLaunchingConsecutiveCallsKey =
@@ -277,12 +259,6 @@ void RecordWidgetUsage(base::span<const HistogramNameCountPair> histograms) {
     if (count != 0) {
       base::UmaHistogramCounts1000(SysNSStringToUTF8(keyMetric[key]), count);
       [shared_defaults setInteger:0 forKey:key];
-      if ([key isEqualToString:app_group::
-                                   kCredentialExtensionPasswordUseCount] ||
-          [key isEqualToString:app_group::
-                                   kCredentialExtensionQuickPasswordUseCount]) {
-        default_browser::NotifyCredentialExtensionUsed();
-      }
     }
   }
 
@@ -359,6 +335,9 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
 
 @implementation MetricsMediator
 
+// Indicates whether credential extension was used while chrome was inactive.
+BOOL _credentialExtensionWasUsed = NO;
+
 #pragma mark - Public methods.
 
 + (void)createStartupTrackingTask {
@@ -371,9 +350,6 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
 
   [MetricKitSubscriber endExtendedLaunchTask];
   base::TimeTicks now = base::TimeTicks::Now();
-  const base::TimeDelta processStartToNowTime =
-      TimeDeltaSinceAppLaunchFromProcess();
-  const base::TimeDelta loadToNowTime = now - g_load_time;
   const base::TimeDelta mainToNowTime =
       now - [startupInformation appLaunchTime];
   const base::TimeDelta didFinishLaunchingToNowTime =
@@ -388,17 +364,11 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
       [defaults integerForKey:kAppDidFinishLaunchingConsecutiveCallsKey];
   [defaults removeObjectForKey:kAppDidFinishLaunchingConsecutiveCallsKey];
 
-  base::UmaHistogramTimes("Startup.ColdStartFromProcessCreationTimeV2",
-                          processStartToNowTime);
-  base::UmaHistogramTimes("Startup.TimeFromProcessCreationToLoad",
-                          processStartToNowTime - loadToNowTime);
-  base::UmaHistogramTimes("Startup.TimeFromProcessCreationToMainCall",
-                          processStartToNowTime - mainToNowTime);
-  base::UmaHistogramTimes(
-      "Startup.TimeFromProcessCreationToDidFinishLaunchingCall",
-      processStartToNowTime - didFinishLaunchingToNowTime);
-  base::UmaHistogramTimes("Startup.TimeFromProcessCreationToSceneConnection",
-                          processStartToNowTime - sceneConnectionToNowTime);
+  base::UmaHistogramTimes("Startup.ColdStartFromMain", mainToNowTime);
+  base::UmaHistogramTimes("Startup.TimeFromMainToDidFinishLaunchingCall",
+                          mainToNowTime - didFinishLaunchingToNowTime);
+  base::UmaHistogramTimes("Startup.TimeFromMainToSceneConnection",
+                          mainToNowTime - sceneConnectionToNowTime);
   base::UmaHistogramCounts100("Startup.ConsecutiveLoadsWithoutLaunch",
                               consecutiveLoads);
   base::UmaHistogramCounts100(
@@ -631,6 +601,15 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
   [[MetricKitSubscriber sharedInstance] setEnabled:optIn];
 }
 
+- (void)notifyCredentialProviderWasUsed:(feature_engagement::Tracker*)tracker {
+  if (_credentialExtensionWasUsed) {
+    default_browser::NotifyCredentialExtensionUsed(tracker);
+
+    // Reset to avoid duplicate notifications.
+    _credentialExtensionWasUsed = NO;
+  }
+}
+
 - (BOOL)areMetricsEnabled {
   if (metrics::IsMetricsReportingForceEnabled()) {
     return YES;
@@ -685,6 +664,10 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
     app_group::main_app::DisableMetrics();
   }
 
+  // Save CPE use information before it gets reset in RecordWidgetUsage until we
+  // are ready to log it into feture engagement tracker.
+  [self saveCredentialExtensionWasUsed];
+
   // Histograms fired in extensions that need to be re-fired from the main app.
   const metrics_mediator::HistogramNameCountPair histogramsFromExtension[] = {
       {
@@ -738,6 +721,18 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
     mach_vm_size_t footprint_mb = task_info_data.phys_footprint / 1024 / 1024;
     base::UmaHistogramMemoryLargeMB(
         "Memory.Browser.MemoryFootprint.OnBackground", footprint_mb);
+  }
+}
+
+- (void)saveCredentialExtensionWasUsed {
+  NSUserDefaults* shared_defaults = app_group::GetGroupUserDefaults();
+
+  int password_use_count = [shared_defaults
+      integerForKey:app_group::kCredentialExtensionPasswordUseCount];
+  int quick_password_use_count = [shared_defaults
+      integerForKey:app_group::kCredentialExtensionQuickPasswordUseCount];
+  if (password_use_count != 0 || quick_password_use_count != 0) {
+    _credentialExtensionWasUsed = YES;
   }
 }
 

@@ -50,14 +50,12 @@ class MediaCoordinator {
 
   void UpdateDevicePreferenceRanking();
 
- private:
-  void RecordPreviewDurationForPermissionPrompt();
+  void OnPermissionChange(bool has_permission);
 
-  const ViewType view_type_;
+ private:
   raw_ptr<MediaView> media_view_ = nullptr;
   std::optional<CameraCoordinator> camera_coordinator_;
   std::optional<MicCoordinator> mic_coordinator_;
-  std::optional<base::TimeTicks> permission_prompt_start_time_;
 };
 
 namespace media_coordinator {

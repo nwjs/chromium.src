@@ -9,6 +9,7 @@ import signal
 import sys
 
 import collections
+import json
 import logging
 import os
 import psutil
@@ -16,12 +17,14 @@ import shutil
 import subprocess
 import threading
 import time
+from typing import List, Optional
 
 import constants
 import file_util
 import gtest_utils
 import mac_util
 import iossim_util
+import shard_util
 import test_apps
 from test_result_util import ResultCollection, TestResult, TestStatus
 import test_runner_errors
@@ -314,10 +317,10 @@ def get_current_xcode_info():
   }
 
 
-def init_test_result_defaults():
+def init_test_result_defaults(is_eg_test=False):
   return {
       'version': 3,
-      'path_delimiter': '.',
+      'path_delimiter': '/' if is_eg_test else '.',
       'seconds_since_epoch': int(time.time()),
       # This will be overwritten when the tests complete successfully.
       'interrupted': True,
@@ -1169,4 +1172,8 @@ class DeviceTestRunner(TestRunner):
     if xcode_util.using_xcode_15_or_higher():
       LOGGER.warning(
           "Restarting usbmuxd to ensure device is re-paired to Xcode...")
-      mac_util.stop_usbmuxd()
+      try:
+        mac_util.stop_usbmuxd()
+      except subprocess.CalledProcessError as e:
+        logging.exception('Unable to restart usbmuxd:')
+        logging.error(e)

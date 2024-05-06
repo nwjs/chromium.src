@@ -91,7 +91,6 @@
 #import "ios/chrome/browser/shared/public/commands/password_breach_commands.h"
 #import "ios/chrome/browser/shared/public/commands/password_protection_commands.h"
 #import "ios/chrome/browser/shared/public/commands/password_suggestion_commands.h"
-#import "ios/chrome/browser/shared/public/commands/passwords_account_storage_notice_commands.h"
 #import "ios/chrome/browser/shared/public/commands/phone_number_commands.h"
 #import "ios/chrome/browser/shared/public/commands/policy_change_commands.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
@@ -131,11 +130,13 @@
 #import "ios/chrome/browser/ui/authentication/enterprise/enterprise_prompt/enterprise_prompt_type.h"
 #import "ios/chrome/browser/ui/authentication/signin_presenter.h"
 #import "ios/chrome/browser/ui/autofill/authentication/card_unmask_authentication_coordinator.h"
+#import "ios/chrome/browser/ui/autofill/bottom_sheet/autofill_edit_profile_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/bottom_sheet/payments_suggestion_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/bottom_sheet/virtual_card_enrollment_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/error_dialog/autofill_error_dialog_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_password_coordinator.h"
+#import "ios/chrome/browser/ui/autofill/progress_dialog/autofill_progress_dialog_coordinator.h"
 #import "ios/chrome/browser/ui/bookmarks/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_coordinator.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_view_controller.h"
@@ -150,7 +151,6 @@
 #import "ios/chrome/browser/ui/bubble/bubble_presenter_delegate.h"
 #import "ios/chrome/browser/ui/context_menu/context_menu_configuration_provider.h"
 #import "ios/chrome/browser/ui/credential_provider_promo/credential_provider_promo_coordinator.h"
-#import "ios/chrome/browser/ui/default_promo/default_browser_promo_coordinator.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_promo_non_modal_commands.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_promo_non_modal_coordinator.h"
 #import "ios/chrome/browser/ui/default_promo/default_promo_non_modal_presentation_delegate.h"
@@ -179,9 +179,7 @@
 #import "ios/chrome/browser/ui/page_info/page_info_coordinator.h"
 #import "ios/chrome/browser/ui/page_info/requirements/page_info_presentation.h"
 #import "ios/chrome/browser/ui/parcel_tracking/parcel_tracking_opt_in_coordinator.h"
-#import "ios/chrome/browser/ui/passwords/account_storage_notice/passwords_account_storage_notice_coordinator.h"
 #import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_coordinator.h"
-#import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/passwords/password_breach_coordinator.h"
 #import "ios/chrome/browser/ui/passwords/password_protection_coordinator.h"
 #import "ios/chrome/browser/ui/passwords/password_protection_coordinator_delegate.h"
@@ -239,6 +237,7 @@
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/webui/model/net_export_tab_helper_delegate.h"
 #import "ios/chrome/browser/webui/ui_bundled/net_export_coordinator.h"
+#import "ios/chrome/common/ui/util/ui_util.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/fullscreen/fullscreen_api.h"
@@ -290,8 +289,6 @@ enum class ToolbarKind {
     PasswordSettingsCoordinatorDelegate,
     PasswordSuggestionCommands,
     PasswordSuggestionCoordinatorDelegate,
-    PasswordSuggestionBottomSheetCoordinatorDelegate,
-    PasswordsAccountStorageNoticeCommands,
     PriceNotificationsCommands,
     PhoneNumberCommands,
     PromosManagerCommands,
@@ -354,6 +351,10 @@ enum class ToolbarKind {
 @property(nonatomic, strong)
     AutofillAddCreditCardCoordinator* addCreditCardCoordinator;
 
+// Coordinator to show the Autofill progress dialog.
+@property(nonatomic, strong)
+    AutofillProgressDialogCoordinator* autofillProgressDialogCoordinator;
+
 // Presents a QLPreviewController in order to display USDZ format 3D models.
 @property(nonatomic, strong) ARQuickLookCoordinator* ARQuickLookCoordinator;
 
@@ -372,6 +373,9 @@ enum class ToolbarKind {
 @property(nonatomic, strong)
     PlusAddressBottomSheetCoordinator* plusAddressBottomSheetCoordinator;
 
+@property(nonatomic, strong) AutofillEditProfileBottomSheetCoordinator*
+    autofillEditProfileBottomSheetCoordinator;
+
 @property(nonatomic, strong) VirtualCardEnrollmentBottomSheetCoordinator*
     virtualCardEnrollmentBottomSheetCoordinator;
 
@@ -381,10 +385,6 @@ enum class ToolbarKind {
 // Coordinator-ish provider for context menus.
 @property(nonatomic, strong)
     ContextMenuConfigurationProvider* contextMenuProvider;
-
-// Coordinator that manages the default browser promo modal.
-@property(nonatomic, strong)
-    DefaultBrowserPromoCoordinator* defaultBrowserPromoCoordinator;
 
 // Coordinator that manages the presentation of Download Manager UI.
 @property(nonatomic, strong)
@@ -456,10 +456,6 @@ enum class ToolbarKind {
 // Coordinator for the password suggestion UI presentation.
 @property(nonatomic, strong)
     PasswordSuggestionCoordinator* passwordSuggestionCoordinator;
-
-// Coordinator for the passwords account storage notice.
-@property(nonatomic, strong) PasswordsAccountStorageNoticeCoordinator*
-    passwordsAccountStorageNoticeCoordinator;
 
 // Coordinator for the popup menu.
 @property(nonatomic, strong) PopupMenuCoordinator* popupMenuCoordinator;
@@ -710,12 +706,11 @@ enum class ToolbarKind {
 
   [self stopPasswordProtectionCoordinator];
 
-  [self stopPasswordSuggestionBottomSheetCoordinator];
+  [self.passwordSuggestionBottomSheetCoordinator stop];
+  self.passwordSuggestionBottomSheetCoordinator = nil;
+
   [self.passwordSuggestionCoordinator stop];
   self.passwordSuggestionCoordinator = nil;
-
-  [self.passwordsAccountStorageNoticeCoordinator stop];
-  self.passwordsAccountStorageNoticeCoordinator = nil;
 
   [self.pageInfoCoordinator stop];
 
@@ -729,6 +724,8 @@ enum class ToolbarKind {
   self.virtualCardEnrollmentBottomSheetCoordinator = nil;
 
   [self dismissAutofillErrorDialog];
+
+  [self dismissAutofillProgressDialog];
 
   [_sendTabToSelfCoordinator stop];
   _sendTabToSelfCoordinator = nil;
@@ -780,13 +777,6 @@ enum class ToolbarKind {
   [self.recentTabsCoordinator stop];
   self.recentTabsCoordinator.delegate = nil;
   self.recentTabsCoordinator = nil;
-}
-
-// Stops the password suggestion bottom sheet coordinator.
-- (void)stopPasswordSuggestionBottomSheetCoordinator {
-  [self.passwordSuggestionBottomSheetCoordinator stop];
-  self.passwordSuggestionBottomSheetCoordinator.delegate = nil;
-  self.passwordSuggestionBottomSheetCoordinator = nil;
 }
 
 // Stop the store kit coordinator.
@@ -886,7 +876,6 @@ enum class ToolbarKind {
     @protocol(PasswordBreachCommands),
     @protocol(PasswordProtectionCommands),
     @protocol(PasswordSuggestionCommands),
-    @protocol(PasswordsAccountStorageNoticeCommands),
     @protocol(PolicyChangeCommands),
     @protocol(PriceNotificationsCommands),
     @protocol(SaveToDriveCommands),
@@ -1251,6 +1240,9 @@ enum class ToolbarKind {
   /* autofillErrorDialogCoordinator is created and started by a BrowserCommand
    */
 
+  /* autofillProgressDialogCoordinator is created and started by a
+   * BrowserCommand */
+
   /* PriceNotificationsViewCoordinator is created and started by a
    * BrowserCommand */
 
@@ -1369,13 +1361,11 @@ enum class ToolbarKind {
 
   [self stopPasswordProtectionCoordinator];
 
-  [self stopPasswordSuggestionBottomSheetCoordinator];
+  [self.passwordSuggestionBottomSheetCoordinator stop];
+  self.passwordSuggestionBottomSheetCoordinator = nil;
 
   [self.passwordSuggestionCoordinator stop];
   self.passwordSuggestionCoordinator = nil;
-
-  [self.passwordsAccountStorageNoticeCoordinator stop];
-  self.passwordsAccountStorageNoticeCoordinator = nil;
 
   [self.paymentsSuggestionBottomSheetCoordinator stop];
   self.paymentsSuggestionBottomSheetCoordinator = nil;
@@ -1390,6 +1380,8 @@ enum class ToolbarKind {
   self.virtualCardEnrollmentBottomSheetCoordinator = nil;
 
   [self dismissAutofillErrorDialog];
+
+  [self dismissAutofillProgressDialog];
 
   [self.printCoordinator stop];
   self.printCoordinator = nil;
@@ -1431,9 +1423,6 @@ enum class ToolbarKind {
 
   [self.infobarModalOverlayContainerCoordinator stop];
   self.infobarModalOverlayContainerCoordinator = nil;
-
-  [self.defaultBrowserPromoCoordinator stop];
-  self.defaultBrowserPromoCoordinator = nil;
 
   [self.tailoredPromoCoordinator stop];
   self.tailoredPromoCoordinator = nil;
@@ -1642,7 +1631,11 @@ enum class ToolbarKind {
                              browser:self.browser
                               params:params
                             delegate:self];
-  self.passwordSuggestionBottomSheetCoordinator.delegate = self;
+  self.passwordSuggestionBottomSheetCoordinator.settingsHandler =
+      HandlerForProtocol(self.dispatcher, SettingsCommands);
+  self.passwordSuggestionBottomSheetCoordinator
+      .browserCoordinatorCommandsHandler =
+      HandlerForProtocol(self.dispatcher, BrowserCoordinatorCommands);
   [self.passwordSuggestionBottomSheetCoordinator start];
 }
 
@@ -1668,7 +1661,37 @@ enum class ToolbarKind {
       [[CardUnmaskAuthenticationCoordinator alloc]
           initWithBaseViewController:self.viewController
                              browser:self.browser];
+  self.cardUnmaskAuthenticationCoordinator.shouldStartWithCvcAuth = NO;
+
   [self.cardUnmaskAuthenticationCoordinator start];
+}
+
+- (void)continueCardUnmaskWithOtpAuth {
+  // This assumes the card unmask authentication coordinator is already created
+  // by the showCardUnmaskAuthentication function above. Otherwise do nothing.
+  [self.cardUnmaskAuthenticationCoordinator continueWithOtpAuth];
+}
+
+- (void)continueCardUnmaskWithCvcAuth {
+  if (self.cardUnmaskAuthenticationCoordinator) {
+    // If the coordinator exists, it means that multiple authentication options
+    // are provided and we have already presented the authentication selection
+    // dialog, and the navigation controller is already created. Upon user
+    // selection, we should show the CVC input dialog by pushing the view to the
+    // navigation stack.
+    [self.cardUnmaskAuthenticationCoordinator continueWithCvcAuth];
+  } else {
+    // If the coordinator does not exists, it means there is only one
+    // authentication option (CVC auth) provided, and the navigation controller
+    // is not yet created, so we skip the authentication selection step and
+    // start directly with the CVC input dialog.
+    self.cardUnmaskAuthenticationCoordinator =
+        [[CardUnmaskAuthenticationCoordinator alloc]
+            initWithBaseViewController:self.viewController
+                               browser:self.browser];
+    self.cardUnmaskAuthenticationCoordinator.shouldStartWithCvcAuth = YES;
+    [self.cardUnmaskAuthenticationCoordinator start];
+  }
 }
 
 - (void)showPlusAddressesBottomSheet {
@@ -1692,6 +1715,14 @@ enum class ToolbarKind {
   [self.virtualCardEnrollmentBottomSheetCoordinator start];
 }
 
+- (void)showEditAddressBottomSheet {
+  self.autofillEditProfileBottomSheetCoordinator =
+      [[AutofillEditProfileBottomSheetCoordinator alloc]
+          initWithBaseViewController:self.viewController
+                             browser:self.browser];
+  [self.autofillEditProfileBottomSheetCoordinator start];
+}
+
 - (void)showAutofillErrorDialog:
     (autofill::AutofillErrorDialogContext)errorContext {
   if (self.autofillErrorDialogCoordinator) {
@@ -1710,6 +1741,23 @@ enum class ToolbarKind {
 - (void)dismissAutofillErrorDialog {
   [self.autofillErrorDialogCoordinator stop];
   self.autofillErrorDialogCoordinator = nil;
+}
+
+- (void)showAutofillProgressDialog {
+  if (self.autofillProgressDialogCoordinator) {
+    [self.autofillProgressDialogCoordinator stop];
+  }
+
+  self.autofillProgressDialogCoordinator =
+      [[AutofillProgressDialogCoordinator alloc]
+          initWithBaseViewController:self.viewController
+                             browser:self.browser];
+  [self.autofillProgressDialogCoordinator start];
+}
+
+- (void)dismissAutofillProgressDialog {
+  [self.autofillProgressDialogCoordinator stop];
+  self.autofillProgressDialogCoordinator = nil;
 }
 
 #pragma mark - BrowserCoordinatorCommands
@@ -1922,6 +1970,11 @@ enum class ToolbarKind {
   [_voiceSearchController prepareToAppear];
 }
 
+- (void)dismissPasswordSuggestions {
+  [self.passwordSuggestionBottomSheetCoordinator stop];
+  self.passwordSuggestionBottomSheetCoordinator = nil;
+}
+
 - (void)dismissPaymentSuggestions {
   [self.paymentsSuggestionBottomSheetCoordinator stop];
   self.paymentsSuggestionBottomSheetCoordinator = nil;
@@ -1966,8 +2019,6 @@ enum class ToolbarKind {
 #pragma mark - DefaultBrowserPromoCommands
 
 - (void)hidePromo {
-  [self.defaultBrowserPromoCoordinator stop];
-  self.defaultBrowserPromoCoordinator = nil;
   [self.tailoredPromoCoordinator stop];
   self.tailoredPromoCoordinator = nil;
   [self.defaultBrowserPromoManager stop];
@@ -2648,28 +2699,6 @@ enum class ToolbarKind {
   [self.passwordSuggestionCoordinator start];
 }
 
-#pragma mark - PasswordsAccountStorageNoticeCommands
-
-- (void)showPasswordsAccountStorageNoticeForEntryPoint:
-            (PasswordsAccountStorageNoticeEntryPoint)entryPoint
-                                      dismissalHandler:
-                                          (void (^)())dismissalHandler {
-  DCHECK(dismissalHandler);
-  DCHECK(!self.passwordsAccountStorageNoticeCoordinator);
-  self.passwordsAccountStorageNoticeCoordinator =
-      [[PasswordsAccountStorageNoticeCoordinator alloc]
-          initWithBaseViewController:self.viewController
-                             browser:self.browser
-                          entryPoint:entryPoint
-                    dismissalHandler:dismissalHandler];
-  [self.passwordsAccountStorageNoticeCoordinator start];
-}
-
-- (void)hidePasswordsAccountStorageNotice {
-  [self.passwordsAccountStorageNoticeCoordinator stop];
-  self.passwordsAccountStorageNoticeCoordinator = nil;
-}
-
 #pragma mark - PriceNotificationsCommands
 
 - (void)showPriceNotifications {
@@ -3194,6 +3223,25 @@ enum class ToolbarKind {
   return [self.NTPCoordinator isScrolledToTop];
 }
 
+- (void)bubblePresenterDidPerformPullToRefreshGesture:
+    (BubblePresenter*)bubblePresenter {
+  if (!self.activeWebState) {
+    return;
+  }
+  OverscrollActionsTabHelper* tabHelper =
+      OverscrollActionsTabHelper::FromWebState(self.activeWebState);
+  OverscrollActionsController* controller =
+      tabHelper->GetOverscrollActionsController();
+  [controller forceAnimatedScrollRefresh];
+}
+
+- (void)bubblePresenter:(BubblePresenter*)bubblePresenter
+    didPerformSwipeToNavigateInDirection:
+        (UISwipeGestureRecognizerDirection)direction {
+  [_sideSwipeMediator animateSwipe:SwipeType::CHANGE_PAGE
+                       inDirection:direction];
+}
+
 #pragma mark - OverscrollActionsControllerDelegate methods.
 
 - (void)overscrollActionNewTab:(OverscrollActionsController*)controller {
@@ -3352,14 +3400,6 @@ enum class ToolbarKind {
 - (void)hideMiniMap {
   [self.miniMapCoordinator stop];
   self.miniMapCoordinator = nil;
-}
-
-#pragma mark - PasswordSuggestionBottomSheetCoordinatorDelegate
-
-- (void)passwordSuggestionBottomSheetCoordinatorWantsToBeStopped:
-    (PasswordSuggestionBottomSheetCoordinator*)coordinator {
-  CHECK_EQ(coordinator, self.passwordSuggestionBottomSheetCoordinator);
-  [self stopPasswordSuggestionBottomSheetCoordinator];
 }
 
 #pragma mark - PasswordProtectionCoordinator

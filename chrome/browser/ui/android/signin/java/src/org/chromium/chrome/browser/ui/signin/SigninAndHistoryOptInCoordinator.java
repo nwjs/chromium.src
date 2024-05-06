@@ -21,9 +21,10 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
+import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerLaunchMode;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncCoordinator;
-import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncUtils;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
@@ -56,6 +57,7 @@ public class SigninAndHistoryOptInCoordinator
     private final @SigninAccessPoint int mSigninAccessPoint;
     private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
 
+    private final AccountPickerBottomSheetStrings mBottomSheetStrings;
     private final @NoAccountSigninMode int mNoAccountSigninMode;
     private final @WithAccountSigninMode int mWithAccountSigninMode;
     private final @HistoryOptInMode int mHistoryOptInMode;
@@ -64,6 +66,7 @@ public class SigninAndHistoryOptInCoordinator
     private HistorySyncCoordinator mHistorySyncCoordinator;
     private PropertyModel mDialogModel;
     private boolean mDidShowSigninStep;
+    private boolean mIsHistorySyncDedicatedFlow;
 
     /** This is a delegate that the embedder needs to implement. */
     public interface Delegate {
@@ -117,6 +120,30 @@ public class SigninAndHistoryOptInCoordinator
         int REQUIRED = 2;
     }
 
+    public static boolean willShowSigninUI(Profile profile) {
+        SigninManager signinManager = IdentityServicesProvider.get().getSigninManager(profile);
+        return signinManager.isSigninAllowed();
+    }
+
+    public static boolean willShowHistorySyncUI(
+            Profile profile, @HistoryOptInMode int historyOptInMode) {
+        IdentityManager identityManager =
+                IdentityServicesProvider.get().getIdentityManager(profile);
+        if (!willShowSigninUI(profile) && !identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)) {
+            // Signin is suppressed because of something other than the user being signed in. Since
+            // the user cannot sign in, we should not show history sync either.
+            return false;
+        }
+        return switch (historyOptInMode) {
+            case HistoryOptInMode.NONE -> false;
+                // TODO(crbug.com/331568233): Show history opt-in only if it's not suppressed.
+            case HistoryOptInMode.OPTIONAL, HistoryOptInMode.REQUIRED -> shouldShowHistorySync(
+                    profile);
+            default -> throw new IllegalArgumentException(
+                    "Unexpected value for historyOptInMode :" + historyOptInMode);
+        };
+    }
+
     /**
      * Creates an instance of {@link SigninAndHistoryOptInCoordinator} and shows the sign-in bottom
      * sheet.
@@ -128,6 +155,8 @@ public class SigninAndHistoryOptInCoordinator
      * @param profileSupplier The supplier of the current profile.
      * @param modalDialogManagerSupplier The supplier of the {@link ModalDialogManager}
      * @param signinAccessPoint The entry point for the sign-in.
+     * @param isHistorySyncDedicatedFlow Whether the flow is dedicated to enabling history sync
+     *     (recent tabs for example).
      */
     public SigninAndHistoryOptInCoordinator(
             @NonNull WindowAndroid windowAndroid,
@@ -136,10 +165,12 @@ public class SigninAndHistoryOptInCoordinator
             @NonNull DeviceLockActivityLauncher deviceLockActivityLauncher,
             @NonNull OneshotSupplier<Profile> profileSupplier,
             @NonNull Supplier<ModalDialogManager> modalDialogManagerSupplier,
+            @NonNull AccountPickerBottomSheetStrings bottomSheetStrings,
             @NoAccountSigninMode int noAccountSigninMode,
             @WithAccountSigninMode int withAccountSigninMode,
             @HistoryOptInMode int historyOptInMode,
-            @SigninAccessPoint int signinAccessPoint) {
+            @SigninAccessPoint int signinAccessPoint,
+            boolean isHistorySyncDedicatedFlow) {
         mWindowAndroid = windowAndroid;
         mActivity = activity;
         mDelegate = delegate;
@@ -147,10 +178,12 @@ public class SigninAndHistoryOptInCoordinator
         mProfileSupplier = profileSupplier;
         mProfileSupplier.onAvailable(this::onProfileAvailable);
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
+        mBottomSheetStrings = bottomSheetStrings;
         mNoAccountSigninMode = noAccountSigninMode;
         mWithAccountSigninMode = withAccountSigninMode;
         mHistoryOptInMode = historyOptInMode;
         mSigninAccessPoint = signinAccessPoint;
+        mIsHistorySyncDedicatedFlow = isHistorySyncDedicatedFlow;
         mContainerView =
                 (ViewGroup)
                         LayoutInflater.from(mActivity)
@@ -300,6 +333,7 @@ public class SigninAndHistoryOptInCoordinator
                         this,
                         mDeviceLockActivityLauncher,
                         signinManager,
+                        mBottomSheetStrings,
                         accountPickerMode,
                         mSigninAccessPoint);
         mDidShowSigninStep = true;
@@ -329,7 +363,8 @@ public class SigninAndHistoryOptInCoordinator
         Profile profile = mProfileSupplier.get();
         assert profile != null;
         if (!shouldShowHistorySync(profile)) {
-            HistorySyncUtils.recordHistorySyncNotShown(profile, mSigninAccessPoint);
+            HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(profile);
+            historySyncHelper.recordHistorySyncNotShown(mSigninAccessPoint);
             onFlowComplete();
             return;
         }
@@ -381,7 +416,13 @@ public class SigninAndHistoryOptInCoordinator
     private void showDialogContentView(Profile profile) {
         mHistorySyncCoordinator =
                 new HistorySyncCoordinator(
-                        mActivity, this, profile, mSigninAccessPoint, mDidShowSigninStep);
+                        mActivity,
+                        this,
+                        profile,
+                        mSigninAccessPoint,
+                        mDidShowSigninStep,
+                        mDidShowSigninStep && mIsHistorySyncDedicatedFlow,
+                        null);
         assert mDialogModel != null;
         mDialogModel.set(ModalDialogProperties.CUSTOM_VIEW, mHistorySyncCoordinator.getView());
         ModalDialogManager manager = mModalDialogManagerSupplier.get();
@@ -392,14 +433,15 @@ public class SigninAndHistoryOptInCoordinator
                 ModalDialogManager.ModalDialogPriority.VERY_HIGH);
     }
 
-    private boolean shouldShowHistorySync(Profile profile) {
-        if (HistorySyncUtils.didAlreadyOptIn(profile)) {
+    private static boolean shouldShowHistorySync(Profile profile) {
+        HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(profile);
+        if (historySyncHelper.didAlreadyOptIn()) {
             return false;
         }
-        if (HistorySyncUtils.isHistorySyncDisabledByPolicy(profile)) {
+        if (historySyncHelper.isHistorySyncDisabledByPolicy()) {
             return false;
         }
-        return !HistorySyncUtils.isHistorySyncDisabledByCustodian(profile);
+        return !historySyncHelper.isHistorySyncDisabledByCustodian();
     }
 
     private void onFlowComplete() {

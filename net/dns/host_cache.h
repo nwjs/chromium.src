@@ -14,6 +14,7 @@
 #include <ostream>
 #include <set>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -159,7 +160,7 @@ class NET_EXPORT HostCache {
     // results extracted from a single DnsTransaction. `empty_source` is Source
     // to assume if `results` is empty of any results from which Source can be
     // read.
-    Entry(std::set<std::unique_ptr<HostResolverInternalResult>> results,
+    Entry(const std::set<std::unique_ptr<HostResolverInternalResult>>& results,
           base::Time now,
           base::TimeTicks now_ticks,
           Source empty_source = SOURCE_UNKNOWN);
@@ -434,7 +435,7 @@ class NET_EXPORT HostCache {
   // For testing use only and not very performant. Production code should only
   // do lookups by precise Key.
   const HostCache::Key* GetMatchingKeyForTesting(
-      base::StringPiece hostname,
+      std::string_view hostname,
       HostCache::Entry::Source* source_out = nullptr,
       HostCache::EntryStaleness* stale_out = nullptr) const;
 

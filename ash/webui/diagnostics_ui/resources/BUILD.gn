@@ -81,18 +81,19 @@ build_webui("build") {
     "//ash/system/diagnostics/mojom:mojom_webui_js",
     "//ash/webui/diagnostics_ui/mojom:mojom_webui_js",
   ]
-
+  ts_composite = true
   ts_definitions = [ "//tools/typescript/definitions/chrome_send.d.ts" ]
 
   ts_deps = [
     "//ash/webui/common/resources:build_ts",
+    "//ash/webui/common/resources/cr_elements:build_ts",
     "//third_party/polymer/v3_0:library",
     "//ui/webui/resources/cr_components/color_change_listener:build_ts",
-    "//ash/webui/common/resources/cr_elements:build_ts",
     "//ui/webui/resources/js:build_ts",
     "//ui/webui/resources/mojo:build_ts",
   ]
 
+  webui_context_type = "trusted"
   grd_prefix = "ash_diagnostics_app"
   grit_output_dir = "$root_gen_dir/ash/webui"
 }

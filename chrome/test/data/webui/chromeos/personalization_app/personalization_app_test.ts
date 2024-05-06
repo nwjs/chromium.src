@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {DynamicColorElement, getThemeProvider, GooglePhotosAlbumsElement, GooglePhotosCollectionElement, GooglePhotosSharedAlbumDialogElement, PersonalizationRouterElement, PersonalizationThemeElement, SeaPenImagesElement, SeaPenPaths, SeaPenRecentWallpapersElement, SeaPenRouterElement, SeaPenTemplateQueryElement, setTransitionsEnabled, WallpaperCollectionsElement, WallpaperGridItemElement, WallpaperImagesElement} from 'chrome://personalization/js/personalization_app.js';
+import {DynamicColorElement, getThemeProvider, GooglePhotosAlbumsElement, GooglePhotosCollectionElement, GooglePhotosSharedAlbumDialogElement, PersonalizationRouterElement, PersonalizationThemeElement, SeaPenFeedbackElement, SeaPenImagesElement, SeaPenPaths, SeaPenRecentWallpapersElement, SeaPenRouterElement, SeaPenTemplateQueryElement, setTransitionsEnabled, WallpaperCollectionsElement, WallpaperGridItemElement, WallpaperImagesElement} from 'chrome://personalization/js/personalization_app.js';
 import {CrButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_button/cr_button.js';
 import {CrDialogElement} from 'chrome://resources/ash/common/cr_elements/cr_dialog/cr_dialog.js';
 import {CrIconButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_icon_button/cr_icon_button.js';
@@ -565,6 +565,41 @@ suite('sea pen', () => {
     clickWallpaperPreviewLink();
   });
 
+  suite('feedback', async () => {
+    // At the end of this test, a feedback dialog is expected to be opened in an
+    // external window.
+    test(`open feedback dialog`, async () => {
+      const seaPenRouter = await getSeaPenRouter();
+      const seaPenTemplateQuery = await getSeaPenTemplateQuery(6);
+      // Creates images.
+      seaPenTemplateQuery.shadowRoot?.getElementById('searchButton')!.click();
+
+      // Presses thumbs up feedback button.
+      const seaPenImages = await waitUntil(
+          () => seaPenRouter.shadowRoot?.querySelector<SeaPenImagesElement>(
+              'sea-pen-images'),
+          'waiting for sea-pen-images');
+
+      const feedbacks = await waitUntil(
+          () => Array.from(
+              seaPenImages!.shadowRoot!.querySelectorAll<SeaPenFeedbackElement>(
+                  `sea-pen-feedback`)),
+          'waiting for thumbnails load');
+      assertTrue(!!feedbacks, 'feedbacks should exist');
+
+      const thumbsUpButton =
+          feedbacks[0]?.shadowRoot?.getElementById('thumbsUp');
+      assertTrue(!!thumbsUpButton, 'thumbsUpButton should exist');
+      assertEquals(
+          thumbsUpButton?.getAttribute('iron-icon'), 'cr:thumbs-up',
+          'thumbsUpButton should not be filled');
+      thumbsUpButton!.click();
+      assertEquals(
+          thumbsUpButton?.getAttribute('iron-icon'), 'cr:thumbs-up-filled',
+          'thumbsUpButton should be filled');
+    });
+  });
+
   test('has selected wallpaper on root page', async () => {
     await getSeaPenRouter();
 
@@ -594,12 +629,12 @@ suite('sea pen', () => {
   test('show more option chips', async () => {
     const seaPenRouter = await getSeaPenRouter();
 
-    const acceptTermsButton = await waitUntil(
+    const closeIntroductionButton = await waitUntil(
         () => seaPenRouter.shadowRoot
-                  ?.querySelector('sea-pen-terms-of-service-dialog')
-                  ?.shadowRoot?.querySelector<HTMLElement>('#accept'),
-        'wait for accept button to load');
-    acceptTermsButton.click();
+                  ?.querySelector('sea-pen-introduction-dialog')
+                  ?.shadowRoot?.querySelector<HTMLElement>('#close'),
+        'wait for close button to load');
+    closeIntroductionButton.click();
 
     const seaPenTemplateQuery = await getSeaPenTemplateQuery(6);
     assertTrue(!!seaPenTemplateQuery, 'Characters template should show up');
@@ -677,7 +712,7 @@ suite('sea pen', () => {
 
       const expectedWallpaperTitle =
           seaPenTemplateQuery.shadowRoot?.getElementById('template')
-              ?.innerText?.replace(/\n/gmi, ' ')
+              ?.textContent?.replace(/\s+/gmi, '')
               .trim();
 
       // Goes back to sea pen root page.
@@ -696,7 +731,9 @@ suite('sea pen', () => {
         assertTrue(!!textContainer, 'wallpaper text container exists');
         assertEquals(
             expectedWallpaperTitle,
-            textContainer?.querySelector('#imageTitle')?.textContent?.trim(),
+            textContainer?.querySelector('#imageTitle')
+                ?.textContent?.replace(/\s+/gmi, '')
+                .trim(),
             'image title is correct');
       }
 
@@ -732,7 +769,9 @@ suite('sea pen', () => {
             recentImages.shadowRoot?.querySelector<HTMLParagraphElement>(
                 'p.about-prompt-info');
         assertTrue(
-            !!promptInfo?.textContent?.trim().includes(expectedWallpaperTitle!),
+            !!promptInfo?.textContent?.replace(/\s+/gmi, '')
+                  .trim()
+                  .includes(expectedWallpaperTitle!),
             `prompt info should include ${expectedWallpaperTitle}`);
       }
     });
@@ -803,6 +842,45 @@ suite('sea pen', () => {
           /*intervalMs=*/ 500,
           /*timeoutMs=*/ 3001);
     }
+  });
+
+  test('delete recent image', async () => {
+    const seaPenRouter = await getSeaPenRouter();
+    let recentImages = await waitUntil(
+        () => seaPenRouter.shadowRoot
+                  ?.querySelector<SeaPenRecentWallpapersElement>(
+                      'sea-pen-recent-wallpapers'),
+        'waiting for sea-pen-recent-wallpapers');
+    assertTrue(!!recentImages, 'recent images should exist');
+
+    let images = recentImages.shadowRoot?.querySelectorAll<HTMLElement>(
+        `.recent-image-container:not([hidden])`);
+    assertTrue(!!images, 'images should exist');
+    assertTrue(images.length > 0, 'there should be at least 1 recent image');
+    const numImages = images.length;
+
+    const menuButton =
+        recentImages.shadowRoot?.querySelector<CrIconButtonElement>(
+            `wallpaper-grid-item + .menu-icon-container
+        cr-icon-button`);
+    menuButton!.click();
+
+    const deleteButton = await waitUntil(
+        () => recentImages.shadowRoot?.querySelector<HTMLButtonElement>(
+            `wallpaper-grid-item ~ cr-action-menu .delete-wallpaper-option`),
+        'waiting for delete wallpaper button');
+    assertTrue(!!deleteButton, 'delete wallpaper button exists');
+    deleteButton!.click();
+
+    recentImages = await waitUntil(
+        () => seaPenRouter.shadowRoot
+                  ?.querySelector<SeaPenRecentWallpapersElement>(
+                      'sea-pen-recent-wallpapers'),
+        'waiting for sea-pen-recent-wallpapers');
+    images = images = recentImages.shadowRoot?.querySelectorAll<HTMLElement>(
+        `.recent-image-container:not([hidden])`);
+    assertTrue(!!images, 'images should still exist');
+    assertGT(numImages, images.length, 'a recent image has been deleted');
   });
 });
 

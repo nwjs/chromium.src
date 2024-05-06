@@ -6,7 +6,8 @@
 load("//lib/args.star", "args")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
-load("//lib/builders.star", "builders", "os", "reclient", "sheriff_rotations")
+load("//lib/builder_url.star", "linkify_builder")
+load("//lib/builders.star", "builders", "os", "reclient", "sheriff_rotations", "siso")
 load("//lib/branches.star", "branches")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
@@ -21,7 +22,7 @@ ci.defaults.set(
     cores = 32,
     os = os.LINUX_DEFAULT,
     sheriff_rotations = sheriff_rotations.CHROMIUM_CLANG,
-    # Because these run ToT Clang, goma is not used.
+    # Because these run ToT Clang, reclient is not used.
     # Naturally the runtime will be ~4-8h on average, depending on config.
     # CFI builds will take even longer - around 11h.
     execution_timeout = 14 * time.hour,
@@ -148,6 +149,12 @@ ci.builder(
     notifies = ["CFI Linux"],
     reclient_instance = reclient.instance.DEFAULT_TRUSTED,
     reclient_jobs = reclient.jobs.DEFAULT,
+    siso_configs = ["builder"],
+    siso_enable_cloud_profiler = True,
+    siso_enable_cloud_trace = True,
+    siso_enabled = True,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = reclient.jobs.DEFAULT,
 )
 
 ci.builder(
@@ -647,17 +654,12 @@ ci.builder(
             "fuchsia",
             "release_builder",
             "clang_tot",
+            "cast_receiver_size_optimized",
         ],
     ),
     console_view_entry = [
         consoles.console_view_entry(
             category = "ToT Fuchsia",
-            short_name = "x64",
-        ),
-        consoles.console_view_entry(
-            branch_selector = branches.selector.MAIN,
-            console_view = "sheriff.fuchsia",
-            category = "fyi|clang",
             short_name = "x64",
         ),
     ],
@@ -695,18 +697,13 @@ ci.builder(
             "clang_tot",
             "static",
             "arm64_host",
+            "cast_receiver_size_optimized",
         ],
     ),
     console_view_entry = [
         consoles.console_view_entry(
             category = "ToT Fuchsia",
             short_name = "off",
-        ),
-        consoles.console_view_entry(
-            branch_selector = branches.selector.MAIN,
-            console_view = "sheriff.fuchsia",
-            category = "fyi|clang",
-            short_name = "arm64-off",
         ),
     ],
     contact_team_email = "lexan@google.com",
@@ -1280,7 +1277,11 @@ ci.builder(
 )
 
 ci.builder(
-    name = "linux-win_cross-rel",
+    name = "linux-win-cross-clang-tot-rel",
+    description_html = "Linux to Windows cross compile with Clang ToT. " +
+                       "Previously at {}.".format(
+                           linkify_builder("ci", "linux-win_cross-rel"),
+                       ),
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",

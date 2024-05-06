@@ -40,7 +40,7 @@ class FormDataImporter : public PersonalDataManagerObserver,
                          public history::HistoryServiceObserver {
  public:
   // Record type of the credit card extracted from the form, if one exists.
-  // TODO(crbug.com/1412326): Remove this enum and user CreditCard::RecordType
+  // TODO(crbug.com/40255227): Remove this enum and user CreditCard::RecordType
   // instead.
   enum CreditCardImportType {
     // No card was successfully extracted from the form.
@@ -131,8 +131,8 @@ class FormDataImporter : public PersonalDataManagerObserver,
   void OnPersonalDataChanged() override;
 
   // history::HistoryServiceObserver
-  void OnURLsDeleted(history::HistoryService* history_service,
-                     const history::DeletionInfo& deletion_info) override;
+  void OnHistoryDeletions(history::HistoryService* history_service,
+                          const history::DeletionInfo& deletion_info) override;
 
   // See `FormAssociator::GetFormAssociations()`.
   std::optional<FormStructure::FormAssociations> GetFormAssociations(
@@ -310,11 +310,11 @@ class FormDataImporter : public PersonalDataManagerObserver,
       bool is_credit_card_upstream_enabled);
 
   // If the `profile`'s country is not empty, complements it with
-  // `predicted_country_code`. To give users the opportunity to edit, this is
-  // only done with explicit save prompts enabled.
+  // `AddressDataManager::GetDefaultCountryCodeForNewAddress()`, while logging
+  // to the `import_log_buffer`.
   // Returns true if the country was complemented.
   bool ComplementCountry(AutofillProfile& profile,
-                         const std::string& predicted_country_code);
+                         LogBuffer* import_log_buffer);
 
   // Sets the `profile`'s PHONE_HOME_WHOLE_NUMBER to the `combined_phone`, if
   // possible. The phone number's region is deduced based on the profile's

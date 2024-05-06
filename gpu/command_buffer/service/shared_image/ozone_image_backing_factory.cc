@@ -74,10 +74,10 @@ constexpr uint32_t kSupportedUsage =
 }  // namespace
 
 OzoneImageBackingFactory::OzoneImageBackingFactory(
-    SharedContextState* shared_context_state,
+    scoped_refptr<SharedContextState> shared_context_state,
     const GpuDriverBugWorkarounds& workarounds)
     : SharedImageBackingFactory(kSupportedUsage),
-      shared_context_state_(shared_context_state),
+      shared_context_state_(std::move(shared_context_state)),
       workarounds_(workarounds) {}
 
 OzoneImageBackingFactory::~OzoneImageBackingFactory() = default;
@@ -124,7 +124,7 @@ OzoneImageBackingFactory::CreateSharedImageInternal(
   return std::make_unique<OzoneImageBacking>(
       mailbox, format, gfx::BufferPlane::DEFAULT, size, color_space,
       surface_origin, alpha_type, usage, std::move(debug_label),
-      shared_context_state_.get(), std::move(pixmap), workarounds_,
+      shared_context_state_, std::move(pixmap), workarounds_,
       std::move(buffer_usage));
 }
 
@@ -139,7 +139,7 @@ std::unique_ptr<SharedImageBacking> OzoneImageBackingFactory::CreateSharedImage(
     uint32_t usage,
     std::string debug_label,
     bool is_thread_safe) {
-  DCHECK(!is_thread_safe);
+  CHECK(!is_thread_safe);
   return CreateSharedImageInternal(mailbox, format, surface_handle, size,
                                    color_space, surface_origin, alpha_type,
                                    usage, std::move(debug_label));
@@ -154,7 +154,9 @@ std::unique_ptr<SharedImageBacking> OzoneImageBackingFactory::CreateSharedImage(
     SkAlphaType alpha_type,
     uint32_t usage,
     std::string debug_label,
+    bool is_thread_safe,
     base::span<const uint8_t> pixel_data) {
+  CHECK(!is_thread_safe);
   SurfaceHandle surface_handle = SurfaceHandle();
   auto backing = CreateSharedImageInternal(
       mailbox, format, surface_handle, size, color_space, surface_origin,
@@ -207,7 +209,7 @@ std::unique_ptr<SharedImageBacking> OzoneImageBackingFactory::CreateSharedImage(
       GetPlaneBufferFormat(plane, buffer_format));
   auto backing = std::make_unique<OzoneImageBacking>(
       mailbox, plane_format, plane, plane_size, color_space, surface_origin,
-      alpha_type, usage, std::move(debug_label), shared_context_state_.get(),
+      alpha_type, usage, std::move(debug_label), shared_context_state_,
       std::move(pixmap), workarounds_);
   backing->SetCleared();
 
@@ -239,7 +241,7 @@ std::unique_ptr<SharedImageBacking> OzoneImageBackingFactory::CreateSharedImage(
   auto backing = std::make_unique<OzoneImageBacking>(
       mailbox, format, gfx::BufferPlane::DEFAULT, size, color_space,
       surface_origin, alpha_type, usage, std::move(debug_label),
-      shared_context_state_.get(), std::move(pixmap), workarounds_);
+      shared_context_state_, std::move(pixmap), workarounds_);
   backing->SetCleared();
 
   return backing;
@@ -303,7 +305,8 @@ bool OzoneImageBackingFactory::IsSupported(
   }
 
   ui::GLOzone* gl_ozone = factory->GetCurrentGLOzone();
-  if (used_by_gl && (!gl_ozone || !gl_ozone->CanImportNativePixmap())) {
+  if (used_by_gl &&
+      (!gl_ozone || !gl_ozone->CanImportNativePixmap(ToBufferFormat(format)))) {
     return false;
   }
 

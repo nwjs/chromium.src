@@ -23,12 +23,11 @@
 #include "components/attribution_reporting/source_type.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
-#include "content/browser/attribution_reporting/aggregatable_histogram_contribution.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
 #include "content/browser/attribution_reporting/attribution_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
-#include "third_party/blink/public/mojom/private_aggregation/aggregatable_report.mojom.h"
+#include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 
 namespace content {
 
@@ -38,6 +37,7 @@ using ::attribution_reporting::AggregatableValues;
 using ::attribution_reporting::FilterConfig;
 using ::attribution_reporting::FilterPair;
 using ::attribution_reporting::mojom::SourceType;
+using ::blink::mojom::AggregatableReportHistogramContribution;
 using ::testing::ElementsAre;
 
 }  // namespace
@@ -106,7 +106,7 @@ TEST(AggregatableAttributionUtilsTest, CreateAggregatableHistogram) {
   auto aggregatable_values = *attribution_reporting::AggregatableValues::Create(
       {{"key1", 32768}, {"key2", 1664}}, FilterPair());
 
-  std::vector<AggregatableHistogramContribution> contributions =
+  std::vector<AggregatableReportHistogramContribution> contributions =
       CreateAggregatableHistogram(
           *source_filter_data, SourceType::kEvent, source_time, trigger_time,
           *source, std::move(aggregatable_trigger_data), {aggregatable_values});
@@ -115,8 +115,10 @@ TEST(AggregatableAttributionUtilsTest, CreateAggregatableHistogram) {
   EXPECT_THAT(
       contributions,
       ElementsAre(
-          AggregatableHistogramContribution(/*key=*/1369, /*value=*/32768u),
-          AggregatableHistogramContribution(/*key=*/2693, /*value=*/1664u)));
+          AggregatableReportHistogramContribution(
+              /*bucket=*/1369, /*value=*/32768, /*filtering_id=*/std::nullopt),
+          AggregatableReportHistogramContribution(
+              /*bucket=*/2693, /*value=*/1664, /*filtering_id=*/std::nullopt)));
 
   histograms.ExpectUniqueSample(
       "Conversions.AggregatableReport.FilteredTriggerDataPercentage", 60, 1);
@@ -148,7 +150,7 @@ TEST(AggregatableAttributionUtilsTest,
   const struct {
     const char* description;
     std::vector<AggregatableValues> aggregatable_values;
-    std::vector<AggregatableHistogramContribution> expected;
+    std::vector<AggregatableReportHistogramContribution> expected;
   } kTestCases[] =
       {{
            .description = "filter_not_matching",
@@ -173,7 +175,8 @@ TEST(AggregatableAttributionUtilsTest,
                                           /*positive=*/{*FilterConfig::Create(
                                               {{"product", {"1"}}})},
                                           /*negative=*/{}))},
-           .expected = {AggregatableHistogramContribution(1029, 1664)},
+           .expected = {AggregatableReportHistogramContribution(
+               1029, 1664, /*filtering_id=*/std::nullopt)},
        },
        {
            .description = "second_entry_ignored",
@@ -188,7 +191,8 @@ TEST(AggregatableAttributionUtilsTest,
                                           /*positive=*/{*FilterConfig::Create(
                                               {{"product", {"1"}}})},
                                           /*negative=*/{}))},
-           .expected = {AggregatableHistogramContribution(1369, 32768)},
+           .expected = {AggregatableReportHistogramContribution(
+               1369, 32768, /*filtering_id=*/std::nullopt)},
        },
        {
            .description = "filters_matched_keys_mismatched_no_contributions",
@@ -220,14 +224,14 @@ TEST(AggregatableAttributionUtilsTest,
                                           /*positive=*/{*FilterConfig::Create(
                                               {{"product", {"1"}}})},
                                           /*negative=*/{}))},
-           .expected = {AggregatableHistogramContribution(1029, 1664)},
+           .expected = {AggregatableReportHistogramContribution(
+               1029, 1664, /*filtering_id=*/std::nullopt)},
        }};
   for (auto& test_case : kTestCases) {
-    std::vector<AggregatableHistogramContribution> contributions =
-        CreateAggregatableHistogram(source_filter_data, SourceType::kEvent,
-                                    source_time, trigger_time, *source,
-                                    std::move(aggregatable_trigger_data),
-                                    test_case.aggregatable_values);
+    std::vector<AggregatableReportHistogramContribution> contributions =
+        CreateAggregatableHistogram(
+            source_filter_data, SourceType::kEvent, source_time, trigger_time,
+            *source, aggregatable_trigger_data, test_case.aggregatable_values);
 
     EXPECT_THAT(contributions, test_case.expected) << test_case.description;
   }
@@ -241,7 +245,7 @@ TEST(AggregatableAttributionUtilsTest,
       attribution_reporting::AggregationKeys::FromKeys({{"key1", 345}});
   ASSERT_TRUE(source.has_value());
 
-  std::vector<AggregatableHistogramContribution> contributions =
+  std::vector<AggregatableReportHistogramContribution> contributions =
       CreateAggregatableHistogram(
           attribution_reporting::FilterData(), SourceType::kNavigation,
           /*source_time=*/base::Time::Now(), /*trigger_time=*/base::Time::Now(),
@@ -281,7 +285,9 @@ TEST(AggregatableAttributionUtilsTest, RoundsSourceRegistrationTime) {
         ReportBuilder(AttributionInfoBuilder().Build(),
                       SourceBuilder(source_time).BuildStored())
             .SetAggregatableHistogramContributions(
-                {AggregatableHistogramContribution(/*key=*/1, /*value=*/2)})
+                {AggregatableReportHistogramContribution(
+                    /*bucket=*/1,
+                    /*value=*/2, /*filtering_id=*/std::nullopt)})
             .BuildAggregatableAttribution();
 
     std::optional<AggregatableReportRequest> request =
@@ -304,7 +310,9 @@ TEST(AggregatableAttributionUtilsTest, AggregationCoordinatorSet) {
       ReportBuilder(AttributionInfoBuilder().Build(),
                     SourceBuilder().BuildStored())
           .SetAggregatableHistogramContributions(
-              {AggregatableHistogramContribution(/*key=*/1, /*value=*/2)})
+              {AggregatableReportHistogramContribution(
+                  /*bucket=*/1,
+                  /*value=*/2, /*filtering_id=*/std::nullopt)})
           .SetAggregationCoordinatorOrigin(*coordinator_origin)
           .BuildAggregatableAttribution();
 
@@ -345,7 +353,9 @@ TEST(AggregatableAttributionUtilsTest,
                   base::Time::FromMillisecondsSinceUnixEpoch(1234567890123))
                   .BuildStored())
               .SetAggregatableHistogramContributions(
-                  {AggregatableHistogramContribution(/*key=*/1, /*value=*/2)})
+                  {AggregatableReportHistogramContribution(
+                      /*bucket=*/1,
+                      /*value=*/2, /*filtering_id=*/std::nullopt)})
               .SetSourceRegistrationTimeConfig(
                   attribution_reporting::mojom::SourceRegistrationTimeConfig::
                       kExclude)

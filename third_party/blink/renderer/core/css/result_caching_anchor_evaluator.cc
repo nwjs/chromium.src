@@ -16,16 +16,40 @@ ResultCachingAnchorEvaluator::ResultCachingAnchorEvaluator(
 }
 
 std::optional<LayoutUnit> ResultCachingAnchorEvaluator::Evaluate(
-    const AnchorQuery& query) {
+    const AnchorQuery& query,
+    const ScopedCSSName* position_anchor,
+    const std::optional<InsetAreaOffsets>& inset_area_offsets) {
   if (GetMode() == AnchorScope::Mode::kNone) {
     return std::nullopt;
   }
   // Forward mode to inner evaluator.
   AnchorScope anchor_scope(GetMode(), evaluator_);
   std::optional<LayoutUnit> result =
-      evaluator_ ? evaluator_->Evaluate(query) : std::optional<LayoutUnit>();
+      evaluator_
+          ? evaluator_->Evaluate(query, position_anchor, inset_area_offsets)
+          : std::optional<LayoutUnit>();
   results_.Set(GetMode(), query, result);
   return result;
+}
+
+std::optional<InsetAreaOffsets>
+ResultCachingAnchorEvaluator::ComputeInsetAreaOffsetsForLayout(
+    const ScopedCSSName* position_anchor,
+    InsetArea inset_area) {
+  if (!evaluator_) {
+    return std::nullopt;
+  }
+  return evaluator_->ComputeInsetAreaOffsetsForLayout(position_anchor,
+                                                      inset_area);
+}
+
+std::optional<PhysicalOffset>
+ResultCachingAnchorEvaluator::ComputeAnchorCenterOffsets(
+    const ComputedStyleBuilder& builder) {
+  if (!evaluator_) {
+    return std::nullopt;
+  }
+  return evaluator_->ComputeAnchorCenterOffsets(builder);
 }
 
 }  // namespace blink

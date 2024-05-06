@@ -141,6 +141,10 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
     // update own enabled state.
     void ObserveConflictingFeature();
 
+    // Logs the amount of time this feature has been on, if it was turned on
+    // during the logged in state. Clears the `enabled_time_`.
+    void LogDurationMetric();
+
    protected:
     const A11yFeatureType type_;
     // Some features cannot be enabled while others are on. When a conflicting
@@ -161,6 +165,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
     // Specifies if this feature can be toggled from the accessibility options
     // available in the quicksettings menu.
     const bool toggleable_in_quicksettings_;
+
+    // The time at which this feature was last enabled. Used for metrics.
+    base::Time enabled_time_;
 
     const raw_ptr<AccessibilityController> owner_;
   };
@@ -592,6 +599,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
     return switch_access_bubble_controller_.get();
   }
 
+  // Disables the dialog shown when Auto Click is turned on.
+  // Used in tests.
+  void DisableAutoClickConfirmationDialogForTest();
   // Disables the dialog shown when Switch Access is turned off.
   // Used in tests.
   void DisableSwitchAccessDisableConfirmationDialogTesting();
@@ -660,6 +670,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void UpdateAutoclickStabilizePositionFromPref();
   void UpdateAutoclickMovementThresholdFromPref();
   void UpdateAutoclickMenuPositionFromPref();
+  void UpdateMouseKeysAccelerationFromPref();
+  void UpdateMouseKeysMaxSpeedFromPref();
+  void UpdateMouseKeysDominantHandFromPref();
   void UpdateFloatingMenuPositionFromPref();
   void UpdateLargeCursorFromPref();
   void UpdateLiveCaptionFromPref();
@@ -686,6 +699,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void ShowDictationKeyboardDialog();
   void OnDictationKeyboardDialogAccepted();
   void OnDictationKeyboardDialogDismissed();
+
+  void RecordSelectToSpeakSpeechDuration(SelectToSpeakState old_state,
+                                         SelectToSpeakState new_state);
 
   // Dictation's SODA download progress. Values are between 0 and 100. Tracked
   // for testing purposes only.
@@ -719,6 +735,8 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   std::unique_ptr<SwitchAccessMenuBubbleController>
       switch_access_bubble_controller_;
   raw_ptr<AccessibilityEventRewriter> accessibility_event_rewriter_ = nullptr;
+  // Used in tests to disable the dialog shown when Auto Click is turned on.
+  bool no_auto_click_confirmation_dialog_for_testing_ = false;
   bool no_switch_access_disable_confirmation_dialog_for_testing_ = false;
   bool switch_access_disable_dialog_showing_ = false;
   bool skip_switch_access_notification_ = false;
@@ -772,6 +790,8 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
 
   base::RepeatingCallback<void()>
       show_confirmation_dialog_callback_for_testing_;
+
+  base::Time select_to_speak_speech_start_time_;
 
   base::WeakPtrFactory<AccessibilityController> weak_ptr_factory_{this};
 };

@@ -8,6 +8,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/predictors/resource_prefetch_predictor_tables.h"
 #include "net/base/network_change_notifier.h"
+#include "net/base/url_util.h"
 #include "third_party/blink/public/common/features.h"
 
 namespace predictors {
@@ -452,6 +453,9 @@ bool RecordFetchedFontUrlsHistogram(const LoadingPredictorConfig& config,
       "Blink.LCPP.RecordedFontUrlMatchCount",
       base::checked_cast<int>(updater->num_matched()));
   if (!fetched_font_urls.empty()) {
+    base::UmaHistogramCounts10000(
+        "Blink.LCPP.RecordedFontUrlMatchCountForPagesWithFonts",
+        base::checked_cast<int>(updater->num_matched()));
     base::UmaHistogramPercentage(
         "Blink.LCPP.RecordedFontUrlPredictionMatchPercent",
         base::checked_cast<int>(100 * updater->num_matched() /
@@ -508,6 +512,25 @@ bool IsValidLcpElementLocatorHistogram(
   return true;
 }
 
+bool RecordUnusedPreloadUrlsHistogram(const LoadingPredictorConfig& config,
+                                      const std::vector<GURL>& unused_preloads,
+                                      LcppData& data) {
+  std::unique_ptr<LcppFrequencyStatDataUpdater> updater =
+      LcppFrequencyStatDataUpdater::FromLcppStringFrequencyStatData(
+          config, data.mutable_lcpp_stat()->unused_preload_stat());
+  CHECK(updater);
+  for (auto& url : unused_preloads) {
+    if (!IsValidUrlInLcppStringFrequencyStatData(url.spec())) {
+      continue;
+    }
+    updater->Update(url.spec());
+  }
+  *data.mutable_lcpp_stat()->mutable_unused_preload_stat() =
+      updater->ToLcppStringFrequencyStatData();
+
+  return updater->has_updated();
+}
+
 bool IsValidLcpUrlsHistogram(
     const LcppStringFrequencyStatData& lcpp_stat_data) {
   if (lcpp_stat_data.other_bucket_frequency() < 0.0) {
@@ -524,6 +547,12 @@ bool IsValidLcpUrlsHistogram(
   return true;
 }
 
+size_t GetLCPPMultipleKeyMaxPathLength() {
+  static const size_t max_length = base::checked_cast<size_t>(
+      blink::features::kLCPPMultipleKeyMaxPathLength.Get());
+  return max_length;
+}
+
 }  // namespace
 
 std::optional<blink::mojom::LCPCriticalPathPredictorNavigationTimeHint>
@@ -536,12 +565,15 @@ ConvertLcppDataToLCPCriticalPathPredictorNavigationTimeHint(
   std::vector<GURL> fetched_fonts = PredictFetchedFontUrls(lcpp_data);
   std::vector<GURL> preconnect_origins =
       PredictPreconnectableOrigins(lcpp_data);
+  std::vector<GURL> unused_preloads = PredictUnusedPreloads(lcpp_data);
 
   if (!lcp_element_locators.empty() || !lcp_influencer_scripts.empty() ||
-      !fetched_fonts.empty() || !preconnect_origins.empty()) {
+      !fetched_fonts.empty() || !preconnect_origins.empty() ||
+      !unused_preloads.empty()) {
     return blink::mojom::LCPCriticalPathPredictorNavigationTimeHint(
         std::move(lcp_element_locators), std::move(lcp_influencer_scripts),
-        std::move(fetched_fonts), std::move(preconnect_origins));
+        std::move(fetched_fonts), std::move(preconnect_origins),
+        std::move(unused_preloads));
   }
   return std::nullopt;
 }
@@ -654,6 +686,29 @@ std::vector<GURL> PredictFetchedSubresourceUrls(const LcppData& data) {
   return subresource_urls;
 }
 
+std::vector<GURL> PredictUnusedPreloads(const LcppData& data) {
+  const double frequency_threshold =
+      blink::features::kLCPPDeferUnusedPreloadFrequencyThreshold.Get();
+  std::vector<GURL> unused_preloads;
+  if (!base::FeatureList::IsEnabled(blink::features::kLCPPDeferUnusedPreload)) {
+    return unused_preloads;
+  }
+
+  for (const auto& [frequency, url] :
+       ConvertToFrequencyStringPair(data.lcpp_stat().unused_preload_stat())) {
+    // The frequencies are reverse sorted by `ConvertToFrequencyStringPair`.
+    if (frequency < frequency_threshold) {
+      break;
+    }
+    GURL parsed_url(url);
+    if (!parsed_url.is_valid() || !parsed_url.SchemeIsHTTPOrHTTPS()) {
+      continue;
+    }
+    unused_preloads.push_back(std::move(parsed_url));
+  }
+  return unused_preloads;
+}
+
 LcppDataInputs::LcppDataInputs() = default;
 LcppDataInputs::~LcppDataInputs() = default;
 
@@ -671,8 +726,30 @@ bool UpdateLcppDataWithLcppDataInputs(const LoadingPredictorConfig& config,
       config, inputs.subresource_urls, data);
   data_updated |=
       RecordPreconnectOriginsHistogram(config, inputs.preconnect_origins, data);
+  data_updated |= RecordUnusedPreloadUrlsHistogram(
+      config, inputs.unused_preload_resources, data);
   base::UmaHistogramCounts10000("Blink.LCPP.ReportedFontCount",
                                 base::checked_cast<int>(inputs.font_url_count));
+  if (inputs.font_url_count > 0 && inputs.font_urls.size() > 0) {
+    base::UmaHistogramCounts10000(
+        "Blink.LCPP.RecordedFontUrlHitCountForPagesWithFonts",
+        base::checked_cast<int>(inputs.font_url_hit_count));
+    base::UmaHistogramPercentage(
+        "Blink.LCPP.RecordedFontUrlPredictionHitPercent",
+        base::checked_cast<int>(100 * inputs.font_url_hit_count /
+                                inputs.font_url_count));
+    base::UmaHistogramPercentage(
+        "Blink.LCPP.RecordedFontUrlPredictionHitPercentInRecordedFonts",
+        base::checked_cast<int>(100 * inputs.font_url_hit_count /
+                                inputs.font_urls.size()));
+    base::UmaHistogramCounts10000(
+        "Blink.LCPP.RecordedFontUrlReenterCountForPagesWithFonts",
+        base::checked_cast<int>(inputs.font_url_reenter_count));
+    base::UmaHistogramPercentage(
+        "Blink.LCPP.RecordedFontUrlReenterPercentInRecordedFonts",
+        base::checked_cast<int>(100 * inputs.font_url_reenter_count /
+                                inputs.font_urls.size()));
+  }
   return data_updated;
 }
 
@@ -698,7 +775,59 @@ bool IsValidLcppStat(const LcppStat& lcpp_stat) {
       !IsValidLcpUrlsHistogram(lcpp_stat.preconnect_origin_stat())) {
     return false;
   }
+  if (lcpp_stat.has_unused_preload_stat() &&
+      !IsValidLcpUrlsHistogram(lcpp_stat.unused_preload_stat())) {
+    return false;
+  }
   return true;
+}
+
+bool IsURLValidForLcpp(const GURL& url) {
+  return url.is_valid() && !url.host().empty() && !net::IsLocalhost(url) &&
+         url.SchemeIsHTTPOrHTTPS() &&
+         url.host().size() <= ResourcePrefetchPredictorTables::kMaxStringLength;
+}
+
+std::string GetLCPPDatabaseKey(const GURL& url) {
+  CHECK(IsURLValidForLcpp(url));
+
+  if (!base::FeatureList::IsEnabled(blink::features::kLCPPMultipleKey)) {
+    return url.host();
+  }
+
+  const std::string path = url.path();
+  if (path.length() < 2) {  // path == "/"
+    return url.host();
+  }
+  // Say path is "/foo/baz", find second '/' to cut out the first level path
+  // "/foo".
+  const size_t max_path_length = GetLCPPMultipleKeyMaxPathLength();
+  // Say `max_path_length` is 6, create a string view "/abcdef". If 'f' is
+  // slash, "/abcde" is the first level path but if 'f' is not, the path is
+  // longer than `max_path_length`.
+  std::string_view path_view(path.data(),
+                             std::min(path.length(), max_path_length + 1));
+  const size_t second_slash_pos = path_view.find('/', 1);
+  size_t first_level_path_length;
+  if (second_slash_pos == std::string::npos) {
+    if (url.ExtractFileName().find('.') != std::string::npos ||
+        path_view.length() == max_path_length + 1) {
+      // Assume having a file extension is a file and
+      // path should not be a file name nor exceed the length limit
+      return url.host();
+    }
+    first_level_path_length = path_view.length();
+  } else {
+    first_level_path_length = second_slash_pos;
+  }
+  const size_t key_length = url.host().length() + first_level_path_length;
+  if (key_length > ResourcePrefetchPredictorTables::kMaxStringLength) {
+    // The key must not be longer than `kMaxStringLength`.
+    // Note that we confirmed that url.host() is less than the limit in
+    // `IsURLValidForLcpp()`.
+    return url.host();
+  }
+  return url.host() + url.path().substr(0, first_level_path_length);
 }
 
 }  // namespace predictors

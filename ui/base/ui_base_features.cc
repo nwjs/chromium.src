@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
@@ -51,6 +52,12 @@ BASE_FEATURE(kApplyNativeOcclusionToCompositor,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+// If enabled, native window occlusion tracking will always be used, even if
+// CHROME_HEADLESS is set.
+BASE_FEATURE(kAlwaysTrackNativeWindowOcclusionForTest,
+             "AlwaysTrackNativeWindowOcclusionForTest",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Field trial param name for `kApplyNativeOcclusionToCompositor`.
 const base::FeatureParam<std::string> kApplyNativeOcclusionToCompositorType{
@@ -133,6 +140,17 @@ bool AreF11AndF12ShortcutsEnabled() {
   return base::FeatureList::IsEnabled(features::kSupportF11AndF12KeyShortcuts);
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_OZONE)
+BASE_FEATURE(kOzoneBubblesUsePlatformWidgets,
+             "OzoneBubblesUsePlatformWidgets",
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+#endif  // BUILDFLAG(IS_OZONE)
 
 // Update of the virtual keyboard settings UI as described in
 // https://crbug.com/876901.
@@ -254,11 +272,6 @@ BASE_FEATURE(kFocusFollowsCursor,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
-// Enables InputPane API for controlling on screen keyboard.
-BASE_FEATURE(kInputPaneOnScreenKeyboard,
-             "InputPaneOnScreenKeyboard",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables using WM_POINTER instead of WM_TOUCH for touch events.
 BASE_FEATURE(kPointerEventsForTouch,
              "PointerEventsForTouch",
@@ -333,8 +346,12 @@ BASE_FEATURE(kEyeDropper,
 #endif
 );
 
+const char kEyeDropperNotSupported[] = "eye-dropper-not-supported";
+
 bool IsEyeDropperEnabled() {
-  return base::FeatureList::IsEnabled(features::kEyeDropper);
+  return base::FeatureList::IsEnabled(features::kEyeDropper) &&
+         !base::CommandLine::ForCurrentProcess()->HasSwitch(
+             kEyeDropperNotSupported);
 }
 
 // Used to enable keyboard accessible tooltips in in-page content
@@ -361,12 +378,6 @@ BASE_FEATURE(kNotificationGesturesUpdate,
 bool IsNotificationGesturesUpdateEnabled() {
   return base::FeatureList::IsEnabled(kNotificationGesturesUpdate);
 }
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-BASE_FEATURE(kHandwritingGesture,
-             "HandwritingGesture",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE(kSynchronousPageFlipTesting,
              "SynchronousPageFlipTesting",
@@ -550,7 +561,7 @@ ChromeRefresh2023NTBVariation GetChromeRefresh2023NTB() {
 
 BASE_FEATURE(kChromeRefresh2023TopChromeFont,
              "ChromeRefresh2023TopChromeFont",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsChromeRefresh2023() {
   if (!CustomizeChromeSupportsChromeRefresh2023()) {

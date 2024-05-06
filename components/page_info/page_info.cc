@@ -23,7 +23,6 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
-#include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/browser/ui/cookie_controls_controller.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
 #include "components/content_settings/core/browser/content_settings_uma_util.h"
@@ -136,6 +135,7 @@ ContentSettingsType kPermissionType[] = {
     ContentSettingsType::FEDERATED_IDENTITY_API,
 #if !BUILDFLAG(IS_ANDROID)
     ContentSettingsType::AUTO_PICTURE_IN_PICTURE,
+    ContentSettingsType::CAPTURED_SURFACE_CONTROL,
 #endif  // !BUILDFLAG(IS_ANDROID)
     ContentSettingsType::AUTOMATIC_FULLSCREEN,
 };
@@ -277,9 +277,14 @@ PageInfo::PageInfo(std::unique_ptr<PageInfoDelegate> delegate,
     controller_ = delegate_->CreateCookieControlsController();
     observation_.Observe(controller_.get());
 
-    // TODO(crbug.com/1430440): SetCookieInfo is called twice, once from here
+    // TODO(crbug.com/40901748): SetCookieInfo is called twice, once from here
     // and once from InitializeUiState. This should be cleaned up.
     controller_->Update(web_contents);
+
+    auto* pscs = GetPageSpecificContentSettings();
+    if (pscs) {
+      pscs->AddPermissionUsageObserver(this);
+    }
   }
 #endif
 }
@@ -323,6 +328,15 @@ PageInfo::~PageInfo() {
   }
 
   base::RecordAction(base::UserMetricsAction("PageInfo.Closed"));
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (web_contents_) {
+    auto* pscs = GetPageSpecificContentSettings();
+    if (pscs) {
+      pscs->RemovePermissionUsageObserver(this);
+    }
+  }
+#endif
 }
 
 void PageInfo::OnStatusChanged(bool controls_visible,
@@ -736,6 +750,10 @@ void PageInfo::OnRevokeSSLErrorBypassButtonPressed() {
       site_url().host());
   did_revoke_user_ssl_decisions_ = true;
   RecordPageInfoAction(page_info::PAGE_INFO_RESET_DECISIONS_CLICKED);
+}
+
+void PageInfo::OnPermissionUsageChange() {
+  UpdatePermissions();
 }
 
 void PageInfo::OpenSiteSettingsView() {
@@ -1292,7 +1310,8 @@ bool PageInfo::ShouldShowPermission(
   }
 #endif
 
-  // TODO(crbug.com/1433644): Filter out FPS related STORAGE_ACCESS permissions.
+  // TODO(crbug.com/40064079): Filter out FPS related STORAGE_ACCESS
+  // permissions.
 
   // Show the content setting if it has been changed by the user since the last
   // page load.
@@ -1607,7 +1626,7 @@ void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
     case security_state::MALICIOUS_CONTENT_STATUS_MANAGED_POLICY_BLOCK:
       *status = PageInfo::SAFE_BROWSING_STATUS_MANAGED_POLICY_BLOCK;
       *details =
-          l10n_util::GetStringUTF16(IDS_PAGE_INFO_ENTERPRISE_WARN_DETAILS);
+          l10n_util::GetStringUTF16(IDS_PAGE_INFO_ENTERPRISE_BLOCK_DETAILS);
       break;
     case security_state::MALICIOUS_CONTENT_STATUS_MANAGED_POLICY_WARN:
       *status = PageInfo::SAFE_BROWSING_STATUS_MANAGED_POLICY_WARN;
@@ -1646,22 +1665,12 @@ void PageInfo::ContentSettingChangedViaPageInfo(ContentSettingsType type) {
   return settings->ContentSettingChangedViaPageInfo(type);
 }
 
-int PageInfo::GetFirstPartyAllowedCookiesCount(const GURL& site_url) {
-  auto* settings = GetPageSpecificContentSettings();
-  if (!settings) {
-    return 0;
-  }
-  return settings->allowed_local_shared_objects().GetObjectCountForDomain(
-      site_url);
-}
-
 int PageInfo::GetSitesWithAllowedCookiesAccessCount() {
   auto* settings = GetPageSpecificContentSettings();
   if (!settings) {
     return 0;
   }
   return browsing_data::GetUniqueHostCount(
-      settings->allowed_local_shared_objects(),
       *(settings->allowed_browsing_data_model()));
 }
 
@@ -1672,18 +1681,7 @@ int PageInfo::GetThirdPartySitesWithBlockedCookiesAccessCount(
     return 0;
   }
   return browsing_data::GetUniqueThirdPartyCookiesHostCount(
-      site_url, settings->blocked_local_shared_objects(),
-      *(settings->blocked_browsing_data_model()));
-}
-
-int PageInfo::GetFirstPartyBlockedCookiesCount(const GURL& site_url) {
-  auto* settings = GetPageSpecificContentSettings();
-  if (!settings) {
-    return 0;
-  }
-
-  return settings->blocked_local_shared_objects().GetObjectCountForDomain(
-      site_url);
+      site_url, *(settings->blocked_browsing_data_model()));
 }
 
 bool PageInfo::IsIsolatedWebApp() const {

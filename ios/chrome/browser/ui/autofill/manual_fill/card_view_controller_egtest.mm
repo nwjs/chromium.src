@@ -245,14 +245,6 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
 // Tests that the cards view controller contains the "Manage Payment
 // Methods..." action.
 - (void)testCreditCardsViewControllerContainsManagePaymentMethodsAction {
-  // TODO(crbug.com/326405503): Adapt test once the "Manage Payment Methods..."
-  // action works with the Keyboard Accessory Upgrade feature.
-  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
-    EARL_GREY_TEST_SKIPPED(
-        @"The Manage Payment Methods... action does not yet work with the "
-        @"Keyboard Accessory Upgrade feature.");
-  }
-
   [AutofillAppInterface saveLocalCreditCard];
 
   // Bring up the keyboard
@@ -312,16 +304,60 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   [AutofillAppInterface clearAllServerDataForTesting];
 }
 
-// Tests that the "Manage Payment Methods..." action works.
-- (void)testManagePaymentMethodsActionOpensPaymentMethodSettings {
-  // TODO(crbug.com/326405503): Adapt test once the "Manage Payment Methods..."
-  // action works with the Keyboard Accessory Upgrade feature.
-  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
-    EARL_GREY_TEST_SKIPPED(
-        @"The Manage Payment Methods... action does not yet work with the "
-        @"Keyboard Accessory Upgrade feature.");
+// Tests that the manual fallback view for credit cards shows a label for each
+// button.
+- (void)testManualFallbackShowsCardLabeledButtons {
+  // Create & save local credit card.
+  [AutofillAppInterface saveLocalCreditCard];
+
+  // Bring up the keyboard.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+
+  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    // Scroll to the right to reach the credit card icon.
+    [[EarlGrey
+        selectElementWithMatcher:ManualFallbackFormSuggestionViewMatcher()]
+        performAction:grey_scrollToContentEdge(kGREYContentEdgeRight)];
   }
 
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  // Assert card number label.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"Card number:")]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Assert card number button.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kLocalNumberObfuscated)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Assert expiration date label.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"Expiration date:")]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Assert expiration month button.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kLocalCardExpirationMonth)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Assert expiration year button.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kLocalCardExpirationYear)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Assert card holder name label.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"Name on card:")]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Assert card holder name button.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(kLocalCardHolder)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Tests that the "Manage Payment Methods..." action works.
+- (void)testManagePaymentMethodsActionOpensPaymentMethodSettings {
   [AutofillAppInterface saveLocalCreditCard];
 
   // Bring up the keyboard
@@ -385,30 +421,28 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   [[EarlGrey selectElementWithMatcher:NavigationBarCancelButton()]
       performAction:grey_tap()];
 
-  // Verify the status of the icons.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
-      assertWithMatcher:grey_userInteractionEnabled()];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
-      assertWithMatcher:grey_not(grey_sufficientlyVisible())];
+  // TODO(crbug.com/332956674): Keyboard and keyboard accessory are not present
+  // on iOS 17.4+, remove version check once fixed.
+  if (@available(iOS 17.4, *)) {
+    // Skip verifications.
+  } else {
+    // Verify the status of the icons.
+    [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
+        assertWithMatcher:grey_sufficientlyVisible()];
+    [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
+        assertWithMatcher:grey_userInteractionEnabled()];
+    [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+        assertWithMatcher:grey_not(grey_sufficientlyVisible())];
 
-  // Verify the keyboard is not covered by the cards view.
-  [[EarlGrey
-      selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
-      assertWithMatcher:grey_notVisible()];
+    // Verify the keyboard is not cover by the cards view.
+    [[EarlGrey
+        selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
+        assertWithMatcher:grey_notVisible()];
+  }
 }
 
 // Tests that the "Add Payment Method..." action works.
 - (void)testAddPaymentMethodActionOpensAddPaymentMethodSettings {
-  // TODO(crbug.com/326405031): Adapt test once the "Add Payment Method..."
-  // action works with the Keyboard Accessory Upgrade feature.
-  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
-    EARL_GREY_TEST_SKIPPED(
-        @"The Add Payment Method... action does not yet work with the Keyboard "
-        @"Accessory Upgrade feature.");
-  }
-
   [AutofillAppInterface saveLocalCreditCard];
 
   // Bring up the keyboard
@@ -436,19 +470,12 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
 
 // Tests that the "Add Payment Method..." action works on OTR.
 - (void)testOTRAddPaymentMethodActionOpensAddPaymentMethodSettings {
-  // TODO(crbug.com/326405031): Adapt test once the "Add Payment Method..."
-  // action works with the Keyboard Accessory Upgrade feature.
-  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
-    EARL_GREY_TEST_SKIPPED(
-        @"The Add Payment Method... action does not yet work with the Keyboard "
-        @"Accessory Upgrade feature.");
-  }
-
   // Open a tab in incognito.
   [ChromeEarlGrey openNewIncognitoTab];
   const GURL URL = self.testServer->GetURL(kFormHTMLFile);
   [ChromeEarlGrey loadURL:URL];
   [ChromeEarlGrey waitForWebStateContainingText:"Autofill Test"];
+  [AutofillAppInterface considerCreditCardFormSecureForTesting];
 
   [AutofillAppInterface saveLocalCreditCard];
 
@@ -513,18 +540,24 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   [[EarlGrey selectElementWithMatcher:NavigationBarCancelButton()]
       performAction:grey_tap()];
 
-  // Verify the status of the icons.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
-      assertWithMatcher:grey_userInteractionEnabled()];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
-      assertWithMatcher:grey_not(grey_sufficientlyVisible())];
+  // TODO(crbug.com/332956674): Keyboard and keyboard accessory are not present
+  // on iOS 17.4+, remove version check once fixed.
+  if (@available(iOS 17.4, *)) {
+    // Skip verifications.
+  } else {
+    // Verify the status of the icons.
+    [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
+        assertWithMatcher:grey_sufficientlyVisible()];
+    [[EarlGrey selectElementWithMatcher:ManualFallbackCreditCardIconMatcher()]
+        assertWithMatcher:grey_userInteractionEnabled()];
+    [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+        assertWithMatcher:grey_not(grey_sufficientlyVisible())];
 
-  // Verify the keyboard is not cover by the cards view.
-  [[EarlGrey
-      selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
-      assertWithMatcher:grey_notVisible()];
+    // Verify the keyboard is not cover by the cards view.
+    [[EarlGrey
+        selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
+        assertWithMatcher:grey_notVisible()];
+  }
 }
 
 // Tests that the credit card View Controller is dismissed when tapping the

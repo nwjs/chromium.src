@@ -266,11 +266,6 @@ GpuFeatureStatus GetCanvasOopRasterizationFeatureStatus(
                           base::FeatureList::OVERRIDE_DISABLE_FEATURE))
     return kGpuFeatureStatusDisabled;
 
-  // VDA video decoder on ChromeOS uses legacy mailboxes which is not compatible
-  // with OOP-C
-  if (!gpu_preferences.enable_chromeos_direct_video_decoder)
-    return kGpuFeatureStatusDisabled;
-
   // On certain ChromeOS devices, using Vulkan without OOP-C results in video
   // encode artifacts (b/318721705).
   if (gpu_preferences.use_vulkan != VulkanImplementationName::kNone)
@@ -1068,6 +1063,15 @@ void RecordDiscreteGpuHistograms(const GPUInfo& gpu_info) {
 }
 
 #if BUILDFLAG(IS_WIN)
+std::string DirectMLFeatureLevelToString(uint32_t directml_feature_level) {
+  if (directml_feature_level == 0) {
+    return "Not supported";
+  } else {
+    return base::StringPrintf("%d.%d", (directml_feature_level >> 12) & 0xF,
+                              (directml_feature_level >> 8) & 0xF);
+  }
+}
+
 std::string D3DFeatureLevelToString(uint32_t d3d_feature_level) {
   if (d3d_feature_level == 0) {
     return "Not supported";

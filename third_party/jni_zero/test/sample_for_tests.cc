@@ -45,6 +45,16 @@ ScopedJavaLocalRef<jstring> ToJniType<std::u16string>(
     const std::u16string& input) {
   return {};
 }
+template <>
+ScopedJavaLocalRef<jstring> ToJniType<const char*>(
+    JNIEnv* env,
+    const char * const& input) {
+  return {};
+}
+template <>
+tests::CPPClass* FromJniType<tests::CPPClass*>(JNIEnv* env, const JavaRef<jobject>& j_obj) {
+  return nullptr;
+}
 
 // Specialized conversions for std::optional<std::basic_string<T>> since jstring
 // is a nullable type but std::basic_string<T> is not.
@@ -82,11 +92,15 @@ CPPClass::CPPClass() = default;
 CPPClass::~CPPClass() = default;
 
 // static
-void CPPClass::Destroy(JNIEnv* env, const JavaParamRef<jobject>& caller) {
+void CPPClass::Destroy(JNIEnv* env,
+                       const JavaParamRef<jobject>& caller,
+                       std::vector<uint8_t>& bytes) {
   delete this;
 }
 
-jint CPPClass::Method(JNIEnv* env, const JavaParamRef<jobject>& caller) {
+jint CPPClass::Method(JNIEnv* env,
+                      const JavaParamRef<jobject>& caller,
+                      std::vector<std::string>& strArray) {
   return 0;
 }
 
@@ -121,8 +135,10 @@ ScopedJavaLocalRef<jstring> CPPClass::ReturnAString(
 // Static free functions declared and called directly from java.
 static jlong JNI_SampleForTests_Init(JNIEnv* env,
                                      const JavaParamRef<jobject>& caller,
-                                     const JavaParamRef<jstring>& param) {
-  return 0;
+                                     const JavaParamRef<jstring>& param,
+                                     jni_zero::ByteArrayView& bytes,
+                                     CPPClass* converted_type) {
+  return static_cast<jlong>(bytes.size());
 }
 
 static jdouble JNI_SampleForTests_GetDoubleFunction(
@@ -168,6 +184,12 @@ static ScopedJavaLocalRef<jthrowable> JNI_SampleForTests_GetThrowable(
     JNIEnv* env,
     const JavaParamRef<jthrowable>& arg0) {
   return ScopedJavaLocalRef<jthrowable>();
+}
+
+static ScopedJavaLocalRef<jobject> JNI_SampleForTests_GetMap(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& arg0) {
+  return ScopedJavaLocalRef<jobject>();
 }
 
 }  // namespace tests
@@ -244,6 +266,9 @@ static void JNI_SampleForAnnotationProcessor_TestSpecialTypes(
     const JavaParamRef<jobject>& obj,
     jni_zero::tests::CPPClass& convertedObj,
     const JavaParamRef<jobjectArray>& objs,
+    const JavaParamRef<jobject>& nestedInterface,
+    const JavaParamRef<jobject>& view,
+    const JavaParamRef<jobject>& context,
     std::vector<jni_zero::tests::CPPClass>& convertedObjs) {}
 
 static ScopedJavaLocalRef<jthrowable>
@@ -337,10 +362,10 @@ int main() {
   ScopedJavaLocalRef<jobject> my_created_object =
       jni_zero::tests::Java_SampleForTests_Constructor(env, 1, 2);
 
-  std::vector<std::string> string_vector = {"Test"};
+  std::vector<const char*> string_vector = {"Test"};
   std::string first_string =
       jni_zero::tests::Java_SampleForTests_getFirstString(
-          env, my_created_object, string_vector);
+          env, my_created_object, string_vector, "");
 
   jni_zero::tests::Java_SampleForTests_methodWithAnnotationParamAssignment(
       env, my_created_object);
@@ -362,7 +387,7 @@ int main() {
   jni_zero::tests::Java_SampleForTests_methodThatThrowsException(
       env, my_java_object);
   jni_zero::tests::Java_SampleForTests_javaMethodWithAnnotatedParam(
-      env, my_java_object, 42, 13, -1, 99);
+      env, my_java_object, jni_zero::tests::MyEnum::kFirstOption, 13, -1, 99);
 
   jni_zero::tests::Java_SampleForTests_getInnerInterface(env);
   jni_zero::tests::Java_SampleForTests_getInnerEnum(env);

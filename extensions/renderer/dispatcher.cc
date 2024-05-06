@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/command_line.h"
 
@@ -39,6 +40,7 @@
 #include "extensions/common/api/messaging/message.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/cors_util.h"
+#include "extensions/common/crash_keys.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_features.h"
@@ -63,7 +65,6 @@
 #include "extensions/grit/extensions_renderer_resources.h"
 #include "extensions/renderer/api/messaging/native_renderer_messaging_service.h"
 #include "extensions/renderer/content_watcher.h"
-#include "extensions/renderer/dispatcher_delegate.h"
 #include "extensions/renderer/dom_activity_logger.h"
 #include "extensions/renderer/extension_frame_helper.h"
 #include "extensions/renderer/extension_interaction_provider.h"
@@ -151,8 +152,16 @@ namespace {
 static const char kOnSuspendEvent[] = "runtime.onSuspend";
 static const char kOnSuspendCanceledEvent[] = "runtime.onSuspendCanceled";
 
-void CrashOnException(const v8::TryCatch& trycatch) {
-  DUMP_WILL_BE_NOTREACHED_NORETURN();
+void LogOnException(const std::string& from, const v8::TryCatch& try_catch) {
+  // Try to grab the v8 error message. In some cases, this may be empty.
+  // This is called synchronously from a script evaluation failing, so the
+  // current isolate is correct.
+  std::string v8_error_message =
+      try_catch.Message().IsEmpty()
+          ? "<unknown error>"
+          : gin::V8ToString(v8::Isolate::GetCurrent(),
+                            try_catch.Message()->Get());
+  LOG(ERROR) << "Unexpected error in \"" << from << "\": " << v8_error_message;
 }
 
 // Calls a method |method_name| in a module |module_name| belonging to the
@@ -262,11 +271,9 @@ Dispatcher::PendingServiceWorker::~PendingServiceWorker() = default;
 // Note that we can't use Blink public APIs in the constructor because Blink
 // is not initialized at the point we create Dispatcher.
 Dispatcher::Dispatcher(
-    std::unique_ptr<DispatcherDelegate> delegate,
     std::vector<std::unique_ptr<const ExtensionsRendererAPIProvider>>
         api_providers)
-    : delegate_(std::move(delegate)),
-      api_providers_(std::move(api_providers)),
+    : api_providers_(std::move(api_providers)),
       content_watcher_(new ContentWatcher()),
       source_map_(&ui::ResourceBundle::GetSharedInstance()),
       v8_schema_registry_(new V8SchemaRegistry),
@@ -558,7 +565,8 @@ void Dispatcher::WillEvaluateServiceWorkerOnWorkerThread(
   // service workers that aren't registered by extensions.
   ScriptContext* context = new ScriptContext(
       v8_context, nullptr, GenerateHostIdFromExtensionId(extension->id()),
-      extension, mojom::ContextType::kPrivilegedExtension, extension,
+      extension, /*blink_isolated_world_id=*/std::nullopt,
+      mojom::ContextType::kPrivilegedExtension, extension,
       mojom::ContextType::kPrivilegedExtension);
   context->set_url(script_url);
   context->set_service_worker_scope(service_worker_scope);
@@ -623,17 +631,17 @@ void Dispatcher::WillEvaluateServiceWorkerOnWorkerThread(
   // Run service_worker.js to get the main function.
   v8::Local<v8::Function> main_function;
   {
+    // This *should* always succeed and always be a function (because the
+    // script is included as part of Chrome). However, it may not be in the
+    // case of e.g. binary corruption, or if certain JS hooks ran before the
+    // script (though that should be rare, since this is running right after
+    // the context is created).
+    // https://crbug.com/1260773 and https://crbug.com/41487802.
     v8::Local<v8::Value> result = context->RunScript(
         v8_helpers::ToV8StringUnsafe(isolate, "service_worker"), script,
-        base::BindOnce(&CrashOnException));
-    // This *should* always be a function (because the script is included as
-    // part of Chrome). However, it may not be in the case of e.g. binary
-    // corruption, or if certain JS hooks ran before the script (though that
-    // should be rare, since this is running right after the context is
-    // created).
-    // https://crbug.com/1260773.
+        base::BindOnce(&LogOnException, "service worker internal script"));
     if (!result->IsFunction()) {
-      DUMP_WILL_BE_NOTREACHED_NORETURN();
+      LOG(ERROR) << "Unexpected result from service worker internal script.";
       return;
     }
     main_function = result.As<v8::Function>();
@@ -1156,9 +1164,12 @@ void Dispatcher::UpdateDefaultPolicyHostRestrictions(
   UpdateAllBindings(/*api_permissions_changed=*/false);
 }
 
-void Dispatcher::UpdateUserScriptWorld(mojom::UserScriptWorldInfoPtr info) {
-  IsolatedWorldManager::GetInstance().SetUserScriptWorldProperties(
-      info->extension_id, info->csp, info->enable_messaging);
+void Dispatcher::UpdateUserScriptWorlds(
+    std::vector<mojom::UserScriptWorldInfoPtr> infos) {
+  for (const auto& info : infos) {
+    IsolatedWorldManager::GetInstance().SetUserScriptWorldProperties(
+        info->extension_id, info->world_id, info->csp, info->enable_messaging);
+  }
 }
 
 void Dispatcher::UpdateUserHostRestrictions(URLPatternSet user_blocked_hosts,
@@ -1331,7 +1342,12 @@ ScriptContextSetIterable* Dispatcher::GetScriptContextSet() {
 void Dispatcher::UpdateActiveExtensions() {
   std::set<ExtensionId> active_extensions = active_extension_ids_;
   user_script_set_manager_->GetAllActiveExtensionIds(&active_extensions);
-  delegate_->OnActiveExtensionsUpdated(active_extensions);
+
+  // In single-process mode, the browser process reports the active extensions.
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          ::switches::kSingleProcess)) {
+    crash_keys::SetActiveExtensions(active_extensions);
+  }
 }
 
 void Dispatcher::InitOriginPermissions(const Extension* extension) {

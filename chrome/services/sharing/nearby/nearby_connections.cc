@@ -13,13 +13,13 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/nearby_sharing/logging/logging.h"
-#include "chrome/services/sharing/nearby/common/nearby_features.h"
 #include "chrome/services/sharing/nearby/nearby_connections_conversions.h"
 #include "chrome/services/sharing/nearby/nearby_presence_conversions.h"
 #include "chrome/services/sharing/nearby/platform/input_file.h"
 #include "chromeos/ash/services/nearby/public/mojom/nearby_connections_types.mojom.h"
 #include "chromeos/ash/services/nearby/public/mojom/webrtc.mojom.h"
 #include "components/cross_device/logging/logging.h"
+#include "components/cross_device/nearby/nearby_features.h"
 #include "services/network/public/mojom/p2p.mojom.h"
 #include "third_party/nearby/src/connections/core.h"
 #include "third_party/nearby/src/connections/v3/bandwidth_info.h"
@@ -597,7 +597,7 @@ void NearbyConnections::RequestConnectionV3(
   const std::string& endpoint_id = remote_device->endpoint_id;
 
   if (base::Contains(endpoint_id_to_presence_device_map, endpoint_id)) {
-    CD_LOG(INFO, Feature::NP)
+    CD_LOG(INFO, Feature::NEARBY_INFRA)
         << __func__ << "PresenceDevice already exists in map.";
   } else {
     std::unique_ptr<presence::PresenceDevice> presence_device =

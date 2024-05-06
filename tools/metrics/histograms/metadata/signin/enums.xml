@@ -418,6 +418,9 @@ chromium-metrics-reviews@google.com.
   <int value="57" label="Save to Drive iOS"/>
   <int value="58" label="Tips Notification on iOS"/>
   <int value="59" label="Notifications Opt-In Screen Content Toggle"/>
+  <int value="60" label="Sign-in choice remembered"/>
+  <int value="61" label="Signout confirmation prompt in profile menu"/>
+  <int value="62" label="Signout confirmation prompt in settings"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -744,6 +747,10 @@ chromium-metrics-reviews@google.com.
     The primary account might be moved to another profile in some cases e.g.
     profile switch, enterprise related interception or sync merge data
     confirmation.
+  </int>
+  <int value="34" label="Signed out during profile deletion">
+    The primary account might be signed out when a profile is being deleted, to
+    avoid that deletion of data propagates via sync to other devices.
   </int>
 </enum>
 

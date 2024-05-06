@@ -79,9 +79,13 @@ std::unique_ptr<PasswordForm> ParseToPasswordForm(
 }
 
 // Returns whether we should attempt to cache provider responses for this form.
-// Currently, that is the case iff we diagnose it to be a login form.
+// Currently, that is the case iff we diagnose it to be a login form or a change
+// password form.
 bool ShouldCachePasswordForm(const PasswordForm& pw_form) {
-  return pw_form.IsLikelyLoginForm();
+  return pw_form.IsLikelyLoginForm() ||
+         (pw_form.IsLikelyChangePasswordForm() &&
+          base::FeatureList::IsEnabled(
+              features::kAndroidAutofillPrefillRequestsForChangePassword));
 }
 
 // Extracts the underlying value of `check_result` and eliminates all other bits
@@ -406,7 +410,7 @@ void AutofillProviderAndroid::OnTextFieldDidScroll(
 
   // TODO(crbug.com/1478934): Investigate whether the update of the value
   // is needed - why would it have changed?
-  form_->OnFormFieldDidChange(field_info.index, field.value);
+  form_->OnFormFieldDidChange(field_info.index, field.value());
 
   field_info.bounds = ToClientAreaBound(bounding_box);
   bridge_->OnTextFieldDidScroll(field_info);
@@ -448,7 +452,9 @@ void AutofillProviderAndroid::OnFormSubmitted(AndroidAutofillManager* manager,
     return;
   }
 
-  if (known_success || source == SubmissionSource::FORM_SUBMISSION) {
+  if (known_success || source == SubmissionSource::FORM_SUBMISSION ||
+      base::FeatureList::IsEnabled(
+          features::kAndroidAutofillDirectFormSubmission)) {
     FireSuccessfulSubmission(source);
     return;
   }
@@ -499,7 +505,7 @@ void AutofillProviderAndroid::MaybeFireFormFieldDidChange(
     return;
   }
   // Propagate the changed values to Java.
-  form_->OnFormFieldDidChange(field_info.index, field.value);
+  form_->OnFormFieldDidChange(field_info.index, field.value());
   field_info.bounds = ToClientAreaBound(bounding_box);
   bridge_->OnFormFieldDidChange(field_info);
 }
@@ -529,9 +535,9 @@ void AutofillProviderAndroid::OnDidFillAutofillFormData(
   if (manager != manager_.get() || !IsIdOfLinkedForm(form.global_id())) {
     return;
   }
-  // TODO(crbug.com/1198811): Investigate passing the actually filled fields, in
-  // case the passed fields to be filled are different from the fields that were
-  // actually filled.
+  // TODO(crbug.com/40760916): Investigate passing the actually filled fields,
+  // in case the passed fields to be filled are different from the fields that
+  // were actually filled.
   bridge_->OnDidFillAutofillFormData();
 }
 
@@ -761,12 +767,12 @@ AutofillProviderAndroid::PasswordParserOverrides::FromLoginForm(
     const FormStructure& form_structure) {
   PasswordParserOverrides result;
   for (const std::unique_ptr<AutofillField>& field : form_structure) {
-    if (field->renderer_id == pw_form.username_element_renderer_id) {
+    if (field->renderer_id() == pw_form.username_element_renderer_id) {
       if (result.username_field_id) {
         return std::nullopt;
       }
       result.username_field_id = field->global_id();
-    } else if (field->renderer_id == pw_form.password_element_renderer_id) {
+    } else if (field->renderer_id() == pw_form.password_element_renderer_id) {
       if (result.password_field_id) {
         return std::nullopt;
       }
@@ -775,7 +781,7 @@ AutofillProviderAndroid::PasswordParserOverrides::FromLoginForm(
   }
   // A login form must always have a username field and a password field.
   if (!result.username_field_id || !result.password_field_id) {
-    // TODO(crbug.com/1523259): This should never be reachable. Remove once it
+    // TODO(crbug.com/41496211): This should never be reachable. Remove once it
     // is clear how it can happen.
     SCOPED_CRASH_KEY_NUMBER("crbug1523259", "pw_form.username_id",
                             pw_form.username_element_renderer_id.value());
@@ -783,6 +789,8 @@ AutofillProviderAndroid::PasswordParserOverrides::FromLoginForm(
                             pw_form.password_element_renderer_id.value());
     SCOPED_CRASH_KEY_NUMBER("crbug1523259", "fs.fields.size",
                             form_structure.fields().size());
+    SCOPED_CRASH_KEY_NUMBER("crbug1523259", "fs.form_signature",
+                            form_structure.form_signature().value());
     SCOPED_CRASH_KEY_STRING1024("crbug1523259", "fs.fields.global_ids", [&] {
       std::ostringstream ss;
       for (size_t i = 0;

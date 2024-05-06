@@ -298,9 +298,18 @@ bool KeyboardSettingsAreValid(
     const mojom::Keyboard& keyboard,
     const mojom::KeyboardSettings& settings,
     const mojom::KeyboardPolicies& keyboard_policies) {
+  const bool containsFnKey =
+      base::Contains(keyboard.modifier_keys, ui::mojom::ModifierKey::kFunction);
+
   for (const auto& remapping : settings.modifier_remappings) {
     auto it = base::ranges::find(keyboard.modifier_keys, remapping.first);
     if (it == keyboard.modifier_keys.end()) {
+      return false;
+    }
+    // No modifier key can be remapped to function key if function key is not a
+    // modifier key.
+    if (!containsFnKey &&
+        remapping.second == ui::mojom::ModifierKey::kFunction) {
       return false;
     }
   }
@@ -683,6 +692,7 @@ void InputDeviceSettingsControllerImpl::RegisterProfilePrefs(
       prefs::kPointingStickUpdateSettingsMetricInfo);
 
   pref_registry->RegisterListPref(prefs::kKeyboardDeviceImpostersListPref);
+  pref_registry->RegisterListPref(prefs::kMouseDeviceImpostersListPref);
   pref_registry->RegisterDictionaryPref(prefs::kMouseButtonRemappingsDictPref);
   pref_registry->RegisterDictionaryPref(
       prefs::kGraphicsTabletTabletButtonRemappingsDictPref);
@@ -710,6 +720,10 @@ void InputDeviceSettingsControllerImpl::RegisterProfilePrefs(
 
 void InputDeviceSettingsControllerImpl::OnActiveUserPrefServiceChanged(
     PrefService* pref_service) {
+  if (!features::IsMouseImposterCheckEnabled()) {
+    pref_service->ClearPref(prefs::kMouseDeviceImpostersListPref);
+  }
+
   // If the flag is disabled, clear the button remapping dictionaries.
   if (!features::IsPeripheralCustomizationEnabled()) {
     pref_service->ClearPref(
@@ -733,6 +747,7 @@ void InputDeviceSettingsControllerImpl::OnActiveUserPrefServiceChanged(
     pref_service->SetDict(prefs::kPointingStickDeviceSettingsDictPref, {});
     pref_service->SetDict(prefs::kTouchpadDeviceSettingsDictPref, {});
     pref_service->SetList(prefs::kKeyboardDeviceImpostersListPref, {});
+    pref_service->SetList(prefs::kMouseDeviceImpostersListPref, {});
 
     pref_service->ClearPref(prefs::kKeyboardInternalSettings);
     pref_service->ClearPref(prefs::kKeyboardUpdateSettingsMetricInfo);
@@ -1635,11 +1650,11 @@ void InputDeviceSettingsControllerImpl::OnMouseListUpdated(
     auto mojom_mouse =
         BuildMojomMouse(mouse, GetMouseCustomizationRestriction(mouse),
                         GetMouseButtonConfig(mouse));
+    InitializeMouseSettings(mojom_mouse.get());
     if (features::IsPeripheralNotificationEnabled()) {
       notification_controller_->NotifyMouseFirstTimeConnected(*mojom_mouse);
     }
 
-    InitializeMouseSettings(mojom_mouse.get());
     mice_.insert_or_assign(mouse.id, std::move(mojom_mouse));
     DispatchMouseConnected(mouse.id);
   }
@@ -1680,7 +1695,7 @@ void InputDeviceSettingsControllerImpl::OnGraphicsTabletListUpdated(
     InitializeGraphicsTabletSettings(mojom_graphics_tablet.get());
     if (features::IsPeripheralNotificationEnabled()) {
       notification_controller_->NotifyGraphicsTabletFirstTimeConnected(
-          mojom_graphics_tablet.get());
+          *mojom_graphics_tablet);
     }
 
     graphics_tablets_.insert_or_assign(graphics_tablet.id,

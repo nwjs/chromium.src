@@ -421,8 +421,7 @@ static bool AllowInitialInShorthand(CSSPropertyID property_id) {
     case CSSPropertyID::kListStyle:
     case CSSPropertyID::kTextDecoration:
     case CSSPropertyID::kTextEmphasis:
-    case CSSPropertyID::kWebkitMask:
-    case CSSPropertyID::kAlternativeMask:
+    case CSSPropertyID::kMask:
     case CSSPropertyID::kWebkitTextStroke:
     case CSSPropertyID::kWhiteSpace:
       return true;
@@ -647,12 +646,8 @@ String StylePropertySerializer::SerializeShorthand(
       return GetShorthandValue(listStyleShorthand());
     case CSSPropertyID::kMaskPosition:
       return GetLayeredShorthandValue(maskPositionShorthand());
-    case CSSPropertyID::kWebkitMaskPosition:
-      return GetLayeredShorthandValue(webkitMaskPositionShorthand());
-    case CSSPropertyID::kWebkitMask:
-      return GetLayeredShorthandValue(webkitMaskShorthand());
-    case CSSPropertyID::kAlternativeMask:
-      return GetLayeredShorthandValue(alternativeMaskShorthand());
+    case CSSPropertyID::kMask:
+      return GetLayeredShorthandValue(maskShorthand());
     case CSSPropertyID::kTextEmphasis:
       return GetShorthandValue(textEmphasisShorthand());
     case CSSPropertyID::kTextSpacing:
@@ -700,9 +695,6 @@ String StylePropertySerializer::SerializeShorthand(
       return AlternativeViewTimelineWithInsetValue();
     case CSSPropertyID::kWhiteSpace:
       return WhiteSpaceValue();
-    case CSSPropertyID::kGridColumnGap:
-    case CSSPropertyID::kGridGap:
-    case CSSPropertyID::kGridRowGap:
     case CSSPropertyID::kWebkitColumnBreakAfter:
     case CSSPropertyID::kWebkitColumnBreakBefore:
     case CSSPropertyID::kWebkitColumnBreakInside:
@@ -1436,10 +1428,8 @@ String StylePropertySerializer::OffsetValue() const {
       anchor && (!is_initial_identifier_value(anchor, CSSValueID::kAuto));
 
   StringBuilder result;
-  if (RuntimeEnabledFeatures::CSSOffsetPositionAnchorEnabled()) {
-    if (use_position) {
-      result.Append(position->CssText());
-    }
+  if (use_position) {
+    result.Append(position->CssText());
   }
   if (use_path) {
     if (!result.empty()) {
@@ -1455,11 +1445,9 @@ String StylePropertySerializer::OffsetValue() const {
     result.Append(" ");
     result.Append(rotate->CssText());
   }
-  if (RuntimeEnabledFeatures::CSSOffsetPositionAnchorEnabled()) {
-    if (use_anchor) {
-      result.Append(" / ");
-      result.Append(anchor->CssText());
-    }
+  if (use_anchor) {
+    result.Append(" / ");
+    result.Append(anchor->CssText());
   }
   return result.ReleaseString();
 }
@@ -1728,7 +1716,7 @@ String StylePropertySerializer::GetLayeredShorthandValue(
         }
       }
 
-      if (shorthand.id() == CSSPropertyID::kAlternativeMask) {
+      if (shorthand.id() == CSSPropertyID::kMask) {
         if (property->IDEquals(CSSPropertyID::kMaskImage)) {
           if (auto* image_value = DynamicTo<CSSIdentifierValue>(value)) {
             if (image_value->GetValueID() == CSSValueID::kNone) {
@@ -1795,7 +1783,6 @@ String StylePropertySerializer::GetLayeredShorthandValue(
 
       if (!omit_value) {
         if (property->IDEquals(CSSPropertyID::kBackgroundSize) ||
-            property->IDEquals(CSSPropertyID::kWebkitMaskSize) ||
             property->IDEquals(CSSPropertyID::kMaskSize)) {
           if (is_position_y_serialized || is_position_x_serialized) {
             layer_result.Append(" / ");
@@ -1820,8 +1807,7 @@ String StylePropertySerializer::GetLayeredShorthandValue(
         }
       }
     }
-    if (shorthand.id() == CSSPropertyID::kAlternativeMask &&
-        layer_result.empty()) {
+    if (shorthand.id() == CSSPropertyID::kMask && layer_result.empty()) {
       layer_result.Append(getValueName(CSSValueID::kNone));
     }
     if (!layer_result.empty()) {

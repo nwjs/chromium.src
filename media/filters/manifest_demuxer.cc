@@ -82,8 +82,7 @@ ManifestDemuxer::ManifestDemuxer(
       media_task_runner_(std::move(media_task_runner)),
       impl_(std::move(impl)) {}
 
-std::vector<raw_ptr<DemuxerStream, VectorExperimental>>
-ManifestDemuxer::GetAllStreams() {
+std::vector<DemuxerStream*> ManifestDemuxer::GetAllStreams() {
   DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
 
   // For each stream that ChunkDemuxer returns, we need to wrap it so that we
@@ -92,7 +91,7 @@ ManifestDemuxer::GetAllStreams() {
   // memory.
   // TODO(crbug/1266991): Rearchitect the demuxer stream ownership model to
   // prevent long-lived streams from potentially leaking memory.
-  std::vector<raw_ptr<DemuxerStream, VectorExperimental>> streams;
+  std::vector<DemuxerStream*> streams;
   for (DemuxerStream* chunk_demuxer_stream : chunk_demuxer_->GetAllStreams()) {
     auto it = streams_.find(chunk_demuxer_stream);
     if (it != streams_.end()) {
@@ -297,7 +296,7 @@ void ManifestDemuxer::SetPlaybackRate(double rate) {
   }
 }
 
-bool ManifestDemuxer::AddRole(base::StringPiece role,
+bool ManifestDemuxer::AddRole(std::string_view role,
                               RelaxedParserSupportedType mime) {
   CHECK(chunk_demuxer_);
   if (ChunkDemuxer::kOk !=
@@ -315,11 +314,11 @@ bool ManifestDemuxer::AddRole(base::StringPiece role,
   return true;
 }
 
-void ManifestDemuxer::RemoveRole(base::StringPiece role) {
+void ManifestDemuxer::RemoveRole(std::string_view role) {
   chunk_demuxer_->RemoveId(std::string(role));
 }
 
-void ManifestDemuxer::SetSequenceMode(base::StringPiece role,
+void ManifestDemuxer::SetSequenceMode(std::string_view role,
                                       bool sequence_mode) {
   CHECK(chunk_demuxer_);
   return chunk_demuxer_->SetSequenceMode(std::string(role), sequence_mode);
@@ -331,18 +330,18 @@ void ManifestDemuxer::SetDuration(double duration) {
 }
 
 Ranges<base::TimeDelta> ManifestDemuxer::GetBufferedRanges(
-    base::StringPiece role) {
+    std::string_view role) {
   CHECK(chunk_demuxer_);
   return chunk_demuxer_->GetBufferedRanges(std::string(role));
 }
 
-void ManifestDemuxer::Remove(base::StringPiece role,
+void ManifestDemuxer::Remove(std::string_view role,
                              base::TimeDelta start,
                              base::TimeDelta end) {
   chunk_demuxer_->Remove(std::string(role), start, end);
 }
 
-void ManifestDemuxer::RemoveAndReset(base::StringPiece role,
+void ManifestDemuxer::RemoveAndReset(std::string_view role,
                                      base::TimeDelta start,
                                      base::TimeDelta end,
                                      base::TimeDelta* offset) {
@@ -353,7 +352,7 @@ void ManifestDemuxer::RemoveAndReset(base::StringPiece role,
 }
 
 void ManifestDemuxer::SetGroupStartIfParsingAndSequenceMode(
-    base::StringPiece role,
+    std::string_view role,
     base::TimeDelta start) {
   CHECK(chunk_demuxer_);
   if (!chunk_demuxer_->IsParsingMediaSegment(std::string(role))) {
@@ -362,7 +361,7 @@ void ManifestDemuxer::SetGroupStartIfParsingAndSequenceMode(
   }
 }
 
-void ManifestDemuxer::EvictCodedFrames(base::StringPiece role,
+void ManifestDemuxer::EvictCodedFrames(std::string_view role,
                                        base::TimeDelta time,
                                        size_t data_size) {
   CHECK(chunk_demuxer_);
@@ -371,7 +370,7 @@ void ManifestDemuxer::EvictCodedFrames(base::StringPiece role,
   }
 }
 
-bool ManifestDemuxer::AppendAndParseData(base::StringPiece role,
+bool ManifestDemuxer::AppendAndParseData(std::string_view role,
                                          base::TimeDelta start,
                                          base::TimeDelta end,
                                          base::TimeDelta* offset,
@@ -419,7 +418,7 @@ void ManifestDemuxer::RequestSeek(base::TimeDelta time) {
   request_seek_.Run(time);
 }
 
-void ManifestDemuxer::SetGroupStartTimestamp(base::StringPiece role,
+void ManifestDemuxer::SetGroupStartTimestamp(std::string_view role,
                                              base::TimeDelta time) {
   chunk_demuxer_->SetGroupStartTimestampIfInSequenceMode(std::string(role),
                                                          time);

@@ -111,8 +111,6 @@ enum ModelType {
   USER_EVENTS,
   // Commit only user consents.
   USER_CONSENTS,
-  // Segmentation data.
-  SEGMENTATION,
   // Tabs sent between devices.
   SEND_TAB_TO_SELF,
   // Commit only security events.
@@ -138,7 +136,7 @@ enum ModelType {
   // Contact information from the Google Address Storage.
   CONTACT_INFO,
   // A tab group saved by a user. Currently only supported on desktop platforms
-  // (Linux, Mac, Windows, ChromeOS).
+  // (Linux, Mac, Windows, ChromeOS) and Android.
   SAVED_TAB_GROUP,
 
   // Power bookmarks are features associated with bookmarks(i.e. notes, price
@@ -250,7 +248,7 @@ enum class ModelTypeForHistograms {
   kPrintersAuthorizationServers = 52,
   kContactInfo = 53,
   kAutofillWalletUsage = 54,
-  kSegmentation = 55,
+  // kDeprecatedSegmentation = 55,
   kSavedTabGroups = 56,
   kPowerBookmark = 57,
   kWebAuthnCredentials = 58,
@@ -384,6 +382,14 @@ constexpr ModelTypeSet ApplyUpdatesImmediatelyTypes() {
 // collaboratons.
 constexpr ModelTypeSet SharedTypes() {
   return {SHARED_TAB_GROUP_DATA};
+}
+
+// Types triggering a warning when the user signs out and the types have
+// unsynced data. The warning offers the user to either save the data locally or
+// abort sign-out, depending on the platform.
+constexpr ModelTypeSet TypesRequiringUnsyncedDataCheckOnSignout() {
+  return {syncer::BOOKMARKS, syncer::READING_LIST, syncer::PASSWORDS,
+          syncer::CONTACT_INFO};
 }
 
 // User types that can be encrypted, which is a subset of UserTypes() and a

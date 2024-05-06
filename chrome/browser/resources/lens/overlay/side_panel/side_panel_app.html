@@ -1,12 +1,23 @@
 <style>
+  :host {
+    --cr-realbox-min-width: 340px
+  }
   #results {
     height: 100%;
     left: 0;
     top: 0;
     width: 100%;
   }
+  #realboxContainer {
+    margin: 12px 8px;
+    display: flex;
+  }
 </style>
-<iframe name="results" id="results" src="[[resultsUrl_]]"
+<div id="realboxContainer">
+  <cr-realbox id="realbox"></cr-realbox>
+</div>
+
+<iframe name="results" id="results"
     allow="cross-origin-isolated; display-capture; geolocation; microphone;"
     frameBorder="0">
 </iframe>

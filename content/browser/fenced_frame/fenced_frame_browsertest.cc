@@ -2245,7 +2245,10 @@ class FencedFrameParameterizedBrowserTest : public FencedFrameBrowserTestBase {
          {blink::features::kFencedFramesAutomaticBeaconCredentials, {}},
          {blink::features::kFencedFramesM120FeaturesPart2, {}},
          {blink::features::kFencedFramesReportingAttestationsChanges, {}},
-         {blink::features::kFencedFramesLocalUnpartitionedDataAccess, {}}},
+         {blink::features::kFencedFramesLocalUnpartitionedDataAccess, {}},
+         {blink::features::
+              kFencedFramesCrossOriginEventReportingUnlabeledTraffic,
+          {}}},
         {/* disabled_features */});
   }
 
@@ -3009,7 +3012,8 @@ IN_PROC_BROWSER_TEST_F(FencedFrameParameterizedBrowserTest,
   EXPECT_TRUE(isolation_info.nonce());
   std::optional<net::CookiePartitionKey> partition_key =
       net::CookiePartitionKey::FromNetworkIsolationKey(
-          isolation_info.network_isolation_key());
+          isolation_info.network_isolation_key(),
+          isolation_info.site_for_cookies(), net::SchemefulSite(https_url));
   EXPECT_TRUE(partition_key && partition_key->nonce());
   net::CookiePartitionKeyCollection cookie_partition_key_collection =
       net::CookiePartitionKeyCollection::FromOptional(partition_key);
@@ -3022,6 +3026,8 @@ IN_PROC_BROWSER_TEST_F(FencedFrameParameterizedBrowserTest,
     EXPECT_TRUE(cookie.IsPartitioned());
     EXPECT_TRUE(cookie.PartitionKey() && cookie.PartitionKey()->nonce());
     EXPECT_EQ(cookie.PartitionKey()->nonce(), partition_key->nonce());
+    EXPECT_EQ(cookie.PartitionKey()->IsThirdParty(),
+              partition_key->IsThirdParty());
     EXPECT_EQ("3", cookie.Value());
   }
 
@@ -3115,7 +3121,8 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(isolation_info.nonce());
   std::optional<net::CookiePartitionKey> partition_key =
       net::CookiePartitionKey::FromNetworkIsolationKey(
-          isolation_info.network_isolation_key());
+          isolation_info.network_isolation_key(),
+          isolation_info.site_for_cookies(), net::SchemefulSite(https_url));
   EXPECT_TRUE(partition_key && partition_key->nonce());
   net::CookiePartitionKeyCollection cookie_partition_key_collection =
       net::CookiePartitionKeyCollection::FromOptional(partition_key);
@@ -3128,6 +3135,8 @@ IN_PROC_BROWSER_TEST_F(
     EXPECT_TRUE(cookie.IsPartitioned());
     EXPECT_TRUE(cookie.PartitionKey() && cookie.PartitionKey()->nonce());
     EXPECT_EQ(cookie.PartitionKey()->nonce(), partition_key->nonce());
+    EXPECT_EQ(cookie.PartitionKey()->IsThirdParty(),
+              partition_key->IsThirdParty());
     EXPECT_EQ("3", cookie.Value());
   }
 
@@ -5029,16 +5038,65 @@ IN_PROC_BROWSER_TEST_F(FencedFrameParameterizedBrowserTest,
   EXPECT_EQ(new_page_url, root->current_frame_host()->GetLastCommittedURL());
 }
 
+IN_PROC_BROWSER_TEST_F(FencedFrameParameterizedBrowserTest,
+                       EmbedderInitiatedNavigationForceNewBrowsingInstance) {
+  base::HistogramTester histogram_tester;
+  const GURL main_url = https_server()->GetURL("a.test", "/title1.html");
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+
+  // Create parent fenced frame.
+  const GURL fenced_frame_url =
+      https_server()->GetURL("a.test", "/fenced_frames/title0.html");
+  RenderFrameHost* ff_rfh = fenced_frame_test_helper().CreateFencedFrame(
+      primary_main_frame_host(), fenced_frame_url);
+
+  // Create nested fenced frame.
+  const GURL nested_fenced_frame_url =
+      https_server()->GetURL("b.test", "/fenced_frames/title1.html");
+  RenderFrameHost* nested_ff_rfh = fenced_frame_test_helper().CreateFencedFrame(
+      ff_rfh, nested_fenced_frame_url);
+  FrameTreeNode* nested_ff_node =
+      static_cast<RenderFrameHostImpl*>(nested_ff_rfh)->frame_tree_node();
+  scoped_refptr<SiteInstance> nested_ff_site_instance =
+      nested_ff_rfh->GetSiteInstance();
+
+  TestFrameNavigationObserver load_observer(nested_ff_rfh);
+
+  // Embedder initiates nested fenced frame navigation.
+  const GURL navigate_url =
+      https_server()->GetURL("b.test", "/fenced_frames/basic.html");
+  EXPECT_TRUE(ExecJs(
+      ff_rfh, JsReplace(
+                  R"(document.getElementsByTagName('fencedframe')[0].config =
+                         new FencedFrameConfig($1);)",
+                  navigate_url)));
+
+  // Wait for load stops.
+  EXPECT_TRUE(WaitForLoadStop(web_contents()));
+  load_observer.Wait();
+  EXPECT_EQ(nested_ff_node->current_frame_host()->GetLastCommittedURL(),
+            navigate_url);
+
+  // An embedder-initiated fenced frame navigation through a fenced frame config
+  // will use a new SiteInstance in a different BrowsingInstance.
+  SiteInstance* post_navigation_site_instance =
+      nested_ff_node->current_frame_host()->GetSiteInstance();
+  EXPECT_NE(nested_ff_site_instance, post_navigation_site_instance);
+  EXPECT_FALSE(nested_ff_site_instance->IsRelatedSiteInstance(
+      post_navigation_site_instance));
+}
+
 class FencedFrameReportEventBrowserTest
     : public FencedFrameParameterizedBrowserTest {
  public:
   // TODO(crbug.com/1123606): Disable window.fence.reportEvent in iframes.
   // Remove this constructor and `scoped_feature_list_` once FLEDGE stops
   // supporting iframes.
+  // Mode A/B is disabled to be able to test cross-origin reporting beacons.
   FencedFrameReportEventBrowserTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kAllowURNsInIframes, {}}},
-        {/* disabled_features */});
+        /*enabled_features=*/{{blink::features::kAllowURNsInIframes, {}}},
+        /*disabled_features=*/{features::kCookieDeprecationFacilitatedTesting});
   }
 
   // An object representing a single step of a reportEvent test.
@@ -5070,6 +5128,7 @@ class FencedFrameReportEventBrowserTest
       // 2. Otherwise, the event data is the given string appended with the
       // `navigation_index` of each step.
       std::optional<std::string> data;
+      bool cross_origin_exposed = false;
     };
     struct Destination {
       // The origin for the navigation.
@@ -5097,7 +5156,10 @@ class FencedFrameReportEventBrowserTest
       kNoDestination,
       kNoReportingURL,
       kInvalidReportingURL,
-      kExceedMaxEventDataLength
+      kExceedMaxEventDataLength,
+      kUntrustedNetworkDisabled,
+      kCrossOriginNoHeader,
+      kCrossOriginModeAB
     };
 
     // Outcome of reportEvent.
@@ -5126,6 +5188,16 @@ class FencedFrameReportEventBrowserTest
       case Step::Result::kExceedMaxEventDataLength:
         return "The data provided to reportEvent() exceeds the maximum length, "
                "which is 64KB.";
+      case Step::Result::kUntrustedNetworkDisabled:
+        return "Cannot send fenced frame event-level reports after "
+               "calling window.fence.disableUntrustedNetwork().";
+      case Step::Result::kCrossOriginNoHeader:
+        return "This document is cross-origin to the document that contains "
+               "reporting metadata, but the fenced frame's document was not "
+               "served with the 'Allow-Cross-Origin-Event-Reporting' header.";
+      case Step::Result::kCrossOriginModeAB:
+        return "Cross-origin reporting beacons are not supported with Mode A/B "
+               "Chrome-facilitated testing traffic.";
       default:
         return "";
     }
@@ -5366,6 +5438,12 @@ class FencedFrameReportEventBrowserTest
         console_observer.SetPattern(GetErrorPattern(step.report_event_result));
       }
 
+      if (step.report_event_result == Step::Result::kUntrustedNetworkDisabled) {
+        EXPECT_TRUE(ExecJs(navigation_target_node, R"(
+            window.fence.disableUntrustedNetwork();
+          )"));
+      }
+
       // Perform the reportEvent call, with a unique body.
       if (step.use_custom_destination_url) {
         // Call reportEvent to a custom `destinationURL`.
@@ -5373,22 +5451,26 @@ class FencedFrameReportEventBrowserTest
             navigation_target_node,
             JsReplace(R"(
               window.fence.reportEvent({
-                destinationURL: $1
+                destinationURL: $1,
+                crossOriginExposed: $2
               });
             )",
-                      https_server()->GetURL("c.test", kReportingURL).spec())));
+                      https_server()->GetURL("c.test", kReportingURL).spec(),
+                      step.event.cross_origin_exposed)));
 
       } else if (!step.event.data) {
         // Call reportEvent without `eventData` field.
-        EXPECT_TRUE(ExecJs(
-            navigation_target_node,
-            JsReplace(R"(
+        EXPECT_TRUE(
+            ExecJs(navigation_target_node,
+                   JsReplace(R"(
               window.fence.reportEvent({
                 eventType: $1,
-                destination: [$2]
+                destination: [$2],
+                crossOriginExposed: $3
               });
             )",
-                      step.event.type, step.event.reporting_destination)));
+                             step.event.type, step.event.reporting_destination,
+                             step.event.cross_origin_exposed)));
       } else {
         // Call reportEvent with `eventData`.
         EvalJsResult result =
@@ -5397,11 +5479,13 @@ class FencedFrameReportEventBrowserTest
               window.fence.reportEvent({
                 eventType: $1,
                 eventData: $3 + ' $4',
-                destination: [$2]
+                destination: [$2],
+                crossOriginExposed: $5
               });
             )",
                              step.event.type, step.event.reporting_destination,
-                             step.event.data.value(), navigation_index));
+                             step.event.data.value(), navigation_index,
+                             step.event.cross_origin_exposed));
 
         if (step.report_event_result ==
             Step::Result::kExceedMaxEventDataLength) {
@@ -5448,12 +5532,18 @@ class FencedFrameReportEventBrowserTest
           ExpectValidAttributionReportingEligibleHeaderForEventBeacon(
               response.http_request()->headers.at(
                   "Attribution-Reporting-Eligible"));
+          ExpectValidAttributionReportingSupportHeader(
+              response.http_request()->headers.at(
+                  "Attribution-Reporting-Support"),
+              /*web_expected=*/true,
+              /*os_expected=*/false);
         } else {
           EXPECT_FALSE(base::Contains(response.http_request()->headers,
                                       "Attribution-Reporting-Eligible"));
+          EXPECT_FALSE(base::Contains(response.http_request()->headers,
+                                      "Attribution-Reporting-Support"));
         }
-        EXPECT_FALSE(base::Contains(response.http_request()->headers,
-                                    "Attribution-Reporting-Support"));
+
         // TODO(crbug.com/1496395): Remove this check after 3PCD.
         EXPECT_EQ(0U, response.http_request()->headers.count("Cookie"));
         response.Done();
@@ -5473,6 +5563,10 @@ class FencedFrameReportEventBrowserTest
     response.WaitForRequest();
     EXPECT_EQ(response.http_request()->content, "");
     response.Done();
+    // Ensures that the config's FencedFrameReporter is deleted on subsequent
+    // navigation. Used to test histograms that are logged in the
+    // FencedFrameReporter's destructor.
+    url_mapping.ClearMapForTesting();
   }
 
  private:
@@ -5548,6 +5642,21 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
           .is_opaque = true,
           .destination = {"a.test", "/fenced_frames/title1.html"},
           .report_event_result = Step::Result::kSuccess,
+      },
+  };
+  RunTest(config);
+}
+
+// reportEvent shouldn't work if `window.fence.disableUntrustedNetwork` has been
+// called in a fenced frame.
+IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
+                       FencedFrameReportEventDisableUntrustedNetwork) {
+  std::vector<Step> config = {
+      {
+          .is_embedder_initiated = true,
+          .is_opaque = true,
+          .destination = {"a.test", "/fenced_frames/title1.html"},
+          .report_event_result = Step::Result::kUntrustedNetworkDisabled,
       },
   };
   RunTest(config);
@@ -5643,6 +5752,7 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
 // fenced frame root's current url.
 IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
                        FencedFrameReportEventNestedIframeSameOriginNavigation) {
+  base::HistogramTester histogram_tester;
   std::vector<Step> config = {
       {
           .is_embedder_initiated = true,
@@ -5657,7 +5767,7 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
       },
       {
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .is_target_nested_iframe = true,
@@ -5666,6 +5776,15 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
       },
   };
   RunTest(config);
+
+  // Navigate the page away so that the FencedFrameReporter destructor runs and
+  // logs the relevant histograms.
+  GURL new_url = https_server()->GetURL("c.test", "/hello.html");
+  EXPECT_TRUE(NavigateToURL(shell(), new_url));
+  histogram_tester.ExpectUniqueSample(
+      blink::kFencedFrameBeaconReportingCountUMA, 3, 1);
+  histogram_tester.ExpectUniqueSample(
+      blink::kFencedFrameBeaconReportingCountCrossOriginUMA, 0, 1);
 }
 
 // reportEvent shouldn't work in subframes that are cross-origin to the most
@@ -5684,16 +5803,16 @@ IN_PROC_BROWSER_TEST_F(
       {
           .is_target_nested_iframe = true,
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .is_target_nested_iframe = true,
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
   };
   RunTest(config);
@@ -5731,7 +5850,7 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
       },
       {
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .is_embedder_initiated = true,
@@ -5802,11 +5921,11 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
       },
       {
           .destination = {"a.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .destination = {"c.test", "/fenced_frames/title1.html"},
@@ -5946,7 +6065,7 @@ IN_PROC_BROWSER_TEST_F(
       {
           .use_custom_destination_url = true,
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .is_target_nested_iframe = true,
@@ -5976,18 +6095,18 @@ IN_PROC_BROWSER_TEST_F(
           .is_target_nested_iframe = true,
           .use_custom_destination_url = true,
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .use_custom_destination_url = true,
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
       {
           .is_target_nested_iframe = true,
           .use_custom_destination_url = true,
           .destination = {"b.test", "/fenced_frames/title1.html"},
-          .report_event_result = Step::Result::kNoMeta,
+          .report_event_result = Step::Result::kCrossOriginNoHeader,
       },
   };
   RunTest(config);
@@ -6092,8 +6211,11 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
   ExpectValidAttributionReportingEligibleHeaderForEventBeacon(
       reporting_response.http_request()->headers.at(
           "Attribution-Reporting-Eligible"));
-  EXPECT_FALSE(base::Contains(reporting_response.http_request()->headers,
-                              "Attribution-Reporting-Support"));
+  ExpectValidAttributionReportingSupportHeader(
+      reporting_response.http_request()->headers.at(
+          "Attribution-Reporting-Support"),
+      /*web_expected=*/true,
+      /*os_expected=*/false);
 }
 
 // The reportEvent beacon is a POST request. Upon receiving a 302 redirect
@@ -6179,13 +6301,15 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
               net::test_server::HttpMethod::METHOD_POST);
     ExpectValidAttributionReportingEligibleHeaderForEventBeacon(
         response.http_request()->headers.at("Attribution-Reporting-Eligible"));
+    ExpectValidAttributionReportingSupportHeader(
+        response.http_request()->headers.at("Attribution-Reporting-Support"),
+        /*web_expected=*/true,
+        /*os_expected=*/false);
     EXPECT_TRUE(
         base::Contains(response.http_request()->headers, "Content-Length"));
     EXPECT_TRUE(
         base::Contains(response.http_request()->headers, "Content-Type"));
     EXPECT_TRUE(base::Contains(response.http_request()->headers, "Origin"));
-    EXPECT_FALSE(base::Contains(response.http_request()->headers,
-                                "Attribution-Reporting-Support"));
 
     // Send 302 redirect response.
     GURL redirect_url = https_server()->GetURL("a.test", "/redirect.html");
@@ -6216,8 +6340,10 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
     ExpectValidAttributionReportingEligibleHeaderForEventBeacon(
         redirect_response.http_request()->headers.at(
             "Attribution-Reporting-Eligible"));
-    EXPECT_FALSE(base::Contains(response.http_request()->headers,
-                                "Attribution-Reporting-Support"));
+    ExpectValidAttributionReportingSupportHeader(
+        response.http_request()->headers.at("Attribution-Reporting-Support"),
+        /*web_expected=*/true,
+        /*os_expected=*/false);
   }
 }
 
@@ -6310,8 +6436,11 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
     ExpectValidAttributionReportingEligibleHeaderForEventBeacon(
         reporting_response.http_request()->headers.at(
             "Attribution-Reporting-Eligible"));
-    EXPECT_FALSE(base::Contains(reporting_response.http_request()->headers,
-                                "Attribution-Reporting-Support"));
+    ExpectValidAttributionReportingSupportHeader(
+        reporting_response.http_request()->headers.at(
+            "Attribution-Reporting-Support"),
+        /*web_expected=*/true,
+        /*os_expected=*/false);
 
     // Send 302 redirect response, with "Access-Control-Allow-Origin" header.
     // This header is needed to get the redirect through.
@@ -6341,8 +6470,11 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
     ExpectValidAttributionReportingEligibleHeaderForEventBeacon(
         redirect_response.http_request()->headers.at(
             "Attribution-Reporting-Eligible"));
-    EXPECT_FALSE(base::Contains(reporting_response.http_request()->headers,
-                                "Attribution-Reporting-Support"));
+    ExpectValidAttributionReportingSupportHeader(
+        redirect_response.http_request()->headers.at(
+            "Attribution-Reporting-Support"),
+        /*web_expected=*/true,
+        /*os_expected=*/false);
   }
 }
 
@@ -6601,7 +6733,8 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
         return message.log_level == blink::mojom::ConsoleMessageLevel::kError;
       };
   console_observer.SetFilter(base::BindRepeating(filter));
-  console_observer.SetPattern(GetErrorPattern(Step::Result::kNoMeta));
+  console_observer.SetPattern(
+      GetErrorPattern(Step::Result::kCrossOriginNoHeader));
 
   // Expect reportEvent to fail because this frame is cross-origin with
   // the middle urn iframe.
@@ -6630,6 +6763,74 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
   // Now `reportEvent()` should succeed.
   reporting_response.WaitForRequest();
   EXPECT_EQ(reporting_response.http_request()->content, event_data);
+}
+
+IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
+                       NestedIframeCrossOriginNavigationWithOptIn) {
+  base::HistogramTester histogram_tester;
+  std::vector<Step> config = {
+      {
+          .is_embedder_initiated = true,
+          .is_opaque = true,
+          .destination = {"a.test",
+                          "/set-header"
+                          "?Supports-Loading-Mode: fenced-frame"
+                          "&Allow-Cross-Origin-Event-Reporting: true"},
+          .report_event_result = Step::Result::kSuccess,
+      },
+      {
+          .is_target_nested_iframe = true,
+          .event = {/*type=*/"click", /*reporting_destination=*/"buyer",
+                    /*data=*/"data", /*cross_origin_exposed=*/true},
+          .destination = {"b.test", "/fenced_frames/title1.html"},
+          .report_event_result = Step::Result::kSuccess,
+      },
+  };
+  RunTest(config);
+
+  // Navigate the page away so that the FencedFrameReporter destructor runs and
+  // logs the relevant histograms.
+  GURL new_url = https_server()->GetURL("c.test", "/hello.html");
+  EXPECT_TRUE(NavigateToURL(shell(), new_url));
+  histogram_tester.ExpectUniqueSample(
+      blink::kFencedFrameBeaconReportingCountUMA, 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      blink::kFencedFrameBeaconReportingCountCrossOriginUMA, 1, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
+                       CustomURLNestedIframeCrossOriginNavigationWithOptIn) {
+  base::HistogramTester histogram_tester;
+  std::vector<Step> config = {
+      {
+          .is_embedder_initiated = true,
+          .is_opaque = true,
+          .use_custom_destination_url = true,
+          .destination = {"a.test",
+                          "/set-header"
+                          "?Supports-Loading-Mode: fenced-frame"
+                          "&Allow-Cross-Origin-Event-Reporting: true"},
+          .report_event_result = Step::Result::kSuccess,
+      },
+      {
+          .is_target_nested_iframe = true,
+          .use_custom_destination_url = true,
+          .event = {/*type=*/"N/a", /*reporting_destination=*/"N/a",
+                    /*data=*/"data", /*cross_origin_exposed=*/true},
+          .destination = {"b.test", "/fenced_frames/title1.html"},
+          .report_event_result = Step::Result::kSuccess,
+      },
+  };
+  RunTest(config);
+
+  // Navigate the page away so that the FencedFrameReporter destructor runs and
+  // logs the relevant histograms.
+  GURL new_url = https_server()->GetURL("c.test", "/hello.html");
+  EXPECT_TRUE(NavigateToURL(shell(), new_url));
+  histogram_tester.ExpectUniqueSample(
+      blink::kFencedFrameBeaconReportingCountUMA, 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      blink::kFencedFrameBeaconReportingCountCrossOriginUMA, 1, 1);
 }
 
 class FencedFrameReportEventAttributionCrossAppWebEnabledBrowserTest
@@ -6807,6 +7008,70 @@ IN_PROC_BROWSER_TEST_F(
         /*web_expected=*/true,
         /*os_expected=*/false);
   }
+}
+
+class FencedFrameReportEventFacilitatedTestingEnabledBrowserTest
+    : public FencedFrameReportEventBrowserTest {
+ public:
+  FencedFrameReportEventFacilitatedTestingEnabledBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kCookieDeprecationFacilitatedTesting);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    FencedFrameReportEventFacilitatedTestingEnabledBrowserTest,
+    NestedIframeCrossOriginNavigationWithOptIn) {
+  base::HistogramTester histogram_tester;
+  std::vector<Step> config = {
+      {
+          .is_embedder_initiated = true,
+          .is_opaque = true,
+          .destination = {"a.test",
+                          "/set-header"
+                          "?Supports-Loading-Mode: fenced-frame"
+                          "&Allow-Cross-Origin-Event-Reporting: true"},
+          .report_event_result = Step::Result::kSuccess,
+      },
+      {
+          .is_target_nested_iframe = true,
+          .event = {/*type=*/"click", /*reporting_destination=*/"buyer",
+                    /*data=*/"data", /*cross_origin_exposed=*/true},
+          .destination = {"b.test", "/fenced_frames/title1.html"},
+          .report_event_result = Step::Result::kCrossOriginModeAB,
+      },
+  };
+  RunTest(config);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    FencedFrameReportEventFacilitatedTestingEnabledBrowserTest,
+    CustomURLNestedIframeCrossOriginNavigationWithOptIn) {
+  base::HistogramTester histogram_tester;
+  std::vector<Step> config = {
+      {
+          .is_embedder_initiated = true,
+          .is_opaque = true,
+          .use_custom_destination_url = true,
+          .destination = {"a.test",
+                          "/set-header"
+                          "?Supports-Loading-Mode: fenced-frame"
+                          "&Allow-Cross-Origin-Event-Reporting: true"},
+          .report_event_result = Step::Result::kSuccess,
+      },
+      {
+          .is_target_nested_iframe = true,
+          .use_custom_destination_url = true,
+          .event = {/*type=*/"N/a", /*reporting_destination=*/"N/a",
+                    /*data=*/"data", /*cross_origin_exposed=*/true},
+          .destination = {"b.test", "/fenced_frames/title1.html"},
+          .report_event_result = Step::Result::kCrossOriginModeAB,
+      },
+  };
+  RunTest(config);
 }
 
 // Parameterized on whether the feature is enabled or not.
@@ -7043,6 +7308,12 @@ class FencedFrameAutomaticBeaconBrowserTest
     // TODO(crbug.com/1496395): Remove this after 3PCD.
     bool expected_cookie = true;
 
+    // Whether a fenced frame should call window.fence.disableUntrustedNetwork()
+    // before doing an "_unfencedTop" navigation. Should only be true if
+    // `expected_success` is false, since disabling untrusted network will
+    // prevent beacons from sending.
+    bool disable_untrusted_network = false;
+
     BeaconType beacon_type = {
         blink::kFencedFrameTopNavigationCommitBeaconType,
         blink::mojom::AutomaticBeaconType::kTopNavigationCommit};
@@ -7092,6 +7363,15 @@ class FencedFrameAutomaticBeaconBrowserTest
 
   // A helper function for specifying automatic beacon tests.
   void RunTest(Config& config) {
+    // Disabling untrusted network only applies to fenced frames, so skip these
+    // tests for iframes. This is sort of against the spirit of parameterized
+    // tests, but it's the most practical way to deal with the clash in behavior
+    // between the two frame types.
+    if (GetParam() != std::string("fencedframe") &&
+        config.disable_untrusted_network) {
+      GTEST_SKIP();
+    }
+
     // In order to check events reported over the network, we register an HTTP
     // response interceptor for each successful reportEvent request we expect.
     net::test_server::ControllableHttpResponse response(https_server(),
@@ -7298,6 +7578,13 @@ class FencedFrameAutomaticBeaconBrowserTest
                  "document.cookie = 'name=foobarbaz; SameSite=None; Secure';"));
     }
 
+    if (GetParam() == std::string("fencedframe") &&
+        config.disable_untrusted_network) {
+      EXPECT_TRUE(ExecJs(ad_frame_root_node, R"(
+          window.fence.disableUntrustedNetwork();
+        )"));
+    }
+
     EXPECT_TRUE(
         ExecJs(ad_frame_root_node,
                JsReplace("window.open($1, $2);", navigation_url, target),
@@ -7345,8 +7632,10 @@ class FencedFrameAutomaticBeaconBrowserTest
     // Verify the request contains the eligibility header.
     ExpectValidAttributionReportingEligibleHeaderForNavigation(
         response.http_request()->headers.at("Attribution-Reporting-Eligible"));
-    EXPECT_FALSE(base::Contains(response.http_request()->headers,
-                                "Attribution-Reporting-Support"));
+    ExpectValidAttributionReportingSupportHeader(
+        response.http_request()->headers.at("Attribution-Reporting-Support"),
+        /*web_expected=*/true,
+        /*os_expected=*/false);
 
     // Verify the request has credentials attached.
     // TODO(crbug.com/1496395): Remove this block after 3PCD.
@@ -7436,6 +7725,15 @@ IN_PROC_BROWSER_TEST_P(FencedFrameAutomaticBeaconBrowserTest,
       .message = std::string(blink::kFencedFrameMaxBeaconLength + 1, '*'),
       .expected_success = false,
   };
+  RunTest(config);
+}
+
+IN_PROC_BROWSER_TEST_P(FencedFrameAutomaticBeaconBrowserTest,
+                       UntrustedNetworkDisabled) {
+  Config config = {.starting_url = {"a.test", "/fenced_frames/title1.html"},
+                   .navigation_url = {"a.test", "/fenced_frames/title1.html"},
+                   .expected_success = false,
+                   .disable_untrusted_network = true};
   RunTest(config);
 }
 

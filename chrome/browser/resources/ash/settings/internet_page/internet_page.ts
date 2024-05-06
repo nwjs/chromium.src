@@ -17,7 +17,7 @@ import 'chrome://resources/ash/common/cr_elements/icons.html.js';
 import 'chrome://resources/ash/common/cr_elements/policy/cr_policy_indicator.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import 'chrome://resources/polymer/v3_0/paper-tooltip/paper-tooltip.js';
-import 'chrome://resources/cr_components/settings_prefs/prefs.js';
+import '/shared/settings/prefs/prefs.js';
 import '../settings_shared.css.js';
 import '../os_settings_page/os_settings_animated_pages.js';
 import '../os_settings_page/os_settings_subpage.js';
@@ -31,6 +31,7 @@ import './internet_config.js';
 import './internet_detail_menu.js';
 import './network_summary.js';
 
+import {PrefsMixin, PrefsMixinInterface} from '/shared/settings/prefs/prefs_mixin.js';
 import {CellularSetupPageName} from 'chrome://resources/ash/common/cellular_setup/cellular_types.js';
 import {getNumESimProfiles} from 'chrome://resources/ash/common/cellular_setup/esim_manager_utils.js';
 import {PasspointSubscription} from 'chrome://resources/ash/common/connectivity/passpoint.mojom-webui.js';
@@ -43,7 +44,6 @@ import {hasActiveCellularNetwork, isConnectedToNonCellularNetwork} from 'chrome:
 import {MojoInterfaceProviderImpl} from 'chrome://resources/ash/common/network/mojo_interface_provider.js';
 import {NetworkListenerBehavior, NetworkListenerBehaviorInterface} from 'chrome://resources/ash/common/network/network_listener_behavior.js';
 import {OncMojo} from 'chrome://resources/ash/common/network/onc_mojo.js';
-import {PrefsMixin, PrefsMixinInterface} from 'chrome://resources/cr_components/settings_prefs/prefs_mixin.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {CrosNetworkConfigInterface, GlobalPolicy, NetworkStateProperties, StartConnectResult, VpnProvider} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/cros_network_config.mojom-webui.js';
@@ -87,10 +87,11 @@ declare global {
   }
 }
 
-interface SettingsInternetPageElement {
+export interface SettingsInternetPageElement {
   $: {
     apnDotsMenu: CrActionMenuElement,
     errorToast: CrToastElement,
+    errorToastMessage: HTMLElement,
   };
 }
 
@@ -107,7 +108,8 @@ const SettingsInternetPageElementBase =
           NetworkListenerBehaviorInterface,
     };
 
-class SettingsInternetPageElement extends SettingsInternetPageElementBase {
+export class SettingsInternetPageElement extends
+    SettingsInternetPageElementBase {
   static get is() {
     return 'settings-internet-page' as const;
   }
@@ -949,10 +951,11 @@ class SettingsInternetPageElement extends SettingsInternetPageElementBase {
 
     const isVpnConfigProhibited =
         this.prefs.vpn_config_allowed && !this.prefs.vpn_config_allowed.value;
-    const hasAlwaysOnVpnWithLockdown = this.prefs.arc && this.prefs.arc.vpn &&
-        this.prefs.arc.vpn.always_on && this.prefs.arc.vpn.always_on.lockdown &&
-        this.prefs.arc.vpn.always_on.lockdown.value;
-    return isVpnConfigProhibited && hasAlwaysOnVpnWithLockdown;
+    const hasAlwaysOnVpnActivated = this.prefs.arc && this.prefs.arc.vpn &&
+        this.prefs.arc.vpn.always_on &&
+        this.prefs.arc.vpn.always_on.vpn_package &&
+        !!this.prefs.arc.vpn.always_on.vpn_package.value;
+    return isVpnConfigProhibited && hasAlwaysOnVpnActivated;
   }
 
   private getAddThirdPartyVpnLabel_(provider: VpnProvider): string {

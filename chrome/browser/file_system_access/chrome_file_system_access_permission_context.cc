@@ -42,10 +42,10 @@
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/ui/file_system_access_dialogs.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/pdf_util.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
+#include "components/pdf/common/pdf_util.h"
 #include "components/permissions/features.h"
 #include "components/permissions/object_permission_context_base.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
@@ -489,7 +489,6 @@ InterpretSafeBrowsingResult(safe_browsing::DownloadCheckResult result) {
     case Result::POTENTIALLY_UNWANTED:
     case Result::BLOCKED_PASSWORD_PROTECTED:
     case Result::BLOCKED_TOO_LARGE:
-    case Result::BLOCKED_UNSUPPORTED_FILE_TYPE:
     case Result::DANGEROUS_ACCOUNT_COMPROMISE:
     case Result::BLOCKED_SCAN_FAILED:
       return ChromeFileSystemAccessPermissionContext::AfterWriteCheckResult::
@@ -901,9 +900,6 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
                   PersistedPermissionOptions::kUpdatePersistedPermission);
         RunCallbackAndRecordPermissionRequestOutcome(
             std::move(callback), PermissionRequestOutcome::kUserGranted);
-        if (context_) {
-          context_->ScheduleUsageIconUpdate();
-        }
         break;
       case PermissionAction::DENIED:
         SetStatus(PermissionStatus::DENIED,
@@ -1002,6 +998,13 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
       base::OnceCallback<void(PermissionRequestOutcome)> callback,
       PermissionRequestOutcome outcome) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    if (context_ &&
+        (outcome ==
+             PermissionRequestOutcome::kGrantedByAncestorPersistentPermission ||
+         outcome == PermissionRequestOutcome::kGrantedByPersistentPermission ||
+         outcome == PermissionRequestOutcome::kGrantedByRestorePrompt)) {
+      context_->ScheduleUsageIconUpdate();
+    }
     if (type_ == GrantType::kWrite) {
       base::UmaHistogramEnumeration(
           "Storage.FileSystemAccess.WritePermissionRequestOutcome", outcome);
@@ -1282,8 +1285,7 @@ ChromeFileSystemAccessPermissionContext::GetReadPermissionGrant(
       break;
   }
 
-  if (existing_grant->GetActivePermissionStatus() ==
-      PermissionStatus::GRANTED) {
+  if (HasGrantedActivePermissionStatus(existing_grant)) {
     ScheduleUsageIconUpdate();
   }
 
@@ -1369,8 +1371,7 @@ ChromeFileSystemAccessPermissionContext::GetWritePermissionGrant(
       break;
   }
 
-  if (existing_grant->GetActivePermissionStatus() ==
-      PermissionStatus::GRANTED) {
+  if (HasGrantedActivePermissionStatus(existing_grant)) {
     ScheduleUsageIconUpdate();
   }
 
@@ -1418,8 +1419,7 @@ ChromeFileSystemAccessPermissionContext::GetGrantedObjects(
   auto it = active_permissions_map_.find(origin);
   if (it != active_permissions_map_.end()) {
     for (const auto& grant : it->second.read_grants) {
-      if (grant.second->GetActivePermissionStatus() ==
-          PermissionStatus::GRANTED) {
+      if (HasGrantedActivePermissionStatus(grant.second)) {
         auto value = grant.second->AsValue();
 
         // Persisted permissions include both read and write information in
@@ -1428,8 +1428,7 @@ ChromeFileSystemAccessPermissionContext::GetGrantedObjects(
         auto file_path = grant.first;
         auto write_grant_it = it->second.write_grants.find(file_path);
         if (write_grant_it != it->second.write_grants.end() &&
-            write_grant_it->second->GetActivePermissionStatus() ==
-                PermissionStatus::GRANTED) {
+            HasGrantedActivePermissionStatus(write_grant_it->second)) {
           value.Set(kPermissionWritableKey, true);
         }
 
@@ -1476,9 +1475,18 @@ ChromeFileSystemAccessPermissionContext::GetOriginsWithGrants() {
     }
   }
 
-  // Add origins that have active grants.
+  // Add origins that have active, granted permission grants.
   for (const auto& it : active_permissions_map_) {
-    origins.insert(it.first);
+    if (base::ranges::any_of(it.second.read_grants,
+                             [&](const auto& grant) {
+                               return HasGrantedActivePermissionStatus(
+                                   grant.second);
+                             }) ||
+        base::ranges::any_of(it.second.write_grants, [&](const auto& grant) {
+          return HasGrantedActivePermissionStatus(grant.second);
+        })) {
+      origins.insert(it.first);
+    }
   }
 
   return origins;
@@ -2055,16 +2063,14 @@ void ChromeFileSystemAccessPermissionContext::
     if (origin_it != active_permissions_map_.end()) {
       OriginState& origin_state = origin_it->second;
       for (auto& read_grant : origin_state.read_grants) {
-        if (read_grant.second->GetActivePermissionStatus() ==
-            PermissionStatus::GRANTED) {
+        if (HasGrantedActivePermissionStatus(read_grant.second)) {
           read_grant.second->SetStatus(
               PermissionStatus::GRANTED,
               PersistedPermissionOptions::kUpdatePersistedPermission);
         }
       }
       for (auto& write_grant : origin_state.write_grants) {
-        if (write_grant.second->GetActivePermissionStatus() ==
-            PermissionStatus::GRANTED) {
+        if (HasGrantedActivePermissionStatus(write_grant.second)) {
           write_grant.second->SetStatus(
               PermissionStatus::GRANTED,
               PersistedPermissionOptions::kUpdatePersistedPermission);
@@ -2131,8 +2137,7 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasReadAccess(
   auto it = active_permissions_map_.find(origin);
   if (it != active_permissions_map_.end()) {
     return base::ranges::any_of(it->second.read_grants, [&](const auto& grant) {
-      return grant.second->GetActivePermissionStatus() ==
-             PermissionStatus::GRANTED;
+      return HasGrantedActivePermissionStatus(grant.second);
     });
   }
   if (!base::FeatureList::IsEnabled(
@@ -2160,8 +2165,7 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasWriteAccess(
   if (it != active_permissions_map_.end()) {
     return base::ranges::any_of(
         it->second.write_grants, [&](const auto& grant) {
-          return grant.second->GetActivePermissionStatus() ==
-                 PermissionStatus::GRANTED;
+          return HasGrantedActivePermissionStatus(grant.second);
         });
   }
   if (!base::FeatureList::IsEnabled(
@@ -2506,11 +2510,16 @@ bool ChromeFileSystemAccessPermissionContext::AncestorHasActivePermission(
        parent = parent.DirName()) {
     auto i = relevant_grants.find(parent);
     if (i != relevant_grants.end() && i->second &&
-        i->second->GetActivePermissionStatus() == PermissionStatus::GRANTED) {
+        HasGrantedActivePermissionStatus(i->second)) {
       return true;
     }
   }
   return false;
+}
+
+bool ChromeFileSystemAccessPermissionContext::HasGrantedActivePermissionStatus(
+    PermissionGrantImpl* grant) const {
+  return grant->GetActivePermissionStatus() == PermissionStatus::GRANTED;
 }
 
 bool ChromeFileSystemAccessPermissionContext::

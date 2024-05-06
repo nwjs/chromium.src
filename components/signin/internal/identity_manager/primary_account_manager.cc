@@ -628,7 +628,7 @@ void PrimaryAccountManager::OnSignoutDecisionReached(
            SigninClient::SignoutDecision::CLEAR_PRIMARY_ACCOUNT_DISALLOWED);
 
   if (abort_signout) {
-    // TODO(crbug.com/1370026): Add 'NOTREACHED()' after updating the
+    // TODO(crbug.com/40240858): Add 'NOTREACHED()' after updating the
     // 'SigninManager', 'Dice Response Handler',
     // 'Lacros Profile Account Mapper'.
     VLOG(1) << "Ignoring attempt to sign out while signout disallowed";
@@ -700,18 +700,9 @@ void PrimaryAccountManager::ComputeExplicitBrowserSignin(
           event_details.GetAccessPoint().value();
 
       if (access_point == signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN ||
-          (access_point ==
-               signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN &&
-           !switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-               switches::ExplicitBrowserSigninPhase::kFull))) {
+          access_point ==
+              signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN) {
         scoped_pref_commit.ClearPref(prefs::kExplicitBrowserSignin);
-      } else if (access_point ==
-                     signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN &&
-                 switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-                     switches::ExplicitBrowserSigninPhase::kFull)) {
-        // If a web sign in occurs, we do not want to clear the explicit signin
-        // pref, since it might be a result of previously accepting the bubble.
-        // Therefore we just keep the value as is.
       } else {
         // All others access points are explicit sign ins except the Web
         // Signin event.

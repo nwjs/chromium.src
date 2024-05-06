@@ -8,7 +8,9 @@
 #include <stdint.h>
 
 #include "base/time/time.h"
+#include "components/attribution_reporting/constants.h"
 #include "content/common/content_export.h"
+#include "third_party/abseil-cpp/absl/numeric/int128.h"
 
 namespace content {
 
@@ -77,6 +79,10 @@ struct CONTENT_EXPORT AttributionConfig {
     double max_navigation_info_gain = 11.5;
     double max_event_info_gain = 6.5;
 
+    // Controls the max number of report states allowed for a given source
+    // registration.
+    absl::uint128 max_trigger_state_cardinality = absl::Uint128Max();
+
     friend bool operator==(const EventLevelLimit&,
                            const EventLevelLimit&) = default;
 
@@ -103,8 +109,10 @@ struct CONTENT_EXPORT AttributionConfig {
     base::TimeDelta min_delay = kDefaultMinDelay;
     base::TimeDelta delay_span = kDefaultDelaySpan;
 
-    double null_reports_rate_include_source_registration_time = .008;
-    double null_reports_rate_exclude_source_registration_time = .05;
+    double null_reports_rate_include_source_registration_time =
+        attribution_reporting::kNullReportsRateIncludeSourceRegistrationTime;
+    double null_reports_rate_exclude_source_registration_time =
+        attribution_reporting::kNullReportsRateExcludeSourceRegistrationTime;
 
     int max_aggregatable_reports_per_source = 20;
 

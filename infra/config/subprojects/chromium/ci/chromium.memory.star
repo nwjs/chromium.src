@@ -32,7 +32,9 @@ ci.defaults.set(
     siso_configs = ["builder"],
     siso_enable_cloud_profiler = True,
     siso_enable_cloud_trace = True,
+    siso_enabled = True,
     siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
 consoles.console_view(
@@ -89,6 +91,7 @@ linux_memory_builder(
         short_name = "bld",
     ),
     cq_mirrors_console_view = "mirrors",
+    siso_enabled = True,
 )
 
 linux_memory_builder(
@@ -233,7 +236,6 @@ linux_memory_builder(
     # TODO(crbug.com/1030593): Builds take more than 3 hours sometimes. Remove
     # once the builds are faster.
     execution_timeout = 6 * time.hour,
-    siso_enabled = True,
 )
 
 linux_memory_builder(
@@ -304,7 +306,6 @@ linux_memory_builder(
         short_name = "bld",
     ),
     execution_timeout = 4 * time.hour,
-    siso_enabled = True,
 )
 
 linux_memory_builder(
@@ -374,7 +375,6 @@ linux_memory_builder(
         category = "linux|msan",
         short_name = "bld",
     ),
-    siso_enabled = True,
 )
 
 linux_memory_builder(
@@ -446,6 +446,7 @@ linux_memory_builder(
         category = "lacros|asan",
         short_name = "asan",
     ),
+    execution_timeout = 4 * time.hour,
 )
 
 ci.builder(

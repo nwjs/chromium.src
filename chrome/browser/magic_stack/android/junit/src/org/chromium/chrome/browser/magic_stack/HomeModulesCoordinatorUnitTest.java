@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -173,6 +174,20 @@ public class HomeModulesCoordinatorUnitTest {
 
     @Test
     @SmallTest
+    @DisableFeatures({ChromeFeatureList.SEGMENTATION_PLATFORM_ANDROID_HOME_MODULE_RANKER})
+    public void testHide() {
+        mCoordinator = createCoordinator(/* skipInitProfile= */ false);
+        verify(mRecyclerView).setAdapter(notNull());
+
+        mCoordinator.hide();
+        verify(mRecyclerView).setAdapter(eq(null));
+
+        mCoordinator.show((isVisible) -> {});
+        verify(mRecyclerView, times(2)).setAdapter(notNull());
+    }
+
+    @Test
+    @SmallTest
     public void testDestroy() {
         setupAndVerifyTablets();
         assertTrue(DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity));
@@ -329,6 +344,49 @@ public class HomeModulesCoordinatorUnitTest {
         assertEquals(expectedModuleList, mCoordinator.getFixedModuleList());
 
         when(mModuleDelegateHost.isHomeSurface()).thenReturn(false);
+        assertEquals(expectedModuleList, mCoordinator.getFixedModuleList());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID})
+    public void testGetModuleList_CombineTabs_TabResumptionEnabled() {
+        HomeModulesMetricsUtils.HOME_MODULES_COMBINE_TABS.setForTesting(true);
+        when(mHomeModulesConfigManager.getEnabledModuleSet())
+                .thenReturn(
+                        new HashSet<>(
+                                Set.of(
+                                        ModuleType.SINGLE_TAB,
+                                        ModuleType.PRICE_CHANGE,
+                                        ModuleType.TAB_RESUMPTION)));
+        assertFalse(DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity));
+        mCoordinator = createCoordinator(/* skipInitProfile= */ false);
+
+        // Verifies that the tab resumption module will be added to the list without the single tab
+        // module.
+        List<Integer> expectedModuleList =
+                List.of(ModuleType.PRICE_CHANGE, ModuleType.TAB_RESUMPTION);
+        assertEquals(expectedModuleList, mCoordinator.getFixedModuleList());
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures({ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID})
+    public void testGetModuleList_CombineTabs_TabResumptionDisabled() {
+        HomeModulesMetricsUtils.HOME_MODULES_COMBINE_TABS.setForTesting(true);
+        when(mHomeModulesConfigManager.getEnabledModuleSet())
+                .thenReturn(
+                        new HashSet<>(
+                                Set.of(
+                                        ModuleType.SINGLE_TAB,
+                                        ModuleType.PRICE_CHANGE,
+                                        ModuleType.TAB_RESUMPTION)));
+        assertFalse(DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity));
+        mCoordinator = createCoordinator(/* skipInitProfile= */ false);
+
+        // Verifies that the single tab module will be added to the list if the tab resumption
+        // feature flag is disabled.
+        List<Integer> expectedModuleList = List.of(ModuleType.PRICE_CHANGE, ModuleType.SINGLE_TAB);
         assertEquals(expectedModuleList, mCoordinator.getFixedModuleList());
     }
 

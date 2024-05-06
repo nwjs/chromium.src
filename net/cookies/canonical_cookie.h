@@ -8,11 +8,11 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/feature_list.h"
 #include "base/gtest_prod_util.h"
-#include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "base/types/pass_key.h"
 #include "net/base/features.h"
@@ -56,8 +56,12 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
   // the resulting CanonicalCookies should not be relied on to be canonical
   // unless the caller has done appropriate validation and canonicalization
   // themselves.
-  // NOTE: Prefer using CreateSanitizedCookie() over directly using this
-  // constructor.
+  //
+  // NOTE: Prefer using Create, CreateSanitizedCookie, or FromStorage (depending
+  // on the use case) over directly using this constructor.
+  //
+  // NOTE: Do not add any defaults to this constructor, we want every caller to
+  // understand and choose their inputs.
   CanonicalCookie(base::PassKey<CanonicalCookie>,
                   std::string name,
                   std::string value,
@@ -72,20 +76,21 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
                   CookieSameSite same_site,
                   CookiePriority priority,
                   std::optional<CookiePartitionKey> partition_key,
-                  CookieSourceScheme scheme_secure = CookieSourceScheme::kUnset,
-                  int source_port = url::PORT_UNSPECIFIED);
+                  CookieSourceScheme scheme_secure,
+                  int source_port,
+                  CookieSourceType source_type);
 
-  // Creates a new |CanonicalCookie| from the |cookie_line| and the
-  // |creation_time|.  Canonicalizes inputs.  May return nullptr if
-  // an attribute value is invalid.  |url| must be valid.  |creation_time| may
-  // not be null. Sets optional |status| to the relevant CookieInclusionStatus
-  // if provided.  |server_time| indicates what the server sending us the Cookie
+  // Creates a new `CanonicalCookie` from the `cookie_line` and the
+  // `creation_time`.  Canonicalizes inputs.  May return nullptr if
+  // an attribute value is invalid.  `url` must be valid.  `creation_time` may
+  // not be null. Sets optional `status` to the relevant CookieInclusionStatus
+  // if provided.  `server_time` indicates what the server sending us the Cookie
   // thought the current time was when the cookie was produced.  This is used to
   // adjust for clock skew between server and host.
   //
   // SameSite and HttpOnly related parameters are not checked here,
   // so creation of CanonicalCookies with e.g. SameSite=Strict from a cross-site
-  // context is allowed. Create() also does not check whether |url| has a secure
+  // context is allowed. Create() also does not check whether `url` has a secure
   // scheme if attempting to create a Secure cookie. The Secure, SameSite, and
   // HttpOnly related parameters should be checked when setting the cookie in
   // the CookieStore.
@@ -103,21 +108,28 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
   // characters should cause the cookie to fail to be created if present
   // (instead of truncating `cookie_line` at the first occurrence).
   //
-  // If a cookie is returned, |cookie->IsCanonical()| will be true.
+  // If a cookie is returned, `cookie->IsCanonical()` will be true.
+  //
+  // NOTE: Do not add any defaults to this constructor, we want every caller to
+  // understand and choose their inputs.
   static std::unique_ptr<CanonicalCookie> Create(
       const GURL& url,
       const std::string& cookie_line,
       const base::Time& creation_time,
       std::optional<base::Time> server_time,
       std::optional<CookiePartitionKey> cookie_partition_key,
-      bool block_truncated = true,
-      CookieInclusionStatus* status = nullptr);
+      bool block_truncated,
+      CookieSourceType source_type,
+      CookieInclusionStatus* status);
 
   // Create a canonical cookie based on sanitizing the passed inputs in the
   // context of the passed URL.  Returns a null unique pointer if the inputs
   // cannot be sanitized.  If `status` is provided it will have any relevant
   // CookieInclusionStatus rejection reasons set. If a cookie is created,
   // `cookie->IsCanonical()` will be true.
+  //
+  // NOTE: Do not add any defaults to this constructor, we want every caller to
+  // understand and choose their inputs.
   static std::unique_ptr<CanonicalCookie> CreateSanitizedCookie(
       const GURL& url,
       const std::string& name,
@@ -132,7 +144,7 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
       CookieSameSite same_site,
       CookiePriority priority,
       std::optional<CookiePartitionKey> partition_key,
-      CookieInclusionStatus* status = nullptr);
+      CookieInclusionStatus* status);
 
   // FromStorage is a factory method which is meant for creating a new
   // CanonicalCookie using properties of a previously existing cookie
@@ -141,6 +153,9 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
   // already in the store.
   // Returns nullptr if the resulting cookie is not canonical,
   // i.e. cc->IsCanonical() returns false.
+  //
+  // NOTE: Do not add any defaults to this constructor, we want every caller to
+  // understand and choose their inputs.
   static std::unique_ptr<CanonicalCookie> FromStorage(
       std::string name,
       std::string value,
@@ -156,10 +171,12 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
       CookiePriority priority,
       std::optional<CookiePartitionKey> partition_key,
       CookieSourceScheme source_scheme,
-      int source_port);
+      int source_port,
+      CookieSourceType source_type);
 
   // Create a CanonicalCookie that is not guaranteed to actually be Canonical
-  // for tests. This factory should NOT be used in production.
+  // for tests. Use this only if you want to bypass parameter validation to
+  // create a cookie that otherwise shouldn't be possible to store.
   static std::unique_ptr<CanonicalCookie> CreateUnsafeCookieForTesting(
       const std::string& name,
       const std::string& value,
@@ -175,7 +192,19 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
       CookiePriority priority,
       std::optional<CookiePartitionKey> partition_key = std::nullopt,
       CookieSourceScheme scheme_secure = CookieSourceScheme::kUnset,
-      int source_port = url::PORT_UNSPECIFIED);
+      int source_port = url::PORT_UNSPECIFIED,
+      CookieSourceType source_type = CookieSourceType::kUnknown);
+
+  // Like Create but with some more friendly defaults for use in tests.
+  static std::unique_ptr<CanonicalCookie> CreateForTesting(
+      const GURL& url,
+      const std::string& cookie_line,
+      const base::Time& creation_time,
+      std::optional<base::Time> server_time = std::nullopt,
+      std::optional<CookiePartitionKey> cookie_partition_key = std::nullopt,
+      bool block_truncated = true,
+      CookieSourceType source_type = CookieSourceType::kUnknown,
+      CookieInclusionStatus* status = nullptr);
 
   bool operator<(const CanonicalCookie& other) const {
     // Use the cookie properties that uniquely identify a cookie to determine
@@ -194,6 +223,7 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
   const base::Time& LastUpdateDate() const { return last_update_date_; }
   bool IsPersistent() const { return !expiry_date_.is_null(); }
   CookiePriority Priority() const { return priority_; }
+  CookieSourceType SourceType() const { return source_type_; }
 
   bool IsExpired(const base::Time& current) const {
     return !expiry_date_.is_null() && current >= expiry_date_;
@@ -416,7 +446,7 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
                                                 bool url_is_trustworthy);
 
   // Checks for values that could be misinterpreted as a cookie name prefix.
-  static bool HasHiddenPrefixName(const base::StringPiece cookie_value);
+  static bool HasHiddenPrefixName(const std::string_view cookie_value);
 
   // Returns true iff the cookie is a partitioned cookie with a nonce or that
   // does not violate the semantics of the Partitioned attribute:
@@ -448,6 +478,7 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
   base::Time last_access_date_;
   base::Time last_update_date_;
   CookiePriority priority_{COOKIE_PRIORITY_MEDIUM};
+  CookieSourceType source_type_{CookieSourceType::kUnknown};
 };
 
 // Used to pass excluded cookie information when it's possible that the

@@ -200,8 +200,6 @@ class ResourcePrefetchPredictor : public history::HistoryServiceObserver {
   // assembled a PageRequestSummary.
   virtual void RecordPageRequestSummary(const PageRequestSummary& summary);
 
-  static bool IsURLValidForLcpp(const GURL& url);
-
   // Record LCP element locators after a page has finished loading and LCP has
   // been determined.
   void LearnLcpp(const GURL& url, const LcppDataInputs& inputs);
@@ -313,8 +311,8 @@ class ResourcePrefetchPredictor : public history::HistoryServiceObserver {
       const std::map<url::Origin, OriginRequestSummary>& summaries);
 
   // history::HistoryServiceObserver:
-  void OnURLsDeleted(history::HistoryService* history_service,
-                     const history::DeletionInfo& deletion_info) override;
+  void OnHistoryDeletions(history::HistoryService* history_service,
+                          const history::DeletionInfo& deletion_info) override;
   void OnHistoryServiceLoaded(
       history::HistoryService* history_service) override;
 

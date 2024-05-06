@@ -269,8 +269,6 @@ class ChromiumDepGraph {
             resolveVersion: '1.6.4'),
         org_jetbrains_kotlinx_kotlinx_coroutines_guava: new PropertyOverride(
             resolveVersion: '1.6.4'),
-        org_jetbrains_kotlinx_atomicfu_jvm: new PropertyOverride(
-            overrideLatest: true),
         org_jetbrains_kotlin_kotlin_stdlib_jdk8: new PropertyOverride(
             resolveVersion: '1.8.20'),
         org_jetbrains_kotlin_kotlin_stdlib_jdk7: new PropertyOverride(
@@ -279,8 +277,6 @@ class ChromiumDepGraph {
             resolveVersion: '1.8.20'),
         org_jetbrains_kotlin_kotlin_stdlib_common: new PropertyOverride(
             resolveVersion: '1.8.20'),
-        org_jetbrains_kotlin_kotlin_parcelize_runtime: new PropertyOverride(
-            overrideLatest: true),
         io_grpc_grpc_binder: new PropertyOverride(
             licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
             licenseName: 'Apache 2.0'),
@@ -431,7 +427,7 @@ class ChromiumDepGraph {
                 if (overrides?.isShipped != null) {
                     dep.isShipped = overrides.isShipped
                 }
-                // if overrideLatest is truey, set it recursively on the dep and
+                // if overrideLatest is true, set it recursively on the dep and
                 // all its children. This makes it easier to manage since you do
                 // not have to set it on a whole set of old deps.
                 if (overrides?.overrideLatest) {

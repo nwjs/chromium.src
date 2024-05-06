@@ -87,6 +87,7 @@ try_.builder(
     gn_args = "ci/mac-osxbeta-rel",
     builderless = False,
     os = os.MAC_BETA,
+    cpu = cpu.ARM64,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -138,6 +139,7 @@ try_.builder(
             "no_symbols",
         ],
     ),
+    cpu = cpu.ARM64,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -263,6 +265,8 @@ try_.builder(
         ],
     ),
     builderless = True,
+    cores = None,
+    cpu = cpu.ARM64,
     main_list_view = "try",
 )
 
@@ -312,6 +316,7 @@ try_.builder(
         "ci/mac12-wpt-content-shell-fyi-rel",
     ],
     gn_args = "ci/mac12-wpt-content-shell-fyi-rel",
+    cpu = cpu.ARM64,
 )
 
 try_.builder(
@@ -452,8 +457,10 @@ try_.builder(
             "gpu_tests",
             "release_try_builder",
             "reclient",
+            "x64",
         ],
     ),
+    cpu = cpu.ARM64,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -464,6 +471,7 @@ try_.builder(
         "ci/Mac13 Tests (dbg)",
     ],
     gn_args = "ci/Mac Builder (dbg)",
+    cpu = cpu.ARM64,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 

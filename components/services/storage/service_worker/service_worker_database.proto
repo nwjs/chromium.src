@@ -71,7 +71,7 @@ message ServiceWorkerRegistrationData {
     optional ReferrerPolicyValue referrer_policy = 1 [default = DEFAULT];
     optional int32 sandbox_flags = 2 [default = 0];
     optional IPAddressSpace ip_address_space = 3 [default = UNKNOWN];
-    // TODO(https://crbug.com/1177199): add content security policies
+    // TODO(crbug.com/40168691): add content security policies
   }
 
   message RouterRules {
@@ -168,6 +168,7 @@ message ServiceWorkerRegistrationData {
             kDictionaryDestination = 24;
             kSpeculationRulesDestination = 25;
             kJsonDestination = 26;
+            kSharedStorageWorkletDestination = 27;
           }
           optional Destination destination = 3;
         }

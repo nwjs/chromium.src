@@ -93,6 +93,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChromeTablet;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
 import org.chromium.chrome.browser.cookies.CookiesFetcher;
 import org.chromium.chrome.browser.crypto.CipherFactory;
+import org.chromium.chrome.browser.data_sharing.DataSharingNotificationManager;
 import org.chromium.chrome.browser.dependency_injection.ChromeActivityComponent;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeManager;
@@ -108,6 +109,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fonts.FontPreloader;
 import org.chromium.chrome.browser.gesturenav.NavigationSheet;
+import org.chromium.chrome.browser.history.HistoryManager;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.hub.DefaultPaneOrderController;
@@ -170,6 +172,7 @@ import org.chromium.chrome.browser.search_engines.SearchEngineChoiceNotification
 import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.share.send_tab_to_self.SendTabToSelfAndroidBridge;
+import org.chromium.chrome.browser.single_tab.SingleTabModuleBuilder;
 import org.chromium.chrome.browser.suggestions.SuggestionsMetrics;
 import org.chromium.chrome.browser.survey.ChromeSurveyController;
 import org.chromium.chrome.browser.sync.ui.SyncErrorMessage;
@@ -184,6 +187,7 @@ import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.tab_restore.HistoricalTabModelObserver;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleBuilder;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabbed_mode.TabbedAppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.tabbed_mode.TabbedRootUiCoordinator;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
@@ -201,9 +205,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabWindowManager;
-import org.chromium.chrome.browser.tasks.EngagementTimeUtil;
 import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
-import org.chromium.chrome.browser.tasks.JourneyManager;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil.ReturnToChromeBackPressHandler;
 import org.chromium.chrome.browser.tasks.TasksUma;
@@ -213,7 +215,6 @@ import org.chromium.chrome.browser.tasks.tab_management.CloseAllTabsDialog;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupUi;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupVisualDataManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementDelegateProvider;
-import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarIntentMetadata;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
@@ -231,7 +232,6 @@ import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.chrome.features.start_surface.StartSurfaceDelegate;
 import org.chromium.chrome.features.start_surface.StartSurfaceState;
 import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
-import org.chromium.chrome.features.tasks.SingleTabModuleBuilder;
 import org.chromium.components.browser_ui.settings.SettingsLauncher;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
@@ -315,6 +315,9 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
     static final String HISTOGRAM_MISMATCHED_INDICES_ACTIVITY_CREATION_TIME_DELTA =
             "Android.MultiWindowMode.MismatchedIndices.ActivityCreationTimeDelta";
+
+    public static final String HISTOGRAM_DRAGGED_TAB_OPENED_NEW_WINDOW =
+            "Android.MultiWindowMode.DraggedTabOpenedNewWindow";
 
     /**
      * Identifies a histogram to use in {@link #maybeDispatchExplicitMainViewIntent(Intent, int)}.
@@ -447,6 +450,9 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     private OneshotSupplierImpl<ModuleRegistry> mModuleRegistrySupplier =
             new OneshotSupplierImpl<>();
 
+    private final ObservableSupplierImpl<Boolean> mDesktopWindowModeSupplier =
+            new ObservableSupplierImpl<>();
+
     private final IncognitoTabHost mIncognitoTabHost =
             new IncognitoTabHost() {
                 @Override
@@ -541,7 +547,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                         this::shouldIgnoreIntent,
                         this::isTablet,
                         this::shouldShowOverviewPageOnStart,
-                        this::isInstantStartEnabled,
                         mTabModelProfileSupplier,
                         new IncognitoRestoreAppLaunchDrawBlockerFactory(
                                 this::getSavedInstanceState, getTabModelSelectorSupplier()));
@@ -559,7 +564,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                         getMultiWindowModeStateDispatcher(),
                         getLifecycleDispatcher(),
                         getModalDialogManagerSupplier(),
-                        this);
+                        this,
+                        mDesktopWindowModeSupplier);
         StartSurfaceUserData.reset();
         mBackPressManager.setFallbackOnBackPressed(
                 () -> {
@@ -785,11 +791,11 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 adaptOnToolbarAlphaChange());
     }
 
-    private void setupCompositorContentPreNativeForPhone() {
+    private void setupCompositorContentForPhone() {
         if (isTablet()) return;
 
         try (TraceEvent e =
-                TraceEvent.scoped("ChromeTabbedActivity.setupCompositorContentPreNativeForPhone")) {
+                TraceEvent.scoped("ChromeTabbedActivity.setupCompositorContentForPhone")) {
             CompositorViewHolder compositorViewHolder = getCompositorViewHolderSupplier().get();
 
             // TODO(crbug/1484592): Post Start Surface Refactor this now only creates Start Surface.
@@ -814,12 +820,11 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         }
     }
 
-    private void setupCompositorContentPreNativeForTablet() {
+    private void setupCompositorContentForTablet() {
         if (!isTablet()) return;
 
         try (TraceEvent e =
-                TraceEvent.scoped(
-                        "ChromeTabbedActivity.setupCompositorContentPreNativeForTablet")) {
+                TraceEvent.scoped("ChromeTabbedActivity.setupCompositorContentForTablet")) {
             CompositorViewHolder compositorViewHolder = getCompositorViewHolderSupplier().get();
 
             ViewGroup tabSwitcherViewHolder = findViewById(R.id.tab_switcher_view_holder);
@@ -851,7 +856,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                             toolbarContainerView,
                             tabHoverCardViewStub,
                             getWindowAndroid(),
-                            getToolbarManager());
+                            getToolbarManager(),
+                            mRootUiCoordinator.getAppHeaderCoordinatorSupplier());
             mLayoutStateProviderSupplier.set(mLayoutManager);
         }
     }
@@ -1010,14 +1016,13 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         mIncognitoTabSwitcherSupplier.set(tabSwitcher);
     }
 
-    private void setupCompositorContentPreNative() {
-        try (TraceEvent e =
-                TraceEvent.scoped("ChromeTabbedActivity.setupCompositorContentPostNative")) {
+    private void setupCompositorContent() {
+        try (TraceEvent e = TraceEvent.scoped("ChromeTabbedActivity.setupCompositorContent")) {
             if (!isLayoutManagerCreated()) {
                 if (isTablet()) {
-                    setupCompositorContentPreNativeForTablet();
+                    setupCompositorContentForTablet();
                 } else {
-                    setupCompositorContentPreNativeForPhone();
+                    setupCompositorContentForPhone();
                 }
             }
 
@@ -1088,12 +1093,10 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                             null,
                             showStartSurfaceSupplier);
 
-            if (!isInstantStartEnabled()) {
-                // TODO(https://crbug.com/1306904): Fix this assert which is tripping on unrelated
-                // tests.
-                // assert !(mOverviewModeController != null
-                //         && mOverviewModeController.overviewVisible());
-            }
+            // TODO(https://crbug.com/1306904): Fix this assert which is tripping on unrelated
+            // tests.
+            // assert !(mOverviewModeController != null
+            //         && mOverviewModeController.overviewVisible());
         }
     }
 
@@ -1151,21 +1154,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         }
     }
 
-    private void initJourneyManager() {
-        assert mLayoutManager != null;
-
-        try (TraceEvent e = TraceEvent.scoped("ChromeTabbedActivity.initJourneyManager")) {
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_ENGAGEMENT_REPORTING_ANDROID)) {
-                // The lifecycle of this object is managed by the lifecycle dispatcher.
-                new JourneyManager(
-                        getTabModelSelector(),
-                        getLifecycleDispatcher(),
-                        mLayoutManager,
-                        new EngagementTimeUtil());
-            }
-        }
-    }
-
     @Override
     protected OneshotSupplier<ProfileProvider> createProfileProvider() {
         return new ActivityProfileProvider(getLifecycleDispatcher());
@@ -1175,7 +1163,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     public void startNativeInitialization() {
         try (TraceEvent e = TraceEvent.scoped("ChromeTabbedActivity.startNativeInitialization")) {
             // This is on the critical path so don't delay.
-            setupCompositorContentPreNative();
+            setupCompositorContent();
             if (!DeviceFormFactor.isTablet()) {
                 PostTask.postTask(
                         TaskTraits.UI_DEFAULT,
@@ -1202,9 +1190,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                     TaskTraits.UI_DEFAULT,
                     mCallbackController.makeCancelable(
                             this::maybeGetFeedAppLifecycleAndMaybeCreatePageViewObserver));
-            PostTask.postTask(
-                    TaskTraits.UI_DEFAULT,
-                    mCallbackController.makeCancelable(this::initJourneyManager));
             PostTask.postTask(
                     TaskTraits.UI_DEFAULT,
                     mCallbackController.makeCancelable(this::finishNativeInitialization));
@@ -1338,7 +1323,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         }
 
         resetSavedInstanceState();
-        ReturnToChromeUtil.addFeedVisibilityObserver();
         BookmarkUtils.maybeExpireLastBookmarkLocationForReadLater(
                 mInactivityTracker.getTimeSinceLastBackgroundedMs());
     }
@@ -1401,6 +1385,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 handleDebugIntent(intent);
             }
 
+            // Launch tab switcher if it is a data sharing intent.
+            maybeShowTabSwitcher(intent);
         } finally {
             TraceEvent.end("ChromeTabbedActivity.onNewIntentWithNative");
         }
@@ -1516,8 +1502,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             mExperimentalStartupMetricsTracker.destroy();
             disablePaintPreviewOnRestore();
             showOverview(StartSurfaceState.SHOWING_START);
-            mAppLaunchDrawBlocker.onOverviewPageAvailable(
-                    mOverviewShownOnStart && !isInstantStartEnabled());
+            mAppLaunchDrawBlocker.onOverviewPageAvailable();
             return;
         }
 
@@ -1536,8 +1521,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         if (IntentUtils.isMainIntentFromLauncher(getIntent()) && isInOverviewMode()) {
             RecordUserAction.record("MobileStartup.UserEnteredTabSwitcher");
         }
-        mAppLaunchDrawBlocker.onOverviewPageAvailable(
-                mOverviewShownOnStart && !isInstantStartEnabled());
+        mAppLaunchDrawBlocker.onOverviewPageAvailable();
     }
 
     /**
@@ -1674,8 +1658,12 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             mInactivityTracker.register(this.getLifecycleDispatcher());
             boolean isIntentWithEffect = false;
             boolean isMainIntentFromLauncher = false;
+            boolean isLaunchingDraggedTab = false;
             if (getSavedInstanceState() == null && intent != null) {
-                if (!shouldIgnoreIntent()) isIntentWithEffect = maybeHandleUrlIntent(intent);
+                if (!shouldIgnoreIntent()) {
+                    isLaunchingDraggedTab = maybeLaunchDraggedTabInWindow(intent);
+                    isIntentWithEffect = maybeHandleUrlIntent(intent) || isLaunchingDraggedTab;
+                }
 
                 if (IntentUtils.isMainIntentFromLauncher(intent)) {
                     isMainIntentFromLauncher = true;
@@ -1690,9 +1678,12 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             // are coming from night mode tab reparenting. In this case, reparenting happens
             // synchronously along with tab restoration so there are no tabs waiting for
             // reparenting like there are for other tab reparenting operations.
+            // Reparenting is also triggered when the intent launches the current window from a
+            // dragged tab.
             boolean hasTabWaitingForReparenting =
-                    AsyncTabParamsManagerSingleton.getInstance().hasParamsWithTabToReparent()
-                            && getSavedInstanceState() == null;
+                    (AsyncTabParamsManagerSingleton.getInstance().hasParamsWithTabToReparent()
+                                    && getSavedInstanceState() == null)
+                            || isLaunchingDraggedTab;
             mCreatedTabOnStartup =
                     getCurrentTabModel().getCount() > 0
                             || mTabModelOrchestrator.getRestoredTabCount() > 0
@@ -1785,6 +1776,9 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                     getWindowAndroid().setUnfoldLatencyBeginTime(unfoldLatencyBeginTime);
                 }
             }
+
+            // TODO(b/332766879): Call maybeShowTabSwitcher() here to handle data sharing intent on
+            // new Chrome instances.
         } finally {
             TraceEvent.end("ChromeTabbedActivity.initializeState");
         }
@@ -2107,7 +2101,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     private void maybeLaunchHistory() {
         // Can be launched as (1) a fresh instance of Chrome (2) a new intent on an already running
         // instance of Chrome or (3) a resumption of a previous Chrome journey.
-        if (!ChromeFeatureList.sAppSpecificHistory.isEnabled()) return;
+        if (!HistoryManager.isAppSpecificHistoryEnabled()) return;
 
         boolean shouldLaunchHistory =
                 IntentUtils.safeGetBooleanExtra(
@@ -2116,6 +2110,29 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             HistoryManagerUtils.showHistoryManager(
                     this, getActivityTab(), getTabModelSelector().isIncognitoSelected());
         }
+    }
+
+    private boolean maybeLaunchDraggedTabInWindow(Intent intent) {
+        int draggedTabId =
+                IntentUtils.safeGetIntExtra(
+                        intent, IntentHandler.EXTRA_DRAGGED_TAB_ID, Tab.INVALID_TAB_ID);
+        if (draggedTabId == Tab.INVALID_TAB_ID) return false;
+
+        if (!IntentHandler.wasIntentSenderChrome(intent)) return false;
+        assert TabUiFeatureUtilities.isTabTearingEnabled()
+                : "The dragged tab id extra should be present only when tab tearing is enabled.";
+
+        if (mMultiInstanceManager == null) return false;
+
+        // |draggedTabId| is retrieved from the activity the tab is being dragged from.
+        Tab tab = TabWindowManagerSingleton.getInstance().getTabById(draggedTabId);
+        if (tab == null) {
+            RecordHistogram.recordBooleanHistogram(HISTOGRAM_DRAGGED_TAB_OPENED_NEW_WINDOW, false);
+            return false;
+        }
+        mMultiInstanceManager.moveTabToWindow(this, tab, 0);
+        RecordHistogram.recordBooleanHistogram(HISTOGRAM_DRAGGED_TAB_OPENED_NEW_WINDOW, true);
+        return true;
     }
 
     @Override
@@ -2222,7 +2239,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 getSavedInstanceState(),
                 mMultiInstanceManager,
                 getHubOverviewColorSupplier(),
-                getBaseChromeLayout());
+                getBaseChromeLayout(),
+                mDesktopWindowModeSupplier);
     }
 
     @Override
@@ -2371,7 +2389,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
         if (ChromeFeatureList.sTabResumptionModuleAndroid.isEnabled()) {
             TabResumptionModuleBuilder tabResumptionModuleBuilder =
-                    new TabResumptionModuleBuilder(this, mTabModelProfileSupplier);
+                    new TabResumptionModuleBuilder(
+                            this, mTabModelProfileSupplier, getTabContentManagerSupplier());
             moduleRegistry.registerModule(ModuleType.TAB_RESUMPTION, tabResumptionModuleBuilder);
         }
 
@@ -2386,40 +2405,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             mShouldIgnoreIntent = IntentHandler.shouldIgnoreIntent(getIntent(), this);
         }
         return mShouldIgnoreIntent;
-    }
-
-    @Override
-    protected final void dispatchOnInflationComplete() {
-        super.dispatchOnInflationComplete();
-
-        // When the feature flag {@link ChromeFeatureList.INSTANT_START} turns on phones (not
-        // tablet), a view-only start page created on Java will be shown before native is
-        // initialized. The {@link prepareToShowStartPagePreNative()} is only called in a cold
-        // start.
-        if (ReturnToChromeUtil.isStartSurfaceEnabled(this)
-                && isInstantStartEnabled()
-                && !hadWarmStart()) {
-            prepareToShowStartPagePreNative();
-        }
-    }
-
-    /**
-     * Prepares to show the start page before native is initialized. For example, create
-     * an LayoutManagerChrome object, add overview mode observer and so on.
-     */
-    private void prepareToShowStartPagePreNative() {
-        assert isInstantStartEnabled() && !hadWarmStart() && !mFromResumption;
-        try (TraceEvent e =
-                TraceEvent.scoped("ChromeTabbedActivity.prepareToShowStartPagePreNative")) {
-            setupCompositorContentPreNativeForPhone();
-            getCompositorViewHolderSupplier().get().setLayoutManager(mLayoutManager);
-
-            if (shouldShowOverviewPageOnStart()) {
-                mLayoutManager.setTabModelSelector(mTabModelSelector);
-                assert !mHasDeterminedOverviewStateForCurrentSession;
-                setInitialOverviewState(/* shouldShowOverviewPageOnStart= */ true);
-            }
-        }
     }
 
     @Override
@@ -2680,19 +2665,11 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         }
         // The start surface is not the layout shown on startup, so wait
         // until it is shown before notifying the start surface that is was.
-        // TODO(1292661): We should allow the start surface to be the layout
-        // that the browser starts on to avoid logic like this.
-        // TODO(1315676): Clean up the check of LayoutType.TAB_SWITCHER once
-        // the refactoring is done. This is because only Start surface is
-        // allowed to shown on startup, not the Grid Tab switcher.
-        boolean isStartSurfaceLayoutShown = false;
         var layoutManager = getLayoutManager();
         @LayoutType int activeType = layoutManager.getActiveLayoutType();
         @LayoutType int nextType = layoutManager.getNextLayoutType();
-        isStartSurfaceLayoutShown =
-                activeType == LayoutType.START_SURFACE || nextType != LayoutType.START_SURFACE;
 
-        if (isStartSurfaceLayoutShown) {
+        if (activeType == LayoutType.START_SURFACE || nextType != LayoutType.START_SURFACE) {
             mStartSurfaceSupplier
                     .get()
                     .onOverviewShownAtLaunch(mOverviewShownOnStart, getOnCreateTimestampMs());
@@ -3397,7 +3374,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 .launchUrlFromExternalApp(loadUrlParams, externalAppId, forceNewTab, intent);
     }
 
-    // TODO(crbug.com/1315676): Once the refactor is finished, remove all StartSurfaceState codes.
     private void showOverview(@StartSurfaceState int state) {
         showOverview(state, NewTabPageLaunchOrigin.UNKNOWN);
     }
@@ -3407,7 +3383,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     // showStartSurface(state). Let's do some auditing and clean up before perform the actual split.
     private void showOverview(
             @StartSurfaceState int state, @NewTabPageLaunchOrigin int launchOrigin) {
-        // TODO(crbug.com/1315676): Remove all StartSurfaceState relevant code.
         assert (state == StartSurfaceState.SHOWING_TABSWITCHER
                 || state == StartSurfaceState.SHOWING_HOMEPAGE
                 || state == StartSurfaceState.SHOWING_PREVIOUS
@@ -3488,8 +3463,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         }
 
         getTabModelSelector().selectModel(incognito);
-        if (isInstantStartEnabled()
-                || (getTabModelSelector().isTabStateInitialized() && isLayoutManagerCreated())) {
+        if ((getTabModelSelector().isTabStateInitialized() && isLayoutManagerCreated())) {
             showOverview(StartSurfaceState.SHOWING_HOMEPAGE, launchOrigin);
         }
         return true;
@@ -3621,11 +3595,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         if (ChromeApplicationImpl.isSevereMemorySignal(level)) {
             NativePageAssassin.getInstance().freezeAllHiddenPages();
         }
-    }
-
-    @Override
-    protected boolean supportsTabModalDialogs() {
-        return true;
     }
 
     @Override
@@ -4036,5 +4005,28 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
     public void showStartSurfaceForTesting() {
         showOverview(StartSurfaceState.SHOWING_START);
+    }
+
+    private void maybeShowTabSwitcher(Intent intent) {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_ANDROID)) return;
+        boolean shouldShowTabSwitcher =
+                IntentUtils.safeGetBooleanExtra(
+                                intent, DataSharingNotificationManager.DATA_SHARING_EXTRA, false)
+                        && IntentHandler.wasIntentSenderChrome(intent);
+        if (shouldShowTabSwitcher) {
+            // TODO(haileywang): Close the tab grid dialog when showing tab switcher from this path.
+            TabModelUtils.runOnTabStateInitialized(
+                    getTabModelSelectorSupplier().get(),
+                    (tabModelSelectorReturn) -> {
+                        if (!isInOverviewMode()) {
+                            showOverview(StartSurfaceState.SHOWING_TABSWITCHER);
+                        }
+                        if (mTabSwitcherSupplier.hasValue()) {
+                            // TODO(b/332961197): Add the actual invitation id obtained from url
+                            // intent.
+                            mTabSwitcherSupplier.get().openInvitationModal("");
+                        }
+                    });
+        }
     }
 }

@@ -128,6 +128,16 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Not a family member"/>
 </enum>
 
+<enum name="PassphraseTypeForMetrics">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Inconsistent state across profiles"/>
+  <int value="2" label="Implicit passphrase"/>
+  <int value="3" label="Keystore passphrase"/>
+  <int value="4" label="Frozen implicit passphrase"/>
+  <int value="5" label="Custom passphrase"/>
+  <int value="6" label="Trusted vault passphrase"/>
+</enum>
+
 <enum name="PendingInvalidationStatus">
   <int value="0" label="Acknowledged invalidation"/>
   <int value="1" label="Lost invalidation"/>
@@ -178,22 +188,22 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="ShowAppsShortcutInBookmarkBar"/>
   <int value="9" label="ShowBookmarkBar"/>
   <int value="10" label="ShowManagedBookmarksInBookmarkBar"/>
-  <int value="11" label="ClearBrowsingDataHistoryNoticeShownTimes"/>
-  <int value="12" label="DeleteBrowsingHistory"/>
-  <int value="13" label="DeleteBrowsingHistoryBasic"/>
-  <int value="14" label="DeleteCache"/>
-  <int value="15" label="DeleteCacheBasic"/>
-  <int value="16" label="DeleteCookies"/>
-  <int value="17" label="DeleteCookiesBasic"/>
-  <int value="18" label="DeleteDownloadHistory"/>
-  <int value="19" label="DeleteFormData"/>
-  <int value="20" label="DeleteHostedAppsData"/>
-  <int value="21" label="DeletePasswords"/>
-  <int value="22" label="DeleteSiteSettings"/>
-  <int value="23" label="DeleteTimePeriod"/>
-  <int value="24" label="DeleteTimePeriodBasic"/>
+  <int value="11" label="(obsolete) ClearBrowsingDataHistoryNoticeShownTimes"/>
+  <int value="12" label="(obsolete) DeleteBrowsingHistory"/>
+  <int value="13" label="(obsolete) DeleteBrowsingHistoryBasic"/>
+  <int value="14" label="(obsolete) DeleteCache"/>
+  <int value="15" label="(obsolete) DeleteCacheBasic"/>
+  <int value="16" label="(obsolete) DeleteCookies"/>
+  <int value="17" label="(obsolete) DeleteCookiesBasic"/>
+  <int value="18" label="(obsolete) DeleteDownloadHistory"/>
+  <int value="19" label="(obsolete) DeleteFormData"/>
+  <int value="20" label="(obsolete) DeleteHostedAppsData"/>
+  <int value="21" label="(obsolete) DeletePasswords"/>
+  <int value="22" label="(obsolete) DeleteSiteSettings"/>
+  <int value="23" label="(obsolete) DeleteTimePeriod"/>
+  <int value="24" label="(obsolete) DeleteTimePeriodBasic"/>
   <int value="25" label="LastClearBrowsingDataTime"/>
-  <int value="26" label="PreferencesMigratedToBasic"/>
+  <int value="26" label="(obsolete) PreferencesMigratedToBasic"/>
   <int value="27" label="PriceEmailNotificationsEnabled"/>
   <int value="28" label="Font"/>
   <int value="29" label="(obsolete) OfferReaderMode"/>
@@ -233,12 +243,12 @@ chromium-metrics-reviews@google.com.
   <int value="62" label="PrefDogfoodGroups"/>
   <int value="63" label="(test) SyncableMergeableDictPrefForTesting"/>
   <int value="64" label="AutofillPaymentCvcStorage"/>
-  <int value="65" label="DeleteTimePeriodV2"/>
-  <int value="66" label="DeleteTimePeriodV2Basic"/>
+  <int value="65" label="(obsolete) DeleteTimePeriodV2"/>
+  <int value="66" label="(obsolete) DeleteTimePeriodV2Basic"/>
   <int value="67" label="SyncableMergeableListPrefForTesting"/>
   <int value="68" label="SyncableHistorySensitiveListPrefForTesting"/>
   <int value="69" label="AutofillPaymentCardBenefits"/>
-  <int value="70" label="CloseTabs"/>
+  <int value="70" label="(obsolete) CloseTabs"/>
   <int value="71" label="ShowTabGroupsInBookmarkBar"/>
   <int value="100000" label="AppLanguagePromptShown"/>
   <int value="100001" label="(Obsolete) PrefExplicitLanguageAskShown"/>
@@ -535,6 +545,15 @@ chromium-metrics-reviews@google.com.
   <int value="100269" label="FingerprintingProtectionEnabled"/>
   <int value="100270" label="AccessibilityFaceGazeGesturesToMacros"/>
   <int value="100271" label="AccessibilityFaceGazeGesturesToConfidence"/>
+  <int value="100272" label="ShelfContainerAppPinRolls"/>
+  <int value="100273"
+      label="ProfileContentSettingsExceptionsTrackingProtection"/>
+  <int value="100274"
+      label="ProfileContentSettingsPartitionedExceptionsTrackingProtection"/>
+  <int value="100275"
+      label="ProfileDefaultContentSettingValuesTrackingProtection"/>
+  <int value="100276" label="ShowForwardButton"/>
+  <int value="100277" label="AccessibilityMagnifierFollowsSts"/>
   <int value="200000" label="ArticlesForYouEnabled"/>
   <int value="200001" label="ContextualSearchEnabled_IOS"/>
   <int value="200002" label="DefaultCharset_IOS"/>
@@ -830,7 +849,7 @@ chromium-metrics-reviews@google.com.
   <int value="52" label="Printers Authorization Servers"/>
   <int value="53" label="Contact info"/>
   <int value="54" label="Autofill Wallet Usage"/>
-  <int value="55" label="Segmentation"/>
+  <int value="55" label="(Obsolete) Segmentation"/>
   <int value="56" label="Saved Tab Groups"/>
   <int value="57" label="Power Bookmark"/>
   <int value="58" label="WebAuthn Credentials"/>
@@ -850,16 +869,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="FROZEN_IMPLICIT_PASSPHRASE"/>
   <int value="3" label="CUSTOM_PASSPHRASE"/>
   <int value="4" label="TRUSTED_VAULT_PASSPHRASE"/>
-</enum>
-
-<enum name="SyncPassphraseType2">
-  <int value="0" label="No active syncing profiles"/>
-  <int value="1" label="Inconsistent state across profiles"/>
-  <int value="2" label="Implicit passphrase"/>
-  <int value="3" label="Keystore passphrase"/>
-  <int value="4" label="Frozen implicit passphrase"/>
-  <int value="5" label="Custom passphrase"/>
-  <int value="6" label="Trusted vault passphrase"/>
 </enum>
 
 <enum name="SyncPasswordNotesStateInUpdate">

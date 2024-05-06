@@ -600,6 +600,21 @@
       valid_type: "bool",
     },
 
+    // Valid @page properties and descriptors when PageMarginBoxes aren't
+    // enabled. This is limited to the set of descriptors and properties
+    // that have an effect when this feature is disabled (essentially page
+    // size, margins and orientation).
+    valid_for_limited_page_context: {
+      default: false,
+      valid_type: "bool",
+    },
+
+    // Applicable @page properties and descriptors.
+    valid_for_page_context: {
+      default: false,
+      valid_type: "bool",
+    },
+
     // - is_border
     // The property, when used by the author, will disable any native
     // appearance on UI elements.
@@ -1143,6 +1158,7 @@
       is_highlight_colors: true,
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "direction",
@@ -1160,6 +1176,7 @@
       valid_for_marker: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "font-family",
@@ -1178,6 +1195,7 @@
       valid_for_marker: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
       // See comment on font.
       supports_incremental_style: false,
     },
@@ -1200,6 +1218,7 @@
       // See comment on font.
       supports_incremental_style: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "font-optical-sizing",
@@ -1218,6 +1237,7 @@
       // See comment on font.
       supports_incremental_style: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "font-palette",
@@ -1233,6 +1253,7 @@
       valid_for_first_letter: true,
       valid_for_first_line: true,
       valid_for_marker: true,
+      valid_for_page_context: true,
       // See comment on font.
       supports_incremental_style: false,
     },
@@ -1257,6 +1278,7 @@
       // See comment on font.
       supports_incremental_style: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "font-size-adjust",
@@ -1273,6 +1295,7 @@
       valid_for_first_letter: true,
       valid_for_first_line: true,
       valid_for_marker: true,
+      valid_for_page_context: true,
       // See comment on font.
       supports_incremental_style: false,
     },
@@ -1300,6 +1323,7 @@
       // See comment on font.
       supports_incremental_style: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "font-style",
@@ -1322,6 +1346,7 @@
       // See comment on font.
       supports_incremental_style: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "font-variant-ligatures",
@@ -1453,6 +1478,7 @@
       // See comment on font.
       supports_incremental_style: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "font-synthesis-weight",
@@ -1824,6 +1850,7 @@
       valid_for_cue: true,
       is_background: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-blend-mode",
@@ -1843,6 +1870,7 @@
       valid_for_first_letter: true,
       valid_for_first_line: true,
       is_background: false,
+      valid_for_page_context: true,
     },
     {
       name: "background-clip",
@@ -1860,6 +1888,7 @@
       valid_for_cue: true,
       is_background: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-color",
@@ -1888,6 +1917,7 @@
       is_highlight_colors: true,
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-image",
@@ -1906,6 +1936,7 @@
       valid_for_cue: true,
       is_background: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-origin",
@@ -1922,6 +1953,7 @@
       valid_for_cue: true,
       is_background: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-position-x",
@@ -1937,6 +1969,7 @@
       is_background: true,
       computable: false,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-position-y",
@@ -1952,6 +1985,7 @@
       is_background: true,
       computable: false,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-repeat",
@@ -1964,6 +1998,7 @@
       valid_for_first_line: true,
       valid_for_cue: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-size",
@@ -1981,6 +2016,7 @@
       valid_for_cue: true,
       is_background: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "baseline-shift",
@@ -2025,6 +2061,7 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-bottom-left-radius",
@@ -2045,6 +2082,7 @@
         resolver: "bottom-left",
       },
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-bottom-right-radius",
@@ -2065,10 +2103,11 @@
         resolver: "bottom-right",
       },
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-bottom-style",
-      property_methods: ["CSSValueFromComputedStyleInternal"],
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       field_group: "box",
       field_template: "keyword",
       keywords: [
@@ -2085,6 +2124,7 @@
         resolver: "bottom",
       },
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-bottom-width",
@@ -2092,11 +2132,10 @@
       interpolable: true,
       field_group: "box",
       field_template: "external",
-      include_paths: ["third_party/blink/renderer/platform/geometry/layout_unit.h"],
       keywords: ["thin", "medium", "thick"],
-      default_value: "LayoutUnit(3)",
+      default_value: "3",
       typedom_types: ["Keyword", "Length"],
-      type_name: "LayoutUnit",
+      type_name: "int",
       computed_style_custom_functions: ["getter"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2108,6 +2147,7 @@
       // Overlaps with -webkit-border-image.
       overlapping: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-collapse",
@@ -2210,10 +2250,11 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-left-style",
-      property_methods: ["CSSValueFromComputedStyleInternal"],
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       field_group: "box",
       field_template: "keyword",
       keywords: [
@@ -2230,6 +2271,7 @@
         resolver: "left",
       },
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-left-width",
@@ -2237,11 +2279,10 @@
       interpolable: true,
       field_group: "box",
       field_template: "external",
-      include_paths: ["third_party/blink/renderer/platform/geometry/layout_unit.h"],
       keywords: ["thin", "medium", "thick"],
-      default_value: "LayoutUnit(3)",
+      default_value: "3",
       typedom_types: ["Keyword", "Length"],
-      type_name: "LayoutUnit",
+      type_name: "int",
       computed_style_custom_functions: ["getter"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2253,6 +2294,7 @@
       // Overlaps with -webkit-border-image.
       overlapping: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-right-color",
@@ -2276,10 +2318,11 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-right-style",
-      property_methods: ["CSSValueFromComputedStyleInternal"],
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       field_group: "box",
       field_template: "keyword",
       keywords: [
@@ -2296,6 +2339,7 @@
         resolver: "right",
       },
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-right-width",
@@ -2303,11 +2347,10 @@
       interpolable: true,
       field_group: "box",
       field_template: "external",
-      include_paths: ["third_party/blink/renderer/platform/geometry/layout_unit.h"],
       keywords: ["thin", "medium", "thick"],
-      default_value: "LayoutUnit(3)",
+      default_value: "3",
       typedom_types: ["Keyword", "Length"],
-      type_name: "LayoutUnit",
+      type_name: "int",
       computed_style_custom_functions: ["getter"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2319,6 +2362,7 @@
       // Overlaps with -webkit-border-image.
       overlapping: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-top-color",
@@ -2342,6 +2386,7 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-top-left-radius",
@@ -2362,6 +2407,7 @@
         resolver: "top-left",
       },
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-top-right-radius",
@@ -2382,10 +2428,11 @@
         resolver: "top-right",
       },
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-top-style",
-      property_methods: ["CSSValueFromComputedStyleInternal"],
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       field_group: "box",
       field_template: "keyword",
       keywords: [
@@ -2403,6 +2450,7 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-top-width",
@@ -2410,11 +2458,10 @@
       interpolable: true,
       field_group: "box",
       field_template: "external",
-      include_paths: ["third_party/blink/renderer/platform/geometry/layout_unit.h"],
       keywords: ["thin", "medium", "thick"],
-      default_value: "LayoutUnit(3)",
+      default_value: "3",
       typedom_types: ["Keyword", "Length"],
-      type_name: "LayoutUnit",
+      type_name: "int",
       computed_style_custom_functions: ["getter"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2426,6 +2473,7 @@
       // Overlaps with -webkit-border-image.
       overlapping: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "bottom",
@@ -2454,7 +2502,7 @@
       field_group: "*",
       field_template: "pointer",
       include_paths: ["third_party/blink/renderer/core/style/shadow_list.h"],
-      wrapper_pointer_name: "scoped_refptr",
+      wrapper_pointer_name: "Member",
       default_value: "nullptr",
       type_name: "ShadowList",
       converter: "ConvertShadowList",
@@ -2473,6 +2521,7 @@
       typedom_types: ["Keyword"],
       default_value: "content-box",
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "break-after",
@@ -2754,6 +2803,7 @@
       typedom_types: ["Keyword"],
       computable: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "counter-reset",
@@ -2766,6 +2816,7 @@
       typedom_types: ["Keyword"],
       computable: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "counter-set",
@@ -2778,6 +2829,7 @@
       typedom_types: ["Keyword"],
       computable: false,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "cursor",
@@ -3190,6 +3242,7 @@
       valid_for_formatted_text: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "hyphenate-limit-chars",
@@ -3370,6 +3423,7 @@
       valid_for_first_line: true,
       valid_for_marker: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "lighting-color",
@@ -3405,6 +3459,7 @@
       valid_for_first_line: true,
       valid_for_cue: true,
       valid_for_marker: true,
+      valid_for_page_context: true,
       affected_by_zoom: true,
     },
     {
@@ -3469,6 +3524,8 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-left",
@@ -3490,6 +3547,8 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-right",
@@ -3511,6 +3570,8 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-top",
@@ -3532,6 +3593,8 @@
       },
       supports_incremental_style: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "marker-end",
@@ -3577,19 +3640,6 @@
       converter: "ConvertElementReference",
       keywords: ["none"],
       typedom_types: ["Keyword"],
-    },
-    {
-      name: "mask",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      field_group: "svg",
-      field_template: "pointer",
-      type_name: "StyleSVGResource",
-      include_paths: ["third_party/blink/renderer/core/style/style_svg_resource.h"],
-      wrapper_pointer_name: "Member",
-      default_value: "nullptr",
-      name_for_methods: "MaskerResource",
-      converter: "ConvertElementReference",
-      computable: false,
     },
     {
       name: "mask-type",
@@ -3638,6 +3688,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "max-width",
@@ -3657,6 +3708,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "min-height",
@@ -3675,6 +3727,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "min-width",
@@ -3693,6 +3746,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "mix-blend-mode",
@@ -3750,7 +3804,6 @@
       name: "offset-anchor",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       interpolable: true,
-      runtime_flag: "CSSOffsetPositionAnchor",
       field_group: "*",
       field_template: "external",
       include_paths: ["third_party/blink/renderer/platform/geometry/length_point.h"],
@@ -3788,7 +3841,6 @@
       name: "offset-position",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       interpolable: true,
-      runtime_flag: "CSSOffsetPositionAnchor",
       field_group: "*",
       field_template: "external",
       include_paths: ["third_party/blink/renderer/platform/geometry/length_point.h"],
@@ -3880,6 +3932,7 @@
       style_builder_template: "color",
       valid_for_cue: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "outline-offset",
@@ -3894,6 +3947,7 @@
       typedom_types: ["Length"],
       valid_for_cue: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "outline-style",
@@ -3910,6 +3964,7 @@
       style_builder_custom_functions: ["initial", "inherit", "value"],
       valid_for_cue: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "outline-width",
@@ -3917,15 +3972,15 @@
       interpolable: true,
       field_group: "*",
       field_template: "external",
-      include_paths: ["third_party/blink/renderer/platform/geometry/layout_unit.h"],
-      default_value: "LayoutUnit(3)",
-      type_name: "LayoutUnit",
+      default_value: "3",
+      type_name: "int",
       computed_style_custom_functions: ["getter"],
       converter: "ConvertBorderWidth",
       keywords: ["thin", "medium", "thick"],
       typedom_types: ["Keyword", "Length"],
       valid_for_cue: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "overflow-anchor",
@@ -4100,6 +4155,7 @@
       computed_style_custom_functions: ["setter"],
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_first_letter: true,
+      valid_for_page_context: true,
       logical_property_group: {
         name: "padding",
         resolver: "bottom",
@@ -4118,6 +4174,7 @@
       computed_style_custom_functions: ["setter"],
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_first_letter: true,
+      valid_for_page_context: true,
       logical_property_group: {
         name: "padding",
         resolver: "left",
@@ -4136,6 +4193,7 @@
       computed_style_custom_functions: ["setter"],
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_first_letter: true,
+      valid_for_page_context: true,
       logical_property_group: {
         name: "padding",
         resolver: "right",
@@ -4154,6 +4212,7 @@
       computed_style_custom_functions: ["setter"],
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_first_letter: true,
+      valid_for_page_context: true,
       logical_property_group: {
         name: "padding",
         resolver: "top",
@@ -4183,6 +4242,8 @@
       default_value: "PageOrientation::kUpright",
       include_paths: ["third_party/blink/public/common/css/page_orientation.h"],
       computable: false,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "paint-order",
@@ -4253,13 +4314,15 @@
       supports_incremental_style: false,
       // @position-try-styling rely on this being high-priority, so that
       // declarations from @position-try blocks can be applied conditionally
-      // based on whether or not we're out-of-flow positioned.
-      priority: 1,
+      // based on whether or not we're out-of-flow positioned. Also, it needs to
+      // have a priority higher than inset-area which is already at priority:1.
+      priority: 2,
       valid_for_permission_element: true,
     },
     {
       name: "position-anchor",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal" ],
+      style_builder_custom_functions: ["initial", "inherit", "value"],
       include_paths: ["third_party/blink/renderer/core/style/scoped_css_name.h"],
       type_name: "ScopedCSSName",
       wrapper_pointer_name: "Member",
@@ -4272,20 +4335,9 @@
       runtime_flag: "CSSAnchorPositioning",
       valid_for_permission_element: true,
       valid_for_position_try: true,
-    },
-    {
-      name: "position-fallback-bounds",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal" ],
-      include_paths: ["third_party/blink/renderer/core/style/scoped_css_name.h"],
-      type_name: "ScopedCSSName",
-      wrapper_pointer_name: "Member",
-      default_value: "nullptr",
-      field_group: "*",
-      field_template: "external",
-      converter: "ConvertNormalOrCustomIdent",
-      keywords: ["normal"],
-      typedom_types: ["Keyword"],
-      runtime_flag: "CSSPositionFallbackBounds",
+      // Needs to be applied before inset-area which in turn needs to be applied
+      // before inset properties.
+      priority: 2,
     },
     {
       name: "position-try-options",
@@ -4312,6 +4364,21 @@
       runtime_flag: "CSSPositionTryOrder",
     },
     {
+      name: "position-visibility",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      field_group: "*",
+      field_size: 3,
+      field_template: "primitive",
+      default_value: "PositionVisibility::kAlways",
+      getter: "GetPositionVisibility",
+      type_name: "PositionVisibility",
+      converter: "ConvertPositionVisibility",
+      // TODO(crbug.com/332933527): Support anchors-valid.
+      keywords: ["always", "anchors-visible", "no-overflow"],
+      typedom_types: ["Keyword"],
+      runtime_flag: "CSSPositionVisibility",
+    },
+    {
       name: "quotes",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       inherited: true,
@@ -4325,6 +4392,7 @@
       keywords: ["auto", "none"],
       typedom_types: ["Keyword"],
       computable: false,
+      valid_for_page_context: true,
     },
     {
       name: "content-visibility",
@@ -4418,12 +4486,13 @@
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       inherited: true,
       name_for_methods: "ScrollbarColor",
-      type_name: "std::optional<StyleScrollbarColor>",
+      type_name: "StyleScrollbarColor",
       converter: "ConvertScrollbarColor",
       keywords: ["auto"],
       field_group: "*",
-      field_template: "external",
-      default_value: "std::optional<StyleScrollbarColor>()",
+      field_template: "pointer",
+      default_value: "nullptr",
+      wrapper_pointer_name: "Member",
       include_paths: ["third_party/blink/renderer/core/style/style_scrollbar_color.h"],
       runtime_flag: "ScrollbarColor",
     },
@@ -4922,6 +4991,8 @@
       property_methods: ["ParseSingleValue"],
       style_builder_custom_functions: ["initial", "inherit", "value"],
       computable: false,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "speak",
@@ -5121,6 +5192,7 @@
       style_builder_custom_functions: ["value"],
       valid_for_formatted_text: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-align-last",
@@ -5132,6 +5204,7 @@
       default_value: "auto",
       typedom_types: ["Keyword"],
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-anchor",
@@ -5211,6 +5284,7 @@
       supports_incremental_style: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-decoration-line",
@@ -5229,6 +5303,7 @@
       valid_for_highlight: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-decoration-skip-ink",
@@ -5247,6 +5322,7 @@
       valid_for_highlight: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-decoration-style",
@@ -5263,6 +5339,7 @@
       valid_for_highlight: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-decoration-thickness",
@@ -5283,6 +5360,7 @@
       computable: false,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-indent",
@@ -5294,6 +5372,7 @@
       default_value: "Length::Fixed()",
       style_builder_custom_functions: ["value"],
       typedom_types: ["Length", "Percentage"],
+      valid_for_page_context: true,
     },
     {
       name: "text-overflow",
@@ -5304,6 +5383,7 @@
       typedom_types: ["Keyword"],
       default_value: "clip",
       valid_for_formatted_text: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-shadow",
@@ -5313,7 +5393,7 @@
       field_group: "*",
       field_template: "pointer",
       include_paths: ["third_party/blink/renderer/core/style/shadow_list.h"],
-      wrapper_pointer_name: "scoped_refptr",
+      wrapper_pointer_name: "Member",
       default_value: "nullptr",
       type_name: "ShadowList",
       converter: "ConvertShadowList",
@@ -5327,6 +5407,7 @@
       valid_for_highlight: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-size-adjust",
@@ -5377,6 +5458,7 @@
       valid_for_marker: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-underline-offset",
@@ -5396,6 +5478,7 @@
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
       valid_for_highlight: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-underline-position",
@@ -5414,6 +5497,7 @@
       valid_for_first_line: true,
       valid_for_formatted_text: true,
       valid_for_formatted_text_run: true,
+      valid_for_page_context: true,
     },
     {
       name: "timeline-scope",
@@ -5672,6 +5756,7 @@
       valid_for_first_line: true,
       valid_for_cue: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "x",
@@ -5707,6 +5792,9 @@
       computed_style_protected_functions: ["getter"],
       default_value: "kNoControlPart",
       type_name: "ControlPart",
+      // appearance needs to be computed before
+      // -internal-appearance-auto-base-select() can be resolved.
+      priority: 1,
     },
     {
       name: "-webkit-appearance",
@@ -5908,9 +5996,8 @@
       interpolable: true,
       field_group: "*",
       field_template: "external",
-      include_paths: ["third_party/blink/renderer/platform/geometry/layout_unit.h"],
-      default_value: "LayoutUnit(3)",
-      type_name: "LayoutUnit",
+      default_value: "3",
+      type_name: "int",
       computed_style_custom_functions: ["initial", "getter", "setter"],
       converter: "ConvertColumnRuleWidth",
       keywords: ["thin", "medium", "thick"],
@@ -5974,14 +6061,26 @@
       valid_for_formatted_text: true,
       surrogate_for: "-webkit-line-break",
     },
-    // An Apple extension.
+    {
+      name: "line-clamp",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      field_group: "*",
+      field_template: "primitive",
+      default_value: "0",
+      converter: "ConvertIntegerOrNone<0>",
+      keywords: ["none"],
+      type_name: "int",
+      name_for_methods: "StandardLineClamp",
+      runtime_flag: "CSSLineClamp",
+    },
     {
       name: "-webkit-line-clamp",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       field_group: "*",
-      field_template: "external",
+      field_template: "primitive",
       default_value: "0",
       type_name: "int",
+      name_for_methods: "WebkitLineClamp",
     },
     {
       name: "-webkit-mask-box-image-outset",
@@ -6031,7 +6130,6 @@
       style_builder_template_args: {
         fill_type: "MaskMode",
       },
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "mask-clip",
@@ -6040,21 +6138,10 @@
       style_builder_template_args: {
         fill_type: "Clip",
       },
-      runtime_flag: "CSSMaskingInterop",
-    },
-    {
-      name: "-webkit-alternative-mask-clip",
-      alternative_of: "-webkit-mask-clip",
-      alias_for: "mask-clip",
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-clip",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      style_builder_template: "mask_layer",
-      style_builder_template_args: {
-        fill_type: "Clip",
-      },
+      alias_for: "mask-clip",
     },
     {
       name: "mask-composite",
@@ -6063,21 +6150,10 @@
       style_builder_template_args: {
         fill_type: "CompositingOperator",
       },
-      runtime_flag: "CSSMaskingInterop",
-    },
-    {
-      name: "-webkit-alternative-mask-composite",
-      alternative_of: "-webkit-mask-composite",
-      alias_for: "mask-composite",
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-composite",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      style_builder_template: "mask_layer",
-      style_builder_template_args: {
-        fill_type: "CompositingOperator",
-      },
+      alias_for: "mask-composite",
     },
     {
       name: "mask-image",
@@ -6087,29 +6163,13 @@
         fill_type: "Image",
         fill_type_getter: "GetImage"
       },
-      runtime_flag: "CSSMaskingInterop",
       // {-webkit-}mask-image needs to be applied before {-webkit-}mask-composite,
       // otherwise {-webkit-}mask-composite has no effect.
       priority: 2,
-    },
-    {
-      name: "-webkit-alternative-mask-image",
-      alternative_of: "-webkit-mask-image",
-      alias_for: "mask-image",
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-image",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      interpolable: true,
-      style_builder_template: "mask_layer",
-      style_builder_template_args: {
-        fill_type: "Image",
-        fill_type_getter: "GetImage"
-      },
-      // {-webkit-}mask-image needs to be applied before {-webkit-}mask-composite,
-      // otherwise {-webkit-}mask-composite has no effect.
-      priority: 2,
+      alias_for: "mask-image",
     },
     {
       name: "mask-origin",
@@ -6118,21 +6178,10 @@
       style_builder_template_args: {
         fill_type: "Origin",
       },
-      runtime_flag: "CSSMaskingInterop",
-    },
-    {
-      name: "-webkit-alternative-mask-origin",
-      alternative_of: "-webkit-mask-origin",
-      alias_for: "mask-origin",
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-origin",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      style_builder_template: "mask_layer",
-      style_builder_template_args: {
-        fill_type: "Origin",
-      },
+      alias_for: "mask-origin",
     },
     {
       name: "-webkit-mask-position-x",
@@ -6161,21 +6210,10 @@
       style_builder_template_args: {
         fill_type: "Repeat",
       },
-      runtime_flag: "CSSMaskingInterop",
-    },
-    {
-      name: "-webkit-alternative-mask-repeat",
-      alternative_of: "-webkit-mask-repeat",
-      alias_for: "mask-repeat",
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-repeat",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      style_builder_template: "mask_layer",
-      style_builder_template_args: {
-        fill_type: "Repeat",
-      },
+      alias_for: "mask-repeat",
     },
     {
       name: "mask-size",
@@ -6185,22 +6223,10 @@
       style_builder_template_args: {
         fill_type: "Size",
       },
-      runtime_flag: "CSSMaskingInterop",
-    },
-    {
-      name: "-webkit-alternative-mask-size",
-      alternative_of: "-webkit-mask-size",
-      alias_for: "mask-size",
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-size",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      interpolable: true,
-      style_builder_template: "mask_layer",
-      style_builder_template_args: {
-        fill_type: "Size",
-      },
+      alias_for: "mask-size",
     },
     {
       name: "-webkit-perspective-origin-x",
@@ -6447,6 +6473,7 @@
         "white-space-collapse", "text-wrap"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "white-space-collapse",
@@ -6461,6 +6488,7 @@
       typedom_types: ["Keyword"],
       valid_for_cue: true,
       valid_for_marker: true,
+      valid_for_page_context: true,
     },
     {
       name: "text-wrap",
@@ -6475,6 +6503,7 @@
       typedom_types: ["Keyword"],
       valid_for_cue: true,
       valid_for_marker: true,
+      valid_for_page_context: true,
     },
     {
       name: "widows",
@@ -6509,6 +6538,7 @@
       valid_for_position_try: true,
       affected_by_zoom: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "will-change",
@@ -6543,6 +6573,7 @@
       valid_for_first_line: true,
       valid_for_marker: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "z-index",
@@ -6573,6 +6604,7 @@
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "block-size",
@@ -6586,6 +6618,7 @@
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "min-inline-size",
@@ -6596,6 +6629,7 @@
       },
       typedom_types: ["Length", "Percentage"],
       valid_for_position_try: true,
+      valid_for_page_context: true,
     },
     {
       name: "min-block-size",
@@ -6607,6 +6641,7 @@
       typedom_types: ["Length", "Percentage"],
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "max-inline-size",
@@ -6619,6 +6654,7 @@
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "max-block-size",
@@ -6631,6 +6667,7 @@
       typedom_types: ["Keyword", "Length", "Percentage"],
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-inline-start",
@@ -6645,6 +6682,8 @@
       valid_for_first_letter: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-inline-end",
@@ -6659,6 +6698,8 @@
       valid_for_first_letter: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-block-start",
@@ -6673,6 +6714,8 @@
       valid_for_first_letter: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-block-end",
@@ -6687,6 +6730,8 @@
       valid_for_first_letter: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "padding-inline-start",
@@ -6697,6 +6742,7 @@
         resolver: "inline-start",
       },
       typedom_types: ["Length", "Percentage"],
+      valid_for_page_context: true,
     },
     {
       name: "padding-inline-end",
@@ -6707,6 +6753,7 @@
         resolver: "inline-end",
       },
       typedom_types: ["Length", "Percentage"],
+      valid_for_page_context: true,
     },
     {
       name: "padding-block-start",
@@ -6717,6 +6764,7 @@
         resolver: "block-start",
       },
       typedom_types: ["Length", "Percentage"],
+      valid_for_page_context: true,
     },
     {
       name: "padding-block-end",
@@ -6727,6 +6775,7 @@
         resolver: "block-end",
       },
       typedom_types: ["Length", "Percentage"],
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-start-width",
@@ -6737,6 +6786,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-start-style",
@@ -6746,6 +6796,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-start-color",
@@ -6756,6 +6807,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-end-width",
@@ -6766,6 +6818,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-end-style",
@@ -6775,6 +6828,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-end-color",
@@ -6785,6 +6839,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-block-start-width",
@@ -6795,6 +6850,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-block-start-style",
@@ -6804,6 +6860,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-block-start-color",
@@ -6814,6 +6871,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-block-end-width",
@@ -6824,6 +6882,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-block-end-style",
@@ -6833,6 +6892,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-block-end-color",
@@ -6843,6 +6903,7 @@
       },
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "inset-inline-start",
@@ -6891,6 +6952,7 @@
       valid_for_position_try: true,
       layout_dependent: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-start-start-radius",
@@ -6902,6 +6964,7 @@
       typedom_types: ["Length", "Percentage"],
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-start-end-radius",
@@ -6913,6 +6976,7 @@
       typedom_types: ["Length", "Percentage"],
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-end-start-radius",
@@ -6924,6 +6988,7 @@
       typedom_types: ["Length", "Percentage"],
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-end-end-radius",
@@ -6935,6 +7000,7 @@
       typedom_types: ["Length", "Percentage"],
       valid_for_first_letter: true,
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
 
     // Non-standard direction aware properties
@@ -7186,8 +7252,15 @@
       runtime_flag: "ViewTransitionOnNavigation",
     },
     {
+      name: "types",
+      is_descriptor: true,
+      is_property: false,
+      runtime_flag: "ViewTransitionOnNavigation",
+    },
+    {
       name: "inset-area",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_custom_functions: ["value", "inherit"],
       field_group: "*",
       field_template: "external",
       include_paths: ["third_party/blink/renderer/core/style/inset_area.h"],
@@ -7202,6 +7275,10 @@
       valid_for_position_try: true,
       runtime_flag: "CSSAnchorPositioning",
       valid_for_permission_element: true,
+      // inset-area needs to be applied before inset properties since
+      // anchor() functions compute relative to the containing block that is
+      // modified by inset-area in AnchorEvaluatorImpl.
+      priority: 1,
     },
 
     // Shorthands
@@ -7269,6 +7346,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "background-position",
@@ -7276,6 +7354,7 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       computable: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "border",
@@ -7288,6 +7367,7 @@
         "border-image-outset", "border-image-repeat"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-block",
@@ -7296,11 +7376,13 @@
         "border-block-end-color", "border-block-end-style", "border-block-end-width"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-block-color",
       longhands: ["border-block-start-color", "border-block-end-color"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-block-end",
@@ -7313,6 +7395,7 @@
         name: "border",
         resolver: "block-end",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-block-start",
@@ -7325,16 +7408,19 @@
         name: "border",
         resolver: "block-start",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-block-style",
       longhands: ["border-block-start-style", "border-block-end-style"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-block-width",
       longhands: ["border-block-start-width", "border-block-end-width"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-bottom",
@@ -7346,6 +7432,7 @@
         name: "border",
         resolver: "bottom",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-color",
@@ -7355,6 +7442,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-image",
@@ -7363,6 +7451,7 @@
         "border-image-outset", "border-image-repeat"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-inline",
@@ -7371,11 +7460,13 @@
         "border-inline-end-color", "border-inline-end-style", "border-inline-end-width"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-color",
       longhands: ["border-inline-start-color", "border-inline-end-color"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-end",
@@ -7388,6 +7479,7 @@
         name: "border",
         resolver: "inline-end",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-start",
@@ -7400,16 +7492,19 @@
         name: "border",
         resolver: "inline-start",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-style",
       longhands: ["border-inline-start-style", "border-inline-end-style"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-inline-width",
       longhands: ["border-inline-start-width", "border-inline-end-width"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "border-left",
@@ -7421,6 +7516,7 @@
         name: "border",
         resolver: "left",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-radius",
@@ -7430,6 +7526,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       valid_for_permission_element: true,
+      valid_for_page_context: true,
     },
     {
       name: "border-right",
@@ -7441,6 +7538,7 @@
         name: "border",
         resolver: "right",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-spacing",
@@ -7457,6 +7555,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       keywords: ["none"],
+      valid_for_page_context: true,
     },
     {
       name: "border-top",
@@ -7466,6 +7565,7 @@
         name: "border",
         resolver: "top",
       },
+      valid_for_page_context: true,
     },
     {
       name: "border-width",
@@ -7474,6 +7574,7 @@
         "border-left-width"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "contain-intrinsic-inline-size",
@@ -7593,22 +7694,7 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
     },
     {
-      name: "grid-column-gap",
-      longhands: ["column-gap"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-    },
-    {
-      name: "grid-row-gap",
-      longhands: ["row-gap"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-    },
-    {
       name: "gap",
-      longhands: ["row-gap", "column-gap"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-    },
-    {
-      name: "grid-gap",
       longhands: ["row-gap", "column-gap"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
     },
@@ -7658,6 +7744,8 @@
       layout_dependent: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-block",
@@ -7665,6 +7753,8 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       layout_dependent: true,
       valid_for_position_try: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "margin-inline",
@@ -7672,6 +7762,8 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       layout_dependent: true,
       valid_for_position_try: true,
+      valid_for_limited_page_context: true,
+      valid_for_page_context: true,
     },
     {
       name: "marker",
@@ -7690,6 +7782,7 @@
       name: "outline",
       longhands: ["outline-color", "outline-style", "outline-width"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "overflow",
@@ -7711,16 +7804,19 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       layout_dependent: true,
       supports_incremental_style: true,
+      valid_for_page_context: true,
     },
     {
       name: "padding-block",
       longhands: ["padding-block-start", "padding-block-end"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "padding-inline",
       longhands: ["padding-inline-start", "padding-inline-end"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      valid_for_page_context: true,
     },
     {
       name: "page-break-after",
@@ -7799,6 +7895,7 @@
       longhands: ["text-decoration-line", "text-decoration-thickness", "text-decoration-style", "text-decoration-color"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       computable: true,
+      valid_for_page_context: true,
     },
     {
       name: "transition",
@@ -7867,34 +7964,18 @@
       longhands: ["column-width", "column-count"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
     },
-    // This alternative of mask is active when CSSMaskingInterop is enabled.
     {
-      name: "-alternative-mask",
-      alternative_of: "mask",
+      name: "mask",
       longhands: [
         "mask-image", "-webkit-mask-position-x",
         "-webkit-mask-position-y", "mask-size", "mask-repeat", "mask-origin",
         "mask-clip", "mask-composite", "mask-mode"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask",
-      longhands: [
-        "-webkit-mask-image", "-webkit-mask-position-x",
-        "-webkit-mask-position-y", "-webkit-mask-size", "-webkit-mask-repeat",
-        "-webkit-mask-origin", "-webkit-mask-clip"
-      ],
-      property_methods: ["ParseShorthand"],
-    },
-    // This alternative of -webkit-mask is active when CSSMaskingInterop is
-    // enabled.
-    {
-      name: "-webkit-alternative-mask",
-      alternative_of: "-webkit-mask",
-      alias_for: "-alternative-mask",
-      runtime_flag: "CSSMaskingInterop",
+      alias_for: "mask",
     },
     {
       name: "-webkit-mask-box-image",
@@ -7911,20 +7992,10 @@
       longhands: ["-webkit-mask-position-x", "-webkit-mask-position-y"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       computable: true,
-      runtime_flag: "CSSMaskingInterop",
-    },
-    {
-      name: "-webkit-alternative-mask-position",
-      alternative_of: "-webkit-mask-position",
-      alias_for: "mask-position",
-      computable: false,
-      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-position",
-      longhands: ["-webkit-mask-position-x", "-webkit-mask-position-y"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-      computable: true,
+      alias_for: "mask-position",
     },
     {
       name: "text-emphasis",
@@ -8685,6 +8756,18 @@
     {
       name: "word-wrap",
       alias_for: "overflow-wrap",
+    },
+    {
+      name: "grid-column-gap",
+      alias_for: "column-gap",
+    },
+    {
+      name: "grid-row-gap",
+      alias_for: "row-gap",
+    },
+    {
+      name: "grid-gap",
+      alias_for: "gap",
     },
   ],
 }

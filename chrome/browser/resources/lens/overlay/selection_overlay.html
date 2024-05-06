@@ -1,24 +1,68 @@
 <style>
-  .selection-overlay {
+  :host {
+    align-items: center;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    width: 100%;
+  }
+
+  #selectionOverlay {
     display: grid;
+    position: relative;
+
+    /* Disable native dragging */
+    user-select: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+  }
+
+  :host([is-resized]) #selectionOverlay {
+    border-radius: 28px;
+    overflow: hidden;
   }
 
   /* Force all child elements to share the same grid cell so they overlap. */
-  .selection-overlay > * {
+  #selectionOverlay > * {
     grid-column: 1;
     grid-row: 1;
+    /* Allow each full size element to not interfere with each other. */
+    pointer-events: none;
   }
 
-  .background-image {
-    pointer-events: none;
+  #backgroundImage {
     max-width: 100vw;
     max-height: 100vh;
   }
+
+  :host([is-resized]) #backgroundImage{
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  #selectionElements > * {
+    inset: 0;
+    position: absolute;
+  }
+  /* Temporary red scrim to make it evident the overlay is opened. */
+  #scrim {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(255, 0, 0, 0.15);
+    pointer-events: none;
+  }
 </style>
-<div class="selection-overlay">
-  <img class="background-image" src="screenshot.jpeg"></img>
-  <div class="selection-elements">
+<div id="selectionOverlay">
+  <img id="backgroundImage" draggable="false" src="screenshot.jpeg">
+  <div id="scrim"></div>
+  <!-- Wrapper div is needed to stack the seleciton elements on top of
+  background image. -->
+  <div id="selectionElements">
     <!-- Other elements that need to be bounded to the image go here -->
-    Lens Overlay
+    <post-selection-renderer
+      id="postSelectionRenderer"></post-selection-renderer>
+    <lens-object-layer id="objectSelectionLayer"></lens-object-layer>
+    <region-selection id="regionSelectionLayer"></region-selection>
+    <lens-text-layer id="textSelectionLayer"></lens-text-layer>
   </div>
 </div>

@@ -9,6 +9,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/ui/menu/action_factory.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/base_grid_view_controller.h"
@@ -32,6 +33,12 @@ constexpr CGFloat kBackgroundAlpha = 0.6;
 constexpr CGFloat kSubTitleHorizontalPadding = 7;
 constexpr CGFloat kThreeDotButtonSize = 19;
 constexpr CGFloat kTitleBackgroundCornerRadius = 17;
+constexpr CGFloat kPlusImageSize = 20;
+
+constexpr CGFloat kSmallMotionTranslationCompletion = 0.8;
+constexpr CGFloat kTranslationCompletion = 0;
+constexpr CGFloat kSmallMotionOriginScale = 0.8;
+constexpr CGFloat kOriginScale = 0.1;
 }  // namespace
 
 @interface TabGroupViewController () <UINavigationBarDelegate>
@@ -52,6 +59,10 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
   UIVisualEffectView* _blurView;
   // Currently displayed group.
   const TabGroup* _tabGroup;
+  // Title label.
+  UILabel* _titleView;
+  // Dot view.
+  UIView* _coloredDotView;
 }
 
 #pragma mark - Public
@@ -77,7 +88,7 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
   return self;
 }
 
-- (void)prepareForPresentation {
+- (void)prepareForPresentationWithSmallMotions:(BOOL)smallMotions {
   [self.view layoutIfNeeded];
   CGAffineTransform scaleDown =
       CGAffineTransformScale(CGAffineTransformIdentity, 0.5, 0.5);
@@ -89,7 +100,12 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
   _gridViewController.view.alpha = 0;
   CGPoint center = [_gridViewController.view convertPoint:self.view.center
                                                  fromView:self.view];
-  [_gridViewController centerVisibleCellsToPoint:center withScale:0.1];
+  CGFloat translationCompletion =
+      smallMotions ? kSmallMotionTranslationCompletion : kTranslationCompletion;
+  CGFloat scale = smallMotions ? kSmallMotionOriginScale : kOriginScale;
+  [_gridViewController centerVisibleCellsToPoint:center
+                           translationCompletion:translationCompletion
+                                       withScale:scale];
 }
 
 - (void)animateTopElementsPresentation {
@@ -118,7 +134,9 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
 - (void)animateDismissal {
   CGPoint center = [_gridViewController.view convertPoint:self.view.center
                                                  fromView:self.view];
-  [_gridViewController centerVisibleCellsToPoint:center withScale:0.1];
+  [_gridViewController centerVisibleCellsToPoint:center
+                           translationCompletion:kTranslationCompletion
+                                       withScale:kOriginScale];
 }
 
 - (void)fadeBlurOut {
@@ -181,9 +199,7 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
 }
 
 - (void)didTapPlusButton {
-  // TODO(crbug.com/1501837): Take into account the returned bool value of
-  // `addNewItemInGroup`.
-  [self.mutator addNewItemInGroup];
+  [self openNewTab];
 }
 
 #pragma mark - UINavigationBarDelegate
@@ -192,6 +208,11 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
         shouldPopItem:(UINavigationItem*)item {
   [_handler hideTabGroup];
   return NO;
+}
+
+- (void)navigationBar:(UINavigationBar*)navigationBar
+           didPopItem:(UINavigationItem*)item {
+  [_handler hideTabGroup];
 }
 
 #pragma mark - UIBarPositioningDelegate
@@ -206,10 +227,12 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
 
 - (void)setGroupTitle:(NSString*)title {
   _groupTitle = title;
+  [_titleView setText:_groupTitle];
 }
 
 - (void)setGroupColor:(UIColor*)color {
   _groupColor = color;
+  [_coloredDotView setBackgroundColor:_groupColor];
 }
 
 #pragma mark - Private
@@ -222,10 +245,12 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
 // Returns the navigation item which contain the plus button.
 - (UINavigationItem*)configuredPlusButton {
   UINavigationItem* plus = [[UINavigationItem alloc] init];
-  plus.rightBarButtonItem = [[UIBarButtonItem alloc]
-      initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
-                           target:self
-                           action:@selector(didTapPlusButton)];
+  UIImage* plusImage = DefaultSymbolWithPointSize(kPlusSymbol, kPlusImageSize);
+  plus.rightBarButtonItem =
+      [[UIBarButtonItem alloc] initWithImage:plusImage
+                                       style:UIBarButtonItemStylePlain
+                                      target:self
+                                      action:@selector(didTapPlusButton)];
   return plus;
 }
 
@@ -302,40 +327,32 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
 - (UIView*)configuredPrimaryTitle {
   UIView* fullTitleView = [[UIView alloc] initWithFrame:CGRectZero];
   fullTitleView.translatesAutoresizingMaskIntoConstraints = NO;
-  fullTitleView.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
   fullTitleView.layer.cornerRadius = kTitleBackgroundCornerRadius;
   fullTitleView.opaque = NO;
 
-  UIView* coloredDotView = [self groupColorDotView];
-  UILabel* titleView = [self groupTitleView];
-  [fullTitleView addSubview:coloredDotView];
-  [fullTitleView addSubview:titleView];
+  _coloredDotView = [self groupColorDotView];
+  _titleView = [self groupTitleView];
+  [fullTitleView addSubview:_coloredDotView];
+  [fullTitleView addSubview:_titleView];
 
   [NSLayoutConstraint activateConstraints:@[
-    [titleView.leadingAnchor
-        constraintEqualToAnchor:coloredDotView.trailingAnchor
+    [_titleView.leadingAnchor
+        constraintEqualToAnchor:_coloredDotView.trailingAnchor
                        constant:kDotTitleSeparationMargin],
-    [coloredDotView.centerYAnchor
-        constraintEqualToAnchor:titleView.centerYAnchor],
-    [coloredDotView.leadingAnchor
+    [_coloredDotView.centerYAnchor
+        constraintEqualToAnchor:_titleView.centerYAnchor],
+    [_coloredDotView.leadingAnchor
         constraintEqualToAnchor:fullTitleView.leadingAnchor
                        constant:kTitleHorizontalMargin],
     [fullTitleView.trailingAnchor
-        constraintEqualToAnchor:titleView.trailingAnchor
+        constraintEqualToAnchor:_titleView.trailingAnchor
                        constant:kTitleHorizontalMargin],
-    [titleView.topAnchor constraintEqualToAnchor:fullTitleView.topAnchor
-                                        constant:kTitleVerticalMargin],
-    [fullTitleView.bottomAnchor constraintEqualToAnchor:titleView.bottomAnchor
+    [_titleView.topAnchor constraintEqualToAnchor:fullTitleView.topAnchor
+                                         constant:kTitleVerticalMargin],
+    [fullTitleView.bottomAnchor constraintEqualToAnchor:_titleView.bottomAnchor
                                                constant:kTitleVerticalMargin],
   ]];
   return fullTitleView;
-}
-
-// Returns the string with give the current number of tabs in the group.
-- (NSString*)numberOfTabsString {
-  // TODO(crbug.com/1501837): Configure the string with the real number of
-  // items.
-  return l10n_util::GetPluralNSStringF(IDS_IOS_TAB_GROUP_TABS_NUMBER, 1);
 }
 
 // Returns the configured sub titles view.
@@ -343,20 +360,7 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
   UIView* subTitleView = [[UIView alloc] initWithFrame:CGRectZero];
   subTitleView.translatesAutoresizingMaskIntoConstraints = NO;
 
-  UITraitCollection* interfaceStyleDarkTraitCollection = [UITraitCollection
-      traitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleDark];
-  UIColor* textColor = [[UIColor colorNamed:kTextSecondaryColor]
-      resolvedColorWithTraitCollection:interfaceStyleDarkTraitCollection];
-
-  UILabel* numberOfTabsLabel = [[UILabel alloc] init];
-  numberOfTabsLabel.translatesAutoresizingMaskIntoConstraints = NO;
-  numberOfTabsLabel.textColor = textColor;
-  numberOfTabsLabel.font =
-      [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
-  numberOfTabsLabel.text = [self numberOfTabsString];
-
-  // TODO(crbug.com/1501837): Add action to the button.
-  UIButton* menuButton = [[UIButton alloc] init];
+  UIButton* menuButton = [[ExtendedTouchTargetButton alloc] init];
   menuButton.translatesAutoresizingMaskIntoConstraints = NO;
   menuButton.menu = [self configuredTabGroupMenu];
   menuButton.showsMenuAsPrimaryAction = YES;
@@ -365,22 +369,15 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
       forState:UIControlStateNormal];
   menuButton.tintColor = UIColor.whiteColor;
 
-  [subTitleView addSubview:numberOfTabsLabel];
   [subTitleView addSubview:menuButton];
 
   [NSLayoutConstraint activateConstraints:@[
-    [numberOfTabsLabel.leadingAnchor
-        constraintEqualToAnchor:subTitleView.leadingAnchor
-                       constant:kSubTitleHorizontalPadding],
-    [numberOfTabsLabel.topAnchor
-        constraintEqualToAnchor:subTitleView.topAnchor],
-    [subTitleView.heightAnchor
-        constraintEqualToAnchor:numberOfTabsLabel.heightAnchor],
     [menuButton.trailingAnchor
         constraintEqualToAnchor:subTitleView.trailingAnchor
                        constant:-kSubTitleHorizontalPadding],
+    [subTitleView.heightAnchor constraintEqualToAnchor:menuButton.heightAnchor],
     [menuButton.centerYAnchor
-        constraintEqualToAnchor:numberOfTabsLabel.centerYAnchor],
+        constraintEqualToAnchor:subTitleView.centerYAnchor],
   ]];
 
   return subTitleView;
@@ -395,7 +392,7 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
 // Returns the tab group menu.
 - (UIMenu*)configuredTabGroupMenu {
   ActionFactory* actionFactory = [[ActionFactory alloc]
-      initWithScenario:kMenuScenarioHistogramTabGroupViewEntry];
+      initWithScenario:kMenuScenarioHistogramTabGroupViewMenuEntry];
 
   __weak TabGroupViewController* weakSelf = self;
   UIAction* renameGroup = [actionFactory actionToRenameTabGroupWithBlock:^{
@@ -403,26 +400,47 @@ constexpr CGFloat kTitleBackgroundCornerRadius = 17;
   }];
 
   UIAction* newTabAction = [actionFactory actionToAddNewTabInGroupWithBlock:^{
-      // TODO(crbug.com/1501837): Add new tab in current group and open it.
+    [weakSelf openNewTab];
   }];
-  newTabAction.image =
-      DefaultSymbolWithPointSize(kPlusInSquareSymbol, kSymbolActionPointSize);
 
   UIAction* ungroupAction = [actionFactory actionToUngroupTabGroupWithBlock:^{
-      // TODO(crbug.com/1501837): Remove the group but keep tabs and
-      // dismiss the view.
+    [weakSelf ungroup];
   }];
 
-  UIAction* closeGroupAction = [actionFactory actionToCloseTabGroupWithBlock:^{
-      // TODO(crbug.com/1501837): Close all the tabs from the
-      // current group, remove the group and dismiss the view.
-  }];
+  UIAction* deleteGroupAction =
+      [actionFactory actionToDeleteTabGroupWithBlock:^{
+        [weakSelf deleteGroup];
+      }];
 
   return
       [UIMenu menuWithTitle:@""
                    children:@[
-                     renameGroup, newTabAction, ungroupAction, closeGroupAction
+                     renameGroup, newTabAction, ungroupAction, deleteGroupAction
                    ]];
+}
+
+// Opens a new tab in the group.
+- (void)openNewTab {
+  if ([self.mutator addNewItemInGroup]) {
+    [_handler showActiveTab];
+  } else {
+    // Dismiss the view as it looks like the policy changed, and it is not
+    // possible to create a new tab anymore. In this case, the user should not
+    // see any tabs.
+    [_handler hideTabGroup];
+  }
+}
+
+// Ungroups the current group (keeps the tab) and closes the view.
+- (void)ungroup {
+  [self.mutator ungroup];
+  [_handler hideTabGroup];
+}
+
+// Closes the tabs and deletes the current group and closes the view.
+- (void)deleteGroup {
+  [self.mutator deleteGroup];
+  [_handler hideTabGroup];
 }
 
 @end

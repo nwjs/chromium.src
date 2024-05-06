@@ -18,6 +18,7 @@ import androidx.annotation.Nullable;
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ChromeCustomShareAction;
 import org.chromium.chrome.browser.share.ChromeProvidedSharingOptionsProviderBase;
@@ -263,7 +264,7 @@ class AndroidCustomActionProvider extends ChromeProvidedSharingOptionsProviderBa
         if (mChromeShareExtras != null
                 && mChromeShareExtras.getDetailedContentType() == DetailedContentType.PAGE_INFO) {
             return new FirstPartyOptionBuilder(ContentType.LINK_AND_TEXT)
-                    .setIcon(R.drawable.ic_remove, R.string.remove)
+                    .setIcon(R.drawable.spark_off, R.string.sharing_remove_summary)
                     .setFeatureNameForMetrics(USER_ACTION_REMOVE_PAGE_INFO_SELECTED)
                     .setOnClickCallback(
                             (view) -> {
@@ -273,9 +274,9 @@ class AndroidCustomActionProvider extends ChromeProvidedSharingOptionsProviderBa
                     .build();
         }
 
-        if (mPageInfoSharingController.isAvailableForTab(mTabProvider.get())) {
+        if (mPageInfoSharingController.shouldShowInShareSheet(mTabProvider.get())) {
             return new FirstPartyOptionBuilder(ContentType.LINK_PAGE_VISIBLE)
-                    .setIcon(R.drawable.ic_content_copy_black, R.string.share)
+                    .setIcon(R.drawable.spark, R.string.sharing_create_summary)
                     .setFeatureNameForMetrics(USER_ACTION_PAGE_INFO_SELECTED)
                     .setOnClickCallback(
                             (view) -> {
@@ -283,6 +284,7 @@ class AndroidCustomActionProvider extends ChromeProvidedSharingOptionsProviderBa
                                         mActivity,
                                         mBottomSheetController,
                                         mChromeOptionShareCallback,
+                                        HelpAndFeedbackLauncherImpl.getForProfile(mProfile),
                                         mTabProvider.get());
                             })
                     .build();

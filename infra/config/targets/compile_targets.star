@@ -193,11 +193,10 @@ targets.compile_target(
     label = "//content/test:content_nocompile_tests",
 )
 
-# TODO(issues.chromium.org/1516671): Use for Cast receiver builders.
-# targets.compile_target(
-#     name = "core_runtime_simple",
-#     label = "//chromecast/cast_core:core_runtime_simple",
-# )
+targets.compile_target(
+    name = "core_runtime_simple",
+    label = "//chromecast/cast_core:core_runtime_simple",
+)
 
 targets.compile_target(
     name = "cronet_package",
@@ -206,7 +205,7 @@ targets.compile_target(
 
 targets.compile_target(
     name = "cronet_package_ci",
-    label = "//components/cronet:cronet_package_ci",
+    label = "//components/cronet/android:cronet_package_ci",
 )
 
 targets.compile_target(

@@ -12,7 +12,7 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/notreached.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
-#include "chrome/browser/extensions/site_permissions_helper.h"
+#include "chrome/browser/extensions/permissions/site_permissions_helper.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -409,8 +409,7 @@ void ExtensionsMenuViewController::OnExtensionToggleSelected(
   SitePermissionsHelper permissions_helper(browser_->profile());
   auto* permissions_manager = PermissionsManager::Get(browser_->profile());
   auto current_site_access = permissions_manager->GetUserSiteAccess(
-      *GetExtension(browser_, extension_id),
-      GetActiveWebContents()->GetLastCommittedURL());
+      *extension, web_contents->GetLastCommittedURL());
   PermissionsManager::ExtensionSiteAccess extension_site_access =
       permissions_manager->GetSiteAccess(*extension,
                                          web_contents->GetLastCommittedURL());
@@ -489,7 +488,7 @@ void ExtensionsMenuViewController::OnAllowExtensionClicked(
   base::RecordAction(base::UserMetricsAction(
       "Extensions.Toolbar.ExtensionActivatedFromAllowingRequestAccessInMenu"));
   action_runner->GrantTabPermissions({GetExtension(browser_, extension_id)});
-  // TODO(crbug.com/1445399): Granting tab permission but not accepting the
+  // TODO(crbug.com/40912394): Granting tab permission but not accepting the
   // reload page means we grant tab permissions but the action is not executed.
   // This causes a mismatch between the request access button in the toolbar,
   // and the request access section in the menu when the extension is granted
@@ -676,8 +675,10 @@ void ExtensionsMenuViewController::UpdateMainPage(
     ExtensionMenuItemView::SitePermissionsButtonAccess
         site_permissions_button_access = GetSitePermissionsButtonAccess(
             *extension, *browser_->profile(), *toolbar_model_, *web_contents);
+    bool is_enterprise =
+        HasEnterpriseForcedAccess(*extension, *browser_->profile());
     menu_item->Update(site_access_toggle_state, site_permissions_button_state,
-                      site_permissions_button_access);
+                      site_permissions_button_access, is_enterprise);
   }
 
   // Items can be added/removed from the menu, thus we need to resize the menu

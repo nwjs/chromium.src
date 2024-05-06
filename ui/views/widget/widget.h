@@ -316,11 +316,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // be ignored on some platforms. No value indicates no preference.
     std::optional<int> shadow_elevation;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    ui::ColorProviderKey::ElevationMode background_elevation =
-        ui::ColorProviderKey::ElevationMode::kLow;
-#endif
-
     // The window corner radius. May be ignored on some platforms.
     std::optional<int> corner_radius;
 
@@ -427,11 +422,18 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // If set, the widget was created in headless mode.
     bool headless_mode = false;
 
-#if defined(USE_AURA) && (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
-    // Indicates whether the desktop native widget is required for the widget.
-    // This may enforce changing the type of the underlying platform window.
+    // If set, the window size will follow the content preferred size.
+    bool autosize = false;
+
+#if BUILDFLAG(IS_OZONE)
+    // Specifies whether the Widget should use a desktop native widget.
+    //   true: desktop native widget will always be used
+    //   false: desktop native widget will never be used
+    //   unspecified: depends on experiment kOzoneBubblesUsePlatformWidgets and
+    //     whether the platform actually supports desktop native subwindows (see
+    //     ozone_platform.h `supports_subwindows_as_accelerated_widgets`)
     // See crbug.com/1280332
-    bool requires_accelerated_widget = false;
+    std::optional<bool> use_accelerated_widget_override;
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -885,7 +887,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   SublevelManager* GetSublevelManager();
 
   // Starts a drag operation for the specified view. This blocks until the drag
-  // operation completes. |view| can be NULL.
+  // operation completes or is cancelled by calling `CancelShellDrag()`.
+  // |view| can be NULL.
   // If the view is non-NULL it can be accessed during the drag by calling
   // dragged_view(). If the view has not been deleted during the drag,
   // OnDragDone() is called on it. |location| is in the widget's coordinate
@@ -895,6 +898,10 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
                     const gfx::Point& location,
                     int operation,
                     ui::mojom::DragEventSource source);
+
+  // Cancels a currently running drag operation for the specified view. |view|
+  // can be NULL.
+  void CancelShellDrag(View* view);
 
   // Returns the view that requested the current drag operation via
   // RunShellDrag(), or NULL if there is no such view or drag operation.
@@ -910,6 +917,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Schedule a layout to occur. This is called by RootView, client code should
   // not need to call this.
   void ScheduleLayout();
+
+  // Called when the contents view receives an `InvalidateLayout()`.
+  void OnRootViewLayoutInvalidated();
 
   // Sets the currently visible cursor.
   void SetCursor(const ui::Cursor& cursor);
@@ -1066,6 +1076,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // True if widget was created in headless mode.
   bool is_headless() const { return is_headless_; }
 
+  // True if the window size will follow the content preferred size.
+  bool is_autosized() const { return is_autosized_; }
+
   // True when window movement via mouse interaction with the frame is disabled.
   bool movement_disabled() const { return movement_disabled_; }
   void set_movement_disabled(bool disabled) { movement_disabled_ = disabled; }
@@ -1186,7 +1199,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // ui::ColorProviderSource:
   const ui::ColorProvider* GetColorProvider() const override;
-  const ui::RendererColorMap GetRendererColorMap(
+  ui::RendererColorMap GetRendererColorMap(
       ui::ColorProviderKey::ColorMode color_mode,
       ui::ColorProviderKey::ForcedColors forced_colors) const override;
 
@@ -1364,11 +1377,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // See set_is_secondary_widget().
   bool is_secondary_widget_ = true;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  ui::ColorProviderKey::ElevationMode background_elevation_ =
-      ui::ColorProviderKey::ElevationMode::kLow;
-#endif
-
   // If set, overrides this value is used instead of the one from NativeTheme
   // when constructing a ColorProvider.
   std::optional<ui::ColorProviderKey::ColorMode> color_mode_override_;
@@ -1428,6 +1436,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // If set, the widget was created in headless mode.
   bool is_headless_ = false;
+
+  // If set, the window size will follow the content preferred size.
+  bool is_autosized_ = false;
 
   // True if capture losses should be ignored.
   bool ignore_capture_loss_ = false;

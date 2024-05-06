@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "ash/constants/ash_features.h"
+#include "ash/webui/media_app_ui/media_app_ui_untrusted.mojom.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/accessibility/media_app/ax_media_app.h"
 #include "chrome/browser/accessibility/media_app/ax_media_app_handler_factory.h"
@@ -22,6 +23,7 @@
 #include "content/public/test/test_web_ui.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/test_support/fake_message_dispatch_context.h"
 #include "services/screen_ai/buildflags/buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -39,6 +41,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/accessibility_notification_waiter.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
+#include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"
 #include "services/screen_ai/public/test/fake_screen_ai_annotator.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_event_generator.h"
@@ -68,33 +72,6 @@ constexpr float kTestPageHeight = 8.0f;
 // Use letters to generate fake IDs for fake page metadata. If more than 26
 // pages are needed, more characters can be added.
 constexpr std::string_view kTestPageIds = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-// Create fake page metadata with pages of the same size positioned
-// (kTestPageWidth + kTestPageGap) unit spaced apart.
-std::vector<PageMetadataPtr> CreateFakePageMetadata(const uint64_t num_pages) {
-  EXPECT_LE(num_pages, kTestPageIds.size())
-      << "Can't make more than " << kTestPageIds.size() << " pages.";
-  std::vector<PageMetadataPtr> fake_page_metadata;
-  for (uint64_t i = 0; i < num_pages; ++i) {
-    PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
-    page->id = std::format("Page{}", kTestPageIds[i]);
-    page->rect =
-        gfx::RectF(/*x=*/0.0f, /*y=*/kTestPageGap * i + kTestPageHeight * i,
-                   kTestPageWidth, kTestPageHeight);
-    fake_page_metadata.push_back(std::move(page));
-  }
-  return fake_page_metadata;
-}
-
-std::vector<PageMetadataPtr> ClonePageMetadataPtrs(
-    const std::vector<PageMetadataPtr>& metadata) {
-  std::vector<PageMetadataPtr> fake_page_metadata;
-  for (const PageMetadataPtr& page : metadata) {
-    PageMetadataPtr cloned_page = mojo::Clone(page);
-    fake_page_metadata.push_back(std::move(cloned_page));
-  }
-  return fake_page_metadata;
-}
 
 class AXMediaAppUntrustedHandlerTest : public InProcessBrowserTest {
  public:
@@ -133,11 +110,13 @@ class AXMediaAppUntrustedHandlerTest : public InProcessBrowserTest {
   }
 
  protected:
-  void WaitForOcringPages(uint64_t number_of_pages) const {
-    for (uint64_t i = 0; i < number_of_pages; ++i) {
-      handler_->FlushForTesting();
-    }
-  }
+  // Create fake page metadata with pages of the same size positioned(
+  // kTestPageWidth + kTestPageGap) unit spaced apart.
+  std::vector<PageMetadataPtr> CreateFakePageMetadata(
+      const uint64_t num_pages) const;
+  std::vector<PageMetadataPtr> ClonePageMetadataPtrs(
+      const std::vector<PageMetadataPtr>& metadata) const;
+  void WaitForOcringPages(uint64_t number_of_pages) const;
 
   FakeAXMediaApp fake_media_app_;
   std::unique_ptr<TestAXMediaAppUntrustedHandler> handler_;
@@ -150,10 +129,292 @@ class AXMediaAppUntrustedHandlerTest : public InProcessBrowserTest {
   base::test::ScopedFeatureList feature_list_;
 };
 
+std::vector<PageMetadataPtr>
+AXMediaAppUntrustedHandlerTest::CreateFakePageMetadata(
+    const uint64_t num_pages) const {
+  EXPECT_LE(static_cast<size_t>(num_pages), kTestPageIds.size())
+      << "Can't make more than " << kTestPageIds.size() << " pages.";
+  std::vector<PageMetadataPtr> fake_page_metadata;
+  for (uint64_t i = 0; i < num_pages; ++i) {
+    PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
+    page->id = std::format("Page{}", kTestPageIds[i]);
+    page->rect =
+        gfx::RectF(/*x=*/0.0f, /*y=*/kTestPageGap * i + kTestPageHeight * i,
+                   kTestPageWidth, kTestPageHeight);
+    fake_page_metadata.push_back(std::move(page));
+  }
+  return fake_page_metadata;
+}
+
+std::vector<PageMetadataPtr>
+AXMediaAppUntrustedHandlerTest::ClonePageMetadataPtrs(
+    const std::vector<PageMetadataPtr>& metadata) const {
+  std::vector<PageMetadataPtr> fake_page_metadata;
+  for (const PageMetadataPtr& page : metadata) {
+    PageMetadataPtr cloned_page = mojo::Clone(page);
+    fake_page_metadata.push_back(std::move(cloned_page));
+  }
+  return fake_page_metadata;
+}
+
+void AXMediaAppUntrustedHandlerTest::WaitForOcringPages(
+    uint64_t number_of_pages) const {
+  for (uint64_t i = 0; i < number_of_pages; ++i) {
+    handler_->FlushForTesting();
+  }
+}
+
 }  // namespace
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest, PageMetadataUpdated) {
+  const std::vector<std::string> kPageIds{"four", "ids", "in", "list"};
+  const size_t kTestNumPages = kPageIds.size();
+  constexpr gfx::RectF kRect(0, 0, 10, 15);
+  std::vector<PageMetadataPtr> fake_metadata;
+  for (size_t i = 0; i < kTestNumPages; ++i) {
+    PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
+    page->id = kPageIds[i];
+    page->rect = kRect;
+    fake_metadata.push_back(std::move(page));
+  }
+  handler_->PageMetadataUpdated(std::move(fake_metadata));
+  WaitForOcringPages(kTestNumPages);
+
+  const std::map<const std::string, AXMediaAppPageMetadata>&
+      actual_page_metadata = handler_->GetPageMetadataForTesting();
+  ASSERT_EQ(actual_page_metadata.size(), kTestNumPages);
+  for (size_t i = 0; i < kTestNumPages; ++i) {
+    EXPECT_EQ(actual_page_metadata.at(kPageIds[i]).id, kPageIds[i]);
+    EXPECT_EQ(actual_page_metadata.at(kPageIds[i]).page_num, i + 1u);
+    EXPECT_EQ(actual_page_metadata.at(kPageIds[i]).rect, kRect);
+  }
+
+  const std::map<const std::string, std::unique_ptr<ui::AXTreeManager>>& pages =
+      handler_->GetPagesForTesting();
+  ASSERT_EQ(kTestNumPages, pages.size());
+  for (size_t i = 0; const auto& [page_id, page] : pages) {
+    EXPECT_EQ(page_id, kPageIds[i++]);
+    EXPECT_NE(nullptr, page.get());
+    EXPECT_NE(nullptr, page->ax_tree());
+  }
+  EXPECT_EQ(
+      "AXTree has_parent_tree title=PDF document\n"
+      "id=1 pdfRoot FOCUSABLE name=PDF document containing 4 pages "
+      "name_from=attribute clips_children child_ids=2,3,4,5 (0, 0)-(10, 15) "
+      "text_align=left restriction=readonly scroll_x_min=0 scroll_y_min=0 "
+      "scrollable=true is_line_breaking_object=true\n"
+      "  id=2 region name=Page 1 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n"
+      "  id=3 region name=Page 2 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n"
+      "  id=4 region name=Page 3 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n"
+      "  id=5 region name=Page 4 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n",
+      handler_->GetDocumentTreeToStringForTesting());
+}
+
+IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest,
+                       PageMetadataUpdatedNoDuplicatePageIds) {
+  constexpr std::string kDuplicateId = "duplicate";
+  std::vector<PageMetadataPtr> fake_metadata;
+  PageMetadataPtr page1 = ash::media_app_ui::mojom::PageMetadata::New();
+  page1->id = kDuplicateId;
+  gfx::RectF rect(0, 0, 10, 15);
+  page1->rect = rect;
+  fake_metadata.push_back(std::move(page1));
+  PageMetadataPtr page2 = ash::media_app_ui::mojom::PageMetadata::New();
+  page2->id = kDuplicateId;
+  page2->rect = rect;
+  fake_metadata.push_back(std::move(page2));
+
+  mojo::FakeMessageDispatchContext fake_dispatch_context;
+  mojo::test::BadMessageObserver bad_message_observer;
+  handler_->PageMetadataUpdated(std::move(fake_metadata));
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(bad_message_observer.got_bad_message());
+}
+
+IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest,
+                       PageMetadataUpdatedWithDeleteAndUndoDelete) {
+  const std::string kDocumentTree(
+      "AXTree has_parent_tree title=PDF document\n"
+      "id=1 pdfRoot FOCUSABLE name=PDF document containing 3 pages "
+      "name_from=attribute clips_children child_ids=2,3,4 (0, 0)-(10, 15) "
+      "text_align=left restriction=readonly scroll_x_min=0 scroll_y_min=0 "
+      "scrollable=true is_line_breaking_object=true\n"
+      "  id=2 region name=Page 1 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n"
+      "  id=3 region name=Page 2 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n"
+      "  id=4 region name=Page 3 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n");
+
+  const std::string kDocumentTreeWithDeletedPage(
+      "AXTree has_parent_tree title=PDF document\n"
+      "id=1 pdfRoot FOCUSABLE name=PDF document containing 2 pages "
+      "name_from=attribute clips_children child_ids=2,3 (0, 0)-(10, 15) "
+      "text_align=left restriction=readonly scroll_x_min=0 scroll_y_min=0 "
+      "scrollable=true is_line_breaking_object=true\n"
+      "  id=2 region name=Page 1 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n"
+      "  id=3 region name=Page 2 name_from=attribute has_child_tree (0, "
+      "0)-(10, 15) restriction=readonly is_page_breaking_object=true\n");
+
+  constexpr gfx::RectF kRect(0, 0, 10, 15);
+  const std::vector<std::string> kPageIds{"pageX", "pageY", "pageZ"};
+  const size_t kTestNumPages = kPageIds.size();
+  std::vector<PageMetadataPtr> fake_metadata;
+  for (size_t i = 0; i < kTestNumPages; ++i) {
+    PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
+    page->id = kPageIds[i];
+    page->rect = kRect;
+    fake_metadata.push_back(std::move(page));
+  }
+  handler_->PageMetadataUpdated(ClonePageMetadataPtrs(fake_metadata));
+  WaitForOcringPages(kTestNumPages);
+
+  const std::map<const std::string, AXMediaAppPageMetadata>&
+      page_metadata_before_deletion = handler_->GetPageMetadataForTesting();
+  ASSERT_EQ(page_metadata_before_deletion.size(), kTestNumPages);
+  for (size_t i = 1; i <= kTestNumPages; ++i) {
+    EXPECT_EQ(page_metadata_before_deletion.at(kPageIds[i - 1]).page_num, i);
+  }
+
+  const std::map<const std::string, std::unique_ptr<ui::AXTreeManager>>&
+      pages_before_deletion = handler_->GetPagesForTesting();
+  ASSERT_EQ(kTestNumPages, pages_before_deletion.size());
+  for (size_t i = 0; const auto& [page_id, page] : pages_before_deletion) {
+    EXPECT_EQ(page_id, kPageIds[i++]);
+    EXPECT_NE(nullptr, page.get());
+    EXPECT_NE(nullptr, page->ax_tree());
+  }
+  EXPECT_EQ(kDocumentTree, handler_->GetDocumentTreeToStringForTesting());
+
+  // Delete "pageY" by excluding it from the metadata.
+  std::vector<PageMetadataPtr> fake_metadataWithDeletedPage;
+  for (size_t i = 0; i < kTestNumPages; ++i) {
+    if (kPageIds[i] == "pageY") {
+      continue;
+    }
+    PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
+    page->id = kPageIds[i];
+    page->rect = kRect;
+    fake_metadataWithDeletedPage.push_back(std::move(page));
+  }
+  handler_->PageMetadataUpdated(std::move(fake_metadataWithDeletedPage));
+
+  std::map<const std::string, AXMediaAppPageMetadata>&
+      page_metadata_after_deletion = handler_->GetPageMetadataForTesting();
+  ASSERT_EQ(page_metadata_after_deletion.size(), kTestNumPages);
+  EXPECT_EQ(page_metadata_after_deletion.at("pageX").page_num, 1u);
+  EXPECT_EQ(page_metadata_after_deletion.at("pageY").page_num, 0u);
+  EXPECT_EQ(page_metadata_after_deletion.at("pageZ").page_num, 2u);
+
+  const std::map<const std::string, std::unique_ptr<ui::AXTreeManager>>&
+      pages_after_deletion = handler_->GetPagesForTesting();
+  ASSERT_EQ(kTestNumPages, pages_after_deletion.size());
+  for (size_t i = 0; const auto& [page_id, page] : pages_after_deletion) {
+    EXPECT_EQ(page_id, kPageIds[i++]);
+    EXPECT_NE(nullptr, page.get());
+    EXPECT_NE(nullptr, page->ax_tree());
+  }
+  EXPECT_EQ(kDocumentTreeWithDeletedPage,
+            handler_->GetDocumentTreeToStringForTesting());
+
+  // Add pageY back.
+  handler_->PageMetadataUpdated(std::move(fake_metadata));
+
+  const std::map<const std::string, AXMediaAppPageMetadata>&
+      page_metadata_after_undo_deletion = handler_->GetPageMetadataForTesting();
+  ASSERT_EQ(page_metadata_after_undo_deletion.size(), kTestNumPages);
+  for (size_t i = 1; i <= kTestNumPages; ++i) {
+    EXPECT_EQ(page_metadata_after_undo_deletion.at(kPageIds[i - 1]).page_num,
+              i);
+  }
+
+  const std::map<const std::string, std::unique_ptr<ui::AXTreeManager>>&
+      pages_after_undo_deletion = handler_->GetPagesForTesting();
+  ASSERT_EQ(kTestNumPages, pages_after_undo_deletion.size());
+  for (size_t i = 0; const auto& [page_id, page] : pages_after_undo_deletion) {
+    EXPECT_EQ(page_id, kPageIds[i++]);
+    EXPECT_NE(nullptr, page.get());
+    EXPECT_NE(nullptr, page->ax_tree());
+  }
+  EXPECT_EQ(kDocumentTree, handler_->GetDocumentTreeToStringForTesting());
+}
+
+IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest,
+                       PageMetadataUpdatedWithNewPages) {
+  mojo::FakeMessageDispatchContext fake_dispatch_context;
+  mojo::test::BadMessageObserver bad_message_observer;
+  const std::vector<std::string> kPageIds{"pageX", "pageY"};
+  const size_t kTestNumPages = kPageIds.size();
+  std::vector<PageMetadataPtr> fake_metadata;
+  for (size_t i = 0; i < kTestNumPages; ++i) {
+    PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
+    page->id = kPageIds[i];
+    gfx::RectF rect(0, 0, 10, 15);
+    page->rect = rect;
+    fake_metadata.push_back(std::move(page));
+  }
+
+  handler_->PageMetadataUpdated(std::move(fake_metadata));
+
+  std::map<const std::string, AXMediaAppPageMetadata>& actual_page_metadata =
+      handler_->GetPageMetadataForTesting();
+  EXPECT_EQ(actual_page_metadata.size(), kTestNumPages);
+
+  // Add a page with a new ID.
+  PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
+  page->id = "pageZ";
+  gfx::RectF rect(0, 0, 10, 15);
+  page->rect = rect;
+  fake_metadata.push_back(std::move(page));
+
+  handler_->PageMetadataUpdated(std::move(fake_metadata));
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(bad_message_observer.got_bad_message());
+}
+
+IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest, DirtyPageOcrOrder) {
+  mojo::FakeMessageDispatchContext fake_dispatch_context;
+  mojo::test::BadMessageObserver bad_message_observer;
+  const std::vector<std::string> kPageIds{"pageW", "pageX", "pageY", "pageZ"};
+  const size_t kTestNumPages = kPageIds.size();
+  std::vector<PageMetadataPtr> fake_metadata;
+  for (size_t i = 0; i < kTestNumPages; ++i) {
+    PageMetadataPtr page = ash::media_app_ui::mojom::PageMetadata::New();
+    page->id = kPageIds[i];
+    gfx::RectF rect(0, 0, 10, 15);
+    page->rect = rect;
+    fake_metadata.push_back(std::move(page));
+  }
+  handler_->SetDelayCallingOcrNextDirtyPage(true);
+
+  handler_->PageMetadataUpdated(std::move(fake_metadata));
+
+  // All pages should now be marked dirty, and OCRed in the order they were
+  // added.
+  EXPECT_EQ(handler_->PopDirtyPageForTesting(), "pageW");
+  EXPECT_EQ(handler_->PopDirtyPageForTesting(), "pageX");
+  EXPECT_EQ(handler_->PopDirtyPageForTesting(), "pageY");
+  EXPECT_EQ(handler_->PopDirtyPageForTesting(), "pageZ");
+
+  // Each time a page becomes dirty, it should be sent to the back of the queue.
+  handler_->PushDirtyPageForTesting("pageX");
+  handler_->PushDirtyPageForTesting("pageZ");
+  handler_->PushDirtyPageForTesting("pageX");
+
+  EXPECT_EQ(handler_->PopDirtyPageForTesting(), "pageZ");
+  EXPECT_EQ(handler_->PopDirtyPageForTesting(), "pageX");
+}
+
+IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest,
+                       PageMetadataUpdatedPagesRelocated) {
   const size_t kTestNumPages = 3;
   std::vector<PageMetadataPtr> fake_metadata =
       CreateFakePageMetadata(kTestNumPages);
@@ -171,7 +432,7 @@ IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest, PageMetadataUpdated) {
   const std::map<const std::string, std::unique_ptr<ui::AXTreeManager>>& pages =
       handler_->GetPagesForTesting();
   ASSERT_EQ(3u, pages.size());
-  for (auto const& [_, page] : pages) {
+  for (const auto& [_, page] : pages) {
     ASSERT_NE(nullptr, page.get());
     ASSERT_NE(nullptr, page->ax_tree());
   }
@@ -221,7 +482,7 @@ IN_PROC_BROWSER_TEST_F(AXMediaAppUntrustedHandlerTest, PageMetadataUpdated) {
   const std::map<const std::string, std::unique_ptr<ui::AXTreeManager>>&
       pages2 = handler_->GetPagesForTesting();
   ASSERT_EQ(3u, pages2.size());
-  for (auto const& [_, page] : pages2) {
+  for (const auto& [_, page] : pages2) {
     ASSERT_NE(nullptr, page.get());
     ASSERT_NE(nullptr, page->ax_tree());
   }

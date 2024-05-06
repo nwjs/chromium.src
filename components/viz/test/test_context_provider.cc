@@ -39,7 +39,8 @@ namespace {
 
 // Various tests rely on functionality (capabilities) enabled by these extension
 // strings.
-const char* const kExtensions[] = {"GL_EXT_stencil_wrap",
+const char* const kExtensions[] = {"GL_ARB_texture_rectangle",
+                                   "GL_EXT_stencil_wrap",
                                    "GL_EXT_texture_format_BGRA8888",
                                    "GL_OES_rgb8_rgba8",
                                    "GL_EXT_texture_norm16",
@@ -190,9 +191,10 @@ TestSharedImageInterface::CreateSharedImage(const gpu::SharedImageInfo& si_info,
   gpu::SyncToken sync_token = GenUnverifiedSyncToken();
 
   // Create a ClientSharedImage with a GMB.
-  auto client_shared_image = CreateSharedImage(si_info, surface_handle);
-  CHECK(client_shared_image);
-  auto mailbox = client_shared_image->mailbox();
+  base::AutoLock locked(lock_);
+  auto mailbox = gpu::Mailbox::GenerateForSharedImage();
+  shared_images_.insert(mailbox);
+  most_recent_size_ = si_info.meta.size;
 
   if (test_gmb_manager_) {
     auto gpu_memory_buffer = test_gmb_manager_->CreateGpuMemoryBuffer(
@@ -221,13 +223,14 @@ TestSharedImageInterface::CreateSharedImage(
     gfx::BufferUsage buffer_usage,
     gfx::GpuMemoryBufferHandle buffer_handle) {
   gpu::SyncToken sync_token = GenUnverifiedSyncToken();
-  auto client_buffer_handle = buffer_handle.Clone();
-  auto mailbox =
-      CreateSharedImage(si_info, std::move(buffer_handle))->mailbox();
+  base::AutoLock locked(lock_);
+  auto mailbox = gpu::Mailbox::GenerateForSharedImage();
+  shared_images_.insert(mailbox);
+  most_recent_size_ = si_info.meta.size;
 
   return base::MakeRefCounted<gpu::ClientSharedImage>(
       mailbox, si_info.meta, sync_token,
-      gpu::GpuMemoryBufferHandleInfo(std::move(client_buffer_handle),
+      gpu::GpuMemoryBufferHandleInfo(std::move(buffer_handle),
                                      si_info.meta.format, si_info.meta.size,
                                      buffer_usage),
       holder_);
@@ -300,9 +303,12 @@ scoped_refptr<gpu::ClientSharedImage>
 TestSharedImageInterface::ImportSharedImage(
     const gpu::ExportedSharedImage& exported_shared_image) {
   shared_images_.insert(exported_shared_image.mailbox_);
-  return base::MakeRefCounted<gpu::ClientSharedImage>(
-      exported_shared_image.mailbox_, exported_shared_image.metadata_,
-      exported_shared_image.sync_token_, holder_, gfx::EMPTY_BUFFER);
+
+  return base::WrapRefCounted<gpu::ClientSharedImage>(
+      new gpu::ClientSharedImage(
+          exported_shared_image.mailbox_, exported_shared_image.metadata_,
+          exported_shared_image.creation_sync_token_, holder_,
+          exported_shared_image.texture_target_));
 }
 
 void TestSharedImageInterface::DestroySharedImage(
@@ -317,7 +323,8 @@ void TestSharedImageInterface::DestroySharedImage(
     const gpu::SyncToken& sync_token,
     scoped_refptr<gpu::ClientSharedImage> client_shared_image) {
   CHECK(client_shared_image->HasOneRef());
-  DestroySharedImage(sync_token, client_shared_image->mailbox());
+  client_shared_image->UpdateDestructionSyncToken(sync_token);
+  client_shared_image->MarkForDestruction();
 }
 
 gpu::SharedImageInterface::SwapChainSharedImages

@@ -124,23 +124,19 @@ constexpr FetcherConfig kClassifyUrlConfig = {
     .request_priority = net::IDLE,
 };
 
-constexpr FetcherConfig kClassifyUrlConfigWithHighestPriority = {
+constexpr FetcherConfig kClassifyUrlConfigWaitUntilAccessTokenAvailable = {
     .service_path = "/kidsmanagement/v1/people/me:classifyUrl",
     .method = FetcherConfig::Method::kPost,
     .histogram_basename = "FamilyLinkUser.ClassifyUrlRequest",
     .traffic_annotation = annotations::ClassifyUrlTag,
     .access_token_config =
         {
-            // Fail the fetch right away when access token is not immediately
-            // available.
-            // TODO(b/301931929): consider using `kWaitUntilAvailable` to
-            // improve reliability.
-            .mode = signin::PrimaryAccountAccessTokenFetcher::Mode::kImmediate,
+            .mode = signin::PrimaryAccountAccessTokenFetcher::Mode::
+                kWaitUntilAvailable,
             // TODO(b/284523446): Refer to GaiaConstants rather than literal.
             .oauth2_scope = "https://www.googleapis.com/auth/kid.permission",
         },
-    // Fetch is on critical path for the rendering.
-    .request_priority = net::HIGHEST,
+    .request_priority = net::IDLE,
 };
 
 constexpr FetcherConfig kListFamilyMembersConfig{

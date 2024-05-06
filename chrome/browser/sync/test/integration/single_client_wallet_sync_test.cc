@@ -71,7 +71,6 @@ using wallet_helper::GetWalletModelTypeState;
 using wallet_helper::kDefaultBillingAddressID;
 using wallet_helper::kDefaultCardID;
 using wallet_helper::kDefaultCustomerID;
-using wallet_helper::UnmaskServerCard;
 
 namespace {
 
@@ -945,9 +944,10 @@ IN_PROC_BROWSER_TEST_F(SingleClientWalletSecondaryAccountSyncTest,
   ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
       syncer::AUTOFILL_WALLET_DATA));
 
-  // PersonalDataManager should use (ephemeral) account storage.
+  // PaymentsDataManager should use (ephemeral) account storage.
   EXPECT_FALSE(GetPersonalDataManager(0)
-                   ->IsSyncFeatureEnabledForPaymentsServerMetrics());
+                   ->payments_data_manager()
+                   .IsSyncFeatureEnabledForPaymentsServerMetrics());
   EXPECT_TRUE(
       GetPersonalDataManager(0)->IsUsingAccountStorageForServerDataForTest());
 
@@ -985,9 +985,10 @@ IN_PROC_BROWSER_TEST_F(SingleClientWalletSecondaryAccountSyncTest,
   ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
       syncer::AUTOFILL_WALLET_DATA));
 
-  // PersonalDataManager should have switched to persistent storage.
+  // PaymentsDataManager should have switched to persistent storage.
   EXPECT_TRUE(GetPersonalDataManager(0)
-                  ->IsSyncFeatureEnabledForPaymentsServerMetrics());
+                  ->payments_data_manager()
+                  .IsSyncFeatureEnabledForPaymentsServerMetrics());
   EXPECT_FALSE(
       GetPersonalDataManager(0)->IsUsingAccountStorageForServerDataForTest());
 
@@ -1019,9 +1020,10 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
       syncer::AUTOFILL_WALLET_DATA));
 
-  // PersonalDataManager should use (ephemeral) account storage.
+  // PaymentsDataManager should use (ephemeral) account storage.
   EXPECT_FALSE(GetPersonalDataManager(0)
-                   ->IsSyncFeatureEnabledForPaymentsServerMetrics());
+                   ->payments_data_manager()
+                   .IsSyncFeatureEnabledForPaymentsServerMetrics());
   EXPECT_TRUE(
       GetPersonalDataManager(0)->IsUsingAccountStorageForServerDataForTest());
 
@@ -1047,17 +1049,8 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<syncer::SyncSetupInProgressHandle> setup_handle =
       GetSyncService(0)->GetSetupInProgressHandle();
 
-  if (base::FeatureList::IsEnabled(
-          syncer::kSyncDecoupleAddressPaymentSettings)) {
-    GetSyncService(0)->GetUserSettings()->SetSelectedTypes(
-        /*sync_everything=*/false, {syncer::UserSelectableType::kPayments});
-  } else {
-    // TODO(crbug.com/1435431): kAutofill is used here to mimic what the UI
-    // does, but could be removed once the coupling is relaxed.
-    GetSyncService(0)->GetUserSettings()->SetSelectedTypes(
-        /*sync_everything=*/false, {syncer::UserSelectableType::kAutofill,
-                                    syncer::UserSelectableType::kPayments});
-  }
+  GetSyncService(0)->GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, {syncer::UserSelectableType::kPayments});
 
   // Once the user finishes the setup, the newly selected data types will
   // actually get configured.
@@ -1079,9 +1072,10 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
       syncer::AUTOFILL_WALLET_DATA));
 
-  // PersonalDataManager should have switched to persistent storage.
+  // PaymentsDataManager should have switched to persistent storage.
   EXPECT_TRUE(GetPersonalDataManager(0)
-                  ->IsSyncFeatureEnabledForPaymentsServerMetrics());
+                  ->payments_data_manager()
+                  .IsSyncFeatureEnabledForPaymentsServerMetrics());
   EXPECT_FALSE(
       GetPersonalDataManager(0)->IsUsingAccountStorageForServerDataForTest());
 

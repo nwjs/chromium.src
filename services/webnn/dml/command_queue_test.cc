@@ -29,7 +29,9 @@ void WebNNCommandQueueTest::SetUp() {
   SKIP_TEST_IF(!UseGPUInTests());
   Adapter::EnableDebugLayerForTesting();
   auto adapter_creation_result = Adapter::GetInstanceForTesting();
-  ASSERT_TRUE(adapter_creation_result.has_value());
+  // If the adapter creation result has no value, it's most likely because
+  // platform functions were not properly loaded.
+  SKIP_TEST_IF(!adapter_creation_result.has_value());
   d3d12_device_ = adapter_creation_result.value()->d3d12_device();
 }
 
@@ -57,6 +59,8 @@ TEST_F(WebNNCommandQueueTest, WaitSyncForGpuWorkCompleted) {
   EXPECT_EQ(command_queue->WaitSyncForTesting(), S_OK);
   EXPECT_EQ(command_allocator->Reset(), S_OK);
   EXPECT_EQ(command_list->Reset(command_allocator.Get(), nullptr), S_OK);
+  EXPECT_EQ(command_queue->GetCommandListType(),
+            D3D12_COMMAND_LIST_TYPE_DIRECT);
 }
 
 TEST_F(WebNNCommandQueueTest, WaitAsyncOnce) {

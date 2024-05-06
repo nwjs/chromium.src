@@ -14,6 +14,7 @@
 #include "chrome/browser/android/webapk/webapk_specifics_fetcher.h"
 #include "components/sync/model/entity_change.h"
 #include "components/sync/model/model_type_sync_bridge.h"
+#include "components/sync/protocol/web_apk_specifics.pb.h"
 
 namespace syncer {
 struct EntityData;
@@ -63,7 +64,8 @@ class WebApkSyncBridge : public syncer::ModelTypeSyncBridge {
   std::optional<syncer::ModelError> ApplyIncrementalSyncChanges(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
-  void GetData(StorageKeyList storage_keys, DataCallback callback) override;
+  void GetDataForCommit(StorageKeyList storage_keys,
+                        DataCallback callback) override;
   void GetAllDataForDebugging(DataCallback callback) override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;
@@ -96,6 +98,8 @@ class WebApkSyncBridge : public syncer::ModelTypeSyncBridge {
   // Get the apps info for apps that are available to restore. Returns the AppId
   // and the app name for each of the apps as a vector of a vector.
   std::vector<std::vector<std::string>> GetRestorableAppsInfo() const;
+
+  const WebApkProto* GetWebApkByAppId(webapps::AppId app_id) const;
 
   void SetClockForTesting(std::unique_ptr<base::Clock> clock);
 

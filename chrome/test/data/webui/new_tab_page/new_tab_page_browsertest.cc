@@ -126,16 +126,17 @@ IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, PhotosModule) {
 }
 #endif  // !defined(OFFICIAL_BUILD)
 
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, CalendarModule) {
+  RunTest("new_tab_page/modules/v2/calendar/module_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, DriveModule) {
   RunTest("new_tab_page/modules/drive/module_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, DriveV2Module) {
-  RunTest("new_tab_page/modules/v2/drive/module_test.js", "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, RecipesModule) {
-  RunTest("new_tab_page/modules/recipes/module_test.js", "mocha.run()");
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, FileSuggestionModule) {
+  RunTest("new_tab_page/modules/v2/file_suggestion/module_test.js",
+          "mocha.run()");
 }
 
 // TODO(crbug.com/1485080): Fails on Linux Debug bots.
@@ -207,11 +208,6 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, V2Modules) {
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, CounterfactualModules) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppTest CounterfactualModules')");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, CustomizeDialog) {
-  RunTest("new_tab_page/app_test.js",
-          "runMochaSuite('NewTabPageAppTest CustomizeDialog')");
 }
 
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, CustomizeChromeSidePanel) {

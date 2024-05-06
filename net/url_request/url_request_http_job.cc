@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -102,6 +103,11 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "net/android/network_library.h"
 #endif
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+#include "net/device_bound_sessions/device_bound_session_registration_fetcher_param.h"
+#include "net/device_bound_sessions/device_bound_session_service.h"
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
 namespace {
 
@@ -523,6 +529,9 @@ void URLRequestHttpJob::NotifyHeadersComplete() {
   }
 
   ProcessStrictTransportSecurityHeader();
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  ProcessDeviceBoundSessionsHeader();
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
   // Clear |set_cookie_access_result_list_| after any processing in case
   // SaveCookiesAndNotifyHeadersComplete is called again.
@@ -953,7 +962,7 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
 
   // Set all cookies, without waiting for them to be set. Any subsequent
   // read will see the combined result of all cookie operation.
-  const base::StringPiece name("Set-Cookie");
+  const std::string_view name("Set-Cookie");
   std::string cookie_string;
   size_t iter = 0;
 
@@ -981,7 +990,8 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
     DCHECK(cookie_string.find('\n') == std::string::npos);
     std::unique_ptr<CanonicalCookie> cookie = net::CanonicalCookie::Create(
         request_->url(), cookie_string, base::Time::Now(), server_time,
-        request_->cookie_partition_key(), /*block_truncated=*/true,
+        request_->cookie_partition_key(),
+        /*block_truncated=*/true, net::CookieSourceType::kHTTP,
         &returned_status);
 
     std::optional<CanonicalCookie> cookie_to_return = std::nullopt;
@@ -1054,6 +1064,19 @@ void URLRequestHttpJob::OnSetCookieResult(const CookieOptions& options,
   if (num_cookie_lines_left_ == 0)
     NotifyHeadersComplete();
 }
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+void URLRequestHttpJob::ProcessDeviceBoundSessionsHeader() {
+  std::vector<DeviceBoundSessionRegistrationFetcherParam> params =
+      DeviceBoundSessionRegistrationFetcherParam::CreateIfValid(
+          request_->url(), GetResponseHeaders());
+  if (auto* service = request_->context()->device_bound_session_service()) {
+    for (const auto& param : params) {
+      service->RegisterBoundSession(param);
+    }
+  }
+}
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
 void URLRequestHttpJob::ProcessStrictTransportSecurityHeader() {
   DCHECK(response_info_);

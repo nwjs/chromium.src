@@ -10,7 +10,6 @@ import android.util.Pair;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 
-import androidx.annotation.IntDef;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -24,13 +23,14 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.hub.Pane;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -42,38 +42,25 @@ import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 import java.util.function.DoubleConsumer;
 
 /** Interface to get access to components concerning tab management. */
 public interface TabManagementDelegate {
-    @IntDef({
-        TabSwitcherType.GRID,
-        TabSwitcherType.SINGLE,
-        TabSwitcherType.NONE
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface TabSwitcherType {
-        int GRID = 0;
-        // int CAROUSEL_DEPRECATED = 1;
-        int SINGLE = 2;
-        int NONE = 3;
-    }
-
     /**
      * Create the {@link TabSwitcherLayout}.
+     *
      * @param context The current Android's context.
      * @param updateHost The parent {@link LayoutUpdateHost}.
      * @param layoutStateProvider The {@link LayoutStateProvider} to provide layout state changes.
      * @param renderHost The parent {@link LayoutRenderHost}.
      * @param browserControlsStateProvider The {@link BrowserControlsStateProvider} for the top
-     *         controls.
+     *     controls.
      * @param tabSwitcher The {@link TabSwitcher} the layout should own.
      * @param tabSwitcherScrimAnchor {@link ViewGroup} used by tab switcher layout to show scrim
-     *         when overview is visible.
+     *     when overview is visible.
      * @param scrimCoordinator {@link ScrimCoordinator} to show/hide scrim.
+     * @param appHeaderHeightSupplier A supplier for the app header height, in px.
      * @return The {@link TabSwitcherLayout}.
      */
     Layout createTabSwitcherLayout(
@@ -84,7 +71,8 @@ public interface TabManagementDelegate {
             BrowserControlsStateProvider browserControlsStateProvider,
             TabSwitcher tabSwitcher,
             ViewGroup tabSwitcherScrimAnchor,
-            ScrimCoordinator scrimCoordinator);
+            ScrimCoordinator scrimCoordinator,
+            ObservableSupplier<Float> appHeaderHeightSupplier);
 
     /**
      * Create the {@link TabSwitcher} to display Tabs in grid.
@@ -229,11 +217,13 @@ public interface TabManagementDelegate {
      * @param activity The {@link Activity} that hosts this dialog.
      * @param modalDialogManager The modal dialog manager for the activity.
      * @param tabModelSelector The current {@link TabModelSelector}.
+     * @param onDialogAccepted The action to run when the dialog is accepted.
      */
     Destroyable createTabGroupCreationDialogManager(
             @NonNull Activity activity,
             @NonNull ModalDialogManager modalDialogManager,
-            @NonNull TabModelSelector tabModelSelector);
+            @NonNull TabModelSelector tabModelSelector,
+            @NonNull Runnable onDialogAccepted);
 
     /**
      * Create a {@link ColorPicker} when creating a custom color picker component.

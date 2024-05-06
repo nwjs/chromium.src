@@ -82,7 +82,8 @@ IN_PROC_BROWSER_TEST_F(AppWindowBrowserTest, IncognitoOpenUrl) {
   content::OpenURLParams params(GURL(url::kAboutBlankURL), {},
                                 WindowOpenDisposition::OFF_THE_RECORD,
                                 ui::PAGE_TRANSITION_LINK, false);
-  content::WebContents* new_contents = app_contents->OpenURL(params);
+  content::WebContents* new_contents =
+      app_contents->OpenURL(params, /*navigation_handle_callback=*/{});
 
   Profile* profile =
       Profile::FromBrowserContext(new_contents->GetBrowserContext());
@@ -95,7 +96,7 @@ IN_PROC_BROWSER_TEST_F(AppWindowBrowserTest, DraggableFramelessWindow) {
   AppWindow* app_window = CreateTestAppWindow(R"({ "frame": "none" })");
 
   base::RunLoop run_loop;
-  app_window->SetOnUpdateDraggableRegionsForTesting(run_loop.QuitClosure());
+  app_window->SetOnDraggableRegionsChangedForTesting(run_loop.QuitClosure());
 
   static constexpr char kTestScript[] =
       "window.document.body.style.height = '50px';"

@@ -53,7 +53,6 @@
 #include "chrome/browser/sessions/session_service_log.h"
 #include "chrome/browser/sessions/session_service_lookup.h"
 #include "chrome/browser/sessions/session_service_utils.h"
-#include "chrome/browser/sessions/tab_loader.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -860,10 +859,9 @@ class SessionRestoreImpl : public BrowserListObserver {
   }
 
   // |tab_index| is ignored for pinned tabs which will always be pushed behind
-  // the last existing pinned tab.
-  // |tab_loader_| will schedule this tab for loading if |is_selected_tab| is
-  // false. |last_active_time| is the value to use to set the last time the
-  // WebContents was made active.
+  // the last existing pinned tab. If |is_selected_tab| is true the tab will be
+  // shown after loading, otherwise it's loaded hidden. |last_active_time| is
+  // the value to use to set the last time the WebContents was made active.
   void RestoreTab(const sessions::SessionTab& tab,
                   Browser* browser,
                   std::vector<RestoredTab>* created_contents,
@@ -942,10 +940,8 @@ class SessionRestoreImpl : public BrowserListObserver {
 
     TabGroupModel* group_model = browser->tab_strip_model()->group_model();
     tab_groups::SavedTabGroupKeyedService* const saved_tab_group_keyed_service =
-        base::FeatureList::IsEnabled(features::kTabGroupsSave)
-            ? tab_groups::SavedTabGroupServiceFactory::GetForProfile(
-                  browser->profile())
-            : nullptr;
+        tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+            browser->profile());
 
     for (const std::unique_ptr<sessions::SessionTabGroup>& session_tab_group :
          tab_groups) {
@@ -1136,9 +1132,6 @@ class SessionRestoreImpl : public BrowserListObserver {
 
   // Set of URLs to open in addition to those restored from the session.
   StartupTabs startup_tabs_;
-
-  // Responsible for loading the tabs.
-  scoped_refptr<TabLoader> tab_loader_;
 
   // When synchronous we run a nested run loop. To avoid creating windows
   // from the nested run loop (which can make exiting the nested message

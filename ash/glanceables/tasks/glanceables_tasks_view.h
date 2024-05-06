@@ -33,33 +33,13 @@ namespace ash {
 class Combobox;
 class GlanceablesListFooterView;
 class GlanceablesProgressBarView;
-class GlanceablesTaskViewV2;
-class TasksComboboxModel;
-
-// Temporary interface to allow smooth migration from `TasksBubbleView` to
-// `GlanceablesTasksView`.
-class ASH_EXPORT GlanceablesTasksViewBase : public GlanceableTrayChildBubble {
-  METADATA_HEADER(GlanceablesTasksViewBase, GlanceableTrayChildBubble)
-
- public:
-  explicit GlanceablesTasksViewBase(bool use_glanceables_container_style);
-  GlanceablesTasksViewBase(const GlanceablesTasksViewBase&) = delete;
-  GlanceablesTasksViewBase& operator=(const GlanceablesTasksViewBase&) = delete;
-  ~GlanceablesTasksViewBase() override;
-
-  // Invalidates any pending tasks, or tasks lists requests. Called when the
-  // glanceables bubble widget starts closing to avoid unnecessary UI updates.
-  virtual void CancelUpdates() = 0;
-
- private:
-  // Time stamp of when the view was created.
-  const base::Time shown_time_;
-};
+class GlanceablesTasksComboboxModel;
+class GlanceablesTaskView;
 
 // Glanceables view responsible for interacting with Google Tasks.
-class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
+class ASH_EXPORT GlanceablesTasksView : public GlanceableTrayChildBubble,
                                         public views::ViewObserver {
-  METADATA_HEADER(GlanceablesTasksView, GlanceablesTasksViewBase)
+  METADATA_HEADER(GlanceablesTasksView, GlanceableTrayChildBubble)
 
  public:
   explicit GlanceablesTasksView(const ui::ListModel<api::TaskList>* task_lists);
@@ -70,11 +50,12 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   // views::View:
   void ChildPreferredSizeChanged(View* child) override;
 
-  // GlanceablesTasksViewBase:
-  void CancelUpdates() override;
-
   // views::ViewObserver:
   void OnViewFocused(views::View* view) override;
+
+  // Invalidates any pending tasks, or tasks lists requests. Called when the
+  // glanceables bubble widget starts closing to avoid unnecessary UI updates.
+  void CancelUpdates();
 
   // Updates the cached task lists to `task_lists` and the tasks that are
   // supposed to show.
@@ -96,8 +77,8 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   // Handles press behavior for `add_new_task_button_`.
   void AddNewTaskButtonPressed();
 
-  // Creates a `GlanceablesTaskViewV2` instance with bound callbacks.
-  std::unique_ptr<GlanceablesTaskViewV2> CreateTaskView(
+  // Creates a `GlanceablesTaskView` instance with bound callbacks.
+  std::unique_ptr<GlanceablesTaskView> CreateTaskView(
       const std::string& task_list_id,
       const api::Task* task);
 
@@ -128,7 +109,7 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   // `view`     - individual task view which triggered this request.
   // `callback` - done callback passed from an individual task view.
   void SaveTask(const std::string& task_list_id,
-                base::WeakPtr<GlanceablesTaskViewV2> view,
+                base::WeakPtr<GlanceablesTaskView> view,
                 const std::string& task_id,
                 const std::string& title,
                 api::TasksClient::OnTaskSavedCallback callback);
@@ -138,7 +119,7 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   // `callback` - callback passed from an individual task view via `SaveTask`.
   // `task`     - newly created or edited task if the request completes
   //              successfully, `nullptr` otherwise.
-  void OnTaskSaved(base::WeakPtr<GlanceablesTaskViewV2> view,
+  void OnTaskSaved(base::WeakPtr<GlanceablesTaskView> view,
                    const std::string& task_id,
                    api::TasksClient::OnTaskSavedCallback callback,
                    const api::Task* task);
@@ -157,7 +138,7 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   std::u16string GetErrorString(GlanceablesTasksErrorType error_type) const;
 
   // Removes `task_view` from the tasks container.
-  void RemoveTaskView(base::WeakPtr<GlanceablesTaskViewV2> task_view);
+  void RemoveTaskView(base::WeakPtr<GlanceablesTaskView> task_view);
 
   // Creates and initializes `task_list_combo_box_view_`.
   void CreateComboBoxView();
@@ -168,7 +149,7 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   void SetIsLoading(bool is_loading);
 
   // Model for the combobox used to change the active task list.
-  std::unique_ptr<TasksComboboxModel> tasks_combobox_model_;
+  std::unique_ptr<GlanceablesTasksComboboxModel> tasks_combobox_model_;
 
   // The number of times that the tasks list has been changed during the
   // lifetime of this view.
@@ -206,6 +187,9 @@ class ASH_EXPORT GlanceablesTasksView : public GlanceablesTasksViewBase,
   // Whether the user had a single task list with no tasks when the current task
   // list was selected.
   bool user_with_no_tasks_ = false;
+
+  // Time stamp of when the view was created.
+  const base::Time shown_time_;
 
   // Callback that recreates `task_list_combo_box_view_`.
   base::OnceClosure recreate_combobox_callback_;

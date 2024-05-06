@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/check_is_test.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -82,6 +83,19 @@ shopping_service::mojom::BookmarkProductInfoPtr BookmarkNodeToMojoProduct(
   return bookmark_info;
 }
 
+std::vector<shopping_service::mojom::UrlInfoPtr> UrlInfoToMojo(
+    const std::vector<UrlInfo>& url_infos) {
+  std::vector<shopping_service::mojom::UrlInfoPtr> url_info_ptr_list;
+
+  for (const UrlInfo& url_info : url_infos) {
+    auto url_info_ptr = shopping_service::mojom::UrlInfo::New();
+    url_info_ptr->url = url_info.url;
+    url_info_ptr->title = url_info.title;
+    url_info_ptr_list.push_back(std::move(url_info_ptr));
+  }
+  return url_info_ptr_list;
+}
+
 shopping_service::mojom::PriceInsightsInfoPtr PriceInsightsInfoToMojoObject(
     const std::optional<PriceInsightsInfo>& info,
     const std::string& locale) {
@@ -91,7 +105,11 @@ shopping_service::mojom::PriceInsightsInfoPtr PriceInsightsInfoToMojoObject(
     return insights_info;
   }
 
-  insights_info->cluster_id = info->product_cluster_id.value();
+  if (info->product_cluster_id.has_value()) {
+    insights_info->cluster_id = info->product_cluster_id.value();
+  } else {
+    CHECK_IS_TEST();
+  }
 
   std::unique_ptr<payments::CurrencyFormatter> formatter =
       std::make_unique<payments::CurrencyFormatter>(info->currency_code,
@@ -345,7 +363,7 @@ void ShoppingServiceHandler::HandleSubscriptionChange(
       GetBookmarksWithClusterId(bookmark_model_, cluster_id);
   // Special handling when the unsubscription is caused by bookmark deletion and
   // therefore the bookmark can no longer be retrieved.
-  // TODO(crbug.com/1462668): Update mojo call to pass cluster ID and make
+  // TODO(crbug.com/40066977): Update mojo call to pass cluster ID and make
   // BookmarkProductInfo a nullable parameter.
   if (!bookmarks.size()) {
     auto bookmark_info = shopping_service::mojom::BookmarkProductInfo::New();
@@ -601,6 +619,12 @@ void ShoppingServiceHandler::GetProductSpecificationsForUrls(
                   std::move(callback).Run(ProductSpecsToMojo(specs.value()));
                 },
                 weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void ShoppingServiceHandler::GetUrlInfosForOpenTabs(
+    GetUrlInfosForOpenTabsCallback callback) {
+  std::move(callback).Run(
+      UrlInfoToMojo(shopping_service_->GetUrlInfosForActiveWebWrappers()));
 }
 
 void ShoppingServiceHandler::OnFetchPriceInsightsInfoForCurrentUrl(

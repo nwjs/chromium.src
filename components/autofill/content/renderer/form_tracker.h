@@ -24,6 +24,8 @@ class WebFormElementObserver;
 
 namespace autofill {
 
+class AutofillAgent;
+
 // Reference to a WebFormElement, represented as such and as a FormRendererId.
 // TODO(crbug.com/1218275): Replace with FormRendererId when
 // `kAutofillReplaceCachedWebElementsByRendererIds` launches.
@@ -59,7 +61,7 @@ class FieldRef {
   FieldRendererId field_renderer_id_;
 };
 
-// TODO(crbug.com/785531): Track the select and checkbox change.
+// TODO(crbug.com/40550175): Track the select and checkbox change.
 // This class is used to track user's change of form or WebFormControlElement,
 // notifies observers of form's change and submission.
 class FormTracker : public content::RenderFrameObserver,
@@ -75,7 +77,7 @@ class FormTracker : public content::RenderFrameObserver,
       kSelectChanged,
     };
 
-    // TODO(crbug.com/1126017): Find a better name for this method.
+    // TODO(crbug.com/40147954): Find a better name for this method.
     // Invoked when form needs to be saved because of |source|, |element| is
     // valid if the callback caused by source other than
     // WILL_SEND_SUBMIT_EVENT, |form| is valid for the callback caused by
@@ -106,7 +108,8 @@ class FormTracker : public content::RenderFrameObserver,
   using UserGestureRequired =
       base::StrongAlias<class UserGestureRequiredTag, bool>;
   explicit FormTracker(content::RenderFrame* render_frame,
-                       UserGestureRequired user_gesture_required);
+                       UserGestureRequired user_gesture_required,
+                       AutofillAgent& agent);
 
   FormTracker(const FormTracker&) = delete;
   FormTracker& operator=(const FormTracker&) = delete;
@@ -128,6 +131,12 @@ class FormTracker : public content::RenderFrameObserver,
   // won't be notified of this `element` otherwise. This is currently only used
   // by PWM.
   void TrackAutofilledElement(const blink::WebFormControlElement& element);
+
+  void UpdateLastInteractedElement(
+      absl::variant<FormRendererId, FieldRendererId> element_id);
+  void ResetLastInteractedElements();
+
+  FormRef last_interacted_form() const { return last_interacted_.form; }
 
   // TODO(b/40281981): Remove.
   std::optional<FormData>& provisionally_saved_form() {
@@ -170,7 +179,7 @@ class FormTracker : public content::RenderFrameObserver,
   // Called in a posted task by textFieldDidChange() to work-around a WebKit bug
   // http://bugs.webkit.org/show_bug.cgi?id=16976 , we also don't want to
   // process element while it is changing.
-  void FormControlDidChangeImpl(const blink::WebFormControlElement& element,
+  void FormControlDidChangeImpl(FieldRendererId element_id,
                                 Observer::SaveFormReason change_source);
   void FireProbablyFormSubmitted();
   void FireFormSubmitted(const blink::WebFormElement& form);
@@ -183,8 +192,6 @@ class FormTracker : public content::RenderFrameObserver,
   // of submission to fire when the tracked element disappears.
   // TODO(crbug.com/1483242): Remove.
   void TrackElement(mojom::SubmissionSource source);
-
-  void ResetLastInteractedElements();
 
   // Invoked when the observed element was either removed from the DOM or it's
   // computed style changed to display: none. `source` is the type of submission
@@ -213,6 +220,9 @@ class FormTracker : public content::RenderFrameObserver,
     bool finished_same_document_navigation = false;
     bool xhr_succeeded = false;
   } submission_triggering_events_;
+
+  // The object owning this `FormTracker`.
+  raw_ref<AutofillAgent> agent_;
 
   SEQUENCE_CHECKER(form_tracker_sequence_checker_);
 

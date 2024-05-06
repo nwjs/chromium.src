@@ -8,7 +8,7 @@ import './strings.m.js';
 
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {Button} from 'chrome://resources/cros_components/button/button.js';
-import {assert, assertInstanceof, assertNotReached} from 'chrome://resources/js/assert.js';
+import {assert, assertInstanceof} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
 import {getTemplate} from './app_install_dialog.html.js';
@@ -18,11 +18,33 @@ window.addEventListener('load', () => {
   ColorChangeUpdater.forDocument().start();
 });
 
-
 enum DialogState {
   INSTALL = 'install',
   INSTALLING = 'installing',
   INSTALLED = 'installed',
+  ALREADY_INSTALLED = 'already_installed',
+  NO_DATA = 'no_data',
+  FAILED_INSTALL = 'failed_install',
+}
+
+interface StateData {
+  title: {
+    iconIdQuery: string,
+    labelId: string,
+  };
+  content?: {
+    disabled?: boolean,
+  };
+  errorMessage?: {
+    enabled?: boolean, textId: string,
+  };
+  actionButton: {
+    disabled?: boolean, labelId: string, handler: (event: MouseEvent) => void,
+    handleOnce?: boolean, iconIdQuery: string,
+  };
+  cancelButton: {
+    disabled?: boolean, labelId: string,
+  };
 }
 
 /**
@@ -40,6 +62,8 @@ class AppInstallDialogElement extends HTMLElement {
   }
 
   private proxy = BrowserProxy.getInstance();
+  private initialStatePromise: Promise<DialogState>;
+  private dialogStateDataMap: Record<DialogState, StateData>;
 
   constructor() {
     super();
@@ -48,13 +72,118 @@ class AppInstallDialogElement extends HTMLElement {
     const fragment = template.content.cloneNode(true);
     this.attachShadow({mode: 'open'}).appendChild(fragment);
 
-    this.initDynamicContent();
+    this.initialStatePromise = this.initContent();
+
+    this.dialogStateDataMap = {
+      [DialogState.INSTALL]: {
+        title: {
+          iconIdQuery: '#title-icon-install',
+          labelId: 'installAppToDevice',
+        },
+        actionButton: {
+          labelId: 'install',
+          handler: (event: MouseEvent) => this.onInstallButtonClick(event),
+          handleOnce: true,
+          iconIdQuery: '#action-icon-install',
+        },
+        cancelButton: {
+          labelId: 'cancel',
+        },
+      },
+      [DialogState.INSTALLING]: {
+        title: {
+          iconIdQuery: '#title-icon-install',
+          labelId: 'installingApp',
+        },
+        actionButton: {
+          disabled: true,
+          labelId: 'installing',
+          handler() {},
+          iconIdQuery: '#action-icon-installing',
+        },
+        cancelButton: {
+          disabled: true,
+          labelId: 'cancel',
+        },
+      },
+      [DialogState.INSTALLED]: {
+        title: {
+          iconIdQuery: '#title-icon-installed',
+          labelId: 'appInstalled',
+        },
+        actionButton: {
+          labelId: 'openApp',
+          handler: () => this.onOpenAppButtonClick(),
+          iconIdQuery: '#action-icon-open-app',
+        },
+        cancelButton: {
+          labelId: 'close',
+        },
+      },
+      [DialogState.ALREADY_INSTALLED]: {
+        title: {
+          iconIdQuery: '#title-icon-installed',
+          labelId: 'appAlreadyInstalled',
+        },
+        actionButton: {
+          labelId: 'openApp',
+          handler: () => this.onOpenAppButtonClick(),
+          iconIdQuery: '#action-icon-open-app',
+        },
+        cancelButton: {
+          labelId: 'close',
+        },
+      },
+      [DialogState.NO_DATA]: {
+        title: {
+          iconIdQuery: '#title-icon-error',
+          labelId: 'noAppDataTitle',
+        },
+        content: {
+          disabled: true,
+        },
+        errorMessage: {
+          enabled: true,
+          textId: 'noAppDataDescription',
+        },
+        actionButton: {
+          labelId: 'tryAgain',
+          handler: () => this.onTryAgainButtonClick(),
+          handleOnce: true,
+          iconIdQuery: '#action-icon-try-again',
+        },
+        cancelButton: {
+          labelId: 'cancel',
+        },
+      },
+      [DialogState.FAILED_INSTALL]: {
+        title: {
+          iconIdQuery: '#title-icon-error',
+          labelId: 'failedInstall',
+        },
+        actionButton: {
+          labelId: 'tryAgain',
+          handler: (event: MouseEvent) => this.onInstallButtonClick(event),
+          handleOnce: true,
+          iconIdQuery: '#action-icon-try-again',
+        },
+        cancelButton: {
+          labelId: 'cancel',
+        },
+      },
+    };
   }
 
-  async initDynamicContent() {
+  async initContent() {
+    const cancelButton = this.$<Button>('.cancel-button');
+    assert(cancelButton);
+    cancelButton.addEventListener('click', this.onCancelButtonClick.bind(this));
+
     try {
       const dialogArgs = await this.proxy.handler.getDialogArgs();
-      assert(dialogArgs.args);
+      if (!dialogArgs.args) {
+        return DialogState.NO_DATA;
+      }
 
       const nameElement = this.$<HTMLParagraphElement>('#name');
       assert(nameElement);
@@ -62,11 +191,16 @@ class AppInstallDialogElement extends HTMLElement {
 
       const urlElement = this.$<HTMLAnchorElement>('#url-link');
       assert(urlElement);
-      urlElement.textContent = dialogArgs.args.url.url;
+      urlElement.textContent = new URL(dialogArgs.args.url.url).hostname;
+      urlElement.setAttribute('href', new URL(dialogArgs.args.url.url).origin);
 
       const iconElement = this.$<HTMLImageElement>('#app-icon');
       assert(iconElement);
       iconElement.setAttribute('auto-src', dialogArgs.args.iconUrl.url);
+      iconElement.setAttribute(
+          'alt',
+          loadTimeData.substituteString(
+              loadTimeData.getString('iconAlt'), dialogArgs.args.name));
 
       if (dialogArgs.args.description) {
         this.$<HTMLDivElement>('#description').textContent =
@@ -75,16 +209,20 @@ class AppInstallDialogElement extends HTMLElement {
         this.$<HTMLHRElement>('#divider').hidden = false;
       }
 
-      if (dialogArgs.args.screenshotUrls[0]) {
+      if (dialogArgs.args.screenshots[0]) {
         this.$<HTMLSpanElement>('#description-and-screenshots').hidden = false;
         this.$<HTMLHRElement>('#divider').hidden = false;
         this.$<HTMLSpanElement>('#screenshot-container').hidden = false;
         this.$<HTMLImageElement>('#screenshot')
-            .setAttribute('auto-src', dialogArgs.args.screenshotUrls[0].url);
+            .setAttribute('auto-src', dialogArgs.args.screenshots[0].url.url);
       }
+
+      return dialogArgs.args.isAlreadyInstalled ?
+          DialogState.ALREADY_INSTALLED :
+          DialogState.INSTALL;
     } catch (e) {
-      // TODO(crbug.com/1488697) Define expected behavior.
       console.error(`Unable to get dialog arguments . Error: ${e}.`);
+      return DialogState.NO_DATA;
     }
   }
 
@@ -92,15 +230,18 @@ class AppInstallDialogElement extends HTMLElement {
     return this.shadowRoot!.querySelector(query)!;
   }
 
-  connectedCallback(): void {
-    const cancelButton = this.$<Button>('.cancel-button');
-    assert(cancelButton);
-    cancelButton.addEventListener('click', this.onCancelButtonClick.bind(this));
+  $$(query: string): HTMLElement[] {
+    return Array.from(this.shadowRoot!.querySelectorAll(query));
+  }
 
-    this.changeDialogState(DialogState.INSTALL);
+  async connectedCallback(): Promise<void> {
+    this.changeDialogState(await this.initialStatePromise);
   }
 
   private onCancelButtonClick(): void {
+    if (this.$<Button>('.cancel-button').disabled) {
+      return;
+    }
     this.proxy.handler.closeDialog();
   }
 
@@ -115,12 +256,8 @@ class AppInstallDialogElement extends HTMLElement {
       new Promise(resolve => setTimeout(resolve, 2000)),
     ]);
 
-    if (install_result) {
-      this.changeDialogState(DialogState.INSTALLED);
-    } else {
-      // TODO(crbug.com/1488697): Proper error display.
-      this.changeDialogState(DialogState.INSTALL);
-    }
+    this.changeDialogState(
+        install_result ? DialogState.INSTALLED : DialogState.FAILED_INSTALL);
   }
 
   private async onOpenAppButtonClick() {
@@ -128,56 +265,52 @@ class AppInstallDialogElement extends HTMLElement {
     this.proxy.handler.closeDialog();
   }
 
+  private async onTryAgainButtonClick() {
+    this.proxy.handler.tryAgain();
+    // TODO(b/333460441): Run the retry logic within the same dialog instead of
+    // creating a new one.
+    this.proxy.handler.closeDialog();
+  }
+
   private changeDialogState(state: DialogState) {
-    const installButton = this.$<Button>('.install-button')!;
-    assert(installButton);
-    switch (state) {
-      case DialogState.INSTALL:
-        this.$<HTMLElement>('#title-icon-install').style.display = 'block';
-        this.$<HTMLElement>('#title-icon-installed').style.display = 'none';
-        this.$<HTMLElement>('#title').textContent =
-            loadTimeData.getString('installAppToDevice');
+    const data = this.dialogStateDataMap![state];
+    assert(data);
 
-        installButton.disabled = false;
-        installButton.label = loadTimeData.getString('install');
-        installButton.addEventListener(
-            'click', this.onInstallButtonClick.bind(this), {once: true});
-
-        this.$<HTMLElement>('#installing-icon').setAttribute('slot', '');
-        this.$<HTMLElement>('#install-icon')
-            .setAttribute('slot', 'leading-icon');
-        break;
-      case DialogState.INSTALLING:
-        this.$<HTMLElement>('#title').textContent =
-            loadTimeData.getString('installingApp');
-
-        installButton.disabled = true;
-        installButton.label = loadTimeData.getString('installing');
-        installButton.classList.replace('install', 'installing');
-
-        this.$<HTMLElement>('#install-icon').setAttribute('slot', '');
-        this.$<HTMLElement>('#installing-icon')
-            .setAttribute('slot', 'leading-icon');
-        break;
-      case DialogState.INSTALLED:
-        this.$<HTMLElement>('#title-icon-install').style.display = 'none';
-        this.$<HTMLElement>('#title-icon-installed').style.display = 'block';
-        this.$<HTMLElement>('#title').textContent =
-            loadTimeData.getString('appInstalled');
-
-        installButton.disabled = false;
-        installButton.label = loadTimeData.getString('openApp');
-        installButton.classList.replace('installing', 'installed');
-        installButton.addEventListener(
-            'click', this.onOpenAppButtonClick.bind(this));
-
-        this.$<HTMLElement>('#installing-icon').setAttribute('slot', '');
-        this.$<HTMLElement>('#installed-icon')
-            .setAttribute('slot', 'leading-icon');
-        break;
-      default:
-        assertNotReached();
+    for (const icon of this.$$('.title-icon')) {
+      icon.style.display = 'none';
     }
+    this.$<HTMLElement>(data.title.iconIdQuery).style.display = 'block';
+    this.$<HTMLElement>('#title').textContent =
+        loadTimeData.getString(data.title.labelId);
+
+    const contentCard = this.$<HTMLElement>('#content-card')!;
+    contentCard.style.display = data.content?.disabled ? 'none' : 'block';
+
+    const errorMessage = this.$<HTMLElement>('#error-message')!;
+    errorMessage.style.display = data.errorMessage?.enabled ? 'block' : 'none';
+    if (data.errorMessage) {
+      errorMessage.textContent =
+          loadTimeData.getString(data.errorMessage.textId);
+    }
+
+    const actionButton = this.$<Button>('.action-button')!;
+    assert(actionButton);
+    actionButton.disabled = Boolean(data.actionButton.disabled);
+    actionButton.label = loadTimeData.getString(data.actionButton.labelId);
+    actionButton.addEventListener(
+        'click', data.actionButton.handler,
+        {once: Boolean(data.actionButton.handleOnce)});
+
+    for (const icon of this.$$('.action-icon')) {
+      icon.setAttribute('slot', '');
+    }
+    this.$<HTMLElement>(data.actionButton.iconIdQuery)
+        .setAttribute('slot', 'leading-icon');
+
+    const cancelButton = this.$<Button>('.cancel-button');
+    assert(cancelButton);
+    cancelButton.disabled = Boolean(data.cancelButton.disabled);
+    cancelButton.label = loadTimeData.getString(data.cancelButton.labelId);
   }
 }
 

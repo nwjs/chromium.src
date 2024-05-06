@@ -5,14 +5,13 @@
 #include "ash/wm/splitview/split_view_divider_handler_view.h"
 
 #include "ash/display/screen_orientation_controller.h"
-#include "ash/shell.h"
 #include "ash/wm/splitview/split_view_constants.h"
+#include "ash/wm/splitview/split_view_divider.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "base/memory/raw_ptr.h"
 #include "base/timer/timer.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
-#include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/animation/animation_delegate.h"
 #include "ui/gfx/animation/slide_animation.h"
@@ -24,7 +23,7 @@ class SplitViewDividerHandlerView::SelectionAnimation
     : public gfx::SlideAnimation,
       public gfx::AnimationDelegate {
  public:
-  SelectionAnimation(SplitViewDividerHandlerView* white_handler_view)
+  explicit SelectionAnimation(SplitViewDividerHandlerView* white_handler_view)
       : gfx::SlideAnimation(this), white_handler_view_(white_handler_view) {
     SetSlideDuration(kSplitviewDividerSelectionStatusChangeDuration);
     SetTweenType(gfx::Tween::EASE_IN);
@@ -37,10 +36,10 @@ class SplitViewDividerHandlerView::SelectionAnimation
 
   void UpdateWhiteHandlerBounds() {
     white_handler_view_->SetBounds(
-        CurrentValueBetween(kSplitviewWhiteBarShortSideLength,
-                            kSplitviewWhiteBarRadius * 2),
-        CurrentValueBetween(kSplitviewWhiteBarLongSideLength,
-                            kSplitviewWhiteBarRadius * 2),
+        CurrentValueBetween(kDividerHandlerShortSideLength,
+                            kDividerHandlerRadius * 2),
+        CurrentValueBetween(kDividerHandlerLongSideLength,
+                            kDividerHandlerRadius * 2),
         /*signed_offset=*/0);
   }
 
@@ -49,7 +48,7 @@ class SplitViewDividerHandlerView::SelectionAnimation
   void AnimationProgressed(const gfx::Animation* animation) override {
     UpdateWhiteHandlerBounds();
     white_handler_view_->UpdateCornerRadius(CurrentValueBetween(
-        kSplitviewWhiteBarCornerRadius, kSplitviewWhiteBarRadius));
+        kDividerHandlerCornerRadius, kDividerHandlerRadius));
   }
 
   raw_ptr<SplitViewDividerHandlerView> white_handler_view_;
@@ -65,8 +64,8 @@ class SplitViewDividerHandlerView::SpawningAnimation
         white_handler_view_(white_handler_view),
         spawn_signed_offset_(divider_signed_offset +
                              (divider_signed_offset > 0
-                                  ? kSplitviewWhiteBarSpawnUnsignedOffset
-                                  : -kSplitviewWhiteBarSpawnUnsignedOffset)) {
+                                  ? kDividerHandlerSpawnUnsignedOffset
+                                  : -kDividerHandlerSpawnUnsignedOffset)) {
     SetSlideDuration(kSplitviewDividerSpawnDuration);
     SetTweenType(gfx::Tween::LINEAR_OUT_SLOW_IN);
   }
@@ -87,9 +86,9 @@ class SplitViewDividerHandlerView::SpawningAnimation
   void UpdateWhiteHandlerBounds() {
     DCHECK(IsActive());
     white_handler_view_->SetBounds(
-        kSplitviewWhiteBarShortSideLength,
-        CurrentValueBetween(kSplitviewWhiteBarSpawnLongSideLength,
-                            kSplitviewWhiteBarLongSideLength),
+        kDividerHandlerShortSideLength,
+        CurrentValueBetween(kDividerHandlerSpawnLongSideLength,
+                            kDividerHandlerLongSideLength),
         CurrentValueBetween(spawn_signed_offset_, 0));
   }
 
@@ -117,7 +116,7 @@ SplitViewDividerHandlerView::SplitViewDividerHandlerView()
     : selection_animation_(std::make_unique<SelectionAnimation>(this)) {
   SetPaintToLayer();
   SetBackground(views::CreateThemedRoundedRectBackground(
-      cros_tokens::kCrosSysOnSurface, kSplitviewWhiteBarCornerRadius));
+      cros_tokens::kCrosSysOnSecondary, kDividerHandlerCornerRadius));
 }
 
 SplitViewDividerHandlerView::~SplitViewDividerHandlerView() = default;
@@ -146,7 +145,7 @@ void SplitViewDividerHandlerView::UpdateCornerRadius(float radius) {
 void SplitViewDividerHandlerView::SetBounds(int short_length,
                                             int long_length,
                                             int signed_offset) {
-  const bool landscape = IsCurrentScreenOrientationLandscape();
+  const bool landscape = parent()->width() == kSplitviewDividerShortSideLength;
   gfx::Rect bounds = landscape ? gfx::Rect(short_length, long_length)
                                : gfx::Rect(long_length, short_length);
   bounds.Offset(parent()->GetLocalBounds().CenterPoint() -

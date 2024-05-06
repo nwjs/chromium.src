@@ -12,15 +12,18 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
-#include "components/subresource_filter/content/browser/activation_state_computing_navigation_throttle.h"
-#include "components/subresource_filter/content/browser/async_document_subresource_filter.h"
+#include "components/subresource_filter/content/browser/ad_tagging_utils.h"
 #include "components/subresource_filter/content/browser/content_subresource_filter_web_contents_helper.h"
 #include "components/subresource_filter/content/browser/page_load_statistics.h"
 #include "components/subresource_filter/content/browser/profile_interaction_manager.h"
-#include "components/subresource_filter/content/browser/subresource_filter_safe_browsing_activation_throttle.h"
+#include "components/subresource_filter/content/browser/safe_browsing_page_activation_throttle.h"
 #include "components/subresource_filter/content/mojom/subresource_filter.mojom.h"
+#include "components/subresource_filter/content/shared/browser/activation_state_computing_navigation_throttle.h"
+#include "components/subresource_filter/content/shared/common/subresource_filter_utils.h"
+#include "components/subresource_filter/core/browser/async_document_subresource_filter.h"
 #include "components/subresource_filter/core/browser/subresource_filter_constants.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "components/subresource_filter/core/common/common_features.h"
@@ -312,7 +315,7 @@ void ContentSubresourceFilterThrottleManager::DidFinishInFrameNavigation(
     // the renderer. Currently, an aborted initial load to a URL matching the
     // filter list incorrectly has its load policy saved. We avoid tagging it as
     // an ad here to ensure frames are always tagged before DidFinishNavigation.
-    // TODO(crbug.com/1148058): Once these load policies are no longer saved,
+    // TODO(crbug.com/40156884): Once these load policies are no longer saved,
     // update the DCHECK to verify that the evidence doesn't indicate a subframe
     // (regardless of the URL).
     DCHECK(!(navigation_handle->GetURL().IsAboutBlank() &&
@@ -574,10 +577,9 @@ void ContentSubresourceFilterThrottleManager::MaybeAppendNavigationThrottles(
   DCHECK(!ShouldInheritActivation(navigation_handle->GetURL()));
 
   if (IsInSubresourceFilterRoot(navigation_handle) && database_manager_) {
-    throttles->push_back(
-        std::make_unique<SubresourceFilterSafeBrowsingActivationThrottle>(
-            navigation_handle, profile_interaction_manager_.get(),
-            content::GetIOThreadTaskRunner({}), database_manager_));
+    throttles->push_back(std::make_unique<SafeBrowsingPageActivationThrottle>(
+        navigation_handle, profile_interaction_manager_.get(),
+        content::GetIOThreadTaskRunner({}), database_manager_));
   }
 
   if (!dealer_handle_)
@@ -649,6 +651,12 @@ ContentSubresourceFilterThrottleManager::
   return parent_filter
              ? std::make_unique<ChildFrameNavigationFilteringThrottle>(
                    navigation_handle, parent_filter,
+                   /*bypass_alias_check=*/false,
+                   base::BindRepeating([](const GURL& url) {
+                     return base::StringPrintf(
+                         kDisallowChildFrameConsoleMessageFormat,
+                         url.possibly_invalid_spec().c_str());
+                   }),
                    EnsureFrameAdEvidence(navigation_handle))
              : nullptr;
 }

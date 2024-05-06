@@ -70,6 +70,7 @@ struct RawPtrAndRefExclusionsOptions {
   FilterFile* paths_to_exclude;
   bool should_exclude_stack_allocated_records;
   chrome_checker::StackAllocatedPredicate* stack_allocated_predicate;
+  bool should_rewrite_non_string_literals;
 };
 
 AST_MATCHER(clang::Type, anyCharType) {
@@ -476,5 +477,36 @@ AST_MATCHER_P(clang::CastExpr,
   }
   return InnerMatcher.matches(*explicit_cast_expr, Finder, Builder);
 }
+
+// Matches the pointer types supported by the rewriters.
+// These exclude: function, member and array type pointers.
+clang::ast_matchers::internal::Matcher<clang::Type> supported_pointer_type();
+
+// Matches const char pointers.
+clang::ast_matchers::internal::Matcher<clang::Type> const_char_pointer_type();
+
+// These represent the common conditions to skip the rewrite for reference and
+// pointer decls. This includes decls that are:
+// - listed in the --exclude-fields cmdline param or located in paths
+//   matched by --exclude-paths cmdline param
+// - "implicit" (i.e. field decls that are not explicitly present in
+//   the source code)
+// - located in Extern C context, in generated code or annotated with
+// RAW_PTR_EXCLUSION
+// - located under third_party/ except under third_party/blink as Blink
+// is part of chromium git repo.
+//
+// Additionally, if |options.should_exclude_stack_allocated_records|,
+// - Pointer pointing to a STACK_ALLOCATED() object.
+// - Pointer that are a member of STACK_ALLOCATED() object.
+//    struct Foo {
+//      STACK_ALLOCATED();
+//      int*         ptr2; // isDeclaredInStackAllocated(...)
+//    }
+//    struct Bar {
+//      Foo*         ptr2; // hasDescendant(StackAllocatedQualType(...))
+//    }
+clang::ast_matchers::internal::Matcher<clang::NamedDecl> PtrAndRefExclusions(
+    const RawPtrAndRefExclusionsOptions& options);
 
 #endif  // TOOLS_CLANG_PLUGINS_RAWPTRHELPERS_H_

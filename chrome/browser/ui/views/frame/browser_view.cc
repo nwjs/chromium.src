@@ -164,7 +164,6 @@
 #include "chrome/browser/ui/views/qrcode_generator/qrcode_generator_bubble.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_device_picker_bubble_view.h"
-#include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_icon_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_promo_bubble_view.h"
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
 #include "chrome/browser/ui/views/sharing_hub/screenshot/screenshot_captured_bubble.h"
@@ -211,6 +210,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
+#include "chromeos/ui/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/enterprise/buildflags/buildflags.h"
@@ -369,11 +369,6 @@
 #include "chrome/browser/ui/views/frame/webui_tab_strip_container_view.h"
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
-#if BUILDFLAG(ENTERPRISE_WATERMARK)
-#include "chrome/browser/enterprise/data_protection/data_protection_navigation_observer.h"
-#include "chrome/browser/enterprise/watermark/watermark_view.h"
-#endif  // BUILDFLAG(ENTERPRISE_WATERMARK)
-
 using base::UserMetricsAction;
 using content::NativeWebKeyboardEvent;
 using content::WebContents;
@@ -440,9 +435,9 @@ void CheckFocusListForCycles(views::View* const start_view) {
 #endif  // DCHECK_IS_ON()
 
 SkRegion* RawDraggableRegionsToSkRegion(
-       const std::vector<extensions::mojom::DraggableRegionPtr>& regions) {
+	const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
   SkRegion* sk_region = new SkRegion;
-  for (const extensions::mojom::DraggableRegionPtr& region : regions) {
+  for (const chrome::mojom::DraggableRegionPtr& region : regions) {
     sk_region->op(
                   SkIRect::MakeLTRB(region->bounds.x(), region->bounds.y(), region->bounds.right(),
                                     region->bounds.bottom()),
@@ -738,7 +733,7 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
 
   bool IsContentsSeparatorEnabled() const override {
     // Web app windows manage their own separator.
-    // TODO(crbug.com/1012979): Make PWAs set the visibility of the ToolbarView
+    // TODO(crbug.com/40102629): Make PWAs set the visibility of the ToolbarView
     // based on whether it is visible instead of setting the height to 0px. This
     // will enable BrowserViewLayout to hide the contents separator on its own
     // using the same logic used by normal BrowserViews.
@@ -1073,7 +1068,7 @@ bool BrowserView::NWCanClose(bool user_force) const {
 }
 
 void BrowserView::UpdateDraggableRegions(
-   const std::vector<extensions::mojom::DraggableRegionPtr>& regions) {
+   const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
   // Draggable region is not supported for non-frameless window.
   if (!browser_->is_frameless())
     return;
@@ -1180,7 +1175,7 @@ BrowserView::~BrowserView() {
   // The TabStrip attaches a listener to the model. Make sure we shut down the
   // TabStrip first so that it can cleanly remove the listener.
   //
-  // TODO(https://crbug.com/1477838): Is this actually necessary? It should be
+  // TODO(crbug.com/40280409): Is this actually necessary? It should be
   // perfectly safe to destroy the TabStrip before the TabStripModel?
   if (tabstrip_) {
     auto tabstrip = tabstrip_.ExtractAsDangling();
@@ -1303,14 +1298,6 @@ bool BrowserView::UsesImmersiveFullscreenTabbedMode() const {
           base::FeatureList::IsEnabled(features::kImmersiveFullscreen) &&
           base::FeatureList::IsEnabled(features::kImmersiveFullscreenTabs)) &&
          !GetIsWebAppType();
-}
-#endif
-
-#if BUILDFLAG(ENTERPRISE_WATERMARK)
-void BrowserView::SetWatermarkString(const std::string& text) {
-  if (watermark_view_) {
-    watermark_view_->SetString(text);
-  }
 }
 #endif
 
@@ -1695,8 +1682,13 @@ void BrowserView::BookmarkBarStateChanged(
     bookmark_bar_view_->SetBookmarkBarState(new_state, change_type);
   }
 
-  if (MaybeShowBookmarkBar(GetActiveWebContents()))
-    DeprecatedLayoutImmediately();
+  if (MaybeShowBookmarkBar(GetActiveWebContents())) {
+    // TODO(crbug.com/326362544): Once BrowserViewLayout extends from
+    // LayoutManagerBase we should be able to remove this call as
+    // LayoutManagerBase will handle invalidating layout when children are added
+    // and removed.
+    InvalidateLayout();
+  }
 }
 
 void BrowserView::TemporarilyShowBookmarkBar(base::TimeDelta duration) {
@@ -1951,7 +1943,8 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
       GetDataProtectionSettings(
           GetProfile(), web_contents(),
           base::BindOnce(&BrowserView::ApplyDataProtectionSettings,
-                         weak_ptr_factory_.GetWeakPtr()));
+                         weak_ptr_factory_.GetWeakPtr(),
+                         web_contents()->GetWeakPtr()));
 #endif
 }
 
@@ -2255,8 +2248,9 @@ void BrowserView::UpdatePageActionIcon(PageActionIconType type) {
 
   PageActionIconView* icon =
       toolbar_button_provider_->GetPageActionIconView(type);
-  if (icon)
+  if (icon) {
     icon->Update();
+  }
 }
 
 autofill::AutofillBubbleHandler* BrowserView::GetAutofillBubbleHandler() {
@@ -2718,7 +2712,7 @@ bool BrowserView::ActivateFirstInactiveBubbleForAccessibility() {
       if (focusable) {
         focusable->RequestFocus();
 #if BUILDFLAG(IS_MAC)
-        // TODO(crbug.com/650859): When a view requests focus on other
+        // TODO(crbug.com/40486728): When a view requests focus on other
         // platforms, its widget is activated. When doing so in FocusManager on
         // MacOS a lot of interactive tests fail when the widget is destroyed.
         // Activating the widget here should be safe as this happens only
@@ -2846,7 +2840,7 @@ void BrowserView::NotifyWidgetSizeConstraintsChanged() {
     return;
   }
 
-  // TODO(crbug.com/1503145): Undo changes in this CL and return to use
+  // TODO(crbug.com/40943569): Undo changes in this CL and return to use
   // `WidgetObserver::OnWidgetSizeConstraintsChanged` once zoom levels are
   // refactored so that visual properties can be updated during page load.
   GetWidget()->OnSizeConstraintsChanged();
@@ -2885,10 +2879,43 @@ void BrowserView::DidStartNavigation(
     enterprise_data_protection::DataProtectionNavigationObserver::
         CreateForNavigationIfNeeded(
             GetProfile(), navigation_handle,
-            base::BindOnce(&BrowserView::ApplyDataProtectionSettings,
-                           weak_ptr_factory_.GetWeakPtr()));
+            base::BindOnce(
+                &BrowserView::DelayApplyDataProtectionSettingsIfEmpty,
+                weak_ptr_factory_.GetWeakPtr(), web_contents()->GetWeakPtr()));
   }
 }
+
+void BrowserView::DocumentOnLoadCompletedInPrimaryMainFrame() {
+  // It is possible for `clear_watermark_text_on_page_load_` to be set to false
+  // even when the watermark should be cleared.  However, in this case there
+  // is a queued call to `ApplyDataProtectionSettings()` which will correctly
+  // reset the watermark.  The scenario is as followed:
+  //
+  // 1/ User is viewing a page in Tab A that is watermarked.
+  // 2/ User loads a page that should not be watermarked into Tab A.
+  // 3/ `DelayApplyDataProtectionSettingsIfEmpty()` is called at navigation
+  //     finish time which sets clear_watermark_text_on_page_load_=true.
+  //    `DocumentOnLoadCompletedInPrimaryMainFrame()` will be called later.
+  // 4/ User switches to Tab B, which may or may not be watermarked.
+  //    This calls `ApplyDataProtectionSettings()` setting the watermark
+  //    appropriate to Tab B and sets clear_watermark_text_on_page_load_=false.
+  // 5/ User switches back to Tab A (which shows a page that should not be
+  //    watermarked, as described in step 2 above). This also calls
+  //    `ApplyDataProtectionSettings()` setting the watermark
+  //    appropriate to Tab A (i.e. clears the watermark) and sets
+  //    clear_watermark_text_on_page_load_=false.
+  // 6/ `DocumentOnLoadCompletedInPrimaryMainFrame()` is eventually called
+  //    which does nothing because clear_watermark_text_on_page_load_==false.
+  //    However, the watermark is already cleared in step #5.
+  //
+  // Note that steps #5 and #6 are racy but the final outcome is correct
+  // regardless of the order in which they execute.
+
+  if (watermark_view_ && clear_watermark_text_on_page_load_) {
+    ApplyWatermarkSettings(std::string());
+  }
+}
+
 #endif
 
 void BrowserView::MaybeShowWebUITabStripIPH() {
@@ -3088,24 +3115,13 @@ BrowserView::ShowQRCodeGeneratorBubble(content::WebContents* contents,
     on_back_button_pressed = controller->GetOnBackButtonPressedCallback();
   }
 
-  PageActionIconType icon_type =
-      sharing_hub::SharingHubOmniboxEnabled(browser_->profile())
-          ? PageActionIconType::kSharingHub
-          : PageActionIconType::kQRCodeGenerator;
-
   auto* bubble = new qrcode_generator::QRCodeGeneratorBubble(
-      toolbar_button_provider()->GetAnchorView(icon_type),
+      toolbar_button_provider()->GetAnchorView(std::nullopt),
       contents->GetWeakPtr(), std::move(on_closing),
       std::move(on_back_button_pressed), url);
 
-  PageActionIconView* icon_view =
-      toolbar_button_provider()->GetPageActionIconView(icon_type);
-  if (icon_view)
-    bubble->SetHighlightedButton(icon_view);
-
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   bubble->Show();
-
   return bubble;
 }
 
@@ -3124,7 +3140,7 @@ BrowserView::ShowScreenshotCapturedBubble(content::WebContents* contents,
 SharingDialog* BrowserView::ShowSharingDialog(
     content::WebContents* web_contents,
     SharingDialogData data) {
-  // TODO(https://crbug.com/1311680): Remove this altogether. This used to
+  // TODO(crbug.com/40220302): Remove this altogether. This used to
   // be hardcoded to anchor off the shared clipboard bubble, but that bubble is
   // now gone altogether.
   auto* dialog_view =
@@ -3140,17 +3156,8 @@ SharingDialog* BrowserView::ShowSharingDialog(
 send_tab_to_self::SendTabToSelfBubbleView*
 BrowserView::ShowSendTabToSelfDevicePickerBubble(
     content::WebContents* web_contents) {
-  PageActionIconType icon_type =
-      sharing_hub::SharingHubOmniboxEnabled(browser_->profile())
-          ? PageActionIconType::kSharingHub
-          : PageActionIconType::kSendTabToSelf;
-
   auto* bubble = new send_tab_to_self::SendTabToSelfDevicePickerBubbleView(
-      toolbar_button_provider()->GetAnchorView(icon_type), web_contents);
-  PageActionIconView* icon_view =
-      toolbar_button_provider()->GetPageActionIconView(icon_type);
-  if (icon_view)
-    bubble->SetHighlightedButton(icon_view);
+      toolbar_button_provider()->GetAnchorView(std::nullopt), web_contents);
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   // This is always triggered due to a user gesture, c.f. this method's
@@ -3162,18 +3169,9 @@ BrowserView::ShowSendTabToSelfDevicePickerBubble(
 send_tab_to_self::SendTabToSelfBubbleView*
 BrowserView::ShowSendTabToSelfPromoBubble(content::WebContents* web_contents,
                                           bool show_signin_button) {
-  PageActionIconType icon_type =
-      sharing_hub::SharingHubOmniboxEnabled(web_contents->GetBrowserContext())
-          ? PageActionIconType::kSharingHub
-          : PageActionIconType::kSendTabToSelf;
-
   auto* bubble = new send_tab_to_self::SendTabToSelfPromoBubbleView(
-      toolbar_button_provider()->GetAnchorView(icon_type), web_contents,
+      toolbar_button_provider()->GetAnchorView(std::nullopt), web_contents,
       show_signin_button);
-  PageActionIconView* icon_view =
-      toolbar_button_provider()->GetPageActionIconView(icon_type);
-  if (icon_view)
-    bubble->SetHighlightedButton(icon_view);
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   // This is always triggered due to a user gesture, c.f. method documentation.
@@ -4109,7 +4107,7 @@ bool BrowserView::GetSavedWindowPlacement(
     gfx::Rect* bounds,
     ui::WindowShowState* show_state) const {
   chrome::GetSavedWindowBoundsAndShowState(browser_.get(), bounds, show_state);
-  // TODO(crbug.com/897300): Generalize this code for app and non-app popups?
+  // TODO(crbug.com/40092782): Generalize this code for app and non-app popups?
   if (chrome::SavedBoundsAreContentBounds(browser_.get()) &&
       browser_->is_type_popup()) {
     // This is normal non-app popup window. The value passed in |bounds|
@@ -4492,7 +4490,7 @@ bool BrowserView::RotatePaneFocusFromView(views::View* focused_view,
     // |enable_wrapping| is overloaded with the start of a rotation. Therefore,
     // we can use it to ensure that we only return that we have rotated once to
     // the caller.
-    // TODO(crbug.com/1459355): the overloaded |enable_wrapping| is not
+    // TODO(crbug.com/40274273): the overloaded |enable_wrapping| is not
     // intuitive and confusing. Refactor this so that start of rotation is more
     // clear and not mangled up with wrapping.
     return enable_wrapping;
@@ -4668,15 +4666,14 @@ void BrowserView::AddedToWidget() {
   // TODO(pbos): Investigate whether the side panels should be creatable when
   // the ToolbarView does not create a button for them. This specifically seems
   // to hit web apps. See https://crbug.com/1267781.
-  if (toolbar_->GetSidePanelButton() && unified_side_panel_) {
+  if (toolbar_->GetSidePanelButton()) {
     if (toolbar()->side_panel_container()) {
       toolbar()->side_panel_container()->ObserveSidePanelView(
           unified_side_panel_);
-    } else {
-      unified_side_panel_->AddObserver(
-          SidePanelUtil::GetSidePanelCoordinatorForBrowser((browser_.get())));
     }
   }
+  unified_side_panel_->AddObserver(
+      SidePanelUtil::GetSidePanelCoordinatorForBrowser((browser_.get())));
 
 #if BUILDFLAG(IS_CHROMEOS)
   // TopControlsSlideController must be initialized here in AddedToWidget()
@@ -4698,7 +4695,7 @@ void BrowserView::AddedToWidget() {
   immersive_mode_controller_->Init(this);
   immersive_mode_controller_->AddObserver(this);
 
-  // TODO(https://crbug.com/1036519): Remove BrowserViewLayout dependence on
+  // TODO(crbug.com/40664862): Remove BrowserViewLayout dependence on
   // Widget and move to the constructor.
   SetLayoutManager(std::make_unique<BrowserViewLayout>(
       std::make_unique<BrowserViewLayoutDelegateImpl>(this), this,
@@ -5743,8 +5740,49 @@ void BrowserView::UpdateFullscreenAllowedFromPolicy(
 }
 
 void BrowserView::ApplyDataProtectionSettings(
-    const std::string& watermark_text) {
-  SetWatermarkString(watermark_text);
+    base::WeakPtr<content::WebContents> expected_web_contents,
+    const enterprise_data_protection::UrlSettings& settings) {
+  // Since retrieving data protections is async, make sure that the view is
+  // still on the right tab before applying the settings.
+  if (!expected_web_contents || web_contents() != expected_web_contents.get()) {
+    return;
+  }
+
+  ApplyWatermarkSettings(settings.watermark_text);
+}
+
+void BrowserView::ApplyWatermarkSettings(const std::string& watermark_text) {
+  if (watermark_view_) {
+    watermark_view_->SetString(watermark_text);
+  }
+
+  // Watermark string should not be changed once the page loads.
+  clear_watermark_text_on_page_load_ = false;
+}
+
+void BrowserView::DelayApplyDataProtectionSettingsIfEmpty(
+    base::WeakPtr<content::WebContents> expected_web_contents,
+    const enterprise_data_protection::UrlSettings& settings) {
+  // Since retrieving data protections is async, make sure that the view is
+  // still on the right tab before applying the settings.
+  if (!expected_web_contents || web_contents() != expected_web_contents.get()) {
+    return;
+  }
+
+  if (!settings.watermark_text.empty()) {
+    ApplyDataProtectionSettings(expected_web_contents, settings);
+  } else {
+    // The watermark string should be cleared.  Delay that until the page
+    // finishes loading.
+    clear_watermark_text_on_page_load_ = true;
+  }
+
+  if (!on_delay_apply_data_protection_settings_if_empty_called_for_testing_
+           .is_null()) {
+    std::move(
+        on_delay_apply_data_protection_settings_if_empty_called_for_testing_)
+        .Run();
+  }
 }
 
 BEGIN_METADATA(BrowserView)

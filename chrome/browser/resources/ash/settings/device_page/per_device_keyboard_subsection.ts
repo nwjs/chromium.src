@@ -30,11 +30,14 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
+import {SettingsSliderElement} from '../controls/settings_slider.js';
+import {KeyboardBrightnessObserverReceiver} from '../mojom-webui/input_device_settings_provider.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
+import {PersonalizationHubBrowserProxy, PersonalizationHubBrowserProxyImpl} from '../personalization_page/personalization_hub_browser_proxy.js';
 import {Route, Router, routes} from '../router.js';
 
 import {getInputDeviceSettingsProvider} from './input_device_mojo_interface_provider.js';
-import {InputDeviceSettingsProviderInterface, Keyboard, KeyboardPolicies, KeyboardSettings, MetaKey, SixPackKeyInfo, SixPackShortcutModifier} from './input_device_settings_types.js';
+import {InputDeviceSettingsProviderInterface, Keyboard, KeyboardPolicies, KeyboardSettings, MetaKey, ModifierKey, SixPackKeyInfo, SixPackShortcutModifier} from './input_device_settings_types.js';
 import {getPrefPolicyFields, settingsAreEqual} from './input_device_settings_utils.js';
 import {getTemplate} from './per_device_keyboard_subsection.html.js';
 
@@ -75,6 +78,37 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
         },
       },
 
+      keyboardBrightnessPercentPref: {
+        type: Object,
+        value() {
+          return {
+            key: 'fakekeyboardBrightnessPercentPref',
+            type: chrome.settingsPrivate.PrefType.NUMBER,
+            value: 40,
+          };
+        },
+      },
+
+      keyboardAutoBrightnessPref: {
+        type: Object,
+        value() {
+          return {
+            key: 'fakekeyboardAutoBrightnessPref',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          };
+        },
+      },
+
+      isKeyboardBacklightControlInSettingsEnabled: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'enableKeyboardBacklightControlInSettings');
+        },
+        readOnly: true,
+      },
+
       keyboard: {
         type: Object,
       },
@@ -106,6 +140,16 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
       isLastDevice: {
         type: Boolean,
         reflectToAttribute: true,
+      },
+
+      isRgbKeyboardSupported: {
+        type: Boolean,
+        value: false,
+      },
+
+      hasKeyboardBacklight: {
+        type: Boolean,
+        value: false,
       },
     };
   }
@@ -143,12 +187,40 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
   protected keyboardPolicies: KeyboardPolicies;
   private topRowAreFunctionKeysPref: chrome.settingsPrivate.PrefObject;
   private blockMetaFunctionKeyRewritesPref: chrome.settingsPrivate.PrefObject;
+  private keyboardBrightnessPercentPref: chrome.settingsPrivate.PrefObject;
+  private keyboardAutoBrightnessPref: chrome.settingsPrivate.PrefObject;
   private remapKeyboardKeysSublabel: string;
   private isInitialized: boolean = false;
   private inputDeviceSettingsProvider: InputDeviceSettingsProviderInterface =
       getInputDeviceSettingsProvider();
+  private personalizationHubBrowserProxy: PersonalizationHubBrowserProxy =
+      PersonalizationHubBrowserProxyImpl.getInstance();
+  private keyboardBrightnessObserverReceiver:
+      KeyboardBrightnessObserverReceiver;
   private keyboardIndex: number;
   private isLastDevice: boolean;
+  private isRgbKeyboardSupported: boolean;
+  private hasKeyboardBacklight: boolean;
+  private isKeyboardBacklightControlInSettingsEnabled: boolean;
+
+  override async connectedCallback(): Promise<void> {
+    super.connectedCallback();
+
+    if (this.isKeyboardBacklightControlInSettingsEnabled) {
+      // Add keyboardBrightnessChange observer.
+      this.keyboardBrightnessObserverReceiver =
+          new KeyboardBrightnessObserverReceiver(this);
+      this.inputDeviceSettingsProvider.observeKeyboardBrightness(
+          this.keyboardBrightnessObserverReceiver.$.bindNewPipeAndPassRemote());
+
+      this.isRgbKeyboardSupported =
+        (await this.inputDeviceSettingsProvider.isRgbKeyboardSupported())
+          ?.isRgbKeyboardSupported;
+      this.hasKeyboardBacklight =
+          (await this.inputDeviceSettingsProvider.hasKeyboardBacklight())
+              ?.hasKeyboardBacklight;
+    }
+  }
 
   private updateSettingsToCurrentPrefs(): void {
     // `updateSettingsToCurrentPrefs` gets called when the `keyboard` object
@@ -188,6 +260,12 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
     }
   }
 
+  private onKeyboardBrightnessSliderChanged(): void {
+    const slider = this.shadowRoot!.querySelector<SettingsSliderElement>(
+        '#keyboardBrightnessSlider');
+    this.inputDeviceSettingsProvider.setKeyboardBrightness(slider!.pref.value);
+  }
+
   private onSettingsChanged(): void {
     if (!this.isInitialized) {
       return;
@@ -206,6 +284,10 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
     this.keyboard.settings = newSettings;
     this.inputDeviceSettingsProvider.setKeyboardSettings(
         this.keyboard.id, this.keyboard.settings);
+  }
+
+  onKeyboardBrightnessChanged(keyboardBrightnessPercent: number): void {
+    this.set('keyboardBrightnessPercentPref.value', keyboardBrightnessPercent);
   }
 
   private getNumRemappedSixPackKeys(): number {
@@ -247,9 +329,24 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
         this.keyboard.metaKey === MetaKey.kSearch;
   }
 
+  private openPersonalizationHub(): void {
+    this.inputDeviceSettingsProvider.recordKeyboardColorLinkClicked();
+    this.personalizationHubBrowserProxy.openPersonalizationHub();
+  }
+
   protected getRemapKeyboardKeysClass(): string {
     return `hr bottom-divider ${
         this.keyboard.isExternal ? '' : 'remap-keyboard-keys-row-internal'}`;
+  }
+
+  protected showSendFunctionKeyDescription(): string {
+    const hasFunctionKey: boolean =
+        this.keyboard.modifierKeys.includes(ModifierKey.kFunction);
+    if (hasFunctionKey) {
+      return this.i18n('splitModifierKeyboardSendFunctionKeysDescription');
+    } else {
+      return this.i18n('keyboardSendFunctionKeysDescription');
+    }
   }
 }
 

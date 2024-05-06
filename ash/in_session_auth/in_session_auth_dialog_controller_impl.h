@@ -35,6 +35,7 @@ class InSessionAuthDialogControllerImpl : public InSessionAuthDialogController,
   // InSessionAuthDialogController overrides
   void ShowAuthDialog(
       Reason reason,
+      const std::optional<std::string>& prompt,
       auth_panel::AuthCompletionCallback on_auth_complete) override;
 
   void SetTokenProvider(
@@ -53,11 +54,15 @@ class InSessionAuthDialogControllerImpl : public InSessionAuthDialogController,
 
  private:
   void CreateAndShowAuthPanel(
+      const std::optional<std::string>& prompt,
       auth_panel::AuthCompletionCallback on_auth_complete,
       Reason reason,
       const AccountId& account_id);
 
   void OnAuthPanelPreferredSizeChanged();
+
+  // Destroys the authentication dialog.
+  void OnEndAuthentication();
 
   // Non owning pointer, initialized and owned by
   // `ChromeBrowserMainExtraPartsAsh`.
@@ -66,13 +71,13 @@ class InSessionAuthDialogControllerImpl : public InSessionAuthDialogController,
   // before `auth_token_provider`.
   raw_ptr<InSessionAuthTokenProvider> auth_token_provider_;
 
-  // Stored temporarily and passed to auth panel's constructor when
-  // we know that the auth attempt has been confirmed.
   auth_panel::AuthCompletionCallback on_auth_complete_;
 
   State state_ = State::kNotShown;
 
   std::unique_ptr<views::Widget> dialog_;
+
+  std::optional<std::string> prompt_;
 
   base::WeakPtrFactory<InSessionAuthDialogControllerImpl> weak_factory_{this};
 };

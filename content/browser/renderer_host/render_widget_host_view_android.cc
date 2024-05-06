@@ -1268,7 +1268,10 @@ void RenderWidgetHostViewAndroid::OnImeCompositionRangeChanged(
     bool character_bounds_changed,
     const std::optional<std::vector<gfx::Rect>>& line_bounds) {
   DCHECK_EQ(text_input_manager_, text_input_manager);
-  if (!ime_adapter_android_) {
+  // Don't pass data to Java if using the new pipeline.
+  if (!ime_adapter_android_ ||
+      base::FeatureList::IsEnabled(
+          blink::features::kCursorAnchorInfoMojoPipe)) {
     return;
   }
 
@@ -3073,6 +3076,10 @@ void RenderWidgetHostViewAndroid::ObserveDevicePosturePlatformProvider() {
 
 void RenderWidgetHostViewAndroid::OnDisplayFeatureBoundsChanged(
     const gfx::Rect& display_feature_bounds) {
+  if (display_feature_overridden_for_testing_) {
+    return;
+  }
+
   display_feature_ = std::nullopt;
   display_feature_bounds_ = gfx::Rect();
   // On some devices like the Galaxy Fold the display feature has a size of

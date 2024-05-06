@@ -5,19 +5,22 @@
 #include "components/autofill/core/browser/test_payments_data_manager.h"
 
 #include "base/uuid.h"
-#include "components/autofill/core/browser/personal_data_manager.h"
 
 namespace autofill {
 
-TestPaymentsDataManager::TestPaymentsDataManager(const std::string& app_locale,
-                                                 PersonalDataManager* pdm)
+TestPaymentsDataManager::TestPaymentsDataManager(
+    base::RepeatingClosure notify_pdm_observers,
+    const std::string& app_locale)
     : PaymentsDataManager(/*profile_database=*/nullptr,
                           /*account_database=*/nullptr,
                           /*image_fetcher=*/nullptr,
                           /*shared_storage_handler=*/nullptr,
                           /*pref_service=*/nullptr,
+                          /*sync_service=*/nullptr,
+                          /*identity_manager=*/nullptr,
+                          /*variations_country_code=*/GeoIpCountryCode("US"),
                           app_locale,
-                          pdm) {}
+                          std::move(notify_pdm_observers)) {}
 
 TestPaymentsDataManager::~TestPaymentsDataManager() = default;
 
@@ -82,12 +85,12 @@ bool TestPaymentsDataManager::RemoveByGUID(const std::string& guid) {
   if (CreditCard* credit_card = GetCreditCardByGUID(guid)) {
     local_credit_cards_.erase(base::ranges::find(
         local_credit_cards_, credit_card, &std::unique_ptr<CreditCard>::get));
-    pdm_->NotifyPersonalDataObserver();
+    notify_pdm_observers_.Run();
     return true;
   } else if (const Iban* iban = GetIbanByGUID(guid)) {
     local_ibans_.erase(
         base::ranges::find(local_ibans_, iban, &std::unique_ptr<Iban>::get));
-    pdm_->NotifyPersonalDataObserver();
+    notify_pdm_observers_.Run();
     return true;
   }
   return false;
@@ -119,7 +122,7 @@ void TestPaymentsDataManager::AddCreditCard(const CreditCard& credit_card) {
   std::unique_ptr<CreditCard> local_credit_card =
       std::make_unique<CreditCard>(credit_card);
   local_credit_cards_.push_back(std::move(local_credit_card));
-  pdm_->NotifyPersonalDataObserver();
+  notify_pdm_observers_.Run();
 }
 
 std::string TestPaymentsDataManager::AddAsLocalIban(Iban iban) {
@@ -129,7 +132,7 @@ std::string TestPaymentsDataManager::AddAsLocalIban(Iban iban) {
       Iban::Guid(base::Uuid::GenerateRandomV4().AsLowercaseString()));
   std::unique_ptr<Iban> local_iban = std::make_unique<Iban>(iban);
   local_ibans_.push_back(std::move(local_iban));
-  pdm_->NotifyPersonalDataObserver();
+  notify_pdm_observers_.Run();
   return iban.guid();
 }
 
@@ -148,7 +151,7 @@ void TestPaymentsDataManager::DeleteLocalCreditCards(
     // behavior of PersonalDataManager.
     RemoveCardWithoutNotification(card);
   }
-  pdm_->NotifyPersonalDataObserver();
+  notify_pdm_observers_.Run();
 }
 
 void TestPaymentsDataManager::UpdateCreditCard(const CreditCard& credit_card) {
@@ -174,6 +177,12 @@ void TestPaymentsDataManager::AddServerCvc(int64_t instrument_id,
   }
 }
 
+std::string TestPaymentsDataManager::SaveImportedCreditCard(
+    const CreditCard& imported_credit_card) {
+  AddCreditCard(imported_credit_card);
+  return imported_credit_card.guid();
+}
+
 void TestPaymentsDataManager::ClearServerCvcs() {
   for (CreditCard* card : GetServerCreditCards()) {
     if (!card->cvc().empty()) {
@@ -197,6 +206,56 @@ bool TestPaymentsDataManager::IsAutofillPaymentMethodsEnabled() const {
     return autofill_payment_methods_enabled_.value();
   }
   return PaymentsDataManager::IsAutofillPaymentMethodsEnabled();
+}
+
+bool TestPaymentsDataManager::IsAutofillWalletImportEnabled() const {
+  // Return the value of autofill_wallet_import_enabled_ if it has been set,
+  // otherwise fall back to the normal behavior of checking the pref_service.
+  if (autofill_wallet_import_enabled_.has_value()) {
+    return autofill_wallet_import_enabled_.value();
+  }
+  return PaymentsDataManager::IsAutofillWalletImportEnabled();
+}
+
+bool TestPaymentsDataManager::IsPaymentsWalletSyncTransportEnabled() const {
+  if (payments_wallet_sync_transport_enabled_.has_value()) {
+    return *payments_wallet_sync_transport_enabled_;
+  }
+  return PaymentsDataManager::IsPaymentsWalletSyncTransportEnabled();
+}
+
+bool TestPaymentsDataManager::ShouldSuggestServerPaymentMethods() const {
+  return IsAutofillPaymentMethodsEnabled() && IsAutofillWalletImportEnabled();
+}
+
+bool TestPaymentsDataManager::IsPaymentMethodsMandatoryReauthEnabled() {
+  if (payment_methods_mandatory_reauth_enabled_.has_value()) {
+    return payment_methods_mandatory_reauth_enabled_.value();
+  }
+  return PaymentsDataManager::IsPaymentMethodsMandatoryReauthEnabled();
+}
+
+void TestPaymentsDataManager::SetPaymentMethodsMandatoryReauthEnabled(
+    bool enabled) {
+  payment_methods_mandatory_reauth_enabled_ = enabled;
+  PaymentsDataManager::SetPaymentMethodsMandatoryReauthEnabled(enabled);
+}
+
+bool TestPaymentsDataManager::IsPaymentCvcStorageEnabled() {
+  if (payments_cvc_storage_enabled_.has_value()) {
+    return payments_cvc_storage_enabled_.value();
+  }
+  return PaymentsDataManager::IsPaymentCvcStorageEnabled();
+}
+
+bool TestPaymentsDataManager::IsSyncFeatureEnabledForPaymentsServerMetrics()
+    const {
+  return false;
+}
+
+CoreAccountInfo TestPaymentsDataManager::GetAccountInfoForPaymentsServer()
+    const {
+  return account_info_;
 }
 
 void TestPaymentsDataManager::ClearCreditCards() {

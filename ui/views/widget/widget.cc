@@ -211,8 +211,13 @@ Widget::Widget(InitParams params) {
 }
 
 Widget::~Widget() {
-  if (widget_delegate_)
+  // DestroyRootView() will cause InvalidateLayout() to ScheduleLayout() which
+  // is unnecessary.
+  widget_closed_ = true;
+
+  if (widget_delegate_) {
     widget_delegate_->WidgetDestroying();
+  }
   if (ownership_ == InitParams::WIDGET_OWNS_NATIVE_WIDGET) {
     owned_native_widget_.reset();
     DCHECK(!native_widget_);
@@ -223,8 +228,9 @@ Widget::~Widget() {
         << "Widget probably should use WIDGET_OWNS_NATIVE_WIDGET ownership.";
   } else {
     DCHECK_EQ(ownership_, InitParams::CLIENT_OWNS_WIDGET);
-    if (native_widget_)
+    if (native_widget_) {
       native_widget_->Close();
+    }
   }
   // Destroy RootView after the native widget, so in case the WidgetDelegate is
   // a View in the RootView hierarchy it gets destroyed as a WidgetDelegate
@@ -401,6 +407,7 @@ void Widget::Init(InitParams params) {
   params.child |= (params.type == InitParams::TYPE_CONTROL);
   is_top_level_ = !params.child;
   is_headless_ = params.ShouldInitAsHeadless();
+  is_autosized_ = params.autosize;
 
   if (params.opacity == views::Widget::InitParams::WindowOpacity::kInferred &&
       params.type != views::Widget::InitParams::TYPE_WINDOW) {
@@ -432,10 +439,6 @@ void Widget::Init(InitParams params) {
   widget_delegate_->WidgetInitializing(this);
 
   ownership_ = params.ownership;
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  background_elevation_ = params.background_elevation;
-#endif
 
   sublevel_manager_ = std::make_unique<SublevelManager>(this, params.sublevel);
 
@@ -1131,12 +1134,39 @@ void Widget::RunShellDrag(View* view,
     observer.OnWidgetDragComplete(this);
 }
 
+void Widget::CancelShellDrag(View* view) {
+  if (!native_widget_) {
+    return;
+  }
+
+  native_widget_->CancelShellDrag(view);
+}
+
 void Widget::SchedulePaintInRect(const gfx::Rect& rect) {
   // This happens when DestroyRootView removes all children from the
   // RootView which triggers a SchedulePaint that ends up here. This happens
   // after in ~Widget after native_widget_ is destroyed.
   if (native_widget_)
     native_widget_->SchedulePaintInRect(rect);
+}
+
+void Widget::OnRootViewLayoutInvalidated() {
+  if (IsClosed()) {
+    return;
+  }
+
+  // Check if the widget needs to be auto resized based on its content's size.
+  if (is_autosized() && IsNativeWidgetInitialized() && GetContentsView() &&
+      widget_delegate_) {
+    if (gfx::Rect desired_bounds = widget_delegate_->GetDesiredWidgetBounds();
+        !desired_bounds.IsEmpty() &&
+        desired_bounds != GetWindowBoundsInScreen()) {
+      SetBounds(desired_bounds);
+      return;
+    }
+  }
+
+  ScheduleLayout();
 }
 
 void Widget::ScheduleLayout() {
@@ -1164,18 +1194,25 @@ void* Widget::GetNativeWindowProperty(const char* name) const {
 }
 
 void Widget::UpdateWindowTitle() {
-  if (!native_widget_)
+  if (!native_widget_ || !non_client_view_) {
     return;
-
-  if (!non_client_view_)
-    return;
+  }
 
   // Update the native frame's text. We do this regardless of whether or not
   // the native frame is being used, since this also updates the taskbar, etc.
   std::u16string window_title = widget_delegate_->GetWindowTitle();
   base::i18n::AdjustStringForLocaleDirection(&window_title);
-  if (!native_widget_->SetWindowTitle(window_title))
-    return;
+  bool title_changed = native_widget_->SetWindowTitle(window_title);
+
+  // Continue UpdateWindowTitle() only if the title or title visibility changes.
+  if (!title_changed) {
+    bool has_title = non_client_view()->HasWindowTitle();
+    bool title_visibility_changed = non_client_view()->IsWindowTitleVisible() !=
+                                    widget_delegate_->ShouldShowWindowTitle();
+    if (!has_title || !title_visibility_changed) {
+      return;
+    }
+  }
 
   non_client_view_->UpdateWindowTitle();
 }
@@ -2062,9 +2099,6 @@ ui::ColorProviderKey Widget::GetColorProviderKey() const {
 
   // Widgets may have specific overrides set on the Widget itself that should
   // apply specifically to themselves and their children, apply these here.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  key.elevation_mode = background_elevation_;
-#endif
   if (color_mode_override_.has_value()) {
     key.color_mode = color_mode_override_.value();
   }
@@ -2077,7 +2111,7 @@ const ui::ColorProvider* Widget::GetColorProvider() const {
       GetColorProviderKey());
 }
 
-const ui::RendererColorMap Widget::GetRendererColorMap(
+ui::RendererColorMap Widget::GetRendererColorMap(
     ui::ColorProviderKey::ColorMode color_mode,
     ui::ColorProviderKey::ForcedColors forced_colors) const {
   auto key = GetColorProviderKey();
@@ -2175,11 +2209,11 @@ void Widget::SetInitialBounds(const gfx::Rect& bounds) {
       if (bounds.origin().IsOrigin()) {
         // No initial bounds supplied, so size the window to its content and
         // center over its parent.
-        CenterWindow(non_client_view_->GetPreferredSize());
+        CenterWindow(non_client_view_->GetPreferredSize({}));
       } else {
         // Use the preferred size and the supplied origin.
         gfx::Rect preferred_bounds(bounds);
-        preferred_bounds.set_size(non_client_view_->GetPreferredSize());
+        preferred_bounds.set_size(non_client_view_->GetPreferredSize({}));
         SetBoundsConstrained(preferred_bounds);
       }
     } else {
@@ -2195,7 +2229,7 @@ void Widget::SetInitialBoundsForFramelessWindow(const gfx::Rect& bounds) {
     DCHECK(contents_view);
     // No initial bounds supplied, so size the window to its content and
     // center over its parent if preferred size is provided.
-    gfx::Size size = contents_view->GetPreferredSize();
+    gfx::Size size = contents_view->GetPreferredSize({});
     if (!size.IsEmpty() && native_widget_)
       native_widget_->CenterWindow(size);
   } else {

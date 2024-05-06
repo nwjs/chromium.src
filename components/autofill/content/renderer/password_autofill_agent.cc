@@ -468,7 +468,7 @@ void FillNonTypedOrFilledPropertiesMasks(std::vector<FormFieldData>* fields,
     for (const auto& [field_id, field_data] : manager.field_data_map()) {
       const std::optional<std::u16string>& value = field_data.first;
       FieldPropertiesMask properties = field_data.second;
-      if ((properties & kFilledOrTyped) && value == field.value) {
+      if ((properties & kFilledOrTyped) && value == field.value()) {
         field.properties_mask |= properties & kFilledOrTyped;
         break;
       }
@@ -482,7 +482,7 @@ size_t GetIndexOfElement(const FormData& form_data,
     return form_data.fields.size();
   }
   for (size_t i = 0; i < form_data.fields.size(); ++i) {
-    if (form_data.fields[i].renderer_id ==
+    if (form_data.fields[i].renderer_id() ==
         form_util::GetFieldRendererId(element)) {
       return i;
     }
@@ -499,7 +499,7 @@ bool HasTextInputs(const FormData& form_data) {
 // Returns a prediction whether the form that contains `username_element` and
 // `password_element` will be ready for submission after filling these two
 // elements.
-// TODO(crbug/1393271): Consider to reduce `SubmissionReadinessState` to a
+// TODO(crbug.com/40248146): Consider to reduce `SubmissionReadinessState` to a
 // boolean value (ready or not). The non-binary state is not needed for
 // auto-submission (crbug.com/1283004), but showing TTF proactively
 // (crbug.com/1393043) may need to check whether or not a given form comprises
@@ -532,7 +532,7 @@ mojom::SubmissionReadinessState CalculateSubmissionReadiness(
     // block a form submission. Note: Don't use `check_status !=
     // kNotCheckable`, a radio button is considered a "checkable" element too,
     // but it should block a submission.
-    return field.form_control_type == mojom::FormControlType::kInputCheckbox;
+    return field.form_control_type() == mojom::FormControlType::kInputCheckbox;
   };
 
   for (size_t i = username_index + 1; i < password_index; ++i) {
@@ -550,7 +550,7 @@ mojom::SubmissionReadinessState CalculateSubmissionReadiness(
       continue;
 
     if (username_index != i && password_index != i &&
-        form_data.fields[i].value.empty()) {
+        form_data.fields[i].value().empty()) {
       return mojom::SubmissionReadinessState::kEmptyFields;
     }
     number_of_visible_elements++;
@@ -768,18 +768,17 @@ bool PasswordAutofillAgent::TextDidChangeInTextField(
                          AutofillSuggestionTriggerSource::kTextFieldDidChange);
 }
 
-void PasswordAutofillAgent::UpdatePasswordStateForTextChange(
-    const WebInputElement& element) {
-  InformBrowserAboutUserInput(
-      form_util::GetFormElementForPasswordInput(element), element);
+// LINT.IfChange()
 
+void PasswordAutofillAgent::NotifyPasswordManagerAboutFieldModification(
+    const WebInputElement& element) {
   if (element.IsPasswordFieldForAutofill()) {
     auto iter = password_to_username_.find(element);
     if (iter != password_to_username_.end()) {
       web_input_to_password_info_[iter->second].password_was_edited_last = true;
       // Note that the suggested value of `mutable_element` was reset when its
       // value changed.
-      // TODO(crbug.com/415449): Do this through const WebInputElement.
+      // TODO(crbug.com/41132785): Do this through const WebInputElement.
       WebInputElement mutable_element = element;  // We need a non-const.
       mutable_element.SetAutofillState(WebAutofillState::kNotFilled);
     }
@@ -787,15 +786,7 @@ void PasswordAutofillAgent::UpdatePasswordStateForTextChange(
     return;
   }
 
-  // Notify PasswordManager about potential username fields for UFF.
-  // Exclude 1-symbol inputs, as they are unlikely to be usernames and likely
-  // to be characters/digits of OTPs.
-  // Exclude too large inputs, as they are usually not usernames.
   const std::u16string element_value = element.Value().Utf16();
-  if (element_value.size() == 1 || element_value.size() > 100) {
-    return;
-  }
-
   static base::NoDestructor<WebString> kAutocomplete("autocomplete");
   std::string autocomplete_attribute =
       element.GetAttribute(*kAutocomplete).Utf8();
@@ -805,18 +796,15 @@ void PasswordAutofillAgent::UpdatePasswordStateForTextChange(
   static base::NoDestructor<WebString> kLabel("label");
   std::u16string label_attribute = element.GetAttribute(*kLabel).Utf16();
 
-  if (!password_manager::util::CanBeConsideredAsSingleUsername(
-          name_attribute, id_attribute, label_attribute)) {
+  if (!password_manager::util::CanFieldBeConsideredAsSingleUsername(
+          name_attribute, id_attribute, label_attribute) ||
+      !password_manager::util::CanValueBeConsideredAsSingleUsername(
+          element_value)) {
     return;
   }
 
-  bool is_likely_otp =
-      autofill::MatchesRegex<password_manager::constants::kOneTimePwdRe>(
-          name_attribute) ||
-      autofill::MatchesRegex<password_manager::constants::kOneTimePwdRe>(
-          id_attribute) ||
-      base::Contains(autocomplete_attribute,
-                     password_manager::constants::kAutocompleteOneTimePassword);
+  bool is_likely_otp = password_manager::util::IsLikelyOtp(
+      name_attribute, id_attribute, autocomplete_attribute);
 
   GetPasswordManagerDriver().UserModifiedNonPasswordField(
       GetFieldRendererId(element), element_value,
@@ -824,6 +812,16 @@ void PasswordAutofillAgent::UpdatePasswordStateForTextChange(
                      password_manager::constants::kAutocompleteUsername),
       is_likely_otp);
 }
+
+void PasswordAutofillAgent::UpdatePasswordStateForTextChange(
+    const WebInputElement& element) {
+  NotifyPasswordManagerAboutFieldModification(element);
+
+  InformBrowserAboutUserInput(
+      form_util::GetFormElementForPasswordInput(element), element);
+}
+
+// LINT.ThenChange(//components/password_manager/core/browser/password_manager.cc:update_password_state_for_text_change)
 
 void PasswordAutofillAgent::TrackAutofilledElement(
     const blink::WebFormControlElement& element) {
@@ -1628,7 +1626,7 @@ bool PasswordAutofillAgent::ShowSuggestionsForDomain(
   // Check that all fillable elements are editable.
   if (!element.IsTextField() || !IsElementEditable(element) ||
       (!password_element.IsNull() && !IsElementEditable(password_element))) {
-    return true;
+    return false;
   }
 
   // Don't attempt to autofill with values that are too large.
@@ -1734,7 +1732,7 @@ void PasswordAutofillAgent::ShowSuggestionPopup(
   const bool show_webauthn_credentials =
       field.parsed_autocomplete && field.parsed_autocomplete->webauthn;
   GetPasswordManagerDriver().ShowPasswordSuggestions(PasswordSuggestionRequest(
-      field.renderer_id, form, trigger_source,
+      field.renderer_id(), form, trigger_source,
       GetIndexOfElement(form, username_element),
       GetIndexOfElement(form, password_element), field.text_direction,
       typed_username, show_webauthn_credentials,
@@ -2111,8 +2109,8 @@ PasswordAutofillAgent::ExtractFormStructureInfo(const FormData& form_data) {
     const FormFieldData& form_field = form_data.fields[i];
 
     FormFieldInfo& field_info = result.fields[i];
-    field_info.renderer_id = form_field.renderer_id;
-    field_info.form_control_type = form_field.form_control_type;
+    field_info.renderer_id = form_field.renderer_id();
+    field_info.form_control_type = form_field.form_control_type();
     field_info.autocomplete_attribute = form_field.autocomplete_attribute;
     field_info.is_focusable = form_field.is_focusable;
   }

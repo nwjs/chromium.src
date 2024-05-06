@@ -7,6 +7,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "base/threading/scoped_blocking_call.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/web_applications/callback_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 // TODO(crbug.com/1402145): Remove or at least isolate circular dependencies on
 // app service by moving this code to //c/b/web_applications/adjustments, or
@@ -72,6 +74,8 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+// TODO(http://b/333583704): Revert CL which added this include after migration.
+#include "chrome/browser/chromeos/echo/echo_util.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_window_experiment_utils.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -751,10 +755,42 @@ void PreinstalledWebAppManager::Load(ConsumeInstallOptions callback) {
     return;
   }
 
-  LoadConfigs(base::BindOnce(
-      &PreinstalledWebAppManager::ParseConfigs, weak_ptr_factory_.GetWeakPtr(),
-      base::BindOnce(&PreinstalledWebAppManager::PostProcessConfigs,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback))));
+  auto weak_ptr = weak_ptr_factory_.GetWeakPtr();
+  RunChainedCallbacks(
+      base::BindOnce(&PreinstalledWebAppManager::LoadDeviceInfo, weak_ptr),
+      base::BindOnce(&PreinstalledWebAppManager::CacheDeviceInfo, weak_ptr),
+      base::BindOnce(&PreinstalledWebAppManager::LoadConfigs, weak_ptr),
+      base::BindOnce(&PreinstalledWebAppManager::ParseConfigs, weak_ptr),
+      base::BindOnce(&PreinstalledWebAppManager::PostProcessConfigs, weak_ptr),
+      std::move(callback));
+}
+
+// TODO(http://b/333583704): Revert CL which added this method after migration.
+void PreinstalledWebAppManager::LoadDeviceInfo(ConsumeDeviceInfo callback) {
+#if BUILDFLAG(IS_CHROMEOS)
+  chromeos::echo_util::GetOobeTimestamp(base::BindOnce(
+      [](ConsumeDeviceInfo callback,
+         base::expected<std::string, std::string> oobe_timestamp_or_error) {
+        DeviceInfo device_info;
+        if (oobe_timestamp_or_error.has_value() &&
+            oobe_timestamp_or_error.value().length()) {
+          device_info.oobe_timestamp =
+              std::move(oobe_timestamp_or_error.value());
+        }
+        std::move(callback).Run(std::move(device_info));
+      },
+      std::move(callback)));
+#else  // BUILDFLAG(IS_CHROMEOS)
+  std::move(callback).Run(DeviceInfo());
+#endif
+}
+
+// TODO(http://b/333583704): Revert CL which added this method after migration.
+void PreinstalledWebAppManager::CacheDeviceInfo(
+    CacheDeviceInfoCallback callback,
+    DeviceInfo device_info) {
+  device_info_ = std::move(device_info);
+  std::move(callback).Run();
 }
 
 void PreinstalledWebAppManager::LoadConfigs(ConsumeLoadedConfigs callback) {
@@ -813,7 +849,8 @@ void PreinstalledWebAppManager::PostProcessConfigs(
     ConsumeInstallOptions callback,
     ParsedConfigs parsed_configs) {
   // Add hard coded configs.
-  for (ExternalInstallOptions& options : GetPreinstalledWebApps(*profile_)) {
+  for (ExternalInstallOptions& options :
+       GetPreinstalledWebApps(*profile_, device_info_)) {
     parsed_configs.options_list.push_back(std::move(options));
   }
 
@@ -930,23 +967,30 @@ void PreinstalledWebAppManager::Synchronize(
     std::vector<ExternalInstallOptions> desired_apps_install_options) {
   DCHECK(provider_);
 
+  std::set<InstallUrl> desired_preferred_apps_for_supported_links;
   std::map<InstallUrl, std::vector<webapps::AppId>> desired_uninstalls;
   for (const auto& entry : desired_apps_install_options) {
+    if (entry.is_preferred_app_for_supported_links) {
+      desired_preferred_apps_for_supported_links.insert(entry.install_url);
+    }
     if (!entry.uninstall_and_replace.empty()) {
       desired_uninstalls.emplace(entry.install_url,
                                  entry.uninstall_and_replace);
     }
   }
+
   provider_->externally_managed_app_manager().SynchronizeInstalledApps(
       std::move(desired_apps_install_options),
       ExternalInstallSource::kExternalDefault,
       base::BindOnce(&PreinstalledWebAppManager::OnExternalWebAppsSynchronized,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback),
+                     std::move(desired_preferred_apps_for_supported_links),
                      std::move(desired_uninstalls)));
 }
 
 void PreinstalledWebAppManager::OnExternalWebAppsSynchronized(
     ExternallyManagedAppManager::SynchronizeCallback callback,
+    std::set<InstallUrl> desired_preferred_apps_for_supported_links,
     std::map<InstallUrl, std::vector<webapps::AppId>> desired_uninstalls,
     std::map<InstallUrl, ExternallyManagedAppManager::InstallResult>
         install_results,
@@ -966,9 +1010,7 @@ void PreinstalledWebAppManager::OnExternalWebAppsSynchronized(
   size_t app_to_replace_still_default_installed_count = 0;
   size_t app_to_replace_still_installed_in_shelf_count = 0;
 
-  for (const auto& url_and_result : install_results) {
-    const ExternallyManagedAppManager::InstallResult& result =
-        url_and_result.second;
+  for (const auto& [url, result] : install_results) {
     base::UmaHistogramEnumeration(kHistogramInstallResult, result.code);
     if (result.did_uninstall_and_replace) {
       ++uninstall_and_replace_count;
@@ -980,7 +1022,14 @@ void PreinstalledWebAppManager::OnExternalWebAppsSynchronized(
 
     DCHECK(result.app_id.has_value());
 
-    auto iter = desired_uninstalls.find(url_and_result.first);
+    // Do not set as the preferred app for supported links if the app is
+    // already installed as the user may have already updated their preference.
+    if (result.code != webapps::InstallResultCode::kSuccessAlreadyInstalled &&
+        desired_preferred_apps_for_supported_links.contains(url)) {
+      proxy->SetSupportedLinksPreference(*result.app_id);
+    }
+
+    auto iter = desired_uninstalls.find(url);
     if (iter == desired_uninstalls.end()) {
       continue;
     }

@@ -12,6 +12,7 @@
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
+#include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/iosurface_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
@@ -148,14 +149,16 @@ IOSurfaceImageBackingFactory::IOSurfaceImageBackingFactory(
     GrContextType gr_context_type,
     int32_t max_texture_size,
     const gles2::FeatureInfo* feature_info,
-    gl::ProgressReporter* progress_reporter)
+    gl::ProgressReporter* progress_reporter,
+    uint32_t texture_target)
     : SharedImageBackingFactory(kSupportedUsage),
       gr_context_type_(gr_context_type),
       max_texture_size_(max_texture_size),
       angle_texture_usage_(feature_info->feature_flags().angle_texture_usage),
       gpu_memory_buffer_formats_(
           feature_info->feature_flags().gpu_memory_buffer_formats),
-      progress_reporter_(progress_reporter) {
+      progress_reporter_(progress_reporter),
+      texture_target_(texture_target) {
   for (gfx::BufferFormat buffer_format : gpu_memory_buffer_formats_) {
     // Add supported single-plane formats.
     viz::SharedImageFormat format =
@@ -186,7 +189,7 @@ IOSurfaceImageBackingFactory::CreateSharedImage(
     uint32_t usage,
     std::string debug_label,
     bool is_thread_safe) {
-  DCHECK(!is_thread_safe);
+  CHECK(!is_thread_safe);
   return CreateSharedImageInternal(
       mailbox, format, surface_handle, size, color_space, surface_origin,
       alpha_type, usage, std::move(debug_label), base::span<const uint8_t>());
@@ -202,7 +205,9 @@ IOSurfaceImageBackingFactory::CreateSharedImage(
     SkAlphaType alpha_type,
     uint32_t usage,
     std::string debug_label,
+    bool is_thread_safe,
     base::span<const uint8_t> pixel_data) {
+  CHECK(!is_thread_safe);
   return CreateSharedImageInternal(mailbox, format, kNullSurfaceHandle, size,
                                    color_space, surface_origin, alpha_type,
                                    usage, std::move(debug_label), pixel_data);
@@ -416,12 +421,11 @@ IOSurfaceImageBackingFactory::CreateSharedImageInternal(
   const bool is_cleared = !pixel_data.empty();
   const bool framebuffer_attachment_angle =
       for_framebuffer_attachment && angle_texture_usage_;
-  const GLenum texture_target = gpu::GetPlatformSpecificTextureTarget();
 
   auto backing = std::make_unique<IOSurfaceImageBacking>(
       io_surface, io_surface_plane, io_surface_id, mailbox, format, size,
       color_space, surface_origin, alpha_type, usage, std::move(debug_label),
-      texture_target, framebuffer_attachment_angle, is_cleared,
+      texture_target_, framebuffer_attachment_angle, is_cleared,
       gr_context_type_);
   if (!pixel_data.empty()) {
     gl::ScopedProgressReporter scoped_progress_reporter(progress_reporter_);
@@ -464,7 +468,6 @@ IOSurfaceImageBackingFactory::CreateSharedImageGMBs(
     return nullptr;
   }
 
-  const GLenum target = gpu::GetPlatformSpecificTextureTarget();
   auto io_surface = handle.io_surface;
   const auto io_surface_id = handle.id;
 
@@ -506,14 +509,14 @@ IOSurfaceImageBackingFactory::CreateSharedImageGMBs(
     return std::make_unique<IOSurfaceImageBacking>(
         io_surface, io_surface_plane, io_surface_id, mailbox, plane_format,
         plane_size, color_space, surface_origin, alpha_type, usage,
-        std::move(debug_label), target, framebuffer_attachment_angle,
+        std::move(debug_label), texture_target_, framebuffer_attachment_angle,
         /*is_cleared=*/true, gr_context_type_, std::move(buffer_usage));
   }
 
   return std::make_unique<IOSurfaceImageBacking>(
       io_surface, /*io_surface_plane=*/0, io_surface_id, mailbox, format, size,
       color_space, surface_origin, alpha_type, usage, std::move(debug_label),
-      target, framebuffer_attachment_angle, /*is_cleared=*/true,
+      texture_target_, framebuffer_attachment_angle, /*is_cleared=*/true,
       gr_context_type_, std::move(buffer_usage));
 }
 

@@ -35,6 +35,7 @@
 #include "chromeos/ui/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "chromeos/ui/frame/caption_buttons/snap_controller.h"
 #include "chromeos/ui/frame/header_view.h"
+#include "chromeos/ui/wm/constants.h"
 #include "chromeos/ui/wm/window_util.h"
 #include "components/app_restore/window_properties.h"
 #include "components/exo/buffer.h"
@@ -136,12 +137,10 @@ class TestCanvas : public SkNoDrawCanvas {
 }  // namespace
 
 // Instantiate the values of frame submission types in the parameterized tests.
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ClientControlledShellSurfaceTest,
-    testing::Values(test::FrameSubmissionType::kNoReactive,
-                    test::FrameSubmissionType::kReactive_NoAutoNeedsBeginFrame,
-                    test::FrameSubmissionType::kReactive_AutoNeedsBeginFrame));
+INSTANTIATE_TEST_SUITE_P(All,
+                         ClientControlledShellSurfaceTest,
+                         testing::Values(test::FrameSubmissionType::kNoReactive,
+                                         test::FrameSubmissionType::kReactive));
 
 TEST_P(ClientControlledShellSurfaceTest, SetPinned) {
   auto shell_surface = exo::test::ShellSurfaceBuilder({256, 256})
@@ -1036,14 +1035,16 @@ TEST_P(ClientControlledShellSurfaceTest, SnapWindowInSplitViewModeTest) {
   split_view_controller->SnapWindow(window1, ash::SnapPosition::kPrimary);
   state1->set_bounds_locally(true);
   window1->SetBounds(split_view_controller->GetSnappedWindowBoundsInScreen(
-      ash::SnapPosition::kPrimary, window1, chromeos::kDefaultSnapRatio));
+      ash::SnapPosition::kPrimary, window1, chromeos::kDefaultSnapRatio,
+      /*account_for_divider_width=*/true));
   state1->set_bounds_locally(false);
   EXPECT_EQ(window_state1->GetStateType(), WindowStateType::kPrimarySnapped);
-  EXPECT_EQ(shell_surface1->GetWidget()->GetWindowBoundsInScreen(),
-            split_view_controller->GetSnappedWindowBoundsInScreen(
-                ash::SnapPosition::kPrimary,
-                shell_surface1->GetWidget()->GetNativeWindow(),
-                chromeos::kDefaultSnapRatio));
+  EXPECT_EQ(
+      shell_surface1->GetWidget()->GetWindowBoundsInScreen(),
+      split_view_controller->GetSnappedWindowBoundsInScreen(
+          ash::SnapPosition::kPrimary,
+          shell_surface1->GetWidget()->GetNativeWindow(),
+          chromeos::kDefaultSnapRatio, /*account_for_divider_width=*/true));
   EXPECT_TRUE(HasBackdrop());
   split_view_controller->EndSplitView();
 
@@ -1051,14 +1052,16 @@ TEST_P(ClientControlledShellSurfaceTest, SnapWindowInSplitViewModeTest) {
   split_view_controller->SnapWindow(window1, ash::SnapPosition::kSecondary);
   state1->set_bounds_locally(true);
   window1->SetBounds(split_view_controller->GetSnappedWindowBoundsInScreen(
-      ash::SnapPosition::kSecondary, window1, chromeos::kDefaultSnapRatio));
+      ash::SnapPosition::kSecondary, window1, chromeos::kDefaultSnapRatio,
+      /*account_for_divider_width=*/true));
   state1->set_bounds_locally(false);
   EXPECT_EQ(window_state1->GetStateType(), WindowStateType::kSecondarySnapped);
-  EXPECT_EQ(shell_surface1->GetWidget()->GetWindowBoundsInScreen(),
-            split_view_controller->GetSnappedWindowBoundsInScreen(
-                ash::SnapPosition::kSecondary,
-                shell_surface1->GetWidget()->GetNativeWindow(),
-                chromeos::kDefaultSnapRatio));
+  EXPECT_EQ(
+      shell_surface1->GetWidget()->GetWindowBoundsInScreen(),
+      split_view_controller->GetSnappedWindowBoundsInScreen(
+          ash::SnapPosition::kSecondary,
+          shell_surface1->GetWidget()->GetNativeWindow(),
+          chromeos::kDefaultSnapRatio, /*account_for_divider_width=*/true));
   EXPECT_TRUE(HasBackdrop());
 }
 
@@ -1307,7 +1310,7 @@ TEST_F(ClientControlledShellSurfaceDisplayTest, MoveToAnotherDisplayByDrag) {
   // primary display, it warps to the secondary.
   display::Display secondary_display =
       display::Screen::GetScreen()->GetDisplayNearestWindow(root_windows[1]);
-  // TODO(crbug.com/990589): Unit tests should be able to simulate mouse input
+  // TODO(crbug.com/40638870): Unit tests should be able to simulate mouse input
   // without having to call |CursorManager::SetDisplay|.
   ash::Shell::Get()->cursor_manager()->SetDisplay(secondary_display);
   resizer->Drag(CalculateDragPoint(*resizer, 800, 0), 0);
@@ -2425,8 +2428,12 @@ TEST_P(ClientControlledShellSurfaceTest, SnappedClientBounds) {
 
   // Clamshell mode -> tablet mode. The bounds start from top-left corner.
   EnableTabletMode(true);
-  EXPECT_EQ(gfx::Rect(0, 0, 396, 564), delegate->requested_bounds().back());
-  shell_surface->SetGeometry(gfx::Rect(0, 0, 396, 568));
+  EXPECT_EQ(
+      gfx::Rect(0, 0, 400 - chromeos::wm::kSplitviewDividerShortSideLength / 2,
+                564),
+      delegate->requested_bounds().back());
+  shell_surface->SetGeometry(gfx::Rect(
+      0, 0, 400 - chromeos::wm::kSplitviewDividerShortSideLength / 2, 568));
   surface->SetFrame(SurfaceFrameType::AUTOHIDE);
   surface->Commit();
 

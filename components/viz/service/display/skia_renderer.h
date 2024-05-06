@@ -24,6 +24,7 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "ui/gfx/color_conversion_sk_filter_cache.h"
 #include "ui/gfx/geometry/mask_filter_info.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/latency/latency_info.h"
 
 class SkColorFilter;
@@ -92,6 +93,13 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
       const AggregatedRenderPassId& render_pass_id) const override;
   gfx::Size GetRenderPassBackingPixelSize(
       const AggregatedRenderPassId& render_pass_id) override;
+
+  void SetRenderPassBackingDrawnRect(
+      const AggregatedRenderPassId& render_pass_id,
+      const gfx::Rect& drawn_rect) override;
+
+  gfx::Rect GetRenderPassBackingDrawnRect(
+      const AggregatedRenderPassId& render_pass_id) override;
   void BindFramebufferToOutputSurface() override;
   void BindFramebufferToTexture(
       const AggregatedRenderPassId render_pass_id) override;
@@ -108,7 +116,6 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   void CopyDrawnRenderPass(const copy_output::RenderPassGeometry& geometry,
                            std::unique_ptr<CopyOutputRequest> request) override;
   void DidChangeVisibility() override;
-  void GenerateMipmap() override;
   void SetDelegatedInkPointRendererSkiaForTest(
       std::unique_ptr<DelegatedInkPointRendererSkia> renderer) override;
   bool SupportsBGRA() const override;
@@ -257,10 +264,6 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   const DrawQuad* CanPassBeDrawnDirectly(
       const AggregatedRenderPass* pass) override;
 
-  const DrawQuad* CanPassBeDrawnDirectlyInternal(
-      const AggregatedRenderPass* pass,
-      bool* is_directly_drawable_with_single_rpdq);
-
   void DrawDelegatedInkTrail() override;
 
   // Get a color filter that converts from |src| color space to |dst| color
@@ -280,6 +283,19 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   void FlushOutputSurface();
 
   struct RenderPassBacking {
+    RenderPassBacking();
+    RenderPassBacking(gfx::Size size,
+                      bool generate_mipmap,
+                      gfx::ColorSpace color_space,
+                      RenderPassAlphaType alpha_type,
+                      SharedImageFormat format,
+                      gpu::Mailbox mailbox,
+                      bool is_root,
+                      bool is_scanout,
+                      bool scanout_dcomp_surface);
+    RenderPassBacking(const RenderPassBacking&);
+    RenderPassBacking& operator=(const RenderPassBacking&);
+
     gfx::Size size;
     bool generate_mipmap = false;
     gfx::ColorSpace color_space;
@@ -289,6 +305,9 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
     bool is_root = false;
     bool is_scanout = false;
     bool scanout_dcomp_surface = false;
+    // This is the rect that has been drawn to this backing. It starts out as
+    // empty and is expanded as drawing operations are made to this backing.
+    gfx::Rect drawn_rect;
   };
 
 #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_OZONE)

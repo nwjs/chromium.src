@@ -437,9 +437,8 @@ void LocalFrameClientImpl::DidFinishSameDocumentNavigation(
       WebFrameWidgetImpl* frame_widget = web_frame_->FrameWidgetImpl();
       // The outermost mainframe must have a frame widget.
       CHECK(frame_widget);
-      if (base::FeatureList::IsEnabled(
-              features::
-                  kIncrementLocalSurfaceIdForMainframeSameDocNavigation)) {
+      if (RuntimeEnabledFeatures::
+              IncrementLocalSurfaceIdForMainframeSameDocNavigationEnabled()) {
         frame_widget->RequestNewLocalSurfaceId();
       }
       frame_widget->NotifyPresentationTime(WTF::BindOnce(
@@ -793,13 +792,14 @@ void LocalFrameClientImpl::DidChangePerformanceTiming() {
 
 void LocalFrameClientImpl::DidObserveUserInteraction(
     base::TimeTicks max_event_start,
-    base::TimeTicks max_event_end,
     base::TimeTicks max_event_queued_main_thread,
+    base::TimeTicks max_event_commit_finish,
+    base::TimeTicks max_event_end,
     UserInteractionType interaction_type,
     uint64_t interaction_offset) {
   web_frame_->Client()->DidObserveUserInteraction(
-      max_event_start, max_event_end, max_event_queued_main_thread,
-      interaction_type, interaction_offset);
+      max_event_start, max_event_queued_main_thread, max_event_commit_finish,
+      max_event_end, interaction_type, interaction_offset);
 }
 
 void LocalFrameClientImpl::DidChangeCpuTiming(base::TimeDelta time) {
@@ -1061,10 +1061,6 @@ LocalFrameClientImpl::GetBrowserInterfaceBroker() {
 AssociatedInterfaceProvider*
 LocalFrameClientImpl::GetRemoteNavigationAssociatedInterfaces() {
   return web_frame_->Client()->GetRemoteNavigationAssociatedInterfaces();
-}
-
-void LocalFrameClientImpl::AnnotatedRegionsChanged() {
-  web_frame_->Client()->DraggableRegionsChanged();
 }
 
 base::UnguessableToken LocalFrameClientImpl::GetDevToolsFrameToken() const {

@@ -212,6 +212,7 @@ public class LocationBarMediatorTest {
     private LocationBarMediator mTabletMediator;
     private UrlBarData mUrlBarData;
     private boolean mIsToolbarMicEnabled;
+    private LocationBarEmbedderUiOverrides mUiOverrides;
 
     @Before
     public void setUp() {
@@ -237,11 +238,13 @@ public class LocationBarMediatorTest {
         OneshotSupplierImpl<TemplateUrlService> templateUrlServiceSupplier =
                 new OneshotSupplierImpl<>();
         templateUrlServiceSupplier.set(mTemplateUrlService);
+        mUiOverrides = new LocationBarEmbedderUiOverrides();
         mMediator =
                 new LocationBarMediator(
                         mContext,
                         mLocationBarLayout,
                         mLocationBarDataProvider,
+                        mUiOverrides,
                         mProfileSupplier,
                         mPrivacyPreferencesManager,
                         mOverrideUrlLoadingDelegate,
@@ -264,6 +267,7 @@ public class LocationBarMediatorTest {
                         mContext,
                         mLocationBarTablet,
                         mLocationBarDataProvider,
+                        mUiOverrides,
                         mProfileSupplier,
                         mPrivacyPreferencesManager,
                         mOverrideUrlLoadingDelegate,
@@ -340,13 +344,17 @@ public class LocationBarMediatorTest {
         verify(mPrerenderJni)
                 .initializeForProfile(123L, omniboxPrerenderCaptor.getValue(), profile);
 
-        doReturn(PreloadPagesState.NO_PRELOADING).when(mPreloadPagesSettingsJni).getState();
+        doReturn(PreloadPagesState.NO_PRELOADING)
+                .when(mPreloadPagesSettingsJni)
+                .getState(eq(profile));
         mMediator.onSuggestionsChanged("text", true);
         verify(mPrerenderJni, never())
                 .prerenderMaybe(
                         anyLong(), any(), anyString(), anyString(), anyLong(), any(), any());
 
-        doReturn(PreloadPagesState.STANDARD_PRELOADING).when(mPreloadPagesSettingsJni).getState();
+        doReturn(PreloadPagesState.STANDARD_PRELOADING)
+                .when(mPreloadPagesSettingsJni)
+                .getState(eq(profile));
         GURL url = JUnitTestGURLs.RED_1;
         mMediator.setUrl(url, null);
         doReturn(true).when(mLocationBarDataProvider).hasTab();
@@ -897,6 +905,7 @@ public class LocationBarMediatorTest {
                         mContext,
                         mLocationBarLayout,
                         mLocationBarDataProvider,
+                        mUiOverrides,
                         mProfileSupplier,
                         mPrivacyPreferencesManager,
                         mOverrideUrlLoadingDelegate,
@@ -1140,6 +1149,13 @@ public class LocationBarMediatorTest {
         verifyLensButtonVisibilityWhenFocusChanges(false, "text");
     }
 
+    @Test
+    public void testLensButtonVisibility_lensEnabled_suppressedByUiOverrides() {
+        mUiOverrides.setLensEntrypointAllowed(false);
+        doReturn(true).when(mLensController).isLensEnabled(any());
+        verifyLensButtonVisibilityWhenFocusChanges(false, "");
+    }
+
     private void verifyLensButtonVisibilityWhenFocusChanges(
             boolean shouldBeVisible, String inputText) {
         mTabletMediator.resetLastCachedIsLensOnOmniboxEnabledForTesting();
@@ -1171,6 +1187,12 @@ public class LocationBarMediatorTest {
     @Test
     public void testButtonVisibility_showMicUnfocused_toolbarMicDisabled_tablet() {
         verifyMicButtonVisibilityWhenShowMicUnfocused(true);
+    }
+
+    @Test
+    public void testButtonVisibility_showMicUnfocused_suppressedByUiOverrides() {
+        mUiOverrides.setVoiceEntrypointAllowed(false);
+        verifyMicButtonVisibilityWhenShowMicUnfocused(false);
     }
 
     @Test

@@ -367,7 +367,8 @@ AppsGridView::AppsGridView(AppListA11yAnnouncer* a11y_announcer,
   if (!IsTabletMode()) {
     // `context_menu_` is only set in clamshell mode. The sort options in tablet
     // mode are handled in RootWindowController with ShelfContextMenuModel.
-    context_menu_ = std::make_unique<AppsGridContextMenu>();
+    context_menu_ = std::make_unique<AppsGridContextMenu>(
+        AppsGridContextMenu::GridType::kAppsGrid);
     set_context_menu_controller(context_menu_.get());
   }
   row_change_animator_ = std::make_unique<AppsGridRowChangeAnimator>(this);
@@ -3605,6 +3606,9 @@ void AppsGridView::OnAppListItemViewActivated(
   }
 
   base::RecordAction(base::UserMetricsAction("AppList_ClickOnApp"));
+
+  RecordAppListByCollectionLaunched(pressed_item_view->item()->collection_id(),
+                                    /*is_apps_collections_page=*/false);
 
   // Avoid using |item->id()| as the parameter. In some rare situations,
   // activating the item may destruct it. Using the reference to an object

@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -187,8 +188,9 @@ std::vector<ExecutionCommand> ReadExecutionCommands(
                                 base::SPLIT_WANT_NONEMPTY)) {
       auto GetParamOr = [command](int default_value) {
         size_t space = command.find(' ');
-        if (space == base::StringPiece::npos)
+        if (space == std::string_view::npos) {
           return default_value;
+        }
         int value;
         if (!base::StringToInt(command.substr(space + 1), &value))
           return default_value;
@@ -292,13 +294,13 @@ struct AllowNull {
 
 std::optional<std::string> FindPopulateString(
     const base::Value::Dict& container,
-    base::StringPiece key_name,
-    absl::variant<base::StringPiece, AllowNull> key_descriptor) {
+    std::string_view key_name,
+    absl::variant<std::string_view, AllowNull> key_descriptor) {
   const std::string* value = container.FindString(key_name);
   if (!value) {
-    if (absl::holds_alternative<base::StringPiece>(key_descriptor)) {
+    if (absl::holds_alternative<std::string_view>(key_descriptor)) {
       ADD_FAILURE() << "Failed to extract '"
-                    << absl::get<base::StringPiece>(key_descriptor)
+                    << absl::get<std::string_view>(key_descriptor)
                     << "' string from container!";
     }
     return std::nullopt;
@@ -309,13 +311,13 @@ std::optional<std::string> FindPopulateString(
 
 std::optional<std::vector<std::string>> FindPopulateStringVector(
     const base::Value::Dict& container,
-    base::StringPiece key_name,
-    absl::variant<base::StringPiece, AllowNull> key_descriptor) {
+    std::string_view key_name,
+    absl::variant<std::string_view, AllowNull> key_descriptor) {
   const base::Value::List* list = container.FindList(key_name);
   if (!list) {
-    if (absl::holds_alternative<base::StringPiece>(key_descriptor)) {
+    if (absl::holds_alternative<std::string_view>(key_descriptor)) {
       ADD_FAILURE() << "Failed to extract '"
-                    << absl::get<base::StringPiece>(key_descriptor)
+                    << absl::get<std::string_view>(key_descriptor)
                     << "' strings from container!";
     }
     return std::nullopt;
@@ -324,9 +326,9 @@ std::optional<std::vector<std::string>> FindPopulateStringVector(
   std::vector<std::string> strings;
   for (const base::Value& item : *list) {
     if (!item.is_string()) {
-      if (absl::holds_alternative<base::StringPiece>(key_descriptor)) {
+      if (absl::holds_alternative<std::string_view>(key_descriptor)) {
         ADD_FAILURE() << "Failed to extract element of '"
-                      << absl::get<base::StringPiece>(key_descriptor)
+                      << absl::get<std::string_view>(key_descriptor)
                       << "' vector from container!";
       }
       return std::nullopt;
@@ -1217,12 +1219,6 @@ bool TestRecipeReplayer::ReplayRecordedActions(
     ++execution_state.index;
   }
 
-  // Dismiss the beforeUnloadDialog if the last page of the test has a
-  // beforeUnload function.
-  if (recipe.contains("dismissBeforeUnload")) {
-    NavigateAwayAndDismissBeforeUnloadDialog();
-  }
-
   return true;
 }
 
@@ -2074,7 +2070,7 @@ bool TestRecipeReplayer::ExpectElementPropertyEqualsAnyOf(
   }
 
   auto is_expected = [ignore_case,
-                      &actual_value](base::StringPiece expected_value) {
+                      &actual_value](std::string_view expected_value) {
     return ignore_case
                ? base::EqualsCaseInsensitiveASCII(expected_value, actual_value)
                : expected_value == actual_value;
@@ -2174,7 +2170,7 @@ bool TestRecipeReplayer::GetBoundingRectOfTargetElement(
   }
 
   // Parse the bounding rect string to extract the element coordinates.
-  std::vector<base::StringPiece> rect_components = base::SplitStringPiece(
+  std::vector<std::string_view> rect_components = base::SplitStringPiece(
       rect_str, ",", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
   if (rect_components.size() != 4) {
     ADD_FAILURE() << "Wrong number of components in `" << rect_str << "`!";
@@ -2280,16 +2276,6 @@ void TestRecipeReplayer::SimulateKeyPressWrapper(
   ui::DomCode code = ui::UsLayoutKeyboardCodeToDomCode(key_code);
   SimulateKeyPress(web_contents, key, code, key_code, false, false, false,
                    false);
-}
-
-void TestRecipeReplayer::NavigateAwayAndDismissBeforeUnloadDialog() {
-  content::PrepContentsForBeforeUnloadTest(GetWebContents());
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL(url::kAboutBlankURL), WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_NO_WAIT);
-  javascript_dialogs::AppModalDialogController* alert =
-      ui_test_utils::WaitForAppModalDialog();
-  alert->view()->AcceptAppModalDialog();
 }
 
 bool TestRecipeReplayer::HasChromeStoredCredential(

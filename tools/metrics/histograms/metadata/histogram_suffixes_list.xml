@@ -354,7 +354,6 @@ chromium-metrics-reviews@google.com.
              unknown fields"/>
   <suffix name="PhoneOnly" label="Form has phone field only"/>
   <affected-histogram name="Autofill.FormEvents.Address"/>
-  <affected-histogram name="Autofill.UserHappiness.Address"/>
 </histogram_suffixes>
 
 <histogram_suffixes name="AutofillCreditCardType" separator=".">
@@ -878,6 +877,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="ServerStream" label="A client created by CRAS server."/>
   <suffix name="Test" label="A client created by cras_test_client."/>
   <suffix name="Unknown" label="Unknown client."/>
+  <affected-histogram name="Cras.FetchDelayCount"/>
   <affected-histogram name="Cras.FetchDelayMilliSeconds"/>
   <affected-histogram name="Cras.StreamCallbackThreshold.Input"/>
   <affected-histogram name="Cras.StreamCallbackThreshold.Output"/>
@@ -887,6 +887,8 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="Cras.StreamEffects.Output"/>
   <affected-histogram name="Cras.StreamFlags.Input"/>
   <affected-histogram name="Cras.StreamFlags.Output"/>
+  <affected-histogram name="Cras.StreamOverrunCount"/>
+  <affected-histogram name="Cras.StreamOverrunFrames"/>
   <affected-histogram name="Cras.StreamRuntime.Input"/>
   <affected-histogram name="Cras.StreamRuntime.Output"/>
   <affected-histogram name="Cras.StreamSamplingFormat.Input"/>
@@ -911,12 +913,30 @@ chromium-metrics-reviews@google.com.
   <suffix name="Default" label="Default"/>
   <suffix name="ProAudio" label="ProAudio"/>
   <suffix name="VoiceCommunication" label="WebRTC"/>
+  <affected-histogram name="Cras.FetchDelayCount.ARC"/>
+  <affected-histogram name="Cras.FetchDelayCount.ARCVM"/>
+  <affected-histogram name="Cras.FetchDelayCount.BOREALIS"/>
+  <affected-histogram name="Cras.FetchDelayCount.Chrome"/>
+  <affected-histogram name="Cras.FetchDelayCount.CrOSVM"/>
+  <affected-histogram name="Cras.FetchDelayCount.LaCrOS"/>
   <affected-histogram name="Cras.FetchDelayMilliSeconds.ARC"/>
   <affected-histogram name="Cras.FetchDelayMilliSeconds.ARCVM"/>
   <affected-histogram name="Cras.FetchDelayMilliSeconds.BOREALIS"/>
   <affected-histogram name="Cras.FetchDelayMilliSeconds.Chrome"/>
   <affected-histogram name="Cras.FetchDelayMilliSeconds.CrOSVM"/>
   <affected-histogram name="Cras.FetchDelayMilliSeconds.LaCrOS"/>
+  <affected-histogram name="Cras.StreamOverrunCount.ARC"/>
+  <affected-histogram name="Cras.StreamOverrunCount.ARCVM"/>
+  <affected-histogram name="Cras.StreamOverrunCount.BOREALIS"/>
+  <affected-histogram name="Cras.StreamOverrunCount.Chrome"/>
+  <affected-histogram name="Cras.StreamOverrunCount.CrOSVM"/>
+  <affected-histogram name="Cras.StreamOverrunCount.LaCrOS"/>
+  <affected-histogram name="Cras.StreamOverrunFrames.ARC"/>
+  <affected-histogram name="Cras.StreamOverrunFrames.ARCVM"/>
+  <affected-histogram name="Cras.StreamOverrunFrames.BOREALIS"/>
+  <affected-histogram name="Cras.StreamOverrunFrames.Chrome"/>
+  <affected-histogram name="Cras.StreamOverrunFrames.CrOSVM"/>
+  <affected-histogram name="Cras.StreamOverrunFrames.LaCrOS"/>
   <affected-histogram name="Cras.StreamRuntime.Input.ARC"/>
   <affected-histogram name="Cras.StreamRuntime.Input.ARCVM"/>
   <affected-histogram name="Cras.StreamRuntime.Input.BOREALIS"/>
@@ -1324,8 +1344,6 @@ chromium-metrics-reviews@google.com.
       name="Autofill.FieldPredictionQuality.ByFieldType.Overall"/>
   <affected-histogram
       name="Autofill.FieldPredictionQuality.ByFieldType.Server"/>
-  <affected-histogram
-      name="Autofill.NumberOfEditedAutofilledFieldsAtSubmission"/>
 </histogram_suffixes>
 
 <histogram_suffixes name="FirstUserActionType" separator="">
@@ -1394,7 +1412,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="SentRequest" label="The request was sent over the network."/>
   <suffix name="Used"
       label="A cache entry was used without using the network."/>
-  <affected-histogram name="HttpCache.AccessToDone"/>
+  <affected-histogram name="HttpCache.AccessToDone2"/>
 </histogram_suffixes>
 
 <histogram_suffixes name="HttpCacheBeforeSendCases" separator=".">
@@ -1448,15 +1466,6 @@ chromium-metrics-reviews@google.com.
   <suffix name="IPv6_probe_skipped"
       label="with IPv6 not probed, and default OS settings used"/>
   <affected-histogram name="DNS.PrefetchResolution"/>
-</histogram_suffixes>
-
-<histogram_suffixes name="JavaStartMode" separator=".">
-  <suffix name="Instant" label=""/>
-  <suffix name="NoInstant" label=""/>
-  <affected-histogram name="Startup.Android.FeedContentFirstLoadedTime"/>
-  <affected-histogram name="Startup.Android.FeedStreamCreatedTime"/>
-  <affected-histogram name="Startup.Android.FirstDrawCompletedTime"/>
-  <affected-histogram name="Startup.Android.SingleTabTitleAvailableTime"/>
 </histogram_suffixes>
 
 <histogram_suffixes name="LeakDetectionDialogType" separator=".">
@@ -2955,14 +2964,12 @@ chromium-metrics-reviews@google.com.
   <suffix name="Malloc.CommittedSize"
       label="Committed memory size for malloc(). Recorded only when
              PartitionAlloc is used as malloc()."/>
-  <suffix name="Malloc.Fragmentation"
-      label="Fragmentation of PartitionAlloc."/>
+  <suffix name="Malloc.Fragmentation" label="Fragmentation of PartitionAlloc."/>
   <suffix name="Malloc.Fragmentation.After1H"
-      label="Fragmentation of PartitionAlloc for processes that have
-             existed for &gt;=1H."/>
+      label="Fragmentation of PartitionAlloc for processes that have existed
+             for &gt;=1H."/>
   <suffix name="Malloc.Fragmentation.After24H"
-      label="Fragmentation of PartitionAlloc for processes older than 1
-             day."/>
+      label="Fragmentation of PartitionAlloc for processes older than 1 day."/>
   <suffix name="Malloc.MaxAllocatedSize"
       label="Highwatermark for allocated memory for malloc(). Recorded only
              when PartitionAlloc is used as malloc()."/>
@@ -3330,6 +3337,13 @@ chromium-metrics-reviews@google.com.
   <suffix name="Malloc.Original.ObjectCount"
       label="Number of allocated objects. Only counting malloc memory
              allocated in the partition_alloc original partition."/>
+  <suffix name="Malloc.SchedulerLoopQuarantine.CumulativeSizeInBytes"
+      label="Total size of quarantined allocations in Scheduler-Loop
+             Quarantine since process start, including already dequarantined
+             allocations."/>
+  <suffix name="Malloc.SchedulerLoopQuarantine.SizeInBytes"
+      label="Size of quarantined allocations in Scheduler-Loop Quarantine at
+             dump time."/>
   <suffix name="Malloc.ThreadCache"
       label="Memory used by all thread caches, recorded when PartitionAlloc
              is used as malloc()."/>
@@ -3413,6 +3427,17 @@ chromium-metrics-reviews@google.com.
   <suffix name="Malloc.BRPQuarantinedCountPerMinute"
       label="Number of BRP quarantined allocations per minute, averaged
              during the last memory dump interval."/>
+  <suffix name="Malloc.SchedulerLoopQuarantine.Count"
+      label="Count of all quarantined allocations in Scheduler-Loop
+             Quarantine at dump time."/>
+  <suffix name="Malloc.SchedulerLoopQuarantine.CumulativeCount"
+      label="Total count of quarantined allocations in Scheduler-Loop
+             Quarantine since process start, including already dequarantined
+             allocations."/>
+  <suffix name="Malloc.SchedulerLoopQuarantine.QuarantineMissCount"
+      label="Monotonically increasing count of quarantine requests that were
+             not satisfied due to the configured size limit of Scheduler-Loop
+             Quarantine."/>
   <suffix name="Malloc.SyscallsPerMinute"
       label="Number of system calls made per minute, averaged during the last
              memory dump interval. Only collected when PartitionAlloc is
@@ -3543,7 +3568,6 @@ chromium-metrics-reviews@google.com.
   <suffix name="100Percent_8MinMax"
       label="Progressive scan @ 100%, 8 frequency bins."/>
   <suffix name="FullScan" label="Using WPA_supplicant to scan."/>
-  <affected-histogram name="Network.Shill.TimeToDrop"/>
   <affected-histogram name="Network.Shill.WiFi.ScanResult"/>
   <affected-histogram name="Network.Shill.Wifi.TimeToConnect"/>
   <affected-histogram name="Network.Shill.Wifi.TimeToJoin"/>
@@ -3894,10 +3918,6 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="Autofill.SaveCreditCardPromptOffer.Upload"/>
   <affected-histogram name="Autofill.SaveCreditCardPromptResult.Local"/>
   <affected-histogram name="Autofill.SaveCreditCardPromptResult.Upload"/>
-  <affected-histogram name="Autofill.UserHappiness.Address"/>
-  <affected-histogram name="Autofill.UserHappiness.CreditCard"/>
-  <affected-histogram name="Autofill.UserHappiness.Password"/>
-  <affected-histogram name="Autofill.UserHappiness.Unknown"/>
   <affected-histogram name="Security.PageEndReason"/>
   <affected-histogram name="Security.PageInfo.TimeOpen"/>
   <affected-histogram name="Security.PageInfo.TimeOpen.Action"/>
@@ -4155,6 +4175,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="Sync" label="User has opted in to Sync."/>
   <affected-histogram name="Signin.InterceptResult.Enterprise"/>
   <affected-histogram name="Signin.InterceptResult.EnterpriseForced"/>
+  <affected-histogram name="Signin.InterceptResult.EnterpriseOIDC"/>
   <affected-histogram name="Signin.InterceptResult.MultiUser"/>
   <affected-histogram name="Signin.InterceptResult.Switch"/>
 </histogram_suffixes>
@@ -4163,6 +4184,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="ChromeSignin" label="ChromeSignin bubble."/>
   <suffix name="Enterprise" label="Enterprise bubble."/>
   <suffix name="EnterpriseForced" label="Enterprise dialog."/>
+  <suffix name="EnterpriseOIDC" label="Enterprise dialog for OIDC signin."/>
   <suffix name="MultiUser" label="MultiUser bubble."/>
   <suffix name="Switch" label="Profile-switch bubble."/>
   <affected-histogram name="Signin.InterceptResult"/>

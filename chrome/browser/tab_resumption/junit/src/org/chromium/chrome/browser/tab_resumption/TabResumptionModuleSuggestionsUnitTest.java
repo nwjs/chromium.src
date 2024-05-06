@@ -56,7 +56,7 @@ public class TabResumptionModuleSuggestionsUnitTest extends TestSupport {
                 final LargeIconCallback callback) {
             // For simplicity, fake with a synchronous call.
             callback.onLargeIconAvailable(
-                    pageUrl.equals(mFakeCachedUrl) ? mFakeCachedBitmap : null,
+                    pageUrl.equals(mFakeCachedUrl) ? mFakeCachedBitmap : /* tab= */ null,
                     DEFAULT_FALLBACK_COLOR,
                     /*isFallbackColorDefault*/ true,
                     IconType.FAVICON);

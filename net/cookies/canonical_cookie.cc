@@ -46,6 +46,7 @@
 
 #include <limits>
 #include <optional>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -58,7 +59,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "net/base/features.h"
@@ -79,8 +79,6 @@ namespace net {
 
 namespace {
 
-static constexpr int kHoursInOneWeek = 24 * 7;
-static constexpr int kHoursInOneYear = 24 * 365;
 static constexpr int kMinutesInTwelveHours = 12 * 60;
 static constexpr int kMinutesInTwentyFourHours = 24 * 60;
 
@@ -139,34 +137,12 @@ bool HasValidHostPrefixAttributes(const GURL& url,
   return domain.empty() || (url.HostIsIPAddress() && url.host() == domain);
 }
 
-// Records the age in hours of a session cookie loaded from the store.
-void HistogramSessionCookieAge(const CanonicalCookie& cookie) {
-  // Ignore non-session cookies and those without creation dates.
-  if (cookie.IsPersistent() || cookie.CreationDate().is_null()) {
-    return;
-  }
-
-  // We are studying the age of session cookies being provided into browser
-  // contexts. The record is split into two histograms to improve resolution.
-  const int session_cookie_age_in_hours =
-      (Time::Now() - cookie.CreationDate()).InHours();
-  if (session_cookie_age_in_hours > kHoursInOneWeek) {
-    UMA_HISTOGRAM_CUSTOM_COUNTS("Cookie.SessionAgeInHoursGTOneWeek",
-                                session_cookie_age_in_hours,
-                                kHoursInOneWeek + 1, kHoursInOneYear, 100);
-  } else {
-    UMA_HISTOGRAM_CUSTOM_COUNTS("Cookie.SessionAgeInHoursLTEOneWeek",
-                                session_cookie_age_in_hours, 1,
-                                kHoursInOneWeek + 1, 100);
-  }
-}
-
 auto GetAllDataMembersAsTuple(const CanonicalCookie& c) {
   return std::make_tuple(c.CreationDate(), c.LastAccessDate(), c.ExpiryDate(),
                          c.SecureAttribute(), c.IsHttpOnly(), c.SameSite(),
                          c.Priority(), c.PartitionKey(), c.Name(), c.Value(),
                          c.Domain(), c.Path(), c.LastUpdateDate(),
-                         c.SourceScheme(), c.SourcePort());
+                         c.SourceScheme(), c.SourcePort(), c.SourceType());
 }
 
 }  // namespace
@@ -203,7 +179,8 @@ CanonicalCookie::CanonicalCookie(
     CookiePriority priority,
     std::optional<CookiePartitionKey> partition_key,
     CookieSourceScheme source_scheme,
-    int source_port)
+    int source_port,
+    CookieSourceType source_type)
     : CookieBase(std::move(name),
                  std::move(domain),
                  std::move(path),
@@ -218,7 +195,8 @@ CanonicalCookie::CanonicalCookie(
       expiry_date_(expiration),
       last_access_date_(last_access),
       last_update_date_(last_update),
-      priority_(priority) {}
+      priority_(priority),
+      source_type_(source_type) {}
 
 CanonicalCookie::~CanonicalCookie() = default;
 
@@ -367,6 +345,7 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::Create(
     std::optional<base::Time> server_time,
     std::optional<CookiePartitionKey> cookie_partition_key,
     bool block_truncated,
+    CookieSourceType source_type,
     CookieInclusionStatus* status) {
   // Put a pointer on the stack so the rest of the function can assign to it if
   // the default nullptr is passed in.
@@ -523,7 +502,7 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::Create(
       cookie_expires, creation_time,
       /*last_update=*/base::Time::Now(), parsed_cookie.IsSecure(),
       parsed_cookie.IsHttpOnly(), samesite, parsed_cookie.Priority(),
-      cookie_partition_key, source_scheme, source_port);
+      cookie_partition_key, source_scheme, source_port, source_type);
 
   // TODO(chlily): Log metrics.
   if (!cc->IsCanonical()) {
@@ -739,7 +718,7 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateSanitizedCookie(
       base::PassKey<CanonicalCookie>(), name, value, cookie_domain,
       encoded_cookie_path, creation_time, expiration_time, last_access_time,
       /*last_update=*/base::Time::Now(), secure, http_only, same_site, priority,
-      partition_key, source_scheme, source_port);
+      partition_key, source_scheme, source_port, CookieSourceType::kOther);
   DCHECK(cc->IsCanonical());
 
   return cc;
@@ -761,7 +740,8 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::FromStorage(
     CookiePriority priority,
     std::optional<CookiePartitionKey> partition_key,
     CookieSourceScheme source_scheme,
-    int source_port) {
+    int source_port,
+    CookieSourceType source_type) {
   // We check source_port here because it could have concievably been
   // corrupted and changed to out of range. Eventually this would be caught by
   // IsCanonical*() but since the source_port is only used by metrics so far
@@ -774,7 +754,7 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::FromStorage(
       base::PassKey<CanonicalCookie>(), std::move(name), std::move(value),
       std::move(domain), std::move(path), creation, expiration, last_access,
       last_update, secure, httponly, same_site, priority, partition_key,
-      source_scheme, validated_port);
+      source_scheme, validated_port, source_type);
 
   if (cc->IsCanonicalForFromStorage()) {
     // This will help capture the number of times a cookie is canonical but does
@@ -786,7 +766,6 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::FromStorage(
   } else {
     return nullptr;
   }
-  HistogramSessionCookieAge(*cc);
   return cc;
 }
 
@@ -806,11 +785,27 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateUnsafeCookieForTesting(
     CookiePriority priority,
     std::optional<CookiePartitionKey> partition_key,
     CookieSourceScheme source_scheme,
-    int source_port) {
+    int source_port,
+    CookieSourceType source_type) {
   return std::make_unique<CanonicalCookie>(
       base::PassKey<CanonicalCookie>(), name, value, domain, path, creation,
       expiration, last_access, last_update, secure, httponly, same_site,
-      priority, partition_key, source_scheme, source_port);
+      priority, partition_key, source_scheme, source_port, source_type);
+}
+
+// static
+std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateForTesting(
+    const GURL& url,
+    const std::string& cookie_line,
+    const base::Time& creation_time,
+    std::optional<base::Time> server_time,
+    std::optional<CookiePartitionKey> cookie_partition_key,
+    bool block_truncated,
+    CookieSourceType source_type,
+    CookieInclusionStatus* status) {
+  return CanonicalCookie::Create(url, cookie_line, creation_time, server_time,
+                                 cookie_partition_key, block_truncated,
+                                 source_type, status);
 }
 
 bool CanonicalCookie::IsEquivalentForSecureCookieMatching(
@@ -1215,13 +1210,12 @@ int CanonicalCookie::GetAndAdjustPortForTrustworthyUrls(
 }
 
 // static
-bool CanonicalCookie::HasHiddenPrefixName(
-    const base::StringPiece cookie_value) {
+bool CanonicalCookie::HasHiddenPrefixName(const std::string_view cookie_value) {
   // Skip BWS as defined by HTTPSEM as SP or HTAB (0x20 or 0x9).
-  base::StringPiece value_without_BWS =
+  std::string_view value_without_BWS =
       base::TrimString(cookie_value, " \t", base::TRIM_LEADING);
 
-  const base::StringPiece host_prefix = "__Host-";
+  const std::string_view host_prefix = "__Host-";
 
   // Compare the value to the host_prefix.
   if (base::StartsWith(value_without_BWS, host_prefix,
@@ -1231,7 +1225,7 @@ bool CanonicalCookie::HasHiddenPrefixName(
   }
 
   // Do a similar check for the secure prefix
-  const base::StringPiece secure_prefix = "__Secure-";
+  const std::string_view secure_prefix = "__Secure-";
 
   if (base::StartsWith(value_without_BWS, secure_prefix,
                        base::CompareCase::INSENSITIVE_ASCII)) {

@@ -339,7 +339,8 @@ class BookmarkBarView::ButtonSeparatorView : public views::Separator {
   ButtonSeparatorView() {
     const int leading_padding = features::IsChromeRefresh2023() ? 8 : 4;
     const int trailing_padding = features::IsChromeRefresh2023() ? 8 : 3;
-    // TODO(1465541): Rely on kThickness once value is updated for refresh.
+    // TODO(crbug.com/40923523): Rely on kThickness once value is updated for
+    // refresh.
     separator_thickness_ = features::IsChromeRefresh2023()
                                ? kBookmarkBarSeparatorRefreshThickness
                                : kThickness;
@@ -485,10 +486,10 @@ void BookmarkBarView::SetBookmarkBarState(
   // Ensure screen readers can't traverse bookmark bar children while
   // hidden.
   if (state == BookmarkBar::SHOW) {
-    GetViewAccessibility().OverrideIsLeaf(false);
+    GetViewAccessibility().SetIsLeaf(false);
     NotifyAccessibilityEvent(ax::mojom::Event::kTreeChanged, true);
   } else {
-    GetViewAccessibility().OverrideIsLeaf(true);
+    GetViewAccessibility().SetIsLeaf(true);
     NotifyAccessibilityEvent(ax::mojom::Event::kTreeChanged, true);
   }
 #endif
@@ -684,6 +685,11 @@ gfx::Size BookmarkBarView::GetMinimumSize() const {
   return gfx::Size(width, height);
 }
 
+// TODO(crbug.com/40648316, crbug.com/330763840): Remove Layout override and
+// transition BookmarkBarView to use a layout manager. Afterwards, for most if
+// not all calls to LayoutAndPaint can be migrated to only schedule paint and
+// not invalidate layout because the layout manager will invalidate layout
+// automatically for things like adding and removing child views.
 void BookmarkBarView::Layout(PassKey) {
   // Skip layout during destruction, when no model exists.
   if (!bookmark_model_) {
@@ -873,7 +879,7 @@ void BookmarkBarView::ViewHierarchyChanged(
       // We only layout while parented. When we become parented, if our bounds
       // haven't changed, OnBoundsChanged() won't get invoked and we won't
       // layout. Therefore we always force a layout when added.
-      DeprecatedLayoutImmediately();
+      InvalidateLayout();
     }
   }
 }
@@ -1285,7 +1291,7 @@ void BookmarkBarView::AppsPageShortcutPressed(const ui::Event& event) {
                                 content::Referrer(),
                                 ui::DispositionFromEventFlags(event.flags()),
                                 ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
-  page_navigator_->OpenURL(params);
+  page_navigator_->OpenURL(params, /*navigation_handle_callback=*/{});
   RecordBookmarkAppsPageOpen(BookmarkLaunchLocation::kAttachedBar);
 }
 
@@ -1298,7 +1304,7 @@ void BookmarkBarView::OnButtonPressed(const bookmarks::BookmarkNode* node,
   chrome::OpenAllIfAllowed(
       browser_, {node}, ui::DispositionFromEventFlags(event.flags()),
       /*add_to_group=*/false,
-      BookmarkNavigationHandleUserData::InitiatorLocation::kBookmarkBar,
+      NavigationHandleUserData::InitiatorLocation::kBookmarkBar,
       {{BookmarkLaunchLocation::kAttachedBar, base::TimeTicks::Now()}});
   RecordBookmarkLaunch(
       BookmarkLaunchLocation::kAttachedBar,
@@ -1315,7 +1321,7 @@ void BookmarkBarView::OnMenuButtonPressed(const bookmarks::BookmarkNode* node,
     chrome::OpenAllIfAllowed(
         browser_, {node}, ui::DispositionFromEventFlags(event.flags()),
         /*add_to_group=*/false,
-        BookmarkNavigationHandleUserData::InitiatorLocation::kBookmarkBar,
+        NavigationHandleUserData::InitiatorLocation::kBookmarkBar,
         {{BookmarkLaunchLocation::kAttachedBar, base::TimeTicks::Now()}});
   } else {
     RecordBookmarkFolderOpen(BookmarkLaunchLocation::kAttachedBar);
@@ -1569,7 +1575,7 @@ void BookmarkBarView::ConfigureButton(const BookmarkNode* node,
     // Themify chrome:// favicons and the default one. This is similar to
     // code in the tabstrip.
     bool themify_icon = favicon::ShouldThemifyFavicon(node->url());
-    // TODO(crbug.com/1099602): BookmarkModel::GetFavicon should be updated to
+    // TODO(crbug.com/40137576): BookmarkModel::GetFavicon should be updated to
     // support ImageModel.
     auto favicon = ui::ImageModel::FromImage(bookmark_model_->GetFavicon(node));
     if (favicon.IsEmpty()) {
@@ -1638,7 +1644,7 @@ bool BookmarkBarView::BookmarkNodeRemovedImpl(const BookmarkNode* parent,
   views::LabelButton* button = bookmark_buttons_[index];
   bookmark_buttons_.erase(bookmark_buttons_.cbegin() + index);
   // Set not visible before removing to advance focus if needed. See
-  // crbug.com/1183980. TODO(crbug.com/1189729): remove this workaround if
+  // crbug.com/1183980. TODO(crbug.com/40755614): remove this workaround if
   // FocusManager behavior is changed.
   button->SetVisible(false);
   RemoveChildViewT(button);

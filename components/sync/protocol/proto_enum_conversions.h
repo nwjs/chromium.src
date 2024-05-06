@@ -17,7 +17,6 @@
 #include "components/sync/protocol/power_bookmark_specifics.pb.h"
 #include "components/sync/protocol/reading_list_specifics.pb.h"
 #include "components/sync/protocol/saved_tab_group_specifics.pb.h"
-#include "components/sync/protocol/segmentation_specifics.pb.h"
 #include "components/sync/protocol/session_specifics.pb.h"
 #include "components/sync/protocol/shared_tab_group_data_specifics.pb.h"
 #include "components/sync/protocol/sync.pb.h"
@@ -59,7 +58,8 @@ const char* ProtoEnumToString(
     sync_pb::ContactInfoSpecifics::VerificationStatus verification_status);
 
 const char* ProtoEnumToString(sync_pb::NigoriSpecifics::
-    AutoUpgradeDebugInfo::AutoUpgradeState auto_upgrade_state);
+    AutoUpgradeDebugInfo::AutoUpgradeExperimentGroup
+        auto_upgrade_experiment_group);
 
 const char* ProtoEnumToString(sync_pb::NigoriSpecifics::PassphraseType type);
 
@@ -126,9 +126,6 @@ const char* ProtoEnumToString(
 
 const char* ProtoEnumToString(
     sync_pb::GaiaPasswordReuse::PasswordReuseLookup::ReputationVerdict verdict);
-
-const char* ProtoEnumToString(
-    sync_pb::SegmentationSpecifics::DeviceMetadata::PlatformType platform_type);
 
 const char* ProtoEnumToString(
     sync_pb::UserEventSpecifics::GaiaPasswordCaptured::EventTrigger trigger);

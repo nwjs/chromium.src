@@ -194,7 +194,7 @@ void MetricReportingManager::OnLogin(Profile* profile) {
             Priority::IMMEDIATE, &reporting_settings_,
             ::ash::kHeartbeatFrequency,
             metrics::GetDefaultKioskHeartbeatUploadFrequency(),
-            /*rate_limit_to_ms=*/1, source_info);
+            /*rate_unit_to_ms=*/1, source_info);
   }
   user_peripheral_events_and_telemetry_report_queue_ =
       delegate_->CreateMetricReportQueue(
@@ -258,7 +258,7 @@ MetricReportingManager::MetricReportingManager(
       EventType::kDevice, Destination::EVENT_METRIC, Priority::SLOW_BATCH,
       /*rate_limiter=*/nullptr, source_info);
   crash_event_report_queue_ = delegate_->CreateMetricReportQueue(
-      EventType::kDevice, Destination::CRASH_EVENTS, Priority::IMMEDIATE,
+      EventType::kDevice, Destination::CRASH_EVENTS, Priority::FAST_BATCH,
       /*rate_limiter=*/nullptr, std::move(source_info));
   DelayedInit();
 
@@ -797,9 +797,9 @@ void MetricReportingManager::InitKioskHeartbeatTelemetryCollector() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto heartbeat_sampler = std::make_unique<KioskHeartbeatTelemetrySampler>();
   InitPeriodicTelemetryCollector(
-      /*name=*/kKioskHeartbeatTelemetry,
+      /*collector_name=*/kKioskHeartbeatTelemetry,
       /*sampler=*/heartbeat_sampler.get(),
-      /*queue=*/kiosk_heartbeat_telemetry_report_queue_.get(),
+      /*metric_report_queue=*/kiosk_heartbeat_telemetry_report_queue_.get(),
       /*enable_setting_path=*/::ash::kHeartbeatEnabled,
       /*enable_default_value=*/metrics::kHeartbeatTelemetryDefaultValue,
       /*rate_setting_path=*/::ash::kHeartbeatFrequency,
@@ -807,7 +807,7 @@ void MetricReportingManager::InitKioskHeartbeatTelemetryCollector() {
       metrics::GetDefaultCollectionRate(
           metrics::kDefaultHeartbeatTelemetryCollectionRate),
       /*rate_unit_to_ms=*/1,
-      /*init_delay=*/metrics::kDefaultHeartbeatTelemetryCollectionRate);
+      /*init_delay=*/base::TimeDelta());
   samplers_.push_back(std::move(heartbeat_sampler));
 }
 

@@ -19,15 +19,18 @@
 #include "net/base/host_port_pair.h"
 #include "net/base/load_states.h"
 #include "net/base/net_export.h"
+#include "net/base/network_anonymization_key.h"
 #include "net/base/privacy_mode.h"
 #include "net/base/proxy_server.h"
 #include "net/base/request_priority.h"
+#include "net/dns/public/secure_dns_policy.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_server_properties.h"
 #include "net/http/http_stream_request.h"
 #include "net/log/net_log_source.h"
 #include "net/log/net_log_with_source.h"
 #include "net/proxy_resolution/proxy_info.h"
+#include "net/socket/socket_tag.h"
 #include "net/socket/ssl_client_socket.h"
 #include "net/spdy/spdy_session_key.h"
 #include "net/ssl/ssl_config.h"
@@ -61,6 +64,36 @@ class NET_EXPORT HttpStreamFactory {
     // Job that will preconnect via HTTP/3 iff an "h3" value was found in the
     // ALPN list of an HTTPS DNS record.
     PRECONNECT_DNS_ALPN_H3,
+  };
+
+  // This is the subset of HttpRequestInfo needed by the HttpStreamFactory
+  // layer. It's separated out largely to avoid dangling pointers when jobs are
+  // orphaned, though it also avoids creating multiple copies of fields that
+  // aren't needed, like HttpRequestHeaders.
+  //
+  // See HttpRequestInfo for description of most fields.
+  struct NET_EXPORT StreamRequestInfo {
+    StreamRequestInfo();
+    explicit StreamRequestInfo(const HttpRequestInfo& http_request_info);
+
+    StreamRequestInfo(const StreamRequestInfo& other);
+    StreamRequestInfo& operator=(const StreamRequestInfo& other);
+    StreamRequestInfo(StreamRequestInfo&& other);
+    StreamRequestInfo& operator=(StreamRequestInfo&& other);
+
+    ~StreamRequestInfo();
+
+    std::string method;
+    NetworkAnonymizationKey network_anonymization_key;
+
+    // Whether HTTP/1.x can be used. Extracted from
+    // UploadDataStream::AllowHTTP1().
+    bool is_http1_allowed = true;
+
+    int load_flags = 0;
+    PrivacyMode privacy_mode = PRIVACY_MODE_DISABLED;
+    SecureDnsPolicy secure_dns_policy = SecureDnsPolicy::kAllow;
+    SocketTag socket_tag;
   };
 
   explicit HttpStreamFactory(HttpNetworkSession* session);
@@ -115,6 +148,8 @@ class NET_EXPORT HttpStreamFactory {
       const NetLogWithSource& net_log);
 
   // Requests that enough connections for |num_streams| be opened.
+  //
+  // TODO: Make this take StreamRequestInfo instead.
   void PreconnectStreams(int num_streams, HttpRequestInfo& info);
 
   const HostMappingRules* GetHostMappingRules() const;
@@ -161,15 +196,15 @@ class NET_EXPORT HttpStreamFactory {
 
   const raw_ptr<HttpNetworkSession> session_;
 
+  // Factory used by job controllers for creating jobs.
+  std::unique_ptr<JobFactory> job_factory_;
+
   // All Requests/Preconnects are assigned with a JobController to manage
   // serving Job(s). JobController might outlive Request when Request
   // is served while there's some working Job left. JobController will be
   // deleted from |job_controller_set_| when it determines the completion of
   // its work.
   JobControllerSet job_controller_set_;
-
-  // Factory used by job controllers for creating jobs.
-  std::unique_ptr<JobFactory> job_factory_;
 };
 
 }  // namespace net

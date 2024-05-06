@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_VIEWS_GLOBAL_MEDIA_CONTROLS_CAST_DEVICE_SELECTOR_VIEW_H_
 
 #include "components/global_media_controls/public/mojom/device_service.mojom.h"
+#include "components/global_media_controls/public/views/media_action_button.h"
 #include "components/global_media_controls/public/views/media_item_ui_device_selector.h"
 #include "components/media_message_center/notification_theme.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -13,7 +14,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 
 namespace global_media_controls {
-class MediaItemUIView;
+class MediaItemUIUpdatedView;
 }  // namespace global_media_controls
 
 namespace views {
@@ -41,8 +42,8 @@ class CastDeviceSelectorView
   ~CastDeviceSelectorView() override;
 
   // global_media_controls::MediaItemUIDeviceSelector:
-  void SetMediaItemUIView(
-      global_media_controls::MediaItemUIView* view) override;
+  void SetMediaItemUIUpdatedView(
+      global_media_controls::MediaItemUIUpdatedView* view) override;
   void OnColorsChanged(SkColor foreground_color,
                        SkColor background_color) override {}
   void UpdateCurrentAudioDevice(const std::string& current_device_id) override {
@@ -55,14 +56,23 @@ class CastDeviceSelectorView
   void OnDevicesUpdated(
       std::vector<global_media_controls::mojom::DevicePtr> devices) override;
 
+  // Helper functions for testing:
+  global_media_controls::MediaActionButton* GetCloseButtonForTesting();
+
  private:
   friend class CastDeviceSelectorViewTest;
 
   void OnCastDeviceSelected(const std::string& device_id);
 
-  bool is_expanded_ = false;
-  raw_ptr<global_media_controls::MediaItemUIView> media_item_ui_view_ = nullptr;
+  // Update the visibility of the whole view which changes its size too.
+  void UpdateVisibility();
 
+  bool is_expanded_ = false;
+
+  raw_ptr<global_media_controls::MediaItemUIUpdatedView>
+      media_item_ui_updated_view_ = nullptr;
+
+  raw_ptr<global_media_controls::MediaActionButton> close_button_ = nullptr;
   raw_ptr<views::BoxLayoutView> device_container_view_ = nullptr;
 
   mojo::Remote<global_media_controls::mojom::DeviceListHost> device_list_host_;

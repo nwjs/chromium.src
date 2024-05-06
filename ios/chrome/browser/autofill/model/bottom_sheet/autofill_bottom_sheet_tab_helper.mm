@@ -16,7 +16,6 @@
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
 #import "components/password_manager/core/common/password_manager_features.h"
-#import "components/password_manager/ios/password_account_storage_notice_handler.h"
 #import "components/plus_addresses/plus_address_types.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_java_script_feature.h"
@@ -55,12 +54,8 @@ bool IsPaymentsBottomSheetTriggeringField(autofill::FieldType type) {
 AutofillBottomSheetTabHelper::~AutofillBottomSheetTabHelper() = default;
 
 AutofillBottomSheetTabHelper::AutofillBottomSheetTabHelper(
-    web::WebState* web_state,
-    id<PasswordsAccountStorageNoticeHandler>
-        password_account_storage_notice_handler)
-    : password_account_storage_notice_handler_(
-          password_account_storage_notice_handler),
-      web_state_(web_state) {
+    web::WebState* web_state)
+    : web_state_(web_state) {
   frames_manager_observation_.Observe(
       AutofillBottomSheetJavaScriptFeature::GetInstance()->GetWebFramesManager(
           web_state));
@@ -79,7 +74,6 @@ void AutofillBottomSheetTabHelper::ShowCardUnmaskAuthenticationSelection(
 }
 
 void AutofillBottomSheetTabHelper::ShowPlusAddressesBottomSheet(
-    const url::Origin& main_frame_origin,
     plus_addresses::PlusAddressCallback callback) {
   pending_plus_address_callback_ = std::move(callback);
   [commands_handler_ showPlusAddressesBottomSheet];
@@ -90,6 +84,13 @@ void AutofillBottomSheetTabHelper::ShowVirtualCardEnrollmentBottomSheet(
     autofill::VirtualCardEnrollmentCallbacks callbacks) {
   virtual_card_enrollment_callbacks_ = std::move(callbacks);
   [commands_handler_ showVirtualCardEnrollmentBottomSheet:model];
+}
+
+void AutofillBottomSheetTabHelper::ShowEditAddressBottomSheet(
+    const autofill::AutofillProfile* profile) {
+  address_profile_for_edit_ =
+      std::make_unique<autofill::AutofillProfile>(*profile);
+  [commands_handler_ showEditAddressBottomSheet];
 }
 
 void AutofillBottomSheetTabHelper::SetAutofillBottomSheetHandler(
@@ -110,12 +111,12 @@ void AutofillBottomSheetTabHelper::RemoveObserver(
 void AutofillBottomSheetTabHelper::OnFormMessageReceived(
     const web::ScriptMessage& message) {
   autofill::FormActivityParams params;
-  if (!commands_handler_ || !password_account_storage_notice_handler_ ||
+  if (!commands_handler_ ||
       !autofill::FormActivityParams::FromMessage(message, &params)) {
     return;
   }
 
-  const autofill::FieldRendererId renderer_id = params.unique_field_id;
+  const autofill::FieldRendererId renderer_id = params.field_renderer_id;
   std::string& frame_id = params.frame_id;
   bool is_password_related =
       base::Contains(registered_password_renderer_ids_[frame_id], renderer_id);
@@ -131,16 +132,7 @@ void AutofillBottomSheetTabHelper::OnFormMessageReceived(
 
 void AutofillBottomSheetTabHelper::ShowPasswordBottomSheet(
     const autofill::FormActivityParams params) {
-  if (![password_account_storage_notice_handler_
-          shouldShowAccountStorageNotice]) {
-    [commands_handler_ showPasswordBottomSheet:params];
-    return;
-  }
-
-  __weak id<AutofillCommands> weak_commands_handler = commands_handler_;
-  [password_account_storage_notice_handler_ showAccountStorageNotice:^{
-    [weak_commands_handler showPasswordBottomSheet:params];
-  }];
+  [commands_handler_ showPasswordBottomSheet:params];
 }
 
 void AutofillBottomSheetTabHelper::ShowPaymentsBottomSheet(
@@ -227,8 +219,7 @@ void AutofillBottomSheetTabHelper::DetachPasswordListeners(
       registered_password_renderer_ids_[frame_id], frame, refocus);
 }
 
-void AutofillBottomSheetTabHelper::DetachPasswordListenersForAllFrames(
-    bool refocus) {
+void AutofillBottomSheetTabHelper::DetachPasswordListenersForAllFrames() {
   // Verify that the password bottom sheet feature is enabled.
   if (!base::FeatureList::IsEnabled(
           password_manager::features::kIOSPasswordBottomSheet)) {
@@ -237,7 +228,7 @@ void AutofillBottomSheetTabHelper::DetachPasswordListenersForAllFrames(
 
   for (auto& registered_renderer_ids : registered_password_renderer_ids_) {
     DetachListenersForFrame(registered_renderer_ids.first,
-                            registered_renderer_ids.second, refocus);
+                            registered_renderer_ids.second, /*refocus=*/true);
   }
 }
 
@@ -334,7 +325,7 @@ void AutofillBottomSheetTabHelper::OnFieldTypesDetermined(
   std::vector<autofill::FieldRendererId> renderer_ids;
   for (const auto& field : form_structure->fields()) {
     if (IsPaymentsBottomSheetTriggeringField(field->Type().GetStorableType())) {
-      renderer_ids.push_back(field->renderer_id);
+      renderer_ids.push_back(field->renderer_id());
     }
   }
   if (renderer_ids.empty()) {

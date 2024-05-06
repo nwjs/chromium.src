@@ -9,13 +9,13 @@
 #import "components/password_manager/core/browser/password_ui_utils.h"
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/strings/grit/components_strings.h"
-#import "components/sync/base/features.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/autofill/autofill_app_interface.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_constants.h"
+#import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_egtest_utils.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_ui_features.h"
@@ -174,8 +174,15 @@ void CheckPasswordFillingOptionIsVisible(NSString* site) {
 // Verifies that the keyboard is up and not covered by the password manual fill
 // view.
 void CheckKeyboardIsUpAndNotCovered() {
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard should be shown");
+  // Verify the keyboard is not covered by the profiles view.
+  // TODO(crbug.com/332956674): Remove version check once fixed.
+  if (@available(iOS 17.4, *)) {
+    // Skip verification.
+  } else {
+    GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                   @"Keyboard should be shown");
+  }
+
   [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
       assertWithMatcher:grey_notVisible()];
 }
@@ -219,26 +226,6 @@ void CheckKeyboardIsUpAndNotCovered() {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-
-  if ([self
-          isRunningTest:@selector
-          (testPasswordGenerationOnManualFallbackSignedInNotSyncingAccount)] ||
-      [self isRunningTest:@selector
-            (testPasswordGenerationFallbackSignedInNotSyncingPasswordsDisabled
-                )] ||
-      [self
-          isRunningTest:@selector
-          (testPasswordGenerationFallbackSignedInNotSyncingEncryptionError)]) {
-    config.features_enabled.push_back(
-        syncer::kReplaceSyncPromosWithSignInPromos);
-  }
-  if ([self isRunningTest:@selector
-            (testPasswordControllerSupportsIFrameMessaging)] ||
-      [self isRunningTest:@selector
-            (testPasswordControllerPresentsUnsecureAlert)]) {
-    config.features_disabled.push_back(
-        password_manager::features::kIOSPasswordBottomSheet);
-  }
 
   if ([self shouldEnableKeyboardAccessoryUpgradeFeature]) {
     config.features_enabled.push_back(kIOSKeyboardAccessoryUpgrade);
@@ -472,16 +459,22 @@ void CheckKeyboardIsUpAndNotCovered() {
   [[EarlGrey selectElementWithMatcher:NavigationBarDoneButton()]
       performAction:grey_tap()];
 
-  // Icons are not present when the Keyboard Accessory Upgrade feature is
-  // enabled.
-  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
-    // Verify the status of the icons.
-    [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
-        assertWithMatcher:grey_sufficientlyVisible()];
-    [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
-        assertWithMatcher:grey_userInteractionEnabled()];
-    [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
-        assertWithMatcher:grey_not(grey_sufficientlyVisible())];
+  // TODO(crbug.com/332956674): Keyboard and keyboard accessory are not present
+  // on iOS 17.4+, remove version check once fixed.
+  if (@available(iOS 17.4, *)) {
+    // Skip verifications.
+  } else {
+    // Icons are not present when the Keyboard Accessory Upgrade feature is
+    // enabled.
+    if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+      // Verify the status of the icons.
+      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+          assertWithMatcher:grey_sufficientlyVisible()];
+      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+          assertWithMatcher:grey_userInteractionEnabled()];
+      [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+          assertWithMatcher:grey_not(grey_sufficientlyVisible())];
+    }
   }
 
   // Verify that the keyboard is not covered by the password view.
@@ -545,6 +538,38 @@ void CheckKeyboardIsUpAndNotCovered() {
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
+// Tests that the "Select Password..." action is only availbale when there are
+// saved passwords in the password stores.
+- (void)testSelectPasswordActionAvailability {
+  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    EARL_GREY_TEST_DISABLED(@"This test is not relevant when the Keyboard "
+                            @"Accessory Upgrade feature is disabled.")
+  }
+
+  // Delete all saved passwords.
+  [AutofillAppInterface clearProfilePasswordStore];
+
+  // Bring up the keyboard.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementUsername)];
+
+  // Open the password manual fill view.
+  OpenPasswordManualFillView(/*has_suggestions=*/false);
+
+  // The "Select Password..." action shouldn't be visible as there a no saved
+  // passwords.
+  [[EarlGrey selectElementWithMatcher:ManualFallbackOtherPasswordsMatcher()]
+      assertWithMatcher:grey_notVisible()];
+
+  // Save a password.
+  [AutofillAppInterface saveExamplePasswordFormToProfileStore];
+
+  // The "Select Password..." action should now be visible as there's a saved
+  // password available.
+  [[EarlGrey selectElementWithMatcher:ManualFallbackOtherPasswordsMatcher()]
+      assertWithMatcher:grey_interactable()];
+}
+
 // Tests that the "Select Password..." UI is dismissed after failed local
 // authentication.
 - (void)testOtherPasswordListUIDismissedAfterFailedAuth {
@@ -593,16 +618,22 @@ void CheckKeyboardIsUpAndNotCovered() {
   [[EarlGrey selectElementWithMatcher:NavigationBarDoneButton()]
       performAction:grey_tap()];
 
-  // Icons are not present when the Keyboard Accessory Upgrade feature is
-  // enabled.
-  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
-    // Verify the status of the icons.
-    [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
-        assertWithMatcher:grey_sufficientlyVisible()];
-    [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
-        assertWithMatcher:grey_userInteractionEnabled()];
-    [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
-        assertWithMatcher:grey_not(grey_sufficientlyVisible())];
+  // TODO(crbug.com/332956674): Keyboard and keyboard accessory are not present
+  // on iOS 17.4+, remove version check once fixed.
+  if (@available(iOS 17.4, *)) {
+    // Skip verifications.
+  } else {
+    // Icons are not present when the Keyboard Accessory Upgrade feature is
+    // enabled.
+    if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+      // Verify the status of the icons.
+      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+          assertWithMatcher:grey_sufficientlyVisible()];
+      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+          assertWithMatcher:grey_userInteractionEnabled()];
+      [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+          assertWithMatcher:grey_not(grey_sufficientlyVisible())];
+    }
   }
 
   // Verify that the keyboard is not covered by the password view.
@@ -747,6 +778,9 @@ void CheckKeyboardIsUpAndNotCovered() {
 
 // Tests that content is injected in iframe messaging.
 - (void)testPasswordControllerSupportsIFrameMessaging {
+  // Disable the password bottom sheet.
+  [PasswordSuggestionBottomSheetAppInterface disableBottomSheet];
+
   const GURL URL = self.testServer->GetURL(kIFrameHTMLFile);
   NSString* URLString = base::SysUTF8ToNSString(URL.spec());
   [AutofillAppInterface savePasswordFormForURLSpec:URLString];
@@ -782,6 +816,9 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests that an alert is shown when trying to fill a password in an unsecure
 // field.
 - (void)testPasswordControllerPresentsUnsecureAlert {
+  // Disable the password bottom sheet.
+  [PasswordSuggestionBottomSheetAppInterface disableBottomSheet];
+
   // Only Objc objects can cross the EDO portal.
   NSString* URLString = base::SysUTF8ToNSString(self.URL.spec());
   [AutofillAppInterface savePasswordFormForURLSpec:URLString];
@@ -861,15 +898,6 @@ void CheckKeyboardIsUpAndNotCovered() {
 
 // Tests password generation on manual fallback.
 - (void)testPasswordGenerationOnManualFallback {
-  // TODO(crbug.com/326265397): Enable test for Keyboard Accessory Upgrade
-  // feature once the keyboard accessory is hidden whenever the expanded manual
-  // fill view is shown.
-  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
-    EARL_GREY_TEST_SKIPPED(
-        @"The keyboard currently blocks the Suggest Strong Password sheet when "
-        @"the Keyboard Accessory Upgrade feature is enabled.");
-  }
-
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [ChromeEarlGrey waitForSyncEngineInitialized:YES
                                    syncTimeout:base::Seconds(10)];

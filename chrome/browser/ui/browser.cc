@@ -76,6 +76,7 @@
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
+#include "chrome/browser/page_load_metrics/observers/navigation_handle_user_data.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -124,6 +125,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_ui_prefs.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window_features.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
@@ -148,6 +150,7 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
+#include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -190,7 +193,6 @@
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/omnibox/browser/location_bar_model_impl.h"
-#include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
 #include "components/page_load_metrics/common/page_load_metrics.mojom.h"
 #include "components/paint_preview/buildflags/buildflags.h"
@@ -245,6 +247,7 @@
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -439,6 +442,19 @@ Browser::CreateParams Browser::CreateParams::CreateForAppPopup(
 }
 
 // static
+Browser::CreateParams Browser::CreateParams::CreateForPictureInPicture(
+    const std::string& app_name,
+    bool trusted_source,
+    Profile* profile,
+    bool user_gesture) {
+  Browser::CreateParams browser_params(Browser::TYPE_PICTURE_IN_PICTURE,
+                                       profile, user_gesture);
+  browser_params.app_name = app_name;
+  browser_params.trusted_source = trusted_source;
+  return browser_params;
+}
+
+// static
 Browser::CreateParams Browser::CreateParams::CreateForDevTools(
     Profile* profile) {
   CreateParams params(TYPE_DEVTOOLS, profile, true);
@@ -482,12 +498,6 @@ Browser::CreationStatus Browser::GetCreationStatusForProfile(Profile* profile) {
 
   return CreationStatus::kOk;
 }
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-// static
-const char* Browser::url_elision_extension_id_ =
-    "jknemblkbdhdcpllfgbfekkdciegfboi";
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 // static
 Browser* Browser::Create(const CreateParams& params) {
@@ -543,12 +553,15 @@ Browser::Browser(const CreateParams& params)
           new BrowserContentSettingBubbleModelDelegate(this)),
       location_bar_model_delegate_(new BrowserLocationBarModelDelegate(this)),
       location_bar_model_(std::make_unique<LocationBarModelImpl>(
-          location_bar_model_delegate_.get(), content::kMaxURLDisplayChars)),
+          location_bar_model_delegate_.get(),
+          content::kMaxURLDisplayChars)),
       live_tab_context_(new BrowserLiveTabContext(this)),
       synced_window_delegate_(new BrowserSyncedWindowDelegate(this)),
       app_controller_(web_app::MaybeCreateAppBrowserController(this)),
       bookmark_bar_state_(BookmarkBar::HIDDEN),
       command_controller_(new chrome::BrowserCommandController(this)),
+      tab_group_deletion_dialog_controller_(
+          std::make_unique<tab_groups::DeletionDialogController>(this)),
       window_has_shown_(false),
       user_title_(params.user_title),
       signin_view_controller_(this),
@@ -630,26 +643,9 @@ Browser::Browser(const CreateParams& params)
         ->ListenToFullScreenChanges();
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  // Temporary migration code: if users have the Suspicious Site Reporter
-  // extension installed, which has the effect of disabling URL elisions in the
-  // omnibox, set the pref that disables URL elisions. This is so that we can
-  // eventually deprecate this extension without reverting its users to elided
-  // URL display.
-  // TODO(crbug/324934130): remove this code and deprecate the extension in
-  // ~M125 or so.
-  if (!profile_->GetPrefs()
-           ->FindPreference(omnibox::kPreventUrlElisionsInOmnibox)
-           ->IsManaged() &&
-      extensions::ExtensionRegistry::Get(profile_)
-          ->enabled_extensions()
-          .Contains(url_elision_extension_id_)) {
-    profile_->GetPrefs()->SetBoolean(omnibox::kPreventUrlElisionsInOmnibox,
-                                     true);
-  }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-
   BrowserList::AddBrowser(this);
+  features_ = BrowserWindowFeatures::CreateBrowserWindowFeatures();
+  features_->Init(this);
 }
 
 Browser::~Browser() {
@@ -661,7 +657,7 @@ Browser::~Browser() {
 
   // The tab strip should not have any tabs at this point.
   //
-  // TODO(crbug.com/1407055): This DCHECK doesn't always pass.
+  // TODO(crbug.com/40887606): This DCHECK doesn't always pass.
   // TODO(crbug.com/1434387): convert this to CHECK.
   DCHECK(tab_strip_model_->empty());
 
@@ -669,6 +665,9 @@ Browser::~Browser() {
   // it doesn't act on any notifications that are sent as a result of removing
   // the browser.
   command_controller_.reset();
+  // Destroy ExclusiveAccessManager, which depends on `window_` which may be
+  // destroyed by RemoveBrowser().
+  exclusive_access_manager_.reset();
   BrowserList::RemoveBrowser(this);
 
   // If closing the window is going to trigger a shutdown, then we need to
@@ -679,7 +678,8 @@ Browser::~Browser() {
   if (!browser_defaults::kBrowserAliveWithNoWindows &&
       OkToCloseWithInProgressDownloads(&num_downloads) ==
           DownloadCloseType::kBrowserShutdown) {
-    DownloadCoreService::CancelAllDownloads();
+    DownloadCoreService::CancelAllDownloads(
+        DownloadCoreService::CancelDownloadsTrigger::kShutdown);
   }
 
   SessionServiceBase* service = GetAppropriateSessionServiceForProfile(this);
@@ -1354,12 +1354,15 @@ void Browser::UnregisterKeepAlive() {
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, PageNavigator implementation:
 
-WebContents* Browser::OpenURL(const OpenURLParams& params) {
+WebContents* Browser::OpenURL(
+    const OpenURLParams& params,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
 #if DCHECK_IS_ON()
   DCHECK(params.Valid());
 #endif
 
-  return OpenURLFromTab(nullptr, params);
+  return OpenURLFromTab(nullptr, params, std::move(navigation_handle_callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1436,10 +1439,7 @@ void Browser::OnTabGroupChanged(const TabGroupChange& change) {
               ->visual_data();
       const tab_groups::SavedTabGroupKeyedService* const
           saved_tab_group_keyed_service =
-              base::FeatureList::IsEnabled(features::kTabGroupsSave)
-                  ? tab_groups::SavedTabGroupServiceFactory::GetForProfile(
-                        profile_)
-                  : nullptr;
+              tab_groups::SavedTabGroupServiceFactory::GetForProfile(profile_);
       std::optional<std::string> saved_guid;
 
       if (saved_tab_group_keyed_service) {
@@ -1612,7 +1612,7 @@ void Browser::CreateSmsPrompt(content::RenderFrameHost*,
                               const std::string& one_time_code,
                               base::OnceClosure on_confirm,
                               base::OnceClosure on_cancel) {
-  // TODO(crbug.com/1015645): implementation left pending deliberately.
+  // TODO(crbug.com/40103792): implementation left pending deliberately.
   std::move(on_confirm).Run();
 }
 
@@ -1724,10 +1724,9 @@ bool Browser::ShouldShowStaleContentOnEviction(content::WebContents* source) {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
-// TODO(crbug.com/1198344): Remove this.
+// TODO(crbug.com/40177301): Remove this.
 void Browser::MediaWatchTimeChanged(
-    const content::MediaPlayerWatchTime& watch_time) {
-}
+    const content::MediaPlayerWatchTime& watch_time) {}
 
 bool Browser::IsPointerLocked() const {
   return exclusive_access_manager_->pointer_lock_controller()
@@ -1757,8 +1756,11 @@ void Browser::OnWindowDidShow() {
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, content::WebContentsDelegate implementation:
 
-WebContents* Browser::OpenURLFromTab(WebContents* source,
-                                     const OpenURLParams& params) {
+WebContents* Browser::OpenURLFromTab(
+    WebContents* source,
+    const OpenURLParams& params,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
   TRACE_EVENT1("navigation", "Browser::OpenURLFromTab", "source", source);
 #if DCHECK_IS_ON()
   DCHECK(params.Valid());
@@ -1767,7 +1769,8 @@ WebContents* Browser::OpenURLFromTab(WebContents* source,
   if (is_type_devtools()) {
     DevToolsWindow* window = DevToolsWindow::AsDevToolsWindow(source);
     DCHECK(window);
-    return window->OpenURLFromTab(source, params);
+    return window->OpenURLFromTab(source, params,
+                                  std::move(navigation_handle_callback));
   }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1801,7 +1804,12 @@ WebContents* Browser::OpenURLFromTab(WebContents* source,
 
   chrome::ConfigureTabGroupForNavigation(popup_delegate->nav_params());
 
-  Navigate(popup_delegate->nav_params());
+  base::WeakPtr<content::NavigationHandle> navigation_handle =
+      Navigate(popup_delegate->nav_params());
+
+  if (navigation_handle_callback && navigation_handle) {
+    std::move(navigation_handle_callback).Run(*navigation_handle);
+  }
 
   content::WebContents* navigated_or_inserted_contents =
       popup_delegate->nav_params()->navigated_or_inserted_contents;
@@ -2184,6 +2192,14 @@ void Browser::InitiatePreview(content::WebContents& web_contents,
 
 bool Browser::ShouldUseInstancedSystemMediaControls() const {
   return is_type_app() || is_type_app_popup();
+}
+
+void Browser::DraggableRegionsChanged(
+    const std::vector<blink::mojom::DraggableRegionPtr>& regions,
+    content::WebContents* contents) {
+  if (app_controller_) {
+    app_controller_->DraggableRegionsChanged(regions, contents);
+  }
 }
 
 void Browser::DidFinishNavigation(
@@ -2616,7 +2632,8 @@ void Browser::FileSelected(const ui::SelectedFileInfo& file_info,
     return;
 
   OpenURL(OpenURLParams(url, Referrer(), WindowOpenDisposition::CURRENT_TAB,
-                        ui::PAGE_TRANSITION_TYPED, false));
+                        ui::PAGE_TRANSITION_TYPED, false),
+          /*navigation_handle_callback=*/{});
 }
 
 void Browser::FileSelectionCanceled(void* params) {
@@ -2882,7 +2899,7 @@ void Browser::ScheduleUIUpdate(WebContents* source, unsigned changed_flags) {
   // WebContents may in some rare cases send updates after they've been detached
   // from the tabstrip but before they are deleted, causing a potential crash if
   // we proceed. For now bail out.
-  // TODO(crbug.com/1007379) Figure out a safe way to detach browser delegate
+  // TODO(crbug.com/40100269) Figure out a safe way to detach browser delegate
   // from WebContents when it's removed so this doesn't happen - then put a
   // DCHECK back here.
   if (tab_strip_model_->GetIndexOfWebContents(source) == TabStripModel::kNoTab)
@@ -2992,7 +3009,7 @@ void Browser::ProcessPendingUIUpdates() {
     // hidden.
     if (flags & content::INVALIDATE_TYPE_TAB) {
       UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_TAB_STATE);
-      // TODO(crbug.com/1062235): Ideally, we should simply ask the state to
+      // TODO(crbug.com/40122780): Ideally, we should simply ask the state to
       // update, and doing that in an appropriate and efficient manner.
       window()->UpdatePageActionIcon(PageActionIconType::kPwaInstall);
     }
@@ -3508,9 +3525,3 @@ BackgroundContents* Browser::CreateBackgroundContents(
 
   return contents;
 }
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-void Browser::SetURLElisionExtensionIDForTesting(const char* extension_id) {
-  url_elision_extension_id_ = extension_id;
-}
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)

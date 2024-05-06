@@ -78,6 +78,29 @@ enum class TrustedVaultRecoverabilityStatus {
   kMaxValue = kError,
 };
 
+// Contains information about a Google Password Manager PIN that is stored in
+// a trusted vault.
+struct GpmPinMetadata {
+  GpmPinMetadata(std::optional<std::string> public_key,
+                 std::string wrapped_pin);
+  GpmPinMetadata(const GpmPinMetadata&);
+  GpmPinMetadata& operator=(const GpmPinMetadata&);
+  GpmPinMetadata(GpmPinMetadata&&);
+  GpmPinMetadata& operator=(GpmPinMetadata&&);
+  ~GpmPinMetadata();
+
+  bool operator==(const GpmPinMetadata&) const;
+
+  // The securebox public key for the virtual member. This will always have a
+  // value when this metadata is downloaded with
+  // `DownloadAuthenticationFactorsRegistrationState`. When used with
+  // `RegisterAuthenticationFactor`, this can be empty to upload the first GPM
+  // PIN to an account, or non-empty to replace a GPM PIN.
+  std::optional<std::string> public_key;
+  // The encrypted PIN value, for validation.
+  std::string wrapped_pin;
+};
+
 // The result of calling
 // DownloadAuthenticationFactorsRegistrationState.
 struct DownloadAuthenticationFactorsRegistrationStateResult {
@@ -111,20 +134,23 @@ struct DownloadAuthenticationFactorsRegistrationStateResult {
 
   // If a Google Password Manager PIN is a member of the domain, and is usable
   // for retrieval, then this will contain its metadata.
-  std::optional<std::string> serialized_wrapped_pin;
+  std::optional<GpmPinMetadata> gpm_pin_metadata;
 };
 
 // Authentication factor types:
 using PhysicalDevice =
     base::StrongAlias<class PhysicalDeviceTag, absl::monostate>;
+using LockScreenKnowledgeFactor =
+    base::StrongAlias<class VirtualDeviceTag, absl::monostate>;
 // UnspecifiedAuthenticationFactorType carries a type hint for the backend.
 using UnspecifiedAuthenticationFactorType =
     base::StrongAlias<class UnspecifiedAuthenticationFactorTypeTag, int>;
-// GPM PINs carry a bytestring of opaque metadata.
-using GpmPin = base::StrongAlias<class GpmPinTag, std::string>;
 
 using AuthenticationFactorType =
-    absl::variant<PhysicalDevice, UnspecifiedAuthenticationFactorType, GpmPin>;
+    absl::variant<PhysicalDevice,
+                  LockScreenKnowledgeFactor,
+                  UnspecifiedAuthenticationFactorType,
+                  GpmPinMetadata>;
 
 struct TrustedVaultKeyAndVersion {
   TrustedVaultKeyAndVersion(const std::vector<uint8_t>& key, int version);
@@ -132,9 +158,38 @@ struct TrustedVaultKeyAndVersion {
   TrustedVaultKeyAndVersion& operator=(const TrustedVaultKeyAndVersion& other);
   ~TrustedVaultKeyAndVersion();
 
+  bool operator==(const TrustedVaultKeyAndVersion& other) const;
+
   std::vector<uint8_t> key;
   int version;
 };
+
+// Returns a vector of `TrustedVaultKeyAndVersion` given a vector of keys and
+// the version of the last key, assuming that the versions are sequential.
+std::vector<TrustedVaultKeyAndVersion> GetTrustedVaultKeysWithVersions(
+    const std::vector<std::vector<uint8_t>>& trusted_vault_keys,
+    int last_key_version);
+
+// A PrecomputedMemberKeys contains the cryptographic outputs needed to
+// add an authentication factor: the trusted vault key, encrypted to the
+// public key of the member, and an authenticator of that public key.
+struct PrecomputedMemberKeys {
+  PrecomputedMemberKeys(int version,
+                        std::vector<uint8_t> wrapped_key,
+                        std::vector<uint8_t> proof);
+  PrecomputedMemberKeys(PrecomputedMemberKeys&&);
+  PrecomputedMemberKeys& operator=(PrecomputedMemberKeys&&);
+  ~PrecomputedMemberKeys();
+
+  int version;
+  std::vector<uint8_t> wrapped_key;
+  std::vector<uint8_t> proof;
+};
+
+// A MemberKeysSource provides a method of calculating the values needed to
+// add an authenticator factor.
+using MemberKeysSource = absl::variant<std::vector<TrustedVaultKeyAndVersion>,
+                                       PrecomputedMemberKeys>;
 
 // Supports interaction with vault service, all methods must called on trusted
 // vault backend sequence.
@@ -180,8 +235,7 @@ class TrustedVaultConnection {
   // |trusted_vault_keys| must be ordered by version and must not be empty.
   [[nodiscard]] virtual std::unique_ptr<Request> RegisterAuthenticationFactor(
       const CoreAccountInfo& account_info,
-      const std::vector<std::vector<uint8_t>>& trusted_vault_keys,
-      int last_trusted_vault_key_version,
+      const MemberKeysSource& member_keys_source,
       const SecureBoxPublicKey& authentication_factor_public_key,
       AuthenticationFactorType authentication_factor_type,
       RegisterAuthenticationFactorCallback callback) = 0;

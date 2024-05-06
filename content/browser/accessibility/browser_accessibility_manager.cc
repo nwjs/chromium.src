@@ -34,7 +34,7 @@
 #if defined(AX_FAIL_FAST_BUILD)
 #include "base/command_line.h"
 #include "content/public/browser/ax_inspect_factory.h"
-#include "content/public/common/content_switches.h"
+#include "ui/accessibility/accessibility_switches.h"
 #endif
 
 namespace content {
@@ -229,6 +229,38 @@ void BrowserAccessibilityManager::FireGeneratedEvent(
     const ui::AXNode* node) {
   if (!generated_event_callback_for_testing_.is_null()) {
     generated_event_callback_for_testing_.Run(this, event_type, node->id());
+  }
+
+  // Currently, this method is only used to fire ARIA notification events.
+  if (event_type != ui::AXEventGenerator::Event::ARIA_NOTIFICATIONS_POSTED) {
+    return;
+  }
+
+  auto* wrapper = GetFromAXNode(node);
+  DCHECK(wrapper);
+
+  const auto& node_data = wrapper->GetData();
+
+  const auto& announcements = node_data.GetStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationAnnouncements);
+  const auto& notification_ids = node_data.GetStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationIds);
+
+  const auto& interrupt_properties = node_data.GetIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationInterruptProperties);
+  const auto& priority_properties = node_data.GetIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationPriorityProperties);
+
+  DCHECK_EQ(announcements.size(), notification_ids.size());
+  DCHECK_EQ(announcements.size(), interrupt_properties.size());
+  DCHECK_EQ(announcements.size(), priority_properties.size());
+
+  for (std::size_t i = 0; i < announcements.size(); ++i) {
+    FireAriaNotificationEvent(wrapper, announcements[i], notification_ids[i],
+                              static_cast<ax::mojom::AriaNotificationInterrupt>(
+                                  interrupt_properties[i]),
+                              static_cast<ax::mojom::AriaNotificationPriority>(
+                                  priority_properties[i]));
   }
 }
 
@@ -586,7 +618,7 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
 
   if (received_load_complete_event) {
     // Fire a focus event after the document has finished loading, but after all
-    // the platform independent events have already fired, e.g. kLayoutComplete.
+    // the platform independent events have already fired.
     // Some screen readers need a focus event in order to work properly.
     FireFocusEventsIfNeeded();
 
@@ -639,6 +671,11 @@ void BrowserAccessibilityManager::FinalizeAccessibilityEvents() {}
 
 void BrowserAccessibilityManager::OnLocationChanges(
     const std::vector<blink::mojom::LocationChangesPtr>& changes) {
+  TRACE_EVENT0("accessibility",
+               "BrowserAccessibilityManager::OnLocationChanges");
+  SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
+      "Accessibility.Performance.BrowserAccessibilityManager::"
+      "OnLocationChanges");
   for (auto& change : changes) {
     BrowserAccessibility* obj = GetFromID(change->id);
     if (!obj)
@@ -1656,9 +1693,11 @@ bool BrowserAccessibilityManager::IsRootFrameManager() const {
 }
 
 ui::AXTreeUpdate BrowserAccessibilityManager::SnapshotAXTreeForTesting() {
-  std::unique_ptr<ui::AXTreeSource<const ui::AXNode*>> tree_source(
-      ax_serializable_tree()->CreateTreeSource());
-  ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>>
+  std::unique_ptr<
+      ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>>
+      tree_source(ax_serializable_tree()->CreateTreeSource());
+  ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>,
+                       ui::AXTreeUpdate*, ui::AXTreeData*, ui::AXNodeData>
       serializer(tree_source.get());
   ui::AXTreeUpdate update;
   serializer.SerializeChanges(GetRoot(), &update);

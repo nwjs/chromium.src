@@ -93,6 +93,14 @@ bool NonClientFrameView::GetClientMask(const gfx::Size& size,
   return false;
 }
 
+bool NonClientFrameView::HasWindowTitle() const {
+  return false;
+}
+
+bool NonClientFrameView::IsWindowTitleVisible() const {
+  return false;
+}
+
 #if BUILDFLAG(IS_WIN)
 gfx::Point NonClientFrameView::GetSystemMenuScreenPixelLocation() const {
   gfx::Point point(GetMirroredXInView(GetBoundsForClientView().x()),
@@ -244,11 +252,19 @@ void NonClientView::SizeConstraintsChanged() {
   frame_view_->SizeConstraintsChanged();
 }
 
+bool NonClientView::HasWindowTitle() const {
+  return frame_view_->HasWindowTitle();
+}
+
+bool NonClientView::IsWindowTitleVisible() const {
+  return frame_view_->IsWindowTitleVisible();
+}
+
 gfx::Size NonClientView::CalculatePreferredSize() const {
   // TODO(pkasting): This should probably be made to look similar to
   // GetMinimumSize() below.  This will require implementing GetPreferredSize()
   // better in the various frame views.
-  gfx::Rect client_bounds(gfx::Point(), client_view_->GetPreferredSize());
+  gfx::Rect client_bounds(gfx::Point(), client_view_->GetPreferredSize({}));
   return GetWindowBoundsForClientBounds(client_bounds).size();
 }
 

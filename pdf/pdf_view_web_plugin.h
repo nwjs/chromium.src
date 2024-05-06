@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/flat_set.h"
@@ -17,7 +18,6 @@
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/strings/string_piece.h"
 #include "base/values.h"
 #include "cc/paint/paint_image.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -230,7 +230,7 @@ class PdfViewWebPlugin final : public PDFEngine::Client,
   };
 
   PdfViewWebPlugin(std::unique_ptr<Client> client,
-                   mojo::AssociatedRemote<pdf::mojom::PdfService> pdf_service,
+                   mojo::AssociatedRemote<pdf::mojom::PdfHost> pdf_host,
                    const blink::WebPluginParams& params);
   PdfViewWebPlugin(const PdfViewWebPlugin& other) = delete;
   PdfViewWebPlugin& operator=(const PdfViewWebPlugin& other) = delete;
@@ -346,7 +346,6 @@ class PdfViewWebPlugin final : public PDFEngine::Client,
   void FormFieldFocusChange(PDFEngine::FocusFieldType type) override;
   bool IsPrintPreview() const override;
   SkColor GetBackgroundColor() const override;
-  void SetIsSelecting(bool is_selecting) override;
   void SelectionChanged(const gfx::Rect& left, const gfx::Rect& right) override;
   void CaretChanged(const gfx::Rect& caret_rect) override;
   void EnteredEditMode() override;
@@ -467,7 +466,7 @@ class PdfViewWebPlugin final : public PDFEngine::Client,
   void UpdateScroll(const gfx::PointF& scroll_position);
 
   // Loads `url`, invoking `callback` on receiving the initial response.
-  void LoadUrl(base::StringPiece url, LoadUrlCallback callback);
+  void LoadUrl(std::string_view url, LoadUrlCallback callback);
 
   // Handles `Open()` result for `form_loader_`.
   void DidFormOpen(int32_t result);
@@ -631,7 +630,7 @@ class PdfViewWebPlugin final : public PDFEngine::Client,
   std::unique_ptr<Client> const client_;
 
   // Used to access the services provided by the browser.
-  mojo::AssociatedRemote<pdf::mojom::PdfService> const pdf_service_;
+  mojo::AssociatedRemote<pdf::mojom::PdfHost> const pdf_host_;
 
   mojo::Receiver<pdf::mojom::PdfListener> listener_receiver_{this};
 

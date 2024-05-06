@@ -22,10 +22,6 @@ source_set("model") {
     "sync_observer_bridge.mm",
     "sync_service_factory.h",
     "sync_service_factory.mm",
-    "sync_setup_service.cc",
-    "sync_setup_service.h",
-    "sync_setup_service_factory.cc",
-    "sync_setup_service_factory.h",
   ]
   deps = [
     ":model_type_store_service_factory",
@@ -61,6 +57,7 @@ source_set("model") {
     "//components/trusted_vault",
     "//components/variations/service",
     "//components/version_info",
+    "//components/webauthn/core/browser",
     "//google_apis",
     "//ios/chrome/browser/bookmarks/model",
     "//ios/chrome/browser/complex_tasks/model",
@@ -89,6 +86,7 @@ source_set("model") {
     "//ios/chrome/browser/tabs/model",
     "//ios/chrome/browser/tabs/model:synced_tabs",
     "//ios/chrome/browser/trusted_vault/model",
+    "//ios/chrome/browser/webauthn/model",
     "//ios/chrome/browser/webdata_services/model",
     "//ios/chrome/common",
     "//ios/components/webui:url_constants",
@@ -142,8 +140,6 @@ source_set("test_support") {
   sources = [
     "mock_sync_service_utils.cc",
     "mock_sync_service_utils.h",
-    "sync_setup_service_mock.cc",
-    "sync_setup_service_mock.h",
   ]
   deps = [
     ":model",

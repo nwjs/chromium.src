@@ -134,9 +134,9 @@ class HistoryService::BackendDelegate : public HistoryBackend::Delegate {
                                   history_service_, changed_urls));
   }
 
-  void NotifyURLsDeleted(DeletionInfo deletion_info) override {
+  void NotifyDeletions(DeletionInfo deletion_info) override {
     service_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&HistoryService::NotifyURLsDeleted,
+        FROM_HERE, base::BindOnce(&HistoryService::NotifyDeletions,
                                   history_service_, std::move(deletion_info)));
   }
 
@@ -551,6 +551,14 @@ base::CancelableTaskTracker::TaskId HistoryService::ScheduleDBTask(
   return task_id;
 }
 
+void HistoryService::ScheduleDBTaskForUI(
+    base::OnceCallback<void(HistoryBackend*, URLDatabase*)> callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  ScheduleTask(PRIORITY_UI,
+               base::BindOnce(&HistoryBackend::RunDBTask, history_backend_,
+                              std::move(callback)));
+}
+
 void HistoryService::FlushForTest(base::OnceClosure flushed) {
   backend_task_runner_->PostTaskAndReply(FROM_HERE, base::DoNothing(),
                                          std::move(flushed));
@@ -744,6 +752,15 @@ void HistoryService::AddRelatedSearchesForVisit(
   ScheduleTask(PRIORITY_NORMAL,
                base::BindOnce(&HistoryBackend::AddRelatedSearchesForVisit,
                               history_backend_, visit_id, related_searches));
+}
+
+std::optional<uint64_t> HistoryService::GetOrAddOriginSalt(
+    const url::Origin& origin) {
+  if (visit_delegate_) {
+    return visit_delegate_->GetOrAddOriginSalt(origin);
+  }
+  // If there is no visit_delegate_ we cannot determine the corresponding salt.
+  return std::nullopt;
 }
 
 void HistoryService::AddSearchMetadataForVisit(
@@ -1180,6 +1197,17 @@ void HistoryService::GetUniqueDomainsVisited(
       std::move(callback));
 }
 
+void HistoryService::GetAllAppIds(GetAllAppIdsCallback callback,
+                                  base::CancelableTaskTracker* tracker) {
+  DCHECK(backend_task_runner_) << "History service being called after cleanup";
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  tracker->PostTaskAndReplyWithResult(
+      backend_task_runner_.get(), FROM_HERE,
+      base::BindOnce(&HistoryBackend::GetAllAppIds, history_backend_),
+      std::move(callback));
+}
+
 base::CancelableTaskTracker::TaskId HistoryService::GetLastVisitToHost(
     const std::string& host,
     base::Time begin_time,
@@ -1240,6 +1268,22 @@ base::CancelableTaskTracker::TaskId HistoryService::GetDailyVisitsToHost(
       backend_task_runner_.get(), FROM_HERE,
       base::BindOnce(&HistoryBackend::GetDailyVisitsToHost, history_backend_,
                      host, begin_time, end_time),
+      std::move(callback));
+}
+
+// Generic operations ----------------------------------------------------------
+
+base::CancelableTaskTracker::TaskId HistoryService::GetMostRecentVisitsForGurl(
+    GURL url,
+    int max_visits,
+    QueryURLCallback callback,
+    base::CancelableTaskTracker* tracker) {
+  DCHECK(backend_task_runner_) << "History service being called after cleanup";
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return tracker->PostTaskAndReplyWithResult(
+      backend_task_runner_.get(), FROM_HERE,
+      base::BindOnce(&HistoryBackend::GetMostRecentVisitsForGurl,
+                     history_backend_, url, max_visits),
       std::move(callback));
 }
 
@@ -1472,14 +1516,6 @@ bool HistoryService::Init(
     history_client_->OnHistoryServiceCreated(this);
 
   return true;
-}
-
-void HistoryService::ScheduleAutocomplete(
-    base::OnceCallback<void(HistoryBackend*, URLDatabase*)> callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  ScheduleTask(PRIORITY_UI,
-               base::BindOnce(&HistoryBackend::ScheduleAutocomplete,
-                              history_backend_, std::move(callback)));
 }
 
 void HistoryService::ScheduleTask(SchedulePriority priority,
@@ -1725,7 +1761,7 @@ void HistoryService::NotifyURLsModified(const URLRows& changed_urls) {
     observer.OnURLsModified(this, changed_urls);
 }
 
-void HistoryService::NotifyURLsDeleted(const DeletionInfo& deletion_info) {
+void HistoryService::NotifyDeletions(const DeletionInfo& deletion_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!backend_task_runner_)
     return;
@@ -1751,7 +1787,7 @@ void HistoryService::NotifyURLsDeleted(const DeletionInfo& deletion_info) {
   }
 
   for (HistoryServiceObserver& observer : observers_)
-    observer.OnURLsDeleted(this, deletion_info);
+    observer.OnHistoryDeletions(this, deletion_info);
 }
 
 void HistoryService::NotifyHistoryServiceLoaded() {

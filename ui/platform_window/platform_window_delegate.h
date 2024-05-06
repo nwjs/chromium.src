@@ -208,11 +208,11 @@ class COMPONENT_EXPORT(PLATFORM_WINDOW) PlatformWindowDelegate {
   virtual void OnActivationChanged(bool active) = 0;
 
   // Requests size constraints for the PlatformWindow in DIP.
-  virtual std::optional<gfx::Size> GetMinimumSizeForWindow();
-  virtual std::optional<gfx::Size> GetMaximumSizeForWindow();
+  virtual std::optional<gfx::Size> GetMinimumSizeForWindow() const;
+  virtual std::optional<gfx::Size> GetMaximumSizeForWindow() const;
 
-  virtual bool CanMaximize();
-  virtual bool CanFullscreen();
+  virtual bool CanMaximize() const;
+  virtual bool CanFullscreen() const;
 
   // Returns a mask to be used to clip the window for the size of
   // |WindowTreeHost::GetBoundsInPixels|.
@@ -266,7 +266,7 @@ class COMPONENT_EXPORT(PLATFORM_WINDOW) PlatformWindowDelegate {
 
   // Convert gfx::Rect in pixels to DIP in screen, and vice versa.
   virtual gfx::Rect ConvertRectToPixels(const gfx::Rect& rect_in_dp) const;
-  virtual gfx::Rect ConvertRectToDIP(const gfx::Rect& rect_in_pixells) const;
+  virtual gfx::Rect ConvertRectToDIP(const gfx::Rect& rect_in_pixels) const;
 
   // Convert gfx::Point in screen pixels to dip in the window's local
   // coordinate.

@@ -129,6 +129,9 @@ public class PageInfoController
     // The controller for the cookies section of the page info.
     private PageInfoCookiesController mCookiesController;
 
+    // The controller for the tracking protection section of the page info. Replaces cookies.
+    private PageInfoTrackingProtectionController mTrackingProtectionController;
+
     // All subpage controllers.
     private Collection<PageInfoSubpageController> mSubpageControllers;
 
@@ -159,7 +162,8 @@ public class PageInfoController
         mContext = mWindowAndroid.getContext().get();
         mSubpageControllers = new ArrayList<>();
         // Work out the URL and connection message and status visibility.
-        // TODO(crbug.com/1033178): dedupe the DomDistillerUrlUtils#getOriginalUrlFromDistillerUrl()
+        // TODO(crbug.com/40663204): dedupe the
+        // DomDistillerUrlUtils#getOriginalUrlFromDistillerUrl()
         // calls.
         String url =
                 mDelegate.isShowingOfflinePage()
@@ -262,11 +266,18 @@ public class PageInfoController
                         mDelegate,
                         pageInfoHighlight.getHighlightedPermission());
         mSubpageControllers.add(mPermissionsController);
-        mCookiesController =
-                new PageInfoCookiesController(this, mView.getCookiesRowView(), mDelegate);
-        mSubpageControllers.add(mCookiesController);
+        if (mDelegate.showTrackingProtectionUI()) {
+            mTrackingProtectionController =
+                    new PageInfoTrackingProtectionController(
+                            this, mView.getCookiesRowView(), mDelegate);
+            mSubpageControllers.add(mTrackingProtectionController);
+        } else {
+            mCookiesController =
+                    new PageInfoCookiesController(this, mView.getCookiesRowView(), mDelegate);
+            mSubpageControllers.add(mCookiesController);
+        }
 
-        // TODO(crbug.com/1173154): Setup forget this site button after history delete is
+        // TODO(crbug.com/40746014): Setup forget this site button after history delete is
         // implemented.
         // setupForgetSiteButton(mView.getForgetSiteButton());
 
@@ -326,6 +337,10 @@ public class PageInfoController
         if (mCookiesController != null) {
             mCookiesController.destroy();
             mCookiesController = null;
+        }
+        if (mTrackingProtectionController != null) {
+            mTrackingProtectionController.destroy();
+            mTrackingProtectionController = null;
         }
         if (mForgetSiteDialog != null) {
             mForgetSiteDialog.dismiss();
@@ -493,6 +508,10 @@ public class PageInfoController
 
     public View getPageInfoViewForTesting() {
         return mContainer;
+    }
+
+    public PageInfoTrackingProtectionController getTrackingProtectionControllerForTesting() {
+        return mTrackingProtectionController;
     }
 
     public boolean isDialogShowingForTesting() {

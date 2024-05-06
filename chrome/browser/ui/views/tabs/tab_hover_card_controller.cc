@@ -201,7 +201,8 @@ class TabHoverCardController::EventSniffer : public ui::EventObserver {
 bool TabHoverCardController::disable_animations_for_testing_ = false;
 
 TabHoverCardController::TabHoverCardController(TabStrip* tab_strip)
-    : tab_strip_(tab_strip) {
+    : tab_strip_(tab_strip),
+      tab_resource_usage_collector_(TabResourceUsageCollector::Get()) {
   if (PrefService* pref_service = g_browser_process->local_state()) {
     // Hovercard image previews are still not fully rolled out to all platforms
     // so we default the pref to the state of the feature rollout.
@@ -395,7 +396,7 @@ void TabHoverCardController::ShowHoverCard(bool is_initial,
   // CreateHoverCard() above. Regardless, the validity needs to be checked
   // before the next call.
   // See: crbug.com/1295601, crbug.com/1322117, crbug.com/1348956
-  // TODO(crbug.com/1364303): look into this and figure out what is actually
+  // TODO(crbug.com/40865488): look into this and figure out what is actually
   // happening.
   if (!TargetTabIsValid()) {
     HideHoverCard();
@@ -447,7 +448,7 @@ void TabHoverCardController::HideHoverCard() {
 
 void TabHoverCardController::OnViewIsDeleting(views::View* observed_view) {
   if (hover_card_ == observed_view) {
-    TabResourceUsageCollector::Get()->RemoveObserver(this);
+    tab_resource_usage_collector_->RemoveObserver(this);
     delayed_show_timer_.Stop();
     hover_card_observation_.Reset();
     event_sniffer_.reset();
@@ -524,7 +525,7 @@ void TabHoverCardController::CreateHoverCard(Tab* tab) {
                             weak_ptr_factory_.GetWeakPtr()));
   }
 
-  TabResourceUsageCollector::Get()->AddObserver(this);
+  tab_resource_usage_collector_->AddObserver(this);
 }
 
 void TabHoverCardController::UpdateCardContent(Tab* tab) {

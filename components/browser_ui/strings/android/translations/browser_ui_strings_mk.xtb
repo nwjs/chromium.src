@@ -94,7 +94,6 @@
 <translation id="2501278716633472235">Врати се</translation>
 <translation id="2546283357679194313">Колачиња и податоци од сајтот</translation>
 <translation id="2550801787432930915">Картичка за намалување на цената</translation>
-<translation id="2569468611847789653">{COOKIE_COUNT,plural, =1{1 колаче е блокирано}one{# колаче е блокирано}other{# колачиња се блокирани}}</translation>
 <translation id="2570922361219980984">Пристапот до локацијата е исклучен и за уредов. Вклучете го во <ph name="BEGIN_LINK" />Поставки за Android<ph name="END_LINK" />.</translation>
 <translation id="257931822824936280">Проширено - кликни да се сокрие.</translation>
 <translation id="2586657967955657006">Табла со исечоци</translation>
@@ -177,6 +176,7 @@
 <translation id="3895926599014793903">Присилно овозможи зумирање</translation>
 <translation id="3908288065506437185">Блокирајте колачиња од трети страни во режимот „Инкогнито“</translation>
 <translation id="3918378745482005425">Некои функции можеби нема да функционираат. Сличните сајтови сепак може да користат колачиња од трети страни.</translation>
+<translation id="3933121352599513978">Соберете ги несаканите барања (препорачано)</translation>
 <translation id="3955193568934677022">Дозволете сајтовите да пуштаат заштитени содржини (се препорачува)</translation>
 <translation id="3967822245660637423">Преземањето е завршено</translation>
 <translation id="3974105241379491420">Сајтовите може да бараат да ги користат податоците што ги зачувале за вас</translation>
@@ -199,6 +199,7 @@
 <translation id="429312253194641664">Сајтот репродуцира аудиовизуелни содржини</translation>
 <translation id="42981349822642051">Прошири</translation>
 <translation id="4336566011000459927">Chrome пак ќе ограничи колачиња денес</translation>
+<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Вашата последна картичка</translation>
 <translation id="4338831206024587507">Сите сајтови под <ph name="DOMAIN" /></translation>
 <translation id="4402755511846832236">Не дозволувај сајтовите да знаат кога активно го користам уредов</translation>
 <translation id="4412992751769744546">Дозволи колачиња од трети лица</translation>
@@ -289,6 +290,7 @@
 <translation id="5853982612236235577">Кога е вклучено, сајтовите може да бараат да испраќаат известувања. Кога е исклучено, сајтовите не може да испраќаат известувања.</translation>
 <translation id="5860033963881614850">Исклучено</translation>
 <translation id="5876056640971328065">Паузирајте го видеото</translation>
+<translation id="5877248419911025165">Собирај ги сите барања</translation>
 <translation id="5884085660368669834">Поставки за сајтот</translation>
 <translation id="5887687176710214216">Последно посетено вчера</translation>
 <translation id="5916664084637901428">Вклучено</translation>
@@ -457,7 +459,6 @@
 <translation id="8441146129660941386">Барај поназад</translation>
 <translation id="8444433999583714703">За да овозможите <ph name="APP_NAME" /> да пристапува до вашата локација, вклучете ја дозволата за локацијата и во <ph name="BEGIN_LINK" />Поставки за Android<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Отповикај ја дозволата за пристап до уредот</translation>
-<translation id="8451050538944905715">{NUM_SELECTED,plural, =1{Се користи 1 колаче}one{Се користи # колаче}other{Се користат # колачиња}}</translation>
 <translation id="8487700953926739672">Достапно е исклучено од линија</translation>
 <translation id="848952951823693243">Секогаш барај сајт за мобилен</translation>
 <translation id="8499083585497694743">Вклучи го звукот на микрофонот</translation>
@@ -497,6 +498,7 @@
 <translation id="8959122750345127698">Навигацијата е недостапна: <ph name="URL" /></translation>
 <translation id="8986362086234534611">Заборави</translation>
 <translation id="8990043154272859344">Ќе ве одјавиме од сите сајтови</translation>
+<translation id="8993853206419610596">Проширете ги сите барања</translation>
 <translation id="9002538116239926534">Кога е вклучено, сајтовите може да зачувуваат податоци на уредот. Кога е исклучено, сајтовите не може да зачувуваат податоци на уредот.</translation>
 <translation id="9011903857143958461">Одобрено: <ph name="SITE_NAME" /></translation>
 <translation id="9019902583201351841">Управувано од вашите родители</translation>

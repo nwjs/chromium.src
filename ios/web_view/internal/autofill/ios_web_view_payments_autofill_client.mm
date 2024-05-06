@@ -23,7 +23,7 @@ IOSWebViewPaymentsAutofillClient::IOSWebViewPaymentsAutofillClient(
               base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
                   browser_state->GetURLLoaderFactory()),
               client->GetIdentityManager(),
-              client->GetPersonalDataManager(),
+              &client->GetPersonalDataManager()->payments_data_manager(),
               browser_state->IsOffTheRecord())) {}
 
 IOSWebViewPaymentsAutofillClient::~IOSWebViewPaymentsAutofillClient() = default;
@@ -41,6 +41,20 @@ void IOSWebViewPaymentsAutofillClient::CreditCardUploadCompleted(
 payments::PaymentsNetworkInterface*
 IOSWebViewPaymentsAutofillClient::GetPaymentsNetworkInterface() {
   return payments_network_interface_.get();
+}
+
+void IOSWebViewPaymentsAutofillClient::ShowUnmaskPrompt(
+    const CreditCard& card,
+    const CardUnmaskPromptOptions& card_unmask_prompt_options,
+    base::WeakPtr<CardUnmaskDelegate> delegate) {
+  [bridge_ showUnmaskPromptForCard:card
+           cardUnmaskPromptOptions:card_unmask_prompt_options
+                          delegate:delegate];
+}
+
+void IOSWebViewPaymentsAutofillClient::OnUnmaskVerificationResult(
+    AutofillClient::PaymentsRpcResult result) {
+  [bridge_ didReceiveUnmaskVerificationResult:result];
 }
 
 void IOSWebViewPaymentsAutofillClient::set_bridge(

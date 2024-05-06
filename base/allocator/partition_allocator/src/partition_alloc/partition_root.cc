@@ -45,6 +45,7 @@
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
+
 #include "wow64apiset.h"
 #endif
 
@@ -406,8 +407,11 @@ static size_t PartitionPurgeSlotSpan(PartitionRoot* root,
   uintptr_t slot_span_start = SlotSpanMetadata::ToSlotSpanStart(slot_span);
   // First, walk the freelist for this slot span and make a bitmap of which
   // slots are not in use.
+  const PartitionFreelistDispatcher* freelist_dispatcher =
+      root->get_freelist_dispatcher();
+
   for (PartitionFreelistEntry* entry = slot_span->get_freelist_head(); entry;
-       entry = entry->GetNext(slot_size)) {
+       entry = freelist_dispatcher->GetNext(entry, slot_size)) {
     size_t slot_number =
         bucket->GetSlotNumber(SlotStartPtr2Addr(entry) - slot_span_start);
     PA_DCHECK(slot_number < num_provisioned_slots);
@@ -418,7 +422,7 @@ static size_t PartitionPurgeSlotSpan(PartitionRoot* root,
     // return the original content or 0. (Note that this optimization won't be
     // effective on big-endian machines because the masking function is
     // negation.)
-    if (entry->IsEncodedNextPtrZero()) {
+    if (freelist_dispatcher->IsEncodedNextPtrZero(entry)) {
       last_slot = slot_number;
     }
 #endif
@@ -505,7 +509,7 @@ static size_t PartitionPurgeSlotSpan(PartitionRoot* root,
         auto* entry = static_cast<PartitionFreelistEntry*>(
             SlotStartAddr2Ptr(slot_span_start + (slot_size * slot_index)));
         if (num_new_freelist_entries) {
-          back->SetNext(entry);
+          freelist_dispatcher->SetNext(back, entry);
         } else {
           slot_span->SetFreelistHead(entry);
         }
@@ -519,7 +523,7 @@ static size_t PartitionPurgeSlotSpan(PartitionRoot* root,
           slot_span_start + (num_provisioned_slots * slot_size);
       bool skipped = false;
       for (PartitionFreelistEntry* entry = slot_span->get_freelist_head();
-           entry; entry = entry->GetNext(slot_size)) {
+           entry; entry = freelist_dispatcher->GetNext(entry, slot_size)) {
         uintptr_t entry_addr = SlotStartPtr2Addr(entry);
         if (entry_addr >= first_unprovisioned_slot) {
           skipped = true;
@@ -530,7 +534,7 @@ static size_t PartitionPurgeSlotSpan(PartitionRoot* root,
         // if no entry exists). Otherwise the link is already correct.
         if (skipped) {
           if (num_new_freelist_entries) {
-            back->SetNext(entry);
+            freelist_dispatcher->SetNext(back, entry);
           } else {
             slot_span->SetFreelistHead(entry);
           }
@@ -545,7 +549,7 @@ static size_t PartitionPurgeSlotSpan(PartitionRoot* root,
     if (straighten || unprovisioned_bytes) {
       if (num_new_freelist_entries) {
         PA_DCHECK(back);
-        PartitionFreelistEntry::EmplaceAndInitNull(back);
+        freelist_dispatcher->EmplaceAndInitNull(back);
 #if !BUILDFLAG(IS_WIN)
         // Memorize index of the last slot in the list, as it may be able to
         // participate in an optimization related to page discaring (below), due
@@ -1026,7 +1030,9 @@ void PartitionRoot::Init(PartitionOptions opts) {
 
     // brp_enabled() is not supported in the configurable pool because
     // BRP requires objects to be in a different Pool.
+#if BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
     PA_CHECK(!(settings.use_configurable_pool && brp_enabled()));
+#endif
 
 #if BUILDFLAG(ENABLE_THREAD_ISOLATION)
     // BRP and thread isolated mode use different pools, so they can't be
@@ -1045,19 +1051,9 @@ void PartitionRoot::Init(PartitionOptions opts) {
 
 #if BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
     if (brp_enabled()) {
-      size_t in_slot_metadata_size = internal::kInSlotMetadataSizeAdjustment;
-      in_slot_metadata_size =
-          internal::AlignUpInSlotMetadataSizeForApple(in_slot_metadata_size);
-#if PA_CONFIG(MAYBE_INCREASE_IN_SLOT_METADATA_SIZE_FOR_MTE)
-      // When MTE is enabled together with BRP (crbug.com/1445816) in the
-      // "previous slot" mode (note the brp_enabled() check above), there is a
-      // race that can be avoided by making in-slot metadata a multiple of the
-      // MTE granule and not tagging it.
-      if (IsMemoryTaggingEnabled() && !in_slot_metadata_in_same_slot_) {
-        in_slot_metadata_size = internal::base::bits::AlignUp(
-            in_slot_metadata_size, internal::kMemTagGranuleSize);
-      }
-#endif  // PA_CONFIG(MAYBE_INCREASE_IN_SLOT_METADATA_SIZE_FOR_MTE)
+      size_t in_slot_metadata_size =
+          internal::AlignUpInSlotMetadataSizeForApple(
+              internal::kInSlotMetadataSizeAdjustment);
       settings.in_slot_metadata_size = in_slot_metadata_size;
       PA_CHECK(internal::kInSlotMetadataSizeAdjustment <=
                in_slot_metadata_size);
@@ -1324,7 +1320,7 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
   if (slot_span->CanStoreRawSize()) {
 #if BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) && BUILDFLAG(PA_DCHECK_IS_ON)
     internal::InSlotMetadata* old_ref_count = nullptr;
-    if (brp_enabled()) {
+    if (PA_LIKELY(brp_enabled())) {
       old_ref_count = InSlotMetadataPointerFromSlotStartAndSize(
           slot_start, slot_span->bucket->slot_size);
     }
@@ -1333,7 +1329,7 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
     size_t new_raw_size = AdjustSizeForExtrasAdd(new_size);
     slot_span->SetRawSize(new_raw_size);
 #if BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) && BUILDFLAG(PA_DCHECK_IS_ON)
-    if (brp_enabled()) {
+    if (PA_LIKELY(brp_enabled())) {
       internal::InSlotMetadata* new_ref_count =
           InSlotMetadataPointerFromSlotStartAndSize(
               slot_start, slot_span->bucket->slot_size);
@@ -1716,6 +1712,20 @@ void PartitionRoot::SetSortSmallerSlotSpanFreeListsEnabled(bool new_value) {
 void PartitionRoot::SetSortActiveSlotSpansEnabled(bool new_value) {
   sort_active_slot_spans_ = new_value;
 }
+
+#if BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+PA_NOINLINE void PartitionRoot::QuarantineForBrp(
+    const SlotSpanMetadata* slot_span,
+    void* object) {
+  auto usable_size = GetSlotUsableSize(slot_span);
+  auto hook = PartitionAllocHooks::GetQuarantineOverrideHook();
+  if (PA_UNLIKELY(hook)) {
+    hook(object, usable_size);
+  } else {
+    internal::SecureMemset(object, internal::kQuarantinedByte, usable_size);
+  }
+}
+#endif  // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 
 // Explicitly define common template instantiations to reduce compile time.
 #define EXPORT_TEMPLATE \

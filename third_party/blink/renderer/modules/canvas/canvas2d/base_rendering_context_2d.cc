@@ -44,7 +44,6 @@
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/paint/filter_effect_builder.h"
-#include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_color_cache.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_filter.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_filter_operation_resolver.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_pattern.h"
@@ -59,15 +58,21 @@
 #include "third_party/blink/renderer/modules/webgpu/dawn_conversions.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_device.h"
+#include "third_party/blink/renderer/modules/webgpu/gpu_texture.h"
+#include "third_party/blink/renderer/modules/webgpu/gpu_texture_usage.h"
 #include "third_party/blink/renderer/platform/bindings/string_resource.h"
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
 #include "third_party/blink/renderer/platform/graphics/filters/paint_filter_builder.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/webgpu_mailbox_texture.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/image_data_buffer.h"
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
+#include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/stroke_data.h"
 #include "third_party/blink/renderer/platform/graphics/video_frame_image_util.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -134,13 +139,11 @@ BaseRenderingContext2D::BaseRenderingContext2D(
           this,
           &BaseRenderingContext2D::TryRestoreContextEvent),
       clip_antialiasing_(kNotAntiAliased),
-      origin_tainted_by_content_(false),
       path2d_use_paint_cache_(
           base::FeatureList::IsEnabled(features::kPath2DPaintCache)
               ? UsePaintCache::kEnabled
               : UsePaintCache::kDisabled) {
   state_stack_.push_back(MakeGarbageCollected<CanvasRenderingContext2DState>());
-  color_cache_ = CanvasColorCache::Create();
 }
 
 BaseRenderingContext2D::~BaseRenderingContext2D() {
@@ -381,7 +384,7 @@ void BaseRenderingContext2D::endLayer(ExceptionState& exception_state) {
 }
 
 void BaseRenderingContext2D::PopAndRestore(cc::PaintCanvas& canvas) {
-  if (IsTransformInvertible()) {
+  if (IsTransformInvertible() && !GetState().GetTransform().IsIdentity()) {
     GetModifiablePath().Transform(GetState().GetTransform());
   }
 
@@ -396,7 +399,7 @@ void BaseRenderingContext2D::PopAndRestore(cc::PaintCanvas& canvas) {
   state.ClearResolvedFilter();
 
   SetIsTransformInvertible(state.IsTransformInvertible());
-  if (IsTransformInvertible()) {
+  if (IsTransformInvertible() && !GetState().GetTransform().IsIdentity()) {
     GetModifiablePath().Transform(state.GetTransform().Inverse());
   }
 }
@@ -497,6 +500,13 @@ void BaseRenderingContext2D::ResetInternal() {
     recorder->RestartRecording();
   }
 
+  // If we are in WebGPU access, orphan the texture. The canvas no longer needs
+  // it, but the Javascript program can continue using the texture indefinitely.
+  // The texture will eventually be garbage collected when there are no more
+  // Javascript references. From the canvas' perspective, nulling out this
+  // texture effectively ends the WebGPU access session.
+  webgpu_access_texture_ = nullptr;
+
   // Clear the frame in case a flush previously drew to the canvas surface.
   if (cc::PaintCanvas* c = GetPaintCanvas()) {
     int width = Width();  // Keeping results to avoid repetitive virtual calls.
@@ -560,32 +570,26 @@ void BaseRenderingContext2D::
   }
 }
 
-bool BaseRenderingContext2D::ExtractColorFromV8ValueAndUpdateCache(
-    const V8CanvasStyle& v8_style,
+bool BaseRenderingContext2D::ExtractColorFromStringAndUpdateCache(
+    const AtomicString& string,
     Color& color) {
   // This should only be called for string styles.
-  DCHECK_EQ(v8_style.type, V8CanvasStyleType::kString);
-  if (color_cache_) {
-    const CachedColor* cached_color =
-        color_cache_->GetCachedColor(v8_style.string);
-    if (cached_color) {
-      if (cached_color->parse_result == ColorParseResult::kColor) {
-        color = cached_color->color;
-        return true;
-      }
-      if (cached_color->parse_result == ColorParseResult::kCurrentColor) {
-        color = GetCurrentColor();
-        return true;
-      }
-      DCHECK_EQ(cached_color->parse_result, ColorParseResult::kParseFailed);
-      return false;
+  auto iter = color_cache_.Get(string);
+  if (iter != color_cache_.end()) {
+    const CachedColor& cached_color = iter->second;
+    if (cached_color.parse_result == ColorParseResult::kColor) {
+      color = cached_color.color;
+      return true;
     }
+    if (cached_color.parse_result == ColorParseResult::kCurrentColor) {
+      color = GetCurrentColor();
+      return true;
+    }
+    DCHECK_EQ(cached_color.parse_result, ColorParseResult::kParseFailed);
+    return false;
   }
-  const ColorParseResult parse_result =
-      ParseColorOrCurrentColor(v8_style.string, color);
-  if (color_cache_) {
-    color_cache_->SetCachedColor(v8_style.string, color, parse_result);
-  }
+  const ColorParseResult parse_result = ParseColorOrCurrentColor(string, color);
+  color_cache_.Put(string, CachedColor(color, parse_result));
   return parse_result != ColorParseResult::kParseFailed;
 }
 
@@ -617,7 +621,8 @@ void BaseRenderingContext2D::setStrokeStyle(v8::Isolate* isolate,
         return;
       }
       Color parsed_color = Color::kTransparent;
-      if (!ExtractColorFromV8ValueAndUpdateCache(v8_style, parsed_color)) {
+      if (!ExtractColorFromStringAndUpdateCache(v8_style.string,
+                                                parsed_color)) {
         return;
       }
       if (state.StrokeStyle().IsEquivalentColor(parsed_color)) {
@@ -703,7 +708,8 @@ void BaseRenderingContext2D::setFillStyle(v8::Isolate* isolate,
         return;
       }
       Color parsed_color = Color::kTransparent;
-      if (!ExtractColorFromV8ValueAndUpdateCache(v8_style, parsed_color)) {
+      if (!ExtractColorFromStringAndUpdateCache(v8_style.string,
+                                                parsed_color)) {
         return;
       }
       if (state.FillStyle().IsEquivalentColor(parsed_color)) {
@@ -1244,6 +1250,38 @@ void BaseRenderingContext2D::DrawPathInternal(
                       SkFloatToScalar(line.start.y()),
                       SkFloatToScalar(line.end.x()),
                       SkFloatToScalar(line.end.y()), *flags);
+        },
+        [](const SkIRect& rect)  // overdraw test lambda
+        { return false; },
+        bounds, paint_type,
+        GetState().HasPattern(paint_type)
+            ? CanvasRenderingContext2DState::kNonOpaqueImage
+            : CanvasRenderingContext2DState::kNoImage,
+        CanvasPerformanceMonitor::DrawType::kPath);
+    return;
+  }
+
+  if (path.IsArc()) {
+    const auto& arc = path.arc();
+    const SkScalar x = WebCoreFloatToSkScalar(arc.x);
+    const SkScalar y = WebCoreFloatToSkScalar(arc.y);
+    const SkScalar radius = WebCoreFloatToSkScalar(arc.radius);
+    const SkScalar diameter = radius + radius;
+    const SkRect oval =
+        SkRect::MakeXYWH(x - radius, y - radius, diameter, diameter);
+    const SkScalar start_degrees =
+        WebCoreFloatToSkScalar(arc.start_angle_radians * 180 / kPiFloat);
+    const SkScalar sweep_degrees =
+        WebCoreFloatToSkScalar(arc.sweep_angle_radians * 180 / kPiFloat);
+    const bool closed = arc.closed;
+    Draw<OverdrawOp::kNone>(
+        [oval, start_degrees, sweep_degrees, closed](
+            cc::PaintCanvas* c,
+            const cc::PaintFlags* flags)  // draw lambda
+        {
+          cc::PaintFlags arc_paint_flags(*flags);
+          arc_paint_flags.setArcClosed(closed);
+          c->drawArc(oval, start_degrees, sweep_degrees, arc_paint_flags);
         },
         [](const SkIRect& rect)  // overdraw test lambda
         { return false; },
@@ -2759,6 +2797,7 @@ void BaseRenderingContext2D::Trace(Visitor* visitor) const {
   visitor->Trace(dispatch_context_lost_event_timer_);
   visitor->Trace(dispatch_context_restored_event_timer_);
   visitor->Trace(try_restore_context_event_timer_);
+  visitor->Trace(webgpu_access_texture_);
   CanvasPath::Trace(visitor);
 }
 
@@ -3353,27 +3392,149 @@ V8GPUTextureFormat BaseRenderingContext2D::getTextureFormat() const {
 }
 
 GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
-    const CanvasWebGPUAccessOption* accessOptions,
+    const CanvasWebGPUAccessOption* access_options,
     ExceptionState& exception_state) {
   if (!OriginClean()) {
     exception_state.ThrowSecurityError(
         "The canvas has been tainted by cross-origin data.");
     return nullptr;
   }
-  GPUDevice* device = accessOptions->getDeviceOr(nullptr);
-  if (!device) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        "Called `beginWebGPUAccess` without a device");
+
+  blink::GPUDevice* blink_device = access_options->getDeviceOr(nullptr);
+  if (!blink_device) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "GPUDevice cannot be null.");
     return nullptr;
   }
 
-  // TODO(crbug.com/1517367): implement
-  return nullptr;
+  // Prevent unbalanced calls to beginWebGPUAccess without a later call to
+  // endWebGPUAccess.
+  if (webgpu_access_texture_) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "This canvas is already in use by WebGPU.");
+    return nullptr;
+  }
+
+  // We can't rely on the HTMLCanvasElement, because the canvas may not actually
+  // exist in the HTML. (e.g. `new OffscreenCanvas` has no HTML element.)
+  // We also can't use GetImage() here, because that will return null if the
+  // canvas is brand new. We always want an image, even if the canvas doesn't
+  // have a bridge yet.
+  FinalizeFrame(FlushReason::kWebGPUTexture);
+  CanvasRenderingContextHost* host = GetCanvasRenderingContextHost();
+  scoped_refptr<StaticBitmapImage> image =
+      host->GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)
+          ->Snapshot(FlushReason::kWebGPUTexture);
+  if (!image) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Unable to access canvas image.");
+    return nullptr;
+  }
+
+  SkImageInfo image_info = image->GetSkImageInfo();
+  constexpr WGPUTextureUsage kUsage = static_cast<WGPUTextureUsage>(
+      WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopySrc |
+      WGPUTextureUsage_CopyDst | WGPUTextureUsage_RenderAttachment);
+  scoped_refptr<WebGPUMailboxTexture> texture =
+      WebGPUMailboxTexture::FromStaticBitmapImage(
+          blink_device->GetDawnControlClient(), blink_device->GetHandle(),
+          kUsage, image, image_info,
+          gfx::Rect(image_info.width(), image_info.height()),
+          /*is_dummy_mailbox_texture=*/false);
+  if (!texture) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Unable to access canvas texture.");
+    return nullptr;
+  }
+
+  webgpu_access_texture_ = MakeGarbageCollected<GPUTexture>(
+      blink_device, AsDawnType(image_info.colorType()), kUsage,
+      std::move(texture), access_options->getLabelOr(String()));
+
+  return webgpu_access_texture_;
 }
 
-void BaseRenderingContext2D::endWebGPUAccess(ExceptionState&) {
-  // TODO(crbug.com/1517367): implement
+bool BaseRenderingContext2D::CopyGPUTextureToResourceProvider(
+    GPUTexture& texture,
+    CanvasResourceProvider& resource_provider) {
+  // Get the GPU mailbox associated with the WebGPU access texture. This texture
+  // always originates from `beginWebGPUAccess`, so we should always find a
+  // shared-image mailbox here.
+  scoped_refptr<WebGPUMailboxTexture> mailbox_texture =
+      texture.GetMailboxTexture();
+  CHECK(mailbox_texture);
+
+  const gpu::Mailbox& mailbox = mailbox_texture->GetMailbox();
+  CHECK(mailbox.IsSharedImage());
+
+  // Dissociating the mailbox texture from WebGPU forces the GPU queue to drain,
+  // and yields a sync token for OverwriteImage.
+  gpu::SyncToken ready_sync_token = mailbox_texture->Dissociate();
+  if (!ready_sync_token.HasData()) {
+    return false;
+  }
+
+  // Overwrite the resource provider's shared image with the WebGPU texture.
+  const bool unpack_flip_y = !resource_provider.IsOriginTopLeft();
+  gfx::Rect copy_rect(texture.width(), texture.height());
+
+  gpu::SyncToken completion_sync_token;
+  if (!resource_provider.OverwriteImage(mailbox, copy_rect, unpack_flip_y,
+                                        /*unpack_premultiply_alpha=*/false,
+                                        ready_sync_token,
+                                        completion_sync_token)) {
+    return false;
+  }
+
+  // Ensure that the mailbox texture lives until OverwriteImage fully completes.
+  // Note that `mailbox_texture->Dissociate` above has already set a completion
+  // sync token on the mailbox texture (our `ready_sync_token`), but we are
+  // deliberately replacing it here with a newer sync token that also includes
+  // completion of the image overwrite operation.
+  mailbox_texture->SetCompletionSyncToken(completion_sync_token);
+  return true;
+}
+
+void BaseRenderingContext2D::endWebGPUAccess(ExceptionState& exception_state) {
+  // If the context is lost or doesn't exist, this call should be a no-op.
+  // We don't want to throw an exception or attempt any changes if
+  // `endWebGPUAccess` is called during teardown.
+  CanvasRenderingContextHost* host = GetCanvasRenderingContextHost();
+  if (UNLIKELY(!host) || UNLIKELY(isContextLost())) {
+    return;
+  }
+
+  // Get the CanvasResourceProvider of this canvas. As above, if the canvas
+  // resource provider doesn't exist, this call becomes a no-op.
+  CanvasResourceProvider* resource_provider =
+      host->GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
+  if (UNLIKELY(!resource_provider)) {
+    return;
+  }
+
+  // Prevent unbalanced calls to endWebGPUAccess without an earlier call to
+  // beginWebGPUAccess.
+  if (!webgpu_access_texture_) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "This canvas is not currently in use by WebGPU.");
+    return;
+  }
+
+  // Copy the contents of the GPUTexture into this ResourceProvider.
+  if (!CopyGPUTextureToResourceProvider(*webgpu_access_texture_,
+                                        *resource_provider)) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Unable to replace canvas image.");
+  }
+
+  // Destroy the WebGPU texture to prevent it from being used after
+  // endWebGPUAccess.
+  webgpu_access_texture_->destroy();
+
+  // We are finished with the WebGPU texture and its associated device.
+  webgpu_access_texture_ = nullptr;
 }
 
 }  // namespace blink

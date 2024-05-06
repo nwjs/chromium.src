@@ -405,6 +405,7 @@ class NATIVE_THEME_EXPORT NativeTheme {
       const gfx::Rect& rect,
       const ExtraParams& extra,
       ColorScheme color_scheme = ColorScheme::kDefault,
+      bool in_forced_colors = false,
       const std::optional<SkColor>& accent_color = std::nullopt) const = 0;
 
   // Returns whether the theme uses a nine-patch resource for the given part.
@@ -565,13 +566,6 @@ class NATIVE_THEME_EXPORT NativeTheme {
   bool should_use_system_accent_color() const {
     return should_use_system_accent_color_;
   }
-
-  // TODO(crbug.com/40779801): Remove this when we use the forced colors web
-  // setting in Blink.
-  // Updates the state of dark mode, forced colors mode, and the map of system
-  // colors. Returns true if NativeTheme was updated as a result, or false if
-  // the state of NativeTheme was untouched.
-  bool UpdateSystemColorInfo(bool is_dark_mode, bool forced_colors);
 
   // On certain platforms, currently only Mac, there is a unique visual for
   // pressed states.

@@ -30,6 +30,8 @@
 #include "components/url_formatter/url_formatter.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/omnibox_proto/groups.pb.h"
+#include "third_party/omnibox_proto/navigational_intent.pb.h"
+#include "third_party/omnibox_proto/rich_answer_template.pb.h"
 #include "third_party/omnibox_proto/types.pb.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "ui/base/page_transition_types.h"
@@ -263,8 +265,14 @@ struct AutocompleteMatch {
 #endif
 
 #if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !BUILDFLAG(IS_IOS)
+  // TODO(b/327497146) Migrate SuggestionAnswer::AnswerType to
+  // omnibox::RichAnswerTemplate::AnswerType and remove function.
   // Converts SuggestionAnswer::AnswerType to an answer vector icon.
-  static const gfx::VectorIcon& AnswerTypeToAnswerIcon(int type);
+  static const gfx::VectorIcon& AnswerTypeToAnswerIconDeprecated(int type);
+
+  // Converts omnibox::RichAnswerTemplate::AnswerType to an answer vector icon.
+  static const gfx::VectorIcon& AnswerTypeToAnswerIcon(
+      omnibox::RichAnswerTemplate::AnswerType type);
 
   // Gets the vector icon identifier for the icon to be shown for this match. If
   // `is_bookmark` is true, returns a bookmark icon rather than what the type
@@ -335,6 +343,9 @@ struct AutocompleteMatch {
   // built-in provider. This is the suggestion that the starter pack keyword
   // mode chips attach to.
   static bool IsStarterPackType(Type type);
+
+  // Returns whether this match is a Clipboard suggestion.
+  static bool IsClipboardType(Type type);
 
   // Convenience function to check if |type| is one of the suggest types we
   // need to skip for search vs url partitions - url, text or image in the
@@ -653,6 +664,11 @@ struct AutocompleteMatch {
   // supply matches with appropriate relevance.
   int relevance = 0;
 
+  // The "navigational intent" of this match. In other words, the likelihood
+  // that the user intends to navigate to a specific place by making use of
+  // this match.
+  omnibox::NavigationalIntent navigational_intent{omnibox::NAV_INTENT_NONE};
+
   // How many times this result was typed in / selected from the omnibox.
   // Only set for some providers and result_types.  If it is not set,
   // its value is -1.  At the time of writing this comment, it is only
@@ -776,6 +792,8 @@ struct AutocompleteMatch {
 
   // A rich-format version of the display for the dropdown.
   std::optional<SuggestionAnswer> answer;
+
+  std::optional<omnibox::RichAnswerTemplate> answer_template;
 
   // The transition type to use when the user opens this match.  By default,
   // this is TYPED.  Providers whose matches do not look like URLs should set

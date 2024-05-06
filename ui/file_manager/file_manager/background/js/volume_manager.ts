@@ -122,7 +122,7 @@ export async function createVolumeInfo(
         // we just pass a onSuccess function to it, because we don't want to it
         // to interfere the startup time.
         volumeInfo.resolveDisplayRoot(() => {
-          getStore().dispatch(addVolume({volumeMetadata, volumeInfo}));
+          getStore().dispatch(addVolume(volumeInfo, volumeMetadata));
         });
         return volumeInfo;
       })
@@ -493,7 +493,7 @@ export class VolumeManager extends FilesEventTarget<VolumeManagerEventMap> {
             } else {
               console.debug(`Unmounted '${volumeId}'`);
             }
-            getStore().dispatch(removeVolume({volumeId}));
+            getStore().dispatch(removeVolume(volumeId));
             this.volumeInfoList.remove(volumeId);
             this.finishRequest_(requestKey, volumeError);
             return;
@@ -775,12 +775,12 @@ export class VolumeManager extends FilesEventTarget<VolumeManagerEventMap> {
 
   /**
    * Obtains the default display root entry.
-   * @param callback Callback passed the default display root.
+   * @returns Default display root promise, fulfilled when resolved
+   *     successfully.
    */
-  getDefaultDisplayRoot(
-      callback: ((arg0: DirectoryEntry|FilesAppDirEntry|null) => void)) {
+  async getDefaultDisplayRoot(): Promise<DirectoryEntry|FilesAppDirEntry|null> {
     console.warn('Unexpected call to VolumeManager.getDefaultDisplayRoot');
-    callback(null);
+    return null;
   }
 
   /**

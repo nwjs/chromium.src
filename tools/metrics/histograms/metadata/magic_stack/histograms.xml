@@ -130,8 +130,24 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.RemoveModule"
+    name="MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.RemoveModule."
     enum="ModuleType" expires_after="2024-06-20">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Record the total count that the context menu item to remove a module is
+    clicked. The histogram is logged on a {ModuleDelegateHost} and is logged
+    Android-only.
+
+    Deprecated on 2024-04-10; prefer
+    MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.RemoveModuleV2.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+</histogram>
+
+<histogram
+    name="MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.RemoveModuleV2"
+    enum="ModuleType" expires_after="2024-09-22">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -142,8 +158,23 @@ chromium-metrics-reviews@google.com.
   <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
 </histogram>
 
-<histogram name="MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.Shown"
+<histogram name="MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.Shown."
     enum="ModuleType" expires_after="2024-06-20">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Record the total count of times that the context menu of a module is shown
+    on the magic stack of a {ModuleDelegateHost}. The histogram is logged on
+    Android-only.
+
+    Deprecated on 2024-04-10; prefer
+    MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.ShownV2.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+</histogram>
+
+<histogram name="MagicStack.Clank.{ModuleDelegateHost}.ContextMenu.ShownV2"
+    enum="ModuleType" expires_after="2024-09-22">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -156,28 +187,46 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="MagicStack.Clank.{ModuleDelegateHost}.Module.Build.{ModuleType}.{ModulePosition}"
-    units="count" expires_after="2024-06-20">
+    units="count" expires_after="2024-09-22">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
     Records the type and position of the module when the home modules are added
     to the magic stack. The histogram is logged when showing the magic stack on
     {ModuleDelegateHost}, Android-only.
+
+    Deprecated on 2024-04-11, prefer
+    MagicStack.Clank.{ModuleDelegateHost}.Module.{ModuleType}.Build.
   </summary>
   <token key="ModuleType" variants="ModuleType"/>
   <token key="ModulePosition" variants="ModulePosition"/>
   <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
 </histogram>
 
+<histogram name="MagicStack.Clank.{ModuleDelegateHost}.Module.Click"
+    enum="ModuleType" expires_after="2024-09-22">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Record the total count of clicks on different modules of the magic stack on
+    the {ModuleDelegateHost}. The histogram is logged every time when a module
+    is clicked, Android-only.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+</histogram>
+
 <histogram
     name="MagicStack.Clank.{ModuleDelegateHost}.Module.Click.{ModuleType}.{ModulePosition}"
-    units="count" expires_after="2024-06-20">
+    units="count" expires_after="2024-09-22">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
     Records the type and position of the module when the home modules are
     clicked. The histogram is logged when showing the magic stack on
     {ModuleDelegateHost}, Android-only.
+
+    Deprecated on 2024-04-11, prefer
+    MagicStack.Clank.{ModuleDelegateHost}.Module.{ModuleType}.Click.
   </summary>
   <token key="ModuleType" variants="ModuleType"/>
   <token key="ModulePosition" variants="ModulePosition"/>
@@ -214,7 +263,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="MagicStack.Clank.{ModuleDelegateHost}.Module.FetchDataTimeoutDurationMs.{ModuleType}"
-    units="ms" expires_after="2024-06-20">
+    units="ms" expires_after="2024-09-15">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -227,8 +276,24 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="MagicStack.Clank.{ModuleDelegateHost}.Module.FetchDataTimeoutType"
+    name="MagicStack.Clank.{ModuleDelegateHost}.Module.FetchDataTimeoutType."
     enum="ModuleType" expires_after="2024-06-20">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Records the types of modules which didn't respond before the timer timeout.
+    The histogram is logged when showing the magic stack on
+    {ModuleDelegateHost}, Android-only.
+
+    Deprecated on 2024-04-10; prefer
+    MagicStack.Clank.{ModuleDelegateHost}.Module.FetchDataTimeoutTypeV2.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+</histogram>
+
+<histogram
+    name="MagicStack.Clank.{ModuleDelegateHost}.Module.FetchDataTimeoutTypeV2"
+    enum="ModuleType" expires_after="2024-09-22">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -266,8 +331,22 @@ chromium-metrics-reviews@google.com.
   <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
 </histogram>
 
-<histogram name="MagicStack.Clank.{ModuleDelegateHost}.Module.TopImpression"
+<histogram name="MagicStack.Clank.{ModuleDelegateHost}.Module.TopImpression."
     enum="ModuleType" expires_after="2024-06-20">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Record the total count of times that a module is shown on the magic stack of
+    a {ModuleDelegateHost}. The histogram is logged on Android-only.
+
+    Deprecated on 2024-04-10; prefer
+    MagicStack.Clank.{ModuleDelegateHost}.Module.TopImpressionV2.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+</histogram>
+
+<histogram name="MagicStack.Clank.{ModuleDelegateHost}.Module.TopImpressionV2"
+    enum="ModuleType" expires_after="2024-09-22">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -275,6 +354,46 @@ chromium-metrics-reviews@google.com.
     a {ModuleDelegateHost}. The histogram is logged on Android-only.
   </summary>
   <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+</histogram>
+
+<histogram
+    name="MagicStack.Clank.{ModuleDelegateHost}.Module.{ModuleType}.Build"
+    enum="ModulePosition" expires_after="2024-09-22">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Records the type and position of a module when it is added to the magic
+    stack of a {ModuleDelegateHost}, Android-only.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+  <token key="ModuleType" variants="ModuleType"/>
+</histogram>
+
+<histogram
+    name="MagicStack.Clank.{ModuleDelegateHost}.Module.{ModuleType}.Click"
+    enum="ModulePosition" expires_after="2024-09-22">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Records the type and position of a module when it is clicked by users on the
+    magic stack of a {ModuleDelegateHost}, Android-only.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+  <token key="ModuleType" variants="ModuleType"/>
+</histogram>
+
+<histogram
+    name="MagicStack.Clank.{ModuleDelegateHost}.Module.{ModuleType}.Impression"
+    enum="ModulePosition" expires_after="2024-09-22">
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <summary>
+    Records the type and position of a module when it is visible to users on the
+    magic stack of a {ModuleDelegateHost}. The histogram is logged on
+    Android-only.
+  </summary>
+  <token key="ModuleDelegateHost" variants="ModuleDelegateHost"/>
+  <token key="ModuleType" variants="ModuleType"/>
 </histogram>
 
 <histogram name="MagicStack.Clank.{ModuleDelegateHost}.NotScrollable"

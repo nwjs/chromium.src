@@ -214,10 +214,10 @@ class DCompPresenterTest : public testing::Test {
     // These tests are assumed to run on battery.
     fake_power_monitor_source_.SetOnBatteryPower(true);
 
-    presenter_ = CreateDCompPresenter();
-
     // All bots run on non-blocklisted hardware that supports DComp (>Win7)
     ASSERT_TRUE(DirectCompositionSupported());
+
+    presenter_ = CreateDCompPresenter();
 
     SetDirectCompositionScaledOverlaysSupportedForTesting(false);
     SetDirectCompositionOverlayFormatUsedForTesting(DXGI_FORMAT_NV12);
@@ -238,7 +238,6 @@ class DCompPresenterTest : public testing::Test {
     DCompPresenter::Settings settings;
     scoped_refptr<DCompPresenter> presenter =
         base::MakeRefCounted<DCompPresenter>(settings);
-    EXPECT_TRUE(presenter->Initialize());
 
     // ImageTransportSurfaceDelegate::AddChildWindowToBrowser() is called in
     // production code here. However, to remove dependency from
@@ -262,7 +261,7 @@ class DCompPresenterTest : public testing::Test {
     params->z_order = 0;
     params->quad_rect = gfx::Rect(window_size);
     params->overlay_image = CreateDCompSurface(window_size, initial_color);
-    EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(params)));
+    presenter_->ScheduleDCLayer(std::move(params));
   }
 
   // Wait for |presenter_| to present asynchronously check the swap result.
@@ -549,7 +548,6 @@ TEST_F(DCompPresenterTest, ProtectedVideos) {
 TEST_F(DCompPresenterTest, NoBackgroundColorSurfaceForNonColorOverlays) {
   const gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   auto root_surface =
       CreateParamsFromImage(CreateDCompSurface(window_size, SkColors::kBlack));
@@ -567,7 +565,6 @@ TEST_F(DCompPresenterTest, NoBackgroundColorSurfaceForNonColorOverlays) {
 TEST_F(DCompPresenterTest, BackgroundColorSurfaceTrim) {
   const gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   const DCLayerTree* layer_tree = presenter_->GetLayerTreeForTesting();
 
@@ -609,7 +606,6 @@ TEST_F(DCompPresenterTest, BackgroundColorSurfaceTrim) {
 TEST_F(DCompPresenterTest, BackgroundColorSurfaceMultipleReused) {
   const gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   std::vector<SkColor4f> colors = {SkColors::kRed, SkColors::kGreen};
   std::vector<IDCompositionSurface*> surfaces_frame1(2, nullptr);
@@ -668,7 +664,6 @@ TEST_F(DCompPresenterTest, BackgroundColorSurfaceMultipleReused) {
 // TODO(crbug.com/1519186): Change this test to check whether delegated
 // ink still works when root_surface_visual does not exist.
 TEST_F(DCompPresenterTest, BuildTreeNoCrashWithRootSurfaceVisualNull) {
-  DCHECK(base::FeatureList::IsEnabled(features::kDCompVisualTreeOptimization));
   std::unique_ptr<gfx::DelegatedInkMetadata> metadata =
       std::make_unique<gfx::DelegatedInkMetadata>(
           gfx::PointF(12, 12), /*diameter=*/3, SK_ColorBLACK,
@@ -682,8 +677,7 @@ TEST_F(DCompPresenterTest, BuildTreeNoCrashWithRootSurfaceVisualNull) {
   }
   layer_tree->SetDelegatedInkTrailStartPoint(std::move(metadata));
 
-  EXPECT_FALSE(layer_tree->HasPendingOverlaysForTesting());
-  EXPECT_TRUE(layer_tree->CommitAndClearPendingOverlays(nullptr));
+  EXPECT_TRUE(layer_tree->CommitAndClearPendingOverlays({}));
 }
 
 class DCompPresenterPixelTest : public DCompPresenterTest {
@@ -739,7 +733,6 @@ class DCompPresenterPixelTest : public DCompPresenterTest {
     const gfx::Size window_size(100, 100);
 
     EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-    EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
     InitializeRootAndScheduleRootSurface(window_size, SkColors::kBlack);
 
@@ -815,7 +808,6 @@ class DCompPresenterPixelTest : public DCompPresenterTest {
     EXPECT_TRUE(gfx::Rect(window_size).Contains(root_surface_hole));
 
     EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-    EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
     auto root_surface = CreateParamsFromImage(
         CreateDCompSurface(window_size, kRootSurfaceInitialColor,
@@ -1003,7 +995,6 @@ TEST_F(DCompPresenterPixelTest, SkipVideoLayerEmptyContentsRect) {
 
   gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   InitializeRootAndScheduleRootSurface(window_size, SkColors::kBlack);
 
@@ -1151,7 +1142,6 @@ TEST_F(DCompPresenterPixelTest, ResizeVideoLayer) {
 
   gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   InitializeRootAndScheduleRootSurface(window_size, SkColors::kBlack);
 
@@ -1323,7 +1313,6 @@ TEST_F(DCompPresenterPixelTest, SwapChainImage) {
 
   gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   InitializeRootAndScheduleRootSurface(window_size, SkColors::kBlack);
 
@@ -1428,7 +1417,6 @@ TEST_F(DCompPresenterPixelTest, QuadOffsetAppliedAfterTransform) {
 
   gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   InitializeRootAndScheduleRootSurface(window_size, SkColors::kBlack);
 
@@ -1570,7 +1558,6 @@ TEST_F(DCompPresenterPixelTest, ContentRectClipsAndScalesBuffer) {
 TEST_F(DCompPresenterPixelTest, BackgroundColorSurfaceReuse) {
   const gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   SkColor4f colors[] = {
       SkColors::kRed,    SkColors::kGreen, SkColors::kBlue,
@@ -1649,7 +1636,6 @@ class DCompPresenterSkiaGoldTest : public DCompPresenterPixelTest {
 
   void ResizeWindow(const gfx::Size& window_size) {
     EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-    EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
     window_size_ = window_size;
   }
 
@@ -1740,7 +1726,7 @@ TEST_F(DCompPresenterSkiaGoldTest, TransformTranslate) {
 
   overlay->transform.Translate(25, 25);
 
-  EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(overlay)));
+  presenter_->ScheduleDCLayer(std::move(overlay));
 
   PresentAndCheckScreenshot();
 }
@@ -1760,7 +1746,7 @@ TEST_F(DCompPresenterSkiaGoldTest, TransformScale) {
   overlay->transform.Scale(1.2);
   overlay->transform.Translate(-25, -25);
 
-  EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(overlay)));
+  presenter_->ScheduleDCLayer(std::move(overlay));
 
   PresentAndCheckScreenshot();
 }
@@ -1781,7 +1767,7 @@ TEST_F(DCompPresenterSkiaGoldTest, TransformRotation) {
   overlay->transform.Rotate(15);
   overlay->transform.Translate(-25, -25);
 
-  EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(overlay)));
+  presenter_->ScheduleDCLayer(std::move(overlay));
 
   PresentAndCheckScreenshot();
 }
@@ -1806,7 +1792,7 @@ TEST_F(DCompPresenterSkiaGoldTest, Transform3D) {
   overlay->transform.RotateAboutXAxis(30);
   overlay->transform.Translate(-25, -25);
 
-  EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(overlay)));
+  presenter_->ScheduleDCLayer(std::move(overlay));
 
   PresentAndCheckScreenshot();
 }
@@ -1825,7 +1811,7 @@ TEST_F(DCompPresenterSkiaGoldTest, TransformShear) {
   overlay->transform.Translate(50, 50);
   overlay->transform.Skew(15, 30);
   overlay->transform.Translate(-25, -25);
-  EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(overlay)));
+  presenter_->ScheduleDCLayer(std::move(overlay));
 
   PresentAndCheckScreenshot();
 }
@@ -2166,7 +2152,7 @@ TEST_F(DCompPresenterSkiaGoldTest, ImageWithBackgroundColor) {
   overlay->background_color = SkColors::kGreen;
   overlay->z_order = 1;
 
-  EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(overlay)));
+  presenter_->ScheduleDCLayer(std::move(overlay));
 
   PresentAndCheckScreenshot();
 }
@@ -2222,7 +2208,6 @@ TEST_P(DCompPresenterBufferCountTest, VideoSwapChainBufferCount) {
 
   constexpr gfx::Size window_size(100, 100);
   EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-  EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
 
   constexpr gfx::Size texture_size(50, 50);
 
@@ -2238,7 +2223,7 @@ TEST_P(DCompPresenterBufferCountTest, VideoSwapChainBufferCount) {
       CreateParamsFromImage(DCLayerOverlayImage(texture_size, texture));
   params->quad_rect = gfx::Rect(window_size);
   params->color_space = gfx::ColorSpace::CreateREC709();
-  EXPECT_TRUE(presenter_->ScheduleDCLayer(std::move(params)));
+  presenter_->ScheduleDCLayer(std::move(params));
 
   PresentAndCheckSwapResult(gfx::SwapResult::SWAP_ACK);
 

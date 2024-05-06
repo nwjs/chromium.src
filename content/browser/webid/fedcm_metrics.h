@@ -11,6 +11,7 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/mojom/credentialmanagement/credential_manager.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
 
 namespace base {
 class TimeDelta;
@@ -19,6 +20,7 @@ class TimeDelta;
 namespace content {
 
 using MediationRequirement = ::password_manager::CredentialMediationRequirement;
+using RpMode = blink::mojom::RpMode;
 
 // This enum describes the status of a request id token call to the FedCM API.
 enum class FedCmRequestIdTokenStatus {
@@ -66,8 +68,11 @@ enum class FedCmRequestIdTokenStatus {
   kSilentMediationFailure,
   kIdTokenIdpErrorResponse,
   kIdTokenCrossSiteIdpErrorResponse,
+  kOtherIdpChosen,
+  kMissingTransientUserActivation,
+  kReplacedByButtonMode,
 
-  kMaxValue = kIdTokenCrossSiteIdpErrorResponse
+  kMaxValue = kReplacedByButtonMode
 };
 
 // This enum describes whether user sign-in states between IDP and browser
@@ -182,6 +187,18 @@ enum class FedCmLifecycleStateFailureReason {
   kMaxValue = kReadyToBeDeleted
 };
 
+// This enum is used when a token request is invoked while there's a pending
+// one. These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class FedCmMultipleRequestsRpMode {
+  kWidgetThenWidget = 0,
+  kWidgetThenButton = 1,
+  kButtonThenWidget = 2,
+  kButtonThenButton = 3,
+
+  kMaxValue = kButtonThenButton
+};
+
 class CONTENT_EXPORT FedCmMetrics {
  public:
   FedCmMetrics(const GURL& provider,
@@ -197,27 +214,49 @@ class CONTENT_EXPORT FedCmMetrics {
                                            const int num_requests);
 
   // Records the time from when a call to the API was made to when the accounts
-  // dialog is shown.
+  // dialog is shown. This does not include flows that involve LoginToIdP. e.g.
+  // mismatch flow or button flow with users whose login status is "logged-out".
   void RecordShowAccountsDialogTime(
       const std::vector<IdentityProviderData>& providers,
       base::TimeDelta duration);
 
+  // Records the time from when a call to the API was made to when the accounts
+  // dialog is shown in breakdown. In case of multi-IdP, this records the max
+  // time across IdPs. This does not include flows that involve LoginToIdP. e.g.
+  // mismatch flow or button flow with users whose login status is "logged-out".
+  void RecordShowAccountsDialogTimeBreakdown(
+      base::TimeDelta well_known_and_config_fetch_duration,
+      base::TimeDelta accounts_fetch_duration,
+      base::TimeDelta client_metadata_fetch_duration);
+
+  // Records the time from when a call to the API was made to when the
+  // well-known and config files are fetched. This helps with measuring when the
+  // login_url could be available.
+  void RecordWellKnownAndConfigFetchTime(base::TimeDelta duration);
+
   // Records the time from when the accounts dialog is shown to when the user
-  // presses the Continue button.
-  void RecordContinueOnDialogTime(base::TimeDelta duration);
+  // presses the Continue button of an account of the given provider.
+  void RecordContinueOnDialogTime(const GURL& provider,
+                                  base::TimeDelta duration);
 
   // Records metrics when the user explicitly closes the accounts dialog without
   // selecting any accounts. `duration` is the time from when the accounts
   // dialog was shown to when the user closed the dialog.
-  void RecordCancelOnDialogTime(base::TimeDelta duration);
+  void RecordCancelOnDialogTime(
+      const std::vector<IdentityProviderData>& providers,
+      base::TimeDelta duration);
 
   // Records the duration from when an accounts dialog is shown to when it is
   // destroyed.
-  void RecordAccountsDialogShownDuration(base::TimeDelta duration);
+  void RecordAccountsDialogShownDuration(
+      const std::vector<IdentityProviderData>& providers,
+      base::TimeDelta duration);
 
   // Records the duration from when a mismatch dialog is shown to when it is
   // destroyed or user triggers IDP sign-in pop-up window.
-  void RecordMismatchDialogShownDuration(base::TimeDelta duration);
+  void RecordMismatchDialogShownDuration(
+      const std::vector<IdentityProviderData>& providers,
+      base::TimeDelta duration);
 
   // Records the reason that closed accounts dialog without selecting any
   // accounts. Unlike RecordCancelOnDialogTime() this metric is recorded in
@@ -228,15 +267,25 @@ class CONTENT_EXPORT FedCmMetrics {
   // Records the time from when the user presses the Continue button to when the
   // token response is received. Also records the overall time from when the API
   // is called to when the token response is received.
-  void RecordTokenResponseAndTurnaroundTime(base::TimeDelta token_response_time,
+  void RecordTokenResponseAndTurnaroundTime(const GURL& provider,
+                                            base::TimeDelta token_response_time,
                                             base::TimeDelta turnaround_time);
 
-  // Records the status of the |RequestToken| call.
-  void RecordRequestTokenStatus(FedCmRequestIdTokenStatus status,
-                                MediationRequirement requirement);
+  // Records the status of the |RequestToken| call. Also records the number of
+  // IDPs requested and the number of IDPs for which a mismatch was found.
+  // |requested_providers| contains all IDPs that were requested in the get()
+  // call.
+  void RecordRequestTokenStatus(
+      FedCmRequestIdTokenStatus status,
+      MediationRequirement requirement,
+      const std::vector<GURL>& requested_providers,
+      int num_idps_mismatch,
+      const std::optional<GURL>& selected_idp_config_url,
+      const RpMode& rp_mode);
 
   // Records whether user sign-in states between IDP and browser match.
-  void RecordSignInStateMatchStatus(FedCmSignInStateMatchStatus status);
+  void RecordSignInStateMatchStatus(const GURL& provider,
+                                    FedCmSignInStateMatchStatus status);
 
   // Records whether the browser's knowledge of whether the user is signed into
   // the IDP based on observing signin/signout HTTP headers matches the
@@ -275,7 +324,8 @@ class CONTENT_EXPORT FedCmMetrics {
       bool requires_user_mediation);
 
   // Records a sample when an accounts dialog is shown.
-  void RecordAccountsDialogShown();
+  void RecordAccountsDialogShown(
+      const std::vector<IdentityProviderData>& providers);
 
   // This enum is used in histograms. Do not remove or modify existing entries.
   // You may add entries at the end, and update |kMaxValue|.
@@ -321,6 +371,16 @@ class CONTENT_EXPORT FedCmMetrics {
   // cross-site with the config URL.
   void RecordErrorUrlTypeMetrics(
       IdpNetworkRequestManager::FedCmErrorUrlType type);
+
+  // Records the RpMode of two consecutive requests when one is invoked while
+  // the other is pending.
+  void RecordMultipleRequestsRpMode(
+      blink::mojom::RpMode pending_request_rp_mode,
+      blink::mojom::RpMode new_request_rp_mode);
+
+  // Records the time from when a User Info API call, if any, most likely upon
+  // page load, to when the first Button Mode API is called afterwards, if any.
+  void RecordTimeBetweenUserInfoAndButtonModeAPI(base::TimeDelta duration);
 
  private:
   ukm::SourceId GetOrCreateProviderSourceId(const GURL& provider);

@@ -80,7 +80,7 @@ blink::FormElementPiiType MapTypePredictionToFormElementPiiType(
 // (1) At least one form field is not-checkable. (See crbug.com/1489075.)
 // (2) At least one field has a non-empty autocomplete attribute.
 // (3) There is at least one iframe.
-// TODO(crbug.com/1489075): Should an element that IsCheckableElement() also be
+// TODO(crbug.com/40283901): Should an element that IsCheckableElement() also be
 // IsAutofillableInputElement()?
 bool IsFormInteresting(const FormData& form) {
   return !form.child_frames.empty() ||
@@ -145,7 +145,7 @@ FormCache::UpdateFormCacheResult FormCache::UpdateFormCache(
   // exceeds |kMaxExtractableChildFrames|.
   auto ProcessForm = [&](FormData form) {
     for (const auto& field : form.fields) {
-      observed_renderer_ids.insert(field.renderer_id);
+      observed_renderer_ids.insert(field.renderer_id());
     }
 
     num_fields_seen += form.fields.size();
@@ -345,7 +345,7 @@ bool FormCache::ShowPredictions(const FormDataPredictions& form,
     WebFormControlElement& element = control_elements[i];
 
     const FormFieldData& field_data = form.data.fields[i];
-    if (form_util::GetFieldRendererId(element) != field_data.renderer_id) {
+    if (form_util::GetFieldRendererId(element) != field_data.renderer_id()) {
       continue;
     }
     const FormFieldDataPredictions& field = form.fields[i];
@@ -366,7 +366,7 @@ bool FormCache::ShowPredictions(const FormDataPredictions& form,
 
       std::string form_id = base::NumberToString(form.data.renderer_id.value());
       std::string field_id_str =
-          base::NumberToString(field_data.renderer_id.value());
+          base::NumberToString(field_data.renderer_id().value());
 
       blink::LocalFrameToken frame_token;
       if (auto* frame = element.GetDocument().GetFrame())
@@ -449,13 +449,13 @@ bool FormCache::ShowPredictions(const FormDataPredictions& form,
 
 void FormCache::SaveInitialValues(base::span<const FormFieldData> fields) {
   for (const FormFieldData& field : fields) {
-    if (field.form_control_type == FormControlType::kSelectOne) {
-      initial_select_values_.insert({field.renderer_id, field.value});
-    } else if (field.form_control_type == FormControlType::kSelectList) {
-      initial_selectlist_values_.insert({field.renderer_id, field.value});
-    } else if (form_util::IsCheckable(field.form_control_type)) {
+    if (field.form_control_type() == FormControlType::kSelectOne) {
+      initial_select_values_.insert({field.renderer_id(), field.value()});
+    } else if (field.form_control_type() == FormControlType::kSelectList) {
+      initial_selectlist_values_.insert({field.renderer_id(), field.value()});
+    } else if (form_util::IsCheckable(field.form_control_type())) {
       initial_checked_state_.insert(
-          {field.renderer_id,
+          {field.renderer_id(),
            field.check_status == FormFieldData::CheckStatus::kChecked});
     }
   }

@@ -6,6 +6,7 @@
 #define UI_VIEWS_BUBBLE_BUBBLE_FRAME_VIEW_H_
 
 #include <memory>
+#include <utility>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -95,6 +96,8 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
   void SizeConstraintsChanged() override;
   void InsertClientView(ClientView* client_view) override;
   void UpdateWindowRoundedCorners() override;
+  bool HasWindowTitle() const override;
+  bool IsWindowTitleVisible() const override;
 
   // Sets a custom view to be the dialog title instead of the |default_title_|
   // label. If there is an existing title view it will be deleted.
@@ -222,6 +225,11 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
 
   // Returns the client_view insets from the frame view.
   gfx::Insets GetClientViewInsets() const;
+
+  using HitTestCallback = base::RepeatingCallback<int(const gfx::Point& point)>;
+  void set_non_client_hit_test_cb(HitTestCallback non_client_hit_test_cb) {
+    non_client_hit_test_cb_ = std::move(non_client_hit_test_cb);
+  }
 
  protected:
   // Returns the available screen bounds if the frame were to show in |rect|.
@@ -387,6 +395,13 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
   // If true the bubble will try to stay inside the bounds returned by
   // `GetAvailableAnchorWindowBounds`.
   bool use_anchor_window_bounds_ = true;
+
+  // Set by bubble clients to compose additional non-client hit test rules for
+  // their host bubble. HTNOWHERE should be returned to tell the caller to do
+  // further processing to determine where in the non-client area the tested
+  // point is (if present at all). See NonClientFrameView::NonClientHitTest()
+  // for details.
+  HitTestCallback non_client_hit_test_cb_;
 
   InputEventActivationProtector input_protector_;
 };

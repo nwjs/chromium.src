@@ -343,7 +343,7 @@ class TestColorProviderSource : public ui::ColorProviderSource {
     return &provider_;
   }
 
-  const ui::RendererColorMap GetRendererColorMap(
+  ui::RendererColorMap GetRendererColorMap(
       ui::ColorProviderKey::ColorMode color_mode,
       ui::ColorProviderKey::ForcedColors forced_colors) const override {
     if (forced_colors == ui::ColorProviderKey::ForcedColors::kActive) {
@@ -3122,7 +3122,8 @@ TEST_F(WebContentsImplTest, RequestMediaAccessPermissionNoDelegate) {
       /*requested_video_device_ids=*/{},
       blink::mojom::MediaStreamType::DISPLAY_AUDIO_CAPTURE,
       blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE,
-      /*disable_local_echo=*/false, /*request_pan_tilt_zoom_permission=*/false);
+      /*disable_local_echo=*/false, /*request_pan_tilt_zoom_permission=*/false,
+      /*captured_surface_control_active=*/false);
   bool callback_run = false;
   contents()->RequestMediaAccessPermission(
       dummy_request,

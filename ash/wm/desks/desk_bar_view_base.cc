@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "ash/ash_element_identifiers.h"
+#include "ash/constants/ash_features.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/public/cpp/saved_desk_delegate.h"
 #include "ash/public/cpp/shelf_types.h"
@@ -20,6 +21,7 @@
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_id.h"
 #include "ash/style/typography.h"
+#include "ash/utility/forest_util.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desk_action_button.h"
 #include "ash/wm/desks/desk_action_view.h"
@@ -34,6 +36,7 @@
 #include "ash/wm/desks/templates/saved_desk_util.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_focus_cycler.h"
+#include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_metrics.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/overview/overview_utils.h"
@@ -106,16 +109,32 @@ gfx::Rect GetGestureEventScreenRect(const ui::Event& event) {
   return event.AsGestureEvent()->details().bounding_box();
 }
 
-void SetupBackgroundView(DeskBarViewBase* bar_view) {
+// Sets up background for the desk bar. There could be 3 cases:
+//   1) desk button bar
+//      A separate view will be used as background for animation purpose.
+//   2) overview bar with forest
+//      No background.
+//   3) overview bar without forest
+//      The bar itself serves as the background.
+void MaybeSetupBackgroundView(DeskBarViewBase* bar_view) {
   const bool type_is_desk_button =
       bar_view->type() == DeskBarViewBase::Type::kDeskButton;
+
   auto* view = type_is_desk_button ? bar_view->background_view() : bar_view;
   view->SetPaintToLayer();
-  view->layer()->SetFillsBoundsOpaquely(false);
+
+  auto* layer = view->layer();
+  layer->SetFillsBoundsOpaquely(false);
+
+  if (IsForestFeatureEnabled() && !type_is_desk_button) {
+    // Forests feature needs a transparent desks bar background. Still needs the
+    // view layer to perform animations.
+    return;
+  }
+
   if (features::IsBackgroundBlurEnabled()) {
-    view->layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-    view->layer()->SetBackdropFilterQuality(
-        ColorProvider::kBackgroundBlurQuality);
+    layer->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
+    layer->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
   }
 
   const int corner_radius = type_is_desk_button
@@ -123,7 +142,7 @@ void SetupBackgroundView(DeskBarViewBase* bar_view) {
                                 : kDeskBarCornerRadiusOverview;
   view->SetBorder(std::make_unique<views::HighlightBorder>(
       corner_radius, views::HighlightBorder::Type::kHighlightBorderNoShadow));
-  view->layer()->SetRoundedCornerRadius(gfx::RoundedCornersF(corner_radius));
+  layer->SetRoundedCornerRadius(gfx::RoundedCornersF(corner_radius));
   view->SetBackground(
       views::CreateThemedSolidBackground(kColorAshShieldAndBase80));
 }
@@ -200,7 +219,8 @@ class DeskBarScrollViewLayout : public views::LayoutManager {
         icon_button_bounds.width() - desk_name_view->GetInsets().width(),
         gfx::ELIDE_TAIL));
 
-    const gfx::Size button_label_size = label->GetPreferredSize();
+    const gfx::Size button_label_size =
+        label->GetPreferredSize(views::SizeBounds(label->width(), {}));
 
     label->SetBoundsRect(gfx::Rect(
         gfx::Point(
@@ -482,7 +502,8 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
   if (type_ == Type::kDeskButton) {
     background_view_ = AddChildView(std::make_unique<views::View>());
   }
-  SetupBackgroundView(this);
+
+  MaybeSetupBackgroundView(this);
 
   // Use layer scrolling so that the contents will paint on top of the parent,
   // which uses `SetPaintToLayer()`.
@@ -603,7 +624,8 @@ int DeskBarViewBase::GetPreferredBarHeight(aura::Window* root,
         height = kDeskBarZeroStateHeight;
       } else {
         height = DeskPreviewView::GetHeight(root) +
-                 kDeskBarNonPreviewAllocatedHeight;
+                 (IsForestFeatureEnabled() ? kExpandedDeskBarHeightWithOak
+                                           : kDeskBarNonPreviewAllocatedHeight);
       }
       break;
   }
@@ -965,6 +987,8 @@ void DeskBarViewBase::UpdateDeskIconButtonState(
                         current_bounds.height() / target_bounds.height());
 
   PerformDeskIconButtonScaleAnimation(button, this, scale_transform, shift_x);
+
+  MaybeRefreshOverviewGridBounds();
 }
 
 void DeskBarViewBase::OnHoverStateMayHaveChanged() {
@@ -1449,6 +1473,8 @@ void DeskBarViewBase::SwitchToExpandedState() {
 
   UpdateDeskButtonsVisibility();
   PerformZeroStateToExpandedStateMiniViewAnimation(this);
+
+  MaybeRefreshOverviewGridBounds();
 }
 
 void DeskBarViewBase::OnUiUpdateDone() {
@@ -1714,6 +1740,14 @@ bool DeskBarViewBase::MaybeScrollByDraggedDesk() {
   }
 
   return false;
+}
+
+void DeskBarViewBase::MaybeRefreshOverviewGridBounds() {
+  if (type_ == DeskBarViewBase::Type::kOverview &&
+      overview_grid_->scoped_overview_wallpaper_clipper()) {
+    CHECK(overview_grid_);
+    overview_grid_->RefreshGridBounds(/*animate=*/true);
+  }
 }
 
 void DeskBarViewBase::RecordDeskProfileAdoption() {

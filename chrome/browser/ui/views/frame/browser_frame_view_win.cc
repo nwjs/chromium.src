@@ -334,10 +334,14 @@ int BrowserFrameViewWin::NonClientHitTest(const gfx::Point& point) {
   // At the window corners the resize area is not actually bigger, but the 16
   // pixels at the end of the top and bottom edges trigger diagonal resizing.
   constexpr int kResizeCornerWidth = 16;
+
+  const int top_border_thickness = features::IsChromeRefresh2023()
+                                 ? GetLayoutConstant(TAB_STRIP_PADDING)
+                                 : FrameTopBorderThickness(false);
+
   int window_component = GetHTComponentForFrame(
-      point, gfx::Insets::TLBR(GetLayoutConstant(TAB_STRIP_PADDING), 0, 0, 0),
-      GetLayoutConstant(TAB_STRIP_PADDING),
-      kResizeCornerWidth - FrameBorderThickness(),
+      point, gfx::Insets::TLBR(top_border_thickness, 0, 0, 0),
+      top_border_thickness, kResizeCornerWidth - FrameBorderThickness(),
       frame()->widget_delegate()->CanResize());
 
   int frame_component = frame()->client_view()->NonClientHitTest(point);
@@ -386,7 +390,7 @@ int BrowserFrameViewWin::NonClientHitTest(const gfx::Point& point) {
                                       &button_bounds, sizeof(button_bounds)))) {
     gfx::RectF button_bounds_in_dips = gfx::ConvertRectToDips(
         gfx::Rect(button_bounds), display::win::GetDPIScale());
-    // TODO(crbug.com/1131681): GetMirroredRect() requires an integer rect,
+    // TODO(crbug.com/40150311): GetMirroredRect() requires an integer rect,
     // but the size in DIPs may not be an integer with a fractional device
     // scale factor. If we want to keep using integers, the choice to use
     // ToFlooredRectDeprecated() seems to be doing the wrong thing given the
@@ -513,7 +517,7 @@ int BrowserFrameViewWin::FrameTopBorderThickness(bool restored) const {
       // default. When maximized, the OS sizes the window such that the border
       // extends beyond the screen edges. In that case, we must return the
       // default value.
-      const int kTopResizeFrameArea = 0;
+      const int kTopResizeFrameArea = features::IsChromeRefresh2023() ? 0 : 5;
       return kTopResizeFrameArea;
     }
 

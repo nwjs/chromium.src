@@ -262,6 +262,18 @@ chromeos::WindowStateType GetOppositeSnapType(aura::Window* window);
 ASH_EXPORT bool CanSnapActionSourceStartFasterSplitView(
     WindowSnapActionSource snap_action_source);
 
+// Returns true if `window` should be *excluded* from the occluded window check,
+// e.g. if it is not visible or minimized or when it is a float or pip window.
+// If this is true, `window` will be ignored when determining whether to show
+// partial overview or consider the window for snap to replace.
+bool ShouldExcludeForOcclusionCheck(const aura::Window* window,
+                                    const aura::Window* target_root);
+
+// Returns the window that is fully visible (without occlusion) and snapped to
+// the opposite side of the given `window`. Returns nullptr if no such window
+// exists.
+aura::Window* GetOppositeVisibleSnappedWindow(aura::Window* window);
+
 // Returns true if the given `window` can be considered as the candidate for
 // faster split screen set up. Returns false otherwise. `snap_action_source` is
 // used to filter out some unwanted snap sources.

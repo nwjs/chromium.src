@@ -1101,7 +1101,6 @@ interface InstallEvent : ExtendableEvent
     attribute @@toStringTag
     method addRoutes
     method constructor
-    method registerRouter
 interface Lock
     attribute @@toStringTag
     getter mode
@@ -1275,9 +1274,13 @@ interface Observable
     method constructor
     method drop
     method filter
+    method first
+    method flatMap
     method forEach
+    method last
     method map
     method subscribe
+    method switchMap
     method take
     method takeUntil
     method toArray

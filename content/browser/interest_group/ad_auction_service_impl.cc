@@ -23,6 +23,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
+#include "base/trace_event/named_trigger.h"
 #include "base/types/expected.h"
 #include "base/uuid.h"
 #include "components/aggregation_service/aggregation_coordinator_utils.h"
@@ -66,9 +67,9 @@
 #include "third_party/blink/public/common/interest_group/auction_config.h"
 #include "third_party/blink/public/common/interest_group/interest_group.h"
 #include "third_party/blink/public/common/permissions_policy/policy_helper_public.h"
+#include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
-#include "third_party/blink/public/mojom/private_aggregation/aggregatable_report.mojom.h"
 #include "third_party/blink/public/mojom/private_aggregation/private_aggregation_host.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -452,6 +453,7 @@ void AdAuctionServiceImpl::RunAdAuction(
       base::BindRepeating(&AdAuctionServiceImpl::GetAdAuctionPageData,
                           base::Unretained(this));
 
+  base::trace_event::EmitNamedTrigger("fledge-top-level-auction-start");
   std::unique_ptr<AuctionRunner> auction = AuctionRunner::CreateAndStart(
       &auction_worklet_manager_, auction_nonce_manager_.get(),
       &GetInterestGroupManager(), render_frame_host().GetBrowserContext(),
@@ -566,6 +568,7 @@ void AdAuctionServiceImpl::DeprecatedReplaceInURN(
 void AdAuctionServiceImpl::GetInterestGroupAdAuctionData(
     const url::Origin& seller,
     const std::optional<url::Origin>& coordinator,
+    blink::mojom::AuctionDataConfigPtr config,
     GetInterestGroupAdAuctionDataCallback callback) {
   if (seller.scheme() != url::kHttpsScheme) {
     ReportBadMessageAndDeleteThis("Invalid Seller");
@@ -574,6 +577,19 @@ void AdAuctionServiceImpl::GetInterestGroupAdAuctionData(
   if (coordinator && coordinator->scheme() != url::kHttpsScheme) {
     ReportBadMessageAndDeleteThis("Invalid Bidding and Auction Coordinator");
     return;
+  }
+
+  if (!config->per_buyer_configs.empty() && !config->request_size) {
+    ReportBadMessageAndDeleteThis(
+        "Invalid AuctionDataConfig: Missing request_size");
+    return;
+  }
+
+  for (const auto& per_buyer_config : config->per_buyer_configs) {
+    if (per_buyer_config.first.scheme() != url::kHttpsScheme) {
+      ReportBadMessageAndDeleteThis("Invalid Buyer");
+      return;
+    }
   }
 
   // If the interest group API is not allowed for this origin do nothing.
@@ -590,10 +606,14 @@ void AdAuctionServiceImpl::GetInterestGroupAdAuctionData(
     return;
   }
 
+  base::trace_event::EmitNamedTrigger(
+      "fledge-get-interest-group-ad-auction-data");
+
   BiddingAndAuctionDataConstructionState state;
   state.callback = std::move(callback);
   state.seller = seller;
   state.coordinator = coordinator;
+  state.config = std::move(config);
 
   ba_data_callbacks_.push(std::move(state));
   // Only start this request if there isn't another request pending.
@@ -662,7 +682,7 @@ AdAuctionServiceImpl::GetTrustedURLLoaderFactory() {
         url_loader_factory::ContentClientParams(
             render_frame_host().GetSiteInstance()->GetBrowserContext(),
             &render_frame_host(), render_frame_host().GetProcess()->GetID(),
-            url::Origin(),
+            url::Origin(), net::IsolationInfo(),
             ukm::SourceIdObj::FromInt64(
                 render_frame_host().GetPageUkmSourceId())));
 
@@ -1025,6 +1045,7 @@ void AdAuctionServiceImpl::LoadAuctionDataAndKeyForNextQueuedRequest() {
   GetInterestGroupManager().GetInterestGroupAdAuctionData(
       GetTopWindowOrigin(),
       /* generation_id=*/base::Uuid::GenerateRandomV4(),
+      std::move(state.config),
       base::BindOnce(&AdAuctionServiceImpl::OnGotAuctionData,
                      weak_ptr_factory_.GetWeakPtr(), state.request_id));
 

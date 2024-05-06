@@ -10,7 +10,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
-import android.view.LayoutInflater;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SmallTest;
@@ -35,7 +34,9 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionDataProvider.ResultStrength;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionDataProvider.SuggestionsResult;
-import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallback;
+import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallbacks;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
+import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
@@ -54,18 +55,14 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
     @Mock private ModuleDelegate mModuleDelegate;
     @Mock private TabResumptionDataProvider mDataProvider;
     @Mock private UrlImageProvider mUrlImageProvider;
+    @Mock private TabListFaviconProvider mFaviconProvider;
+    @Mock private ThumbnailProvider mThumbnailProvider;
+    @Mock private SuggestionClickCallbacks mClickCallbacks;
 
     @Captor private ArgumentCaptor<Callback<SuggestionsResult>> mFetchSuggestionCallbackCaptor;
-    @Captor private ArgumentCaptor<GURL> mFetchImagePageUrlCaptor;
 
     private PropertyModel mModel;
-    private TabResumptionModuleView mModuleView;
     private TabResumptionModuleMediator mMediator;
-
-    private SuggestionClickCallback mClickCallback;
-
-    private GURL mLastClickUrl;
-    private int mClickCount;
 
     @Before
     public void setUp() {
@@ -75,16 +72,6 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
         context.setTheme(R.style.Theme_BrowserUI_DayNight);
 
         mModel = new PropertyModel(TabResumptionModuleProperties.ALL_KEYS);
-        mModuleView =
-                (TabResumptionModuleView)
-                        LayoutInflater.from(context)
-                                .inflate(R.layout.tab_resumption_module_layout, null);
-
-        mClickCallback =
-                (GURL url) -> {
-                    mLastClickUrl = url;
-                    ++mClickCount;
-                };
 
         mMediator =
                 new TabResumptionModuleMediator(
@@ -93,7 +80,9 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
                         mModel,
                         mDataProvider,
                         mUrlImageProvider,
-                        mClickCallback) {
+                        mFaviconProvider,
+                        mThumbnailProvider,
+                        mClickCallbacks) {
                     @Override
                     long getCurrentTimeMs() {
                         return CURRENT_TIME_MS;
@@ -103,6 +92,10 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
         Assert.assertFalse((Boolean) mModel.get(TabResumptionModuleProperties.IS_VISIBLE));
         Assert.assertEquals(
                 mUrlImageProvider, mModel.get(TabResumptionModuleProperties.URL_IMAGE_PROVIDER));
+        Assert.assertEquals(
+                mFaviconProvider, mModel.get(TabResumptionModuleProperties.FAVICON_PROVIDER));
+        Assert.assertEquals(
+                mThumbnailProvider, mModel.get(TabResumptionModuleProperties.THUMBNAIL_PROVIDER));
         // `mClickCallback` may get wrapped, so just check for non-null.
         Assert.assertNotNull(mModel.get(TabResumptionModuleProperties.CLICK_CALLBACK));
     }
@@ -112,7 +105,6 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
         mMediator.destroy();
         mModel = null;
         mMediator = null;
-        mModuleView = null;
     }
 
     @Test

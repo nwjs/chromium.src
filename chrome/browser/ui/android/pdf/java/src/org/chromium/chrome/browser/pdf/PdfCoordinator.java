@@ -9,13 +9,18 @@ import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
+
+import org.chromium.base.Log;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
-import org.chromium.components.embedder_support.util.UrlConstants;
 
 /** The class responsible for setting up PdfPage. */
 public class PdfCoordinator {
+    private static final String TAG = "PdfCoordinator";
     private final View mView;
+    private final FragmentManager mFragmentManager;
     private int mFragmentContainerViewId;
     private String mPdfFilePath;
     private boolean mPdfIsDownloaded;
@@ -47,8 +52,9 @@ public class PdfCoordinator {
         View fragmentContainerView = mView.findViewById(R.id.pdf_fragment_container);
         mFragmentContainerViewId = View.generateViewId();
         fragmentContainerView.setId(mFragmentContainerViewId);
+        mFragmentManager = ((FragmentActivity) activity).getSupportFragmentManager();
         setPdfFilePath(filepath);
-        setPdfIsDownloaded(isPdfDownloaded(url));
+        setPdfIsDownloaded(isPdfDownloaded());
     }
 
     /** Returns the intended view for PdfPage tab. */
@@ -70,6 +76,10 @@ public class PdfCoordinator {
         setPdfIsDownloaded(true);
     }
 
+    String getFilepath() {
+        return mPdfFilePath;
+    }
+
     private void setPdfFilePath(String pdfFilePath) {
         mPdfFilePath = pdfFilePath;
     }
@@ -89,20 +99,17 @@ public class PdfCoordinator {
         if (mView.getParent() == null) {
             return;
         }
-        // TODO: load file with PdfViewer.
-        mIsPdfLoaded = true;
+        Uri pdfUri = PdfUtils.getContentUri(mPdfFilePath);
+        if (pdfUri != null) {
+            // TODO: load file with PdfViewer.
+            mIsPdfLoaded = true;
+        } else {
+            Log.e(TAG, "Pdf uri is null.");
+        }
     }
 
-    private boolean isPdfDownloaded(String url) {
-        Uri uri = Uri.parse(url);
-        String scheme = uri.getScheme();
-        assert scheme != null;
-        assert scheme.equals(UrlConstants.HTTP_SCHEME)
-                || scheme.equals(UrlConstants.HTTPS_SCHEME)
-                || scheme.equals(UrlConstants.CONTENT_SCHEME)
-                || scheme.equals(UrlConstants.FILE_SCHEME);
-        return scheme.equals(UrlConstants.CONTENT_SCHEME)
-                || scheme.equals(UrlConstants.FILE_SCHEME);
+    private boolean isPdfDownloaded() {
+        return mPdfFilePath != null;
     }
 
     boolean getIsPdfLoadedForTesting() {

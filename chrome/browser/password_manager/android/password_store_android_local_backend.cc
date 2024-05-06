@@ -34,13 +34,10 @@ PasswordStoreAndroidLocalBackend::PasswordStoreAndroidLocalBackend(
     : PasswordStoreAndroidBackend(std::move(bridge_helper),
                                   std::move(lifecycle_helper),
                                   prefs) {
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kUseGMSCoreForBrandingInfo)) {
-    // AccountBackend doesn't call `DisablePrefetching` when sync is turned off.
-    // This is why we have to explicitly call it here whenever local GMSCore is
-    // created.
-    affiliations_prefetcher->DisablePrefetching();
-  }
+  // AccountBackend doesn't call `DisablePrefetching` when sync is turned off.
+  // This is why we have to explicitly call it here whenever local GMSCore is
+  // created.
+  affiliations_prefetcher->DisablePrefetching();
 }
 
 PasswordStoreAndroidLocalBackend::~PasswordStoreAndroidLocalBackend() = default;
@@ -51,7 +48,6 @@ void PasswordStoreAndroidLocalBackend::InitBackend(
     base::RepeatingClosure sync_enabled_or_disabled_cb,
     base::OnceCallback<void(bool)> completion) {
   Init(std::move(remote_form_changes_received));
-  CHECK(!sync_enabled_or_disabled_cb);
   CHECK(completion);
   std::move(completion).Run(/*success=*/true);
 }
@@ -145,7 +141,7 @@ void PasswordStoreAndroidLocalBackend::DisableAutoSignInForOriginsAsync(
                                       std::move(completion));
 }
 
-std::unique_ptr<syncer::ProxyModelTypeControllerDelegate>
+std::unique_ptr<syncer::ModelTypeControllerDelegate>
 PasswordStoreAndroidLocalBackend::CreateSyncControllerDelegate() {
   return nullptr;
 }

@@ -24,13 +24,28 @@ void ContextImpl::CreateGraphImpl(
 }
 
 std::unique_ptr<WebNNBufferImpl> ContextImpl::CreateBufferImpl(
-    mojo::PendingReceiver<mojom::WebNNBuffer> receiver,
+    mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
     mojom::BufferInfoPtr buffer_info,
     const base::UnguessableToken& buffer_handle) {
   // TODO(crbug.com/1472888): Implement MLBuffer for CoreML. Involve
   // an IPC security reviewer.
   NOTIMPLEMENTED();
   return {};
+}
+
+void ContextImpl::ReadBufferImpl(
+    const WebNNBufferImpl& src_buffer,
+    mojom::WebNNBuffer::ReadBufferCallback callback) {
+  // TODO(crbug.com/1472888): Implement MLBuffer for CoreML. Involve
+  // an IPC security reviewer.
+  NOTIMPLEMENTED();
+}
+
+void ContextImpl::WriteBufferImpl(const WebNNBufferImpl& dst_buffer,
+                                  mojo_base::BigBuffer src_buffer) {
+  // TODO(crbug.com/1472888): Implement MLBuffer for CoreML. Involve
+  // an IPC security reviewer.
+  NOTIMPLEMENTED();
 }
 
 }  // namespace webnn::coreml

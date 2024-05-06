@@ -26,6 +26,7 @@
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
 #include "chrome/browser/ui/autofill/next_idle_time_ticks.h"
+#include "chrome/browser/ui/autofill/popup_controller_common.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/filling_product.h"
@@ -77,7 +78,7 @@ namespace {
 bool CanAccept(PopupItemId id) {
   return id != PopupItemId::kSeparator &&
          id != PopupItemId::kInsecureContextPaymentDisabledMessage &&
-         id != PopupItemId::kMixedFormMessage;
+         id != PopupItemId::kMixedFormMessage && id != PopupItemId::kTitle;
 }
 
 content::RenderFrameHost* GetRenderFrameHost(AutofillPopupDelegate& delegate) {
@@ -109,37 +110,37 @@ bool IsAncestorOf(content::RenderFrameHost* ancestor,
 
 #if !BUILDFLAG(IS_MAC)
 // static
-WeakPtr<AutofillPopupControllerImpl> AutofillPopupControllerImpl::GetOrCreate(
-    WeakPtr<AutofillPopupControllerImpl> previous,
+WeakPtr<AutofillPopupController> AutofillPopupController::GetOrCreate(
+    WeakPtr<AutofillPopupController> previous,
     WeakPtr<AutofillPopupDelegate> delegate,
     content::WebContents* web_contents,
-    gfx::NativeView container_view,
-    const gfx::RectF& element_bounds,
-    base::i18n::TextDirection text_direction,
+    PopupControllerCommon controller_common,
     int32_t form_control_ax_id) {
-  if (previous && previous->delegate_.get() == delegate.get() &&
-      previous->container_view() == container_view) {
-    if (previous->self_deletion_weak_ptr_factory_.HasWeakPtrs())
-      previous->self_deletion_weak_ptr_factory_.InvalidateWeakPtrs();
-    previous->controller_common_.element_bounds = element_bounds;
-    previous->form_control_ax_id_ = form_control_ax_id;
-    previous->ClearState();
-    return previous;
+  if (AutofillPopupControllerImpl* previous_impl =
+          static_cast<AutofillPopupControllerImpl*>(previous.get());
+      previous_impl && previous_impl->delegate_.get() == delegate.get() &&
+      previous_impl->container_view() == controller_common.container_view) {
+    if (previous_impl->self_deletion_weak_ptr_factory_.HasWeakPtrs()) {
+      previous_impl->self_deletion_weak_ptr_factory_.InvalidateWeakPtrs();
+    }
+    previous_impl->controller_common_ = std::move(controller_common);
+    previous_impl->form_control_ax_id_ = form_control_ax_id;
+    previous_impl->ClearState();
+    return previous_impl->GetWeakPtr();
   }
 
   if (previous) {
     previous->Hide(PopupHidingReason::kViewDestroyed);
   }
 #if BUILDFLAG(IS_ANDROID)
-  AutofillPopupControllerImpl* controller = new AutofillPopupControllerImpl(
-      delegate, web_contents, container_view, element_bounds, text_direction,
-      form_control_ax_id,
+  auto* controller = new AutofillPopupControllerImpl(
+      delegate, web_contents, std::move(controller_common), form_control_ax_id,
       base::BindRepeating(&local_password_migration::ShowWarning),
       /*parent=*/std::nullopt);
 #else
-  AutofillPopupControllerImpl* controller = new AutofillPopupControllerImpl(
-      delegate, web_contents, container_view, element_bounds, text_direction,
-      form_control_ax_id, base::DoNothing(), /*parent=*/std::nullopt);
+  auto* controller = new AutofillPopupControllerImpl(
+      delegate, web_contents, std::move(controller_common), form_control_ax_id,
+      base::DoNothing(), /*parent=*/std::nullopt);
 #endif
   return controller->GetWeakPtr();
 }
@@ -148,9 +149,7 @@ WeakPtr<AutofillPopupControllerImpl> AutofillPopupControllerImpl::GetOrCreate(
 AutofillPopupControllerImpl::AutofillPopupControllerImpl(
     base::WeakPtr<AutofillPopupDelegate> delegate,
     content::WebContents* web_contents,
-    gfx::NativeView container_view,
-    const gfx::RectF& element_bounds,
-    base::i18n::TextDirection text_direction,
+    PopupControllerCommon controller_common,
     int32_t form_control_ax_id,
     base::RepeatingCallback<
         void(gfx::NativeWindow,
@@ -159,7 +158,7 @@ AutofillPopupControllerImpl::AutofillPopupControllerImpl(
         show_pwd_migration_warning_callback,
     std::optional<base::WeakPtr<ExpandablePopupParentControllerImpl>> parent)
     : web_contents_(web_contents->GetWeakPtr()),
-      controller_common_(element_bounds, text_direction, container_view),
+      controller_common_(std::move(controller_common)),
       delegate_(delegate),
       show_pwd_migration_warning_callback_(
           std::move(show_pwd_migration_warning_callback)),
@@ -207,7 +206,8 @@ void AutofillPopupControllerImpl::Show(
       .hide_on_text_field_change =
           IsRootPopup() && suggestions.size() == 1 &&
           GetFillingProductFromPopupItemId(suggestions[0].popup_item_id) ==
-              FillingProduct::kCompose};
+              FillingProduct::kCompose,
+      .hide_on_web_contents_lost_focus = true};
 
   AutofillPopupHideHelper::HidingCallback hiding_callback = base::BindRepeating(
       &AutofillPopupControllerImpl::Hide, base::Unretained(this));
@@ -268,7 +268,7 @@ void AutofillPopupControllerImpl::Show(
 
   if (IsRootPopup()) {
     // We may already be observing from a previous `Show` call.
-    // TODO(crbug.com/1513659): Consider not to recycle views or controllers
+    // TODO(crbug.com/41486228): Consider not to recycle views or controllers
     // and only permit a single call to `Show`.
     key_press_observer_.Reset();
     key_press_observer_.Observe(web_contents_->GetFocusedFrame());
@@ -286,6 +286,15 @@ void AutofillPopupControllerImpl::Show(
 
     delegate_->OnPopupShown();
   }
+}
+
+void AutofillPopupControllerImpl::DisableThresholdForTesting(
+    bool disable_threshold) {
+  disable_threshold_for_testing_ = disable_threshold;
+}
+
+void AutofillPopupControllerImpl::KeepPopupOpenForTesting() {
+  keep_popup_open_for_testing_ = true;
 }
 
 bool AutofillPopupControllerImpl::
@@ -355,8 +364,12 @@ void AutofillPopupControllerImpl::Hide(PopupHidingReason reason) {
   }
   // For tests, keep open when hiding is due to external stimuli.
   if (keep_popup_open_for_testing_ &&
-      reason == PopupHidingReason::kWidgetChanged) {
-    return;  // Don't close the popup because the browser window is resized.
+      (reason == PopupHidingReason::kWidgetChanged ||
+       reason == PopupHidingReason::kEndEditing)) {
+    return;  // Don't close the popup because the browser window is resized or
+             // because too many fields get focus one after each other (this can
+             // happen on Desktop, if multiple password forms are present, and
+             // they are all autofilled by default).
   }
 
   if (delegate_ && IsRootPopup()) {
@@ -414,7 +427,7 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
   // `time_view_shown_` will remain null for at least
   // `kIgnoreEarlyClicksOnPopupDuration`. Therefore we do not have to check any
   // times here.
-  // TODO(crbug.com/1475902): Once `kAutofillPopupImprovedTimingChecksV2` is
+  // TODO(crbug.com/40279821): Once `kAutofillPopupImprovedTimingChecksV2` is
   // launched, clean up most of the timing checks. That is:
   // - Remove paint checks inside views.
   // - Remove `event_time` parameters.
@@ -470,8 +483,7 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
   if (suggestion.popup_item_id == PopupItemId::kVirtualCreditCardEntry) {
     std::string event_name =
         suggestion.feature_for_iph ==
-                feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature
-                    .name
+                &feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature
             ? "autofill_virtual_card_cvc_suggestion_accepted"
             : "autofill_virtual_card_suggestion_accepted";
     feature_engagement::TrackerFactory::GetForBrowserContext(
@@ -480,8 +492,8 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
   }
 
   if (suggestion.feature_for_iph ==
-      feature_engagement::kIPHAutofillExternalAccountProfileSuggestionFeature
-          .name) {
+      &feature_engagement::
+          kIPHAutofillExternalAccountProfileSuggestionFeature) {
     feature_engagement::TrackerFactory::GetForBrowserContext(
         web_contents_->GetBrowserContext())
         ->NotifyEvent("autofill_external_account_profile_suggestion_accepted");
@@ -541,9 +553,10 @@ AutofillPopupControllerImpl::OpenSubPopup(
     const gfx::RectF& anchor_bounds,
     std::vector<Suggestion> suggestions,
     AutoselectFirstSuggestion autoselect_first_suggestion) {
+  PopupControllerCommon new_controller_common = controller_common_;
+  new_controller_common.element_bounds = anchor_bounds;
   AutofillPopupControllerImpl* controller = new AutofillPopupControllerImpl(
-      delegate_, web_contents_.get(), controller_common_.container_view,
-      anchor_bounds, controller_common_.text_direction,
+      delegate_, web_contents_.get(), std::move(new_controller_common),
       /*form_control_ax_id=*/form_control_ax_id_, base::DoNothing(),
       /*parent=*/GetWeakPtr());
 
@@ -663,7 +676,7 @@ bool AutofillPopupControllerImpl::RemoveSuggestion(
 
   // This function might be called in a callback, so ensure the list index is
   // still in bounds. If not, terminate the removing and consider it failed.
-  // TODO(crbug.com/1209792): Replace these checks with a stronger identifier.
+  // TODO(crbug.com/40766704): Replace these checks with a stronger identifier.
   if (list_index < 0 || static_cast<size_t>(list_index) >= suggestions_.size())
     return false;
 
@@ -699,7 +712,7 @@ bool AutofillPopupControllerImpl::RemoveSuggestion(
       }
       break;
     case FillingProduct::kCreditCard:
-      // TODO(1509457): Add metrics for credit cards.
+      // TODO(crbug.com/41482065): Add metrics for credit cards.
       break;
     case FillingProduct::kNone:
     case FillingProduct::kMerchantPromoCode:

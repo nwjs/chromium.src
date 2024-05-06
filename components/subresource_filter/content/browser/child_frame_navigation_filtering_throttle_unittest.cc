@@ -5,11 +5,13 @@
 #include "components/subresource_filter/content/browser/child_frame_navigation_filtering_throttle.h"
 
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
 
 #include "base/containers/contains.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
@@ -17,10 +19,10 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "components/subresource_filter/content/browser/async_document_subresource_filter.h"
-#include "components/subresource_filter/content/browser/async_document_subresource_filter_test_utils.h"
 #include "components/subresource_filter/content/browser/child_frame_navigation_test_utils.h"
 #include "components/subresource_filter/content/browser/subresource_filter_observer_test_utils.h"
+#include "components/subresource_filter/core/browser/async_document_subresource_filter.h"
+#include "components/subresource_filter/core/browser/async_document_subresource_filter_test_utils.h"
 #include "components/subresource_filter/core/browser/subresource_filter_constants.h"
 #include "components/subresource_filter/core/common/test_ruleset_creator.h"
 #include "components/subresource_filter/core/mojom/subresource_filter.mojom.h"
@@ -75,7 +77,9 @@ class ChildFrameNavigationFilteringThrottleTest
     if (parent_filter_) {
       auto throttle = std::make_unique<ChildFrameNavigationFilteringThrottle>(
           navigation_handle, parent_filter_.get(),
-          blink::FrameAdEvidence(/*parent_is_ad=*/false));
+          /*bypass_alias_check=*/false,
+          base::BindRepeating(GetFilterConsoleMessage),
+          /*ad_evidence=*/std::nullopt);
       ASSERT_NE(nullptr, throttle->GetNameForLogging());
       navigation_handle->RegisterThrottleForTesting(std::move(throttle));
     }
@@ -119,7 +123,7 @@ class ChildFrameNavigationFilteringThrottleTest
         ->GetConsoleMessages();
   }
 
-  std::string GetFilterConsoleMessage(const GURL& filtered_url) {
+  static std::string GetFilterConsoleMessage(const GURL& filtered_url) {
     return base::StringPrintf(kDisallowChildFrameConsoleMessageFormat,
                               filtered_url.possibly_invalid_spec().c_str());
   }

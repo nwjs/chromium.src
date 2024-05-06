@@ -10,8 +10,8 @@ import("//ui/webui/webui_features.gni")
 aggregate_vector_icons("chrome_vector_icons") {
   icon_directory = "."
 
-  # Keep sorted alphabetically.
   sources = [
+    # go/keep-sorted start
     "account_add_chrome_refresh.icon",
     "account_box.icon",
     "account_child.icon",
@@ -63,6 +63,7 @@ aggregate_vector_icons("chrome_vector_icons") {
     "copy.icon",
     "copy_menu.icon",
     "crashed_tab.icon",
+    "create_new_tab_group.icon",
     "credit_card.icon",
     "credit_card_chrome_refresh.icon",
     "cut_menu.icon",
@@ -281,6 +282,8 @@ aggregate_vector_icons("chrome_vector_icons") {
     "webauthn/usb_security_key.icon",
     "webauthn/webauthn_error.icon",
     "webauthn/webauthn_error_dark.icon",
+    "webauthn/windows_hello.icon",
+    "webid_globe.icon",
     "zoom_in.icon",
     "zoom_minus.icon",
     "zoom_minus_chrome_refresh.icon",
@@ -288,6 +291,8 @@ aggregate_vector_icons("chrome_vector_icons") {
     "zoom_plus.icon",
     "zoom_plus_chrome_refresh.icon",
     "zoom_plus_menu_refresh.icon",
+
+    # go/keep-sorted end
   ]
 
   if (is_mac) {

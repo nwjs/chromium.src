@@ -243,7 +243,7 @@ bool ContentSettingsPattern::Builder::Canonicalize(PatternParts* parts) {
   parts->scheme = base::ToLowerASCII(parts->scheme);
 
   if (parts->scheme == url::kFileScheme && !parts->is_path_wildcard) {
-    // TODO(crbug.com/1132957): Remove this loop once GURL canonicalization is
+    // TODO(crbug.com/40150835): Remove this loop once GURL canonicalization is
     // idempotent (see crbug.com/1128999).
     while (true) {
       std::string url_spec = base::StrCat(
@@ -363,13 +363,7 @@ ContentSettingsPattern::PatternParts&
 ContentSettingsPattern::PatternParts::operator=(PatternParts&& other) = default;
 
 bool ContentSettingsPattern::PatternParts::operator==(
-    const ContentSettingsPattern::PatternParts& other) const {
-  return std::tie(scheme, is_scheme_wildcard, host, has_domain_wildcard, port,
-                  is_port_wildcard, path, is_path_wildcard) ==
-         std::tie(other.scheme, other.is_scheme_wildcard, other.host,
-                  other.has_domain_wildcard, other.port, other.is_port_wildcard,
-                  other.path, other.is_path_wildcard);
-}
+    const ContentSettingsPattern::PatternParts& other) const = default;
 
 // ////////////////////////////////////////////////////////////////////////////
 // ContentSettingsPattern

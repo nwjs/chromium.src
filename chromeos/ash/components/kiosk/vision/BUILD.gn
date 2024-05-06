@@ -1,0 +1,69 @@
+# Copyright 2024 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/test.gni")
+
+assert(is_chromeos_ash)
+
+component("vision") {
+  defines = [ "IS_KIOSK_VISION_IMPL" ]
+  sources = [
+    "kiosk_vision.cc",
+    "kiosk_vision.h",
+  ]
+  public_deps = [ ":vision_prefs" ]
+  deps = [
+    ":internal",
+    "//base",
+    "//chromeos/ash/components/dbus/dlcservice",
+    "//chromeos/ash/components/dbus/dlcservice:dlcservice_proto",
+    "//components/prefs:prefs",
+  ]
+}
+
+source_set("vision_prefs") {
+  sources = [ "pref_names.h" ]
+}
+
+source_set("internal") {
+  visibility = [ ":*" ]
+  sources = [
+    "internal/pref_observer.cc",
+    "internal/pref_observer.h",
+  ]
+  deps = [
+    ":vision_prefs",
+    "//base",
+    "//components/prefs:prefs",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "kiosk_vision_unittest.cc" ]
+  deps = [
+    ":vision",
+    "//base",
+    "//base/test:test_support",
+    "//chromeos/ash/components/dbus/dlcservice",
+    "//chromeos/ash/components/dbus/dlcservice:dlcservice_proto",
+    "//components/prefs:prefs",
+    "//components/prefs:test_support",
+    "//testing/gtest",
+  ]
+}
+
+test("kiosk_vision_unit_tests") {
+  testonly = true
+  sources = [ "//chromeos/test/run_all_unittests.cc" ]
+  deps = [
+    ":unit_tests",
+    ":vision",
+    "//base",
+    "//base/test:test_support",
+    "//chromeos/ash/components:test_support",
+    "//mojo/core/embedder",
+    "//testing/gtest",
+  ]
+}

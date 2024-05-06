@@ -10,7 +10,7 @@ load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
 load("//lib/structs.star", "structs")
-load("//lib/builder_health_indicators.star", "blank_low_value_thresholds", "health_spec", "modified_default")
+load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/xcode.star", "xcode")
 
 ci.defaults.set(
@@ -285,33 +285,6 @@ ci.builder(
     console_view_entry = consoles.console_view_entry(
         category = "linux|blink",
         short_name = "BIr",
-    ),
-)
-
-ci.builder(
-    name = "linux-blink-animation-use-time-delta",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(config = "chromium"),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.DEBUG,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.LINUX,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "debug_builder",
-            "reclient",
-            "enable_blink_animation_use_time_delta",
-        ],
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|blink",
-        short_name = "TD",
     ),
 )
 
@@ -705,10 +678,12 @@ fyi_mac_builder(
             "perfetto",
             "release_builder",
             "reclient",
+            "x64",
         ],
     ),
     builderless = True,
-    cores = 8,
+    cores = None,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
     ),
@@ -923,11 +898,13 @@ ci.builder(
             "dcheck_always_on",
             "static",
             "reclient",
+            "x64",
         ],
     ),
     builderless = False,
-    cores = 12,
+    cores = None,
     os = os.MAC_BETA,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
         short_name = "beta",
@@ -1094,6 +1071,7 @@ fyi_mac_builder(
     ),
     builderless = True,
     cores = None,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "perfetto",
         short_name = "mac",
@@ -1215,6 +1193,7 @@ fyi_mac_reclient_comparison_builder(
     },
     builderless = True,
     cores = None,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
         short_name = "cmp",
@@ -1474,6 +1453,7 @@ The bot specs should be in sync with <a href="https://ci.chromium.org/p/chromium
 """,
     builderless = True,
     cores = None,
+    cpu = cpu.ARM64,
     ssd = True,
     console_view_entry = consoles.console_view_entry(
         category = "mac|cq",
@@ -1543,6 +1523,7 @@ The bot specs should be in sync with <a href="https://ci.chromium.org/p/chromium
 """,
     builderless = True,
     cores = None,
+    cpu = cpu.ARM64,
     ssd = True,
     console_view_entry = consoles.console_view_entry(
         category = "ios|cq",
@@ -1706,10 +1687,12 @@ fyi_mac_builder(
             "release_builder",
             "reclient",
             "minimal_symbols",
+            "x64",
         ],
     ),
     builderless = True,
     cores = None,  # crbug.com/1245114
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
         short_name = "cmp",
@@ -1874,11 +1857,13 @@ fyi_mac_builder(
             "release_builder_blink",
             "reclient",
             "minimal_symbols",
+            "x64",
         ],
     ),
-    builderless = False,
+    builderless = True,
     cores = None,
     os = os.MAC_ANY,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
     ),
@@ -1980,36 +1965,6 @@ ci.builder(
     ),
     reclient_jobs = None,
     reclient_rewrapper_env = {"RBE_cache_silo": "linux-lacros-builder-rel (reclient)"},
-)
-
-ci.builder(
-    name = "win-celab-builder-rel",
-    executable = "recipe:celab",
-    schedule = "0 0,6,12,18 * * *",
-    triggered_by = [],
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "reclient",
-            "minimal_symbols",
-        ],
-    ),
-    builderless = False,
-    os = os.WINDOWS_ANY,
-    console_view_entry = consoles.console_view_entry(
-        category = "celab",
-    ),
-    execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
-    health_spec = modified_default({
-        "Low Value": blank_low_value_thresholds,
-    }),
-    properties = {
-        "exclude": "chrome_only",
-        "pool_name": "celab-chromium-ci",
-        "pool_size": 20,
-        "tests": "*",
-    },
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
 
 fyi_ios_builder(

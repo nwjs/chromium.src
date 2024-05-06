@@ -112,13 +112,14 @@ autofill::AutofillProfile CreateNewAutofillProfile(
     autofill::PersonalDataManager* personal_data,
     std::optional<std::string_view> country_code) {
   autofill::AutofillProfile::Source source =
-      personal_data->IsEligibleForAddressAccountStorage()
+      personal_data->address_data_manager().IsEligibleForAddressAccountStorage()
           ? autofill::AutofillProfile::Source::kAccount
           : autofill::AutofillProfile::Source::kLocalOrSyncable;
-  if (country_code && !personal_data->IsCountryEligibleForAccountStorage(
-                          country_code.value())) {
+  if (country_code &&
+      !personal_data->address_data_manager().IsCountryEligibleForAccountStorage(
+          country_code.value())) {
     // Note: addresses from unsupported countries can't be saved in account.
-    // TODO(crbug.com/1432505): remove temporary unsupported countries
+    // TODO(crbug.com/40263955): remove temporary unsupported countries
     // filtering.
     source = autofill::AutofillProfile::Source::kLocalOrSyncable;
   }
@@ -206,7 +207,7 @@ ExtensionFunction::ResponseAction AutofillPrivateSaveAddressFunction::Run() {
       existing_profile ? *existing_profile
                        : CreateNewAutofillProfile(personal_data, country_code);
 
-  // TODO(crbug.com/1441904): Fields not visible for the autofill profile's
+  // TODO(crbug.com/40266693): Fields not visible for the autofill profile's
   // country must be reset.
   for (const api::autofill_private::AddressField& field : address->fields) {
     if (field.type == autofill_private::FieldType::kNameFull) {
@@ -577,7 +578,7 @@ AutofillPrivateLogServerCardLinkClickedFunction::Run() {
   if (!personal_data || !personal_data->IsDataLoaded())
     return RespondNow(Error(kErrorDataUnavailable));
 
-  personal_data->LogServerCardLinkClicked();
+  personal_data->payments_data_manager().LogServerCardLinkClicked();
   return RespondNow(NoArguments());
 }
 
@@ -600,7 +601,7 @@ AutofillPrivateLogServerIbanLinkClickedFunction::Run() {
     return RespondNow(Error(kErrorDataUnavailable));
   }
 
-  personal_data->LogServerIbanLinkClicked();
+  personal_data->payments_data_manager().LogServerIbanLinkClicked();
   return RespondNow(NoArguments());
 }
 
@@ -685,7 +686,7 @@ ExtensionFunction::ResponseAction AutofillPrivateSaveIbanFunction::Run() {
   if (existing_iban->Compare(iban_to_write) != 0) {
     bool nickname_changed =
         existing_iban->nickname() != iban_to_write.nickname();
-    personal_data->UpdateIban(iban_to_write);
+    personal_data->payments_data_manager().UpdateIban(iban_to_write);
     base::RecordAction(base::UserMetricsAction("AutofillIbanEdited"));
     if (nickname_changed) {
       base::RecordAction(
@@ -848,7 +849,8 @@ AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::Run() {
   LogMandatoryReauthOptInOrOutUpdateEvent(
       MandatoryReauthOptInOrOutSource::kSettingsPage,
       /*opt_in=*/
-      !personal_data_manager->IsPaymentMethodsMandatoryReauthEnabled(),
+      !personal_data_manager->payments_data_manager()
+           .IsPaymentMethodsMandatoryReauthEnabled(),
       MandatoryReauthAuthenticationFlowEvent::kFlowStarted);
   client->GetOrCreatePaymentsMandatoryReauthManager()->AuthenticateWithMessage(
       l10n_util::GetStringUTF16(IDS_PAYMENTS_AUTOFILL_MANDATORY_REAUTH_PROMPT),
@@ -883,8 +885,8 @@ void AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::
   // mandatory reauth feature. If the mandatory reauth toggle on the settings is
   // currently enabled, then the `opt_in` bool will be false because the user is
   // opting-out, otherwise the `opt_in` bool will be true.
-  const bool opt_in =
-      !personal_data_manager->IsPaymentMethodsMandatoryReauthEnabled();
+  const bool opt_in = !personal_data_manager->payments_data_manager()
+                           .IsPaymentMethodsMandatoryReauthEnabled();
   LogMandatoryReauthOptInOrOutUpdateEvent(
       MandatoryReauthOptInOrOutSource::kSettingsPage, opt_in,
       reauth_succeeded ? MandatoryReauthAuthenticationFlowEvent::kFlowSucceeded
@@ -892,7 +894,8 @@ void AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::
   if (reauth_succeeded) {
     base::RecordAction(base::UserMetricsAction(
         "PaymentsUserAuthSuccessfulForMandatoryAuthToggle"));
-    personal_data_manager->SetPaymentMethodsMandatoryReauthEnabled(opt_in);
+    personal_data_manager->payments_data_manager()
+        .SetPaymentMethodsMandatoryReauthEnabled(opt_in);
   }
 #endif
 }
@@ -912,7 +915,8 @@ ExtensionFunction::ResponseAction AutofillPrivateGetLocalCardFunction::Run() {
   if (!personal_data_manager || !personal_data_manager->IsDataLoaded()) {
     return RespondNow(Error(kErrorDataUnavailable));
   }
-  if (personal_data_manager->IsPaymentMethodsMandatoryReauthEnabled()) {
+  if (personal_data_manager->payments_data_manager()
+          .IsPaymentMethodsMandatoryReauthEnabled()) {
     base::RecordAction(base::UserMetricsAction(
         "PaymentsUserAuthTriggeredToShowEditLocalCardDialog"));
     LogMandatoryReauthSettingsPageEditCardEvent(
@@ -1017,8 +1021,8 @@ AutofillPrivateBulkDeleteAllCvcsFunction::Run() {
   // Clear local and server CVCs from the webdata database. For server CVCs,
   // this will also clear them from the Chrome sync server and thus other
   // devices.
-  personal_data->ClearLocalCvcs();
-  personal_data->ClearServerCvcs();
+  personal_data->payments_data_manager().ClearLocalCvcs();
+  personal_data->payments_data_manager().ClearServerCvcs();
 
   return RespondNow(NoArguments());
 }
@@ -1046,7 +1050,8 @@ AutofillPrivateSetAutofillSyncToggleEnabledFunction::Run() {
               args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
-  personal_data->SetAutofillSelectableTypeEnabled(parameters->enabled);
+  personal_data->address_data_manager().SetAutofillSelectableTypeEnabled(
+      parameters->enabled);
 
   return RespondNow(NoArguments());
 }

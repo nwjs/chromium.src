@@ -12,10 +12,10 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/span.h"
-#include "base/strings/string_piece.h"
 #include "base/values.h"
 #include "net/base/address_family.h"
 #include "net/base/completion_once_callback.h"
@@ -69,7 +69,7 @@ class NET_EXPORT HostResolver {
     bool HasScheme() const;
     const std::string& GetScheme() const;
     std::string GetHostname() const;  // With brackets for IPv6 literals.
-    base::StringPiece GetHostnameWithoutBrackets() const;
+    std::string_view GetHostnameWithoutBrackets() const;
     uint16_t GetPort() const;
 
     std::string ToString() const;
@@ -194,6 +194,57 @@ class NET_EXPORT HostResolver {
     virtual void ChangeRequestPriority(RequestPriority priority) {}
   };
 
+  // Handler for a service endpoint resolution request. Unlike
+  // ResolveHostRequest, which waits for all responses, this could provide
+  // intermediate endpoint candidates in the middle of the resolution.
+  //
+  // A client owns an instance of this class. Destruction cancels the request.
+  class ServiceEndpointRequest {
+   public:
+    class Delegate {
+     public:
+      virtual ~Delegate() = default;
+
+      // Called when the request has updated endpoints.
+      virtual void OnServiceEndpointsUpdated() = 0;
+
+      // Called when all queries are responded or an error occurred.
+      // Note that this can be called without OnServiceEndpointsUpdated().
+      virtual void OnServiceEndpointRequestFinished(int rv) = 0;
+    };
+
+    virtual ~ServiceEndpointRequest() = default;
+
+    // Starts resolving service endpoints. `delegate` is used only when this
+    // method returns ERR_IO_PENDING. When the return value is other than
+    // ERR_IO_PENDING, resolution completed (or an error occurred)
+    // synchronously, and GetEndpointResults() will return finalized results.
+    virtual int Start(Delegate* delegate) = 0;
+
+    // The current available service endpoints. These can be changed over time
+    // while resolution is still ongoing. Changes are signaled by a call to the
+    // delegate's OnServiceEndpointsUpdated(). Results are finalized when
+    // Start() finished synchronously (returning other than ERR_IO_PENDING), or
+    // delegate's OnServiceEndpointRequestFinished() is called.
+    virtual const std::vector<ServiceEndpoint>& GetEndpointResults() = 0;
+
+    // Any DNS record aliases, such as CNAME aliases, found as a result of
+    // addresses and HTTPS queries. These can be changed over time while
+    // resolution is still ongoing. See also the comment on
+    // Request::GetDnsAliasResults() for details.
+    virtual const std::set<std::string>& GetDnsAliasResults() = 0;
+
+    // True if the client of this request can attempt cryptographic handshakes.
+    // If false, the provided service endpoints via GetEndpointResults() are not
+    // finalized to the point to allow completing transactions, and data or
+    // cryptographic handshakes must not be sent. This can be changed over time
+    // while resolution is still ongoing.
+    // TODO(crbug.com/41493696): Consider renaming this to
+    // `IsSvcbResolutionCompleted()` when Chrome supports HTTPS follow-up
+    // queries.
+    virtual bool EndpointsCryptoReady() = 0;
+  };
+
   // Handler for an activation of probes controlled by a HostResolver. Created
   // by HostResolver::CreateDohProbeRequest().
   class ProbeRequest {
@@ -285,14 +336,14 @@ class NET_EXPORT HostResolver {
     // See HostResolver::CreateResolver.
     virtual std::unique_ptr<HostResolver> CreateResolver(
         HostResolverManager* manager,
-        base::StringPiece host_mapping_rules,
+        std::string_view host_mapping_rules,
         bool enable_caching);
 
     // See HostResolver::CreateStandaloneResolver.
     virtual std::unique_ptr<HostResolver> CreateStandaloneResolver(
         NetLog* net_log,
         const ManagerOptions& options,
-        base::StringPiece host_mapping_rules,
+        std::string_view host_mapping_rules,
         bool enable_caching);
   };
 
@@ -469,7 +520,7 @@ class NET_EXPORT HostResolver {
   // requests.  See MappedHostResolver for details.
   static std::unique_ptr<HostResolver> CreateResolver(
       HostResolverManager* manager,
-      base::StringPiece host_mapping_rules = "",
+      std::string_view host_mapping_rules = "",
       bool enable_caching = true);
 
   // Creates a HostResolver independent of any global HostResolverManager. Only
@@ -480,7 +531,7 @@ class NET_EXPORT HostResolver {
   static std::unique_ptr<HostResolver> CreateStandaloneResolver(
       NetLog* net_log,
       std::optional<ManagerOptions> options = std::nullopt,
-      base::StringPiece host_mapping_rules = "",
+      std::string_view host_mapping_rules = "",
       bool enable_caching = true);
   // Same, but explicitly returns the implementing ContextHostResolver. Only
   // used by tests and by StaleHostResolver in Cronet. No mapping rules can be
@@ -500,7 +551,7 @@ class NET_EXPORT HostResolver {
       NetLog* net_log,
       handles::NetworkHandle network,
       std::optional<ManagerOptions> options = std::nullopt,
-      base::StringPiece host_mapping_rules = "",
+      std::string_view host_mapping_rules = "",
       bool enable_caching = true);
 
   // Helpers for interacting with HostCache and ProcResolver.

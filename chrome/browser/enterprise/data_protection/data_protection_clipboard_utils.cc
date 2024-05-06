@@ -5,6 +5,7 @@
 #include "chrome/browser/enterprise/data_protection/data_protection_clipboard_utils.h"
 
 #include <algorithm>
+#include <memory>
 #include <queue>
 
 #include "base/no_destructor.h"
@@ -20,6 +21,7 @@
 #include "ui/base/clipboard/clipboard_monitor.h"
 #include "ui/base/clipboard/clipboard_observer.h"
 #include "ui/base/clipboard/clipboard_sequence_number_token.h"
+#include "ui/base/clipboard/clipboard_util.h"
 #include "ui/base/data_transfer_policy/data_transfer_policy_controller.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -52,6 +54,14 @@ class ClipboardObserver : public ui::ClipboardObserver {
   // png, etc.) before `OnClipboardDataChanged()` is called, so `data` is merged
   // into `pending_seqno_data_` instead of replacing it entirely.
   void AddDataToNextSeqno(content::ClipboardPasteData data) {
+    // Bitmap isn't used directly by pasting code, so it must first be converted
+    // to PNG before being stored in `GetLastReplacedClipboardData()`.
+    if (!data.bitmap.empty()) {
+      data.png = ui::clipboard_util::EncodeBitmapToPngAcceptJank(
+          std::move(data.bitmap));
+      data.bitmap = SkBitmap();
+    }
+
     if (pending_seqno_data_.empty()) {
       ui::ClipboardMonitor::GetInstance()->AddObserver(this);
     }
@@ -60,13 +70,16 @@ class ClipboardObserver : public ui::ClipboardObserver {
 
   // ui::ClipboardObserver:
   void OnClipboardDataChanged() override {
-    GetLastReplacedClipboardData().seqno =
-        ui::Clipboard::GetForCurrentThread()->GetSequenceNumber(
-            ui::ClipboardBuffer::kCopyPaste);
-    GetLastReplacedClipboardData().clipboard_paste_data.Merge(
-        std::move(pending_seqno_data_));
+    GetLastReplacedClipboardData() = {
+        .seqno = ui::Clipboard::GetForCurrentThread()->GetSequenceNumber(
+            ui::ClipboardBuffer::kCopyPaste),
+        // `LastReplacedClipboardData::clipboard_paste_data` is reassigned to
+        // clear previous data corresponding to an older seqno.
+        .clipboard_paste_data = std::move(pending_seqno_data_),
+    };
+
     // Explicitly clear `pending_seqno_data_` in case it eventually holds a data
-    // member that doesn't clear itself after moving.
+    // member that doesn't clear itself cleanly after moving.
     pending_seqno_data_ = content::ClipboardPasteData();
 
     ui::ClipboardMonitor::GetInstance()->RemoveObserver(this);
@@ -268,8 +281,11 @@ void PasteIfAllowedByDataControls(
 
   // If the data currently being pasted was replaced when it was initially
   // copied from Chrome, replace it back since it hasn't triggered a Data
-  // Controls rule when pasting.
-  if (metadata.seqno == GetLastReplacedClipboardData().seqno) {
+  // Controls rule when pasting. Only do this if `source` has a known browser
+  // context to ensure we're not letting through data that was replaced by
+  // policies that are no longer applicable due to the profile being closed.
+  if (source.browser_context() &&
+      metadata.seqno == GetLastReplacedClipboardData().seqno) {
     clipboard_paste_data = GetLastReplacedClipboardData().clipboard_paste_data;
   }
 
@@ -304,7 +320,7 @@ void IsCopyToOSClipboardRestricted(
     const content::ClipboardPasteData& data,
     content::ContentBrowserClient::IsClipboardCopyAllowedCallback callback) {
   if (SkipDataControlOrContentAnalysisChecks(source)) {
-    std::move(callback).Run(data, std::nullopt);
+    std::move(callback).Run(metadata.format_type, data, std::nullopt);
     return;
   }
 
@@ -319,13 +335,14 @@ void IsCopyToOSClipboardRestricted(
     // paste time.
     ClipboardObserver::GetInstance()->AddDataToNextSeqno(data);
     std::move(callback).Run(
-        data, /*replacement_data=*/l10n_util::GetStringUTF16(
+        metadata.format_type, data, /*replacement_data=*/
+        l10n_util::GetStringUTF16(
             IDS_ENTERPRISE_DATA_CONTROLS_COPY_PREVENTION_WARNING_MESSAGE));
 
     return;
   }
 
-  std::move(callback).Run(data, std::nullopt);
+  std::move(callback).Run(metadata.format_type, data, std::nullopt);
 }
 
 void OnDataControlsCopyWarning(
@@ -347,7 +364,7 @@ void IsCopyRestrictedByDialog(
     const content::ClipboardPasteData& data,
     content::ContentBrowserClient::IsClipboardCopyAllowedCallback callback) {
   if (SkipDataControlOrContentAnalysisChecks(source)) {
-    std::move(callback).Run(data, std::nullopt);
+    std::move(callback).Run(metadata.format_type, data, std::nullopt);
     return;
   }
 
@@ -444,7 +461,8 @@ void IsClipboardCopyAllowedByPolicy(
           source.browser_context());
   if (!service->IsUrlAllowedToCopy(url, metadata.size.value_or(0),
                                    &replacement_data)) {
-    std::move(callback).Run(data, std::move(replacement_data));
+    std::move(callback).Run(metadata.format_type, data,
+                            std::move(replacement_data));
     return;
   }
 

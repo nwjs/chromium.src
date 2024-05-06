@@ -10,19 +10,17 @@
 #include "base/memory/weak_ptr.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/widget/unique_widget_ptr.h"
+#include "ui/wm/public/activation_change_observer.h"
+#include "ui/wm/public/activation_client.h"
 
 namespace ash {
-
-// Public so it can be used by tests.
-inline constexpr char kEducationNudgeId[] = "PineEducationNudge";
-inline constexpr char kPineOnboardingHistogram[] =
-    "Ash.Pine.OnboardingDialog.TurnRestoreOn";
 
 struct PineContentsData;
 
 // Controls showing the pine dialog. Receives data from the full restore
 // service.
-class ASH_EXPORT PineController : public OverviewObserver {
+class ASH_EXPORT PineController : public OverviewObserver,
+                                  public wm::ActivationChangeObserver {
  public:
   PineController();
   PineController(const PineController&) = delete;
@@ -33,10 +31,6 @@ class ASH_EXPORT PineController : public OverviewObserver {
   const PineContentsData* pine_contents_data() const {
     return pine_contents_data_.get();
   }
-
-  // Returns true if `this` contains `pine_contents_data_` with non-empty app
-  // restore data.
-  bool ShouldShowPineDialog() const;
 
   // Shows the onboarding message. If `restore_on` is true, only the
   // "Continue" button will be shown. Otherwise shows both buttons.
@@ -64,12 +58,18 @@ class ASH_EXPORT PineController : public OverviewObserver {
   void OnOverviewModeEnding(OverviewSession* overview_session) override;
   void OnOverviewModeEndingAnimationComplete(bool canceled) override;
 
+  // wm::ActivationChangeObserver:
+  void OnWindowActivated(ActivationReason reason,
+                         aura::Window* gained_active,
+                         aura::Window* lost_active) override;
+
  private:
   friend class PineTestApi;
   FRIEND_TEST_ALL_PREFIXES(PineTest, OnboardingMetrics);
 
   // Callback function for when the pine image is finished decoding.
-  void OnPineImageDecoded(const gfx::ImageSkia& pine_image);
+  void OnPineImageDecoded(base::TimeTicks start_time,
+                          const gfx::ImageSkia& pine_image);
 
   void StartPineOverviewSession();
 
@@ -90,6 +90,9 @@ class ASH_EXPORT PineController : public OverviewObserver {
   // overview, this will persist until a window is opened.
   // TODO(sammiequon): Delete this object when an app window is created.
   std::unique_ptr<PineContentsData> pine_contents_data_;
+
+  base::ScopedObservation<wm::ActivationClient, wm::ActivationChangeObserver>
+      activation_change_observation_{this};
 
   base::WeakPtrFactory<PineController> weak_ptr_factory_{this};
 };

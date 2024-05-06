@@ -10,7 +10,6 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_conv_transpose_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_leaky_relu_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pad_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pool_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_reduce_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_split_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_triangular_options.h"
@@ -59,7 +58,7 @@ struct ElementWiseBinaryTester {
                                    rhs.data_type, scope.GetExceptionState());
     auto* output_operand =
         BuildElementWiseBinary(scope, builder, kind, lhs_operand, rhs_operand);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -69,9 +68,9 @@ struct ElementWiseBinaryTester {
          {"rhs", CreateArrayBufferViewForOperand(rhs_operand, rhs.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -272,7 +271,7 @@ struct PowTester {
     auto* output_operand = BuildElementWiseBinary(
         scope, builder, webnn::mojom::blink::ElementWiseBinary::Kind::kPow,
         lhs_operand, rhs_operand);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -281,9 +280,9 @@ struct PowTester {
         {{"lhs", CreateArrayBufferViewForOperand(lhs_operand, lhs.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -383,7 +382,7 @@ struct ElementWiseUnaryTester {
         // TODO: crbug.com/325598628 - Add tests for this case.
         break;
     }
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -393,9 +392,9 @@ struct ElementWiseUnaryTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -537,7 +536,7 @@ struct PReluTester {
                       scope.GetExceptionState());
     auto* output_operand =
         builder->prelu(input_operand, slope_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -547,9 +546,9 @@ struct PReluTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -604,7 +603,7 @@ struct ReluTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->relu(input_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -614,9 +613,9 @@ struct ReluTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -690,7 +689,7 @@ struct LeakyReluTester {
                    scope.GetExceptionState());
     auto* output_operand =
         BuildLeakyRelu(scope, builder, input_operand, options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -700,9 +699,9 @@ struct LeakyReluTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -764,7 +763,7 @@ struct ReduceTester {
     auto* output_operand =
         BuildReduce(scope, builder, kind, input_operand, options);
     EXPECT_EQ(output_operand->Dimensions(), expected_output_shape);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -773,9 +772,9 @@ struct ReduceTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -838,73 +837,6 @@ TEST_P(MLGraphTest, ReduceTest) {
 }
 
 template <typename T>
-struct Resample2dTester {
-  OperandInfo<T> input;
-  Vector<T> expected;
-
-  void Test(MLGraphTest& helper,
-            V8TestingScope& scope,
-            MLResample2dOptions* options = MLResample2dOptions::Create()) {
-    // Build the graph.
-    auto* builder =
-        CreateMLGraphBuilder(scope.GetExecutionContext(),
-                             scope.GetScriptState(), scope.GetExceptionState());
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    auto* output_operand =
-        BuildResample2d(scope, builder, input_operand, options);
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    // Compute the graph.
-    MLNamedArrayBufferViews inputs(
-        {{"input",
-          CreateArrayBufferViewForOperand(input_operand, input.values)}});
-    MLNamedArrayBufferViews outputs(
-        {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
-        helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
-    auto results = GetArrayBufferViewValues<T>(outputs[0].second);
-    EXPECT_EQ(results, expected);
-  }
-};
-
-TEST_P(MLGraphTest, Resample2dTest) {
-  V8TestingScope scope;
-  {
-    // Test resample2d operator with axes = {1, 2}, sizes = {4, 4}.
-    auto* options = MLResample2dOptions::Create();
-    options->setSizes({4, 4});
-    options->setAxes({1, 2});
-    options->setMode(V8MLInterpolationMode::Enum::kLinear);
-    Resample2dTester<float>{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 2, 2, 1},
-                  .values = {1, 2, 3, 4}},
-        .expected = {1., 1.25, 1.75, 2., 1.5, 1.75, 2.25, 2.5, 2.5, 2.75, 3.25,
-                     3.5, 3., 3.25, 3.75, 4.}}
-        .Test(*this, scope, options);
-  }
-  {
-    // Test resample2d operator with axes = {1, 2}, scales = {2.0, 2.0}.
-    auto* options = MLResample2dOptions::Create();
-    options->setScales({2.0, 2.0});
-    options->setAxes({1, 2});
-    options->setMode(V8MLInterpolationMode::Enum::kLinear);
-    Resample2dTester<float>{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 2, 2, 1},
-                  .values = {1, 2, 3, 4}},
-        .expected = {1., 1.25, 1.75, 2., 1.5, 1.75, 2.25, 2.5, 2.5, 2.75, 3.25,
-                     3.5, 3., 3.25, 3.75, 4.}}
-        .Test(*this, scope, options);
-  }
-}
-
-template <typename T>
 struct ClampTester {
   OperandInfo<T> input;
   Vector<T> expected;
@@ -921,7 +853,7 @@ struct ClampTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->clamp(input_operand, options, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -931,9 +863,9 @@ struct ClampTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -1036,7 +968,7 @@ struct Conv2dTester {
     }
     auto* output_operand =
         BuildConv2d(scope, builder, input_operand, filter_operand, options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1046,9 +978,9 @@ struct Conv2dTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -1223,7 +1155,7 @@ struct ConvTranspose2dTester {
     }
     auto* output_operand = BuildConvTranspose2d(scope, builder, input_operand,
                                                 filter_operand, options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1233,9 +1165,9 @@ struct ConvTranspose2dTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -1390,7 +1322,7 @@ struct GemmTester {
     }
     auto* output_operand =
         BuildGemm(scope, builder, a_operand, b_operand, options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1399,9 +1331,9 @@ struct GemmTester {
         {{"input", CreateArrayBufferViewForOperand(a_operand, a.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -1473,7 +1405,7 @@ struct HardSwishTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->hardSwish(input_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1483,9 +1415,9 @@ struct HardSwishTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<float>(outputs[0].second);
     ExpectFloatArrayEqual(results, expected);
   }
@@ -1538,111 +1470,6 @@ TEST_P(MLGraphTest, HardSwishTest) {
   }
 }
 
-template <typename T>
-struct Pool2dTester {
-  webnn::mojom::blink::Pool2d::Kind kind;
-  OperandInfo<T> input;
-  Vector<T> expected;
-
-  void Test(MLGraphTest& helper,
-            V8TestingScope& scope,
-            MLPool2dOptions* options = MLPool2dOptions::Create()) {
-    auto* builder =
-        CreateMLGraphBuilder(scope.GetExecutionContext(),
-                             scope.GetScriptState(), scope.GetExceptionState());
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    auto* output_operand =
-        BuildPool2d(scope, builder, kind, input_operand, options);
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    MLNamedArrayBufferViews inputs(
-        {{"input",
-          CreateArrayBufferViewForOperand(input_operand, input.values)}});
-    MLNamedArrayBufferViews outputs(
-        {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
-        helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
-    auto results = GetArrayBufferViewValues<T>(outputs[0].second);
-    EXPECT_EQ(results, expected);
-  }
-};
-
-TEST_P(MLGraphTest, Pool2dTest) {
-  V8TestingScope scope;
-
-  // TODO: crbug.com/325598628 - Add tests for `kL2Pool2d`.
-
-  {
-    // Test averagePool2d operator for nhwc input layout.
-    auto* options = MLPool2dOptions::Create();
-    options->setLayout(V8MLInputOperandLayout::Enum::kNhwc);
-    options->setWindowDimensions({3, 3});
-    Pool2dTester<float>{
-        .kind = webnn::mojom::blink::Pool2d::Kind::kAveragePool2d,
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 4, 4, 1},
-                  .values = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
-                             11.0, 12.0, 13.0, 14.0, 15.0, 16.0}},
-        .expected = {6.0, 7.0, 10.0, 11.0}}
-        .Test(*this, scope, options);
-  }
-  {
-    // Test global averagePool2d operator for nhwc input layout.
-    auto* options = MLPool2dOptions::Create();
-    options->setLayout(V8MLInputOperandLayout::Enum::kNhwc);
-    Pool2dTester<float>{
-        .kind = webnn::mojom::blink::Pool2d::Kind::kAveragePool2d,
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 4, 4, 1},
-                  .values = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
-                             11.0, 12.0, 13.0, 14.0, 15.0, 16.0}},
-        .expected = {8.5}}
-        .Test(*this, scope, options);
-  }
-  {
-    // Test maxPool2d operator for nhwc input layout.
-    auto* options = MLPool2dOptions::Create();
-    options->setLayout(V8MLInputOperandLayout::Enum::kNhwc);
-    options->setWindowDimensions({3, 3});
-    Pool2dTester<float>{
-        .kind = webnn::mojom::blink::Pool2d::Kind::kMaxPool2d,
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 4, 4, 1},
-                  .values = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
-                             11.0, 12.0, 13.0, 14.0, 15.0, 16.0}},
-        .expected = {11.0, 12.0, 15.0, 16.0}}
-        .Test(*this, scope, options);
-  }
-  {
-    // Test maxPool2d operator for explicit padding are not same as the
-    // calculated padding with kSameUpper, input size, window dimensions, stride
-    // and dilation that are used by CalculateConv2dPadding function.
-    auto* options = MLPool2dOptions::Create();
-    options->setLayout(V8MLInputOperandLayout::Enum::kNhwc);
-    // The paddings are {1, 1, 1, 1} with calculating by CalculateConv2dPadding
-    // function.
-    options->setPadding({2, 2, 1, 1});
-    options->setWindowDimensions({3, 3});
-    options->setStrides({2, 2});
-    Pool2dTester<float>{
-        .kind = webnn::mojom::blink::Pool2d::Kind::kMaxPool2d,
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 7, 5, 1},
-                  .values = {2.0, 3.0, 2.0, 6.0, 9.0, 2.0, 3.0, 2.0, 6.0,
-                             9.0, 2.0, 3.0, 2.0, 6.0, 9.0, 2.0, 3.0, 2.0,
-                             6.0, 9.0, 2.0, 3.0, 2.0, 6.0, 9.0, 2.0, 3.0,
-                             2.0, 6.0, 9.0, 2.0, 3.0, 2.0, 6.0, 9.0}},
-        .expected = {3.0, 6.0, 9.0, 3.0, 6.0, 9.0, 3.0, 6.0, 9.0, 3.0, 6.0, 9.0,
-                     3.0, 6.0, 9.0}}
-        .Test(*this, scope, options);
-  }
-}
-
 // Because reshape Node runs copy operator, ReshapeTester just checks the
 // output against the input. So there is no need to set expected results.
 template <typename T>
@@ -1662,7 +1489,7 @@ struct ReshapeTester {
     auto* output_operand =
         builder->reshape(input_operand, new_shape, scope.GetExceptionState());
     EXPECT_EQ(output_operand->Dimensions(), expected_output_shape);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1672,9 +1499,9 @@ struct ReshapeTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, input.values);
   }
@@ -1739,7 +1566,7 @@ struct SigmoidTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->sigmoid(input_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_NE(graph, nullptr);
 
@@ -1749,9 +1576,9 @@ struct SigmoidTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    ASSERT_EQ(compute_exception, nullptr);
+    EXPECT_TRUE(error_name.IsNull());
     ASSERT_EQ(outputs.size(), 1u);
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     ExpectFloatArrayEqual(results, expected);
@@ -1810,7 +1637,7 @@ struct SplitTester {
           std::pair<WTF::String, blink::Member<blink::MLOperand>>{
               "output" + String::Number(i), output_operands[i]});
     }
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, named_operands);
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1824,9 +1651,9 @@ struct SplitTester {
               "output" + String::Number(i),
               CreateArrayBufferViewForOperand(output_operands[i])});
     }
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     for (uint32_t i = 0; i < outputs.size(); ++i) {
       auto result = GetArrayBufferViewValues<T>(outputs[i].second);
       EXPECT_EQ(result, expected[i]);
@@ -1890,81 +1717,6 @@ TEST_P(MLGraphTest, SplitTest) {
 }
 
 template <typename T>
-struct TransposeTester {
-  OperandInfo<T> input;
-  Vector<T> expected;
-
-  void Test(MLGraphTest& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder,
-            MLTransposeOptions* options = MLTransposeOptions::Create()) {
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    auto* output_operand =
-        BuildTranspose(scope, builder, input_operand, options);
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    MLNamedArrayBufferViews inputs(
-        {{"input",
-          CreateArrayBufferViewForOperand(input_operand, input.values)}});
-    MLNamedArrayBufferViews outputs(
-        {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
-        helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
-    auto results = GetArrayBufferViewValues<T>(outputs[0].second);
-    EXPECT_EQ(results, expected);
-  }
-};
-
-TEST_P(MLGraphTest, TransposeTest) {
-  V8TestingScope scope;
-  auto* builder =
-      CreateMLGraphBuilder(scope.GetExecutionContext(), scope.GetScriptState(),
-                           scope.GetExceptionState());
-  {
-    // Test transpose operator with default options.
-    auto* options = MLTransposeOptions::Create();
-    TransposeTester<float>{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {2, 3, 4},
-                  .values =
-                      {
-                          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
-                          12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                      }},
-        .expected =
-            {
-                0, 12, 4, 16, 8,  20, 1, 13, 5, 17, 9,  21,
-                2, 14, 6, 18, 10, 22, 3, 15, 7, 19, 11, 23,
-            }}
-        .Test(*this, scope, builder, options);
-  }
-  {
-    // Test transpose with permutation = {0, 2, 1}.
-    auto* options = MLTransposeOptions::Create();
-    options->setPermutation({{0, 2, 1}});
-    TransposeTester<float>{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {2, 3, 4},
-                  .values =
-                      {
-                          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
-                          12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                      }},
-        .expected =
-            {
-                0,  4,  8,  1,  5,  9,  2,  6,  10, 3,  7,  11,
-                12, 16, 20, 13, 17, 21, 14, 18, 22, 15, 19, 23,
-            }}
-        .Test(*this, scope, builder, options);
-  }
-}
-
-template <typename T>
 struct ConcatTester {
   Vector<OperandInfo<T>> inputs;
   uint32_t axis;
@@ -1986,7 +1738,7 @@ struct ConcatTester {
     auto* output_operand =
         builder->concat(input_operands, axis, scope.GetExceptionState());
     EXPECT_EQ(output_operand->Dimensions(), expected_output_shape);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2000,9 +1752,9 @@ struct ConcatTester {
     }
     MLNamedArrayBufferViews named_outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, named_inputs, named_outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(named_outputs[0].second);
     EXPECT_EQ(results, expected_output_data);
   }
@@ -2107,7 +1859,7 @@ struct PadTester {
                    scope.GetExceptionState());
     auto* output_operand = BuildPad(scope, builder, input_operand,
                                     beginning_padding, ending_padding, options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2116,9 +1868,9 @@ struct PadTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -2201,7 +1953,7 @@ struct SliceTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->slice(input_operand, starts, sizes, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2210,9 +1962,9 @@ struct SliceTester {
           CreateArrayBufferViewForOperand(input_operand, input.values)}});
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception =
+    std::tie(error_name, error_message) =
         helper.ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<T>(outputs[0].second);
     EXPECT_EQ(results, expected);
   }
@@ -2256,7 +2008,7 @@ TEST_P(MLGraphTest, BuildAndComputeGraphWithOnlyConstants) {
     auto* output_operand =
         builder->relu(constant_operand, scope.GetExceptionState());
     ASSERT_THAT(output_operand, testing::NotNull());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2264,8 +2016,9 @@ TEST_P(MLGraphTest, BuildAndComputeGraphWithOnlyConstants) {
     MLNamedArrayBufferViews inputs;
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<float>(outputs[0].second);
     EXPECT_EQ(results, Vector<float>({0, 0, 1}));
   }
@@ -2282,7 +2035,7 @@ TEST_P(MLGraphTest, BuildAndComputeGraphWithOnlyConstants) {
     auto* output_operand = builder->add(constant_a_operand, constant_b_operand,
                                         scope.GetExceptionState());
     ASSERT_THAT(output_operand, testing::NotNull());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2290,8 +2043,9 @@ TEST_P(MLGraphTest, BuildAndComputeGraphWithOnlyConstants) {
     MLNamedArrayBufferViews inputs;
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<float>(outputs[0].second);
     EXPECT_EQ(results, Vector<float>({3, 3, 3, 3}));
   }
@@ -2316,7 +2070,7 @@ TEST_P(MLGraphTest, BuildAndComputeGraphWithOnlyConstants) {
     auto* output_operand = builder->mul(
         intermediate_operand, constant_c_operand, scope.GetExceptionState());
     ASSERT_THAT(output_operand, testing::NotNull());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2324,8 +2078,9 @@ TEST_P(MLGraphTest, BuildAndComputeGraphWithOnlyConstants) {
     MLNamedArrayBufferViews inputs;
     MLNamedArrayBufferViews outputs(
         {{"output", CreateArrayBufferViewForOperand(output_operand)}});
-    auto* compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<float>(outputs[0].second);
     EXPECT_EQ(results, Vector<float>({9, 9, 9, 9}));
   }

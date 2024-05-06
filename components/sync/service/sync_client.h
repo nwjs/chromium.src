@@ -12,7 +12,7 @@
 #include "base/memory/ref_counted.h"
 #include "components/sync/base/extensions_activity.h"
 #include "components/sync/base/model_type.h"
-#include "components/sync/service/data_type_controller.h"
+#include "components/sync/service/model_type_controller.h"
 
 class PrefService;
 
@@ -54,7 +54,7 @@ class SyncClient {
   virtual base::FilePath GetLocalSyncBackendFolder() = 0;
 
   // Returns a vector with all supported datatypes and their controllers.
-  virtual DataTypeController::TypeVector CreateDataTypeControllers(
+  virtual ModelTypeController::TypeVector CreateModelTypeControllers(
       SyncService* sync_service) = 0;
 
   virtual SyncInvalidationsService* GetSyncInvalidationsService() = 0;
@@ -69,7 +69,7 @@ class SyncClient {
 
   // Notifies the client that local sync metadata in preferences has been
   // cleared.
-  // TODO(crbug.com/1137346): Replace this mechanism with a more universal one,
+  // TODO(crbug.com/40724759): Replace this mechanism with a more universal one,
   // e.g. using SyncServiceObserver.
   virtual void OnLocalSyncTransportDataCleared() = 0;
 

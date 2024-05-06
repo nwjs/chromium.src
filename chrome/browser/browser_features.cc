@@ -39,6 +39,8 @@ BASE_FEATURE(kBookmarkTriggerForPrerender2,
 // Enabling CT enforcement requires maintaining a log policy, and the ability to
 // update the list of accepted logs. Embedders who are planning to enable this
 // should first reach out to chrome-certificate-transparency@google.com.
+// On builds where CT is enabled, this flag is also used as an emergency kill
+// switch.
 BASE_FEATURE(kCertificateTransparencyAskBeforeEnabling,
              "CertificateTransparencyAskBeforeEnabling",
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -101,17 +103,40 @@ const base::FeatureParam<std::string> kDevToolsConsoleInsightsModelId{
     &kDevToolsConsoleInsights, "aida_model_id", /*default*/ ""};
 const base::FeatureParam<double> kDevToolsConsoleInsightsTemperature{
     &kDevToolsConsoleInsights, "aida_temperature", /*default*/ 0.2};
+const base::FeatureParam<bool> kDevToolsConsoleInsightsOptIn{
+    &kDevToolsConsoleInsights, "opt_in", /*default*/ true};
 
 // Separate dogfood feature for DevTools console insights,
 // not restricted by enterprise policy or location.
 BASE_FEATURE(kDevToolsConsoleInsightsDogfood,
              "DevToolsConsoleInsightsDogfood",
              base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string> kDevToolsConsoleInsightsDogfoodAidaScope{
+    &kDevToolsConsoleInsightsDogfood, "aida_scope", /*default*/ ""};
+const base::FeatureParam<std::string>
+    kDevToolsConsoleInsightsDogfoodAidaEndpoint{
+        &kDevToolsConsoleInsightsDogfood, "aida_endpoint", /*default*/ ""};
+const base::FeatureParam<std::string> kDevToolsConsoleInsightsDogfoodModelId{
+    &kDevToolsConsoleInsightsDogfood, "aida_model_id", /*default*/ ""};
+const base::FeatureParam<double> kDevToolsConsoleInsightsDogfoodTemperature{
+    &kDevToolsConsoleInsightsDogfood, "aida_temperature", /*default*/ 0.2};
+const base::FeatureParam<bool> kDevToolsConsoleInsightsDogfoodOptIn{
+    &kDevToolsConsoleInsightsDogfood, "opt_in", /*default*/ true};
+
+// Whether DevTools shows the setting for console insights. The setting can be
+// shown in a disabled state, even if the feature itself is not available.
+BASE_FEATURE(kDevToolsConsoleInsightsSettingVisible,
+             "DevToolsConsoleInsightsSettingVisible",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string>
+    kDevToolsConsoleInsightsSettingVisibleBlockedReason{
+        &kDevToolsConsoleInsightsSettingVisible, "blocked_reason",
+        /*default*/ ""};
 
 // Whether an infobar is shown when the process is shared.
 BASE_FEATURE(kDevToolsSharedProcessInfobar,
              "DevToolsSharedProcessInfobar",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Let DevTools front-end talk to the target of type "tab" rather than
 // "frame" when inspecting a WebContents.
@@ -140,6 +165,12 @@ BASE_FEATURE(kDoubleTapToZoomInTabletMode,
 BASE_FEATURE(kEnableDPAPIEncryptionProvider,
              "EnableDPAPIEncryptionProvider",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When this feature is enabled, the App-Bound encryption provider is registered
+// with Chrome.
+BASE_FEATURE(kRegisterAppBoundEncryptionProvider,
+             "RegisterAppBoundEncryptionProvider",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 // Enables usage of the FedCM API without third party cookies at the same time.
@@ -205,16 +236,7 @@ BASE_FEATURE(kNetworkAnnotationMonitoring,
 // crbug.com/1462832 for more details of New Tab Page triggered prerendering.
 BASE_FEATURE(kNewTabPageTriggerForPrerender2,
              "NewTabPageTriggerForPrerender2",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_WIN)
-// Don't try to clear downlevel OS appcompat layers out of Chrome's
-// AppCompatFlags\Layers value in the Windows registry on process startup in
-// child processes; see https://crbug.com/1482568.
-BASE_FEATURE(kNoAppCompatClearInChildren,
-             "NoAppCompatClearInChildren",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN)
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // Don't call the Win32 API PrefetchVirtualMemory when loading chrome.dll inside

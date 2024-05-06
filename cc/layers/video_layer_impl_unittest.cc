@@ -34,19 +34,6 @@ static void DebugSetImplThreadAndMainThreadBlocked(
 #endif
 }
 
-bool CanUseRasterInterface() {
-#if BUILDFLAG(IS_ANDROID)
-  return base::FeatureList::IsEnabled(
-      media::kRasterInterfaceInVideoResourceUpdater);
-#else
-  return true;
-#endif
-}
-
-bool UseMultiplanarSoftwarePixelUpload() {
-  return CanUseRasterInterface() && media::IsWritePixelsYUVEnabled();
-}
-
 TEST(VideoLayerImplTest, Occlusion) {
   gfx::Size layer_size(1000, 1000);
   gfx::Size viewport_size(1000, 1000);
@@ -348,7 +335,7 @@ TEST(VideoLayerImplTest, SoftwareVideoFrameGeneratesYUVQuad) {
   EXPECT_EQ(1u, impl.quad_list().size());
   const viz::DrawQuad* draw_quad = impl.quad_list().ElementAt(0);
 
-  if (UseMultiplanarSoftwarePixelUpload()) {
+  if (media::IsWritePixelsYUVEnabled()) {
     ASSERT_EQ(viz::DrawQuad::Material::kTextureContent, draw_quad->material);
     const auto* texture_draw_quad =
         static_cast<const viz::TextureDrawQuad*>(draw_quad);
@@ -395,7 +382,7 @@ TEST(VideoLayerImplTest, HibitSoftwareVideoFrameGeneratesYUVQuad) {
   EXPECT_EQ(1u, impl.quad_list().size());
   const viz::DrawQuad* draw_quad = impl.quad_list().ElementAt(0);
 
-  if (UseMultiplanarSoftwarePixelUpload()) {
+  if (media::IsWritePixelsYUVEnabled()) {
     ASSERT_EQ(viz::DrawQuad::Material::kTextureContent, draw_quad->material);
     const auto* texture_draw_quad =
         static_cast<const viz::TextureDrawQuad*>(draw_quad);
@@ -415,16 +402,17 @@ TEST(VideoLayerImplTest, NativeYUVFrameGeneratesYUVQuad) {
   LayerTreeImplTestBase impl;
   DebugSetImplThreadAndMainThreadBlocked(impl.task_runner_provider());
 
-  gpu::MailboxHolder mailbox_holders[media::VideoFrame::kMaxPlanes];
-  mailbox_holders[0].mailbox.name[0] = 1;
-  mailbox_holders[1].mailbox.name[0] = 1;
-  mailbox_holders[2].mailbox.name[0] = 1;
+  scoped_refptr<gpu::ClientSharedImage>
+      shared_images[media::VideoFrame::kMaxPlanes];
+  shared_images[0] = gpu::ClientSharedImage::CreateForTesting();
+  shared_images[1] = gpu::ClientSharedImage::CreateForTesting();
+  shared_images[2] = gpu::ClientSharedImage::CreateForTesting();
 
   scoped_refptr<media::VideoFrame> video_frame =
-      media::VideoFrame::WrapNativeTextures(
-          media::PIXEL_FORMAT_I420, mailbox_holders, base::DoNothing(),
-          gfx::Size(10, 10), gfx::Rect(10, 10), gfx::Size(10, 10),
-          base::TimeDelta());
+      media::VideoFrame::WrapSharedImages(
+          media::PIXEL_FORMAT_I420, shared_images, gpu::SyncToken(),
+          GL_TEXTURE_2D, base::DoNothing(), gfx::Size(10, 10),
+          gfx::Rect(10, 10), gfx::Size(10, 10), base::TimeDelta());
   ASSERT_TRUE(video_frame);
   video_frame->metadata().allow_overlay = true;
   FakeVideoFrameProvider provider;
@@ -459,15 +447,16 @@ TEST(VideoLayerImplTest, NativeARGBFrameGeneratesTextureQuad) {
   LayerTreeImplTestBase impl;
   DebugSetImplThreadAndMainThreadBlocked(impl.task_runner_provider());
 
-  gpu::MailboxHolder mailbox_holders[media::VideoFrame::kMaxPlanes];
-  mailbox_holders[0].texture_target = GL_TEXTURE_2D;
-  mailbox_holders[0].mailbox.name[0] = 1;
+  scoped_refptr<gpu::ClientSharedImage>
+      shared_images[media::VideoFrame::kMaxPlanes];
+  shared_images[0] = gpu::ClientSharedImage::CreateForTesting();
 
   gfx::Size resource_size = gfx::Size(10, 10);
   scoped_refptr<media::VideoFrame> video_frame =
-      media::VideoFrame::WrapNativeTextures(
-          media::PIXEL_FORMAT_ARGB, mailbox_holders, base::DoNothing(),
-          resource_size, gfx::Rect(10, 10), resource_size, base::TimeDelta());
+      media::VideoFrame::WrapSharedImages(
+          media::PIXEL_FORMAT_ARGB, shared_images, gpu::SyncToken(),
+          GL_TEXTURE_2D, base::DoNothing(), resource_size, gfx::Rect(10, 10),
+          resource_size, base::TimeDelta());
   ASSERT_TRUE(video_frame);
   video_frame->metadata().allow_overlay = true;
   FakeVideoFrameProvider provider;

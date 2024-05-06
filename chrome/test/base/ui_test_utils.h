@@ -27,6 +27,10 @@
 #include "ui/views/view_observer.h"
 #include "url/gurl.h"
 
+#if defined(TOOLKIT_VIEWS)
+#include "ui/views/test/widget_test_api.h"
+#endif
+
 class Browser;
 class FullscreenController;
 class Profile;
@@ -200,6 +204,18 @@ void WaitForAutocompleteDone(Browser* browser);
 // Waits until the window gets minimized.
 // Returns success or not.
 bool WaitForMinimized(Browser* browser);
+
+// Waits until the window gets maximized.
+// Returns success or not.
+bool WaitForMaximized(Browser* browser);
+
+// See comment on views::AsyncWidgetRequestWaiter.
+[[nodiscard]] views::AsyncWidgetRequestWaiter CreateAsyncWidgetRequestWaiter(
+    Browser& browser);
+
+// SetAndWaitForBounds sets the given `bounds` on `browser` and waits until the
+// bounds update will be observable from all parts of the client.
+void SetAndWaitForBounds(Browser& browser, const gfx::Rect& bounds);
 
 // Waits for fullscreen state to be updated.
 // There're two variation of fullscreen concepts, browser fullscreen and

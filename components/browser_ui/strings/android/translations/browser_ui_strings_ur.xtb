@@ -94,7 +94,6 @@
 <translation id="2501278716633472235">پیچھے جائیں</translation>
 <translation id="2546283357679194313">کوکیز اور سائٹ ڈیٹا</translation>
 <translation id="2550801787432930915">قیمت میں کمی کا کارڈ</translation>
-<translation id="2569468611847789653">{COOKIE_COUNT,plural, =1{1 کوکی مسدود ہو گئی}other{# کوکیز مسدود ہو گئیں}}</translation>
 <translation id="2570922361219980984">‏مقام کی رسائی بھی اس آلہ کے لیے آف ہے۔ <ph name="BEGIN_LINK" />Android کی ترتیبات<ph name="END_LINK" />.میں اسے آن کریں۔</translation>
 <translation id="257931822824936280">پھیلایا ہوا - سکیڑنے کیلئے کلک کریں۔</translation>
 <translation id="2586657967955657006">کلپ بورڈ</translation>
@@ -177,6 +176,7 @@
 <translation id="3895926599014793903">زوم کو زبردستی فعال کریں</translation>
 <translation id="3908288065506437185">پوشیدگی وضع میں فریق ثالث کوکیز کو مسدود کریں</translation>
 <translation id="3918378745482005425">ہو سکتا ہے کچھ خصوصیات کام نہ کریں۔ متعلقہ سائٹس اب بھی فریق ثالث کوکیز استعمال کر سکتی ہیں۔</translation>
+<translation id="3933121352599513978">غیر مطلوبہ درخواستوں کو سکیڑیں (تجویز کردہ)</translation>
 <translation id="3955193568934677022">سائٹس کو محفوظ کردہ مواد چلانے کی اجازت دیں (تجویز کردہ)</translation>
 <translation id="3967822245660637423">ڈاؤن لوڈ مکمل ہوگیا ہے</translation>
 <translation id="3974105241379491420">سائٹس ان معلومات کو استعمال کرنے کے لیے کہہ سکتی ہیں جو انہوں نے آپ کے بارے میں محفوظ کی ہیں</translation>
@@ -199,6 +199,7 @@
 <translation id="429312253194641664">سائٹ پر میڈیا چل رہا ہے</translation>
 <translation id="42981349822642051">پھیلائیں</translation>
 <translation id="4336566011000459927">‏Chrome آج دوبارہ کوکیز کو محدود کر دے گا</translation>
+<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> آپ کا آخری ٹیب</translation>
 <translation id="4338831206024587507"><ph name="DOMAIN" /> کے ماتحت سبھی سائٹس</translation>
 <translation id="4402755511846832236">کب آپ فعال طور پر اس آلہ کا استعمال کر رہے ہیں اس کا پتہ لگانے سے سائٹس کو مسدود کریں</translation>
 <translation id="4412992751769744546">فریق ثالث کی کوکیز کی اجازت دیں</translation>
@@ -289,6 +290,7 @@
 <translation id="5853982612236235577">آن ہونے پر، سائٹس اطلاعات بھیجنے کے لیے پوچھ سکتی ہیں۔ آف ہونے پر، سائٹس اطلاعات نہیں بھیج سکتیں۔</translation>
 <translation id="5860033963881614850">آف</translation>
 <translation id="5876056640971328065">ویڈیو موقوف کریں</translation>
+<translation id="5877248419911025165">تمام درخواستوں کو سکیڑیں</translation>
 <translation id="5884085660368669834">سائٹ کی ترجیح</translation>
 <translation id="5887687176710214216">آخری بار گزشتہ کل چیک کیا گیا</translation>
 <translation id="5916664084637901428">آن</translation>
@@ -457,7 +459,6 @@
 <translation id="8441146129660941386">پیچھے لے جائیں</translation>
 <translation id="8444433999583714703">‏<ph name="APP_NAME" /> کو اپنے مقام تک رسائی دینے کے لیے، <ph name="BEGIN_LINK" />Android کی ترتیبات<ph name="END_LINK" /> میں بھی مقام آن کریں۔</translation>
 <translation id="8447861592752582886">آلہ کی اجازت کالعدم کریں</translation>
-<translation id="8451050538944905715">{NUM_SELECTED,plural, =1{1 زیر استعمال کوکی}other{# زیر استعمال کوکیز}}</translation>
 <translation id="8487700953926739672">آف لائن دستیاب ہے</translation>
 <translation id="848952951823693243">ہمیشہ موبائل سائٹ کی درخواست کریں</translation>
 <translation id="8499083585497694743">مائیکروفون کی آواز چالو کریں</translation>
@@ -497,6 +498,7 @@
 <translation id="8959122750345127698">نیویگیشن ناقابل رسائی ہے: <ph name="URL" /></translation>
 <translation id="8986362086234534611">بھول جائیں</translation>
 <translation id="8990043154272859344">آپ سبھی سائٹس سے سائن آؤٹ ہو جائیں گے</translation>
+<translation id="8993853206419610596">تمام درخواستوں کو پھیلائیں</translation>
 <translation id="9002538116239926534">آن ہونے پر، سائٹس آپ کے آلے پر ڈیٹا محفوظ کر سکتی ہیں۔ آف ہونے پر، سائٹس آپ کے آلے پر ڈیٹا محفوظ نہیں کر سکتی ہیں۔</translation>
 <translation id="9011903857143958461"><ph name="SITE_NAME" /> کی اجازت دی گئی</translation>
 <translation id="9019902583201351841">آپ کے والدین کے زیر انتظام</translation>

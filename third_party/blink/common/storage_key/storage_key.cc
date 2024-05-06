@@ -819,8 +819,10 @@ bool StorageKey::ShouldSkipKeyDueToPartitioning(
 
 const std::optional<net::CookiePartitionKey> StorageKey::ToCookiePartitionKey()
     const {
-  return net::CookiePartitionKey::FromStorageKeyComponents(top_level_site_,
-                                                           nonce_);
+  return net::CookiePartitionKey::FromStorageKeyComponents(
+      top_level_site_,
+      net::CookiePartitionKey::BoolToAncestorChainBit(IsThirdPartyContext()),
+      nonce_);
 }
 
 bool StorageKey::MatchesOriginForTrustedStorageDeletion(
@@ -832,6 +834,13 @@ bool StorageKey::MatchesOriginForTrustedStorageDeletion(
   return IsFirstPartyContext()
              ? (origin_ == origin)
              : (top_level_site_ == net::SchemefulSite(origin));
+}
+
+bool StorageKey::MatchesRegistrableDomainForTrustedStorageDeletion(
+    std::string_view domain) const {
+  // TODO(crbug.com/1410196): Test that StorageKeys corresponding to anonymous
+  // iframes are handled appropriately here.
+  return top_level_site_.registrable_domain_or_host() == domain;
 }
 
 bool StorageKey::ExactMatchForTesting(const StorageKey& other) const {

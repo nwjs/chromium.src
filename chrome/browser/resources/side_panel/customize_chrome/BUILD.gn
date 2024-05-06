@@ -27,6 +27,7 @@ build_webui("build") {
     "shortcuts.ts",
     "themes.ts",
     "theme_snapshot.ts",
+    "toolbar.ts",
     "wallpaper_search/combobox/customize_chrome_combobox.ts",
     "wallpaper_search/wallpaper_search.ts",
     "wallpaper_search/wallpaper_search_tile.ts",
@@ -68,5 +69,5 @@ build_webui("build") {
         rebase_path(
             "$root_gen_dir/chrome/browser/resources/side_panel/shared/tsc/*",
             target_gen_dir) ]
-  webui_host = "customize-chrome-side-panel.top-chrome"
+  webui_context_type = "trusted"
 }

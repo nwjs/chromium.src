@@ -356,13 +356,6 @@ targets.tests.gtest_test(
     name = "capture_unittests",
 )
 
-# TODO(issues.chromium.org/1516671): Eliminate cast_* suites that are no longer
-# needed.
-
-#targets.tests.gtest_test(
-#    name = "cast_display_settings_unittests",
-#)
-
 targets.tests.gtest_test(
     name = "cast_runner_browsertests",
 )
@@ -375,47 +368,54 @@ targets.tests.gtest_test(
     name = "cast_runner_unittests",
 )
 
-#targets.tests.gtest_test(
-#    name = "cast_audio_backend_unittests",
-#)
-
 targets.tests.junit_test(
     name = "cast_base_junit_tests",
     label = "//chromecast/base:cast_base_junit_tests",
 )
 
-#targets.tests.gtest_test(
-#    name = "cast_base_unittests",
-#)
+# TODO(issues.chromium.org/1516671): Eliminate cast_* suites that are no longer
+# needed.
 
-#targets.tests.gtest_test(
-#    name = "cast_cast_core_unittests",
-#)
+targets.tests.gtest_test(
+    name = "cast_audio_backend_unittests",
+)
 
-#targets.tests.gtest_test(
-#    name = "cast_crash_unittests",
-#)
+targets.tests.gtest_test(
+    name = "cast_base_unittests",
+)
 
-#targets.tests.gtest_test(
-#    name = "cast_graphics_unittests",
-#)
+targets.tests.gtest_test(
+    name = "cast_cast_core_unittests",
+)
 
-#targets.tests.gtest_test(
-#    name = "cast_media_unittests",
-#)b
+targets.tests.gtest_test(
+    name = "cast_crash_unittests",
+)
 
-#targets.tests.gtest_test(
-#    name = "cast_shell_browsertests",
-#)
+targets.tests.gtest_test(
+    name = "cast_display_settings_unittests",
+)
+
+targets.tests.gtest_test(
+    name = "cast_graphics_unittests",
+)
+
+targets.tests.gtest_test(
+    name = "cast_media_unittests",
+)
+
+targets.tests.gtest_test(
+    name = "cast_shell_browsertests",
+)
+
+targets.tests.gtest_test(
+    name = "cast_shell_unittests",
+)
 
 targets.tests.junit_test(
     name = "cast_shell_junit_tests",
     label = "//chromecast/browser/android:cast_shell_junit_tests",
 )
-
-#targets.tests.gtest_test(
-#    name = "cast_shell_unittests",
-#)
 
 targets.tests.gtest_test(
     name = "cast_unittests",
@@ -928,7 +928,7 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
-    name = "video_decode_accelerator_tests",
+    name = "video_decode_accelerator_tests_fake_vaapi",
     args = [
         "--env-var",
         "LIBVA_DRIVERS_PATH",
@@ -939,6 +939,7 @@ targets.tests.gtest_test(
         "../../media/test/data/test-25fps.vp9",
         "../../media/test/data/test-25fps.vp9.json",
     ],
+    binary = "video_decode_accelerator_tests",
 )
 
 targets.tests.gtest_test(
@@ -1007,6 +1008,11 @@ targets.tests.gtest_test(
 targets.tests.gtest_test(
     name = "gles2_conform_d3d9_test",
     binary = "gles2_conform_test",
+)
+
+targets.tests.gtest_test(
+    name = "gpu_memory_buffer_impl_tests",
+    binary = "gpu_unittests",
 )
 
 targets.tests.gtest_test(
@@ -1190,11 +1196,6 @@ targets.tests.gtest_test(
 
 targets.tests.gtest_test(
     name = "headless_unittests",
-)
-
-targets.tests.script_test(
-    name = "headless_python_unittests",
-    script = "headless_python_unittests.py",
 )
 
 targets.tests.isolated_script_test(
@@ -1581,6 +1582,10 @@ targets.tests.isolated_script_test(
 
 targets.tests.gtest_test(
     name = "notification_helper_unittests",
+)
+
+targets.tests.isolated_script_test(
+    name = "ondevice_quality_tests",
 )
 
 targets.tests.isolated_script_test(
@@ -2095,7 +2100,7 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.gtest_test(
-    name = "test_sample_jni_apk",
+    name = "jni_zero_sample_apk_test",
 )
 
 targets.tests.gtest_test(
@@ -2606,6 +2611,39 @@ targets.tests.gpu_telemetry_test(
     telemetry_test_name = "webgpu_cts",
     mixins = [
         "has_native_resultdb_integration",
+    ],
+)
+
+targets.tests.gpu_telemetry_test(
+    name = "webgpu_cts_service_worker_tests",
+    telemetry_test_name = "webgpu_cts",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--use-worker=service",
+    ],
+)
+
+targets.tests.gpu_telemetry_test(
+    name = "webgpu_cts_dedicated_worker_tests",
+    telemetry_test_name = "webgpu_cts",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--use-worker=dedicated",
+    ],
+)
+
+targets.tests.gpu_telemetry_test(
+    name = "webgpu_cts_shared_worker_tests",
+    telemetry_test_name = "webgpu_cts",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--use-worker=shared",
     ],
 )
 

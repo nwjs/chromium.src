@@ -294,7 +294,7 @@ struct NetworkStateProperties {
   // The captive portal state when connection_state == kPortal.
   PortalState portal_state = kUnknown;
   // The URL used to identify a captive portal state, set when portal_state is
-  // kPortal, kPortalSuspected, or kProxyAuthRequired.
+  // kPortal or kPortalSuspected.
   url.mojom.Url? portal_probe_url;
   // The relative priority of the network. Larger values have higher priority.
   int32 priority;
@@ -1071,6 +1071,9 @@ struct CellularSimState {
 // configuration as a whole instead of individual network configurations.
 // Default values should be explicitly provided for boolean values.
 struct GlobalPolicy {
+  // If true, users will be allowed to modify APNs.
+  bool allow_apn_modification = true;
+
   // If true, allow PIN locking of SIMs attached to the device.
   // If false, PIN locking is prohibited.
   bool allow_cellular_sim_lock = true;

@@ -113,10 +113,6 @@ source_set("crosapi") {
     "device_local_account_extension_service_ash.h",
     "device_oauth2_token_service_ash.cc",
     "device_oauth2_token_service_ash.h",
-    "device_ownership_waiter.cc",
-    "device_ownership_waiter.h",
-    "device_ownership_waiter_impl.cc",
-    "device_ownership_waiter_impl.h",
     "device_settings_ash.cc",
     "device_settings_ash.h",
     "dlp_ash.cc",
@@ -159,6 +155,8 @@ source_set("crosapi") {
     "files_app_launcher.h",
     "force_installed_tracker_ash.cc",
     "force_installed_tracker_ash.h",
+    "full_restore_ash.cc",
+    "full_restore_ash.h",
     "fullscreen_controller_ash.cc",
     "fullscreen_controller_ash.h",
     "geolocation_service_ash.cc",
@@ -252,6 +250,10 @@ source_set("crosapi") {
     "screen_ai_downloader_ash.h",
     "screen_manager_ash.cc",
     "screen_manager_ash.h",
+    "search_controller_ash.cc",
+    "search_controller_ash.h",
+    "search_controller_factory_ash.cc",
+    "search_controller_factory_ash.h",
     "search_provider_ash.cc",
     "search_provider_ash.h",
     "select_file_ash.cc",
@@ -337,7 +339,6 @@ source_set("crosapi") {
     "//chrome/browser/ash/telemetry_extension/telemetry",
     "//chrome/browser/image_decoder:image_decoder",
     "//chrome/browser/media/router/discovery/access_code:access_code_cast_feature",
-    "//chrome/browser/nearby_sharing/public/cpp",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/screen_ai:screen_ai_install_state",
     "//chrome/browser/ui/webui/ash/parent_access:mojo_bindings",
@@ -362,6 +363,7 @@ source_set("crosapi") {
     "//chromeos/ash/components/install_attributes",
     "//chromeos/ash/components/login/auth",
     "//chromeos/ash/components/login/login_state",
+    "//chromeos/ash/components/nearby/common/connections_manager",
     "//chromeos/ash/components/network",
     "//chromeos/ash/components/network/portal_detector",
     "//chromeos/ash/components/osauth/public",
@@ -374,6 +376,7 @@ source_set("crosapi") {
     "//chromeos/components/firewall_hole",
     "//chromeos/components/in_session_auth",
     "//chromeos/components/kiosk",
+    "//chromeos/components/mahi/public/cpp",
     "//chromeos/components/mgs",
     "//chromeos/components/quick_answers/public/cpp:prefs",
     "//chromeos/components/remote_apps/mojom",
@@ -458,21 +461,6 @@ source_set("crosapi") {
   ]
 }
 
-# TODO(b/291266467): Merge this with the `test_support` target.
-source_set("fake_device_ownership_waiter") {
-  testonly = true
-  sources = [
-    "fake_device_ownership_waiter.cc",
-    "fake_device_ownership_waiter.h",
-  ]
-  deps = [
-    ":crosapi",
-    "//base",
-    "//chrome/browser",
-    "//components/user_manager",
-  ]
-}
-
 source_set("test_support") {
   testonly = true
   sources = [
@@ -538,7 +526,6 @@ source_set("unit_tests") {
     "desk_profiles_ash_unittest.cc",
     "device_attributes_ash_unittest.cc",
     "device_oauth2_token_service_ash_unittest.cc",
-    "device_ownership_waiter_unittest.cc",
     "device_settings_ash_unittest.cc",
     "dlp_ash_unittest.cc",
     "document_scan_ash_type_converters_unittest.cc",
@@ -570,6 +557,8 @@ source_set("unit_tests") {
     "primary_profile_creation_waiter_unittest.cc",
     "rootfs_lacros_loader_unittest.cc",
     "screen_ai_downloader_ash_unittest.cc",
+    "search_controller_ash_unittest.cc",
+    "search_controller_factory_ash_unittest.cc",
     "stateful_lacros_loader_unittest.cc",
     "test_local_printer_ash.cc",
     "test_local_printer_ash.h",
@@ -583,7 +572,6 @@ source_set("unit_tests") {
 
   deps = [
     ":crosapi",
-    ":fake_device_ownership_waiter",
     ":test_support",
     "//ash",
     "//ash:test_support",
@@ -594,6 +582,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser/ash:test_support",
     "//chrome/browser/chromeos:test_support",
+    "//chrome/browser/chromeos/launcher_search:search_util",
     "//chrome/common/printing",
     "//chrome/test:test_support",
     "//chromeos/ash/components/cryptohome",

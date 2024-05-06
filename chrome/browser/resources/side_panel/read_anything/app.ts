@@ -66,7 +66,9 @@ const darkThemeSelectionColor = 'var(--google-blue-200)';
 const defaultSelectionColor = 'var(--google-yellow-100)';
 const yellowThemeSelectionColor = 'var(--google-blue-100)';
 
-const previousReadHighlightClass = 'previous-read-highlight';
+export const previousReadHighlightClass = 'previous-read-highlight';
+export const currentReadHighlightClass = 'current-read-highlight';
+const parentOfHighlightClass = 'parent-of-highlight';
 
 const linkDataAttribute = 'link';
 
@@ -103,55 +105,55 @@ class TwoWayMap<K, V> extends Map<K, V> {
 if (chrome.readingMode) {
   chrome.readingMode.updateContent = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.updateContent();
   };
 
   chrome.readingMode.updateLinks = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.updateLinks();
   };
 
   chrome.readingMode.updateImage = (nodeId) => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.updateImage(nodeId);
   };
 
   chrome.readingMode.updateSelection = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.updateSelection();
   };
 
   chrome.readingMode.updateTheme = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.updateTheme();
   };
 
   chrome.readingMode.showLoading = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.showLoading();
   };
 
   chrome.readingMode.showEmpty = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.showEmpty();
   };
 
   chrome.readingMode.restoreSettingsFromPrefs = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.restoreSettingsFromPrefs();
   };
 
   chrome.readingMode.updateFonts = () => {
     const readAnythingApp = document.querySelector('read-anything-app');
-    assert(readAnythingApp);
+    assert(readAnythingApp, 'no app');
     readAnythingApp.updateFonts();
   };
 }
@@ -212,10 +214,19 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     return getTemplate();
   }
 
+  private startTime = Date.now();
+  private constructorTime: number;
+
   // Maps a DOM node to the AXNodeID that was used to create it. DOM nodes and
   // AXNodeIDs are unique, so this is a two way map where either DOM node or
   // AXNodeID can be used to access the other.
   private domNodeToAxNodeIdMap_: TwoWayMap<Node, number> = new TwoWayMap();
+  // Key: a DOM node that's already been read aloud
+  // Value: the index offset at which this node's text begins within its parent
+  // text. For reading aloud we sometimes split up nodes so the speech sounds
+  // more natural. When that text is then selected we need to pass the correct
+  // index down the pipeline, so we store that info here.
+  private highlightedNodeToOffsetInParent: Map<Node, number> = new Map();
   private imageNodeIdsToFetch_: Set<number> = new Set();
   private pendingImageRequest_?: PendingImageRequest;
 
@@ -265,14 +276,20 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     previouslySpokenIndex: 0,
   };
 
-  // The node id of the first text node that should be used by Read Aloud.
-  // -1 if the node is not set.
-  firstTextNodeSetForReadAloud = -1;
+  // If the node id of the first text node that should be used by Read Aloud
+  // has been set. This is null if the id has not been set.
+  firstTextNodeSetForReadAloud: number|null = null;
 
   rate: number = 1;
 
   constructor() {
     super();
+    this.constructorTime = Date.now();
+    chrome.readingMode?.logMetric(
+        (this.constructorTime - this.startTime),
+        'Accessibility.ReadAnything.TimeFromAppStartedToConstructor');
+    this.isReadAloudEnabled_ = chrome.readingMode.isReadAloudEnabled;
+    this.isWebUIToolbarVisible_ = chrome.readingMode.isWebUIToolbarVisible;
     if (chrome.readingMode && chrome.readingMode.isWebUIToolbarVisible) {
       ColorChangeUpdater.forDocument().start();
     }
@@ -280,6 +297,19 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
   override connectedCallback() {
     super.connectedCallback();
+    // onConnected should always be called first in connectedCallback to ensure
+    // we're not blocking onConnected on anything else during WebUI setup.
+    if (chrome.readingMode) {
+      chrome.readingMode.onConnected();
+      const connectedCallbackTime = Date.now();
+      chrome.readingMode.logMetric(
+          (connectedCallbackTime - this.startTime),
+          'Accessibility.ReadAnything.TimeFromAppStartedToConnectedCallback');
+      chrome.readingMode.logMetric(
+          (connectedCallbackTime - this.constructorTime),
+          'Accessibility.ReadAnything.' +
+              'TimeFromAppConstructorStartedToConnectedCallback');
+    }
 
     // Wait until the side panel is fully rendered before showing the side
     // panel. This follows Side Panel best practices and prevents loading
@@ -289,12 +319,13 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       setTimeout(() => chrome.readingMode.shouldShowUi(), 0);
     });
 
-    this.isReadAloudEnabled_ = chrome.readingMode.isReadAloudEnabled;
-    if (chrome.readingMode) {
-      chrome.readingMode.onConnected();
-    }
-
     this.showLoading();
+
+    if (this.isReadAloudEnabled_) {
+      this.synth.onvoiceschanged = () => {
+        this.getVoices(/*refresh =*/ true);
+      };
+    }
 
     document.onselectionchange = () => {
       // When Read Aloud is playing, user-selection is disabled on the Read
@@ -304,20 +335,32 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         return;
       }
       const shadowRoot = this.shadowRoot;
-      assert(shadowRoot);
+      assert(shadowRoot, 'no shadow root');
       const selection = shadowRoot.getSelection();
-      assert(selection);
+      assert(selection, 'no selection');
       const {anchorNode, anchorOffset, focusNode, focusOffset} = selection;
       if (!anchorNode || !focusNode) {
         // The selection was collapsed by clicking inside the selection.
         chrome.readingMode.onCollapseSelection();
         return;
       }
-      const anchorNodeId = this.domNodeToAxNodeIdMap_.get(anchorNode);
-      const focusNodeId = this.domNodeToAxNodeIdMap_.get(focusNode);
-      assert(anchorNodeId && focusNodeId);
+      let anchorNodeId = this.domNodeToAxNodeIdMap_.get(anchorNode);
+      let focusNodeId = this.domNodeToAxNodeIdMap_.get(focusNode);
+      let adjustedAnchorOffset = anchorOffset;
+      let adjustedFocusOffset = focusOffset;
+      // If the node was highlighted, then we need to find the parent node which
+      // we stored in the map, rather than the node itself
+      if (!anchorNodeId) {
+        anchorNodeId = this.getHighlightedAncestorId_(anchorNode);
+        adjustedAnchorOffset += this.getOffsetInAncestor(anchorNode);
+      }
+      if (!focusNodeId) {
+        focusNodeId = this.getHighlightedAncestorId_(focusNode);
+        adjustedFocusOffset += this.getOffsetInAncestor(focusNode);
+      }
+      assert(anchorNodeId && focusNodeId, 'anchor or focus node is undefined');
       chrome.readingMode.onSelectionChange(
-          anchorNodeId, anchorOffset, focusNodeId, focusOffset);
+          anchorNodeId, adjustedAnchorOffset, focusNodeId, adjustedFocusOffset);
     };
 
     document.onscroll = () => {
@@ -331,8 +374,31 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       chrome.readingMode.onCopy();
       return false;
     };
+  }
 
-    this.isWebUIToolbarVisible_ = chrome.readingMode.isWebUIToolbarVisible;
+  private getOffsetInAncestor(node: Node): number {
+    if (this.highlightedNodeToOffsetInParent.has(node)) {
+      return this.highlightedNodeToOffsetInParent.get(node)!;
+    }
+
+    return 0;
+  }
+
+  private getHighlightedAncestorId_(node: Node): number|undefined {
+    if (!node.parentElement || !node.parentNode) {
+      return undefined;
+    }
+
+    let ancestor;
+    if (node.parentElement.className === parentOfHighlightClass) {
+      ancestor = node.parentNode;
+    } else if (
+        node.parentElement.parentElement?.className ===
+        parentOfHighlightClass) {
+      ancestor = node.parentNode.parentNode;
+    }
+
+    return ancestor ? this.domNodeToAxNodeIdMap_.get(ancestor) : undefined;
   }
 
   private buildSubtree_(nodeId: number): Node {
@@ -346,7 +412,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
     // For Google Docs, we extract text from Annotated Canvas. The Annotated
     // Canvas elements with text are leaf nodes with <rect> html tag.
-    if (chrome.readingMode.isGoogleDocs() &&
+    if (chrome.readingMode.isGoogleDocs &&
         chrome.readingMode.isLeafNode(nodeId)) {
       return this.createTextNode_(nodeId);
     }
@@ -420,7 +486,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     // which can be computationally expensive.
     // However, since updateContent may be called after speech starts playing,
     // don't call InitAXPosition from here to avoid interrupting current speech.
-    if (this.firstTextNodeSetForReadAloud < 0) {
+    if (!this.firstTextNodeSetForReadAloud) {
       this.firstTextNodeSetForReadAloud = nodeId;
     }
 
@@ -430,7 +496,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     const isOverline = chrome.readingMode.isOverline(nodeId);
     let shouldBold = chrome.readingMode.shouldBold(nodeId);
 
-    if (chrome.readingMode.isGoogleDocs()) {
+    if (chrome.readingMode.isGoogleDocs) {
       const dataFontCss = chrome.readingMode.getDataFontCss(nodeId);
       if (dataFontCss) {
         const styleNode = document.createElement('style');
@@ -459,7 +525,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   }
 
   showEmpty() {
-    if (chrome.readingMode.isSelectable) {
+    if (chrome.readingMode.isGoogleDocs) {
       this.emptyStateHeading_ = loadTimeData.getString('emptyStateHeader');
     } else {
       this.emptyStateHeading_ = loadTimeData.getString('notSelectableHeader');
@@ -489,7 +555,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   updateContent() {
     // Each time we rebuild the subtree, we should clear the node id of the
     // first text node.
-    this.firstTextNodeSetForReadAloud = -1;
+    this.firstTextNodeSetForReadAloud = null;
     const container = this.$.container;
 
     // Remove all children from container. Use `replaceChildren` rather than
@@ -560,7 +626,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
   getSelection(): any {
     const shadowRoot = this.shadowRoot;
-    assert(shadowRoot);
+    assert(shadowRoot, 'no shadow root');
     const selection = shadowRoot.getSelection();
     return selection;
   }
@@ -571,14 +637,53 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
     const range = new Range();
     const startNodeId = chrome.readingMode.startNodeId;
-    const startOffset = chrome.readingMode.startOffset;
     const endNodeId = chrome.readingMode.endNodeId;
-    const endOffset = chrome.readingMode.endOffset;
-    const startNode = this.domNodeToAxNodeIdMap_.keyFrom(startNodeId);
-    const endNode = this.domNodeToAxNodeIdMap_.keyFrom(endNodeId);
+    let startOffset = chrome.readingMode.startOffset;
+    let endOffset = chrome.readingMode.endOffset;
+    let startNode = this.domNodeToAxNodeIdMap_.keyFrom(startNodeId);
+    let endNode = this.domNodeToAxNodeIdMap_.keyFrom(endNodeId);
     if (!startNode || !endNode) {
       return;
     }
+
+    // Range.setStart/setEnd behaves differently if the node is an element or a
+    // text node. If the former, the offset refers to the index of the children.
+    // If the latter, the offset refers to the character offset inside the text
+    // node. The start and end nodes are elements if they've been read aloud
+    // because we add formatting to the text that wasn't there before. However,
+    // the information we receive from chrome.readingMode is always the id of a
+    // text node and character offset for that text, so find the corresponding
+    // text child here and adjust the offset
+    if (startNode.nodeType !== Node.TEXT_NODE) {
+      const startTreeWalker =
+          document.createTreeWalker(startNode, NodeFilter.SHOW_TEXT);
+      while (startTreeWalker.nextNode()) {
+        const textNodeLength = startTreeWalker.currentNode.textContent!.length;
+        // Once we find the child text node inside which the starting index
+        // fits, update the start node to be that child node and the adjusted
+        // offset will be relative to this child node
+        if (startOffset < textNodeLength) {
+          startNode = startTreeWalker.currentNode;
+          break;
+        }
+
+        startOffset -= textNodeLength;
+      }
+    }
+    if (endNode.nodeType !== Node.TEXT_NODE) {
+      const endTreeWalker =
+          document.createTreeWalker(endNode, NodeFilter.SHOW_TEXT);
+      while (endTreeWalker.nextNode()) {
+        const textNodeLength = endTreeWalker.currentNode.textContent!.length;
+        if (endOffset <= textNodeLength) {
+          endNode = endTreeWalker.currentNode;
+          break;
+        }
+
+        endOffset -= textNodeLength;
+      }
+    }
+
     range.setStart(startNode, startOffset);
     range.setEnd(endNode, endOffset);
     selection.addRange(range);
@@ -604,9 +709,9 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     const elements = this.shadowRoot.querySelectorAll(selector);
 
     for (const elem of elements) {
-      assert(elem instanceof HTMLElement);
+      assert(elem instanceof HTMLElement, 'link is not an HTMLElement');
       const nodeId = this.domNodeToAxNodeIdMap_.get(elem);
-      assert(nodeId !== undefined);
+      assert(nodeId !== undefined, 'link node id is undefined');
       const replacement = this.buildSubtree_(nodeId);
       this.replaceElement(elem, replacement);
     }
@@ -631,17 +736,14 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   defaultVoice(): SpeechSynthesisVoice|undefined {
     // TODO(crbug.com/1474951): Additional logic to find default voice if there
     // isn't a voice marked as default
-
-    // TODO(crbug.com/1474951): Filter by localService. Doing this now prevents
-    // voices from loading on Linux, which slows down development.
     const languageCode = chrome.readingMode.speechSynthesisLanguageCode;
     // TODO(crbug.com/1474951): Ensure various locales are handled such as
     // "en-US" vs. "en-UK." This should be fixed by using page language instead
     // of browser language.
-    const voices =
+    const voicesForLanguage =
         this.getVoices().filter(voice => voice.lang.startsWith(languageCode));
 
-    if (!voices || (voices.length === 0)) {
+    if (!voicesForLanguage || (voicesForLanguage.length === 0)) {
       // If no voices in the given language are found, use the default voice.
       return this.getVoices().find(
           ({default: isDefaultVoice}) => isDefaultVoice);
@@ -649,17 +751,14 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
     // The default voice doesn't always match with the actual default voice
     // of the device, therefore use the language code to find a voice first.
-    const voice = voices.find(({default: isDefaultVoice}) => isDefaultVoice);
-    if (!voice) {
-      return voices[0];
-    }
+    const defaultVoiceForLanguage =
+        voicesForLanguage.find(({default: isDefaultVoice}) => isDefaultVoice);
 
-    return voice;
+    return defaultVoiceForLanguage ? defaultVoiceForLanguage :
+                                     voicesForLanguage[0];
   }
 
   private getVoicesByLanguage(): VoicesByLanguage {
-    // TODO(crbug.com/1474951): Filter by localService. Doing this now prevents
-    // voices from loading on Linux, which slows down development.
     return this.getVoices().reduce(
         (voicesByLang: VoicesByLanguage, voice: SpeechSynthesisVoice) => {
           (voicesByLang[voice.lang] = voicesByLang[voice.lang] || [])
@@ -669,9 +768,15 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         {});
   }
 
-  private getVoices(): SpeechSynthesisVoice[] {
-    if (!this.availableVoices) {
-      this.availableVoices = this.synth.getVoices();
+  private getVoices(refresh: boolean = false): SpeechSynthesisVoice[] {
+    if (!this.availableVoices || refresh) {
+      let availableVoices = this.synth.getVoices();
+      if (availableVoices.some(({localService}) => localService)) {
+        availableVoices =
+            availableVoices.filter(({localService}) => localService);
+      }
+      this.availableVoices = availableVoices;
+
       this.populateDisplayNamesForLocaleCodes();
     }
     return this.availableVoices;
@@ -694,7 +799,9 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
   private replaceElement(current: HTMLElement, replacer: Node) {
     const nodeId = this.domNodeToAxNodeIdMap_.get(current);
-    assert(nodeId !== undefined);
+    assert(
+        nodeId !== undefined,
+        'trying to replace an element that doesn\'t exist');
     // Update map.
     this.domNodeToAxNodeIdMap_.delete(current);
     this.domNodeToAxNodeIdMap_.set(replacer, nodeId);
@@ -801,10 +908,11 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     }
   }
 
-  // TODO(crbug.com/1474951): Ensure the highlight is shown after playing the
-  //  previous granularity.
   private playPreviousGranularity_() {
     this.synth.cancel();
+    // This must be called BEFORE calling
+    // chrome.readingMode.movePositionToPreviousGranularity so we can accurately
+    // determine what's currently being highlighted.
     this.resetPreviousHighlightAndRemoveCurrentHighlight();
     // Reset the word boundary index whenever we move the granularity position.
     this.resetToDefaultWordBoundaryState();
@@ -839,13 +947,16 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       // paused from the play/pause button.
       if (chrome.readingMode.linksEnabled && pausedFromButton) {
         this.updateLinks();
+        // Now that links are toggled, ensure that the new nodes are also
+        // highlighted.
+        this.highlightNodes(chrome.readingMode.getCurrentText());
       }
 
       // If the current read highlight has been cleared from a call to
       // updateContent, such as for links being toggled on or off via a Read
       // Aloud play / pause or via a preference change, rehighlight the nodes
       // after a pause.
-      if (!container.querySelector('.current-read-highlight')) {
+      if (!container.querySelector('.' + currentReadHighlightClass)) {
         // TODO(crbug.com/1474951): Investigate adding a mock voice in tests
         // to make this testable.
         this.highlightNodes(chrome.readingMode.getCurrentText());
@@ -862,7 +973,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
       // TODO(crbug.com/1474951): There should be a way to use AXPosition so
       // that this step can be skipped.
-      if (this.firstTextNodeSetForReadAloud > 0) {
+      if (this.firstTextNodeSetForReadAloud) {
         chrome.readingMode.initAxPositionWithNode(
             this.firstTextNodeSetForReadAloud);
         this.highlightAndPlayMessage();
@@ -904,10 +1015,22 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     // highlighted.
     const axNodeIds: number[] = chrome.readingMode.getCurrentText();
 
-    const utteranceText = this.extractTextOf(axNodeIds);
-    // Return if the utterance is empty or null.
-    if (!utteranceText) {
+    // If there aren't any valid ax node ids returned by getCurrentText,
+    // speech should stop.
+    if (axNodeIds.length === 0) {
       return false;
+    }
+
+    const utteranceText = this.extractTextOf(axNodeIds);
+    // If node ids were returned but they don't exist in the Reading Mode panel,
+    // there's been a mismatch between Reading Mode and Read Aloud. In this
+    // case, we should move to the next Read Aloud node and attempt to continue
+    // playing.
+    if (!utteranceText) {
+      // TODO(b/332694565): This fallback should never be needed, but it is.
+      // Investigate root cause of Read Aloud / Reading Mode mismatch.
+      chrome.readingMode.movePositionToNextGranularity();
+      return this.highlightAndPlayMessage();
     }
 
     this.playText(utteranceText);
@@ -1036,7 +1159,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   private extractTextOf(axNodeIds: number[]): string {
     let utteranceText: string = '';
     for (let i = 0; i < axNodeIds.length; i++) {
-      assert(axNodeIds[i]);
+      assert(axNodeIds[i], 'trying to get text from an undefined node id');
       const nodeId = axNodeIds[i];
       const startIndex = chrome.readingMode.getCurrentTextStartIndex(nodeId);
       const endIndex = chrome.readingMode.getCurrentTextEndIndex(nodeId);
@@ -1071,8 +1194,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         // If the start or end index is invalid, don't use this node.
         continue;
       }
-      const newElement: Node = this.highlightCurrentText_(start, end, element);
-      this.domNodeToAxNodeIdMap_.set(newElement, nodeId);
+      this.highlightCurrentText_(start, end, element as HTMLElement);
     }
   }
 
@@ -1099,16 +1221,16 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   //   <span class="current-read-highlight"> highlighted text </span>
   //   suffix text
   // </span>
-  // and returns the top-level span node
   private highlightCurrentText_(
-      toHighlightStart: number, toHighlightEnd: number,
-      currentNode: Node): Node {
+      highlightStart: number, highlightEnd: number,
+      currentNode: HTMLElement): void {
     const parentOfHighlight = document.createElement('span');
+    parentOfHighlight.className = parentOfHighlightClass;
 
     // First pull out any text within this node before the highlighted section.
     // Since it's already been highlighted, we fade it out.
     const highlightPrefix =
-        currentNode.textContent!.substring(0, toHighlightStart);
+        currentNode.textContent!.substring(0, highlightStart);
     if (highlightPrefix.length > 0) {
       const prefixNode = document.createElement('span');
       prefixNode.className = previousReadHighlightClass;
@@ -1119,29 +1241,29 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     // Then get the section of text to highlight and mark it for
     // highlighting.
     const readingHighlight = document.createElement('span');
-    readingHighlight.className = 'current-read-highlight';
-    readingHighlight.textContent =
-        currentNode.textContent!.substring(toHighlightStart, toHighlightEnd);
+    readingHighlight.className = currentReadHighlightClass;
+    const textNode = document.createTextNode(
+        currentNode.textContent!.substring(highlightStart, highlightEnd));
+    readingHighlight.appendChild(textNode);
+    this.highlightedNodeToOffsetInParent.set(textNode, highlightStart);
     parentOfHighlight.appendChild(readingHighlight);
 
     // Finally, append the rest of the text for this node that has yet to be
     // highlighted.
-    const highlightSuffix = currentNode.textContent!.substring(toHighlightEnd);
+    const highlightSuffix = currentNode.textContent!.substring(highlightEnd);
     if (highlightSuffix.length > 0) {
       const suffixNode = document.createTextNode(highlightSuffix);
+      this.highlightedNodeToOffsetInParent.set(suffixNode, highlightEnd);
       parentOfHighlight.appendChild(suffixNode);
     }
 
     // Replace the current node in the tree with the split up version of the
     // node.
     this.previousHighlight_.push(readingHighlight);
-    if (currentNode.parentNode) {
-      currentNode.parentNode.replaceChild(parentOfHighlight, currentNode);
-    }
+    this.replaceElement(currentNode, parentOfHighlight);
 
     // Automatically scroll the text so the highlight stays roughly centered.
     readingHighlight.scrollIntoViewIfNeeded();
-    return parentOfHighlight;
   }
 
   private onSpeechFinished() {
@@ -1235,10 +1357,17 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     }
   }
 
+  // This must be called BEFORE calling
+  // chrome.readingMode.movePositionToPreviousGranularity so we can accurately
+  // determine what's currently being highlighted.
   private resetPreviousHighlightAndRemoveCurrentHighlight() {
-    const lastElement = this.previousHighlight_.pop();
-    if (lastElement) {
-      lastElement.className = '';
+    // The most recent highlight could have been spread across multiple segments
+    // so clear the formatting for all of the segments.
+    for (let i = 0; i < chrome.readingMode.getCurrentText().length; i++) {
+      const lastElement = this.previousHighlight_.pop();
+      if (lastElement) {
+        lastElement.className = '';
+      }
     }
 
     this.resetPreviousHighlight();
@@ -1257,8 +1386,8 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       this.updateSpeechRate_(chrome.readingMode.speechRate);
       this.restoreVoiceFromPrefs_();
     }
-    this.updateLineSpacing(chrome.readingMode.lineSpacing);
-    this.updateLetterSpacing(chrome.readingMode.letterSpacing);
+    this.updateLineSpacing_(chrome.readingMode.lineSpacing);
+    this.updateLetterSpacing_(chrome.readingMode.letterSpacing);
     this.updateFont_(chrome.readingMode.fontName);
     this.updateFontSize_();
     let colorSuffix: string|undefined;
@@ -1282,7 +1411,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         // Do nothing
     }
     if (colorSuffix !== undefined) {
-      this.updateThemeFromWebUi(colorSuffix);
+      this.updateThemeFromWebUi_(colorSuffix);
     }
     // TODO(crbug.com/1474951): investigate using parent/child relationshiop
     // instead of element by id.
@@ -1301,26 +1430,31 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     // TODO(crbug.com/1474951): Ensure various locales are handled such as
     // "en-US" vs. "en-UK." This should be fixed by using page language instead
     // of browser language.
-    const voices: VoicesByLanguage = this.getVoicesByLanguage();
-    const entry =
-        Object.entries(voices).find(([key, _]) => key.startsWith(storedLang));
-    let voice;
-    if (entry) {
-      const voicesForLang: SpeechSynthesisVoice[] = entry[1];
-      if (voicesForLang) {
-        voice = voicesForLang.find(voice => voice.name === storedVoice);
-      }
-    }
-    this.selectedVoice = (voice === null) ? this.defaultVoice() : voice;
+    const selectedVoice =
+        Object.entries(this.getVoicesByLanguage())
+            .filter(([lang, _]) => lang.startsWith(storedLang))
+            .flatMap(([_, voices]) => voices)
+            .filter(voice => voice.name === storedVoice);
+
+    assert(selectedVoice, 'Could not find stored selected voice');
+    this.selectedVoice = selectedVoice ? selectedVoice[0] : this.defaultVoice();
   }
 
-  updateLineSpacing(newLineHeight: number) {
+  private onLineSpacingChange_(event: CustomEvent<{data: number}>) {
+    this.updateLineSpacing_(event.detail.data);
+  }
+
+  private updateLineSpacing_(newLineHeight: number) {
     this.updateStyles({
       '--line-height': newLineHeight,
     });
   }
 
-  updateLetterSpacing(newLetterSpacing: number) {
+  private onLetterSpacingChange_(event: CustomEvent<{data: number}>) {
+    this.updateLetterSpacing_(event.detail.data);
+  }
+
+  private updateLetterSpacing_(newLetterSpacing: number) {
     this.updateStyles({
       '--letter-spacing': newLetterSpacing + 'em',
     });
@@ -1352,9 +1486,13 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     });
   }
 
+  private onThemeChange_(event: CustomEvent<{data: string}>) {
+    this.updateThemeFromWebUi_(event.detail.data);
+  }
+
   // TODO(crbug.com/1465029): This method should be renamed to updateTheme()
   // and replace the one below once we've removed the Views toolbar.
-  updateThemeFromWebUi(colorSuffix: string) {
+  private updateThemeFromWebUi_(colorSuffix: string) {
     this.currentColorSuffix_ = colorSuffix;
     const emptyStateBodyColor = colorSuffix ?
         this.getEmptyStateBodyColorFromWebUi_(colorSuffix) :
@@ -1390,7 +1528,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
   getPreviousHighlightColorVar(colorSuffix: string) {
     if (this.chromeRefresh2023Enabled_ && (colorSuffix === '')) {
-      return 'var(--color-sys-on-surface-secondary)';
+      return 'var(--color-sys-on-surface-subtle)';
     }
     return `var(--color-read-anything-previous-read-aloud-highlight${
         colorSuffix})`;

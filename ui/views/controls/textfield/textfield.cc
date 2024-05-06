@@ -19,9 +19,9 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/cursor/cursor.h"
@@ -268,7 +268,7 @@ Textfield::Textfield()
   // the cursor, inside the text field. These should always be ignored by
   // accessibility since a plain text field should always be a leaf node in the
   // accessibility trees of all the platforms we support.
-  GetViewAccessibility().OverrideIsLeaf(true);
+  GetViewAccessibility().SetIsLeaf(true);
 }
 
 Textfield::~Textfield() {
@@ -1063,7 +1063,7 @@ void Textfield::GetAccessibleNodeData(ui::AXNodeData* node_data) {
       node_data->GetString16Attribute(ax::mojom::StringAttribute::kValue);
   // If the accessible value changed since the last time we computed the text
   // offsets, we need to recompute them.
-  if (::features::IsUiaProviderEnabled() &&
+  if (::ui::AXPlatform::GetInstance().IsUiaProviderEnabled() &&
       (ax_value_used_to_compute_offsets_ != ax_value ||
        needs_ax_text_offsets_update_)) {
     GetViewAccessibility().ClearTextOffsets();
@@ -1233,7 +1233,7 @@ void Textfield::WriteDragDataForView(View* sender,
   Label label(selected_text, {GetFontList()});
   label.SetBackgroundColor(GetBackgroundColor());
   label.SetSubpixelRenderingEnabled(false);
-  gfx::Size size(label.GetPreferredSize());
+  gfx::Size size(label.GetPreferredSize({}));
   gfx::NativeView native_view = GetWidget()->GetNativeView();
   display::Display display =
       display::Screen::GetScreen()->GetDisplayNearestView(native_view);

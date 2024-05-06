@@ -199,6 +199,18 @@ ExternalTexture CreateExternalTexture(
     media::PaintCanvasVideoRenderer* video_renderer) {
   DCHECK(media_video_frame);
 
+  // It should be very rare that a frame didn't get a valid colorspace through
+  // the guessing process:
+  // https://source.chromium.org/chromium/chromium/src/+/main:media/base/video_color_space.cc;l=69;drc=6c9cfff09be8397270b376a4e4407328694e97fa
+  // The historical rule for this was to use BT.601 for SD content and BT.709
+  // for HD content:
+  // https://source.chromium.org/chromium/chromium/src/+/main:media/ffmpeg/ffmpeg_common.cc;l=683;drc=1946212ac0100668f14eb9e2843bdd846e510a1e)
+  // We prefer always using BT.709 since SD content in practice is down-scaled
+  // HD content, not NTSC broadcast content.
+  if (!src_color_space.IsValid()) {
+    src_color_space = gfx::ColorSpace::CreateREC709();
+  }
+
   ExternalTexture external_texture = {};
 
   // TODO(crbug.com/1306753): Use SharedImageProducer and CompositeSharedImage
@@ -315,6 +327,21 @@ ExternalTexture CreateExternalTexture(
   //   handle visible rect.
   external_texture_desc.visibleOrigin = {};
 
+  std::unique_ptr<media::PaintCanvasVideoRenderer> local_video_renderer;
+  if (!video_renderer) {
+    local_video_renderer = std::make_unique<media::PaintCanvasVideoRenderer>();
+    video_renderer = local_video_renderer.get();
+  }
+
+  // Using CopyVideoFrameToSharedImage() is an optional one copy upload path.
+  // However, the formats this path supports are quite limited. Check whether
+  // the current video frame could be uploaded through this one copy upload
+  // path. If not, fallback to DrawVideoFrameIntoResourceProvider().
+  // TODO(crbug.com/327270287): Expand CopyVideoFrameToSharedImage() to
+  // support all valid video frame formats and remove the draw path.
+  bool use_copy_to_shared_image =
+      video_renderer->CanUseCopyVideoFrameToSharedImage(*media_video_frame);
+
   // Get a recyclable resource for producing WebGPU-compatible shared images.
   // The recyclable resource's color space is the same as source color space
   // with the YUV to RGB transform stripped out since that's handled by the
@@ -322,6 +349,17 @@ ExternalTexture CreateExternalTexture(
   // TODO(b/41486014): This doesn't handle color spaces which don't have a
   // SkYUVColorSpace equivalent such as YCoCg/YCgCo.
   gfx::ColorSpace resource_color_space = src_color_space.GetAsRGB();
+
+  // Using DrawVideoFrameIntoResourceProvider() for uploading. Need to
+  // workaround issue crbug.com/1407112. It requires no color space
+  // conversion when drawing video frame to resource provider.
+  // Leverage Dawn to do the color space conversion.
+  // TODO(crbug.com/1407112): Don't use compatRgbColorSpace but the
+  // exact color space after fixing this issue.
+  if (!use_copy_to_shared_image) {
+    resource_color_space = media_video_frame->CompatRGBColorSpace();
+  }
+
   std::unique_ptr<RecyclableCanvasResource> recyclable_canvas_resource =
       device->GetDawnControlClient()->GetOrCreateCanvasResource(
           SkImageInfo::MakeN32Premul(visible_rect.width(),
@@ -339,15 +377,7 @@ ExternalTexture CreateExternalTexture(
   if (auto* context_provider = context_provider_wrapper->ContextProvider())
     raster_context_provider = context_provider->RasterContextProvider();
 
-  std::unique_ptr<media::PaintCanvasVideoRenderer> local_video_renderer;
-  if (!video_renderer) {
-    local_video_renderer = std::make_unique<media::PaintCanvasVideoRenderer>();
-    video_renderer = local_video_renderer.get();
-  }
-
-  // TODO(crbug.com/327270287): Expand CopyVideoFrameToSharedImage() ability to
-  // support all video frame valid formats. And remove draw path in that time.
-  if (media::IsYuvPlanar(media_video_frame->format())) {
+  if (use_copy_to_shared_image) {
     // We don't need to specify a sync token since both CanvasResourceProvider
     // and PaintCanvasVideoRenderer use the SharedGpuContext.
     gpu::MailboxHolder dst_mailbox(
@@ -363,9 +393,11 @@ ExternalTexture CreateExternalTexture(
         /*use_visible_rect=*/true);
   } else {
     const gfx::Rect dest_rect = media_video_frame->visible_rect();
+    // Delegate video transformation to Dawn.
     if (!DrawVideoFrameIntoResourceProvider(
             std::move(media_video_frame), resource_provider,
-            raster_context_provider, dest_rect, video_renderer)) {
+            raster_context_provider, dest_rect, video_renderer,
+            /* ignore_video_transformation */ true)) {
       return {};
     }
   }

@@ -15,14 +15,15 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.flags.ActivityType;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.chrome.browser.tabmodel.PendingTabClosureManager.PendingTabClosureDelegate;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -36,11 +37,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * This is the implementation of the synchronous {@link TabModel} for the
- * {@link ChromeTabbedActivity}.
+ * This is the implementation of the synchronous {@link TabModel} for the {@link
+ * ChromeTabbedActivity}.
  */
 public class TabModelImpl extends TabModelJniBridge {
     @IntDef({TabCloseType.SINGLE, TabCloseType.MULTIPLE, TabCloseType.ALL})
@@ -63,12 +66,15 @@ public class TabModelImpl extends TabModelJniBridge {
     public static final String UNKNOWN_APP_ID = "com.google.android.apps.chrome.unknown_app";
 
     /**
-     * The main list of tabs.  Note that when this changes, all pending closures must be committed
-     * via {@link #commitAllTabClosures()} as the indices are no longer valid. Also
-     * {@link PendingTabClosureManager#resetState()} must be called so that the full model will be
-     * up to date.
+     * The main list of tabs. Note that when this changes, all pending closures must be committed
+     * via {@link #commitAllTabClosures()} as the indices are no longer valid. Also {@link
+     * PendingTabClosureManager#resetState()} must be called so that the full model will be up to
+     * date.
      */
-    private final List<Tab> mTabs = new ArrayList<Tab>();
+    private final List<Tab> mTabs = new ArrayList<>();
+
+    // Allows efficient lookup by tab id instead of index.
+    private final Map<Integer, Tab> mTabIdToTabs = new HashMap<>();
 
     private final TabCreator mRegularTabCreator;
     private final TabCreator mIncognitoTabCreator;
@@ -101,6 +107,7 @@ public class TabModelImpl extends TabModelJniBridge {
             if (mIndex >= insertIndex) mIndex++;
             assert !tab.isDestroyed() : "Attempting to undo tab that is destroyed.";
             mTabs.add(insertIndex, tab);
+            mTabIdToTabs.put(tab.getId(), tab);
             mTabCountSupplier.set(mTabs.size());
 
             WebContents webContents = tab.getWebContents();
@@ -213,6 +220,7 @@ public class TabModelImpl extends TabModelJniBridge {
             }
         }
         mTabs.clear();
+        mTabIdToTabs.clear();
         mTabCountSupplier.set(0);
         mObservers.clear();
         super.destroy();
@@ -291,11 +299,12 @@ public class TabModelImpl extends TabModelJniBridge {
                     mIndex++;
                 }
             }
+            mTabIdToTabs.put(tab.getId(), tab);
             mTabCountSupplier.set(mTabs.size());
 
             if (!isActiveModel()) {
                 // When adding new tabs in the background, make sure we set a valid index when the
-                // first one is added.  When in the foreground, calls to setIndex will take care of
+                // first one is added. When in the foreground, calls to setIndex will take care of
                 // this.
                 mIndex = Math.max(mIndex, 0);
                 if (!selectTab) {
@@ -533,7 +542,7 @@ public class TabModelImpl extends TabModelJniBridge {
             return false;
         }
 
-        if (!mTabs.contains(tabToClose)) {
+        if (!containsTab(tabToClose)) {
             assert false : "Tried to close a tab from another model!";
             return false;
         }
@@ -558,7 +567,7 @@ public class TabModelImpl extends TabModelJniBridge {
     @Override
     public void closeMultipleTabs(List<Tab> tabs, boolean canUndo) {
         for (Tab tab : tabs) {
-            if (!mTabs.contains(tab)) {
+            if (!containsTab(tab)) {
                 assert false : "Tried to close a tab from another model!";
                 continue;
             }
@@ -626,6 +635,11 @@ public class TabModelImpl extends TabModelJniBridge {
         return mTabs.get(index);
     }
 
+    @Override
+    public @Nullable Tab getTabById(int tabId) {
+        return mTabIdToTabs.get(tabId);
+    }
+
     // Index of the given tab in the order of the tab stack.
     @Override
     public int indexOf(Tab tab) {
@@ -651,6 +665,14 @@ public class TabModelImpl extends TabModelJniBridge {
             if (!mTabs.get(i).isClosing()) return true;
         }
         return false;
+    }
+
+    private boolean containsTab(Tab tab) {
+        if (ChromeFeatureList.sTabIdMap.isEnabled()) {
+            return mTabIdToTabs.containsKey(tab.getId());
+        } else {
+            return mTabs.contains(tab);
+        }
     }
 
     @Override
@@ -778,6 +800,7 @@ public class TabModelImpl extends TabModelJniBridge {
         }
 
         mTabs.remove(tab);
+        mTabIdToTabs.remove(tab.getId());
         mTabCountSupplier.set(mTabs.size());
 
         boolean nextIsIncognito = nextTab == null ? false : nextTab.isIncognito();

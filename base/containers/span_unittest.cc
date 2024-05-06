@@ -7,10 +7,12 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <concepts>
 #include <iterator>
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -18,7 +20,6 @@
 #include "base/containers/adapters.h"
 #include "base/containers/checked_iterators.h"
 #include "base/ranges/algorithm.h"
-#include "base/strings/string_piece.h"
 #include "base/test/gtest_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -548,6 +549,38 @@ TEST(SpanTest, ConstructFromContainer) {
 
   for (size_t i = 0; i < static_span.size(); ++i) {
     EXPECT_EQ(vector[i], static_span[i]);
+  }
+}
+
+TEST(SpanTest, ConstructFromRange) {
+  struct Range {
+    using iterator = base::span<const int>::iterator;
+    iterator begin() const { return base::span(arr_).begin(); }
+    iterator end() const { return base::span(arr_).end(); }
+
+    std::array<const int, 3u> arr_ = {1, 2, 3};
+  };
+  static_assert(std::ranges::contiguous_range<Range>);
+  {
+    Range r;
+    auto s = base::span(r);
+    static_assert(std::same_as<decltype(s), base::span<const int>>);
+    EXPECT_EQ(s, base::span({1, 2, 3}));
+  }
+
+  struct LegacyRange {
+    const int* data() const { return arr_.data(); }
+    size_t size() const { return arr_.size(); }
+
+    std::array<const int, 3u> arr_ = {1, 2, 3};
+  };
+  static_assert(!std::ranges::contiguous_range<LegacyRange>);
+  static_assert(base::internal::LegacyRange<LegacyRange>);
+  {
+    LegacyRange r;
+    auto s = base::span(r);
+    static_assert(std::same_as<decltype(s), base::span<const int>>);
+    EXPECT_EQ(s, base::span({1, 2, 3}));
   }
 }
 
@@ -1630,7 +1663,7 @@ TEST(SpanTest, MakeStaticSpanFromContainer) {
 }
 
 TEST(SpanTest, MakeStaticSpanFromConstexprContainer) {
-  constexpr StringPiece str = "Hello, World";
+  constexpr std::string_view str = "Hello, World";
   constexpr auto made_span = make_span<12>(str);
   static_assert(str.data() == made_span.data(), "Error: data() does not match");
   static_assert(str.size() == made_span.size(), "Error: size() does not match");

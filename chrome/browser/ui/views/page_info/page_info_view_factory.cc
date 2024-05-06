@@ -61,6 +61,8 @@ class PageInfoSubpageView : public views::View {
     content_ = AddChildView(std::move(content));
   }
 
+  // TODO(crbug.com/40232718): Use the CalculatePreferredSize(SizeBounds) method
+  // to avoid double calculations.
   gfx::Size CalculatePreferredSize() const override {
     // Only the with of |content_| is taken into account, because the header
     // view contains site origin in the subtitle which can be very long.
@@ -402,6 +404,20 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
         icon = show_blocked_badge ? &vector_icons::kStorageAccessOffIcon
                                   : &vector_icons::kStorageAccessIcon;
         break;
+      case ContentSettingsType::KEYBOARD_LOCK:
+        // TODO: crbug.com/324147495 - Replace with the actual icons.
+        icon = show_blocked_badge ? &vector_icons::kUsbOffChromeRefreshIcon
+                                  : &vector_icons::kUsbChromeRefreshIcon;
+        break;
+      case ContentSettingsType::POINTER_LOCK:
+        // TODO: crbug.com/324147495 - Replace with the actual icons.
+        icon = show_blocked_badge ? &vector_icons::kUsbOffChromeRefreshIcon
+                                  : &vector_icons::kUsbChromeRefreshIcon;
+        break;
+      case ContentSettingsType::CAPTURED_SURFACE_CONTROL:
+        icon = show_blocked_badge ? &vector_icons::kTouchpadMouseOffIcon
+                                  : &vector_icons::kTouchpadMouseIcon;
+        break;
       default:
         break;
     }
@@ -520,6 +536,17 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
     case ContentSettingsType::AUTOMATIC_FULLSCREEN:
       icon = &kFullscreenIcon;
       break;
+    case ContentSettingsType::CAPTURED_SURFACE_CONTROL:
+      icon = &vector_icons::kTouchpadMouseIcon;
+      break;
+    case ContentSettingsType::KEYBOARD_LOCK:
+      // TODO: crbug.com/324147495 - Replace with the actual icon.
+      icon = &vector_icons::kUsbIcon;
+      break;
+    case ContentSettingsType::POINTER_LOCK:
+      // TODO: crbug.com/324147495 - Replace with the actual icon.
+      icon = &vector_icons::kUsbIcon;
+      break;
     default:
       // All other |ContentSettingsType|s do not have icons on desktop or are
       // not shown in the Page Info bubble.
@@ -537,7 +564,7 @@ const ui::ImageModel PageInfoViewFactory::GetChosenObjectIcon(
     bool deleted) {
   // The permissions data for device APIs will always appear even if the device
   // is not currently conncted to the system.
-  // TODO(https://crbug.com/1048860): Check the connected status of devices and
+  // TODO(crbug.com/40672237): Check the connected status of devices and
   // change the icon to one that reflects that status.
   const gfx::VectorIcon* icon = &gfx::kNoneIcon;
   switch (object.ui_info->content_settings_type) {
@@ -699,6 +726,11 @@ const ui::ImageModel PageInfoViewFactory::GetBlockingThirdPartyCookiesIcon() {
   return GetImageModel(features::IsChromeRefresh2023()
                            ? views::kEyeCrossedRefreshIcon
                            : views::kEyeCrossedIcon);
+}
+
+// static
+const ui::ImageModel PageInfoViewFactory::GetBusinessIcon() {
+  return GetImageModel(vector_icons::kBusinessIcon);
 }
 
 // static

@@ -594,7 +594,7 @@ public class StatusMediator
             // autocomplete text still pointing at the previous url's autocomplete text.
             urlTextWithAutocomplete = "";
         } else if (TextUtils.indexOf(currentAutocompleteText, urlBarText) > -1) {
-            // TODO(crbug.com/1015147): This is to workaround the UrlBar text pointing to the
+            // TODO(crbug.com/40103581): This is to workaround the UrlBar text pointing to the
             // "current" url and the the autocomplete text pointing to the "previous" url.
             urlTextWithAutocomplete = currentAutocompleteText;
         } else {
@@ -676,6 +676,10 @@ public class StatusMediator
     }
 
     private void animateCookieControlsIcon(Runnable onAnimationFinished) {
+        // Check if the web content is valid before attempting to animate.
+        if (mLocationBarDataProvider.getTab().getWebContents() == null) {
+            return;
+        }
         resetCustomIconsStatus();
 
         boolean isIncognito = mLocationBarDataProvider.isIncognito();

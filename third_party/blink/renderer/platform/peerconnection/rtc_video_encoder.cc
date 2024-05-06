@@ -233,7 +233,7 @@ class EncodedDataWrapper : public webrtc::EncodedImageBufferInterface {
 struct FrameChunk {
   FrameChunk(const webrtc::VideoFrame& input_image, bool force_keyframe)
       : video_frame_buffer(input_image.video_frame_buffer()),
-        timestamp(input_image.timestamp()),
+        timestamp(input_image.rtp_timestamp()),
         timestamp_us(input_image.timestamp_us()),
         render_time_ms(input_image.render_time_ms()),
         force_keyframe(force_keyframe) {
@@ -357,9 +357,12 @@ bool CreateSpatialLayersConfig(
     const webrtc::VideoCodec& codec_settings,
     std::vector<media::VideoEncodeAccelerator::Config::SpatialLayer>*
         spatial_layers,
-    media::SVCInterLayerPredMode* inter_layer_pred) {
+    media::SVCInterLayerPredMode* inter_layer_pred,
+    gfx::Size* highest_active_resolution) {
   std::optional<webrtc::ScalabilityMode> scalability_mode =
       codec_settings.GetScalabilityMode();
+  *highest_active_resolution =
+      gfx::Size(codec_settings.width, codec_settings.height);
 
   if (codec_settings.codecType == webrtc::kVideoCodecVP9 &&
       codec_settings.VP9().numberOfSpatialLayers > 1 &&
@@ -434,6 +437,7 @@ bool CreateSpatialLayersConfig(
       // SpatialLayer is not filled.
       if (codec_settings.VP9().numberOfTemporalLayers > 1 ||
           codec_settings.VP9().numberOfSpatialLayers > 1) {
+        std::optional<gfx::Size> top_res;
         spatial_layers->clear();
         for (size_t i = 0; i < codec_settings.VP9().numberOfSpatialLayers;
              ++i) {
@@ -453,6 +457,17 @@ bool CreateSpatialLayersConfig(
           sl.max_qp = base::saturated_cast<uint8_t>(rtc_sl.qpMax);
           sl.num_of_temporal_layers =
               base::saturated_cast<uint8_t>(rtc_sl.numberOfTemporalLayers);
+
+          if (!top_res.has_value()) {
+            top_res = gfx::Size(rtc_sl.width, rtc_sl.height);
+          } else if (top_res->width() < rtc_sl.width) {
+            DCHECK_GE(rtc_sl.height, top_res->width());
+            top_res = gfx::Size(rtc_sl.width, rtc_sl.height);
+          }
+        }
+
+        if (top_res.has_value()) {
+          *highest_active_resolution = *top_res;
         }
 
         if (spatial_layers->size() == 1 &&
@@ -517,6 +532,10 @@ webrtc::VideoCodecType ProfileToWebRtcVideoCodecType(
       return webrtc::kVideoCodecVP9;
     case media::VideoCodec::kAV1:
       return webrtc::kVideoCodecAV1;
+#if BUILDFLAG(RTC_USE_H265)
+    case media::VideoCodec::kHEVC:
+      return webrtc::kVideoCodecH265;
+#endif
     default:
       NOTREACHED() << "Invalid profile " << GetProfileName(profile);
       return webrtc::kVideoCodecGeneric;
@@ -650,6 +669,11 @@ class RTCVideoEncoder::Impl : public media::VideoEncodeAccelerator::Client {
       const media::BitstreamBufferMetadata& metadata) override;
   void NotifyErrorStatus(const media::EncoderStatus& status) override;
   void NotifyEncoderInfoChange(const media::VideoEncoderInfo& info) override;
+
+#if BUILDFLAG(RTC_USE_H265)
+  void SetH265ParameterSetsTrackerForTesting(
+      std::unique_ptr<H265ParameterSetsTracker> tracker);
+#endif
 
  private:
   enum {
@@ -798,6 +822,12 @@ class RTCVideoEncoder::Impl : public media::VideoEncodeAccelerator::Client {
   // CreateAndInitializeVEA() and updated in RequestEncodingParametersChange().
   ActiveSpatialLayers active_spatial_layers_;
 
+#if BUILDFLAG(RTC_USE_H265)
+  // Parameter sets(VPS/SPS/PPS) tracker used for H.265, to ensure parameter
+  // sets are always included in IRAP pictures.
+  std::unique_ptr<H265ParameterSetsTracker> ps_tracker_;
+#endif  // BUILDFLAG(RTC_USE_H265)
+
   // We cannot immediately return error conditions to the WebRTC user of this
   // class, as there is no error callback in the webrtc::VideoEncoder interface.
   // Instead, we cache an error status here and return it the next time an
@@ -895,6 +925,12 @@ void RTCVideoEncoder::Impl::CreateAndInitializeVEA(
 
   active_spatial_layers_.begin_index = 0;
   active_spatial_layers_.end_index = vea_config.spatial_layers.size();
+
+#if BUILDFLAG(RTC_USE_H265)
+  if (video_codec_type_ == webrtc::kVideoCodecH265 && !ps_tracker_) {
+    ps_tracker_ = std::make_unique<H265ParameterSetsTracker>();
+  }
+#endif  // BUILDFLAG(RTC_USE_H265)
 
   // RequireBitstreamBuffers or NotifyError will be called and the waiter will
   // be signaled.
@@ -1110,7 +1146,7 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
                "bitstream_buffer_id", bitstream_buffer_id);
   DVLOG(3) << __func__ << " bitstream_buffer_id=" << bitstream_buffer_id
            << ", payload_size=" << metadata.payload_size_bytes
-           << ", end_of_picture=" << metadata.end_of_picture
+           << ", end_of_picture=" << metadata.end_of_picture()
            << ", key_frame=" << metadata.key_frame
            << ", timestamp ms=" << metadata.timestamp.InMicroseconds();
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -1130,7 +1166,7 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
   // UseOutputBitstreamBuffer() is not called until next frame if no frame but
   // the current frame is in VideoEncodeAccelerator.
   if (metadata.spatial_idx().value_or(0) == 0) {
-    DCHECK_NE(0u, frames_in_encoder_count_);
+    CHECK_NE(0u, frames_in_encoder_count_);
     frames_in_encoder_count_--;
   }
 
@@ -1141,7 +1177,7 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
     // OnDroppedFrame() in spatial layers is not defined in the webrtc encoder
     // API. We call once in spatial layers. This point will be fixed in a
     // new WebRTC encoder API.
-    if (metadata.end_of_picture) {
+    if (metadata.end_of_picture()) {
       base::AutoLock lock(lock_);
       if (!encoded_image_callback_) {
         return;
@@ -1162,7 +1198,7 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
     return;
   }
 
-  if (metadata.end_of_picture) {
+  if (metadata.end_of_picture()) {
     CHECK(encoder_metrics_provider_);
     encoder_metrics_provider_->IncrementEncodedFrameCount();
   }
@@ -1176,7 +1212,7 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
     // Pop timestamps until we have a match.
     while (!submitted_frames_.empty()) {
       auto& front_frame = submitted_frames_.front();
-      const bool end_of_picture = metadata.end_of_picture;
+      const bool end_of_picture = metadata.end_of_picture();
       if (front_frame.media_timestamp_ == metadata.timestamp) {
         rtp_timestamp = front_frame.rtp_timestamp_;
         capture_timestamp_ms = front_frame.capture_time_ms_;
@@ -1221,13 +1257,32 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
     capture_timestamp_ms = current_time_ms;
   }
 
+  // Only H.265 bitstream may need a fix. If a fixed bitstream is available, the
+  // original bitstream buffer can be released immediately.
+  bool fixed_bitstream = false;
   webrtc::EncodedImage image;
-  image.SetEncodedData(rtc::make_ref_counted<EncodedDataWrapper>(
-      std::move(output_mapping), metadata.payload_size_bytes,
-      base::BindPostTaskToCurrentDefault(
-          base::BindOnce(&RTCVideoEncoder::Impl::BitstreamBufferAvailable,
-                         weak_this_, bitstream_buffer_id))));
+#if BUILDFLAG(RTC_USE_H265)
+  if (ps_tracker_.get()) {
+    H265ParameterSetsTracker::FixedBitstream fixed =
+        ps_tracker_->MaybeFixBitstream(rtc::MakeArrayView(
+            output_mapping->front(), metadata.payload_size_bytes));
+    if (fixed.action == H265ParameterSetsTracker::PacketAction::kInsert) {
+      image.SetEncodedData(fixed.bitstream);
+      BitstreamBufferAvailable(bitstream_buffer_id);
+      fixed_bitstream = true;
+    }
+  }
+#endif  // BUILDFLAG(RTC_USE_H265)
+  if (!fixed_bitstream) {
+    image.SetEncodedData(rtc::make_ref_counted<EncodedDataWrapper>(
+        std::move(output_mapping), metadata.payload_size_bytes,
+        base::BindPostTaskToCurrentDefault(
+            base::BindOnce(&RTCVideoEncoder::Impl::BitstreamBufferAvailable,
+                           weak_this_, bitstream_buffer_id))));
+  }
+
   auto encoded_size = metadata.encoded_size.value_or(input_visible_size_);
+
   image._encodedWidth = encoded_size.width();
   image._encodedHeight = encoded_size.height();
   image.SetRtpTimestamp(rtp_timestamp.value());
@@ -1379,7 +1434,7 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
         }
         vp9.flexible_mode = true;
         vp9.gof_idx = 0;
-        info.end_of_picture = metadata.end_of_picture;
+        info.end_of_picture = metadata.end_of_picture();
       } else {
         // Simple stream, neither temporal nor spatial layer stream.
         vp9.flexible_mode = false;
@@ -1754,6 +1809,13 @@ void RTCVideoEncoder::Impl::RegisterEncodeCompleteCallback(
   encoded_image_callback_ = callback;
 }
 
+#if BUILDFLAG(RTC_USE_H265)
+void RTCVideoEncoder::Impl::SetH265ParameterSetsTrackerForTesting(
+    std::unique_ptr<H265ParameterSetsTracker> tracker) {
+  ps_tracker_ = std::move(tracker);
+}
+#endif
+
 RTCVideoEncoder::RTCVideoEncoder(
     media::VideoCodecProfile profile,
     bool is_constrained_h264,
@@ -1897,11 +1959,12 @@ int32_t RTCVideoEncoder::InitEncode(
     return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
   }
 
+  gfx::Size input_visible_size;
   std::vector<media::VideoEncodeAccelerator::Config::SpatialLayer>
       spatial_layers;
   auto inter_layer_pred = media::SVCInterLayerPredMode::kOff;
   if (!CreateSpatialLayersConfig(*codec_settings, &spatial_layers,
-                                 &inter_layer_pred)) {
+                                 &inter_layer_pred, &input_visible_size)) {
     return WEBRTC_VIDEO_CODEC_FALLBACK_SOFTWARE;
   }
 
@@ -1933,7 +1996,6 @@ int32_t RTCVideoEncoder::InitEncode(
     }
   }
 
-  gfx::Size input_visible_size(codec_settings->width, codec_settings->height);
   // Check that |profile| supports |input_visible_size|.
   if (base::FeatureList::IsEnabled(features::kWebRtcUseMinMaxVEADimensions)) {
     const auto vea_supported_profiles =
@@ -2247,5 +2309,16 @@ void RTCVideoEncoder::SetError(uint32_t impl_id) {
   if (error_callback_for_testing_)
     std::move(error_callback_for_testing_).Run();
 }
+
+#if BUILDFLAG(RTC_USE_H265)
+void RTCVideoEncoder::SetH265ParameterSetsTrackerForTesting(
+    std::unique_ptr<H265ParameterSetsTracker> tracker) {
+  if (!impl_) {
+    DVLOG(1) << "Encoder is not initialized";
+    return;
+  }
+  impl_->SetH265ParameterSetsTrackerForTesting(std::move(tracker));
+}
+#endif
 
 }  // namespace blink

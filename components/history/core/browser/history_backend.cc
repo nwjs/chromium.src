@@ -1484,7 +1484,7 @@ std::pair<URLID, VisitID> HistoryBackend::AddPageVisit(
   return std::make_pair(url_id, visit_info.visit_id);
 }
 
-// TODO(crbug.com/1475714): Determine if we want to record these URLs in the
+// TODO(crbug.com/40279741): Determine if we want to record these URLs in the
 // VisitedLinkDatabase, and if so, plumb the correct value for top_level_site.
 void HistoryBackend::AddPagesWithDetails(const URLRows& urls,
                                          VisitSource visit_source) {
@@ -1685,6 +1685,17 @@ bool HistoryBackend::GetMostRecentVisitsForURL(URLID id,
   if (db_)
     return db_->GetMostRecentVisitsForURL(id, max_visits, visits);
   return false;
+}
+
+QueryURLResult HistoryBackend::GetMostRecentVisitsForGurl(GURL url,
+                                                          int max_visits) {
+  QueryURLResult result;
+  if (db_ && GetURL(url, &result.row) &&
+      db_->GetMostRecentVisitsForURL(result.row.id(), max_visits,
+                                     &result.visits)) {
+    result.success = true;
+  }
+  return result;
 }
 
 bool HistoryBackend::GetForeignVisit(const std::string& originator_cache_guid,
@@ -2098,6 +2109,13 @@ DomainsVisitedResult HistoryBackend::GetUniqueDomainsVisited(
   }
 
   return db_->GetUniqueDomainsVisited(begin_time, end_time);
+}
+
+GetAllAppIdsResult HistoryBackend::GetAllAppIds() {
+  if (!db_) {
+    return {};
+  }
+  return db_->GetAllAppIds();
 }
 
 HistoryLastVisitResult HistoryBackend::GetLastVisitToHost(
@@ -2931,11 +2949,6 @@ void HistoryBackend::GetRedirectsToSpecificVisit(VisitID cur_visit,
   }
 }
 
-void HistoryBackend::ScheduleAutocomplete(
-    base::OnceCallback<void(HistoryBackend*, URLDatabase*)> callback) {
-  std::move(callback).Run(this, db_.get());
-}
-
 void HistoryBackend::DeleteFTSIndexDatabases() {
   // Find files on disk matching the text databases file pattern so we can
   // quickly test for and delete them.
@@ -3527,7 +3540,7 @@ void HistoryBackend::DatabaseErrorCallback(int error, sql::Statement* stmt) {
 
     // Don't just do the close/delete here, as we are being called by `db` and
     // that seems dangerous.
-    // TODO(https://crbug.com/854258): It is also dangerous to kill the database
+    // TODO(crbug.com/41395467): It is also dangerous to kill the database
     // by a posted task: tasks that run before KillHistoryDatabase still can try
     // to use the broken database. Consider protecting against other tasks using
     // the DB or consider changing KillHistoryDatabase() to use RazeAndClose()
@@ -3591,6 +3604,11 @@ void HistoryBackend::ProcessDBTask(
     ProcessDBTaskImpl();
 }
 
+void HistoryBackend::RunDBTask(
+    base::OnceCallback<void(HistoryBackend*, URLDatabase*)> callback) {
+  std::move(callback).Run(this, db_.get());
+}
+
 void HistoryBackend::NotifyFaviconsChanged(const std::set<GURL>& page_urls,
                                            const GURL& icon_url) {
   delegate_->NotifyFaviconsChanged(page_urls, icon_url);
@@ -3614,7 +3632,7 @@ void HistoryBackend::NotifyURLsModified(const URLRows& changed_urls,
   delegate_->NotifyURLsModified(changed_urls);
 }
 
-void HistoryBackend::NotifyURLsDeleted(DeletionInfo deletion_info) {
+void HistoryBackend::NotifyDeletions(DeletionInfo deletion_info) {
   std::set<GURL> origins;
   for (const history::URLRow& row : deletion_info.deleted_rows())
     origins.insert(row.url().DeprecatedGetOriginAsURL());
@@ -3623,12 +3641,12 @@ void HistoryBackend::NotifyURLsDeleted(DeletionInfo deletion_info) {
       GetCountsAndLastVisitForOrigins(origins));
 
   for (HistoryBackendObserver& observer : observers_) {
-    observer.OnURLsDeleted(
+    observer.OnHistoryDeletions(
         this, deletion_info.IsAllHistory(), deletion_info.is_from_expiration(),
         deletion_info.deleted_rows(), deletion_info.favicon_urls());
   }
 
-  delegate_->NotifyURLsDeleted(std::move(deletion_info));
+  delegate_->NotifyDeletions(std::move(deletion_info));
 }
 
 void HistoryBackend::NotifyVisitUpdated(const VisitRow& visit,
@@ -3700,7 +3718,7 @@ void HistoryBackend::DeleteAllHistory() {
 
   // Send out the notification that history is cleared. The in-memory database
   // will pick this up and clear itself.
-  NotifyURLsDeleted(DeletionInfo::ForAllHistory());
+  NotifyDeletions(DeletionInfo::ForAllHistory());
 }
 
 bool HistoryBackend::ClearAllFaviconHistory(

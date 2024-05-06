@@ -5,7 +5,6 @@
 #include "components/autofill/core/browser/field_filling_address_util.h"
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "base/path_service.h"
@@ -140,7 +139,7 @@ INSTANTIATE_TEST_SUITE_P(
         AutofillPhoneFieldFillerTestCase{HtmlFieldType::kTelLocalSuffix,
                                          /*field_max_length=*/0, u"4578",
                                          u"+15145554578"},
-        // TODO(crbug.com/581485): There should be a test case where the full
+        // TODO(crbug.com/40453991): There should be a test case where the full
         // number is requested (HtmlFieldType::kTel) but a
         // field_max_length of 3 would fill the prefix. Filling a phone type
         // field with a max length of 4 should fill only the suffix.
@@ -294,7 +293,7 @@ INSTANTIATE_TEST_SUITE_P(
             u"Virginia",
             u"VA - Virginia"},
         // Do accidentally match "Virginia" to "West Virginia".
-        // TODO(crbug.com/624770): This test should not pass, but it does
+        // TODO(crbug.com/40475034): This test should not pass, but it does
         // because "Virginia" is a substring of "West Virginia".
         FillSelectTestCase{{"WV - West Virginia", "TX - Texas"},
                            u"Virginia",
@@ -323,7 +322,7 @@ TEST_F(FieldFillingAddressUtilTest, FillSelectWithCountries) {
 TEST_F(FieldFillingAddressUtilTest, FillStreetAddressTextArea) {
   AutofillField field;
   AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
-  field.form_control_type = FormControlType::kTextArea;
+  field.set_form_control_type(FormControlType::kTextArea);
   field.set_heuristic_type(GetActiveHeuristicSource(),
                            ADDRESS_HOME_STREET_ADDRESS);
 
@@ -346,7 +345,7 @@ TEST_F(FieldFillingAddressUtilTest, FillStreetAddressTextArea) {
 TEST_F(FieldFillingAddressUtilTest, FillStreetAddressTextField) {
   AutofillField field;
   AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
-  field.form_control_type = FormControlType::kInputText;
+  field.set_form_control_type(FormControlType::kInputText);
   field.set_server_predictions(
       {::autofill::test::CreateFieldPrediction(ADDRESS_HOME_STREET_ADDRESS)});
 

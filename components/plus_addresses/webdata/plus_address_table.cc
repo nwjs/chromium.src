@@ -4,6 +4,7 @@
 
 #include "components/plus_addresses/webdata/plus_address_table.h"
 
+#include <optional>
 #include <vector>
 
 #include "base/check_op.h"
@@ -115,6 +116,9 @@ bool PlusAddressTable::MigrateToVersion(int version,
     case 127:
       *update_compatible_version = true;
       return MigrateToVersion127_SyncSupport();
+    case 128:
+      *update_compatible_version = true;
+      return MigrateToVersion128_ProfileIdString();
   }
   return true;
 }
@@ -127,7 +131,7 @@ std::vector<PlusProfile> PlusAddressTable::GetPlusProfiles() const {
   std::vector<PlusProfile> result;
   while (query.Step()) {
     result.push_back({
-        .profile_id = query.ColumnInt(0),
+        .profile_id = query.ColumnString(0),
         .facet = query.ColumnString(1),
         .plus_address = query.ColumnString(2),
         .is_confirmed = true,
@@ -136,15 +140,43 @@ std::vector<PlusProfile> PlusAddressTable::GetPlusProfiles() const {
   return result;
 }
 
-bool PlusAddressTable::AddPlusProfile(const PlusProfile& profile) {
+std::optional<PlusProfile> PlusAddressTable::GetPlusProfileForId(
+    const std::string& profile_id) const {
+  sql::Statement query(db_->GetUniqueStatement(
+      base::StringPrintf("SELECT %s, %s, %s FROM %s WHERE %s=?", kProfileId,
+                         kFacet, kPlusAddress, kPlusAddressTable, kProfileId)
+          .c_str()));
+  query.BindString(0, profile_id);
+  if (!query.Step()) {
+    return std::nullopt;
+  }
+  return PlusProfile{
+      .profile_id = query.ColumnString(0),
+      .facet = query.ColumnString(1),
+      .plus_address = query.ColumnString(2),
+      .is_confirmed = true,
+  };
+}
+
+bool PlusAddressTable::AddOrUpdatePlusProfile(const PlusProfile& profile) {
   CHECK(profile.is_confirmed);
   sql::Statement query(db_->GetUniqueStatement(
-      base::StringPrintf("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
-                         kPlusAddressTable, kProfileId, kFacet, kPlusAddress)
+      base::StringPrintf(
+          "INSERT OR REPLACE INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
+          kPlusAddressTable, kProfileId, kFacet, kPlusAddress)
           .c_str()));
-  query.BindInt64(0, profile.profile_id);
+  query.BindString(0, profile.profile_id);
   query.BindString(1, profile.facet);
   query.BindString(2, profile.plus_address);
+  return query.Run();
+}
+
+bool PlusAddressTable::RemovePlusProfile(const std::string& profile_id) {
+  sql::Statement query(
+      db_->GetUniqueStatement(base::StringPrintf("DELETE FROM %s WHERE %s=?",
+                                                 kPlusAddressTable, kProfileId)
+                                  .c_str()));
+  query.BindString(0, profile_id);
   return query.Run();
 }
 
@@ -214,7 +246,7 @@ bool PlusAddressTable::GetAllSyncMetadata(
 
 bool PlusAddressTable::CreatePlusAddressesTable() {
   return db_->DoesTableExist(kPlusAddressTable) ||
-         db_->Execute(base::StringPrintf("CREATE TABLE %s (%s INTEGER PRIMARY "
+         db_->Execute(base::StringPrintf("CREATE TABLE %s (%s VARCHAR PRIMARY "
                                          "KEY, %s VARCHAR, %s VARCHAR)",
                                          kPlusAddressTable, kProfileId, kFacet,
                                          kPlusAddress)
@@ -270,6 +302,21 @@ bool PlusAddressTable::MigrateToVersion127_SyncSupport() {
                           "PRIMARY KEY (%s, %s))",
                           kSyncEntityMetadata, kModelType, kStorageKey, kValue,
                           kModelType, kStorageKey)
+                          .c_str()) &&
+         transaction.Commit();
+}
+
+bool PlusAddressTable::MigrateToVersion128_ProfileIdString() {
+  sql::Transaction transaction(db_);
+  // Recreates `kPlusAddressTable`, with `kProfileId`'s type changed to VARCHAR.
+  // No data needs to be migrated, since the table was not used yet.
+  return transaction.Begin() &&
+         db_->Execute(
+             base::StrCat({"DROP TABLE ", kPlusAddressTable}).c_str()) &&
+         db_->Execute(base::StringPrintf("CREATE TABLE %s (%s VARCHAR PRIMARY "
+                                         "KEY, %s VARCHAR, %s VARCHAR)",
+                                         kPlusAddressTable, kProfileId, kFacet,
+                                         kPlusAddress)
                           .c_str()) &&
          transaction.Commit();
 }

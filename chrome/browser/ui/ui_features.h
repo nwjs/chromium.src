@@ -21,7 +21,7 @@ namespace features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
-// TODO(https://crbug.com/896640): Remove this when the tab dragging
+// TODO(crbug.com/40598679): Remove this when the tab dragging
 // interactive_ui_tests pass on Wayland.
 BASE_DECLARE_FEATURE(kAllowWindowDragUsingSystemDragDrop);
 
@@ -53,6 +53,10 @@ extern const base::FeatureParam<bool> kShowDefaultBrowserInfoBar;
 // Whether to show the default browser app menu chip prompt.
 extern const base::FeatureParam<bool> kShowDefaultBrowserAppMenuChip;
 
+// Whether to show the default browser app menu item anytime the browser isn't
+// default, even if the app menu chip prompt isn't enabled.
+extern const base::FeatureParam<bool> kShowDefaultBrowserAppMenuItem;
+
 // Whether to show the updated info bar strings.
 extern const base::FeatureParam<bool> kUpdatedInfoBarCopy;
 
@@ -66,6 +70,12 @@ extern const base::FeatureParam<int> kMaxPromptCount;
 // Exponential backoff multiplier for the reprompt duration.
 extern const base::FeatureParam<int> kRepromptDurationMultiplier;
 
+// The duration after which the app menu prompt should not longer be shown.
+extern const base::FeatureParam<base::TimeDelta> kDefaultBrowserAppMenuDuration;
+
+// Whether the app menu chip should use more prominent colors.
+extern const base::FeatureParam<bool> kAppMenuChipColorPrimary;
+
 BASE_DECLARE_FEATURE(kExtensionsMenuInAppMenu);
 bool IsExtensionMenuInRootAppMenu();
 
@@ -77,6 +87,18 @@ BASE_DECLARE_FEATURE(kEvDetailsInPageInfo);
 
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 BASE_DECLARE_FEATURE(kGetTheMostOutOfChrome);
+
+BASE_DECLARE_FEATURE(kIOSPromoAddressBubble);
+
+BASE_DECLARE_FEATURE(kIOSPromoBookmarkBubble);
+// This enum lists the possible params for the kIOSPromoBookmarkBubble promo.
+// The first is the launch candidate, the other one is for debugging/testing.
+enum class IOSPromoBookmarkBubbleActivation {
+  kContextual,
+  kAlwaysShowWithBookmarkBubble,
+};
+extern const base::FeatureParam<IOSPromoBookmarkBubbleActivation>
+    kIOSPromoBookmarkBubbleActivationParam;
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -143,9 +165,6 @@ BASE_DECLARE_FEATURE(kSideSearchAutoTriggering);
 extern const base::FeatureParam<int> kSideSearchAutoTriggeringReturnCount;
 
 BASE_DECLARE_FEATURE(kTabGroupsCollapseFreezing);
-
-BASE_DECLARE_FEATURE(kTabGroupsSave);
-BASE_DECLARE_FEATURE(kTabGroupsSaveV2);
 
 BASE_DECLARE_FEATURE(kTabHoverCardImages);
 
@@ -258,10 +277,6 @@ BASE_DECLARE_FEATURE(kToolbarPinning);
 
 bool IsToolbarPinningEnabled();
 
-// Determines how screenshots of the toolbar uses Software or Hardware drawing.
-// Works on Android 10+.
-BASE_DECLARE_FEATURE(kToolbarUseHardwareBitmapDraw);
-
 BASE_DECLARE_FEATURE(kTopChromeWebUIUsesSpareRenderer);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -270,6 +285,7 @@ extern const base::FeatureParam<int> kUpdateTextOptionNumber;
 #endif
 
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadging);
+BASE_DECLARE_FEATURE(kEnterpriseUpdatedProfileCreationScreen);
 
 BASE_DECLARE_FEATURE(kWebUIBubblePerProfilePersistence);
 

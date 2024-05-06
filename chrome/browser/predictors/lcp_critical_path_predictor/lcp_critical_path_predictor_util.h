@@ -37,6 +37,12 @@ std::vector<GURL> PredictPreconnectableOrigins(const LcppData& data);
 // vector.
 std::vector<GURL> PredictFetchedSubresourceUrls(const LcppData& data);
 
+// Returns possible unused preload URLs from past loads for a given `data`.
+// The returned URLs are ordered by descending frequency (the most
+// frequent one comes first). If there is no data, it returns an empty
+// vector.
+std::vector<GURL> PredictUnusedPreloads(const LcppData& data);
+
 // An input to update LcppData.
 struct LcppDataInputs {
   LcppDataInputs();
@@ -64,10 +70,19 @@ struct LcppDataInputs {
   // This field keeps the number of font URLs without omitting due to
   // reaching `kLCPPFontURLPredictorMaxUrlCountPerOrigin` or deduplication.
   size_t font_url_count = 0;
+  // This field keeps the number of preloaded font hit. i.e. it is incremented
+  // if the fetched font URL is listed in the list of predicted fonts.
+  size_t font_url_hit_count = 0;
+  // This field keeps the number of preloaded font that is going to be recorded
+  // to the database again.
+  size_t font_url_reenter_count = 0;
   // This field keeps the subresource URLs as a key, and the TimeDelta as a
   // value. TimeDelta stores the duration from navigation start to resource
   // loading start time.
   std::map<GURL, base::TimeDelta> subresource_urls;
+
+  // URLs of preloaded but not actually used resources.
+  std::vector<GURL> unused_preload_resources;
 };
 
 bool UpdateLcppDataWithLcppDataInputs(const LoadingPredictorConfig& config,
@@ -77,6 +92,13 @@ bool UpdateLcppDataWithLcppDataInputs(const LoadingPredictorConfig& config,
 // Returns true if the LcppData is valid. i.e. looks not corrupted.
 // Otherwise, data might be corrupted.
 bool IsValidLcppStat(const LcppStat& lcpp_stat);
+
+// Returns true if the url is valid for learning.
+bool IsURLValidForLcpp(const GURL& url);
+
+// Returns the key string for the url. The url should be true for
+// the above IsURLValidForLcpp(url).
+std::string GetLCPPDatabaseKey(const GURL& url);
 
 }  // namespace predictors
 

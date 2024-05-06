@@ -46,9 +46,9 @@
 #include "base/system/sys_info.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/ash/settings/cros_settings.h"
 #include "chrome/browser/infobars/simple_alert_infobar_creator.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_id/account_id.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/infobars/core/simple_alert_infobar_delegate.h"
@@ -215,6 +215,17 @@ FlagsUIHandler* InitializeHandler(content::WebUI* web_ui,
       profile, base::BindOnce(&FinishInitialization<T>,
                               weak_factory.GetWeakPtr(), profile, handler));
   return handler;
+}
+
+FlagsUIConfig::FlagsUIConfig()
+    : WebUIConfig(content::kChromeUIScheme, chrome::kChromeUIFlagsHost) {}
+
+FlagsUIConfig::~FlagsUIConfig() = default;
+
+std::unique_ptr<content::WebUIController> FlagsUIConfig::CreateWebUIController(
+    content::WebUI* web_ui,
+    const GURL& url) {
+  return std::make_unique<FlagsUI>(web_ui);
 }
 
 FlagsUI::FlagsUI(content::WebUI* web_ui)

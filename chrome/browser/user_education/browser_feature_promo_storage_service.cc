@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/dcheck_is_on.h"
 #include "base/feature_list.h"
 #include "base/json/values_util.h"
 #include "base/time/time.h"
@@ -69,7 +70,21 @@ constexpr char kNewBadgeUsedCountPath[] = "used_count";
 // The time the promoted feature was first enabled.
 constexpr char kNewBadgeFeatureEnabledTimePath[] = "feature_enabled_time";
 
+// Base path to recent session start times.
+constexpr char kRecentSessionStartTimesPath[] =
+    "in_product_help.recent_session_start_times";
+
+// Base path to track when recent sessions were enabled.
+constexpr char kRecentSessionEnabledTimePath[] =
+    "in_product_help.recent_session_enabled_time";
+
 }  // namespace
+
+RecentSessionData::RecentSessionData() = default;
+RecentSessionData::RecentSessionData(const RecentSessionData&) = default;
+RecentSessionData& RecentSessionData::operator=(const RecentSessionData&) =
+    default;
+RecentSessionData::~RecentSessionData() = default;
 
 BrowserFeaturePromoStorageService::BrowserFeaturePromoStorageService(
     Profile* profile)
@@ -90,6 +105,8 @@ void BrowserFeaturePromoStorageService::RegisterProfilePrefs(
   registry->RegisterTimePref(kIPHSessionLastActiveTimePath, base::Time(),
                              PrefRegistry::LOSSY_PREF);
   registry->RegisterTimePref(kIPHPolicyLastHeavyweightPromoPath, base::Time());
+  registry->RegisterListPref(kRecentSessionStartTimesPath);
+  registry->RegisterTimePref(kRecentSessionEnabledTimePath, base::Time());
 }
 
 void BrowserFeaturePromoStorageService::Reset(
@@ -166,7 +183,7 @@ BrowserFeaturePromoStorageService::ReadPromoData(
   if (app_list) {
     for (auto& app : *app_list) {
       if (auto* const app_id = app.GetIfString()) {
-        promo_data->shown_for_apps.emplace(*app_id);
+        promo_data->shown_for_keys.emplace(*app_id);
       }
     }
   }
@@ -197,12 +214,12 @@ void BrowserFeaturePromoStorageService::SavePromoData(
   pref_data.SetByDottedPath(path_prefix + kIPHShowCountPath,
                             promo_data.show_count);
 
-  base::Value::List shown_for_apps;
-  for (auto& app_id : promo_data.shown_for_apps) {
-    shown_for_apps.Append(app_id);
+  base::Value::List shown_for_keys;
+  for (auto& app_id : promo_data.shown_for_keys) {
+    shown_for_keys.Append(app_id);
   }
   pref_data.SetByDottedPath(path_prefix + kIPHShownForAppsPath,
-                            std::move(shown_for_apps));
+                            std::move(shown_for_keys));
 }
 
 void BrowserFeaturePromoStorageService::ResetSession() {
@@ -297,4 +314,55 @@ void BrowserFeaturePromoStorageService::SaveNewBadgeData(
   pref_data.SetByDottedPath(
       path_prefix + kNewBadgeFeatureEnabledTimePath,
       base::TimeToValue(new_badge_data.feature_enabled_time));
+}
+
+RecentSessionData BrowserFeaturePromoStorageService::ReadRecentSessionData()
+    const {
+  const auto& pref_data =
+      profile_->GetPrefs()->GetList(kRecentSessionStartTimesPath);
+  RecentSessionData data;
+  std::optional<base::Time> prev;
+  for (const auto& entry : pref_data) {
+    // Ensure that the data is valid and correctly ordered. This guards against
+    // corruption in the stored data causing logic errors in the program.
+    const auto time = base::ValueToTime(entry);
+    if (time && (!prev || *time < *prev)) {
+      data.recent_session_start_times.emplace_back(*time);
+      prev = time;
+    }
+  }
+
+  // Get the time the feature was enabled.
+  //
+  // TODO(dfried): we could cull all data from before the enabled time, but
+  // handling that case is probably something best left to the processing
+  // logic.
+  const auto enabled_time =
+      profile_->GetPrefs()->GetTime(kRecentSessionEnabledTimePath);
+  if (!enabled_time.is_null()) {
+    data.enabled_time = enabled_time;
+  }
+  return data;
+}
+
+void BrowserFeaturePromoStorageService::SaveRecentSessionData(
+    const RecentSessionData& recent_session_data) {
+  ScopedListPrefUpdate update(profile_->GetPrefs(),
+                              kRecentSessionStartTimesPath);
+  auto& pref_data = update.Get();
+  for (const auto& time : recent_session_data.recent_session_start_times) {
+    pref_data.Append(base::TimeToValue(time));
+  }
+
+  if (recent_session_data.enabled_time) {
+    profile_->GetPrefs()->SetTime(kRecentSessionEnabledTimePath,
+                                  *recent_session_data.enabled_time);
+  } else {
+    profile_->GetPrefs()->ClearPref(kRecentSessionEnabledTimePath);
+  }
+}
+
+void BrowserFeaturePromoStorageService::ResetRecentSessionData() {
+  profile_->GetPrefs()->ClearPref(kRecentSessionStartTimesPath);
+  profile_->GetPrefs()->ClearPref(kRecentSessionEnabledTimePath);
 }

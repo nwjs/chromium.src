@@ -13,11 +13,11 @@
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/data_controls/data_controls_dialog.h"
-#include "chrome/browser/enterprise/data_controls/test_utils.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/enterprise/data_controls/features.h"
+#include "components/enterprise/data_controls/test_utils.h"
 #include "content/public/test/browser_test.h"
 #include "ui/views/widget/widget_delegate.h"
 
@@ -453,7 +453,8 @@ IN_PROC_BROWSER_TEST_F(DataControlsClipboardUtilsBrowserTest,
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
 IN_PROC_BROWSER_TEST_F(DataControlsClipboardUtilsBrowserTest, CopyAllowed) {
-  base::test::TestFuture<const content::ClipboardPasteData&,
+  base::test::TestFuture<const ui::ClipboardFormatType&,
+                         const content::ClipboardPasteData&,
                          std::optional<std::u16string>>
       future;
   IsClipboardCopyAllowedByPolicy(
@@ -484,7 +485,8 @@ IN_PROC_BROWSER_TEST_F(DataControlsClipboardUtilsBrowserTest, CopyBlocked) {
   set_expected_dialog_type(
       data_controls::DataControlsDialog::Type::kClipboardCopyBlock);
 
-  base::test::TestFuture<const content::ClipboardPasteData&,
+  base::test::TestFuture<const ui::ClipboardFormatType&,
+                         const content::ClipboardPasteData&,
                          std::optional<std::u16string>>
       future;
   IsClipboardCopyAllowedByPolicy(
@@ -516,7 +518,8 @@ IN_PROC_BROWSER_TEST_F(DataControlsClipboardUtilsBrowserTest,
   set_expected_dialog_type(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
-  base::test::TestFuture<const content::ClipboardPasteData&,
+  base::test::TestFuture<const ui::ClipboardFormatType&,
+                         const content::ClipboardPasteData&,
                          std::optional<std::u16string>>
       future;
   IsClipboardCopyAllowedByPolicy(
@@ -556,7 +559,8 @@ IN_PROC_BROWSER_TEST_F(DataControlsClipboardUtilsBrowserTest,
   set_expected_dialog_type(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
-  base::test::TestFuture<const content::ClipboardPasteData&,
+  base::test::TestFuture<const ui::ClipboardFormatType&,
+                         const content::ClipboardPasteData&,
                          std::optional<std::u16string>>
       future;
   IsClipboardCopyAllowedByPolicy(
@@ -593,7 +597,8 @@ IN_PROC_BROWSER_TEST_F(DataControlsClipboardUtilsBrowserTest,
   set_expected_dialog_type(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
-  base::test::TestFuture<const content::ClipboardPasteData&,
+  base::test::TestFuture<const ui::ClipboardFormatType&,
+                         const content::ClipboardPasteData&,
                          std::optional<std::u16string>>
       future;
   IsClipboardCopyAllowedByPolicy(
@@ -637,7 +642,8 @@ IN_PROC_BROWSER_TEST_F(DataControlsClipboardUtilsBrowserTest,
   set_expected_dialog_type(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
-  base::test::TestFuture<const content::ClipboardPasteData&,
+  base::test::TestFuture<const ui::ClipboardFormatType&,
+                         const content::ClipboardPasteData&,
                          std::optional<std::u16string>>
       future;
   IsClipboardCopyAllowedByPolicy(

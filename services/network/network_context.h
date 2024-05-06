@@ -526,10 +526,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void FlushCachedClientCertIfNeeded(
       const net::HostPortPair& host,
       const scoped_refptr<net::X509Certificate>& certificate) override;
+  void FlushMatchingCachedClientCert(
+      const scoped_refptr<net::X509Certificate>& certificate) override;
   void SetCookieDeprecationLabel(
       const std::optional<std::string>& label) override;
-  void RevokeNetworkForNonce(const base::UnguessableToken& nonce,
-                             RevokeNetworkForNonceCallback callback) override;
+  void RevokeNetworkForNonces(const std::vector<base::UnguessableToken>& nonces,
+                              RevokeNetworkForNoncesCallback callback) override;
   void ExemptUrlFromNetworkRevocationForNonce(
       const GURL& exempted_url,
       const base::UnguessableToken& nonce,
@@ -687,7 +689,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
           url_loader_factory_for_cert_net_fetcher,
       scoped_refptr<SessionCleanupCookieStore>,
       OnURLRequestContextBuilderConfiguredCallback
-          on_url_request_context_builder_configured);
+          on_url_request_context_builder_configured,
+      net::handles::NetworkHandle bound_network);
   scoped_refptr<SessionCleanupCookieStore> MakeSessionCleanupCookieStore()
       const;
 
@@ -799,6 +802,15 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   mojom::NetworkContextParamsPtr params_;
 
+  // These must be below the URLRequestContext, so they're destroyed before it
+  // is.
+  // These should also be above receiver_ so the bindings are destroyed prior to
+  // the callbacks themselves.
+  std::vector<std::unique_ptr<HttpCacheDataRemover>> http_cache_data_removers_;
+  std::vector<std::unique_ptr<HttpCacheDataCounter>> http_cache_data_counters_;
+  std::set<std::unique_ptr<ProxyLookupRequest>, base::UniquePtrComparator>
+      proxy_lookup_requests_;
+
   // If non-null, called when the mojo pipe for the NetworkContext is closed.
   OnConnectionCloseCallback on_connection_close_callback_;
 
@@ -834,13 +846,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 #if BUILDFLAG(ENABLE_WEBSOCKETS)
   std::unique_ptr<WebSocketFactory> websocket_factory_;
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
-
-  // These must be below the URLRequestContext, so they're destroyed before it
-  // is.
-  std::vector<std::unique_ptr<HttpCacheDataRemover>> http_cache_data_removers_;
-  std::vector<std::unique_ptr<HttpCacheDataCounter>> http_cache_data_counters_;
-  std::set<std::unique_ptr<ProxyLookupRequest>, base::UniquePtrComparator>
-      proxy_lookup_requests_;
 
   std::set<std::unique_ptr<WebTransport>, base::UniquePtrComparator>
       web_transports_;

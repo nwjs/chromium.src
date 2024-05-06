@@ -28,21 +28,29 @@ class QuickStartMetrics {
     kWelcomeScreen = 2,  // Quick Start entry point 1.
     kNetworkScreen = 3,  // Quick Start entry point 2, or in the middle of Quick
                          // Start when the host device is not connected to wifi.
-    kGaiaScreen = 4,     // Quick Start entry point 3.
-    kSetUpWithAndroidPhone = 5,  // Beginning of Quick Start flow.
-    kConnectingToWifi = 6,       // Transferring wifi with Quick Start.
-    kCheckingForUpdateAndDeterminingDeviceConfiguration = 7,
+    kGaiaScreen = 4,     // Quick Start entry point 4 (See kGaiaInfoScreen for
+                         // entry point 3).
+    kQSSetUpWithAndroidPhone = 5,  // Beginning of Quick Start flow.
+    kQSConnectingToWifi = 6,       // Transferring wifi with Quick Start.
+    kCheckingForUpdateAndDeterminingDeviceConfiguration = 7,  // Critical Update
     kChooseChromebookSetup = 8,
-    kInstallingLatestUpdate = 9,
-    kResumingConnectionAfterUpdate = 10,
-    kGettingGoogleAccountInfo = 11,
-    kQuickStartComplete = 12,
-    kSetupDevicePIN = 13,          // After Quick Start flow is complete.
-    kAskForParentPermission = 14,  // Only for Unicorn accounts.
-    kReviewPrivacyAndTerms = 15,   // Only for Unicorn accounts.
-    kUnifiedSetup = 16,  // After Quick Start flow is complete, connect host
-                         // phone to account.
-    kMaxValue = kUnifiedSetup
+    kConsumerUpdate = 9,
+    kQSResumingConnectionAfterUpdate = 10,
+    kQSGettingGoogleAccountInfo = 11,
+    kQSComplete = 12,
+    kSetupDevicePIN = 13,         // After Quick Start flow is complete.
+    kAddChild = 14,               // Only for Unicorn accounts.
+    kReviewPrivacyAndTerms = 15,  // Only for Unicorn accounts.
+    kUnifiedSetup = 16,    // After Quick Start flow is complete, connect host
+                           // phone to account.
+    kGaiaInfoScreen = 17,  // Quick Start entry point 3
+    kQSWifiCredentialsReceived = 18,  // Quick Start UI when wifi credentials
+                                      // transfer succeeds.
+    kQSSelectGoogleAccount = 19,  // Quick Start UI informing user to confirm
+                                  // account on phone.
+    kQSCreatingAccount = 20,      // Quick Start UI attempting to login with
+                                  // transferred account details.
+    kMaxValue = kQSCreatingAccount
   };
 
   enum class ExitReason {
@@ -200,13 +208,6 @@ class QuickStartMetrics {
   static MessageType MapResponseToMessageType(
       QuickStartResponseType response_type);
 
-  static void RecordScreenOpened(ScreenName screen);
-
-  static void RecordScreenClosed(ScreenName screen,
-                                 int32_t session_id,
-                                 base::Time timestamp,
-                                 std::optional<ScreenName> previous_screen);
-
   static void RecordWifiTransferResult(
       bool succeeded,
       std::optional<WifiTransferResultFailureReason> failure_reason);
@@ -229,6 +230,10 @@ class QuickStartMetrics {
   QuickStartMetrics(const QuickStartMetrics&) = delete;
   const QuickStartMetrics& operator=(const QuickStartMetrics&) = delete;
   virtual ~QuickStartMetrics();
+
+  void RecordScreenOpened(ScreenName screen);
+
+  void RecordScreenClosed(ScreenName screen);
 
   // Records the start of an attempt to fetch challenge bytes from Gaia.
   // Challenge bytes are later used to generate a Remote Attestation certificate
@@ -281,11 +286,14 @@ class QuickStartMetrics {
       std::optional<MessageReceivedErrorCode> error_code);
 
  private:
+  ScreenName last_screen_opened_ = ScreenName::kNone;
   // Timer to keep track of Fast Pair advertising duration. Should be
   // constructed when advertising starts and destroyed when advertising
   // finishes.
   std::unique_ptr<base::ElapsedTimer> fast_pair_advertising_timer_;
   std::optional<AdvertisingMethod> fast_pair_advertising_method_;
+
+  std::unique_ptr<base::ElapsedTimer> screen_opened_view_duration_timer_;
 
   // Timer to keep track of handshake duration. Should be constructed when
   // the handshake starts and destroyed when the handshake finishes.
@@ -311,6 +319,10 @@ class QuickStartMetrics {
   // received.
   std::unique_ptr<base::ElapsedTimer> gaia_authentication_timer_;
 };
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const QuickStartMetrics::ScreenName& metrics_screen_name);
 
 }  // namespace ash::quick_start
 

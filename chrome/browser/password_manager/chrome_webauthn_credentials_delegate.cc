@@ -24,6 +24,8 @@
 #endif
 
 using password_manager::PasskeyCredential;
+using OnPasskeySelectedCallback =
+    password_manager::WebAuthnCredentialsDelegate::OnPasskeySelectedCallback;
 
 ChromeWebAuthnCredentialsDelegate::ChromeWebAuthnCredentialsDelegate(
     content::WebContents* web_contents)
@@ -39,12 +41,14 @@ void ChromeWebAuthnCredentialsDelegate::LaunchWebAuthnFlow() {
   if (!authenticator_delegate) {
     return;
   }
-  authenticator_delegate->dialog_model()->TransitionToModalWebAuthnRequest();
+  authenticator_delegate->dialog_controller()
+      ->TransitionToModalWebAuthnRequest();
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void ChromeWebAuthnCredentialsDelegate::SelectPasskey(
-    const std::string& backend_id) {
+    const std::string& backend_id,
+    OnPasskeySelectedCallback callback) {
   // `backend_id` is the base64-encoded credential ID. See `PasskeyCredential`
   // for where these are encoded.
   std::optional<std::vector<uint8_t>> selected_credential_id =
@@ -52,6 +56,7 @@ void ChromeWebAuthnCredentialsDelegate::SelectPasskey(
   DCHECK(selected_credential_id);
 
 #if BUILDFLAG(IS_ANDROID)
+  std::move(callback).Run();
   auto* request_delegate =
       WebAuthnRequestDelegateAndroid::GetRequestDelegate(web_contents_);
   if (!request_delegate) {
@@ -62,10 +67,14 @@ void ChromeWebAuthnCredentialsDelegate::SelectPasskey(
   ChromeAuthenticatorRequestDelegate* authenticator_delegate =
       AuthenticatorRequestScheduler::GetRequestDelegate(web_contents_);
   if (!authenticator_delegate) {
+    std::move(callback).Run();
     return;
   }
-  authenticator_delegate->dialog_model()->OnAccountPreselected(
+  authenticator_delegate->dialog_controller()->OnAccountPreselected(
       *selected_credential_id);
+  // TODO(crbug.com/40274370): Update the OnAccountPreselected to run the
+  // callback.
+  std::move(callback).Run();
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

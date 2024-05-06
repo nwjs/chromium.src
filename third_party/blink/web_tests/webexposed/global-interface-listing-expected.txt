@@ -189,6 +189,7 @@ interface Animation : EventTarget
     getter pending
     getter playState
     getter playbackRate
+    getter progress
     getter rangeEnd
     getter rangeStart
     getter ready
@@ -859,6 +860,149 @@ interface CSSPerspective : CSSTransformComponent
     getter length
     method constructor
     setter length
+interface CSSPositionTryDescriptors : CSSStyleDeclaration
+    attribute @@toStringTag
+    getter align-self
+    getter alignSelf
+    getter block-size
+    getter blockSize
+    getter bottom
+    getter height
+    getter inline-size
+    getter inlineSize
+    getter inset
+    getter inset-area
+    getter inset-block
+    getter inset-block-end
+    getter inset-block-start
+    getter inset-inline
+    getter inset-inline-end
+    getter inset-inline-start
+    getter insetArea
+    getter insetBlock
+    getter insetBlockEnd
+    getter insetBlockStart
+    getter insetInline
+    getter insetInlineEnd
+    getter insetInlineStart
+    getter justify-self
+    getter justifySelf
+    getter left
+    getter margin
+    getter margin-block
+    getter margin-block-end
+    getter margin-block-start
+    getter margin-bottom
+    getter margin-inline
+    getter margin-inline-end
+    getter margin-inline-start
+    getter margin-left
+    getter margin-right
+    getter margin-top
+    getter marginBlock
+    getter marginBlockEnd
+    getter marginBlockStart
+    getter marginBottom
+    getter marginInline
+    getter marginInlineEnd
+    getter marginInlineStart
+    getter marginLeft
+    getter marginRight
+    getter marginTop
+    getter max-block-size
+    getter max-height
+    getter max-inline-size
+    getter max-width
+    getter maxBlockSize
+    getter maxHeight
+    getter maxInlineSize
+    getter maxWidth
+    getter min-block-size
+    getter min-height
+    getter min-inline-size
+    getter min-width
+    getter minBlockSize
+    getter minHeight
+    getter minInlineSize
+    getter minWidth
+    getter place-self
+    getter placeSelf
+    getter position-anchor
+    getter positionAnchor
+    getter right
+    getter top
+    getter width
+    method constructor
+    setter align-self
+    setter alignSelf
+    setter block-size
+    setter blockSize
+    setter bottom
+    setter height
+    setter inline-size
+    setter inlineSize
+    setter inset
+    setter inset-area
+    setter inset-block
+    setter inset-block-end
+    setter inset-block-start
+    setter inset-inline
+    setter inset-inline-end
+    setter inset-inline-start
+    setter insetArea
+    setter insetBlock
+    setter insetBlockEnd
+    setter insetBlockStart
+    setter insetInline
+    setter insetInlineEnd
+    setter insetInlineStart
+    setter justify-self
+    setter justifySelf
+    setter left
+    setter margin
+    setter margin-block
+    setter margin-block-end
+    setter margin-block-start
+    setter margin-bottom
+    setter margin-inline
+    setter margin-inline-end
+    setter margin-inline-start
+    setter margin-left
+    setter margin-right
+    setter margin-top
+    setter marginBlock
+    setter marginBlockEnd
+    setter marginBlockStart
+    setter marginBottom
+    setter marginInline
+    setter marginInlineEnd
+    setter marginInlineStart
+    setter marginLeft
+    setter marginRight
+    setter marginTop
+    setter max-block-size
+    setter max-height
+    setter max-inline-size
+    setter max-width
+    setter maxBlockSize
+    setter maxHeight
+    setter maxInlineSize
+    setter maxWidth
+    setter min-block-size
+    setter min-height
+    setter min-inline-size
+    setter min-width
+    setter minBlockSize
+    setter minHeight
+    setter minInlineSize
+    setter minWidth
+    setter place-self
+    setter placeSelf
+    setter position-anchor
+    setter positionAnchor
+    setter right
+    setter top
+    setter width
 interface CSSPositionTryRule : CSSRule
     attribute @@toStringTag
     getter name
@@ -1234,6 +1378,12 @@ interface ChannelMergerNode : AudioNode
     method constructor
 interface ChannelSplitterNode : AudioNode
     attribute @@toStringTag
+    method constructor
+interface ChapterInformation
+    attribute @@toStringTag
+    getter artwork
+    getter startTime
+    getter title
     method constructor
 interface CharacterBoundsUpdateEvent : Event
     attribute @@toStringTag
@@ -1792,6 +1942,10 @@ interface DevicePosture : EventTarget
     getter type
     method constructor
     setter onchange
+interface DeviceProperties
+    attribute @@toStringTag
+    getter uniqueId
+    method constructor
 interface DigitalCredential : Credential
     attribute @@toStringTag
     getter data
@@ -3430,6 +3584,8 @@ interface HTMLAreaElement : HTMLElement
     getter host
     getter hostname
     getter href
+    getter interestAction
+    getter interestTargetElement
     getter noHref
     getter origin
     getter password
@@ -3453,6 +3609,8 @@ interface HTMLAreaElement : HTMLElement
     setter host
     setter hostname
     setter href
+    setter interestAction
+    setter interestTargetElement
     setter noHref
     setter password
     setter pathname
@@ -5473,6 +5631,11 @@ interface InputEvent : UIEvent
     getter isComposing
     method constructor
     method getTargetRanges
+interface InterestEvent : Event
+    attribute @@toStringTag
+    getter action
+    getter invoker
+    method constructor
 interface IntersectionObserver
     attribute @@toStringTag
     getter delay
@@ -5679,6 +5842,8 @@ interface MLContext
     method compute
     method constructor
     method createBuffer
+    method readBuffer
+    method writeBuffer
 interface MLGraph
     attribute @@toStringTag
     method constructor
@@ -5712,6 +5877,7 @@ interface MLGraphBuilder
     method greater
     method greaterOrEqual
     method gru
+    method gruCell
     method hardSigmoid
     method hardSwish
     method identity
@@ -5726,6 +5892,7 @@ interface MLGraphBuilder
     method log
     method logicalNot
     method lstm
+    method lstmCell
     method matmul
     method max
     method maxPool2d
@@ -6113,7 +6280,6 @@ interface MediaMetadata
     setter album
     setter artist
     setter artwork
-    setter chapterInfo
     setter title
 interface MediaQueryList : EventTarget
     attribute @@toStringTag
@@ -6253,6 +6419,19 @@ interface MediaStreamTrack : EventTarget
     setter onended
     setter onmute
     setter onunmute
+interface MediaStreamTrackAudioStats
+    attribute @@toStringTag
+    getter averageLatency
+    getter deliveredFrames
+    getter deliveredFramesDuration
+    getter latency
+    getter maximumLatency
+    getter minimumLatency
+    getter totalFrames
+    getter totalFramesDuration
+    method constructor
+    method resetLatency
+    method toJSON
 interface MediaStreamTrackEvent : Event
     attribute @@toStringTag
     getter track
@@ -6338,6 +6517,7 @@ interface ModelManager
     method canCreateGenericSession
     method constructor
     method createGenericSession
+    method defaultGenericSessionOptions
 interface Mojo
     static method bindInterface
     static method createDataPipe
@@ -6737,6 +6917,7 @@ interface Node : EventTarget
     method isSameNode
     method lookupNamespaceURI
     method lookupPrefix
+    method moveBefore
     method normalize
     method removeChild
     method replaceChild
@@ -6822,9 +7003,13 @@ interface Observable
     method constructor
     method drop
     method filter
+    method first
+    method flatMap
     method forEach
+    method last
     method map
     method subscribe
+    method switchMap
     method take
     method takeUntil
     method toArray
@@ -7129,26 +7314,6 @@ interface PaymentResponse : EventTarget
     method retry
     method toJSON
     setter onpayerdetailchange
-interface PendingBeacon
-    attribute @@toStringTag
-    getter backgroundTimeout
-    getter method
-    getter pending
-    getter timeout
-    getter url
-    method constructor
-    method deactivate
-    method sendNow
-    setter backgroundTimeout
-    setter timeout
-interface PendingGetBeacon : PendingBeacon
-    attribute @@toStringTag
-    method constructor
-    method setURL
-interface PendingPostBeacon : PendingBeacon
-    attribute @@toStringTag
-    method constructor
-    method setData
 interface Performance : EventTarget
     attribute @@toStringTag
     getter eventCounts
@@ -7398,7 +7563,7 @@ interface PointerEvent : MouseEvent
     attribute @@toStringTag
     getter altitudeAngle
     getter azimuthAngle
-    getter deviceId
+    getter deviceProperties
     getter height
     getter isPrimary
     getter pointerId
@@ -7640,7 +7805,6 @@ interface RTCEncodedAudioFrame
     method constructor
     method getMetadata
     method setMetadata
-    method setTimestamp
     method toString
     setter data
 interface RTCEncodedVideoFrame
@@ -7651,7 +7815,6 @@ interface RTCEncodedVideoFrame
     method constructor
     method getMetadata
     method setMetadata
-    method setTimestamp
     method toString
     setter data
 interface RTCError : DOMException
@@ -9452,6 +9615,7 @@ interface SharedStorage
     method append
     method clear
     method constructor
+    method createWorklet
     method delete
     method get
     method run
@@ -9461,6 +9625,8 @@ interface SharedStorageWorklet
     attribute @@toStringTag
     method addModule
     method constructor
+    method run
+    method selectURL
 interface SharedWorker : EventTarget
     attribute @@toStringTag
     getter onerror
@@ -10325,9 +10491,23 @@ interface ViewTransition
     attribute @@toStringTag
     getter finished
     getter ready
+    getter types
     getter updateCallbackDone
     method constructor
     method skipTransition
+interface ViewTransitionTypeSet
+    attribute @@toStringTag
+    getter size
+    method @@iterator
+    method add
+    method clear
+    method constructor
+    method delete
+    method entries
+    method forEach
+    method has
+    method keys
+    method values
 interface VirtualKeyboard : EventTarget
     attribute @@toStringTag
     getter boundingRect
@@ -10351,6 +10531,7 @@ interface VisualViewport : EventTarget
     getter offsetTop
     getter onresize
     getter onscroll
+    getter onscrollend
     getter pageLeft
     getter pageTop
     getter scale
@@ -10359,6 +10540,7 @@ interface VisualViewport : EventTarget
     method constructor
     setter onresize
     setter onscroll
+    setter onscrollend
 interface WGSLLanguageFeatures
     attribute @@toStringTag
     getter size

@@ -24,10 +24,9 @@
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
-#import "ios/chrome/browser/tabs/model/features.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
-#import "ios/chrome/browser/ui/bubble/bubble_constants.h"
 #import "ios/chrome/browser/ui/bubble/gesture_iph/gesture_in_product_help_view.h"
+#import "ios/chrome/browser/ui/bubble/gesture_iph/gesture_in_product_help_view_delegate.h"
 #import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/ui/menu/action_factory.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller.h"
@@ -100,7 +99,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 }
 }  // namespace
 
-@interface TabGridViewController () <GridViewControllerDelegate,
+@interface TabGridViewController () <GestureInProductHelpViewDelegate,
+                                     GridViewControllerDelegate,
                                      PinnedTabsViewControllerDelegate,
                                      RecentTabsTableViewControllerUIDelegate,
                                      SuggestedActionsDelegate,
@@ -1510,17 +1510,24 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
                      : regularGridView.safeAreaInsets.left;
   expectedSize.width =
       regularGridView.frame.size.width - safeAreaInsetForArrowDirection;
+
+  int stringID = IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH;
+  int voiceOverAnnouncementStringID =
+      IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH_VOICEOVER;
+  UISwipeGestureRecognizerDirection swipeDirection =
+      UISwipeGestureRecognizerDirectionRight;
+  if (UseRTLLayout()) {
+    stringID = IDS_IOS_SWIPE_LEFT_TO_INCOGNITO_IPH;
+    voiceOverAnnouncementStringID =
+        IDS_IOS_SWIPE_LEFT_TO_INCOGNITO_IPH_VOICEOVER;
+    swipeDirection = UISwipeGestureRecognizerDirectionLeft;
+  }
   GestureInProductHelpView* gestureIPHView = [[GestureInProductHelpView alloc]
-               initWithText:l10n_util::GetNSString(
-                                UseRTLLayout()
-                                    ? IDS_IOS_SWIPE_LEFT_TO_INCOGNITO_IPH
-                                    : IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH)
+               initWithText:l10n_util::GetNSString(stringID)
          bubbleBoundingSize:expectedSize
-             arrowDirection:BubbleArrowDirectionLeading
-      voiceOverAnnouncement:
-          l10n_util::GetNSString(
-              UseRTLLayout() ? IDS_IOS_SWIPE_LEFT_TO_INCOGNITO_IPH_VOICEOVER
-                             : IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH_VOICEOVER)];
+             swipeDirection:swipeDirection
+      voiceOverAnnouncement:l10n_util::GetNSString(
+                                voiceOverAnnouncementStringID)];
   [gestureIPHView setTranslatesAutoresizingMaskIntoConstraints:NO];
 
   // Return if the view does NOT fit in the regular tab grid.
@@ -1530,26 +1537,10 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
       smallestPossibleSizeOfIPH.height > expectedSize.height) {
     return;
   }
-
-  // Coast is clear. Show the message!
-  __weak TabGridViewController* weakSelf = self;
-  gestureIPHView.dismissCallback =
-      ^(IPHDismissalReasonType reason,
-        feature_engagement::Tracker::SnoozeAction snoozeAction) {
-        if (reason == IPHDismissalReasonType::kSwipedAsInstructedByGestureIPH) {
-          // Animate a swipe to incognito if the user has swiped right on the
-          // IPH.
-          [weakSelf.mutator
-              pageChanged:TabGridPageIncognitoTabs
-              interaction:TabSwitcherPageChangeInteraction::kScrollDrag];
-          [weakSelf setCurrentPageAndPageControl:TabGridPageIncognitoTabs
-                                        animated:YES];
-        }
-        [weakSelf.delegate tabGridDidDismissSwipeToIncognitoIPH];
-      };
   if (![self.delegate tabGridShouldPresentSwipeToIncognitoIPH]) {
     return;
   }
+  gestureIPHView.delegate = self;
   self.swipeToIncognitoIPH = gestureIPHView;
   [self.view addSubview:self.swipeToIncognitoIPH];
   self.swipeToIncognitoIPHBottomConstraint = [gestureIPHView.bottomAnchor
@@ -1749,9 +1740,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
                    }];
 }
 
-- (void)pinnedTabsViewController:
-            (PinnedTabsViewController*)pinnedTabsViewController
-               didMoveItemWithID:(web::WebStateID)itemID {
+- (void)pinnedTabsViewControllerDidMoveItem:
+    (PinnedTabsViewController*)pinnedTabsViewController {
   [self setCurrentIdlePageStatus:NO];
 }
 
@@ -1830,20 +1820,13 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
   [tabsDelegate selectItemWithID:itemID pinned:NO];
 
-  // TODO(crbug.com/1501837): Change the condition to verify if the given item
-  // ID is a group or not.
-  if (IsTabGroupInGridEnabled()) {
-    // Do not present the currently selected tab.
-    return;
-  }
-
   if (self.tabGridMode == TabGridModeSearch) {
     if (![tabsDelegate isItemWithIDSelected:itemID]) {
       // That can happen when the search result that was selected is from
       // another window. In that case don't change the active page for this
-      // window and don't close the tab grid.
+      // window and don't show the tab group view.
       base::RecordAction(base::UserMetricsAction(
-          "MobileTabGridOpenSearchResultInAnotherWindow"));
+          "MobileTabGridOpenTabGroupSearchResultInAnotherWindow"));
       return;
     } else {
       // Make sure that the keyboard is dismissed before starting the transition
@@ -1851,10 +1834,56 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
       [self.view endEditing:YES];
     }
   }
-  self.activePage = self.currentPage;
 
   [self.tabPresentationDelegate showActiveTabInPage:self.currentPage
                                        focusOmnibox:NO];
+}
+
+- (void)gridViewController:(BaseGridViewController*)gridViewController
+            didSelectGroup:(const TabGroup*)group {
+  // Check that the current page matches the grid view being interacted with.
+  BOOL isOnRegularTabsPage = self.currentPage == TabGridPageRegularTabs;
+  BOOL isOnIncognitoTabsPage = self.currentPage == TabGridPageIncognitoTabs;
+  BOOL isOnRemoteTabsPage = self.currentPage == TabGridPageRemoteTabs;
+  BOOL gridIsRegularTabs = gridViewController == self.regularTabsViewController;
+  BOOL gridIsIncognitoTabs =
+      gridViewController == self.incognitoTabsViewController;
+  if ((isOnRegularTabsPage && !gridIsRegularTabs) ||
+      (isOnIncognitoTabsPage && !gridIsIncognitoTabs) || isOnRemoteTabsPage) {
+    return;
+  }
+
+  if (self.tabGridMode == TabGridModeSelection) {
+    return;
+  }
+
+  id<GridCommands> tabsDelegate;
+  if (gridViewController == self.regularTabsViewController) {
+    tabsDelegate = self.regularGridHandler;
+    base::RecordAction(
+        base::UserMetricsAction("MobileTabGridOpenRegularTabGroup"));
+    if (self.tabGridMode == TabGridModeSearch) {
+      base::RecordAction(base::UserMetricsAction(
+          "MobileTabGridOpenRegularTabGroupSearchResult"));
+    }
+  } else if (gridViewController == self.incognitoTabsViewController) {
+    tabsDelegate = self.incognitoGridHandler;
+    base::RecordAction(
+        base::UserMetricsAction("MobileTabGridOpenIncognitoTabGroup"));
+    if (self.tabGridMode == TabGridModeSearch) {
+      base::RecordAction(base::UserMetricsAction(
+          "MobileTabGridOpenIncognitoTabGroupSearchResult"));
+    }
+  }
+
+  [self setCurrentIdlePageStatus:NO];
+
+  [tabsDelegate selectTabGroup:group];
+
+  if (self.tabGridMode == TabGridModeSearch) {
+    // Make sure that the keyboard is dismissed.
+    [self.view endEditing:YES];
+  }
 }
 
 // TODO(crbug.com/1457146): Remove once inactive tabs do not depends on it
@@ -1864,16 +1893,9 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   // No-op
 }
 
-- (void)gridViewController:(BaseGridViewController*)gridViewController
-         didMoveItemWithID:(web::WebStateID)itemID
-                   toIndex:(NSUInteger)destinationIndex {
+- (void)gridViewControllerDidMoveItem:
+    (BaseGridViewController*)gridViewController {
   [self setCurrentIdlePageStatus:NO];
-
-  if (gridViewController == self.regularTabsViewController) {
-    [self.regularGridHandler moveItemWithID:itemID toIndex:destinationIndex];
-  } else if (gridViewController == self.incognitoTabsViewController) {
-    [self.incognitoGridHandler moveItemWithID:itemID toIndex:destinationIndex];
-  }
 }
 
 - (void)gridViewController:(BaseGridViewController*)gridViewController
@@ -1894,14 +1916,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 - (void)gridViewController:(BaseGridViewController*)gridViewController
        didRemoveItemWIthID:(web::WebStateID)itemID {
   [self setCurrentIdlePageStatus:NO];
-}
-
-- (void)didChangeLastItemVisibilityInGridViewController:
-    (BaseGridViewController*)gridViewController {
-}
-
-- (void)gridViewControllerWillBeginDragging:
-    (BaseGridViewController*)gridViewController {
 }
 
 - (void)gridViewControllerDragSessionWillBegin:
@@ -2219,6 +2233,20 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 - (void)prepareForDismissal {
   [self.incognitoTabsViewController prepareForDismissal];
   [self.regularTabsViewController prepareForDismissal];
+}
+
+#pragma mark - GestureInProductHelpViewDelegate
+
+- (void)gestureInProductHelpView:(GestureInProductHelpView*)view
+            didDismissWithReason:(IPHDismissalReasonType)reason {
+  [self.delegate tabGridDidDismissSwipeToIncognitoIPH];
+}
+
+- (void)gestureInProductHelpView:(GestureInProductHelpView*)view
+    shouldHandleSwipeInDirection:(UISwipeGestureRecognizerDirection)direction {
+  [self.mutator pageChanged:TabGridPageIncognitoTabs
+                interaction:TabSwitcherPageChangeInteraction::kScrollDrag];
+  [self setCurrentPageAndPageControl:TabGridPageIncognitoTabs animated:YES];
 }
 
 @end

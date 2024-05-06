@@ -240,19 +240,6 @@ BASE_FEATURE(kHistoryNavigationDoNotUseCacheAblationStudy,
 constexpr base::FeatureParam<double> kDoNotUseCacheProbability{
     &kHistoryNavigationDoNotUseCacheAblationStudy, "probability", 0.0};
 
-const char kIsolatedAppCSP[] =
-    "base-uri 'none';"
-    "default-src 'self';"
-    "object-src 'none';"
-    "frame-src 'self' https: blob: data:;"
-    "connect-src 'self' https: wss: blob: data:;"
-    "script-src 'self' 'wasm-unsafe-eval';"
-    "img-src 'self' https: blob: data:;"
-    "media-src 'self' https: blob: data:;"
-    "font-src 'self' blob: data:;"
-    "style-src 'self' 'unsafe-inline';"
-    "require-trusted-types-for 'script';";
-
 const char kSecSharedStorageWritableRequestHeaderKey[] =
     "Sec-Shared-Storage-Writable";
 
@@ -1394,7 +1381,8 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
           /*load_with_storage_access=*/load_with_storage_access,
           /*browsing_context_group_info=*/std::nullopt,
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
-          /*cookie_deprecation_label=*/std::nullopt);
+          /*cookie_deprecation_label=*/std::nullopt,
+          /*visited_link_salt=*/std::nullopt);
 
   commit_params->navigation_timing->system_entropy_at_navigation_start =
       SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
@@ -1541,7 +1529,8 @@ NavigationRequest::CreateForSynchronousRendererCommit(
           /*load_with_storage_access=*/false,
           /*browsing_context_group_info=*/std::nullopt,
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
-          /*cookie_deprecation_label=*/std::nullopt);
+          /*cookie_deprecation_label=*/std::nullopt,
+          /*visited_link_salt=*/std::nullopt);
   blink::mojom::BeginNavigationParamsPtr begin_params =
       blink::mojom::BeginNavigationParams::New();
   std::unique_ptr<NavigationRequest> navigation_request(new NavigationRequest(
@@ -2225,6 +2214,10 @@ NavigationRequest::~NavigationRequest() {
     if (IsPrerenderedPageActivation()) {
       GetPrerenderHostRegistry().OnActivationFinished(
           prerender_frame_tree_node_id_.value());
+    }
+
+    if (!HasCommitted()) {
+      ResetViewTransitionState();
     }
 
     if (IsServedFromBackForwardCache()) {
@@ -4218,8 +4211,6 @@ void NavigationRequest::OnResponseStarted(
         blink::mojom::ParentResourceTimingAccess::kDoNotReport;
   }
 
-  MaybeInjectIsolatedAppHeaders();
-
   {
     const std::optional<network::mojom::BlockedByResponseReason>
         coop_requires_blocking =
@@ -6112,6 +6103,45 @@ void NavigationRequest::CommitNavigation() {
   commit_params_->modified_runtime_features =
       runtime_feature_state_context_.GetFeatureOverrides();
 
+  // Documents loaded from fenced frame configs can opt into allowing
+  // cross-origin subframes to use their reporting metadata to send
+  // `reportEvent()` beacons. The cross-origin subframes still require a
+  // separate per-report opt-in.
+  {
+    std::string allow;
+    if (fenced_frame_properties_.has_value() && response() &&
+        response()->headers->GetNormalizedHeader(
+            "Allow-Cross-Origin-Event-Reporting", &allow) &&
+        allow == "true") {
+      fenced_frame_properties_->SetAllowCrossOriginEventReporting();
+    }
+  }
+
+  // Create a view of the fenced frame properties from the perspective of the
+  // fenced frame content, which will be sent to its renderer.
+  // On each navigation commit within the fenced frame tree:
+  // * If the properties have no mapped url, the browser will send the renderer
+  //   the `RedactedFencedFrameProperties` unconditionally.
+  // * If the properties do have a mapped url, the browser will send the
+  //   renderer the `RedactedFencedFrameProperties`, redacting extra information
+  //   based on whether the origin is same-origin to the urn's mapped_url (after
+  //   redirects).
+  // This is because we want to make fenced frame APIs available only
+  // in same-origin contexts, when "same-origin" has a coherent definition.
+  const auto& computed_fenced_frame_properties = ComputeFencedFrameProperties();
+  if (computed_fenced_frame_properties.has_value()) {
+    content::FencedFrameEntity entity =
+        content::FencedFrameEntity::kSameOriginContent;
+    if (computed_fenced_frame_properties->mapped_url().has_value() &&
+        !origin_to_commit.IsSameOriginWith(
+            computed_fenced_frame_properties->mapped_url()
+                ->GetValueIgnoringVisibility())) {
+      entity = content::FencedFrameEntity::kCrossOriginContent;
+    }
+    commit_params_->fenced_frame_properties =
+        computed_fenced_frame_properties->RedactFor(entity);
+  }
+
   auto common_params = common_params_->Clone();
   auto commit_params = commit_params_.Clone();
   auto response_head = response_head_.Clone();
@@ -6127,6 +6157,9 @@ void NavigationRequest::CommitNavigation() {
       std::move(subresource_loader_params_), std::move(subresource_overrides_),
       std::move(service_worker_container_info), document_token_,
       devtools_navigation_token_);
+  if (service_worker_handle_ && service_worker_handle_->container_host()) {
+    service_worker_handle_->container_host()->SetContainerReady();
+  }
   UpdateNavigationHandleTimingsOnCommitSent();
 
   // Give SpareRenderProcessHostManager a heads-up about the most recently used
@@ -7455,9 +7488,6 @@ void NavigationRequest::DidCommitNavigation(
   // If the navigation committed successfully, pass ownership of ViewTransition
   // resources to the new view. This ensures that the resources are cleaned up
   // if the new renderer process terminates before taking ownership of them.
-  //
-  // TODO(khushalsagar): If the navigation was cancelled, we should inform the
-  // old Document otherwise it's rendering will stay blocked.
   if (view_transition_resources_ && state_ == DID_COMMIT) {
     GetRenderFrameHost()
         ->GetRenderWidgetHost()
@@ -7874,32 +7904,6 @@ void NavigationRequest::ReadyToCommitNavigation(bool is_error) {
     }
   }
 
-  // Create a view of the fenced frame properties from the perspective of the
-  // fenced frame content, which will be sent to its renderer.
-  // On each navigation commit within the fenced frame tree:
-  // * If the properties have no mapped url, the browser will send the renderer
-  //   the `RedactedFencedFrameProperties` unconditionally.
-  // * If the properties do have a mapped url, the browser will send the
-  //   renderer the `RedactedFencedFrameProperties`, redacting extra information
-  //   based on whether the origin is same-origin to the urn's mapped_url (after
-  //   redirects).
-  // This is because we want to make fenced frame APIs available only
-  // in same-origin contexts, when "same-origin" has a coherent definition.
-  const auto& computed_fenced_frame_properties = ComputeFencedFrameProperties();
-  if (computed_fenced_frame_properties.has_value()) {
-    content::FencedFrameEntity entity =
-        content::FencedFrameEntity::kSameOriginContent;
-    if (computed_fenced_frame_properties->mapped_url().has_value() &&
-        origin_to_commit.has_value() &&
-        !origin_to_commit->IsSameOriginWith(
-            computed_fenced_frame_properties->mapped_url()
-                ->GetValueIgnoringVisibility())) {
-      entity = content::FencedFrameEntity::kCrossOriginContent;
-    }
-    commit_params_->fenced_frame_properties =
-        computed_fenced_frame_properties->RedactFor(entity);
-  }
-
   if (ready_to_commit_callback_for_testing_)
     std::move(ready_to_commit_callback_for_testing_).Run();
 }
@@ -8102,8 +8106,9 @@ NavigationRequest::GetOriginForURLLoaderFactoryAfterResponseWithDebugInfo() {
       !IsForMhtmlSubframe()) {
     int process_id = GetRenderFrameHost()->GetProcess()->GetID();
     auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
-    CHECK(policy->CanAccessDataForOrigin(process_id,
-                                         origin_with_debug_info.first));
+    CHECK(policy->CanAccessOrigin(
+        process_id, origin_with_debug_info.first,
+        ChildProcessSecurityPolicyImpl::AccessType::kCanCommitNewOrigin));
   }
 
   return origin_with_debug_info;
@@ -8815,6 +8820,10 @@ void NavigationRequest::SetSilentlyIgnoreErrors() {
   silently_ignore_errors_ = true;
 }
 
+void NavigationRequest::SetVisitedLinkSalt(uint64_t salt) {
+  commit_params_->visited_link_salt = salt;
+}
+
 // static
 NavigationRequest* NavigationRequest::From(NavigationHandle* handle) {
   return static_cast<NavigationRequest*>(handle);
@@ -9451,20 +9460,6 @@ void NavigationRequest::ComputePoliciesToCommit() {
       policy_container_builder_->AddContentSecurityPolicies(
           mojo::Clone(response_head_->parsed_headers->content_security_policy));
     }
-
-    // TODO(https://crbug.com/1311061): Validate CSP rather than injecting it.
-    BrowserContext* browser_context =
-        frame_tree_node()->navigator().controller().GetBrowserContext();
-    if (SiteIsolationPolicy::ShouldUrlUseApplicationIsolationLevel(
-            browser_context, GetURL())) {
-      // Parsing CSP is allowed in the browser process because it owns the
-      // trusted input.
-      policy_container_builder_->AddContentSecurityPolicies(
-          network::ParseContentSecurityPolicies(
-              kIsolatedAppCSP,
-              network::mojom::ContentSecurityPolicyType::kEnforce,
-              network::mojom::ContentSecurityPolicySource::kHTTP, GetURL()));
-    }
   }
 
   // Use the unchecked / non-sandboxed origin to calculate potential
@@ -10027,32 +10022,6 @@ void NavigationRequest::MaybeAssignInvalidPrerenderFrameTreeNodeId() {
   }
 }
 
-void NavigationRequest::MaybeInjectIsolatedAppHeaders() {
-  BrowserContext* browser_context =
-      frame_tree_node()->navigator().controller().GetBrowserContext();
-  if (!SiteIsolationPolicy::ShouldUrlUseApplicationIsolationLevel(
-          browser_context, GetURL())) {
-    return;
-  }
-
-  // If a more restrictive COOP value is introduced, the logic here should be
-  // updated so that this injection doesn't overwrite the more restrictive
-  // value.
-  network::CrossOriginOpenerPolicy coop;
-  coop.value =
-      network::mojom::CrossOriginOpenerPolicyValue::kSameOriginPlusCoep;
-  coop.soap_by_default_value =
-      network::mojom::CrossOriginOpenerPolicyValue::kSameOriginPlusCoep;
-  response()->parsed_headers->cross_origin_opener_policy = coop;
-
-  network::CrossOriginEmbedderPolicy coep;
-  coep.value = network::mojom::CrossOriginEmbedderPolicyValue::kRequireCorp;
-  response()->parsed_headers->cross_origin_embedder_policy = coep;
-
-  response()->headers->SetHeader(
-      network::CrossOriginResourcePolicy::kHeaderName, "same-origin");
-}
-
 void NavigationRequest::RendererCancellationWindowEnded() {
   // The renderer had indicated that the navigation cancellation window had
   // ended, so the navigation can resume if it is currently waiting for this
@@ -10118,6 +10087,20 @@ void NavigationRequest::ResetViewTransitionState() {
   CHECK(view_transition_resources_);
   commit_params_->view_transition_state.reset();
   view_transition_resources_.reset();
+
+  // If we cached a view transition for the old Document and the transition
+  // has been aborted, inform the old Document to discard the pending
+  // ViewTransition.
+  //
+  // Note: If the transition is aborted before the renderer acks the
+  // snapshot IPC, we won't have any resources here. The
+  // ViewTransitionCommitDeferringCondition is responsible for discarding the
+  // pending transition in this case.
+  if (auto* previous_rfh =
+          RenderFrameHostImpl::FromID(GetPreviousRenderFrameHostId())) {
+    previous_rfh->GetAssociatedLocalFrame()
+        ->NotifyViewTransitionAbortedToOldDocument();
+  }
 }
 
 blink::RuntimeFeatureStateContext&
@@ -10312,7 +10295,7 @@ bool NavigationRequest::IsDeferred() {
 }
 
 void NavigationRequest::OnResponseBodyReady(MojoResult) {
-  uint32_t num_bytes = 0;
+  size_t num_bytes = 0;
   MojoResult result =
       response_body().ReadData(nullptr, &num_bytes, MOJO_READ_DATA_FLAG_QUERY);
   CHECK_EQ(result, MOJO_RESULT_OK);
@@ -10413,14 +10396,21 @@ NavigationRequest::GetOriginForURLLoaderFactoryUncheckedWithDebugInfo() {
   if (GetURL().IsAboutSrcdoc()) {
     RenderFrameHostImpl* parent = frame_tree_node()->parent();
 
-    // The only path for `parent` to be missing for a srcdoc navigation is if a
-    // renderer executes `location = "about:srcdoc` instead of embedding an
-    // <iframe srcdoc="..."></iframe> element; this is covered by
-    // NavigationBrowserTest.BlockedSrcDoc* tests.  However, we should never get
-    // here in such a case, because it would result in an error page which would
-    // be handled by the DidEncounterError() case above.
-    DCHECK(parent);
-    return std::make_pair(parent->GetLastCommittedOrigin(), "about_srcdoc");
+    if (parent) {
+      return std::make_pair(parent->GetLastCommittedOrigin(), "about_srcdoc");
+    } else {
+      // The only path for `parent` to be missing for a srcdoc navigation is if
+      // a mainframe renderer executes `location = "about:srcdoc` instead of
+      // embedding an <iframe srcdoc="..."></iframe> element; this is covered by
+      // NavigationBrowserTest.BlockedSrcDoc* tests. While this will result in
+      // an error page, we might still get here via GetURLInfo if the navigation
+      // encounters a COOP header. In that case we return the origin of the
+      // page that executed the script, knowing that the navigation will fail
+      // anyways.
+      return std::make_pair(
+          frame_tree_node()->current_frame_host()->GetLastCommittedOrigin(),
+          "about_srcdoc, no-parent");
+    }
   }
 
   // In cases not covered above, URLLoaderFactory should be associated with the

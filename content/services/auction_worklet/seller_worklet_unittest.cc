@@ -3784,6 +3784,9 @@ TEST_F(SellerWorkletTest, ReportResultLoadCompletionOrder) {
 // Subsequent runs of the same script should not affect each other. Same is true
 // for different scripts, but it follows from the single script case.
 TEST_F(SellerWorkletTest, ScriptIsolation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      blink::features::kFledgeAlwaysReuseSellerContext);
   // Use arrays so that all values are references, to catch both the case where
   // variables are persisted, and the case where what they refer to is
   // persisted, but variables are overwritten between runs.
@@ -3879,6 +3882,156 @@ TEST_F(SellerWorkletTest, ScriptIsolation) {
               }));
       run_loop.Run();
     }
+  }
+}
+
+TEST_F(SellerWorkletTest,
+       ContextIsReusedIfFledgeAlwaysReuseSellerContextEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      blink::features::kFledgeAlwaysReuseSellerContext);
+  AddJavascriptResponse(&url_loader_factory_, decision_logic_url_,
+                        R"(
+        // Globally scoped variable.
+        if (!globalThis.var1)
+          globalThis.var1 = [1];
+        scoreAd = function() {
+          // Value only visible within this closure.
+          var var2 = [2];
+          return function() {
+            if (2 == ++globalThis.var1[0] && 3 == ++var2[0])
+              return 2;
+            return 1;
+          }
+        }();
+
+        reportResult = scoreAd;
+      )");
+  auto seller_worklet = CreateWorklet();
+  ASSERT_TRUE(seller_worklet);
+  std::vector<double> expected_scores = {2, 1, 1};
+  for (int i = 0; i < 3; ++i) {
+    double expected_score = expected_scores[i];
+    base::RunLoop run_loop;
+    seller_worklet->ScoreAd(
+        ad_metadata_, bid_, bid_currency_, auction_ad_config_non_shared_params_,
+        direct_from_seller_seller_signals_,
+        direct_from_seller_seller_signals_header_ad_slot_,
+        direct_from_seller_auction_signals_,
+        direct_from_seller_auction_signals_header_ad_slot_,
+        browser_signals_other_seller_.Clone(), component_expect_bid_currency_,
+        browser_signal_interest_group_owner_, browser_signal_render_url_,
+        browser_signal_ad_components_, browser_signal_bidding_duration_msecs_,
+        browser_signal_for_debugging_only_in_cooldown_or_lockout_,
+        seller_timeout_,
+        /*trace_id=*/1,
+        TestScoreAdClient::Create(base::BindLambdaForTesting(
+            [&run_loop, &expected_score](
+                double score, mojom::RejectReason reject_reason,
+                mojom::ComponentAuctionModifiedBidParamsPtr
+                    component_auction_modified_bid_params,
+                std::optional<double> bid_in_seller_currency,
+                std::optional<uint32_t> scoring_signals_data_version,
+                const std::optional<GURL>& debug_loss_report_url,
+                const std::optional<GURL>& debug_win_report_url,
+                PrivateAggregationRequests pa_requests,
+                base::TimeDelta scoring_latency,
+                mojom::ScoreAdDependencyLatenciesPtr
+                    score_ad_dependency_latencies,
+                const std::vector<std::string>& errors) {
+              EXPECT_EQ(expected_score, score);
+              EXPECT_FALSE(scoring_signals_data_version.has_value());
+              EXPECT_TRUE(errors.empty());
+              run_loop.Quit();
+            })));
+    run_loop.Run();
+  }
+
+  // The Report worklet should still get a fresh context.
+  base::RunLoop run_loop;
+  seller_worklet->ReportResult(
+      auction_ad_config_non_shared_params_, direct_from_seller_seller_signals_,
+      direct_from_seller_seller_signals_header_ad_slot_,
+      direct_from_seller_auction_signals_,
+      direct_from_seller_auction_signals_header_ad_slot_,
+      browser_signals_other_seller_.Clone(),
+      browser_signal_interest_group_owner_,
+      browser_signal_buyer_and_seller_reporting_id_, browser_signal_render_url_,
+      bid_, bid_currency_, browser_signal_desireability_,
+      browser_signal_highest_scoring_other_bid_,
+      browser_signal_highest_scoring_other_bid_currency_,
+      browser_signals_component_auction_report_result_params_.Clone(),
+      browser_signal_data_version_,
+      /*trace_id=*/1,
+      base::BindLambdaForTesting(
+          [&run_loop](const std::optional<std::string>& signals_for_winner,
+                      const std::optional<GURL>& report_url,
+                      const base::flat_map<std::string, GURL>& ad_beacon_map,
+                      PrivateAggregationRequests pa_requests,
+                      base::TimeDelta reporting_latency,
+                      const std::vector<std::string>& errors) {
+            EXPECT_EQ("2", signals_for_winner);
+            EXPECT_TRUE(errors.empty());
+            run_loop.Quit();
+          }));
+  run_loop.Run();
+}
+
+TEST_F(SellerWorkletTest, ContextReuseDoesNotCrashLazyFiller) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      blink::features::kFledgeAlwaysReuseSellerContext);
+  AddJavascriptResponse(&url_loader_factory_, decision_logic_url_,
+                        R"(
+        scoreAd = function(adMetadata, bid, auctionConfig){
+            if (!globalThis.auctionConfig) {
+                globalThis.auctionConfig = auctionConfig;
+            } else {
+                // Access a lazily loaded attribute from a prior run
+                // of this function.
+                console.log(globalThis.auctionConfig.decisionLogicUrl);
+            }
+            return 1;
+        };
+        reportResult = scoreAd;
+      )");
+  auto seller_worklet = CreateWorklet();
+  ASSERT_TRUE(seller_worklet);
+  for (int i = 0; i < 3; ++i) {
+    double expected_score = 1;
+    base::RunLoop run_loop;
+    seller_worklet->ScoreAd(
+        ad_metadata_, bid_, bid_currency_, auction_ad_config_non_shared_params_,
+        direct_from_seller_seller_signals_,
+        direct_from_seller_seller_signals_header_ad_slot_,
+        direct_from_seller_auction_signals_,
+        direct_from_seller_auction_signals_header_ad_slot_,
+        browser_signals_other_seller_.Clone(), component_expect_bid_currency_,
+        browser_signal_interest_group_owner_, browser_signal_render_url_,
+        browser_signal_ad_components_, browser_signal_bidding_duration_msecs_,
+        browser_signal_for_debugging_only_in_cooldown_or_lockout_,
+        seller_timeout_,
+        /*trace_id=*/1,
+        TestScoreAdClient::Create(base::BindLambdaForTesting(
+            [&run_loop, &expected_score](
+                double score, mojom::RejectReason reject_reason,
+                mojom::ComponentAuctionModifiedBidParamsPtr
+                    component_auction_modified_bid_params,
+                std::optional<double> bid_in_seller_currency,
+                std::optional<uint32_t> scoring_signals_data_version,
+                const std::optional<GURL>& debug_loss_report_url,
+                const std::optional<GURL>& debug_win_report_url,
+                PrivateAggregationRequests pa_requests,
+                base::TimeDelta scoring_latency,
+                mojom::ScoreAdDependencyLatenciesPtr
+                    score_ad_dependency_latencies,
+                const std::vector<std::string>& errors) {
+              EXPECT_EQ(expected_score, score);
+              EXPECT_FALSE(scoring_signals_data_version.has_value());
+              EXPECT_TRUE(errors.empty());
+              run_loop.Quit();
+            })));
+    run_loop.Run();
   }
 }
 
@@ -5011,12 +5164,6 @@ TEST_F(SellerWorkletRealTimeTest, ScoreAdZeroTimeout) {
   RunScoreAdWithReturnValueExpectingResult(
       "10", /*expected_score=*/0,
       /*expected_errors=*/{"scoreAd() aborted due to zero timeout."});
-
-  // Test robustness with negative values, too.
-  seller_timeout_ = base::Seconds(-1);
-  RunScoreAdWithReturnValueExpectingResult(
-      "10", /*expected_score=*/0,
-      /*expected_errors=*/{"scoreAd() aborted due to zero timeout."});
 }
 
 TEST_F(SellerWorkletRealTimeTest, ScoreAdSellerTimeoutFromAuctionConfig) {
@@ -5455,14 +5602,16 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
       mojom::AggregatableReportContribution::NewHistogramContribution(
           blink::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/123,
-              /*value=*/45)),
+              /*value=*/45,
+              /*filtering_id=*/std::nullopt)),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
   mojom::PrivateAggregationRequest kExpectedRequest2(
       mojom::AggregatableReportContribution::NewHistogramContribution(
           blink::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/absl::MakeInt128(/*high=*/1, /*low=*/0),
-              /*value=*/1)),
+              /*value=*/1,
+              /*filtering_id=*/std::nullopt)),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
 
@@ -5673,14 +5822,16 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ReportResult) {
       mojom::AggregatableReportContribution::NewHistogramContribution(
           blink::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/123,
-              /*value=*/45)),
+              /*value=*/45,
+              /*filtering_id=*/std::nullopt)),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
   mojom::PrivateAggregationRequest kExpectedRequest2(
       mojom::AggregatableReportContribution::NewHistogramContribution(
           blink::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/absl::MakeInt128(/*high=*/1, /*low=*/0),
-              /*value=*/1)),
+              /*value=*/1,
+              /*filtering_id=*/std::nullopt)),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
   mojom::PrivateAggregationRequest kExpectedForEventRequest(

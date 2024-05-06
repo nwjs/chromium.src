@@ -88,6 +88,17 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Expired because the device was suspended"/>
 </enum>
 
+<enum name="OsScreen">
+  <int value="0" label="OS_PROMPT"/>
+  <int value="1" label="OS_SYSTEM_SETTINGS"/>
+</enum>
+
+<enum name="OsScreenAction">
+  <int value="0" label="SystemSettings"/>
+  <int value="1" label="Dismiss"/>
+  <int value="2" label="DismissScrim"/>
+</enum>
+
 <enum name="PageInfoDialogAccessType">
   <int value="0" label="Click on lock without confirmation chip context"/>
   <int value="1" label="Click on lock while confirmation chip is displayed"/>
@@ -141,6 +152,18 @@ chromium-metrics-reviews@google.com.
 <enum name="PermissionPredictionThresholdSource">
   <int value="0" label="MODEL_METADATA"/>
   <int value="1" label="HARDCODED_FALLBACK"/>
+</enum>
+
+<enum name="PermissionPromptDismissMethod">
+  <int value="0" label="Unspecified"/>
+  <int value="1" label="Back navigation"/>
+  <int value="2" label="Touching outside the scrim"/>
+  <int value="3"
+      label="Autodismissed due to dequeuing a prompt after the user
+             backgrounds the browser and cleanup has happened."/>
+  <int value="4"
+      label="Autodismissed after prompt was accepted but OS permission was
+             denied"/>
 </enum>
 
 <enum name="PermissionRequestIgnoredReason">

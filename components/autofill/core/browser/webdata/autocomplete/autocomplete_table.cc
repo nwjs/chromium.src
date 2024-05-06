@@ -105,7 +105,7 @@ bool AutocompleteTable::AddFormFieldValues(
   const size_t kMaximumUniqueNames = 256;
   std::set<std::u16string> seen_names;
   for (const FormFieldData& element : elements) {
-    if (!seen_names.insert(element.name).second) {
+    if (!seen_names.insert(element.name()).second) {
       continue;
     }
     if (seen_names.size() == kMaximumUniqueNames) {
@@ -393,7 +393,7 @@ bool AutocompleteTable::AddFormFieldValueTime(
   if (!db_->is_open()) {
     return false;
   }
-  // TODO(crbug.com/1424298): Remove once it is understood where the `false`
+  // TODO(crbug.com/40260352): Remove once it is understood where the `false`
   // results are coming from.
   auto create_debug_info = [this](const char* failure_location) {
     std::vector<std::string> message_parts = {base::StringPrintf(
@@ -409,21 +409,21 @@ bool AutocompleteTable::AddFormFieldValueTime(
     return base::StrCat(message_parts);
   };
   AutocompleteChange::Type change_type;
-  if (GetAutocompleteEntry(element.name, element.value).has_value()) {
+  if (GetAutocompleteEntry(element.name(), element.value()).has_value()) {
     change_type = AutocompleteChange::UPDATE;
     sql::Statement s(db_->GetUniqueStatement(
         "UPDATE autofill SET date_last_used = ?, count = count + 1 "
         "WHERE name = ? AND value = ?"));
     s.BindInt64(0, time.ToTimeT());
-    s.BindString16(1, element.name);
-    s.BindString16(2, element.value);
+    s.BindString16(1, element.name());
+    s.BindString16(2, element.value());
     if (!s.Run()) {
       DUMP_WILL_BE_NOTREACHED_NORETURN() << create_debug_info("UPDATE");
       return false;
     }
   } else {
     change_type = AutocompleteChange::ADD;
-    if (!InsertAutocompleteEntry({{element.name, element.value},
+    if (!InsertAutocompleteEntry({{element.name(), element.value()},
                                   /*date_created=*/time,
                                   /*date_last_used=*/time})) {
       DUMP_WILL_BE_NOTREACHED_NORETURN() << create_debug_info("INSERT");
@@ -431,7 +431,7 @@ bool AutocompleteTable::AddFormFieldValueTime(
     }
   }
   changes->emplace_back(change_type,
-                        AutocompleteKey(element.name, element.value));
+                        AutocompleteKey(element.name(), element.value()));
   return true;
 }
 

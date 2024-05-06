@@ -33,11 +33,6 @@ BASE_FEATURE(kLocalWebApprovals,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// Request priority experiment for ClassifyUrl (for critical path of rendering).
-BASE_FEATURE(kHighestRequestPriorityForClassifyUrl,
-             "HighestRequestPriorityForClassifyUrl",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 bool IsGoogleBrandedBuild() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   return true;
@@ -61,6 +56,10 @@ bool IsLocalWebApprovalsEnabled() {
 
 BASE_FEATURE(kEnableSupervisedUserSkipParentApprovalToInstallExtensions,
              "EnableSupervisedUserSkipParentApprovalToInstallExtensions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUpdatedSupervisedUserExtensionApprovalStrings,
+             "UpdatedSupervisedUserExtensionApprovalStrings",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
@@ -110,6 +109,10 @@ BASE_FEATURE(kMigrateAccountManagementSettingsToCapabilities,
 BASE_FEATURE(kRemoveForceAppliedYoutubeRestrictPolicy,
              "RemoveForceAppliedYoutubeRestrictPolicy",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl,
+             "WaitUntilAccessTokenAvailableForClassifyUrl",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsKidFriendlyContentFeedAvailable() {
   return base::FeatureList::IsEnabled(kKidFriendlyContentFeed);

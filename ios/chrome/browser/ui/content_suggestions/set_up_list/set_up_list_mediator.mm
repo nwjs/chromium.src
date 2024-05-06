@@ -208,12 +208,14 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
 }
 
 - (void)showSetUpList {
-  NSArray<SetUpListItemViewData*>* items = [self setUpListItems];
-    DCHECK(!IsIOSMagicStackCollectionViewEnabled());
-    [self.consumer showSetUpListModuleWithConfigs:[self setUpListConfigs]];
+  DCHECK(!IsIOSMagicStackCollectionViewEnabled());
+  [self.consumer showSetUpListModuleWithConfigs:[self setUpListConfigs]];
   [self.contentSuggestionsMetricsRecorder recordSetUpListShown];
-  for (SetUpListItemViewData* item in items) {
-    [self.contentSuggestionsMetricsRecorder recordSetUpListItemShown:item.type];
+  for (SetUpListConfig* config in [self setUpListConfigs]) {
+    for (SetUpListItemViewData* item in config.setUpListItems) {
+      [self.contentSuggestionsMetricsRecorder
+          recordSetUpListItemShown:item.type];
+    }
   }
 }
 
@@ -406,6 +408,11 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
 
 // Sets the pref for a SetUpList item to indicate it is complete.
 - (void)markSetUpListItemPrefComplete:(SetUpListItemType)type {
+  // Exit early if this is called after `disconnect` which clears _localState.
+  // Item states will be reevaluated the next time this mediator is loaded.
+  if (!_localState) {
+    return;
+  }
   set_up_list_prefs::MarkItemComplete(_localState, type);
 }
 

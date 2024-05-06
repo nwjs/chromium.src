@@ -75,16 +75,15 @@ content::WebUIDataSource* CreateAndAddDownloadsUIHTMLSource(Profile* profile) {
   source->AddBoolean("requestsApVerdicts", requests_ap_verdicts);
 
   static constexpr webui::LocalizedString kStrings[] = {
-      {"title", IDS_DOWNLOAD_TITLE},
+      {"title", IDS_DOWNLOAD_HISTORY_TITLE},
       {"searchResultsPlural", IDS_SEARCH_RESULTS_PLURAL},
       {"searchResultsSingular", IDS_SEARCH_RESULTS_SINGULAR},
-      {"downloads", IDS_DOWNLOAD_TITLE},
       {"actionMenuDescription", IDS_DOWNLOAD_ACTION_MENU_DESCRIPTION},
       {"clearAll", IDS_DOWNLOAD_LINK_CLEAR_ALL},
       {"clearSearch", IDS_CLEAR_SEARCH},
       {"openDownloadsFolder", IDS_DOWNLOAD_LINK_OPEN_DOWNLOADS_FOLDER},
       {"moreActions", IDS_DOWNLOAD_MORE_ACTIONS},
-      {"search", IDS_DOWNLOAD_SEARCH},
+      {"search", IDS_DOWNLOAD_HISTORY_SEARCH},
 
       // No results message that shows instead of the downloads list.
       {"noDownloads", IDS_DOWNLOAD_NO_DOWNLOADS},
@@ -166,6 +165,10 @@ content::WebUIDataSource* CreateAndAddDownloadsUIHTMLSource(Profile* profile) {
       {"warningBypassDialogLearnMoreLink",
        IDS_DOWNLOAD_WARNING_BYPASS_DIALOG_LEARN_MORE_LINK},
       {"warningBypassDialogCancel", IDS_CANCEL},
+
+      // ESB Download Row Promo
+      {"esbDownloadRowPromoString", IDS_DOWNLOAD_ROW_ESB_PROMOTION},
+      {"esbDownloadRowPromoA11y", IDS_DOWNLOAD_ROW_ESB_PROMO_A11Y},
   };
   source->AddLocalizedStrings(kStrings);
 
@@ -184,11 +187,28 @@ content::WebUIDataSource* CreateAndAddDownloadsUIHTMLSource(Profile* profile) {
                                  ? IDS_BLOCK_DOWNLOAD_REASON_DANGEROUS
                                  : IDS_BLOCK_REASON_DANGEROUS_DOWNLOAD);
   source->AddLocalizedString(
+      "dangerDownloadCookieTheft",
+      improved_download_warnings_ux
+          ? IDS_BLOCK_DOWNLOAD_REASON_DANGEROUS_COOKIE_THEFT
+          : IDS_BLOCK_REASON_DANGEROUS_DOWNLOAD);
+  source->AddLocalizedString(
+      "dangerDownloadCookieTheftAndAccountDesc",
+      improved_download_warnings_ux
+          ? IDS_BLOCK_DOWNLOAD_REASON_DANGEROUS_COOKIE_THEFT_AND_ACCOUNT
+          : IDS_BLOCK_REASON_DANGEROUS_DOWNLOAD);
+  source->AddLocalizedString(
       "dangerUncommonDesc",
       requests_ap_verdicts
           ? IDS_BLOCK_REASON_UNCOMMON_DOWNLOAD_IN_ADVANCED_PROTECTION
           : (improved_download_warnings_ux
                  ? IDS_BLOCK_DOWNLOAD_REASON_UNCOMMON
+                 : IDS_BLOCK_REASON_UNCOMMON_DOWNLOAD));
+  source->AddLocalizedString(
+      "dangerUncommonSuspiciousArchiveDesc",
+      requests_ap_verdicts
+          ? IDS_BLOCK_REASON_UNCOMMON_DOWNLOAD_IN_ADVANCED_PROTECTION
+          : (improved_download_warnings_ux
+                 ? IDS_BLOCK_DOWNLOAD_REASON_UNCOMMON_SUSPICIOUS_ARCHIVE
                  : IDS_BLOCK_REASON_UNCOMMON_DOWNLOAD));
   source->AddLocalizedString(
       "dangerSettingsDesc", improved_download_warnings_ux
@@ -208,6 +228,11 @@ content::WebUIDataSource* CreateAndAddDownloadsUIHTMLSource(Profile* profile) {
       IDS_DOWNLOADS_TOAST_DELETED_FROM_HISTORY_STILL_ON_DEVICE);
   source->AddLocalizedString("toastDeletedFromHistory",
                              IDS_DOWNLOADS_TOAST_DELETED_FROM_HISTORY);
+
+  // Download Row ESB Promo:
+  source->AddBoolean(
+      "esbDownloadRowPromo",
+      base::FeatureList::IsEnabled(safe_browsing::kEsbDownloadRowPromo));
 
   // Build an Accelerator to describe undo shortcut
   // NOTE: the undo shortcut is also defined in downloads/downloads.html

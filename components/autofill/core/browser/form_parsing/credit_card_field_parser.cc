@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,7 +34,7 @@ namespace autofill {
 
 namespace {
 
-base::span<const MatchPatternRef> GetMatchPatterns(base::StringPiece name,
+base::span<const MatchPatternRef> GetMatchPatterns(std::string_view name,
                                                    ParsingContext& context) {
   return GetMatchPatterns(name, context.page_language, context.pattern_source);
 }
@@ -195,7 +196,7 @@ std::unique_ptr<FormFieldParser> CreditCardFieldParser::Parse(
       }
     }
 
-    // TODO(crbug.com/591816): Make sure parsing cc-numbers of type password
+    // TODO(crbug.com/41242238): Make sure parsing cc-numbers of type password
     // doesn't have bad side effects.
     raw_ptr<AutofillField> current_number_field;
     if (ParseFieldSpecifics(context, scanner, kCardNumberRe, kMatchNumTelAndPwd,
@@ -286,7 +287,7 @@ bool CreditCardFieldParser::LikelyCardMonthSelectField(
 
   AutofillField* field = scanner->Cursor();
   if (!MatchesFormControlType(
-          field->form_control_type,
+          field->form_control_type(),
           {FormControlType::kSelectOne, FormControlType::kSelectList,
            FormControlType::kInputSearch})) {
     return false;
@@ -320,7 +321,7 @@ bool CreditCardFieldParser::LikelyCardYearSelectField(
 
   AutofillField* field = scanner->Cursor();
   if (!MatchesFormControlType(
-          field->form_control_type,
+          field->form_control_type(),
           {FormControlType::kSelectOne, FormControlType::kSelectList,
            FormControlType::kInputSearch})) {
     return false;
@@ -381,9 +382,9 @@ bool CreditCardFieldParser::LikelyCardYearSelectField(
     if (base::Contains(field->options, u"2", option_projection)) {
       return false;
     }
-    auto is_substring = [](base::StringPiece16 option,
-                           base::StringPiece16 year_needle) {
-      return option.find(year_needle) != base::StringPiece16::npos;
+    auto is_substring = [](std::u16string_view option,
+                           std::u16string_view year_needle) {
+      return option.find(year_needle) != std::u16string_view::npos;
     };
     return base::ranges::search(field->options, year_needles, is_substring,
                                 option_projection) != field->options.end();
@@ -401,7 +402,7 @@ bool CreditCardFieldParser::LikelyCardTypeSelectField(
   AutofillField* field = scanner->Cursor();
 
   if (!MatchesFormControlType(
-          field->form_control_type,
+          field->form_control_type(),
           {FormControlType::kSelectOne, FormControlType::kSelectList,
            FormControlType::kInputSearch})) {
     return false;
@@ -532,7 +533,7 @@ void CreditCardFieldParser::AddClassifications(
 bool CreditCardFieldParser::ParseExpirationDate(ParsingContext& context,
                                                 AutofillScanner* scanner) {
   if (!expiration_date_ &&
-      scanner->Cursor()->form_control_type == FormControlType::kInputMonth) {
+      scanner->Cursor()->form_control_type() == FormControlType::kInputMonth) {
     expiration_date_ = scanner->Cursor();
     expiration_month_ = nullptr;
     expiration_year_ = nullptr;
@@ -800,7 +801,7 @@ CreditCardFieldParser::DetermineExpirationDateFormat(
   bool matches = false;
   if (base::FeatureList::IsEnabled(
           features::kAutofillEnableExpirationDateImprovements)) {
-    // TODO(crbug/1326244): We should use a language specific regex.
+    // TODO(crbug.com/40225734): We should use a language specific regex.
     // If you add new languages, also update other places labeled with
     // [EXP_DATE_FORMAT].
     static constexpr char16_t kFormatRegex[] =
@@ -837,7 +838,7 @@ CreditCardFieldParser::DetermineExpirationDateFormat(
     separator_candidates.emplace_back(separator);
 
     // Fallback: The matching separator with padding whitespace trimmed.
-    base::StringPiece16 trimmed_separator =
+    std::u16string_view trimmed_separator =
         base::TrimWhitespace(separator, base::TRIM_ALL);
     if (trimmed_separator != separator) {
       separator_candidates.emplace_back(trimmed_separator);

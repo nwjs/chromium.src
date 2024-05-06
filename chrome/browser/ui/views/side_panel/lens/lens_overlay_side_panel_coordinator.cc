@@ -21,6 +21,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/views/vector_icons.h"
+#include "ui/views/view_class_properties.h"
 
 using SidePanelWebUIViewT_LensUntrustedUI =
     SidePanelWebUIViewT<lens::LensUntrustedUI>;
@@ -85,9 +86,11 @@ void LensOverlaySidePanelCoordinator::RegisterEntry() {
 void LensOverlaySidePanelCoordinator::DeregisterEntry() {
   auto* registry = SidePanelRegistry::Get(GetTabWebContents());
   CHECK(registry);
-  // If the side panel web view was created, then we need to remove the glue to
-  // the overlay controller if it is present.
+  // If the side panel web view was created, then we need to release the
+  // associated searchbox handler and remove the glue to the overlay controller
+  // if it is present.
   if (side_panel_web_view_) {
+    lens_overlay_controller_->ResetSearchboxHandler();
     lens_overlay_controller_->RemoveGlueForWebView(side_panel_web_view_);
     side_panel_web_view_ = nullptr;
   }
@@ -98,6 +101,11 @@ void LensOverlaySidePanelCoordinator::DeregisterEntry() {
   if (registered_entry) {
     registered_entry->RemoveObserver(this);
   }
+
+  // TODO(b/328296424): Currently, when the lens overlay side panel entry is
+  // hidden, the lens overlay can still be present so this is needed to clean up
+  // mojo bindings.
+  lens_overlay_controller_->OnSidePanelEntryDeregistered();
 
   // This is a no-op if the entry does not exist.
   registry->Deregister(
@@ -115,6 +123,8 @@ LensOverlaySidePanelCoordinator::CreateLensOverlayResultsView() {
           tab_browser_->profile(), IDS_SIDE_PANEL_COMPANION_TITLE,
           /*webui_resizes_host=*/false,
           /*esc_closes_ui=*/false));
+  view->SetProperty(views::kElementIdentifierKey,
+                    LensOverlayController::kOverlaySidePanelWebViewId);
   side_panel_web_view_ = view.get();
   // Important safety note: creating the SidePanelWebUIViewT can result in
   // synchronous construction of the WebUIController. Until

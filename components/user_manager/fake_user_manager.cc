@@ -11,6 +11,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/system/sys_info.h"
 #include "base/task/single_thread_task_runner.h"
+#include "components/user_manager/fake_user_manager_delegate.h"
 #include "components/user_manager/user_names.h"
 #include "components/user_manager/user_type.h"
 
@@ -41,7 +42,10 @@ class FakeTaskRunner : public base::SingleThreadTaskRunner {
 namespace user_manager {
 
 FakeUserManager::FakeUserManager(PrefService* local_state)
-    : UserManagerBase(new FakeTaskRunner(), local_state) {}
+    : UserManagerBase(std::make_unique<FakeUserManagerDelegate>(),
+                      new FakeTaskRunner(),
+                      local_state,
+                      /*cros_settings=*/nullptr) {}
 
 FakeUserManager::~FakeUserManager() = default;
 
@@ -174,15 +178,21 @@ void FakeUserManager::UserLoggedIn(const AccountId& account_id,
                                    const std::string& username_hash,
                                    bool browser_restart,
                                    bool is_child) {
+  // Please keep the implementation in sync with
+  // FakeChromeUserManager::UserLoggedIn. We're in process to merge.
   for (user_manager::User* user : users_) {
     if (user->GetAccountId() == account_id) {
       user->set_is_logged_in(true);
       user->set_username_hash(username_hash);
       logged_in_users_.push_back(user);
-      if (!primary_user_)
+      if (!primary_user_) {
         primary_user_ = user;
-      if (!active_user_)
+      }
+      if (active_user_) {
+        NotifyUserAddedToSession(user, /*user_switch_pending=*/true);
+      } else {
         active_user_ = user;
+      }
       break;
     }
   }
@@ -190,6 +200,8 @@ void FakeUserManager::UserLoggedIn(const AccountId& account_id,
   if (!active_user_ && IsEphemeralAccountId(account_id)) {
     RegularUserLoggedInAsEphemeral(account_id, UserType::kRegular);
   }
+
+  NotifyOnLogin();
 }
 
 User* FakeUserManager::GetActiveUserInternal() const {
@@ -346,11 +358,6 @@ void FakeUserManager::SetEphemeralModeConfig(
 bool FakeUserManager::IsEphemeralAccountIdByPolicy(
     const AccountId& account_id) const {
   return GetEphemeralModeConfig().IsAccountIdIncluded(account_id);
-}
-
-const std::string& FakeUserManager::GetApplicationLocale() const {
-  static const std::string default_locale("en-US");
-  return default_locale;
 }
 
 bool FakeUserManager::IsEnterpriseManaged() const {

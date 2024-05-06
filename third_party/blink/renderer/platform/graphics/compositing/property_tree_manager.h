@@ -5,7 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_COMPOSITING_PROPERTY_TREE_MANAGER_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_COMPOSITING_PROPERTY_TREE_MANAGER_H_
 
-#include "base/memory/raw_ref.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "cc/layers/layer_collections.h"
 #include "third_party/blink/renderer/platform/graphics/compositor_element_id.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
@@ -54,7 +54,7 @@ class PropertyTreeManagerClient {
 // Mutates a cc property tree to reflect Blink paint property tree
 // state. Intended for use by PaintArtifactCompositor.
 class PropertyTreeManager {
-  DISALLOW_NEW();
+  STACK_ALLOCATED();
 
  public:
   PropertyTreeManager(PropertyTreeManagerClient&,
@@ -163,6 +163,13 @@ class PropertyTreeManager {
                                       CompositorElementId,
                                       const gfx::PointF&);
 
+  // Sets a bit so that the next commit from main will clear out any unsent
+  // scroll delta that's occurred on the compositor thread since the last
+  // BeginMainFrame. This can be used when Blink wants to ensure a commit will
+  // land on a specific scroll offset in the presence of composited animations.
+  static void DropCompositorScrollDeltaNextCommit(cc::LayerTreeHost&,
+                                                  CompositorElementId);
+
   static uint32_t GetMainThreadScrollingReasons(const cc::LayerTreeHost&,
                                                 const ScrollPaintPropertyNode&);
   static bool UsesCompositedScrolling(const cc::LayerTreeHost&,
@@ -224,20 +231,23 @@ class PropertyTreeManager {
     CcEffectType effect_type;
 
     // The effect state of the cc effect node. It's never nullptr.
-    const EffectPaintPropertyNode* effect;
+    // RAW_PTR_EXCLUSION: The struct is performance critical and stack scoped.
+    RAW_PTR_EXCLUSION const EffectPaintPropertyNode* effect;
 
     // The clip state of the cc effect node. This value may be shallower than
     // the one passed into SwitchToEffectNodeWithSynthesizedClip because not
     // every clip needs to be synthesized as cc effect. Is set to output clip of
     // the effect if the type is kEffect, or set to the synthesized clip node.
     // It's never nullptr.
-    const ClipPaintPropertyNode* clip;
+    // RAW_PTR_EXCLUSION: The struct is performance critical and stack scoped.
+    RAW_PTR_EXCLUSION const ClipPaintPropertyNode* clip;
 
     // The transform space of this state. It's |&effect->LocalTransformSpace()|
     // if this state is of kEffect type or synthetic with backdrop filters
     // moved up from the original effect.
     // Otherwise it's |&clip->LocalTransformSpace()|.
-    const TransformPaintPropertyNode* transform;
+    // RAW_PTR_EXCLUSION: The struct is performance critical and stack scoped.
+    RAW_PTR_EXCLUSION const TransformPaintPropertyNode* transform;
 
     // Whether the transform space of this state may be 2d axis misaligned to
     // the containing render surface. As there may be new render surfaces
@@ -306,24 +316,22 @@ class PropertyTreeManager {
 
   void UpdatePixelMovingFilterClipExpanders();
 
-  const raw_ref<PropertyTreeManagerClient> client_;
+  PropertyTreeManagerClient& client_;
 
   // Property trees which should be updated by the manager.
-  const raw_ref<cc::PropertyTrees> property_trees_;
-
   // See comment above EffectState about holding direct references to data
   // owned by PropertyTrees.
-  const raw_ref<cc::ClipTree> clip_tree_;
-  const raw_ref<cc::EffectTree> effect_tree_;
-  const raw_ref<cc::ScrollTree> scroll_tree_;
-  const raw_ref<cc::TransformTree> transform_tree_;
+  cc::ClipTree& clip_tree_;
+  cc::EffectTree& effect_tree_;
+  cc::ScrollTree& scroll_tree_;
+  cc::TransformTree& transform_tree_;
 
   // The special layer which is the parent of every other layers.
   // This is where clip mask layers we generated for synthesized clips are
   // appended into.
-  const raw_ref<cc::Layer> root_layer_;
+  cc::Layer& root_layer_;
 
-  const raw_ref<LayerListBuilder> layer_list_builder_;
+  LayerListBuilder& layer_list_builder_;
 
   int new_sequence_number_;
 

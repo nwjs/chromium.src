@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.history;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -28,6 +29,7 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -99,6 +101,11 @@ public class HistoryManager
 
     private boolean mIsSearching;
 
+    public static boolean isAppSpecificHistoryEnabled() {
+        return ChromeFeatureList.sAppSpecificHistory.isEnabled()
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+    }
+
     /**
      * Creates a new HistoryManager.
      *
@@ -113,7 +120,7 @@ public class HistoryManager
      * @param umaRecorder Records UMA user action/histograms.
      * @param clientPackageName Package name of the client the history UI is launched on top of.
      * @param shouldShowClearData Whether the 'Clear browsing data' button should be shown.
-     * @param appSpecificHistory Whether app specific history features should be used.
+     * @param launchedForApp Whether history UI is launched for app-specific history.
      */
     @SuppressWarnings("unchecked") // mSelectableListLayout
     public HistoryManager(
@@ -126,7 +133,7 @@ public class HistoryManager
             @NonNull HistoryUmaRecorder umaRecorder,
             @Nullable String clientPackageName,
             boolean shouldShowClearData,
-            boolean appSpecificHistory) {
+            boolean launchedForApp) {
         mActivity = activity;
         mIsSeparateActivity = isSeparateActivity;
         mSnackbarManager = snackbarManager;
@@ -172,12 +179,12 @@ public class HistoryManager
                         tabSupplier,
                         historyProvider,
                         clientPackageName,
-                        appSpecificHistory);
+                        launchedForApp);
         mSelectableListLayout.initializeRecyclerView(
                 mContentManager.getAdapter(), mContentManager.getRecyclerView());
 
         mShouldShowPrivacyDisclaimerSupplier.set(
-                shouldShowInfoHeader && mContentManager.hasPrivacyDisclaimers());
+                shouldShowInfoHeader && mContentManager.isInfoHeaderAvailable());
         mShouldShowClearBrowsingDataSupplier.set(mContentManager.getShouldShowClearData());
 
         // 3. Initialize toolbar.
@@ -186,13 +193,12 @@ public class HistoryManager
                         mSelectableListLayout.initializeToolbar(
                                 R.layout.history_toolbar,
                                 mSelectionDelegate,
-                                appSpecificHistory
-                                        ? R.string.menu_web_history
-                                        : R.string.menu_history,
+                                launchedForApp ? R.string.menu_web_history : R.string.menu_history,
                                 R.id.normal_menu_group,
                                 R.id.selection_mode_menu_group,
                                 this,
-                                isSeparateActivity);
+                                isSeparateActivity,
+                                launchedForApp);
         mToolbar.setManager(this);
         mToolbar.setPrefService(UserPrefs.get(profile));
         mToolbar.initializeSearchView(this, R.string.history_manager_search, R.id.search_menu_id);
@@ -303,7 +309,7 @@ public class HistoryManager
         mToolbar.updateInfoMenuItem(shouldShowInfoButton(), shouldShowInfoHeader);
         mContentManager.updatePrivacyDisclaimers(shouldShowInfoHeader);
         mShouldShowPrivacyDisclaimerSupplier.set(
-                shouldShowInfoHeader && mContentManager.hasPrivacyDisclaimers());
+                shouldShowInfoHeader && mContentManager.isInfoHeaderAvailable());
     }
 
     private String getSearchEmptyString() {
@@ -395,6 +401,10 @@ public class HistoryManager
         return mSelectableListLayout;
     }
 
+    protected void finish() {
+        mActivity.finish();
+    }
+
     private void openItemsInNewTabs(List<HistoryItem> items, boolean isIncognito) {
         mUmaRecorder.recordOpenInTabs(mIsSearching, isIncognito);
         mContentManager.openItemsInNewTab(items, isIncognito);
@@ -427,15 +437,15 @@ public class HistoryManager
         boolean firstAdapterItemScrolledOff = layoutManager.findFirstVisibleItemPosition() > 0;
 
         return !firstAdapterItemScrolledOff
-                && mContentManager.hasPrivacyDisclaimers()
+                && mContentManager.isInfoHeaderAvailable()
                 && mContentManager.getItemCount() > 0
                 && !mToolbar.isSearching()
                 && !mSelectionDelegate.isSelectionEnabled();
     }
 
     /**
-     * @return True if the available privacy disclaimers should be shown.
-     * Note that this may return true even if there are currently no privacy disclaimers.
+     * @return True if the available privacy disclaimers should be shown. Note that this may return
+     *     true even if there are currently no privacy disclaimers.
      */
     boolean shouldShowInfoHeaderIfAvailable() {
         return mContentManager.getShouldShowPrivacyDisclaimersIfAvailable();
@@ -502,7 +512,7 @@ public class HistoryManager
         mToolbar.updateInfoMenuItem(shouldShowInfoButton(), shouldShowInfoHeaderIfAvailable());
         mShouldShowPrivacyDisclaimerSupplier.set(
                 mContentManager.getShouldShowPrivacyDisclaimersIfAvailable()
-                        && mContentManager.hasPrivacyDisclaimers());
+                        && mContentManager.isInfoHeaderAvailable());
     }
 
     @Override

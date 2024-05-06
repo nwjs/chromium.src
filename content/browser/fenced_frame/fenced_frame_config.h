@@ -93,7 +93,10 @@ extern const char kUrnUuidPrefix[];
 GURL CONTENT_EXPORT GenerateUrnUuid();
 
 // Used by the fenced frame properties getter. It specifies the node source
-// of the fenced frame properties.
+// of the fenced frame properties. TODO(crbug/40256574): kClosestAncestor is an
+// artifact to support URN iframes. When URN iframes are removed, we can remove
+// FencedFramePropertiesNodeSource, and all FencedFrameProperties objects will
+// originate from the fenced frame root.
 enum class FencedFramePropertiesNodeSource { kFrameTreeRoot, kClosestAncestor };
 
 // Returns a new string based on input where the matching substrings have been
@@ -465,6 +468,17 @@ class CONTENT_EXPORT FencedFrameProperties {
     embedder_shared_storage_context_ = embedder_shared_storage_context;
   }
 
+  // Stores whether the original document loaded with this config opted in to
+  // cross-origin event-level reporting. That is, if the document was served
+  // with the `Allow-Cross-Origin-Event-Reporting=true` response header.
+  void SetAllowCrossOriginEventReporting() {
+    allow_cross_origin_event_reporting_ = true;
+  }
+
+  bool allow_cross_origin_event_reporting() const {
+    return allow_cross_origin_event_reporting_;
+  }
+
   const scoped_refptr<FencedFrameReporter>& fenced_frame_reporter() const {
     return fenced_frame_reporter_;
   }
@@ -628,6 +642,13 @@ class CONTENT_EXPORT FencedFrameProperties {
   // should be enabled.)
   // Set by `DisableUntrustedNetwork()`.
   bool has_disabled_untrusted_network_ = false;
+
+  // Whether the original document loaded with this config opted in to
+  // cross-origin event-level reporting. That is, if the document was served
+  // with the `Allow-Cross-Origin-Event-Reporting=true` response header. This is
+  // the first half of the opt-in process for a cross-origin subframe to send a
+  // `reportEvent()` beacon using this config's reporting metadata successfully.
+  bool allow_cross_origin_event_reporting_ = false;
 };
 
 }  // namespace content

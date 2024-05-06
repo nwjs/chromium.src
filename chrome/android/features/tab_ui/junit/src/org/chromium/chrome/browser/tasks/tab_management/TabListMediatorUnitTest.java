@@ -34,7 +34,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import static org.chromium.chrome.browser.flags.ChromeFeatureList.INSTANT_START;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.START_SURFACE_ANDROID;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageCardViewProperties.MESSAGE_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.FOR_TESTING;
@@ -99,7 +98,6 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.build.BuildConfig;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.optimization_guide.OptimizationGuideBridge;
@@ -121,6 +119,10 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.state.PersistedTabDataConfiguration;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData.PriceDrop;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFavicon;
+import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
@@ -130,7 +132,6 @@ import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilterObserver;
 import org.chromium.chrome.browser.tasks.tab_management.PriceMessageService.PriceTabData;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
-import org.chromium.chrome.browser.tasks.tab_management.TabListFaviconProvider.TabFavicon;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.ShoppingPersistedTabDataFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.ThumbnailFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
@@ -256,6 +257,7 @@ public class TabListMediatorUnitTest {
     @Mock TabModel mTabModel;
     @Mock TabModel mIncognitoTabModel;
     @Mock TabListFaviconProvider mTabListFaviconProvider;
+    @Mock TabGroupColorFaviconProvider mTabGroupColorFaviconProvider;
     @Mock TabListFaviconProvider.TabFaviconFetcher mTabFaviconFetcher;
     @Mock RecyclerView mRecyclerView;
     @Mock TabListRecyclerView mTabListRecyclerView;
@@ -385,7 +387,7 @@ public class TabListMediatorUnitTest {
                 .when(mTabListFaviconProvider)
                 .getComposedFaviconImageFetcher(any(), anyBoolean());
         doReturn(mTabFaviconFetcher)
-                .when(mTabListFaviconProvider)
+                .when(mTabGroupColorFaviconProvider)
                 .getFaviconFromTabGroupColorFetcher(anyInt(), anyBoolean());
         doReturn(2).when(mTabGroupModelFilter).getCount();
         doReturn(tabs1).when(mTabGroupModelFilter).getRelatedTabList(TAB1_ID);
@@ -882,68 +884,6 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(INSTANT_START)
-    public void tabAddition_RestoreNotComplete() {
-        mMediator.resetWithListOfTabs(null, false);
-
-        // Mock that tab restoring stage is started.
-        doReturn(false).when(mTabGroupModelFilter).isTabModelRestored();
-        initAndAssertAllProperties();
-
-        Tab newTab = prepareTab(TAB3_ID, TAB3_TITLE, TAB3_URL);
-        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(0);
-        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(1);
-        doReturn(newTab).when(mTabGroupModelFilter).getTabAt(2);
-        doReturn(3).when(mTabGroupModelFilter).getCount();
-        doReturn(Arrays.asList(newTab)).when(mTabGroupModelFilter).getRelatedTabList(eq(TAB3_ID));
-        assertThat(mModel.size(), equalTo(2));
-
-        mMediatorTabModelObserver.didAddTab(
-                newTab, TabLaunchType.FROM_RESTORE, TabCreationState.LIVE_IN_FOREGROUND, false);
-
-        // When tab restoring stage is not yet finished, this tab info should not be added to
-        // property model.
-        assertThat(mModel.size(), equalTo(2));
-    }
-
-    @Test
-    @EnableFeatures(INSTANT_START)
-    public void tabAddition_Restore() {
-        mMediator.resetWithListOfTabs(null, false);
-
-        // Mock that tab restoring stage is started.
-        doReturn(false).when(mTabGroupModelFilter).isTabModelRestored();
-        initAndAssertAllProperties();
-        // Mock that tab restoring stage is over.
-        doReturn(true).when(mTabGroupModelFilter).isTabModelRestored();
-        TabListMediator.TabActionListener actionListenerBeforeUpdate =
-                mModel.get(1).model.get(TabProperties.TAB_SELECTED_LISTENER);
-
-        // Mock that newTab was in the same group with tab, and now it is restored.
-        Tab newTab = prepareTab(TAB3_ID, TAB3_TITLE, TAB3_URL);
-        List<Tab> tabs = Arrays.asList(mTab2, newTab);
-        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(0);
-        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(1);
-        doReturn(2).when(mTabGroupModelFilter).getCount();
-        doReturn(1).when(mTabGroupModelFilter).indexOf(newTab);
-        doReturn(tabs).when(mTabGroupModelFilter).getRelatedTabList(eq(TAB3_ID));
-        doReturn(tabs).when(mTabGroupModelFilter).getRelatedTabList(eq(TAB2_ID));
-        doReturn(true).when(mTabGroupModelFilter).isTabInTabGroup(mTab2);
-        doReturn(true).when(mTabGroupModelFilter).isTabInTabGroup(newTab);
-        assertThat(mModel.size(), equalTo(2));
-
-        mMediatorTabModelObserver.didAddTab(
-                newTab, TabLaunchType.FROM_RESTORE, TabCreationState.LIVE_IN_FOREGROUND, false);
-
-        TabListMediator.TabActionListener actionListenerAfterUpdate =
-                mModel.get(1).model.get(TabProperties.TAB_SELECTED_LISTENER);
-        // The selection listener should be updated which indicates that corresponding property
-        // model is updated.
-        assertThat(actionListenerBeforeUpdate, not(actionListenerAfterUpdate));
-        assertThat(mModel.size(), equalTo(2));
-    }
-
-    @Test
     public void tabAddition_Restore_SyncingTabListModelWithTabModel() {
         // Mock that tab1 and tab2 are in the same group, and they are being restored. The
         // TabListModel has been cleaned out before the restoring happens. This case could happen
@@ -1152,6 +1092,7 @@ public class TabListMediatorUnitTest {
                         getTabThumbnailCallback(),
                         mTitleProvider,
                         mTabListFaviconProvider,
+                        mTabGroupColorFaviconProvider,
                         true,
                         null,
                         mGridCardOnClickListenerProvider,
@@ -2770,6 +2711,7 @@ public class TabListMediatorUnitTest {
                         getTabThumbnailCallback(),
                         mTitleProvider,
                         mTabListFaviconProvider,
+                        mTabGroupColorFaviconProvider,
                         true,
                         null,
                         null,
@@ -2802,6 +2744,7 @@ public class TabListMediatorUnitTest {
                         getTabThumbnailCallback(),
                         mTitleProvider,
                         mTabListFaviconProvider,
+                        mTabGroupColorFaviconProvider,
                         true,
                         null,
                         null,
@@ -2896,7 +2839,7 @@ public class TabListMediatorUnitTest {
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2, tab3));
         createTabGroup(tabs, TAB1_ID, TAB_GROUP_ID);
         mTabObserver.onFaviconUpdated(mTab1, mFaviconBitmap, mFaviconUrl);
-        verify(mTabListFaviconProvider).getFaviconFromTabGroupColorFetcher(COLOR_2, false);
+        verify(mTabGroupColorFaviconProvider).getFaviconFromTabGroupColorFetcher(COLOR_2, false);
         assertNotNull(mModel.get(0).model.get(TabProperties.FAVICON_FETCHER));
     }
 
@@ -3167,6 +3110,7 @@ public class TabListMediatorUnitTest {
                         getTabThumbnailCallback(),
                         mTitleProvider,
                         mTabListFaviconProvider,
+                        mTabGroupColorFaviconProvider,
                         true,
                         () -> {
                             return mSelectionDelegate;
@@ -3210,6 +3154,7 @@ public class TabListMediatorUnitTest {
                         getTabThumbnailCallback(),
                         mTitleProvider,
                         mTabListFaviconProvider,
+                        mTabGroupColorFaviconProvider,
                         true,
                         () -> {
                             return mSelectionDelegate;
@@ -3253,6 +3198,7 @@ public class TabListMediatorUnitTest {
                         getTabThumbnailCallback(),
                         mTitleProvider,
                         mTabListFaviconProvider,
+                        mTabGroupColorFaviconProvider,
                         true,
                         () -> {
                             return mSelectionDelegate;
@@ -3266,7 +3212,7 @@ public class TabListMediatorUnitTest {
         mMediator.initWithNative(mProfile);
         initAndAssertAllProperties();
         Tab tab3 = prepareTab(TAB3_ID, TAB3_TITLE, TAB3_URL);
-        Tab tab4 = prepareTab(TAB3_ID, TAB3_TITLE, TAB3_URL);
+        Tab tab4 = prepareTab(TAB4_ID, TAB4_TITLE, TAB4_URL);
         when(mTabGroupModelFilter.getRelatedTabList(TAB1_ID)).thenReturn(Arrays.asList(mTab1));
         when(mTabGroupModelFilter.getRelatedTabList(TAB2_ID))
                 .thenReturn(Arrays.asList(mTab2, tab4));
@@ -3581,6 +3527,7 @@ public class TabListMediatorUnitTest {
         int count = mTabModel.getCount();
         doReturn(tab).when(mTabModel).getTabAt(count);
         doReturn(count).when(mTabModel).getCount();
+        when(mTabModel.getTabById(id)).thenReturn(tab);
         when(mTabGroupModelFilter.getRelatedTabCountForRootId(id)).thenReturn(1);
         return tab;
     }
@@ -3639,6 +3586,7 @@ public class TabListMediatorUnitTest {
                         getTabThumbnailCallback(),
                         mTitleProvider,
                         mTabListFaviconProvider,
+                        mTabGroupColorFaviconProvider,
                         actionOnRelatedTabs,
                         null,
                         mGridCardOnClickListenerProvider,

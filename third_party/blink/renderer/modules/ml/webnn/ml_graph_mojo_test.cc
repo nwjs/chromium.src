@@ -4,12 +4,14 @@
 
 #include "third_party/blink/renderer/modules/ml/webnn/ml_graph_mojo.h"
 
+#include "base/containers/span.h"
 #include "base/memory/raw_ref.h"
 #include "base/test/scoped_feature_list.h"
-#include "components/ml/webnn/features.mojom-features.h"
+#include "components/ml/webnn/features.mojom-blink.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/webnn/public/mojom/webnn_buffer.mojom-blink.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom-blink.h"
@@ -18,7 +20,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_tester.h"
@@ -38,7 +39,6 @@
 namespace blink {
 
 namespace blink_mojom = webnn::mojom::blink;
-namespace webnn_features = webnn::mojom::features;
 
 // Helper struct to create faked mojom result of inference.
 struct ComputeResult {
@@ -50,8 +50,7 @@ class FakeWebNNBuffer;
 class MLGraphTestMojo : public MLGraphTestBase {
  public:
   MLGraphTestMojo()
-      : scoped_feature_list_(webnn_features::kWebMachineLearningNeuralNetwork) {
-  }
+      : scoped_feature_list_(webnn::mojom::features::kWebMachineLearningNeuralNetwork) {}
 
   void SetGraphInfo(blink_mojom::GraphInfoPtr graph_info) {
     graph_info_ = std::move(graph_info);
@@ -131,15 +130,19 @@ class FakeWebNNGraph : public blink_mojom::WebNNGraph {
 
 class FakeWebNNBuffer : public blink_mojom::WebNNBuffer {
  public:
-  FakeWebNNBuffer(WebNNContextHelper& helper,
-                  mojo::PendingReceiver<blink_mojom::WebNNBuffer> receiver,
-                  const base::UnguessableToken& buffer_handle)
+  FakeWebNNBuffer(
+      WebNNContextHelper& helper,
+      mojo::PendingAssociatedReceiver<blink_mojom::WebNNBuffer> receiver,
+      const base::UnguessableToken& buffer_handle,
+      uint64_t size)
       : helper_(helper),
         receiver_(this, std::move(receiver)),
-        handle_(buffer_handle) {
+        handle_(buffer_handle),
+        buffer_(size) {
     receiver_.set_disconnect_handler(WTF::BindOnce(
         &FakeWebNNBuffer::OnConnectionError, WTF::Unretained(this)));
   }
+
   ~FakeWebNNBuffer() override = default;
 
   FakeWebNNBuffer(const FakeWebNNBuffer&) = delete;
@@ -148,15 +151,29 @@ class FakeWebNNBuffer : public blink_mojom::WebNNBuffer {
   const base::UnguessableToken& handle() const { return handle_; }
 
  private:
+  void ReadBuffer(ReadBufferCallback callback) override {
+    mojo_base::BigBuffer dst_buffer(buffer_.byte_span());
+
+    std::move(callback).Run(
+        blink_mojom::ReadBufferResult::NewBuffer(std::move(dst_buffer)));
+  }
+
+  void WriteBuffer(mojo_base::BigBuffer src_buffer) override {
+    ASSERT_LE(src_buffer.size(), buffer_.size());
+    base::span(buffer_).first(src_buffer.size()).copy_from(src_buffer);
+  }
+
   void OnConnectionError() {
     helper_->DisconnectAndDestroyWebNNBufferImpl(handle());
   }
 
   const raw_ref<WebNNContextHelper, DanglingUntriaged> helper_;
 
-  mojo::Receiver<blink_mojom::WebNNBuffer> receiver_;
+  mojo::AssociatedReceiver<blink_mojom::WebNNBuffer> receiver_;
 
   const base::UnguessableToken handle_;
+
+  mojo_base::BigBuffer buffer_;
 };
 
 class FakeWebNNContext : public blink_mojom::WebNNContext {
@@ -172,23 +189,24 @@ class FakeWebNNContext : public blink_mojom::WebNNContext {
                    CreateGraphCallback callback) override {
     helper_->SetGraphInfo(std::move(graph_info));
 
-    mojo::PendingRemote<blink_mojom::WebNNGraph> blink_remote;
+    mojo::PendingAssociatedRemote<blink_mojom::WebNNGraph> blink_remote;
     // The receiver bind to FakeWebNNGraph.
-    mojo::MakeSelfOwnedReceiver<blink_mojom::WebNNGraph>(
+    mojo::MakeSelfOwnedAssociatedReceiver<blink_mojom::WebNNGraph>(
         std::make_unique<FakeWebNNGraph>(*helper_),
-        blink_remote.InitWithNewPipeAndPassReceiver());
+        blink_remote.InitWithNewEndpointAndPassReceiver());
 
     std::move(callback).Run(blink_mojom::CreateGraphResult::NewGraphRemote(
         std::move(blink_remote)));
   }
 
-  void CreateBuffer(mojo::PendingReceiver<blink_mojom::WebNNBuffer> receiver,
-                    blink_mojom::BufferInfoPtr buffer_info,
-                    const base::UnguessableToken& buffer_handle) override {
+  void CreateBuffer(
+      mojo::PendingAssociatedReceiver<blink_mojom::WebNNBuffer> receiver,
+      blink_mojom::BufferInfoPtr buffer_info,
+      const base::UnguessableToken& buffer_handle) override {
     context_helper_.ConnectWebNNBufferImpl(
         buffer_handle,
         std::make_unique<FakeWebNNBuffer>(context_helper_, std::move(receiver),
-                                          buffer_handle));
+                                          buffer_handle, buffer_info->size));
   }
 
   WebNNContextHelper context_helper_;
@@ -274,11 +292,11 @@ MLGraphMojo* ToMLGraphMojo(V8TestingScope* scope, ScriptValue value) {
 }
 
 // Build a simple MLGraph asynchronously with only one relu operator.
-ScriptPromise BuildSimpleGraph(V8TestingScope& scope,
-                               MLContextOptions* context_options) {
+ScriptPromise<MLGraph> BuildSimpleGraph(V8TestingScope& scope,
+                                        MLContextOptions* context_options) {
   auto* builder = MLGraphTestBase::CreateGraphBuilder(scope, context_options);
   if (builder == nullptr) {
-    return ScriptPromise::RejectWithDOMException(
+    return ScriptPromise<MLGraph>::RejectWithDOMException(
         scope.GetScriptState(),
         DOMException::Create(
             "Unable to create graph builder.",
@@ -296,6 +314,40 @@ ScriptPromise BuildSimpleGraph(V8TestingScope& scope,
   EXPECT_THAT(output, testing::NotNull());
   return builder->build(scope.GetScriptState(), {{"output", output}},
                         scope.GetExceptionState());
+}
+
+bool IsBufferDataEqual(DOMArrayBuffer* array_buffer,
+                       base::span<const uint8_t> expected_data) {
+  return array_buffer->ByteSpan() == expected_data;
+}
+
+MaybeShared<DOMArrayBufferView> CreateArrayBufferViewFromBytes(
+    DOMArrayBuffer* array_buffer,
+    base::span<const uint8_t> data) {
+  array_buffer->ByteSpan().first(data.size()).copy_from(data);
+  return MaybeShared<DOMArrayBufferView>(
+      blink::DOMUint8Array::Create(array_buffer, /*byte_offset=*/0,
+                                   /*length=*/array_buffer->ByteLength()));
+}
+
+// Checks the contents of a MLBuffer.
+// Returns false if unable to download or the buffer data did not match
+// expected.
+bool DownloadMLBufferAndCheck(V8TestingScope& scope,
+                              MLContext* context,
+                              MLBuffer* src_buffer,
+                              base::span<const uint8_t> expected_data) {
+  auto* script_state = scope.GetScriptState();
+  ScriptPromiseTester tester(
+      script_state,
+      context->readBuffer(script_state, src_buffer, scope.GetExceptionState()));
+  tester.WaitUntilSettled();
+  if (tester.IsRejected()) {
+    return false;
+  }
+  EXPECT_TRUE(tester.IsFulfilled());
+  auto* array_buffer = V8ToObject<DOMArrayBuffer>(&scope, tester.Value());
+  return IsBufferDataEqual(array_buffer, expected_data);
 }
 
 TEST_P(MLGraphTestMojo, CreateWebNNBufferTest) {
@@ -327,6 +379,176 @@ TEST_P(MLGraphTestMojo, CreateWebNNBufferTest) {
 
   ASSERT_THAT(ml_buffer, testing::NotNull());
   EXPECT_EQ(ml_buffer->size(), desc->size());
+}
+
+TEST_P(MLGraphTestMojo, WriteWebNNBufferTest) {
+  V8TestingScope scope;
+  // Bind fake WebNN Context in the service for testing.
+  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
+
+  auto* options = MLContextOptions::Create();
+  // Create WebNN Context with GPU device type.
+  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
+  auto* script_state = scope.GetScriptState();
+
+  ScriptPromiseTester context_tester(script_state,
+                                     CreateContext(scope, options));
+  context_tester.WaitUntilSettled();
+  EXPECT_TRUE(context_tester.IsFulfilled());
+  MLContext* ml_context = V8ToObject<MLContext>(&scope, context_tester.Value());
+
+  constexpr uint64_t kBufferSize = 4ull;
+
+  auto* desc = MLBufferDescriptor::Create();
+  desc->setSize(kBufferSize);
+
+  MLBuffer* ml_buffer =
+      ml_context->createBuffer(script_state, desc, scope.GetExceptionState());
+
+  if (scope.GetExceptionState().Code() ==
+      ToExceptionCode(DOMExceptionCode::kNotSupportedError)) {
+    GTEST_SKIP() << "MLBuffer has not been implemented on this platform.";
+  }
+
+  ASSERT_THAT(ml_buffer, testing::NotNull());
+
+  const std::array<const uint8_t, kBufferSize> input_data = {0xAA, 0xAA, 0xAA,
+                                                             0xAA};
+  DOMArrayBuffer* array_buffer =
+      DOMArrayBuffer::Create(input_data.data(), input_data.size());
+  ASSERT_THAT(array_buffer, testing::NotNull());
+
+  // Writing the full buffer.
+  ml_context->writeBuffer(
+      script_state, ml_buffer,
+      CreateArrayBufferViewFromBytes(array_buffer, input_data),
+      /*src_element_offset=*/0, scope.GetExceptionState());
+  EXPECT_FALSE(scope.GetExceptionState().HadException());
+
+  ml_context->writeBuffer(
+      script_state, ml_buffer,
+      MaybeShared<DOMArrayBufferView>(blink::DOMUint32Array::Create(
+          array_buffer, /*byte_offset=*/0,
+          /*length=*/array_buffer->ByteLength() / 4)),
+      /*src_element_offset=*/0, scope.GetExceptionState());
+  EXPECT_FALSE(scope.GetExceptionState().HadException());
+
+  EXPECT_TRUE(
+      DownloadMLBufferAndCheck(scope, ml_context, ml_buffer, input_data));
+
+  // Writing to the remainder of the buffer from source offset.
+  ml_context->writeBuffer(
+      script_state, ml_buffer,
+      CreateArrayBufferViewFromBytes(
+          array_buffer,
+          std::array<const uint8_t, kBufferSize>{0xAA, 0xAA, 0xBB, 0xBB}),
+      /*src_element_offset=*/2, scope.GetExceptionState());
+  EXPECT_FALSE(scope.GetExceptionState().HadException());
+
+  // Writing zero bytes at the end of the buffer.
+  ml_context->writeBuffer(
+      script_state, ml_buffer,
+      MaybeShared<DOMArrayBufferView>(blink::DOMUint32Array::Create(
+          array_buffer, /*byte_offset=*/0,
+          /*length=*/array_buffer->ByteLength() / 4)),
+      /*src_element_offset=*/1, scope.GetExceptionState());
+  EXPECT_FALSE(scope.GetExceptionState().HadException());
+
+  EXPECT_TRUE(DownloadMLBufferAndCheck(
+      scope, ml_context, ml_buffer,
+      std::array<const uint8_t, kBufferSize>{0xBB, 0xBB, 0xAA, 0xAA}));
+
+  // Writing with both a source offset and size.
+  ml_context->writeBuffer(
+      script_state, ml_buffer,
+      CreateArrayBufferViewFromBytes(
+          array_buffer,
+          std::array<const uint8_t, kBufferSize>{0xCC, 0xCC, 0xCC, 0xCC}),
+      /*src_element_offset=*/2, /*src_element_count=*/1,
+      scope.GetExceptionState());
+  EXPECT_FALSE(scope.GetExceptionState().HadException());
+
+  EXPECT_TRUE(DownloadMLBufferAndCheck(
+      scope, ml_context, ml_buffer,
+      std::array<const uint8_t, kBufferSize>{0xCC, 0xBB, 0xAA, 0xAA}));
+}
+
+// Writing data from an array buffer to a destroyed MLBuffer should not crash.
+TEST_P(MLGraphTestMojo, WriteWebNNBufferThenDestroyTest) {
+  V8TestingScope scope;
+  // Bind fake WebNN Context in the service for testing.
+  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
+
+  auto* options = MLContextOptions::Create();
+  // Create WebNN Context with GPU device type.
+  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
+  auto* script_state = scope.GetScriptState();
+
+  ScriptPromiseTester context_tester(script_state,
+                                     CreateContext(scope, options));
+  context_tester.WaitUntilSettled();
+  EXPECT_TRUE(context_tester.IsFulfilled());
+  MLContext* ml_context = V8ToObject<MLContext>(&scope, context_tester.Value());
+
+  auto* desc = MLBufferDescriptor::Create();
+  desc->setSize(4ull);
+
+  MLBuffer* ml_buffer =
+      ml_context->createBuffer(script_state, desc, scope.GetExceptionState());
+
+  if (scope.GetExceptionState().Code() ==
+      ToExceptionCode(DOMExceptionCode::kNotSupportedError)) {
+    GTEST_SKIP() << "MLBuffer has not been implemented on this platform.";
+  }
+
+  ASSERT_THAT(ml_buffer, testing::NotNull());
+
+  ml_buffer->destroy();
+
+  ml_context->writeBuffer(
+      script_state, ml_buffer,
+      CreateDOMArrayBufferView(desc->size(), V8MLOperandDataType::Enum::kUint8)
+          ->BufferBase(),
+      /*src_byte_offset=*/0, scope.GetExceptionState());
+}
+
+// Reading data from an array buffer to a destroyed MLBuffer should not crash.
+TEST_P(MLGraphTestMojo, ReadWebNNBufferThenDestroyTest) {
+  V8TestingScope scope;
+  // Bind fake WebNN Context in the service for testing.
+  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
+
+  auto* options = MLContextOptions::Create();
+  // Create WebNN Context with GPU device type.
+  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
+  auto* script_state = scope.GetScriptState();
+
+  ScriptPromiseTester context_tester(script_state,
+                                     CreateContext(scope, options));
+  context_tester.WaitUntilSettled();
+  EXPECT_TRUE(context_tester.IsFulfilled());
+  MLContext* ml_context = V8ToObject<MLContext>(&scope, context_tester.Value());
+
+  auto* desc = MLBufferDescriptor::Create();
+  desc->setSize(4ull);
+
+  MLBuffer* ml_buffer =
+      ml_context->createBuffer(script_state, desc, scope.GetExceptionState());
+
+  if (scope.GetExceptionState().Code() ==
+      ToExceptionCode(DOMExceptionCode::kNotSupportedError)) {
+    GTEST_SKIP() << "MLBuffer has not been implemented on this platform.";
+  }
+
+  ASSERT_THAT(ml_buffer, testing::NotNull());
+
+  ml_buffer->destroy();
+
+  ScriptPromiseTester buffer_tester(
+      script_state, ml_context->readBuffer(script_state, ml_buffer,
+                                           scope.GetExceptionState()));
+  buffer_tester.WaitUntilSettled();
+  EXPECT_TRUE(buffer_tester.IsRejected());
 }
 
 struct OperandInfoMojo {
@@ -382,7 +604,7 @@ struct ClampTester {
     }
     auto* output_operand = builder->clamp(input_operand, ml_clamp_options,
                                           scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -479,124 +701,6 @@ TEST_P(MLGraphTestMojo, ClampTest) {
                                          blink_mojom::Operand::DataType::kUint8,
                                      .dimensions = {}},
                 .expected_attributes = {.min_value = 0.0, .max_value = 6.0}}
-        .Test(*this, scope, builder);
-  }
-}
-
-struct ConcatTester {
-  Vector<OperandInfoBlink> inputs;
-  uint32_t axis;
-  OperandInfoMojo expected_operand;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    // Build the graph.
-    HeapVector<Member<MLOperand>> input_operands;
-    input_operands.reserve(inputs.size());
-    for (wtf_size_t i = 0; i < inputs.size(); ++i) {
-      input_operands.push_back(BuildInput(
-          builder, String::Format("input%u", i), inputs[i].dimensions,
-          inputs[i].data_type, scope.GetExceptionState()));
-    }
-    auto* output_operand =
-        builder->concat(input_operands, axis, scope.GetExceptionState());
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-    auto& operation = graph_info->operations[0];
-    ASSERT_TRUE(operation->is_concat());
-    auto& concat = operation->get_concat();
-
-    EXPECT_EQ(concat->axis, axis);
-
-    // Validate the input operands.
-    ASSERT_EQ(graph_info->input_operands.size(), inputs.size());
-    for (wtf_size_t i = 0; i < input_operands.size(); ++i) {
-      auto input_operand_id = graph_info->input_operands[i];
-      auto input_operand_iter =
-          graph_info->id_to_operand_map.find(input_operand_id);
-      ASSERT_TRUE(input_operand_iter != graph_info->id_to_operand_map.end());
-      EXPECT_EQ(input_operand_iter->value->data_type,
-                expected_operand.data_type);
-      EXPECT_EQ(input_operand_iter->value->dimensions, inputs[i].dimensions);
-    }
-
-    // Validate the output operand.
-    ASSERT_EQ(graph_info->output_operands.size(), 1u);
-    auto output_operand_id = graph_info->output_operands[0];
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->data_type,
-              expected_operand.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions,
-              expected_operand.dimensions);
-  }
-};
-
-TEST_P(MLGraphTestMojo, ConcatTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  {
-    // Test concat operator with one input.
-    ConcatTester{
-        .inputs = {{.data_type = V8MLOperandDataType::Enum::kFloat32,
-                    .dimensions = {3, 1, 5, 6}}},
-        .axis = 2,
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {3, 1, 5, 6}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test concat operator with two inputs.
-    ConcatTester{
-        .inputs = {{.data_type = V8MLOperandDataType::Enum::kFloat16,
-                    .dimensions = {3, 1, 5, 6}},
-                   {.data_type = V8MLOperandDataType::Enum::kFloat16,
-                    .dimensions = {3, 2, 5, 6}}},
-        .axis = 1,
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat16,
-                             .dimensions = {3, 3, 5, 6}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test concat operator with three inputs.
-    ConcatTester{
-        .inputs = {{.data_type = V8MLOperandDataType::Enum::kInt32,
-                    .dimensions = {3, 4, 1, 5}},
-                   {.data_type = V8MLOperandDataType::Enum::kInt32,
-                    .dimensions = {3, 4, 2, 5}},
-                   {.data_type = V8MLOperandDataType::Enum::kInt32,
-                    .dimensions = {3, 4, 3, 5}}},
-        .axis = 2,
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kInt32,
-                             .dimensions = {3, 4, 6, 5}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test concat operator with two 1-D inputs.
-    ConcatTester{
-        .inputs = {{.data_type = V8MLOperandDataType::Enum::kInt8,
-                    .dimensions = {1}},
-                   {.data_type = V8MLOperandDataType::Enum::kInt8,
-                    .dimensions = {1}}},
-        .axis = 0,
-        .expected_operand = {.data_type = blink_mojom::Operand::DataType::kInt8,
-                             .dimensions = {2}}}
         .Test(*this, scope, builder);
   }
 }
@@ -827,7 +931,7 @@ struct BatchNormalizationTester {
     auto* output_operand = builder->batchNormalization(
         input_operand, mean_operand, variance_operand,
         batch_normalization_options, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1374,7 +1478,7 @@ struct Conv2dTester {
     auto* output_operand =
         builder->conv2d(input_operand, filter_operand, ml_conv2d_options,
                         scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1841,7 +1945,7 @@ struct ElementWiseBinaryTester {
                                    rhs.data_type, scope.GetExceptionState());
     auto* output_operand =
         BuildElementWiseBinary(scope, builder, kind, lhs_operand, rhs_operand);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -1925,9 +2029,9 @@ struct ElementWiseBinaryTester {
         break;
     }
     EXPECT_EQ(binary_mojo->kind, binary_kind);
-    EXPECT_EQ(binary_mojo->lhs_operand, lhs_operand_id);
-    EXPECT_EQ(binary_mojo->rhs_operand, rhs_operand_id);
-    EXPECT_EQ(binary_mojo->output_operand, output_operand_id);
+    EXPECT_EQ(binary_mojo->lhs_operand_id, lhs_operand_id);
+    EXPECT_EQ(binary_mojo->rhs_operand_id, rhs_operand_id);
+    EXPECT_EQ(binary_mojo->output_operand_id, output_operand_id);
   }
 };
 
@@ -2107,7 +2211,7 @@ struct EluTester {
     }
     auto* output_operand =
         builder->elu(input_operand, ml_elu_options, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2230,7 +2334,7 @@ struct ExpandTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->expand(input_operand, new_shape, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2350,7 +2454,7 @@ struct GemmTester {
     }
     auto* output_operand = builder->gemm(a_operand, b_operand, ml_gemm_options,
                                          scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2538,7 +2642,7 @@ struct HardSigmoidTester {
     }
     auto* output_operand = builder->hardSigmoid(
         input_operand, hard_sigmoid_options, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2667,7 +2771,7 @@ struct InstanceNormalizationTester {
     auto* output_operand = builder->instanceNormalization(
         input_operand, instance_normalization_options,
         scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -2845,7 +2949,7 @@ struct LayerNormalizationTester {
 
     auto* output_operand = builder->layerNormalization(
         input_operand, layer_normalization_options, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -3033,7 +3137,7 @@ struct LeakyReluTester {
     }
     auto* output_operand = builder->leakyRelu(
         input_operand, ml_leaky_relu_options, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -3173,7 +3277,7 @@ struct LinearTester {
     }
     auto* output_operand = builder->linear(input_operand, ml_linear_options,
                                            scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_NE(graph, nullptr);
 
@@ -3304,7 +3408,7 @@ struct MatmulTester {
                                  scope.GetExceptionState());
     auto* output_operand =
         builder->matmul(a_operand, b_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -3417,7 +3521,7 @@ struct PadTester {
     auto* output_operand =
         BuildPad(scope, builder, input_operand, beginning_padding,
                  ending_padding, ml_pad_options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -3532,242 +3636,6 @@ TEST_P(MLGraphTestMojo, PadTest) {
   }
 }
 
-struct Pool2dTester {
-  OperandInfoBlink input;
-  struct Pool2dOptions {
-    std::optional<Vector<uint32_t>> window_dimensions;
-    std::optional<Vector<uint32_t>> padding;
-    std::optional<Vector<uint32_t>> strides;
-    std::optional<Vector<uint32_t>> dilations;
-    std::optional<blink::V8MLInputOperandLayout::Enum> layout;
-    std::optional<blink::V8MLRoundingType::Enum> rounding_type;
-    std::optional<Vector<uint32_t>> output_sizes;
-  };
-  struct Pool2dAttributes {
-    Vector<uint32_t> window_dimensions;
-    Vector<uint32_t> padding = {0, 0, 0, 0};
-    Vector<uint32_t> strides = {1, 1};
-    Vector<uint32_t> dilations = {1, 1};
-    blink_mojom::InputOperandLayout layout =
-        blink_mojom::InputOperandLayout::kChannelsFirst;
-  };
-  Pool2dOptions options;
-  OperandInfoMojo expected_operand;
-  Pool2dAttributes expected_attributes;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    Test(helper, scope, builder,
-         webnn::mojom::blink::Pool2d::Kind::kAveragePool2d);
-    Test(helper, scope, builder, webnn::mojom::blink::Pool2d::Kind::kL2Pool2d);
-    Test(helper, scope, builder, webnn::mojom::blink::Pool2d::Kind::kMaxPool2d);
-  }
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder,
-            webnn::mojom::blink::Pool2d::Kind kind) {
-    // Build the graph.
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    MLPool2dOptions* ml_pool2d_options = MLPool2dOptions::Create();
-    if (options.window_dimensions) {
-      ml_pool2d_options->setWindowDimensions(options.window_dimensions.value());
-    }
-    if (options.padding) {
-      ml_pool2d_options->setPadding(options.padding.value());
-    }
-    if (options.strides) {
-      ml_pool2d_options->setStrides(options.strides.value());
-    }
-    if (options.dilations) {
-      ml_pool2d_options->setDilations(options.dilations.value());
-    }
-    if (options.layout) {
-      ml_pool2d_options->setLayout(options.layout.value());
-    }
-    if (options.rounding_type) {
-      ml_pool2d_options->setRoundingType(options.rounding_type.value());
-    }
-    if (options.output_sizes) {
-      ml_pool2d_options->setOutputSizes(options.output_sizes.value());
-    }
-    auto* output_operand =
-        BuildPool2d(scope, builder, kind, input_operand, ml_pool2d_options);
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-    auto& operation = graph_info->operations[0];
-    EXPECT_TRUE(operation->is_pool2d());
-    auto& pool2d_mojo = operation->get_pool2d();
-    switch (kind) {
-      case webnn::mojom::blink::Pool2d::Kind::kAveragePool2d:
-        EXPECT_EQ(pool2d_mojo->kind, blink_mojom::Pool2d::Kind::kAveragePool2d);
-        break;
-      case webnn::mojom::blink::Pool2d::Kind::kL2Pool2d:
-        EXPECT_EQ(pool2d_mojo->kind, blink_mojom::Pool2d::Kind::kL2Pool2d);
-        break;
-      case webnn::mojom::blink::Pool2d::Kind::kMaxPool2d:
-        EXPECT_EQ(pool2d_mojo->kind, blink_mojom::Pool2d::Kind::kMaxPool2d);
-        break;
-      default:
-        NOTREACHED();
-    }
-    // Validate window dimensions.
-    EXPECT_EQ(pool2d_mojo->window_dimensions->height,
-              expected_attributes.window_dimensions[0]);
-    EXPECT_EQ(pool2d_mojo->window_dimensions->width,
-              expected_attributes.window_dimensions[1]);
-    // Validate explicit padding.
-    auto& expected_padding = expected_attributes.padding;
-    EXPECT_EQ(pool2d_mojo->padding->beginning->height, expected_padding[0]);
-    EXPECT_EQ(pool2d_mojo->padding->ending->height, expected_padding[1]);
-    EXPECT_EQ(pool2d_mojo->padding->beginning->width, expected_padding[2]);
-    EXPECT_EQ(pool2d_mojo->padding->ending->width, expected_padding[3]);
-    // Validate strides
-    EXPECT_EQ(pool2d_mojo->strides->height, expected_attributes.strides[0]);
-    EXPECT_EQ(pool2d_mojo->strides->width, expected_attributes.strides[1]);
-    // Validate dilations.
-    EXPECT_EQ(pool2d_mojo->dilations->height, expected_attributes.dilations[0]);
-    EXPECT_EQ(pool2d_mojo->dilations->width, expected_attributes.dilations[1]);
-    EXPECT_EQ(pool2d_mojo->layout, expected_attributes.layout);
-    EXPECT_EQ(graph_info->output_operands.size(), 1u);
-    auto output_operand_id = graph_info->output_operands[0];
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->data_type,
-              expected_operand.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions,
-              expected_operand.dimensions);
-  }
-};
-
-TEST_P(MLGraphTestMojo, Pool2dTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  ASSERT_THAT(builder, testing::NotNull());
-  {
-    // Test pool2d with default options.
-    Pool2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 3, 4, 4}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 3, 1, 1}},
-        .expected_attributes = {.window_dimensions = {4, 4},
-                                .strides = {1, 1},
-                                .dilations = {1, 1}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test pool2d without padding.
-    Pool2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 3, 4, 4}},
-        .options = {.window_dimensions = Vector<uint32_t>({3, 3})},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 3, 2, 2}},
-        .expected_attributes = {.window_dimensions = {3, 3},
-                                .padding = {0, 0, 0, 0},
-                                .strides = {1, 1},
-                                .dilations = {1, 1}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test pool2d with strides=2, padding=1 and roundingType="floor".
-    Pool2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 3, 7, 7}},
-        .options = {.window_dimensions = Vector<uint32_t>({4, 4}),
-                    .padding = Vector<uint32_t>({1, 1, 1, 1}),
-                    .strides = Vector<uint32_t>({2, 2}),
-                    .rounding_type = V8MLRoundingType::Enum::kFloor},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 3, 3, 3}},
-        .expected_attributes = {.window_dimensions = {4, 4},
-                                .padding = {1, 1, 1, 1},
-                                .strides = {2, 2},
-                                .dilations = {1, 1}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test pool2d with strides=2, padding=1 and roundingType="ceil".
-    Pool2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 3, 7, 7}},
-        .options = {.window_dimensions = Vector<uint32_t>({4, 4}),
-                    .padding = Vector<uint32_t>({1, 1, 1, 1}),
-                    .strides = Vector<uint32_t>({2, 2}),
-                    .rounding_type = V8MLRoundingType::Enum::kCeil},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 3, 4, 4}},
-        .expected_attributes = {.window_dimensions = {4, 4},
-                                .padding = {1, 1, 1, 1},
-                                .strides = {2, 2},
-                                .dilations = {1, 1}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test pool2d with strides=2, padding=1 and outputSizes=[3, 3].
-    // When the output sizes are explicitly specified, the
-    // options.roundingType is ignored.
-    Pool2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 3, 7, 7}},
-        .options = {.window_dimensions = Vector<uint32_t>({4, 4}),
-                    .padding = Vector<uint32_t>({1, 1, 1, 1}),
-                    .strides = Vector<uint32_t>({2, 2}),
-                    .rounding_type = V8MLRoundingType::Enum::kCeil,
-                    .output_sizes = Vector<uint32_t>({3, 3})},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 3, 3, 3}},
-        .expected_attributes = {.window_dimensions = {4, 4},
-                                .padding = {1, 1, 1, 1},
-                                .strides = {2, 2},
-                                .dilations = {1, 1}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test pool2d with layout="nhwc".
-    Pool2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 7, 7, 3}},
-        .options = {.window_dimensions = Vector<uint32_t>({4, 4}),
-                    .padding = Vector<uint32_t>({1, 1, 1, 1}),
-                    .strides = Vector<uint32_t>({2, 2}),
-                    .layout = V8MLInputOperandLayout::Enum::kNhwc,
-                    .rounding_type = V8MLRoundingType::Enum::kCeil,
-                    .output_sizes = Vector<uint32_t>({3, 3})},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 3, 3, 3}},
-        .expected_attributes =
-            {.window_dimensions = {4, 4},
-             .padding = {1, 1, 1, 1},
-             .strides = {2, 2},
-             .dilations = {1, 1},
-             .layout = blink_mojom::InputOperandLayout::kChannelsLast}}
-        .Test(*this, scope, builder);
-  }
-}
-
 struct PreluTester {
   OperandInfoBlink input;
   OperandInfoBlink slope;
@@ -3785,7 +3653,7 @@ struct PreluTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->prelu(input_operand, slope_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -3882,289 +3750,6 @@ TEST_P(MLGraphTestMojo, PreluTest) {
   }
 }
 
-struct ReluTester {
-  OperandInfoBlink input;
-  OperandInfoMojo expected;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    // Build the graph.
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    auto* output_operand =
-        builder->relu(input_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the graph information of mojo are as expected.
-    EXPECT_EQ(graph_info->id_to_operand_map.size(), 2u);
-    EXPECT_EQ(graph_info->input_operands.size(), 1u);
-    // Verify the input `mojo::Operand`.
-    auto input_operand_id = graph_info->input_operands[0];
-    auto input_operand_iter =
-        graph_info->id_to_operand_map.find(input_operand_id);
-    ASSERT_TRUE(input_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(input_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kInput);
-    EXPECT_EQ(input_operand_iter->value->data_type, expected.data_type);
-    EXPECT_EQ(input_operand_iter->value->dimensions, input.dimensions);
-    EXPECT_EQ(input_operand_iter->value->name, "input");
-    // Verify the output `mojo::Operand`.
-    auto output_operand_id = graph_info->output_operands[0];
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kOutput);
-    EXPECT_EQ(output_operand_iter->value->data_type, expected.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions, expected.dimensions);
-    EXPECT_EQ(output_operand_iter->value->name, "output");
-    // Verify the `mojo::Operator`.
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-    auto& operation = graph_info->operations[0];
-    EXPECT_TRUE(operation->is_relu());
-    auto& relu = operation->get_relu();
-    EXPECT_EQ(relu->input_operand_id, input_operand_id);
-    EXPECT_EQ(relu->output_operand_id, output_operand_id);
-  }
-};
-
-TEST_P(MLGraphTestMojo, ReluTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  ASSERT_THAT(builder, testing::NotNull());
-  {
-    // Test relu operator for 0-D scalar.
-    ReluTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat32,
-                     .dimensions = {}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test relu operator for 1-D tensor.
-    ReluTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {2}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat32,
-                     .dimensions = {2}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test relu operator for 2-D tensor.
-    ReluTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat16,
-                  .dimensions = {3, 7}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat16,
-                     .dimensions = {3, 7}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test relu operator for 3-D tensor.
-    ReluTester{.input = {.data_type = V8MLOperandDataType::Enum::kInt32,
-                         .dimensions = {1, 5, 3}},
-               .expected = {.data_type = blink_mojom::Operand::DataType::kInt32,
-                            .dimensions = {1, 5, 3}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test relu operator for 4-D tensor.
-    ReluTester{.input = {.data_type = V8MLOperandDataType::Enum::kUint8,
-                         .dimensions = {1, 2, 2, 1}},
-               .expected = {.data_type = blink_mojom::Operand::DataType::kUint8,
-                            .dimensions = {1, 2, 2, 1}}}
-        .Test(*this, scope, builder);
-  }
-}
-
-struct Resample2dTester {
-  OperandInfoBlink input;
-  struct Resample2dOptions {
-    std::optional<blink::V8MLInterpolationMode::Enum> mode;
-    std::optional<Vector<float>> scales;
-    std::optional<Vector<uint32_t>> sizes;
-    std::optional<Vector<uint32_t>> axes;
-  };
-  Resample2dOptions options;
-  OperandInfoMojo expected_operand;
-  blink_mojom::Resample2d::InterpolationMode expected_mode =
-      blink_mojom::Resample2d::InterpolationMode::kNearestNeighbor;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    // Build the graph.
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    MLResample2dOptions* ml_resample2d_options = MLResample2dOptions::Create();
-    if (options.mode) {
-      ml_resample2d_options->setMode(options.mode.value());
-    }
-    if (options.scales) {
-      ml_resample2d_options->setScales(options.scales.value());
-    }
-    if (options.sizes) {
-      ml_resample2d_options->setSizes(options.sizes.value());
-    }
-    if (options.axes) {
-      ml_resample2d_options->setAxes(options.axes.value());
-    }
-    auto* output_operand =
-        BuildResample2d(scope, builder, input_operand, ml_resample2d_options);
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-    ASSERT_EQ(graph_info->output_operands.size(), 1u);
-    ASSERT_EQ(graph_info->input_operands.size(), 1u);
-    ASSERT_EQ(graph_info->id_to_operand_map.size(), 2u);
-    ASSERT_EQ(graph_info->constant_id_to_buffer_map.size(), 0u);
-    auto& operation = graph_info->operations[0];
-    EXPECT_TRUE(operation->is_resample2d());
-    auto& resample2d_mojo = operation->get_resample2d();
-    // Validate the mode.
-    EXPECT_EQ(resample2d_mojo->mode, expected_mode);
-    // Validate the output.
-    auto output_operand_id = graph_info->output_operands[0];
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->data_type,
-              expected_operand.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions,
-              expected_operand.dimensions);
-  }
-};
-
-TEST_P(MLGraphTestMojo, Resample2dTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  {
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 3, 4, 4}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 3, 4, 4}}}
-        .Test(*this, scope, builder);
-  }
-  {  // Test resample2d with mode =
-     // "blink::V8MLInterpolationMode::Enum::kLinear".
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.mode = blink::V8MLInterpolationMode::Enum::kLinear},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 1, 2, 4}},
-        .expected_mode = blink_mojom::Resample2d::InterpolationMode::kLinear}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test resample2d with scales = {2.0, 2.0}.
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.scales = Vector<float>{2.0, 2.0}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 1, 4, 8}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test resample2d with scales = {0.5, 0.5}.
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.scales = Vector<float>{0.5, 0.5}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 1, 1, 2}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test resample2d with sizes = {3, 6}.
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.sizes = Vector<uint32_t>{3, 6}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 1, 3, 6}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test resample2d with sizes = {3, 6} and scales = {0.5, 0.5} which should
-    // be ignored.
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.scales = Vector<float>{0.5, 0.5},
-                    .sizes = Vector<uint32_t>{3, 6}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 1, 3, 6}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test resample2d with scales = {1.0, 2.0} and axes = {0, 1}.
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.scales = Vector<float>{1.0, 2.0},
-                    .axes = Vector<uint32_t>{0, 1}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 2, 2, 4}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test resample2d with scales = {1.0, 2.0} and axes = {1, 2}.
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.scales = Vector<float>{1.0, 2.0},
-                    .axes = Vector<uint32_t>{1, 2}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 1, 4, 4}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test resample2d with scales = {1.0, 2.0} and axes = {2, 3}.
-    Resample2dTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 1, 2, 4}},
-        .options = {.scales = Vector<float>{1.0, 2.0},
-                    .axes = Vector<uint32_t>{2, 3}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {1, 1, 2, 8}}}
-        .Test(*this, scope, builder);
-  }
-}
-
 struct ReshapeTester {
   OperandInfoBlink input;
   Vector<uint32_t> new_shape;
@@ -4179,7 +3764,7 @@ struct ReshapeTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->reshape(input_operand, new_shape, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -4250,161 +3835,6 @@ TEST_P(MLGraphTestMojo, ReshapeTest) {
   }
 }
 
-enum class FloatingPointUnaryKind { kHardSwish, kSigmoid, kTanh };
-
-struct FloatingPointUnaryTester {
-  OperandInfoBlink input;
-  OperandInfoMojo expected;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    Test(helper, scope, builder, FloatingPointUnaryKind::kSigmoid);
-    Test(helper, scope, builder, FloatingPointUnaryKind::kTanh);
-  }
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder,
-            FloatingPointUnaryKind kind) {
-    // Build the graph.
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    MLOperand* output_operand = nullptr;
-    switch (kind) {
-      case FloatingPointUnaryKind::kHardSwish:
-        output_operand =
-            builder->hardSwish(input_operand, scope.GetExceptionState());
-        break;
-      case FloatingPointUnaryKind::kSigmoid:
-        output_operand =
-            builder->sigmoid(input_operand, scope.GetExceptionState());
-        break;
-      case FloatingPointUnaryKind::kTanh:
-        output_operand =
-            builder->tanh(input_operand, scope.GetExceptionState());
-        break;
-    }
-    ASSERT_THAT(output_operand, testing::NotNull());
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the graph information of mojo are as expected.
-    EXPECT_EQ(graph_info->id_to_operand_map.size(), 2u);
-    ASSERT_EQ(graph_info->input_operands.size(), 1u);
-    ASSERT_EQ(graph_info->output_operands.size(), 1u);
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-
-    // Verify the input `mojo::Operand`.
-    auto input_operand_id = graph_info->input_operands[0];
-    auto input_operand_iter =
-        graph_info->id_to_operand_map.find(input_operand_id);
-    ASSERT_TRUE(input_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(input_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kInput);
-    EXPECT_EQ(input_operand_iter->value->data_type, expected.data_type);
-    EXPECT_EQ(input_operand_iter->value->dimensions, input.dimensions);
-    EXPECT_EQ(input_operand_iter->value->name, "input");
-
-    // Verify the output `mojo::Operand`.
-    auto output_operand_id = graph_info->output_operands[0];
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kOutput);
-    EXPECT_EQ(output_operand_iter->value->data_type, expected.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions, expected.dimensions);
-    EXPECT_EQ(output_operand_iter->value->name, "output");
-
-    // Verify the `mojo::Operator`.
-    auto& operation = graph_info->operations[0];
-    switch (kind) {
-      case FloatingPointUnaryKind::kHardSwish: {
-        EXPECT_TRUE(operation->is_hard_swish());
-        auto& unary = operation->get_hard_swish();
-        EXPECT_EQ(unary->input_operand_id, input_operand_id);
-        EXPECT_EQ(unary->output_operand_id, output_operand_id);
-        break;
-      }
-      case FloatingPointUnaryKind::kSigmoid: {
-        EXPECT_TRUE(operation->is_sigmoid());
-        auto& unary = operation->get_sigmoid();
-        EXPECT_EQ(unary->input_operand_id, input_operand_id);
-        EXPECT_EQ(unary->output_operand_id, output_operand_id);
-        break;
-      }
-      case FloatingPointUnaryKind::kTanh: {
-        EXPECT_TRUE(operation->is_tanh());
-        auto& unary = operation->get_tanh();
-        EXPECT_EQ(unary->input_operand_id, input_operand_id);
-        EXPECT_EQ(unary->output_operand_id, output_operand_id);
-        break;
-      }
-    }
-  }
-};
-
-TEST_P(MLGraphTestMojo, FloatingPointUnaryTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  ASSERT_THAT(builder, testing::NotNull());
-  {
-    // Test unary operator for 0-D scalar.
-    FloatingPointUnaryTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat32,
-                     .dimensions = {}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test unary operator for 1-D tensor.
-    FloatingPointUnaryTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {2}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat32,
-                     .dimensions = {2}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test unary operator for 2-D tensor.
-    FloatingPointUnaryTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat16,
-                  .dimensions = {3, 7}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat16,
-                     .dimensions = {3, 7}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test unary operator for 3-D tensor.
-    FloatingPointUnaryTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 5, 3}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat32,
-                     .dimensions = {1, 5, 3}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test unary operator for 4-D tensor.
-    FloatingPointUnaryTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 2, 2, 1}},
-        .expected = {.data_type = blink_mojom::Operand::DataType::kFloat32,
-                     .dimensions = {1, 2, 2, 1}}}
-        .Test(*this, scope, builder);
-  }
-}
-
 struct SliceTester {
   struct SliceAttributes {
     Vector<uint32_t> starts;
@@ -4424,7 +3854,7 @@ struct SliceTester {
     auto* output_operand =
         builder->slice(input_operand, options.starts, options.sizes,
                        scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -4501,7 +3931,7 @@ struct SoftmaxTester {
                    scope.GetExceptionState());
     auto* output_operand =
         builder->softmax(input_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -4569,7 +3999,7 @@ struct SoftplusTester {
     }
     auto* output_operand = builder->softplus(input_operand, softplus_options,
                                              scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -4646,341 +4076,6 @@ TEST_P(MLGraphTestMojo, SoftplusTest) {
   }
 }
 
-struct SoftsignTester {
-  OperandInfoBlink input;
-  OperandInfoMojo expected_output;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    // Build the graph.
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    auto* output_operand =
-        builder->softsign(input_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the `mojo::Operator`.
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-    auto& operation = graph_info->operations[0];
-    ASSERT_TRUE(operation->is_softsign());
-
-    // Verify the input `mojo::Operand`.
-    ASSERT_EQ(graph_info->input_operands.size(), 1u);
-    auto input_operand_id = graph_info->input_operands[0];
-    auto input_operand_iter =
-        graph_info->id_to_operand_map.find(input_operand_id);
-    ASSERT_TRUE(input_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(input_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kInput);
-    EXPECT_EQ(input_operand_iter->value->data_type, expected_output.data_type);
-    EXPECT_EQ(input_operand_iter->value->dimensions,
-              expected_output.dimensions);
-    EXPECT_EQ(input_operand_iter->value->name, "input");
-
-    // Verify the output `mojo::Operand`.
-    ASSERT_EQ(graph_info->output_operands.size(), 1u);
-    auto output_operand_id = graph_info->output_operands[0];
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kOutput);
-    EXPECT_EQ(output_operand_iter->value->data_type, expected_output.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions,
-              expected_output.dimensions);
-    EXPECT_EQ(output_operand_iter->value->name, "output");
-  }
-};
-
-TEST_P(MLGraphTestMojo, SoftsignTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  ASSERT_THAT(builder, testing::NotNull());
-  {
-    // Test building softsign with float32 input.
-    SoftsignTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {2, 4}},
-        .expected_output = {.data_type =
-                                blink_mojom::Operand::DataType::kFloat32,
-                            .dimensions = {2, 4}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test building softsign with float16 input.
-    SoftsignTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat16,
-                  .dimensions = {1, 3, 5}},
-        .expected_output = {.data_type =
-                                blink_mojom::Operand::DataType::kFloat16,
-                            .dimensions = {1, 3, 5}}}
-        .Test(*this, scope, builder);
-  }
-}
-
-struct TransposeTester {
-  OperandInfoBlink input;
-  std::optional<Vector<uint32_t>> permutation;
-  OperandInfoMojo expected_operand;
-  Vector<uint32_t> expected_permutation;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    // Build the graph.
-    auto* input_operand =
-        BuildInput(builder, "input", input.dimensions, input.data_type,
-                   scope.GetExceptionState());
-    MLTransposeOptions* options = MLTransposeOptions::Create();
-    if (permutation.has_value()) {
-      options->setPermutation(permutation.value());
-    }
-    auto* output_operand =
-        builder->transpose(input_operand, options, scope.GetExceptionState());
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-    auto& operation = graph_info->operations[0];
-    ASSERT_TRUE(operation->is_transpose());
-    auto& transpose = operation->get_transpose();
-
-    // Validate the permutation of transpose operation.
-    EXPECT_EQ(transpose->permutation, expected_permutation);
-
-    // Validate the input operand.
-    EXPECT_EQ(graph_info->input_operands.size(), 1u);
-    auto input_operand_id = graph_info->input_operands[0];
-    EXPECT_EQ(transpose->input_operand_id, input_operand_id);
-    auto input_operand_iter =
-        graph_info->id_to_operand_map.find(input_operand_id);
-    ASSERT_TRUE(input_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(input_operand_iter->value->data_type, expected_operand.data_type);
-    EXPECT_EQ(input_operand_iter->value->dimensions, input.dimensions);
-
-    // Validate the output operand.
-    EXPECT_EQ(graph_info->output_operands.size(), 1u);
-    auto output_operand_id = graph_info->output_operands[0];
-    EXPECT_EQ(transpose->output_operand_id, output_operand_id);
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->data_type,
-              expected_operand.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions,
-              expected_operand.dimensions);
-  }
-};
-
-TEST_P(MLGraphTestMojo, TransposeTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  {
-    // Test transpose operator with default options.
-    TransposeTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                  .dimensions = {1, 2, 3, 4}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {4, 3, 2, 1}},
-        .expected_permutation = {3, 2, 1, 0}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test transpose operator with a given permutation.
-    TransposeTester{
-        .input = {.data_type = V8MLOperandDataType::Enum::kFloat16,
-                  .dimensions = {1, 2, 3, 4}},
-        .permutation = Vector<uint32_t>{3, 0, 2, 1},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat16,
-                             .dimensions = {4, 1, 3, 2}},
-        .expected_permutation = {3, 0, 2, 1}}
-        .Test(*this, scope, builder);
-  }
-}
-
-struct WhereTester {
-  OperandInfoBlink condition;
-  OperandInfoBlink true_value;
-  OperandInfoBlink false_value;
-  OperandInfoMojo expected_operand;
-
-  void Test(MLGraphTestMojo& helper,
-            V8TestingScope& scope,
-            MLGraphBuilder* builder) {
-    // Build the graph.
-    auto* condition_operand =
-        BuildInput(builder, "condition", condition.dimensions,
-                   condition.data_type, scope.GetExceptionState());
-    auto* true_value_operand =
-        BuildInput(builder, "true_value", true_value.dimensions,
-                   true_value.data_type, scope.GetExceptionState());
-    auto* false_value_operand =
-        BuildInput(builder, "false_value", false_value.dimensions,
-                   false_value.data_type, scope.GetExceptionState());
-    auto* output_operand =
-        builder->where(condition_operand, true_value_operand,
-                       false_value_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
-        helper.BuildGraph(scope, builder, {{"output", output_operand}});
-    ASSERT_THAT(graph, testing::NotNull());
-
-    auto graph_info = helper.GetGraphInfo();
-    // Verify the graph information of mojo are as expected.
-    EXPECT_EQ(graph_info->id_to_operand_map.size(), 4u);
-    EXPECT_EQ(graph_info->input_operands.size(), 3u);
-
-    // Verify the condition `mojo::Operand`.
-    auto condition_operand_id = graph_info->input_operands[0];
-    auto condition_operand_iter =
-        graph_info->id_to_operand_map.find(condition_operand_id);
-    ASSERT_TRUE(condition_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(condition_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kInput);
-    EXPECT_EQ(condition_operand_iter->value->data_type,
-              blink_mojom::Operand::DataType::kUint8);
-    EXPECT_EQ(condition_operand_iter->value->dimensions, condition.dimensions);
-    EXPECT_EQ(condition_operand_iter->value->name, "condition");
-
-    // Verify the true value `mojo::Operand`.
-    auto true_value_operand_id = graph_info->input_operands[1];
-    auto true_value_operand_iter =
-        graph_info->id_to_operand_map.find(true_value_operand_id);
-    ASSERT_TRUE(true_value_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(true_value_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kInput);
-    EXPECT_EQ(true_value_operand_iter->value->data_type,
-              expected_operand.data_type);
-    EXPECT_EQ(true_value_operand_iter->value->dimensions,
-              true_value.dimensions);
-    EXPECT_EQ(true_value_operand_iter->value->name, "true_value");
-
-    // Verify the false value `mojo::Operand`.
-    auto false_value_operand_id = graph_info->input_operands[2];
-    auto false_value_operand_iter =
-        graph_info->id_to_operand_map.find(false_value_operand_id);
-    ASSERT_TRUE(false_value_operand_iter !=
-                graph_info->id_to_operand_map.end());
-    EXPECT_EQ(false_value_operand_iter->value->kind,
-              blink_mojom::Operand::Kind::kInput);
-    EXPECT_EQ(false_value_operand_iter->value->data_type,
-              expected_operand.data_type);
-    EXPECT_EQ(false_value_operand_iter->value->dimensions,
-              false_value.dimensions);
-    EXPECT_EQ(false_value_operand_iter->value->name, "false_value");
-
-    // Verify the output `mojo::Operand`.
-    ASSERT_EQ(graph_info->output_operands.size(), 1u);
-    auto output_operand_id = graph_info->output_operands[0];
-    auto output_operand_iter =
-        graph_info->id_to_operand_map.find(output_operand_id);
-    ASSERT_TRUE(output_operand_iter != graph_info->id_to_operand_map.end());
-    EXPECT_EQ(output_operand_iter->value->data_type,
-              expected_operand.data_type);
-    EXPECT_EQ(output_operand_iter->value->dimensions,
-              expected_operand.dimensions);
-    EXPECT_EQ(output_operand_iter->value->name, "output");
-
-    // Verify the `mojo::Operator`.
-    ASSERT_EQ(graph_info->operations.size(), 1u);
-    auto& operation = graph_info->operations[0];
-    EXPECT_TRUE(operation->is_where());
-  }
-};
-
-TEST_P(MLGraphTestMojo, WhereTest) {
-  V8TestingScope scope;
-  // Bind fake WebNN Context in the service for testing.
-  ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
-
-  auto* options = MLContextOptions::Create();
-  // Create WebNN Context with GPU device type.
-  options->setDeviceType(V8MLDeviceType::Enum::kGpu);
-  auto* builder = CreateGraphBuilder(scope, options);
-  ASSERT_THAT(builder, testing::NotNull());
-  {
-    // Test building where with 2-D condition, 2-D true_value and 2-D
-    // false_value using broadcast.
-    WhereTester{
-        .condition = {.data_type = V8MLOperandDataType::Enum::kUint8,
-                      .dimensions = {2, 1}},
-        .true_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                       .dimensions = {2, 4}},
-        .false_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                        .dimensions = {2, 4}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {2, 4}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test building where with 2-D condition, 2-D true_value and 3-D
-    // false_value using broadcast.
-    WhereTester{
-        .condition = {.data_type = V8MLOperandDataType::Enum::kUint8,
-                      .dimensions = {1, 4}},
-        .true_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                       .dimensions = {3, 4}},
-        .false_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                        .dimensions = {2, 3, 4}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {2, 3, 4}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test building where with 3-D condition, 3-D true_value and 2-D
-    // false_value using broadcast.
-    WhereTester{
-        .condition = {.data_type = V8MLOperandDataType::Enum::kUint8,
-                      .dimensions = {2, 1, 4}},
-        .true_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                       .dimensions = {2, 3, 4}},
-        .false_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                        .dimensions = {1, 4}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {2, 3, 4}}}
-        .Test(*this, scope, builder);
-  }
-  {
-    // Test building where with 4-D condition, 3-D true_value and 2-D
-    // false_value using broadcast.
-    WhereTester{
-        .condition = {.data_type = V8MLOperandDataType::Enum::kUint8,
-                      .dimensions = {2, 3, 4, 5}},
-        .true_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                       .dimensions = {3, 4, 5}},
-        .false_value = {.data_type = V8MLOperandDataType::Enum::kFloat32,
-                        .dimensions = {4, 5}},
-        .expected_operand = {.data_type =
-                                 blink_mojom::Operand::DataType::kFloat32,
-                             .dimensions = {2, 3, 4, 5}}}
-        .Test(*this, scope, builder);
-  }
-}
-
 struct ReduceTester {
   OperandInfoBlink input;
   std::optional<Vector<uint32_t>> axes;
@@ -5021,7 +4116,7 @@ struct ReduceTester {
     }
     auto* output_operand =
         BuildReduce(scope, builder, kind, input_operand, options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -5147,7 +4242,7 @@ struct ConstantTester {
                       constant.values, scope.GetExceptionState());
     auto* output_operand =
         builder->relu(constant_operand, scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -5297,7 +4392,7 @@ struct SplitTester {
       output_named_operand.push_back(
           std::make_pair(String::Format("output%u", i), output_operands.at(i)));
     }
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, output_named_operand);
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -5372,7 +4467,7 @@ struct CastTester {
     auto* output_operand =
         builder->cast(input_operand, V8MLOperandDataType(output_data_type),
                       scope.GetExceptionState());
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -5668,7 +4763,7 @@ struct ArgMinMaxTester {
     }
     auto* output_operand =
         BuildArgMinMax(scope, builder, kind, input_operand, options);
-    auto [graph, build_exception] =
+    auto [graph, error_name, error_message] =
         helper.BuildGraph(scope, builder, {{"output", output_operand}});
     ASSERT_THAT(graph, testing::NotNull());
 
@@ -5838,7 +4933,7 @@ TEST_P(MLGraphTestMojo, WebNNGraphComputeTest) {
   auto* output_operand = BuildElementWiseBinary(
       scope, builder, webnn::mojom::blink::ElementWiseBinary::Kind::kAdd,
       lhs_operand, rhs_operand);
-  auto [graph, build_exception] =
+  auto [graph, error_name, error_message] =
       BuildGraph(scope, builder, {{"output", output_operand}});
   ASSERT_THAT(graph, testing::NotNull());
 
@@ -5852,16 +4947,18 @@ TEST_P(MLGraphTestMojo, WebNNGraphComputeTest) {
     // Compute successfully.
     SetComputeResult(ComputeResult{
         .output = {{"output", Vector<uint8_t>(number_of_elements, 2)}}});
-    auto* compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_TRUE(error_name.IsNull());
     auto results = GetArrayBufferViewValues<uint8_t>(outputs[0].second);
     EXPECT_EQ(results, Vector<uint8_t>(number_of_elements, 2));
 
     // Compute again successfully.
     SetComputeResult(ComputeResult{
         .output = {{"output", Vector<uint8_t>(number_of_elements, 7)}}});
-    compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    EXPECT_THAT(compute_exception, testing::IsNull());
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_TRUE(error_name.IsNull());
     results = GetArrayBufferViewValues<uint8_t>(outputs[0].second);
     EXPECT_EQ(results, Vector<uint8_t>(number_of_elements, 7));
 
@@ -5877,10 +4974,10 @@ TEST_P(MLGraphTestMojo, WebNNGraphComputeTest) {
   {
     // Unknown error.
     SetComputeResult(ComputeResult{});
-    auto* compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    ASSERT_THAT(compute_exception, testing::NotNull());
-    EXPECT_EQ(compute_exception->name(), "OperationError");
-    EXPECT_EQ(compute_exception->message(),
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_EQ(error_name, "OperationError");
+    EXPECT_EQ(error_message,
               "There is an unknown output tensor in the computation "
               "result: output");
   }
@@ -5893,10 +4990,10 @@ TEST_P(MLGraphTestMojo, WebNNGraphComputeTest) {
     SetComputeResult(
         ComputeResult{.output = {{"a_different_out_name",
                                   Vector<uint8_t>(number_of_elements)}}});
-    auto* compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    ASSERT_THAT(compute_exception, testing::NotNull());
-    EXPECT_EQ(compute_exception->name(), "OperationError");
-    EXPECT_EQ(compute_exception->message(),
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_EQ(error_name, "OperationError");
+    EXPECT_EQ(error_message,
               "There is an unknown output tensor in the computation "
               "result: output");
   }
@@ -5908,10 +5005,10 @@ TEST_P(MLGraphTestMojo, WebNNGraphComputeTest) {
     // The size of output in computation result isn't expected.
     SetComputeResult(
         ComputeResult{.output = {{"output", Vector<uint8_t>(20)}}});
-    auto* compute_exception = ComputeGraph(scope, graph, inputs, outputs);
-    ASSERT_THAT(compute_exception, testing::NotNull());
-    EXPECT_EQ(compute_exception->name(), "UnknownError");
-    EXPECT_EQ(compute_exception->message(),
+    std::tie(error_name, error_message) =
+        ComputeGraph(scope, graph, inputs, outputs);
+    EXPECT_EQ(error_name, "UnknownError");
+    EXPECT_EQ(error_message,
               "The output tensor size does not match graph's expectation: "
               "output");
   }

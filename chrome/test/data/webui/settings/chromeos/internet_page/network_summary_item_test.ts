@@ -411,9 +411,9 @@ suite('<network-summary-item>', () => {
         });
 
     test(
-        'kProxyAuthRequired shows signin text and opens portal signin on click',
+        'kPortalSuspected shows signin text and opens portal signin on click',
         async () => {
-          initWithPortalState(PortalState.kProxyAuthRequired);
+          initWithPortalState(PortalState.kPortalSuspected);
           assertTrue(netSummaryItem.shadowRoot!.querySelector('#networkState')!
                          .classList.contains('warning-message'));
           assertFalse(netSummaryItem.shadowRoot!.querySelector('#networkState')!

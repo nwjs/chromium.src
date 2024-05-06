@@ -12,6 +12,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,7 +31,6 @@
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -134,7 +134,7 @@ FormStructure::FormStructure(const FormData& form)
       ++active_field_count_;
     }
 
-    if (field.form_control_type == FormControlType::kInputPassword) {
+    if (field.form_control_type() == FormControlType::kInputPassword) {
       has_password_field_ = true;
     } else {
       all_fields_are_passwords_ = false;
@@ -487,7 +487,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
         // the `value` represents the initial value found at page load and needs
         // to be preserved.
         if (!field->IsSelectOrSelectListElement()) {
-          field->value = cached_field->value;
+          field->set_value(cached_field->value());
         }
         break;
       case RetrieveFromCacheReason::kFormImport:
@@ -498,11 +498,11 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
         // Since a website can prefill country and state values based on
         // GeoIP, we want to hold on to these values.
         const bool same_value_as_on_page_load =
-            field->value == cached_field->value;
+            field->value() == cached_field->value();
         const bool had_type =
             cached_field->Type().GetStorableType() > FieldType::UNKNOWN_TYPE ||
             !cached_field->possible_types().empty();
-        if (!cached_field->value.empty() &&
+        if (!cached_field->value().empty() &&
             !field->IsSelectOrSelectListElement() && had_type) {
           field->set_initial_value_changed(!same_value_as_on_page_load);
         }
@@ -511,7 +511,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
             field->server_type() != ADDRESS_HOME_STATE;
         if (!field->IsSelectOrSelectListElement() &&
             same_value_as_on_page_load && field_is_neither_state_nor_country) {
-          field->value = std::u16string();
+          field->set_value(std::u16string());
         }
         break;
     }
@@ -544,6 +544,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
     field->set_may_use_prefilled_placeholder(
         cached_field->may_use_prefilled_placeholder());
     field->set_previously_autofilled(cached_field->previously_autofilled());
+    field->set_did_trigger_suggestions(cached_field->did_trigger_suggestions());
 
     // During form parsing, we don't care for heuristic field classifications
     // and information derived from the autocomplete attribute as those are
@@ -748,9 +749,9 @@ size_t FormStructure::active_field_count() const {
 bool FormStructure::is_form_element() const {
   return !renderer_id_.is_null() ||
          (!fields_.empty() &&
-          fields_.begin()->get()->form_control_type ==
+          fields_.begin()->get()->form_control_type() ==
               FormControlType::kContentEditable &&
-          *fields_.begin()->get()->renderer_id == *renderer_id_);
+          *fields_.begin()->get()->renderer_id() == *renderer_id_);
 }
 
 FormData FormStructure::ToFormData() const {
@@ -1063,7 +1064,7 @@ void FormStructure::ProcessExtractedFields() {
 }
 
 void FormStructure::ExtractParseableFieldLabels() {
-  std::vector<base::StringPiece16> field_labels;
+  std::vector<std::u16string_view> field_labels;
   field_labels.reserve(field_count());
   for (const auto& field : *this) {
     // Skip fields that are not a text input or not visible.
@@ -1095,10 +1096,10 @@ void FormStructure::ExtractParseableFieldLabels() {
 }
 
 void FormStructure::ExtractParseableFieldNames() {
-  std::vector<base::StringPiece16> names;
+  std::vector<std::u16string_view> names;
   names.reserve(field_count());
   for (const auto& field : *this)
-    names.emplace_back(field->name);
+    names.emplace_back(field->name());
 
   // Determine the parseable names and write them into the corresponding field.
   ComputeParseableNames(names);
@@ -1169,7 +1170,7 @@ std::ostream& operator<<(std::ostream& buffer, const FormStructure& form) {
     const AutofillField* field = form.field(i);
     buffer << "\n  Identifiers:"
            << base::StrCat({"renderer id: ",
-                            base::NumberToString(field->renderer_id.value()),
+                            base::NumberToString(field->renderer_id().value()),
                             ", host frame: ",
                             field->renderer_form_id().frame_token.ToString(),
                             " (", field->origin.Serialize(),
@@ -1250,7 +1251,7 @@ LogBuffer& operator<<(LogBuffer& buffer, const FormStructure& form) {
     buffer << Tag{"table"};
     buffer << Tr{} << "Identifiers:"
            << base::StrCat({"renderer id: ",
-                            base::NumberToString(field->renderer_id.value()),
+                            base::NumberToString(field->renderer_id().value()),
                             ", host frame: ",
                             field->renderer_form_id().frame_token.ToString(),
                             " (", field->origin.Serialize(),

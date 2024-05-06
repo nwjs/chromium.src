@@ -11,6 +11,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -34,6 +35,7 @@
 #include "components/sessions/core/session_constants.h"
 #include "components/sessions/core/session_id.h"
 #include "components/sessions/core/session_types.h"
+#include "components/sessions/core/tab_restore_service.h"
 #include "components/sessions/core/tab_restore_service_client.h"
 #include "components/sessions/core/tab_restore_service_observer.h"
 #include "components/tab_groups/tab_group_id.h"
@@ -76,15 +78,17 @@ void AddSerializedNavigationEntries(
     // using a button in the omnibox, so it does not show up in recently closed
     // tabs, session sync, or chrome://history. Remove Reader Mode pages from
     // the navigations.
-    if (entry.virtual_url().SchemeIs(dom_distiller::kDomDistillerScheme))
+    if (entry.virtual_url().SchemeIs(dom_distiller::kDomDistillerScheme)) {
       continue;
+    }
 
     // An entry might have an empty URL (e.g. if it's the initial
     // NavigationEntry). Don't try to persist it, as it is not actually
     // associated with any navigation and will just result in about:blank on
     // session restore.
-    if (entry.virtual_url().is_empty())
+    if (entry.virtual_url().is_empty()) {
       continue;
+    }
 
     // As this code was identified as doing a lot of allocations, push_back is
     // always used and the vector is reversed for `kCurrentAndPreceedingEntries`
@@ -96,8 +100,9 @@ void AddSerializedNavigationEntries(
   // Iteration for `kCurrentAndPreceedingEntries` happens in descending order.
   // This results in the entries being added in reverse order. Use
   // std::reverse() so the entries end up in ascending order.
-  if (behavior == AddBehavior::kCurrentAndPreceedingEntries)
+  if (behavior == AddBehavior::kCurrentAndPreceedingEntries) {
     std::reverse(navigations.begin(), navigations.end());
+  }
 }
 
 }  // namespace
@@ -156,15 +161,17 @@ void TabRestoreServiceHelper::RemoveObserver(
 std::optional<SessionID> TabRestoreServiceHelper::CreateHistoricalTab(
     LiveTab* live_tab,
     int index) {
-  if (restoring_)
+  if (restoring_) {
     return std::nullopt;
+  }
 
   // If an entire window or group is being closed than all of the tabs have
   // already been persisted via "BrowserClosing" or "CreateHistoricalGroup".
   // Ignore the subsequent tab closing notifications.
   LiveTabContext* context = client_->FindLiveTabContextForTab(live_tab);
-  if (closing_contexts_.find(context) != closing_contexts_.end())
+  if (closing_contexts_.find(context) != closing_contexts_.end()) {
     return std::nullopt;
+  }
   std::optional<tab_groups::TabGroupId> group =
       context ? context->GetTabGroupForTab(index) : std::nullopt;
   if (group.has_value() &&
@@ -204,7 +211,6 @@ void TabRestoreServiceHelper::BrowserClosing(LiveTabContext* context) {
   window->user_title = context->GetUserTitle();
   window->extra_data = context->GetExtraDataForWindow();
 
-  base::flat_set<tab_groups::TabGroupId> seen_groups;
   for (int tab_index = 0; tab_index < context->GetTabCount(); ++tab_index) {
     auto tab = std::make_unique<Tab>();
     PopulateTab(tab.get(), tab_index, context,
@@ -213,12 +219,15 @@ void TabRestoreServiceHelper::BrowserClosing(LiveTabContext* context) {
       continue;
     }
 
-    if (tab->group.has_value() && !seen_groups.contains(tab->group.value())) {
+    if (tab->group.has_value() &&
+        !window->groups.contains(tab->group.value())) {
       // Add new groups to the mapping if we haven't already.
-      seen_groups.insert(tab->group.value());
-      const tab_groups::TabGroupVisualData* visual_data =
-          context->GetVisualDataForGroup(tab->group.value());
-      window->tab_groups.emplace(tab->group.value(), *visual_data);
+      std::unique_ptr<Group> group =
+          CreateHistoricalGroupImpl(context, tab->group.value());
+      if (!group->tabs.empty()) {
+        window->tab_groups.emplace(tab->group.value(), group->visual_data);
+        window->groups.emplace(tab->group.value(), std::move(group));
+      }
     }
 
     tab->browser_id = context->GetSessionID().id();
@@ -240,13 +249,13 @@ void TabRestoreServiceHelper::BrowserClosed(LiveTabContext* context) {
   closing_contexts_.erase(context);
 }
 
-void TabRestoreServiceHelper::CreateHistoricalGroup(
+std::unique_ptr<TabRestoreService::Group>
+TabRestoreServiceHelper::CreateHistoricalGroupImpl(
     LiveTabContext* context,
     const tab_groups::TabGroupId& id) {
-  closing_groups_.insert(id);
-
   auto group = std::make_unique<Group>();
   group->group_id = id;
+  group->saved_group_id = context->GetSavedTabGroupIdForGroup(id);
   group->visual_data = *context->GetVisualDataForGroup(id);
   group->browser_id = context->GetSessionID().id();
   group->timestamp = TimeNow();
@@ -263,8 +272,18 @@ void TabRestoreServiceHelper::CreateHistoricalGroup(
     }
   }
 
-  if (!group->tabs.empty())
+  return group;
+}
+
+void TabRestoreServiceHelper::CreateHistoricalGroup(
+    LiveTabContext* context,
+    const tab_groups::TabGroupId& id) {
+  closing_groups_.insert(id);
+
+  auto group = CreateHistoricalGroupImpl(context, id);
+  if (!group->tabs.empty()) {
     AddEntry(std::move(group), true, true);
+  }
 }
 
 void TabRestoreServiceHelper::GroupClosed(const tab_groups::TabGroupId& group) {
@@ -273,17 +292,18 @@ void TabRestoreServiceHelper::GroupClosed(const tab_groups::TabGroupId& group) {
 
 void TabRestoreServiceHelper::GroupCloseStopped(
     const tab_groups::TabGroupId& group) {
-  // TODO(crbug.com/1181521): Delete this function if the group entry was never
+  // TODO(crbug.com/40750891): Delete this function if the group entry was never
   // created, or adjust the group entry here to account for any unclosed tabs.
 
   closing_groups_.erase(group);
 }
 
 void TabRestoreServiceHelper::ClearEntries() {
-  if (observer_)
+  if (observer_) {
     observer_->OnClearEntries();
+  }
   entries_.clear();
-  NotifyTabsChanged();
+  NotifyEntriesChanged();
 }
 
 bool TabRestoreServiceHelper::DeleteFromTab(const DeletionPredicate& predicate,
@@ -296,13 +316,15 @@ bool TabRestoreServiceHelper::DeleteFromTab(const DeletionPredicate& predicate,
     SerializedNavigationEntry& navigation = tab->navigations[i];
     if (predicate.Run(navigation)) {
       // If the current navigation is deleted, remove this tab.
-      if (static_cast<int>(i) == tab->current_navigation_index)
+      if (static_cast<int>(i) == tab->current_navigation_index) {
         return true;
+      }
       deleted_navigations_count++;
     } else {
       // Adjust indices according to number of deleted navigations.
-      if (static_cast<int>(i) == tab->current_navigation_index)
+      if (static_cast<int>(i) == tab->current_navigation_index) {
         tab->current_navigation_index -= deleted_navigations_count;
+      }
       DCHECK_GE(navigation.index(), deleted_navigations_count);
       navigation.set_index(navigation.index() - deleted_navigations_count);
       new_navigations.push_back(std::move(navigation));
@@ -324,13 +346,15 @@ bool TabRestoreServiceHelper::DeleteFromWindow(
   for (size_t i = 0; i < window->tabs.size(); i++) {
     std::unique_ptr<Tab>& tab = window->tabs[i];
     if (DeleteFromTab(predicate, tab.get())) {
-      if (static_cast<int>(i) == window->selected_tab_index)
+      if (static_cast<int>(i) == window->selected_tab_index) {
         window->selected_tab_index = new_tabs.empty() ? 0 : new_tabs.size() - 1;
+      }
       deleted_tabs_count++;
     } else {
       // Adjust indices according to number of deleted tabs.
-      if (static_cast<int>(i) == window->selected_tab_index)
+      if (static_cast<int>(i) == window->selected_tab_index) {
         window->selected_tab_index -= deleted_tabs_count;
+      }
       if (tab->tabstrip_index >= 0) {
         DCHECK_GE(tab->tabstrip_index, deleted_tabs_count);
         tab->tabstrip_index -= deleted_tabs_count;
@@ -372,33 +396,37 @@ void TabRestoreServiceHelper::DeleteNavigationEntries(
     switch (entry->type) {
       case TabRestoreService::TAB: {
         Tab* tab = static_cast<Tab*>(entry.get());
-        if (!DeleteFromTab(predicate, tab))
+        if (!DeleteFromTab(predicate, tab)) {
           new_entries.push_back(std::move(entry));
+        }
         break;
       }
       case TabRestoreService::WINDOW: {
         Window* window = static_cast<Window*>(entry.get());
         if (!DeleteFromWindow(predicate, window)) {
           // If only a single tab is left, just keep the tab.
-          if (window->tabs.size() == 1U)
+          if (window->tabs.size() == 1u) {
             new_entries.push_back(std::move(window->tabs.front()));
-          else
+          } else {
             new_entries.push_back(std::move(entry));
+          }
         }
         break;
       }
       case TabRestoreService::GROUP: {
         Group* group = static_cast<Group*>(entry.get());
-        if (!DeleteFromGroup(predicate, group))
+        if (!DeleteFromGroup(predicate, group)) {
           new_entries.push_back(std::move(entry));
+        }
         break;
       }
     }
   }
   entries_ = std::move(new_entries);
-  if (observer_)
+  if (observer_) {
     observer_->OnNavigationEntriesDeleted();
-  NotifyTabsChanged();
+  }
+  NotifyEntriesChanged();
 }
 
 const TabRestoreService::Entries& TabRestoreServiceHelper::entries() const {
@@ -407,19 +435,21 @@ const TabRestoreService::Entries& TabRestoreServiceHelper::entries() const {
 
 std::vector<LiveTab*> TabRestoreServiceHelper::RestoreMostRecentEntry(
     LiveTabContext* context) {
-  if (entries_.empty())
+  if (entries_.empty()) {
     return std::vector<LiveTab*>();
+  }
   return RestoreEntryById(context, entries_.front()->id,
                           WindowOpenDisposition::UNKNOWN);
 }
 
-void TabRestoreServiceHelper::RemoveTabEntryById(SessionID id) {
+void TabRestoreServiceHelper::RemoveEntryById(SessionID id) {
   auto it = GetEntryIteratorById(id);
-  if (it == entries_.end() || (*it)->type != TabRestoreService::TAB)
+  if (it == entries_.end()) {
     return;
+  }
 
   entries_.erase(it);
-  NotifyTabsChanged();
+  NotifyEntriesChanged();
 }
 
 std::vector<LiveTab*> TabRestoreServiceHelper::RestoreEntryById(
@@ -432,8 +462,9 @@ std::vector<LiveTab*> TabRestoreServiceHelper::RestoreEntryById(
     return std::vector<LiveTab*>();
   }
 
-  if (observer_)
+  if (observer_) {
     observer_->OnRestoreEntryById(id, entry_iterator);
+  }
   restoring_ = true;
   auto& entry = **entry_iterator;
 
@@ -539,8 +570,9 @@ std::vector<LiveTab*> TabRestoreServiceHelper::RestoreEntryById(
           SessionID::id_type restored_tab_browser_id;
           {
             const Tab& tab = *window.tabs[tab_i];
-            if (tab.id != id && tab.original_id != id)
+            if (tab.id != id && tab.original_id != id) {
               continue;
+            }
 
             restored_tab_browser_id = tab.browser_id;
             LiveTab* restored_tab = nullptr;
@@ -652,7 +684,7 @@ std::vector<LiveTab*> TabRestoreServiceHelper::RestoreEntryById(
   }
 
   restoring_ = false;
-  NotifyTabsChanged();
+  NotifyEntriesChanged();
   return live_tabs;
 }
 
@@ -660,7 +692,7 @@ bool TabRestoreServiceHelper::IsRestoring() const {
   return restoring_;
 }
 
-void TabRestoreServiceHelper::NotifyTabsChanged() {
+void TabRestoreServiceHelper::NotifyEntriesChanged() {
   for (auto& observer : observer_list_)
     observer.TabRestoreServiceChanged(tab_restore_service_);
 }
@@ -677,18 +709,21 @@ void TabRestoreServiceHelper::AddEntry(std::unique_ptr<Entry> entry,
     return;
   }
 
-  if (to_front)
+  if (to_front) {
     entries_.push_front(std::move(entry));
-  else
+  } else {
     entries_.push_back(std::move(entry));
+  }
 
   PruneEntries();
 
-  if (notify)
-    NotifyTabsChanged();
+  if (notify) {
+    NotifyEntriesChanged();
+  }
 
-  if (observer_)
+  if (observer_) {
     observer_->OnAddEntry();
+  }
 }
 
 void TabRestoreServiceHelper::PruneEntries() {
@@ -706,20 +741,23 @@ void TabRestoreServiceHelper::PruneEntries() {
 TabRestoreService::Entries::iterator
 TabRestoreServiceHelper::GetEntryIteratorById(SessionID id) {
   for (auto i = entries_.begin(); i != entries_.end(); ++i) {
-    if ((*i)->id == id || (*i)->original_id == id)
+    // Check if the current entry matches |id|. This can be a Tab, Group, or
+    // Window.
+    if ((*i)->id == id || (*i)->original_id == id) {
       return i;
+    }
 
     // For Window and Group entries, see if the ID matches a tab. If so, report
     // the window or group as the Entry.
     if ((*i)->type == TabRestoreService::WINDOW) {
-      auto& window = static_cast<const Window&>(**i);
+      const auto& window = static_cast<const Window&>(**i);
       for (const auto& tab : window.tabs) {
         if (tab->id == id || tab->original_id == id) {
           return i;
         }
       }
     } else if ((*i)->type == TabRestoreService::GROUP) {
-      auto& group = static_cast<const Group&>(**i);
+      const auto& group = static_cast<const Group&>(**i);
       for (const auto& tab : group.tabs) {
         if (tab->id == id || tab->original_id == id) {
           return i;
@@ -727,6 +765,7 @@ TabRestoreServiceHelper::GetEntryIteratorById(SessionID id) {
       }
     }
   }
+
   return entries_.end();
 }
 
@@ -778,8 +817,9 @@ bool TabRestoreServiceHelper::OnMemoryDump(
     entry_dump->AddScalar("age", MemoryAllocatorDump::kUnitsObjects,
                           age.InSeconds());
 
-    if (system_allocator_name)
+    if (system_allocator_name) {
       pmd->AddSuballocation(entry_dump->guid(), system_allocator_name);
+    }
   }
 
   return true;
@@ -826,13 +866,15 @@ void TabRestoreServiceHelper::PopulateTab(Tab* tab,
     tab->browser_id = context->GetSessionID().id();
     tab->pinned = context->IsTabPinned(tab->tabstrip_index);
     tab->group = context->GetTabGroupForTab(tab->tabstrip_index);
-    tab->group_visual_data =
-        tab->group.has_value()
-            ? std::optional<
-                  tab_groups::TabGroupVisualData>{*context
-                                                       ->GetVisualDataForGroup(
-                                                           tab->group.value())}
-            : std::nullopt;
+
+    if (tab->group.has_value()) {
+      tab->saved_group_id =
+          context->GetSavedTabGroupIdForGroup(tab->group.value());
+
+      tab->group_visual_data =
+          *context->GetVisualDataForGroup(tab->group.value());
+    }
+
     tab->extra_data = context->GetExtraDataForTab(tab->tabstrip_index);
   }
 }
@@ -863,8 +905,9 @@ LiveTabContext* TabRestoreServiceHelper::RestoreTab(
     if (tab.group.has_value()) {
       LiveTabContext* group_context =
           client_->FindLiveTabContextWithGroup(tab.group.value());
-      if (group_context)
+      if (group_context) {
         context = group_context;
+      }
     }
 
     int tab_index = -1;
@@ -879,8 +922,9 @@ LiveTabContext* TabRestoreServiceHelper::RestoreTab(
           context, SessionWindow::TYPE_NORMAL, std::string(), gfx::Rect(),
           ui::SHOW_STATE_NORMAL, std::string(), std::string(),
           std::map<std::string, std::string>());
-      if (tab.browser_id)
+      if (tab.browser_id) {
         UpdateTabBrowserIDs(tab.browser_id, context->GetSessionID());
+      }
     }
 
     // Place the tab at the end if the tab index is no longer valid or
@@ -901,8 +945,9 @@ LiveTabContext* TabRestoreServiceHelper::RestoreTab(
 
   client_->OnTabRestored(
       tab.navigations.at(tab.current_navigation_index).virtual_url());
-  if (live_tab)
+  if (live_tab) {
     *live_tab = restored_tab;
+  }
 
   return context;
 }
@@ -914,12 +959,14 @@ bool TabRestoreServiceHelper::ValidateTab(const Tab& tab) {
 }
 
 bool TabRestoreServiceHelper::ValidateWindow(const Window& window) {
-  if (static_cast<size_t>(window.selected_tab_index) >= window.tabs.size())
+  if (static_cast<size_t>(window.selected_tab_index) >= window.tabs.size()) {
     return false;
+  }
 
   for (const auto& tab : window.tabs) {
-    if (!ValidateTab(*tab))
+    if (!ValidateTab(*tab)) {
       return false;
+    }
   }
 
   return true;
@@ -927,30 +974,35 @@ bool TabRestoreServiceHelper::ValidateWindow(const Window& window) {
 
 bool TabRestoreServiceHelper::ValidateGroup(const Group& group) {
   for (const auto& tab : group.tabs) {
-    if (!ValidateTab(*tab))
+    if (!ValidateTab(*tab)) {
       return false;
+    }
   }
 
   return true;
 }
 
 bool TabRestoreServiceHelper::IsTabInteresting(const Tab& tab) {
-  if (tab.navigations.empty())
+  if (tab.navigations.empty()) {
     return false;
+  }
 
-  if (tab.navigations.size() > 1)
+  if (tab.navigations.size() > 1) {
     return true;
+  }
 
   return tab.pinned ||
          tab.navigations.at(0).virtual_url() != client_->GetNewTabURL();
 }
 
 bool TabRestoreServiceHelper::IsWindowInteresting(const Window& window) {
-  if (window.tabs.empty())
+  if (window.tabs.empty()) {
     return false;
+  }
 
-  if (window.tabs.size() > 1)
+  if (window.tabs.size() > 1) {
     return true;
+  }
 
   return IsTabInteresting(*window.tabs[0]);
 }
@@ -960,8 +1012,9 @@ bool TabRestoreServiceHelper::IsGroupInteresting(const Group& group) {
 }
 
 bool TabRestoreServiceHelper::FilterEntry(const Entry& entry) {
-  if (!ValidateEntry(entry))
+  if (!ValidateEntry(entry)) {
     return false;
+  }
 
   switch (entry.type) {
     case TabRestoreService::TAB:
@@ -980,8 +1033,9 @@ void TabRestoreServiceHelper::UpdateTabBrowserIDs(SessionID::id_type old_id,
   for (const auto& entry : entries_) {
     if (entry->type == TabRestoreService::TAB) {
       auto& tab = static_cast<Tab&>(*entry);
-      if (tab.browser_id == old_id)
+      if (tab.browser_id == old_id) {
         tab.browser_id = new_id.id();
+      }
     }
   }
 }

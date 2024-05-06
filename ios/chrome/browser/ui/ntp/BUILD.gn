@@ -133,7 +133,6 @@ source_set("coordinator") {
     "//ios/chrome/browser/ui/content_suggestions/cells:constants",
     "//ios/chrome/browser/ui/context_menu/link_preview",
     "//ios/chrome/browser/ui/ntp/feed_management",
-    "//ios/chrome/browser/ui/ntp/feed_promos",
     "//ios/chrome/browser/ui/ntp/feed_top_section",
     "//ios/chrome/browser/ui/ntp/incognito",
     "//ios/chrome/browser/ui/ntp/metrics",
@@ -293,6 +292,7 @@ source_set("feed_menu") {
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/signin/model",
     "//ui/strings",
   ]
@@ -366,26 +366,6 @@ source_set("unit_tests") {
     "//third_party/ocmock",
     "//ui/strings",
   ]
-}
-
-source_set("eg_app_support+eg2") {
-  configs += [ "//build/config/ios:xctest_config" ]
-  testonly = true
-  sources = [
-    "ntp_app_interface.h",
-    "ntp_app_interface.mm",
-  ]
-  deps = [ "//ios/chrome/browser/ui/ntp/metrics:home_metrics" ]
-}
-
-source_set("eg_test_support+eg2") {
-  configs += [ "//build/config/ios:xctest_config" ]
-  testonly = true
-  sources = [
-    "ntp_app_interface.h",
-    "ntp_app_interface_stub.mm",
-  ]
-  deps = [ "//ios/testing/earl_grey:eg_test_support+eg2" ]
 }
 
 source_set("eg2_tests") {

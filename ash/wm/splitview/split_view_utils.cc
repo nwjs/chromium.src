@@ -222,61 +222,6 @@ void AppendUIModeToHistogram(std::string& histogram_name) {
                             : ".ClamshellMode");
 }
 
-// Returns true if there is another fully visible (not occluded) window snapped
-// on the opposite side of `window` and we can't start partial overview in this
-// case.
-bool IsAnotherWindowSnappedOppositeOf(aura::Window* window) {
-  const auto windows =
-      Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk);
-  const auto opposite_snap_type = GetOppositeSnapType(window);
-
-  // Track the union bounds of the windows that are more recently used than the
-  // currently iterated window, i.e. `top_window` below to check the occlusion
-  // state of the opposite snapped window.
-  gfx::Rect union_bounds;
-  for (aura::Window* top_window : windows) {
-    const auto* top_window_state = WindowState::Get(top_window);
-    // The `top_window` should be excluded for occlusion check under the
-    // following conditions:
-    // 1. When it is the `window` itself;
-    // 2. When `top_window` is not on the same root window of the given
-    // `window`;
-    // 3. When it is the transient child of the `window`, for example the window
-    // layout menu or other bubble widget;
-    // 4. When it is not visible or minimized;
-    // 5. When it is a float or pip window.
-    const bool should_be_excluded_for_occlusion_check =
-        top_window == window ||
-        top_window->GetRootWindow() != window->GetRootWindow() ||
-        wm::GetTransientRoot(top_window) == window ||
-        !top_window->IsVisible() || top_window_state->IsMinimized() ||
-        top_window_state->IsFloated() || top_window_state->IsPip();
-
-    if (should_be_excluded_for_occlusion_check) {
-      continue;
-    }
-
-    const gfx::Rect top_window_bounds = top_window->GetBoundsInScreen();
-    if (top_window_state->GetStateType() == opposite_snap_type) {
-      // Ensure that `top_window` is fully visible by checking:
-      // 1. There is no window stacked above `top_window` with bounds
-      // confined or confining `top_window`. Note that if `union_bounds` is
-      // empty, `top_window` will be the topmost window snapped on the
-      // opposite position;
-      // 2. There is no window with bounds that intersect with `top_window`.
-      // See http://b/320759574#comment3 for more details with graphs.
-      if (!top_window_bounds.Intersects(union_bounds) &&
-          !union_bounds.Intersects(top_window_bounds)) {
-        return true;
-      }
-    }
-
-    union_bounds.Union(top_window_bounds);
-  }
-
-  return false;
-}
-
 // Returns true if there is no window in partial overview (excluding the given
 // `window`).
 bool IsPartialOverviewEmptyForActiveDesk(aura::Window* window) {
@@ -777,9 +722,9 @@ int GetEquivalentDividerPosition(aura::Window* window,
   const bool horizontal = IsLayoutHorizontal(root_window);
   const int window_length = GetWindowLength(window, horizontal);
   const int divider_delta =
-      account_for_divider_width ? kSplitviewDividerShortSideLength : 0;
+      account_for_divider_width ? kSplitviewDividerShortSideLength / 2.f : 0;
   return IsPhysicalLeftOrTop(window)
-             ? window_length
+             ? window_length - divider_delta
              : GetDividerPositionUpperLimit(root_window) - window_length -
                    divider_delta;
 }
@@ -828,7 +773,7 @@ gfx::Rect CalculateSnappedWindowBoundsInScreen(
       // If window with `window_for_minimum_size` gets snapped, the
       // `split_view_divider_` will then be adjusted to its default position and
       // `window_size` will be computed accordingly.
-      window_size = work_area_size / 2 - kSplitviewDividerShortSideLength / 2;
+      window_size = (work_area_size - kSplitviewDividerShortSideLength) / 2;
       // If `work_area_size` is odd, then the default divider position is
       // rounded down, toward the left or top, but then if `snap_left_or_top` is
       // false, that means `window_size` should now be rounded up.
@@ -906,6 +851,65 @@ bool CanSnapActionSourceStartFasterSplitView(
   }
 }
 
+bool ShouldExcludeForOcclusionCheck(const aura::Window* window,
+                                    const aura::Window* target_root) {
+  // `window` should be excluded for occlusion check under the following
+  // conditions:
+  // 1. When `window` is not on the same root window as `target_root`;
+  // 2. When it is not visible or minimized;
+  // 3. When it is a float or pip window.
+  if (window->GetRootWindow() != target_root || !window->IsVisible()) {
+    return true;
+  }
+  const auto* window_state = WindowState::Get(window);
+  return window_state->IsMinimized() || window_state->IsFloated() ||
+         window_state->IsPip();
+}
+
+aura::Window* GetOppositeVisibleSnappedWindow(aura::Window* window) {
+  // `BuildAppWindowList()` will exclude transient windows like the window
+  // layout menu and other bubble widgets.
+  const auto windows =
+      Shell::Get()->mru_window_tracker()->BuildAppWindowList(kActiveDesk);
+  const auto opposite_snap_type = GetOppositeSnapType(window);
+
+  // Track the union bounds of the windows that are more recently used than the
+  // currently iterated window, i.e. `top_window` below to check the occlusion
+  // state of the opposite snapped window.
+  gfx::Rect union_bounds;
+  for (aura::Window* top_window : windows) {
+    // The `top_window` should be excluded for occlusion check when it is the
+    // `window` itself or if `ShouldExcludeForOcclusionCheck()` is true.
+    const bool should_be_excluded_for_occlusion_check =
+        top_window == window ||
+        ShouldExcludeForOcclusionCheck(top_window, window->GetRootWindow());
+
+    if (should_be_excluded_for_occlusion_check) {
+      continue;
+    }
+
+    const auto* top_window_state = WindowState::Get(top_window);
+    const gfx::Rect top_window_bounds = top_window->GetBoundsInScreen();
+    if (top_window_state->GetStateType() == opposite_snap_type) {
+      // Ensure that `top_window` is fully visible by checking:
+      // 1. There is no window stacked above `top_window` with bounds
+      // confined or confining `top_window`. Note that if `union_bounds` is
+      // empty, `top_window` will be the topmost window snapped on the
+      // opposite position;
+      // 2. There is no window with bounds that intersect with `top_window`.
+      // See http://b/320759574#comment3 for more details with graphs.
+      if (!top_window_bounds.Intersects(union_bounds) &&
+          !union_bounds.Intersects(top_window_bounds)) {
+        return top_window;
+      }
+    }
+
+    union_bounds.Union(top_window_bounds);
+  }
+
+  return nullptr;
+}
+
 bool ShouldConsiderWindowForFasterSplitView(
     aura::Window* window,
     WindowSnapActionSource snap_action_source) {
@@ -939,11 +943,9 @@ bool CanStartSplitViewOverviewSessionInClamshell(
                 ->split_view_overview_session();
   }
 
-  // If `SnapGroups` is not enabled and the topmost window (excluding
-  // `window` itself) is snapped on the opposite side, don't start partial
-  // overview. Note even if a `SnapGroup` is created and visible, we will snap
-  // on top of the existing group.
-  if (IsAnotherWindowSnappedOppositeOf(window)) {
+  // Skip starting `SplitViewOverviewSession` if a fully visible window snapped
+  // on the opposite side.
+  if (GetOppositeVisibleSnappedWindow(window)) {
     return false;
   }
 
@@ -968,7 +970,7 @@ bool ShouldConsiderDivider(aura::Window* window) {
   if (IsSnapGroupEnabledInClamshellMode()) {
     if (auto* snap_group =
             SnapGroupController::Get()->GetSnapGroupForGivenWindow(window)) {
-      return snap_group->split_view_divider()->divider_widget();
+      return snap_group->snap_group_divider()->divider_widget();
     }
   }
   SplitViewController* split_view_controller =

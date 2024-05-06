@@ -56,12 +56,6 @@ BASE_FEATURE(kOmniboxRemoveSuggestionsFromClipboard,
              "OmniboxRemoveSuggestionsFromClipboard",
              enabled_by_default_android_only);
 
-// When enabled, uses the grouping framework with zero prefix suggestions (i.e.
-// autocomplete_grouper_sections.h) to limit and group (but not sort) matches.
-BASE_FEATURE(kGroupingFrameworkForZPS,
-             "OmniboxGroupingFrameworkForZPS",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, uses the grouping framework with prefixed suggestions (i.e.
 // autocomplete_grouper_sections.h) to limit and group (but not sort) matches.
 BASE_FEATURE(kGroupingFrameworkForNonZPS,
@@ -170,11 +164,6 @@ BASE_FEATURE(kZeroSuggestInMemoryCaching,
              "ZeroSuggestInMemoryCaching",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables on-focus zero-prefix suggestions on the NTP for signed-out users.
-BASE_FEATURE(kZeroSuggestOnNTPForSignedOutUsers,
-             "OmniboxTrendingZeroPrefixSuggestionsOnNTP",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables prefetching of the zero prefix suggestions for eligible users on NTP.
 BASE_FEATURE(kZeroSuggestPrefetching,
              "ZeroSuggestPrefetching",
@@ -196,7 +185,7 @@ BASE_FEATURE(kZeroSuggestPrefetchingOnWeb,
 // Android will not populate db regardless of this feature.
 BASE_FEATURE(kOmniboxPopulateShortcutsDatabase,
              "OmniboxPopulateShortcutsDatabase",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Features to provide head and tail non personalized search suggestion from
 // compact on device models. More specifically, feature name with suffix
@@ -480,16 +469,16 @@ BASE_FEATURE(kUrlScoringModel,
              "UrlScoringModel",
              enabled_by_default_desktop_only);
 
-// If enabled, appends additional Trending and Recent Search Related Queries to
-// the suggestion list on the NTP and SRP.
-BASE_FEATURE(kInspireMe, "OmniboxInspireMe", enabled_by_default_android_ios);
-
 // Actions in Suggest is a data-driven feature; it's considered enabled when the
 // data is available.
 // The feature flag below helps us tune feature behaviors.
 BASE_FEATURE(kActionsInSuggest,
              "OmniboxActionsInSuggest",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAnimateSuggestionsListAppearance,
+             "AnimateSuggestionsListAppearance",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOmniboxAnswerActions,
              "OmniboxAnswerActions",
@@ -547,10 +536,21 @@ BASE_FEATURE(kStarterPackExpansion,
              "StarterPackExpansion",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables an informational IPH message at the bottom of the Omnibox directing
+// users to certain starter pack engines.
+BASE_FEATURE(kStarterPackIPH,
+             "StarterPackIPH",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, |SearchProvider| will not function in Zero Suggest.
 BASE_FEATURE(kAblateSearchProviderWarmup,
              "AblateSearchProviderWarmup",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, hl= is reported in search requests (applicable to iOS only).
+BASE_FEATURE(kReportApplicationLanguageInSearchRequest,
+             "ReportApplicationLanguageInSearchRequest",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables storing successful query/match in the shortcut database On Android.
 BASE_FEATURE(kOmniboxShortcutsAndroid,

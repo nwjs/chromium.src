@@ -8,6 +8,7 @@
 
 #include "ash/webui/common/mojom/sea_pen.mojom.h"
 #include "base/logging.h"
+#include "base/strings/stringprintf.h"
 #include "chrome/browser/ash/wallpaper_handlers/sea_pen_utils_generated.h"
 #include "components/manta/proto/manta.pb.h"
 #include "ui/display/display.h"
@@ -41,13 +42,14 @@ gfx::Size GetLargestDisplaySizeLandscape() {
   return largest_size;
 }
 
-bool IsValidOutput(manta::proto::OutputData output,
+bool IsValidOutput(const manta::proto::OutputData& output,
                    const std::string_view source) {
   if (!output.has_generation_seed()) {
     LOG(WARNING) << "Manta output data missing id for " << source;
     return false;
   }
-  if (!output.has_image() || !output.image().has_serialized_bytes()) {
+  if (!output.has_image() || !output.image().has_serialized_bytes() ||
+      output.image().serialized_bytes().empty()) {
     LOG(WARNING) << "Manta output data missing image for" << source;
     return false;
   }
@@ -131,6 +133,34 @@ manta::proto::Request CreateMantaRequest(
     }
   }
   return request;
+}
+
+std::string GetFeedbackText(
+    const ash::personalization_app::mojom::SeaPenTemplateQueryPtr& query,
+    const ash::personalization_app::mojom::SeaPenFeedbackMetadataPtr&
+        metadata) {
+  if (!IsValidTemplateQuery(query)) {
+    return "";
+  }
+
+  std::string feedback_text;
+  base::StringAppendF(&feedback_text, "%s %s: %s\n",
+                      metadata->log_id.starts_with("VcBackground")
+                          ? "#VCBackground"
+                          : "#AIWallpaper",
+                      metadata->is_positive ? "Positive" : "Negative",
+                      query->user_visible_query->text.c_str());
+  base::StringAppendF(&feedback_text, "template: %s\n",
+                      metadata->log_id.c_str());
+  base::StringAppendF(&feedback_text, "options: ");
+  for (const auto& [chip, option] : query->options) {
+    base::StringAppendF(&feedback_text, "(%s, %s)",
+                        TemplateChipToString(chip).c_str(),
+                        TemplateOptionToString(option).c_str());
+  }
+  base::StringAppendF(&feedback_text, "\ngeneration_seed: %u\n",
+                      metadata->generation_seed);
+  return feedback_text;
 }
 
 }  // namespace wallpaper_handlers

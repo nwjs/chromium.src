@@ -287,6 +287,10 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdBackdrop;
     case kPseudoScrollbar:
       return kPseudoIdScrollbar;
+    case kPseudoScrollMarker:
+      return kPseudoIdScrollMarker;
+    case kPseudoScrollMarkers:
+      return kPseudoIdScrollMarkers;
     case kPseudoScrollbarButton:
       return kPseudoIdScrollbarButton;
     case kPseudoScrollbarCorner:
@@ -404,8 +408,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoRightPage:
     case kPseudoRoot:
     case kPseudoScope:
-    case kPseudoSelectAuthorButton:
-    case kPseudoSelectAuthorDatalist:
+    case kPseudoSelectDatalist:
     case kPseudoSelectorFragmentAnchor:
     case kPseudoSingleButton:
     case kPseudoSlotted:
@@ -467,9 +470,6 @@ const static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"-internal-multi-select-focus", CSSSelector::kPseudoMultiSelectFocus},
     {"-internal-popover-in-top-layer", CSSSelector::kPseudoPopoverInTopLayer},
     {"-internal-relative-anchor", CSSSelector::kPseudoRelativeAnchor},
-    {"-internal-select-author-button", CSSSelector::kPseudoSelectAuthorButton},
-    {"-internal-select-author-datalist",
-     CSSSelector::kPseudoSelectAuthorDatalist},
     {"-internal-selector-fragment-anchor",
      CSSSelector::kPseudoSelectorFragmentAnchor},
     {"-internal-shadow-host-has-appearance",
@@ -557,6 +557,9 @@ const static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"right", CSSSelector::kPseudoRightPage},
     {"root", CSSSelector::kPseudoRoot},
     {"scope", CSSSelector::kPseudoScope},
+    {"scroll-marker", CSSSelector::kPseudoScrollMarker},
+    {"scroll-markers", CSSSelector::kPseudoScrollMarkers},
+    {"select-fallback-datalist", CSSSelector::kPseudoSelectDatalist},
     {"selection", CSSSelector::kPseudoSelection},
     {"single-button", CSSSelector::kPseudoSingleButton},
     {"spelling-error", CSSSelector::kPseudoSpellingError},
@@ -665,9 +668,20 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
     return CSSSelector::kPseudoUnknown;
   }
 
+  if ((match->type == CSSSelector::kPseudoScrollMarker ||
+       match->type == CSSSelector::kPseudoScrollMarkers) &&
+      !RuntimeEnabledFeatures::CSSPseudoScrollMarkersEnabled()) {
+    return CSSSelector::kPseudoUnknown;
+  }
+
   if ((match->type == CSSSelector::kPseudoOpen ||
        match->type == CSSSelector::kPseudoClosed) &&
       !RuntimeEnabledFeatures::CSSPseudoOpenClosedEnabled()) {
+    return CSSSelector::kPseudoUnknown;
+  }
+
+  if (match->type == CSSSelector::kPseudoSelectDatalist &&
+      !RuntimeEnabledFeatures::StylableSelectEnabled()) {
     return CSSSelector::kPseudoUnknown;
   }
 
@@ -758,6 +772,9 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoScrollbarThumb:
     case kPseudoScrollbarTrack:
     case kPseudoScrollbarTrackPiece:
+    case kPseudoScrollMarker:
+    case kPseudoScrollMarkers:
+    case kPseudoSelectDatalist:
     case kPseudoSelection:
     case kPseudoWebKitCustomElement:
     case kPseudoSlotted:
@@ -867,8 +884,6 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoRequired:
     case kPseudoRoot:
     case kPseudoScope:
-    case kPseudoSelectAuthorButton:
-    case kPseudoSelectAuthorDatalist:
     case kPseudoSelectorFragmentAnchor:
     case kPseudoSingleButton:
     case kPseudoStart:
@@ -1426,7 +1441,8 @@ bool CSSSelector::IsTreeAbidingPseudoElement() const {
           GetPseudoType() == kPseudoMarker ||
           GetPseudoType() == kPseudoPlaceholder ||
           GetPseudoType() == kPseudoFileSelectorButton ||
-          GetPseudoType() == kPseudoBackdrop);
+          GetPseudoType() == kPseudoBackdrop ||
+          GetPseudoType() == kPseudoSelectDatalist);
 }
 
 bool CSSSelector::IsAllowedAfterPart() const {
@@ -1446,6 +1462,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoFileSelectorButton:
     case kPseudoFirstLine:
     case kPseudoFirstLetter:
+    case kPseudoSelectDatalist:
     case kPseudoSelection:
     case kPseudoTargetText:
     case kPseudoHighlight:
@@ -1456,6 +1473,20 @@ bool CSSSelector::IsAllowedAfterPart() const {
     default:
       return false;
   }
+}
+
+bool CSSSelector::IsOrContainsHostPseudoClass() const {
+  if (IsHostPseudoClass()) {
+    return true;
+  }
+  // Accept selector lists like :is(:host, .foo).
+  for (const CSSSelector* sub_selector = SelectorListOrParent(); sub_selector;
+       sub_selector = CSSSelectorList::Next(*sub_selector)) {
+    if (sub_selector->IsOrContainsHostPseudoClass()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 template <typename Functor>

@@ -114,8 +114,58 @@ mojom::IdentityType ConvertIdentityTypeToMojom(
   }
 }
 
-mojo_base::mojom::AbslStatusCode CovertStatusToMojomStatus(
-    absl::Status status) {
+mojom::CredentialType ConvertCredentialTypeToMojom(
+    ::nearby::internal::CredentialType credential_type) {
+  switch (credential_type) {
+    case ::nearby::internal::CredentialType::CREDENTIAL_TYPE_UNKNOWN:
+      return mojom::CredentialType::kCredentialTypeUnknown;
+    case ::nearby::internal::CredentialType::CREDENTIAL_TYPE_DEVICE:
+      return mojom::CredentialType::kCredentialTypeDevice;
+    case ::nearby::internal::CredentialType::CREDENTIAL_TYPE_GAIA:
+      return mojom::CredentialType::kCredentialTypeGaia;
+    default:
+      return mojom::CredentialType::kCredentialTypeUnknown;
+  }
+}
+
+::nearby::internal::CredentialType ConvertMojomCredentialType(
+    mojom::CredentialType credential_type) {
+  switch (credential_type) {
+    case mojom::CredentialType::kCredentialTypeUnknown:
+      return ::nearby::internal::CredentialType::CREDENTIAL_TYPE_UNKNOWN;
+    case mojom::CredentialType::kCredentialTypeDevice:
+      return ::nearby::internal::CredentialType::CREDENTIAL_TYPE_DEVICE;
+    case mojom::CredentialType::kCredentialTypeGaia:
+      return ::nearby::internal::CredentialType::CREDENTIAL_TYPE_GAIA;
+    default:
+      return ::nearby::internal::CredentialType::CREDENTIAL_TYPE_UNKNOWN;
+  }
+}
+
+mojom::ActionType ConvertActionTypeToMojom(uint32_t action) {
+  switch (::nearby::presence::ActionBit(action)) {
+    case ::nearby::presence::ActionBit::kActiveUnlockAction:
+      return mojom::ActionType::kActiveUnlockAction;
+    case ::nearby::presence::ActionBit::kNearbyShareAction:
+      return mojom::ActionType::kNearbyShareAction;
+    case ::nearby::presence::ActionBit::kInstantTetheringAction:
+      return mojom::ActionType::kInstantTetheringAction;
+    case ::nearby::presence::ActionBit::kPhoneHubAction:
+      return mojom::ActionType::kPhoneHubAction;
+    case ::nearby::presence::ActionBit::kPresenceManagerAction:
+      return mojom::ActionType::kPresenceManagerAction;
+    case ::nearby::presence::ActionBit::kFinderAction:
+      return mojom::ActionType::kFinderAction;
+    case ::nearby::presence::ActionBit::kFastPairSassAction:
+      return mojom::ActionType::kFastPairSassAction;
+    case ::nearby::presence::ActionBit::kTapToTransferAction:
+      return mojom::ActionType::kTapToTransferAction;
+    case ::nearby::presence::ActionBit::kLastAction:
+      return mojom::ActionType::kLastAction;
+  }
+}
+
+mojo_base::mojom::AbslStatusCode ConvertStatusToMojom(absl::Status status) {
   switch (status.code()) {
     case absl::StatusCode::kOk:
       return mojo_base::mojom::AbslStatusCode::kOk;
@@ -157,34 +207,9 @@ mojo_base::mojom::AbslStatusCode CovertStatusToMojomStatus(
   }
 }
 
-mojom::ActionType ConvertActionTypeToMojom(uint32_t action) {
-  switch (::nearby::presence::ActionBit(action)) {
-    case ::nearby::presence::ActionBit::kActiveUnlockAction:
-      return mojom::ActionType::kActiveUnlockAction;
-    case ::nearby::presence::ActionBit::kNearbyShareAction:
-      return mojom::ActionType::kNearbyShareAction;
-    case ::nearby::presence::ActionBit::kInstantTetheringAction:
-      return mojom::ActionType::kInstantTetheringAction;
-    case ::nearby::presence::ActionBit::kPhoneHubAction:
-      return mojom::ActionType::kPhoneHubAction;
-    case ::nearby::presence::ActionBit::kPresenceManagerAction:
-      return mojom::ActionType::kPresenceManagerAction;
-    case ::nearby::presence::ActionBit::kFinderAction:
-      return mojom::ActionType::kFinderAction;
-    case ::nearby::presence::ActionBit::kFastPairSassAction:
-      return mojom::ActionType::kFastPairSassAction;
-    case ::nearby::presence::ActionBit::kTapToTransferAction:
-      return mojom::ActionType::kTapToTransferAction;
-    case ::nearby::presence::ActionBit::kLastAction:
-      return mojom::ActionType::kLastAction;
-  }
-}
-
 mojom::SharedCredentialPtr SharedCredentialToMojom(
     ::nearby::internal::SharedCredential shared_credential) {
   return mojom::SharedCredential::New(
-      std::vector<uint8_t>(shared_credential.secret_id().begin(),
-                           shared_credential.secret_id().end()),
       std::vector<uint8_t>(shared_credential.key_seed().begin(),
                            shared_credential.key_seed().end()),
       shared_credential.start_time_millis(),
@@ -203,24 +228,34 @@ mojom::SharedCredentialPtr SharedCredentialToMojom(
           shared_credential.advertisement_signature_verification_key().end()),
       ConvertIdentityTypeToMojom(shared_credential.identity_type()),
       std::vector<uint8_t>(shared_credential.version().begin(),
-                           shared_credential.version().end()));
+                           shared_credential.version().end()),
+      ConvertCredentialTypeToMojom(shared_credential.credential_type()),
+      std::vector<uint8_t>(
+          shared_credential.encrypted_metadata_bytes_v1().begin(),
+          shared_credential.encrypted_metadata_bytes_v1().end()),
+      std::vector<uint8_t>(
+          shared_credential.metadata_encryption_key_unsigned_adv_tag_v1()
+              .begin(),
+          shared_credential.metadata_encryption_key_unsigned_adv_tag_v1()
+              .end()),
+      shared_credential.id(), shared_credential.dusi(),
+      std::vector<uint8_t>(shared_credential.signature_version().begin(),
+                           shared_credential.signature_version().end()));
 }
 
 ::nearby::internal::SharedCredential SharedCredentialFromMojom(
     mojom::SharedCredential* shared_credential) {
   ::nearby::internal::SharedCredential proto;
-  proto.set_secret_id(std::string(shared_credential->secret_id.begin(),
-                                  shared_credential->secret_id.end()));
   proto.set_key_seed(std::string(shared_credential->key_seed.begin(),
                                  shared_credential->key_seed.end()));
   proto.set_start_time_millis(shared_credential->start_time_millis);
   proto.set_end_time_millis(shared_credential->end_time_millis);
   proto.set_encrypted_metadata_bytes_v0(
-      std::string(shared_credential->encrypted_metadata_bytes.begin(),
-                  shared_credential->encrypted_metadata_bytes.end()));
+      std::string(shared_credential->encrypted_metadata_bytes_v0.begin(),
+                  shared_credential->encrypted_metadata_bytes_v0.end()));
   proto.set_metadata_encryption_key_tag_v0(
-      std::string(shared_credential->metadata_encryption_key_tag.begin(),
-                  shared_credential->metadata_encryption_key_tag.end()));
+      std::string(shared_credential->metadata_encryption_key_tag_v0.begin(),
+                  shared_credential->metadata_encryption_key_tag_v0.end()));
   proto.set_connection_signature_verification_key(std::string(
       shared_credential->connection_signature_verification_key.begin(),
       shared_credential->connection_signature_verification_key.end()));
@@ -231,6 +266,19 @@ mojom::SharedCredentialPtr SharedCredentialToMojom(
       ConvertMojomIdentityType(shared_credential->identity_type));
   proto.set_version(std::string(shared_credential->version.begin(),
                                 shared_credential->version.end()));
+  proto.set_credential_type(
+      ConvertMojomCredentialType(shared_credential->credential_type));
+  proto.set_encrypted_metadata_bytes_v1(
+      std::string(shared_credential->encrypted_metadata_bytes_v1.begin(),
+                  shared_credential->encrypted_metadata_bytes_v1.end()));
+  proto.set_metadata_encryption_key_unsigned_adv_tag_v1(std::string(
+      shared_credential->metadata_encryption_key_unsigned_adv_tag_v1.begin(),
+      shared_credential->metadata_encryption_key_unsigned_adv_tag_v1.end()));
+  proto.set_id(shared_credential->id);
+  proto.set_dusi(shared_credential->dusi);
+  proto.set_signature_version(
+      std::string(shared_credential->signature_version.begin(),
+                  shared_credential->signature_version.end()));
   return proto;
 }
 
@@ -242,9 +290,12 @@ mojom::PresenceDevicePtr BuildPresenceMojomDevice(
   }
 
   // TODO(b/276642472): Properly plumb type and stable_device_id.
-  return mojom::PresenceDevice::New(device.GetEndpointId(), std::move(actions),
-                                    /*stable_device_id=*/std::nullopt,
-                                    MetadataToMojom(device.GetMetadata()));
+  return mojom::PresenceDevice::New(
+      device.GetEndpointId(), std::move(actions),
+      /*stable_device_id=*/std::nullopt, MetadataToMojom(device.GetMetadata()),
+      device.GetDecryptSharedCredential()
+          ? SharedCredentialToMojom(device.GetDecryptSharedCredential().value())
+          : nullptr);
 }
 
 }  // namespace ash::nearby::presence

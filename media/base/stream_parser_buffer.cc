@@ -14,7 +14,7 @@ namespace media {
 
 scoped_refptr<StreamParserBuffer> StreamParserBuffer::CreateEOSBuffer() {
   return base::WrapRefCounted(
-      new StreamParserBuffer(nullptr, 0, false, DemuxerStream::UNKNOWN, 0));
+      new StreamParserBuffer(DecoderBufferType::kEndOfStream));
 }
 
 scoped_refptr<StreamParserBuffer> StreamParserBuffer::CopyFrom(
@@ -82,6 +82,9 @@ StreamParserBuffer::StreamParserBuffer(const uint8_t* data,
     set_is_key_frame(true);
 }
 
+StreamParserBuffer::StreamParserBuffer(DecoderBufferType decoder_buffer_type)
+    : DecoderBuffer(decoder_buffer_type) {}
+
 StreamParserBuffer::~StreamParserBuffer() = default;
 
 int StreamParserBuffer::GetConfigId() const {
@@ -123,6 +126,17 @@ void StreamParserBuffer::set_timestamp(base::TimeDelta timestamp) {
   DecoderBuffer::set_timestamp(timestamp);
   if (preroll_buffer_)
     preroll_buffer_->set_timestamp(timestamp);
+}
+
+size_t StreamParserBuffer::GetMemoryUsage() const {
+  size_t memory_usage = DecoderBuffer::GetMemoryUsage() -
+                        sizeof(DecoderBuffer) + sizeof(StreamParserBuffer);
+
+  if (preroll_buffer_) {
+    memory_usage += preroll_buffer_->GetMemoryUsage();
+  }
+
+  return memory_usage;
 }
 
 }  // namespace media

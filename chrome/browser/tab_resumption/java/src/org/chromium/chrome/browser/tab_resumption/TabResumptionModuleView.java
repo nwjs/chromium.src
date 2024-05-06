@@ -11,7 +11,9 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
-import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallback;
+import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallbacks;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
+import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 
 /**
  * The View for the tab resumption module, consisting of a header followed by suggestion tile(s).
@@ -19,7 +21,9 @@ import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.Sugge
 public class TabResumptionModuleView extends LinearLayout {
     private TabResumptionTileContainerView mTileContainerView;
     private UrlImageProvider mUrlImageProvider;
-    private SuggestionClickCallback mClickCallback;
+    private TabListFaviconProvider mFaviconProvider;
+    private ThumbnailProvider mThumbnailProvider;
+    private SuggestionClickCallbacks mClickCallbacks;
     private SuggestionBundle mBundle;
 
     private boolean mIsSuggestionBundleReady;
@@ -45,8 +49,18 @@ public class TabResumptionModuleView extends LinearLayout {
         renderIfReady();
     }
 
-    void setClickCallback(SuggestionClickCallback clickCallback) {
-        mClickCallback = clickCallback;
+    void setFaviconProvider(TabListFaviconProvider faviconProvider) {
+        mFaviconProvider = faviconProvider;
+        renderIfReady();
+    }
+
+    void setThumbnailProvider(ThumbnailProvider thumbnailProvider) {
+        mThumbnailProvider = thumbnailProvider;
+        renderIfReady();
+    }
+
+    void setClickCallbacks(SuggestionClickCallbacks clickCallbacks) {
+        mClickCallbacks = clickCallbacks;
         renderIfReady();
     }
 
@@ -68,14 +82,22 @@ public class TabResumptionModuleView extends LinearLayout {
     }
 
     private void renderIfReady() {
-        if (mIsSuggestionBundleReady && mUrlImageProvider != null && mClickCallback != null) {
+        if (mIsSuggestionBundleReady
+                && mUrlImageProvider != null
+                && mClickCallbacks != null
+                && mFaviconProvider != null
+                && mThumbnailProvider != null) {
             if (mBundle == null) {
                 mTileContainerView.removeAllViews();
                 mAllTilesTexts = null;
             } else {
                 mAllTilesTexts =
                         mTileContainerView.renderAllTiles(
-                                mBundle, mUrlImageProvider, mClickCallback);
+                                mBundle,
+                                mUrlImageProvider,
+                                mFaviconProvider,
+                                mThumbnailProvider,
+                                mClickCallbacks);
             }
             setContentDescriptionOfTabResumption();
         }

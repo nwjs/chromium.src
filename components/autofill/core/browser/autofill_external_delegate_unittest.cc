@@ -32,6 +32,7 @@
 #include "components/autofill/core/browser/browser_autofill_manager_test_api.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/metrics/autofill_in_devtools_metrics.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/granular_filling_metrics.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
@@ -145,12 +146,16 @@ class MockCreditCardAccessManager : public CreditCardAccessManager {
 class MockPersonalDataManager : public TestPersonalDataManager {
  public:
   MockPersonalDataManager() = default;
-  ~MockPersonalDataManager() override = default;
   MOCK_METHOD(void, AddObserver, (PersonalDataManagerObserver*), (override));
   MOCK_METHOD(void, RemoveObserver, (PersonalDataManagerObserver*), (override));
+  MOCK_METHOD(void, RemoveByGUID, (const std::string&), (override));
+};
+
+class MockAddressDataManager : public TestAddressDataManager {
+ public:
+  using TestAddressDataManager::TestAddressDataManager;
   MOCK_METHOD(bool, IsAutofillProfileEnabled, (), (const override));
   MOCK_METHOD(void, UpdateProfile, (const AutofillProfile&), (override));
-  MOCK_METHOD(void, RemoveByGUID, (const std::string&), (override));
 };
 
 class MockAutofillDriver : public TestAutofillDriver {
@@ -168,6 +173,10 @@ class MockAutofillDriver : public TestAutofillDriver {
   MOCK_METHOD(void,
               RendererShouldTriggerSuggestions,
               (const FieldGlobalId&, AutofillSuggestionTriggerSource),
+              (override));
+  MOCK_METHOD(void,
+              RendererShouldSetSuggestionAvailability,
+              (const FieldGlobalId&, mojom::AutofillSuggestionAvailability),
               (override));
 };
 
@@ -296,6 +305,9 @@ class AutofillExternalDelegateUnitTest : public testing::Test {
   void SetUp() override {
     client().set_personal_data_manager(
         std::make_unique<MockPersonalDataManager>());
+    pdm().set_address_data_manager(std::make_unique<MockAddressDataManager>(
+        base::BindRepeating(&PersonalDataManager::NotifyPersonalDataObserver,
+                            base::Unretained(&pdm()))));
     client().set_plus_address_delegate(
         std::make_unique<NiceMock<MockAutofillPlusAddressDelegate>>());
     autofill_driver_ =
@@ -358,6 +370,9 @@ class AutofillExternalDelegateUnitTest : public testing::Test {
   MockPersonalDataManager& pdm() {
     return *static_cast<MockPersonalDataManager*>(
         client().GetPersonalDataManager());
+  }
+  MockAddressDataManager& address_data_manager() {
+    return static_cast<MockAddressDataManager&>(pdm().address_data_manager());
   }
   MockAutofillPlusAddressDelegate& plus_address_delegate() {
     return static_cast<MockAutofillPlusAddressDelegate&>(
@@ -551,7 +566,7 @@ TEST_F(AutofillExternalDelegateUnitTest, UserCancelsEditing) {
       });
   // No changes should be saved when user cancels editing.
   EXPECT_CALL(pdm(), AddObserver).Times(0);
-  EXPECT_CALL(pdm(), UpdateProfile).Times(0);
+  EXPECT_CALL(address_data_manager(), UpdateProfile).Times(0);
   // The Autofill popup must be reopened when editor dialog is closed.
   EXPECT_CALL(driver(), RendererShouldTriggerSuggestions(
                             queried_field().global_id(),
@@ -581,7 +596,7 @@ TEST_F(AutofillExternalDelegateUnitTest, UserCancelsEditing_ManualFallback) {
       });
   // No changes should be saved when user cancels editing.
   EXPECT_CALL(pdm(), AddObserver).Times(0);
-  EXPECT_CALL(pdm(), UpdateProfile).Times(0);
+  EXPECT_CALL(address_data_manager(), UpdateProfile).Times(0);
   // The Autofill popup must be reopened when editor dialog is closed.
   EXPECT_CALL(driver(),
               RendererShouldTriggerSuggestions(
@@ -611,7 +626,7 @@ TEST_F(AutofillExternalDelegateUnitTest, UserSavesEdits) {
   // Updated Autofill profile must be persisted when user saves changes through
   // the address editor.
   EXPECT_CALL(pdm(), AddObserver(&external_delegate()));
-  EXPECT_CALL(pdm(), UpdateProfile(profile));
+  EXPECT_CALL(address_data_manager(), UpdateProfile(profile));
   // The Autofill popup must be reopened when editor dialog is closed.
   EXPECT_CALL(driver(), RendererShouldTriggerSuggestions(
                             queried_field().global_id(),
@@ -645,7 +660,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
   // PDM observer must be added only once.
   EXPECT_CALL(pdm(), AddObserver(&external_delegate()));
   // Changes to the Autofill profile must be persisted both times.
-  EXPECT_CALL(pdm(), UpdateProfile(profile)).Times(2);
+  EXPECT_CALL(address_data_manager(), UpdateProfile(profile)).Times(2);
 
   auto suggestion = Suggestion(PopupItemId::kEditAddressProfile);
   suggestion.payload = Suggestion::Guid(profile.guid());
@@ -672,7 +687,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
       });
 
   EXPECT_CALL(pdm(), AddObserver(&external_delegate()));
-  EXPECT_CALL(pdm(), UpdateProfile(profile));
+  EXPECT_CALL(address_data_manager(), UpdateProfile(profile));
 
   auto suggestion = Suggestion(PopupItemId::kEditAddressProfile);
   suggestion.payload = Suggestion::Guid(profile.guid());
@@ -1252,6 +1267,65 @@ TEST_F(AutofillExternalDelegateUnitTest,
       SuggestionPosition{.row = 0});
 }
 
+// Test that a11y autofill availability is set to `kNoSuggestions` when
+// the popup is open and if it was manually triggered on an unclassified field.
+TEST_F(AutofillExternalDelegateUnitTest,
+       AutofillSuggestionAvailability_ManuallFallback) {
+  IssueOnQuery(AutofillSuggestionTriggerSource::kManualFallbackAddress);
+  get_triggering_autofill_field()->SetTypeTo(AutofillType(UNKNOWN_TYPE));
+
+  std::vector<Suggestion> suggestions = {test::CreateAutofillSuggestion(
+      PopupItemId::kAddressEntry, u"Suggestion main_text")};
+  external_delegate().OnSuggestionsReturned(queried_field().global_id(),
+                                            suggestions);
+
+  EXPECT_CALL(driver(),
+              RendererShouldSetSuggestionAvailability(
+                  queried_field().global_id(),
+                  mojom::AutofillSuggestionAvailability::kNoSuggestions));
+
+  external_delegate().OnPopupShown();
+}
+
+// Test that a11y autofill availability is set to `kAutofillAvailable` when
+// the popup is open with regular autofill suggestions.
+TEST_F(AutofillExternalDelegateUnitTest,
+       AutofillSuggestionAvailability_Autofill) {
+  IssueOnQuery();
+
+  std::vector<Suggestion> suggestions = {
+      Suggestion(u"Suggestion main_text", PopupItemId::kAddressEntry)};
+  external_delegate().OnSuggestionsReturned(queried_field().global_id(),
+                                            suggestions);
+
+  EXPECT_CALL(driver(),
+              RendererShouldSetSuggestionAvailability(
+                  queried_field().global_id(),
+                  mojom::AutofillSuggestionAvailability::kAutofillAvailable));
+
+  external_delegate().OnPopupShown();
+}
+
+// Test that a11y autofill availability is set to `kAutocompleteAvailable` when
+// the popup is open with autocomplete suggestions.
+TEST_F(AutofillExternalDelegateUnitTest,
+       AutofillSuggestionAvailability_Autocomplete) {
+  IssueOnQuery();
+
+  std::vector<Suggestion> suggestions = {
+      Suggestion(u"Suggestion main_text", PopupItemId::kAutocompleteEntry)};
+  external_delegate().OnSuggestionsReturned(queried_field().global_id(),
+                                            suggestions);
+
+  EXPECT_CALL(
+      driver(),
+      RendererShouldSetSuggestionAvailability(
+          queried_field().global_id(),
+          mojom::AutofillSuggestionAvailability::kAutocompleteAvailable));
+
+  external_delegate().OnPopupShown();
+}
+
 // Test parameter data for asserting filling method metrics depending on the
 // suggestion (`PopupItemId`) accepted.
 struct FillingMethodMetricsTestParams {
@@ -1422,6 +1496,54 @@ TEST_F(AutofillExternalDelegateUnitTest, AcceptSuggestion) {
 }
 
 TEST_F(AutofillExternalDelegateUnitTest,
+       TestAddressSuggestionShown_MetricsEmitted) {
+  base::HistogramTester histogram_tester;
+  client().set_test_addresses({test::GetFullProfile()});
+  IssueOnQuery();
+  external_delegate().OnSuggestionsReturned(
+      queried_field().global_id(),
+      {test::CreateAutofillSuggestion(PopupItemId::kDevtoolsTestAddresses,
+                                      u"Devtools")});
+  external_delegate().OnPopupShown();
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.TestAddressesEvent",
+      autofill_metrics::AutofillInDevtoolsTestAddressesEvents::
+          kTestAddressesSuggestionShown,
+      1);
+}
+
+// Test that an accepted test address autofill suggestion will fill the form.
+TEST_F(AutofillExternalDelegateUnitTest, TestAddressSuggestion_FillAndPreview) {
+  IssueOnQuery();
+  const AutofillProfile profile = test::GetFullProfile();
+  client().set_test_addresses({profile});
+  const Suggestion suggestion = test::CreateAutofillSuggestion(
+      PopupItemId::kDevtoolsTestAddressEntry, u"John Legend",
+      Suggestion::Guid(profile.guid()));
+  base::HistogramTester histogram_tester;
+
+  // Test preview.
+  EXPECT_CALL(manager(), FillOrPreviewProfileForm(
+                             mojom::ActionPersistence::kPreview,
+                             HasQueriedFormId(), HasQueriedFieldId(), _, _));
+  external_delegate().DidSelectSuggestion(suggestion);
+
+  // Test fill.
+  EXPECT_CALL(manager(), FillOrPreviewProfileForm(
+                             mojom::ActionPersistence::kFill,
+                             HasQueriedFormId(), HasQueriedFieldId(), _, _));
+  EXPECT_CALL(client(),
+              HideAutofillPopup(PopupHidingReason::kAcceptSuggestion));
+  external_delegate().DidAcceptSuggestion(suggestion,
+                                          SuggestionPosition{.row = 0});
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.TestAddressesEvent",
+      autofill_metrics::AutofillInDevtoolsTestAddressesEvents::
+          kTestAddressesSuggestionSelected,
+      1);
+}
+
+TEST_F(AutofillExternalDelegateUnitTest,
        AcceptFirstPopupLevelSuggestion_LogSuggestionAcceptedMetric) {
   IssueOnQuery();
   const AutofillProfile profile = test::GetFullProfile();
@@ -1448,22 +1570,20 @@ TEST_F(AutofillExternalDelegateUnitTest,
       PopupItemId::kFillEverythingFromAddressProfile, u"John Legend",
       Suggestion::Guid(profile.guid()));
 
-  EXPECT_CALL(client(),
-              HideAutofillPopup(PopupHidingReason::kAcceptSuggestion));
-  // Test fill
-  EXPECT_CALL(manager(), FillOrPreviewProfileForm(
-                             mojom::ActionPersistence::kFill,
-                             HasQueriedFormId(), HasQueriedFieldId(), _, _));
-
-  external_delegate().DidAcceptSuggestion(suggestion,
-                                          SuggestionPosition{.row = 2});
-
-  // Test preview
+  // Test preview.
   EXPECT_CALL(manager(), FillOrPreviewProfileForm(
                              mojom::ActionPersistence::kPreview,
                              HasQueriedFormId(), HasQueriedFieldId(), _, _));
-
   external_delegate().DidSelectSuggestion(suggestion);
+
+  // Test fill.
+  EXPECT_CALL(manager(), FillOrPreviewProfileForm(
+                             mojom::ActionPersistence::kFill,
+                             HasQueriedFormId(), HasQueriedFieldId(), _, _));
+  EXPECT_CALL(client(),
+              HideAutofillPopup(PopupHidingReason::kAcceptSuggestion));
+  external_delegate().DidAcceptSuggestion(suggestion,
+                                          SuggestionPosition{.row = 2});
 }
 
 // Tests that when accepting a suggestion, the `AutofillSuggestionTriggerSource`
@@ -1670,17 +1790,48 @@ TEST_F(AutofillExternalDelegateUnitTest,
   const CreditCard enrolled_card =
       test::GetMaskedServerCardEnrolledIntoVirtualCardNumber();
   pdm().AddCreditCard(enrolled_card);
+
   Suggestion suggestion =
       test::CreateAutofillSuggestion(PopupItemId::kVirtualCreditCardEntry,
                                      /*main_text_value=*/u"Virtual credit card",
                                      Suggestion::Guid(enrolled_card.guid()));
   IssueOnQuery(AutofillSuggestionTriggerSource::kManualFallbackPayments);
-
   EXPECT_CALL(cc_access_manager(), FetchCreditCard).Times(0);
   EXPECT_CALL(manager(), AuthenticateThenFillCreditCardForm).Times(0);
   EXPECT_CALL(manager(), FillOrPreviewField).Times(0);
 
   external_delegate().DidSelectSuggestion(suggestion);
+}
+
+TEST_F(AutofillExternalDelegateUnitTest,
+       VirtualCreditCard_MerchantOptOut_CreditCardForm_NoPreview) {
+  IssueOnQuery();
+  CreditCard card = test::GetMaskedServerCard();
+  pdm().AddCreditCard(card);
+
+  EXPECT_CALL(manager(), FillOrPreviewCreditCardForm).Times(0);
+
+  Suggestion suggestion(PopupItemId::kVirtualCreditCardEntry);
+  suggestion.payload = Suggestion::Guid(card.guid());
+  suggestion.is_acceptable = false;
+  suggestion.apply_deactivated_style = true;
+  external_delegate().DidSelectSuggestion(suggestion);
+}
+
+TEST_F(AutofillExternalDelegateUnitTest,
+       VirtualCreditCard_MerchantOptOut_CreditCardForm_NoAccept) {
+  IssueOnQuery();
+  CreditCard card = test::GetMaskedServerCard();
+  pdm().AddCreditCard(card);
+  EXPECT_CALL(manager(), FillOrPreviewCreditCardForm).Times(0);
+  EXPECT_CALL(manager(), AuthenticateThenFillCreditCardForm).Times(0);
+  EXPECT_CALL(manager(), FillOrPreviewField).Times(0);
+  Suggestion suggestion(PopupItemId::kVirtualCreditCardEntry);
+  suggestion.payload = Suggestion::Guid(card.guid());
+  suggestion.is_acceptable = false;
+  suggestion.apply_deactivated_style = true;
+  external_delegate().DidAcceptSuggestion(suggestion,
+                                          SuggestionPosition{.row = 0});
 }
 
 TEST_F(AutofillExternalDelegateUnitTest,
@@ -1833,7 +1984,8 @@ TEST_P(GetLastFieldTypesToFillUnitTest, LastFieldTypesToFillForSection) {
   const AutofillProfile profile = test::GetFullProfile();
   pdm().AddProfile(profile);
   IssueOnQuery();
-  ON_CALL(pdm(), IsAutofillProfileEnabled).WillByDefault(Return(true));
+  ON_CALL(address_data_manager(), IsAutofillProfileEnabled)
+      .WillByDefault(Return(true));
   const Suggestion suggestion =
       params.popup_item_id == PopupItemId::kAddressFieldByFieldFilling
           ? CreateFieldByFieldFillingSuggestion(profile.guid(), NAME_FIRST)
@@ -2005,7 +2157,12 @@ class AutofillExternalDelegateUnitTest_UndoAutofill
 
 INSTANTIATE_TEST_SUITE_P(AutofillExternalDelegateUnitTest,
                          AutofillExternalDelegateUnitTest_UndoAutofill,
-                         testing::Bool());
+#if BUILDFLAG(IS_IOS)
+                         testing::Values(false)
+#else
+                         testing::Bool()
+#endif
+);
 
 // Test that the driver is directed to clear or undo the form after being
 // notified that the user accepted the suggestion to clear or undo the form.
@@ -2086,8 +2243,8 @@ TEST_F(AutofillExternalDelegateUnitTest,
       queried_field().global_id(), {Suggestion(PopupItemId::kScanCreditCard)});
   external_delegate().OnPopupShown();
 
-  external_delegate().DidAcceptSuggestion(Suggestion(PopupItemId::kClearForm),
-                                          SuggestionPosition{.row = 0});
+  external_delegate().DidAcceptSuggestion(
+      Suggestion(PopupItemId::kCreditCardEntry), SuggestionPosition{.row = 0});
 
   histogram.ExpectBucketCount("Autofill.ScanCreditCardPrompt",
                               AutofillMetrics::SCAN_CARD_ITEM_SHOWN, 1);
@@ -2369,7 +2526,7 @@ TEST_F(AutofillExternalDelegateCardsFromAccountTest,
                        1)));
 }
 
-// TODO(crbug.com/1510618): Add test case where 'Show cards from your Google
+// TODO(crbug.com/41483208): Add test case where 'Show cards from your Google
 // account' button is clicked. Encountered issues with test sync setup when
 // attempting to make it.
 

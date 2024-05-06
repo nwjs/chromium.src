@@ -54,6 +54,7 @@
 #include "third_party/blink/renderer/core/animation/timeline_range.h"
 #include "third_party/blink/renderer/core/animation/timing_calculations.h"
 #include "third_party/blink/renderer/core/css/cssom/css_unit_values.h"
+#include "third_party/blink/renderer/core/css/native_paint_image_generator.h"
 #include "third_party/blink/renderer/core/css/properties/css_property_ref.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
@@ -575,6 +576,27 @@ std::optional<AnimationTimeDelta> Animation::UnlimitedCurrentTime() const {
   return CalculateAnimationPlayState() == kPaused || !start_time_
              ? CurrentTimeInternal()
              : CalculateCurrentTime();
+}
+
+std::optional<double> Animation::progress() const {
+  std::optional<AnimationTimeDelta> current_time = CurrentTimeInternal();
+  if (!effect() || !current_time) {
+    return std::nullopt;
+  }
+
+  const AnimationTimeDelta effect_end = EffectEnd();
+  if (effect_end.is_zero()) {
+    if (current_time < AnimationTimeDelta()) {
+      return 0;
+    }
+    return 1;
+  }
+
+  if (effect_end.is_inf()) {
+    return 0;
+  }
+
+  return std::clamp<double>(*current_time / effect_end, 0, 1);
 }
 
 String Animation::playState() const {
@@ -1964,7 +1986,7 @@ void Animation::updatePlaybackRate(double playback_rate,
   }
 }
 
-ScriptPromiseTyped<Animation> Animation::finished(ScriptState* script_state) {
+ScriptPromise<Animation> Animation::finished(ScriptState* script_state) {
   if (!finished_promise_) {
     finished_promise_ = MakeGarbageCollected<AnimationPromise>(
         ExecutionContext::From(script_state));
@@ -1981,7 +2003,7 @@ ScriptPromiseTyped<Animation> Animation::finished(ScriptState* script_state) {
   return finished_promise_->Promise(script_state->World());
 }
 
-ScriptPromiseTyped<Animation> Animation::ready(ScriptState* script_state) {
+ScriptPromise<Animation> Animation::ready(ScriptState* script_state) {
   // Check for a pending state change prior to checking the ready promise, since
   // the pending check may force a style flush, which in turn could trigger a
   // reset of the ready promise when resolving a change to the
@@ -3042,12 +3064,9 @@ void Animation::NotifyProbe() {
   AnimationPlayState old_play_state = reported_play_state_;
   AnimationPlayState new_play_state =
       PendingInternal() ? kPending : CalculateAnimationPlayState();
+  probe::AnimationUpdated(document_, this);
 
   if (old_play_state != new_play_state) {
-    if (!PendingInternal()) {
-      probe::AnimationPlayStateChanged(document_, this, old_play_state,
-                                       new_play_state);
-    }
     reported_play_state_ = new_play_state;
 
     bool was_active = old_play_state == kPending || old_play_state == kRunning;
@@ -3272,8 +3291,7 @@ bool Animation::IsInDisplayLockedSubtree() {
 }
 
 void Animation::UpdateCompositedPaintStatus() {
-  if (!RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
-      !RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled())
+  if (!NativePaintImageGenerator::NativePaintWorkletAnimationsEnabled())
     return;
 
   KeyframeEffect* keyframe_effect = DynamicTo<KeyframeEffect>(content_.Get());

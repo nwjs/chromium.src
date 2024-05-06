@@ -35,20 +35,6 @@ typedef NS_ENUM(NSInteger, SignOutConfirmationChoice) {
 // that sync is replaced by sign-in.
 + (void)signOut;
 
-// Signs the primary account out of Chrome through the accounts list screen.
-// Taps the "Sign Out" button, and then validated the confirmation dialog
-// according to `confirmation`. Assumes that sync is not replaced by sign-in.
-+ (void)signOutWithConfirmationChoice:(SignOutConfirmationChoice)confirmation;
-
-// Taps the sign in confirmation page, scrolls first to make the OK button
-// visible on short devices (e.g. iPhone 5s).
-+ (void)tapSigninConfirmationDialog;
-
-// Taps on the "ADD ACCOUNT" button in the unified consent, to display the
-// SSO dialog.
-// This method should only be used with UnifiedConsent flag.
-+ (void)tapAddAccountButton;
-
 // Opens the confirmation dialog to remove an account from the device, without
 // confirming it.
 + (void)openRemoveAccountConfirmationDialogWithFakeIdentity:

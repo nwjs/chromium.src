@@ -418,32 +418,6 @@ metrics consent we also won't be able to send UMA metrics. -->
   <int value="34" label="Crostini.OomEvent"/>
 </enum>
 
-<enum name="CrosHibernateAbortReason">
-  <int value="0" label="Unknown"/>
-  <int value="1" label="Not enough free memory"/>
-  <int value="2" label="Not enough free disk space"/>
-  <int value="3" label="Update Engine is active"/>
-  <int value="4" label="Hiberimage is not set up"/>
-  <int value="5" label="Prior user logout"/>
-  <int value="6" label="PinWeaver has credentials"/>
-</enum>
-
-<enum name="CrosHibernateCycleEvent">
-  <int value="0" label="SuspendAttempt"/>
-  <int value="1" label="SuspendSuccess"/>
-  <int value="2" label="SuspendFailure"/>
-  <int value="3" label="ResumeAttempt"/>
-  <int value="4" label="ResumeSuccess"/>
-  <int value="5" label="ResumeFailure"/>
-  <int value="6" label="ResumePending"/>
-  <int value="7" label="ResumeSkippedUserMismatch"/>
-</enum>
-
-<enum name="CrosHibernateFileSystemStatus">
-  <int value="0" label="Clean"/>
-  <int value="1" label="Has errors"/>
-</enum>
-
 <enum name="CrosTPMDictionaryAttackResetStatusEnum">
   <int value="0" label="Reset not necessary"/>
   <int value="1" label="Reset attempt succeeded"/>
@@ -533,13 +507,6 @@ metrics consent we also won't be able to send UMA metrics. -->
   <int value="257578340" label="GSCVDLockedToZZCR564"/>
   <int value="268435456" label="SettingNotProvisioned"/>
   <int value="285212672" label="NonZeroGbbFlags"/>
-</enum>
-
-<enum name="Exynos5250LotIdEnum">
-  <int value="0" label="Fused device"/>
-  <int value="1" label="Generic unfused device"/>
-  <int value="2" label="Unfused; lot ID NZVPU"/>
-  <int value="3" label="Unfused; lot ID NZVR7"/>
 </enum>
 
 <enum name="FeatureManagementScopeLevel">
@@ -2430,6 +2397,7 @@ Full version information for the fingerprint enum values:
   <int value="79646227" label="CROS Ti50 0.24.60"/>
   <int value="91611772" label="CROS Cr50 0.4.21"/>
   <int value="91664959" label="CROS Cr50 0.0.16"/>
+  <int value="100632617" label="CROS Ti50 0.23.81"/>
   <int value="113099773" label="CROS Cr50 0.0.23 Eve Flags 0x7f00(prod)"/>
   <int value="125416236" label="CROS Cr50 0.3.7"/>
   <int value="129455924" label="CROS Cr50 0.5.215"/>
@@ -2521,6 +2489,7 @@ Full version information for the fingerprint enum values:
   <int value="1039624416" label="CROS Cr50 0.3.10"/>
   <int value="1048372479" label="CROS Cr50 0.6.4"/>
   <int value="1051360156" label="CROS Cr50 0.6.230"/>
+  <int value="1052367128" label="CROS Ti50 0.24.81"/>
   <int value="1053975981" label="CROS Cr50 0.5.141"/>
   <int value="1065916186" label="CROS Cr50 0.0.19"/>
   <int value="1069046756" label="CROS Cr50 0.5.51"/>
@@ -2611,6 +2580,7 @@ Full version information for the fingerprint enum values:
   <int value="1902169266" label="CROS Cr50 0.4.16"/>
   <int value="1903933708" label="CROS Cr50 0.4.3 Flags 0x10(pre-pvt)"/>
   <int value="1911169399" label="CROS Ti50 0.23.70"/>
+  <int value="1912806644" label="CROS Ti50 0.23.74"/>
   <int value="1934507294" label="CROS Ti50 0.0.13"/>
   <int value="1935803215" label="CROS Cr50 0.3.25"/>
   <int value="1941011596" label="IFX 9655 rev 35 fw 4.34 build 03f2"/>

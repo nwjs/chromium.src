@@ -107,13 +107,18 @@ Account ConvertFieldsToAccount(
   Account::LoginState login_state =
       is_sign_in ? Account::LoginState::kSignIn : Account::LoginState::kSignUp;
 
-  GURL picture_url = *url::GURLAndroid::ToNativeGURL(env, picture_url_obj);
+  GURL picture_url = url::GURLAndroid::ToNativeGURL(env, picture_url_obj);
 
-  // The login hints and domain hints are only used before account selection.
+  // The following fields are only used before account selection.
   std::vector<std::string> login_hints;
   std::vector<std::string> domain_hints;
+  std::vector<std::string> labels;
+  Account::LoginState browser_trusted_login_state =
+      Account::LoginState::kSignUp;
+
   return Account(account_id, email, name, given_name, picture_url,
-                 std::move(login_hints), std::move(domain_hints), login_state);
+                 std::move(login_hints), std::move(domain_hints),
+                 std::move(labels), login_state, browser_trusted_login_state);
 }
 
 ScopedJavaLocalRef<jstring> ConvertRpContextToJavaString(
@@ -312,7 +317,7 @@ void AccountSelectionViewAndroid::OnAccountSelected(
     const JavaParamRef<jobjectArray>& account_string_fields,
     const JavaParamRef<jobject>& account_picture_url,
     bool is_sign_in) {
-  GURL config_url = *url::GURLAndroid::ToNativeGURL(env, idp_config_url);
+  GURL config_url = url::GURLAndroid::ToNativeGURL(env, idp_config_url);
   delegate_->OnAccountSelected(
       config_url, ConvertFieldsToAccount(env, account_string_fields,
                                          account_picture_url, is_sign_in));
@@ -329,8 +334,8 @@ void AccountSelectionViewAndroid::OnLoginToIdP(
     JNIEnv* env,
     const JavaParamRef<jobject>& idp_config_url,
     const JavaParamRef<jobject>& idp_login_url) {
-  GURL config_url = *url::GURLAndroid::ToNativeGURL(env, idp_config_url);
-  GURL login_url = *url::GURLAndroid::ToNativeGURL(env, idp_login_url);
+  GURL config_url = url::GURLAndroid::ToNativeGURL(env, idp_config_url);
+  GURL login_url = url::GURLAndroid::ToNativeGURL(env, idp_login_url);
   delegate_->OnLoginToIdP(config_url, login_url);
 }
 

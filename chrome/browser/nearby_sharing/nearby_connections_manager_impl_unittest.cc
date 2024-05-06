@@ -13,14 +13,12 @@
 #include "base/test/bind.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/nearby_sharing/common/nearby_share_features.h"
-#include "chrome/browser/nearby_sharing/constants.h"
-#include "chrome/browser/nearby_sharing/nearby_connection_impl.h"
-#include "chrome/services/sharing/nearby/common/nearby_features.h"
 #include "chrome/test/base/testing_browser_process.h"
+#include "chromeos/ash/components/nearby/common/connections_manager/nearby_connection_impl.h"
 #include "chromeos/ash/services/nearby/public/cpp/mock_nearby_connections.h"
 #include "chromeos/ash/services/nearby/public/cpp/mock_nearby_process_manager.h"
 #include "chromeos/ash/services/nearby/public/mojom/nearby_connections_types.mojom.h"
+#include "components/cross_device/nearby/nearby_features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/mock_network_change_notifier.h"
@@ -52,6 +50,9 @@ const uint64_t kBytesTransferred = 721831;
 const uint8_t kPayload[] = {0x0f, 0x0a, 0x0c, 0x0e};
 const uint8_t kBluetoothMacAddress[] = {0x00, 0x00, 0xe6, 0x88, 0x64, 0x13};
 const char kInvalidBluetoothMacAddress[] = {0x07, 0x07, 0x07};
+
+// Timeout for initiating a connection to a remote device.
+constexpr base::TimeDelta kInitiateNearbyConnectionTimeout = base::Seconds(60);
 
 void VerifyFileReadWrite(base::File& input_file, base::File& output_file) {
   base::ScopedAllowBlockingForTesting allow_blocking;
@@ -167,7 +168,8 @@ ash::nearby::presence::mojom::PresenceDevicePtr BuildPresenceMojomDevice(
 
   return ash::nearby::presence::mojom::PresenceDevice::New(
       device.GetEndpointId(), std::move(actions),
-      /*stable_device_id=*/std::nullopt, MetadataToMojom(device.GetMetadata()));
+      /*stable_device_id=*/std::nullopt, MetadataToMojom(device.GetMetadata()),
+      /*decrypt_shared_credential=*/nullptr);
 }
 
 }  // namespace
@@ -280,7 +282,7 @@ class NearbyConnectionsManagerImplTest : public testing::Test {
 
   void StartDiscovery(
       mojo::Remote<EndpointDiscoveryListener>& listener_remote,
-      DataUsage data_usage,
+      NearbyConnectionsManager::DataUsage data_usage,
       testing::NiceMock<MockDiscoveryListener>& discovery_listener) {
     EXPECT_CALL(nearby_connections_, StartDiscovery)
         .WillOnce([&listener_remote, this](
@@ -344,7 +346,8 @@ class NearbyConnectionsManagerImplTest : public testing::Test {
         });
     nearby_connections_manager_->StartAdvertising(
         local_endpoint_info, &incoming_connection_listener,
-        PowerLevel::kHighPower, DataUsage::kOnline, std::move(callback));
+        NearbyConnectionsManager::PowerLevel::kHighPower,
+        NearbyConnectionsManager::DataUsage::kOnline, std::move(callback));
     run_loop.Run();
   }
 
@@ -382,7 +385,8 @@ class NearbyConnectionsManagerImplTest : public testing::Test {
     NearbyConnection* nearby_connection;
     nearby_connections_manager_->Connect(
         local_endpoint_info, kRemoteEndpointId,
-        /*bluetooth_mac_address=*/std::nullopt, DataUsage::kOffline,
+        /*bluetooth_mac_address=*/std::nullopt,
+        NearbyConnectionsManager::DataUsage::kOffline,
         base::BindLambdaForTesting([&](NearbyConnection* connection) {
           nearby_connection = connection;
         }));
@@ -548,7 +552,7 @@ class NearbyConnectionsManagerImplTest : public testing::Test {
     base::RunLoop accept_or_reject_run_loop;
     NearbyConnection* nearby_connection;
     nearby_connections_manager_->ConnectV3(
-        remote_presence_device, DataUsage::kOffline,
+        remote_presence_device, NearbyConnectionsManager::DataUsage::kOffline,
         base::BindLambdaForTesting([&](NearbyConnection* connection) {
           nearby_connection = connection;
 
@@ -603,7 +607,8 @@ class NearbyConnectionsManagerImplTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   bool should_use_web_rtc_ = true;
   bool should_use_wifilan_ = false;
-  DataUsage default_data_usage_ = DataUsage::kWifiOnly;
+  NearbyConnectionsManager::DataUsage default_data_usage_ =
+      NearbyConnectionsManager::DataUsage::kWifiOnly;
   std::unique_ptr<net::test::MockNetworkChangeNotifier> network_notifier_ =
       net::test::MockNetworkChangeNotifier::Create();
   base::ScopedDisallowBlocking disallow_blocking_;
@@ -715,8 +720,11 @@ TEST_F(NearbyConnectionsManagerImplTest, StopDiscoveryBeforeStart) {
 /******************************************************************************/
 // Begin: NearbyConnectionsManagerImplTestConnectionMediums
 /******************************************************************************/
-using ConnectionMediumsTestParam = std::
-    tuple<DataUsage, net::NetworkChangeNotifier::ConnectionType, bool, bool>;
+using ConnectionMediumsTestParam =
+    std::tuple<NearbyConnectionsManager::DataUsage,
+               net::NetworkChangeNotifier::ConnectionType,
+               bool,
+               bool>;
 class NearbyConnectionsManagerImplTestConnectionMediums
     : public NearbyConnectionsManagerImplTest,
       public testing::WithParamInterface<ConnectionMediumsTestParam> {};
@@ -724,7 +732,7 @@ class NearbyConnectionsManagerImplTestConnectionMediums
 TEST_P(NearbyConnectionsManagerImplTestConnectionMediums,
        RequestConnection_MediumSelection) {
   const ConnectionMediumsTestParam& param = GetParam();
-  DataUsage data_usage = std::get<0>(param);
+  NearbyConnectionsManager::DataUsage data_usage = std::get<0>(param);
   net::NetworkChangeNotifier::ConnectionType connection_type =
       std::get<1>(param);
   bool is_webrtc_enabled = std::get<2>(GetParam());
@@ -748,9 +756,9 @@ TEST_P(NearbyConnectionsManagerImplTestConnectionMediums,
   network_notifier_->SetConnectionType(connection_type);
   network_notifier_->SetUseDefaultConnectionCostImplementation(true);
   bool should_use_internet =
-      data_usage != DataUsage::kOffline &&
+      data_usage != NearbyConnectionsManager::DataUsage::kOffline &&
       connection_type != net::NetworkChangeNotifier::CONNECTION_NONE &&
-      (data_usage != DataUsage::kWifiOnly ||
+      (data_usage != NearbyConnectionsManager::DataUsage::kWifiOnly ||
        (net::NetworkChangeNotifier::GetConnectionCost() !=
         net::NetworkChangeNotifier::CONNECTION_COST_METERED));
   bool is_connection_wifi_or_ethernet =
@@ -801,9 +809,9 @@ INSTANTIATE_TEST_SUITE_P(
     NearbyConnectionsManagerImplTestConnectionMediums,
     NearbyConnectionsManagerImplTestConnectionMediums,
     testing::Combine(
-        testing::Values(DataUsage::kWifiOnly,
-                        DataUsage::kOffline,
-                        DataUsage::kOnline),
+        testing::Values(NearbyConnectionsManager::DataUsage::kWifiOnly,
+                        NearbyConnectionsManager::DataUsage::kOffline,
+                        NearbyConnectionsManager::DataUsage::kOnline),
         testing::Values(net::NetworkChangeNotifier::CONNECTION_NONE,
                         net::NetworkChangeNotifier::CONNECTION_WIFI,
                         net::NetworkChangeNotifier::CONNECTION_3G),
@@ -861,9 +869,9 @@ TEST_P(NearbyConnectionsManagerImplTestConnectionBluetoothMacAddress,
             run_loop.Quit();
           });
 
-  nearby_connections_manager_->Connect(local_endpoint_info, kRemoteEndpointId,
-                                       GetParam().bluetooth_mac_address,
-                                       DataUsage::kOffline, base::DoNothing());
+  nearby_connections_manager_->Connect(
+      local_endpoint_info, kRemoteEndpointId, GetParam().bluetooth_mac_address,
+      NearbyConnectionsManager::DataUsage::kOffline, base::DoNothing());
 
   run_loop.Run();
 }
@@ -1363,7 +1371,8 @@ TEST_F(NearbyConnectionsManagerImplTest, ConnectTimeout) {
   NearbyConnection* nearby_connection = nullptr;
   nearby_connections_manager_->Connect(
       local_endpoint_info, kRemoteEndpointId,
-      /*bluetooth_mac_address=*/std::nullopt, DataUsage::kOffline,
+      /*bluetooth_mac_address=*/std::nullopt,
+      NearbyConnectionsManager::DataUsage::kOffline,
       base::BindLambdaForTesting([&](NearbyConnection* connection) {
         nearby_connection = connection;
         run_loop.Quit();
@@ -1717,11 +1726,63 @@ TEST_F(NearbyConnectionsManagerImplTest, ClearIncomingPayloads) {
   EXPECT_FALSE(nearby_connections_manager_->GetIncomingPayload(kPayloadId));
 }
 
+TEST_F(NearbyConnectionsManagerImplTest, ClearIncomingPayloadWithId) {
+  mojo::Remote<ConnectionLifecycleListener> connection_listener_remote;
+  testing::NiceMock<MockIncomingConnectionListener>
+      incoming_connection_listener;
+  StartAdvertising(connection_listener_remote, incoming_connection_listener);
+
+  mojo::Remote<PayloadListener> payload_listener_remote;
+  NearbyConnection* connection = OnIncomingConnection(
+      connection_listener_remote, incoming_connection_listener,
+      payload_listener_remote);
+  EXPECT_TRUE(connection);
+
+  testing::NiceMock<MockPayloadStatusListener> payload_listener;
+  nearby_connections_manager_->RegisterPayloadStatusListener(
+      kPayloadId, payload_listener.GetWeakPtr());
+  nearby_connections_manager_->RegisterPayloadStatusListener(
+      kPayloadId2, payload_listener.GetWeakPtr());
+
+  base::File file_1, file_2;
+  InitializeTemporaryFile(file_1);
+  InitializeTemporaryFile(file_2);
+  payload_listener_remote->OnPayloadReceived(
+      kRemoteEndpointId,
+      Payload::New(kPayloadId, PayloadContent::NewFile(
+                                   FilePayload::New(std::move(file_1)))));
+  payload_listener_remote->OnPayloadReceived(
+      kRemoteEndpointId,
+      Payload::New(kPayloadId2, PayloadContent::NewFile(
+                                    FilePayload::New(std::move(file_2)))));
+
+  base::RunLoop payload_run_loop;
+  testing::InSequence seq;
+  EXPECT_CALL(payload_listener, OnStatusUpdate(testing::_, testing::_));
+  EXPECT_CALL(payload_listener, OnStatusUpdate(testing::_, testing::_))
+      .WillOnce([&payload_run_loop]() { payload_run_loop.Quit(); });
+
+  payload_listener_remote->OnPayloadTransferUpdate(
+      kRemoteEndpointId,
+      PayloadTransferUpdate::New(kPayloadId, PayloadStatus::kSuccess,
+                                 kTotalSize, /*bytes_transferred=*/kTotalSize));
+  payload_listener_remote->OnPayloadTransferUpdate(
+      kRemoteEndpointId,
+      PayloadTransferUpdate::New(kPayloadId2, PayloadStatus::kSuccess,
+                                 kTotalSize, /*bytes_transferred=*/kTotalSize));
+  payload_run_loop.Run();
+
+  nearby_connections_manager_->ClearIncomingPayloadWithId(kPayloadId);
+
+  EXPECT_FALSE(nearby_connections_manager_->GetIncomingPayload(kPayloadId));
+  EXPECT_TRUE(nearby_connections_manager_->GetIncomingPayload(kPayloadId2));
+}
+
 /******************************************************************************/
 // Begin: NearbyConnectionsManagerImplTestMediums
 /******************************************************************************/
-using MediumsTestParam = std::tuple<PowerLevel,
-                                    DataUsage,
+using MediumsTestParam = std::tuple<NearbyConnectionsManager::PowerLevel,
+                                    NearbyConnectionsManager::DataUsage,
                                     net::NetworkChangeNotifier::ConnectionType,
                                     bool,
                                     bool>;
@@ -1731,8 +1792,8 @@ class NearbyConnectionsManagerImplTestMediums
 
 TEST_P(NearbyConnectionsManagerImplTestMediums, StartAdvertising_Options) {
   const MediumsTestParam& param = GetParam();
-  PowerLevel power_level = std::get<0>(param);
-  DataUsage data_usage = std::get<1>(param);
+  NearbyConnectionsManager::PowerLevel power_level = std::get<0>(param);
+  NearbyConnectionsManager::DataUsage data_usage = std::get<1>(param);
   net::NetworkChangeNotifier::ConnectionType connection_type =
       std::get<2>(param);
   bool is_webrtc_enabled = std::get<3>(GetParam());
@@ -1745,13 +1806,15 @@ TEST_P(NearbyConnectionsManagerImplTestMediums, StartAdvertising_Options) {
   network_notifier_->SetConnectionType(connection_type);
   network_notifier_->SetUseDefaultConnectionCostImplementation(true);
   should_use_web_rtc_ =
-      is_webrtc_enabled && data_usage != DataUsage::kOffline &&
+      is_webrtc_enabled &&
+      data_usage != NearbyConnectionsManager::DataUsage::kOffline &&
       connection_type != net::NetworkChangeNotifier::CONNECTION_NONE &&
-      (data_usage != DataUsage::kWifiOnly ||
+      (data_usage != NearbyConnectionsManager::DataUsage::kWifiOnly ||
        (net::NetworkChangeNotifier::GetConnectionCost() !=
         net::NetworkChangeNotifier::CONNECTION_COST_METERED));
 
-  bool is_high_power = power_level == PowerLevel::kHighPower;
+  bool is_high_power =
+      power_level == NearbyConnectionsManager::PowerLevel::kHighPower;
   bool use_ble = is_ble_v2_enabled || !is_high_power;
 
   // TODO(crbug.com/1129069): Update when WiFi LAN is supported.
@@ -1801,10 +1864,11 @@ INSTANTIATE_TEST_SUITE_P(
     NearbyConnectionsManagerImplTestMediums,
     NearbyConnectionsManagerImplTestMediums,
     testing::Combine(
-        testing::Values(PowerLevel::kLowPower, PowerLevel::kHighPower),
-        testing::Values(DataUsage::kWifiOnly,
-                        DataUsage::kOffline,
-                        DataUsage::kOnline),
+        testing::Values(NearbyConnectionsManager::PowerLevel::kLowPower,
+                        NearbyConnectionsManager::PowerLevel::kHighPower),
+        testing::Values(NearbyConnectionsManager::DataUsage::kWifiOnly,
+                        NearbyConnectionsManager::DataUsage::kOffline,
+                        NearbyConnectionsManager::DataUsage::kOnline),
         testing::Values(net::NetworkChangeNotifier::CONNECTION_NONE,
                         net::NetworkChangeNotifier::CONNECTION_WIFI,
                         net::NetworkChangeNotifier::CONNECTION_3G),
@@ -1883,7 +1947,8 @@ TEST_F(NearbyConnectionsManagerImplTest, ShutdownDiscoveryConnectionFails) {
   NearbyConnection* nearby_connection;
   nearby_connections_manager_->Connect(
       local_endpoint_info, kRemoteEndpointId,
-      /*bluetooth_mac_address=*/std::nullopt, DataUsage::kOffline,
+      /*bluetooth_mac_address=*/std::nullopt,
+      NearbyConnectionsManager::DataUsage::kOffline,
       base::BindLambdaForTesting([&](NearbyConnection* connection) {
         nearby_connection = connection;
         connect_run_loop.Quit();
@@ -2017,8 +2082,9 @@ TEST_F(NearbyConnectionsManagerImplTest, RequestConnectionV3Initiated) {
             request_connection_run_loop.Quit();
           });
 
-  nearby_connections_manager_->ConnectV3(presence_device, DataUsage::kOffline,
-                                         base::DoNothing());
+  nearby_connections_manager_->ConnectV3(
+      presence_device, NearbyConnectionsManager::DataUsage::kOffline,
+      base::DoNothing());
   request_connection_run_loop.Run();
 }
 
@@ -2116,8 +2182,9 @@ TEST_F(NearbyConnectionsManagerImplTest, OnConnectionRequestedV3) {
             request_connection_run_loop.Quit();
           });
 
-  nearby_connections_manager_->ConnectV3(presence_device, DataUsage::kOffline,
-                                         base::DoNothing());
+  nearby_connections_manager_->ConnectV3(
+      presence_device, NearbyConnectionsManager::DataUsage::kOffline,
+      base::DoNothing());
   request_connection_run_loop.Run();
 }
 
@@ -2145,8 +2212,9 @@ TEST_F(NearbyConnectionsManagerImplTest, OnBandwidthChanged) {
 
   ash::nearby::presence::mojom::PresenceDevicePtr presence_device_mojom =
       BuildPresenceMojomDevice(presence_device);
-  nearby_connections_manager_->ConnectV3(presence_device, DataUsage::kOffline,
-                                         base::DoNothing());
+  nearby_connections_manager_->ConnectV3(
+      presence_device, NearbyConnectionsManager::DataUsage::kOffline,
+      base::DoNothing());
   request_connection_run_loop.Run();
 
   testing::NiceMock<MockBandwidthUpgradeListener> bandwidth_listener;

@@ -6,6 +6,7 @@
 
 #include <tuple>
 
+#include "base/files/file_util.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
@@ -17,6 +18,30 @@
 #include "content/public/browser/web_ui_data_source.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/on_device_model/public/cpp/model_assets.h"
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "content/public/browser/on_device_model_service_instance.h"
+#endif
+
+namespace {
+
+on_device_model::ModelAssets LoadModelAssets(const base::FilePath& model_path) {
+  // This WebUI currently provides no way to dynamically configure the expected
+  // output dimension of the TS model. Since the model is in flux and its output
+  // dimension can change, it would be easy to accidentally load an incompatible
+  // model and crash the service. Hence we omit TS model assets for now.
+  on_device_model::ModelAssetPaths model_paths;
+  if (base::DirectoryExists(model_path)) {
+    model_paths.sp_model = model_path.Append(optimization_guide::kSpModelFile);
+    model_paths.model = model_path.Append(optimization_guide::kModelFile);
+    model_paths.weights = model_path.Append(optimization_guide::kWeightsFile);
+  } else {
+    model_paths.weights = model_path;
+  }
+  return on_device_model::LoadModelAssets(model_paths);
+}
+
+}  // namespace
 
 OnDeviceInternalsUI::OnDeviceInternalsUI(content::WebUI* web_ui)
     : MojoWebUIController(web_ui) {
@@ -44,18 +69,9 @@ void OnDeviceInternalsUI::LoadModel(
     LoadModelCallback callback) {
   // Warm the service while assets load in the background.
   std::ignore = GetService();
-
-  // This WebUI currently provides no way to dynamically configure the expected
-  // output dimension of the TS model. Since the model is in flux and its output
-  // dimension can change, it would be easy to accidentally load an incompatible
-  // model and crash the service. Hence we omit TS model assets for now.
-  on_device_model::ModelAssetPaths model_paths;
-  model_paths.sp_model = model_path.Append(optimization_guide::kSpModelFile);
-  model_paths.model = model_path.Append(optimization_guide::kModelFile);
-  model_paths.weights = model_path.Append(optimization_guide::kWeightsFile);
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock()},
-      base::BindOnce(&on_device_model::LoadModelAssets, model_paths),
+      base::BindOnce(&LoadModelAssets, model_path),
       base::BindOnce(&OnDeviceInternalsUI::OnModelAssetsLoaded,
                      weak_ptr_factory_.GetWeakPtr(), std::move(model),
                      std::move(callback)));
@@ -63,6 +79,11 @@ void OnDeviceInternalsUI::LoadModel(
 
 on_device_model::mojom::OnDeviceModelService&
 OnDeviceInternalsUI::GetService() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  const auto& remote = content::GetRemoteOnDeviceModelService();
+  CHECK(remote);
+  return *remote;
+#else
   if (!service_) {
     content::ServiceProcessHost::Launch<
         on_device_model::mojom::OnDeviceModelService>(
@@ -73,6 +94,7 @@ OnDeviceInternalsUI::GetService() {
     service_.reset_on_disconnect();
   }
   return *service_.get();
+#endif
 }
 
 void OnDeviceInternalsUI::GetEstimatedPerformanceClass(

@@ -162,8 +162,11 @@ class WaylandToplevelWindow : public WaylandWindow,
   gfx::RoundedCornersF GetWindowCornersRadii() override;
   void SetShadowCornersRadii(const gfx::RoundedCornersF& radii) override;
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-  PlatformWindowDelegate::State GetLatchedState() const override;
   void RoundTripQueue() override;
+  bool HasInFlightRequestsForState() const override;
+  int64_t GetVizSequenceIdForAppliedState() const override;
+  int64_t GetVizSequenceIdForLatchedState() const override;
+  void SetLatchImmediately(bool latch_immediately) override;
   void ShowSnapPreview(WaylandWindowSnapDirection snap,
                        bool allow_haptic_feedback) override;
   void CommitSnap(WaylandWindowSnapDirection snap, float snap_ratio) override;
@@ -230,11 +233,6 @@ class WaylandToplevelWindow : public WaylandWindow,
 
   // Propagates the minimum size and maximum size to the ShellToplevel.
   void SetSizeConstraints();
-
-  // If current state is not PlatformWindowState::kNormal, stores the current
-  // size into restored_bounds_dip_ so that they can be restored when the
-  // window gets back to normal state.  Otherwise, resets the restored bounds.
-  void SetOrResetRestoredBounds();
 
   // Initializes additional shell integration, if the appropriate interfaces are
   // available.

@@ -240,27 +240,9 @@ class CONTENT_EXPORT ServiceWorkerVersion
   FetchHandlerType fetch_handler_type() const;
   void set_fetch_handler_type(FetchHandlerType fetch_handler_type);
 
-  // If the feature flag for `fetch_handler_type_` is enabled,
-  // the function returns `fetch_handler_type_`.
-  // Otherwise, kNotSkippable would be returned if `fetch_handler_type_`
-  // is not kNoHandler.  Note that kNoHandler will be returned if
-  // `fetch_handler_type_` is kNoHandler.
-  //
-  // You may wonder why we need to introduce the effective fetch handler
-  // type in addition to the existing fetch_handler_type.  That is because
-  // we cannot change the fetch_handler_type behavior for the service
-  // worker registration and the metrics.  Since the service worker
-  // registration is persistent data, I do not think it is good idea to
-  // change its contents by the flag.  For metrics, we want to compare the
-  // same fetch handler case with the different flags.  The
-  // fetch_handler_type should also need to be persistent here.
-  // Note that FCP/LCP with skippable fetch handler type is taken in this
-  // way.
-  FetchHandlerType EffectiveFetchHandlerType() const;
-
   // Return the option indicating how the fetch handler should be bypassed.
-  // ServiceWorkerBypassFetchHandler feature uses this to let the renderer know
-  // to bypass fetch handlers for subresources.
+  // This is used to let the renderer know to bypass fetch handlers for
+  // subresources.
   FetchHandlerBypassOption fetch_handler_bypass_option() {
     return fetch_handler_bypass_option_;
   }
@@ -470,6 +452,8 @@ class CONTENT_EXPORT ServiceWorkerVersion
   controllee_map() const {
     return controllee_map_;
   }
+  // Returns true if |uuid| is captured by BFCache.
+  bool BFCacheContainsControllee(const std::string& uuid) const;
 
   // BackForwardCache:
   // Evicts all the controllees from back-forward cache. The controllees in
@@ -933,10 +917,8 @@ class CONTENT_EXPORT ServiceWorkerVersion
                       const GURL& url,
                       NavigateClientCallback callback) override;
   void SkipWaiting(SkipWaitingCallback callback) override;
-  void RegisterRouter(const blink::ServiceWorkerRouterRules& rules,
-                      RegisterRouterCallback callback) override;
   void AddRoutes(const blink::ServiceWorkerRouterRules& rules,
-                 RegisterRouterCallback callback) override;
+                 AddRoutesCallback callback) override;
 
   // Implements blink::mojom::AssociatedInterfaceProvider.
   void GetAssociatedInterface(
@@ -1306,9 +1288,6 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // version is created.
   std::optional<std::string> sha256_script_checksum_;
 
-  using RouterRegistrationMethod = blink::mojom::RouterRegistrationMethod;
-  RouterRegistrationMethod router_registration_method_ =
-      RouterRegistrationMethod::Uninitialized;
   std::unique_ptr<content::ServiceWorkerRouterEvaluator> router_evaluator_;
 
   std::unique_ptr<blink::AssociatedInterfaceRegistry> associated_registry_;

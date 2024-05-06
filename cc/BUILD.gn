@@ -198,8 +198,6 @@ cc_component("cc") {
     "metrics/frame_sequence_tracker_collection.h",
     "metrics/frame_sorter.cc",
     "metrics/frame_sorter.h",
-    "metrics/jank_metrics.cc",
-    "metrics/jank_metrics.h",
     "metrics/latency_ukm_reporter.cc",
     "metrics/latency_ukm_reporter.h",
     "metrics/lcd_text_metrics_reporter.cc",
@@ -464,7 +462,6 @@ cc_component("cc") {
   ]
   deps = [
     "//base",
-    "//base/third_party/dynamic_annotations",
     "//build:chromeos_buildflags",
     "//components/miracle_parameter/common",
     "//components/viz/client",
@@ -651,7 +648,6 @@ cc_test_static_library("test_support") {
   deps = [
     "//base",
     "//base/test:test_support",
-    "//base/third_party/dynamic_annotations",
     "//cc/paint",
     "//components/ukm",
     "//components/ukm:test_support",

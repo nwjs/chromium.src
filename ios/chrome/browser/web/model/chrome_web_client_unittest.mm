@@ -13,7 +13,6 @@
 #import "base/strings/string_split.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
-#import "base/test/scoped_feature_list.h"
 #import "components/captive_portal/core/captive_portal_detector.h"
 #import "components/content_settings/core/browser/host_content_settings_map.h"
 #import "components/lookalikes/core/lookalike_url_util.h"
@@ -309,6 +308,8 @@ TEST_F(ChromeWebClientTest, PrepareErrorPageForSafeBrowsingError) {
   resource.url = GURL("http://www.chromium.test");
   resource.request_destination = network::mojom::RequestDestination::kDocument;
   resource.weak_web_state = web_state.GetWeakPtr();
+  // Added to ensure that `threat_source` isn't considered UNKNOWN in this case.
+  resource.threat_source = safe_browsing::ThreatSource::LOCAL_PVER4;
   SafeBrowsingUrlAllowList::FromWebState(&web_state)
       ->AddPendingUnsafeNavigationDecision(resource.url, resource.threat_type);
   SafeBrowsingUnsafeResourceContainer::FromWebState(&web_state)
@@ -333,7 +334,7 @@ TEST_F(ChromeWebClientTest, PrepareErrorPageForSafeBrowsingError) {
                               /*navigation_id=*/0, std::move(callback));
 
   EXPECT_TRUE(callback_called);
-  NSString* error_string = l10n_util::GetNSString(IDS_HEADING_NEW);
+  NSString* error_string = l10n_util::GetNSString(IDS_SAFEBROWSING_HEADING);
   EXPECT_TRUE([page containsString:error_string]);
 }
 

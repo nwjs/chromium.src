@@ -13,7 +13,6 @@
 #include "base/values.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/locks/shared_web_contents_lock.h"
-#include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_contents/web_app_data_retriever.h"
@@ -24,11 +23,14 @@
 #include "third_party/blink/public/mojom/manifest/manifest_manager.mojom.h"
 #include "url/gurl.h"
 
+namespace webapps {
+class WebAppUrlLoader;
+enum class WebAppUrlLoaderResult;
+}  // namespace webapps
+
 namespace web_app {
 
 class SharedWebContentsWithAppLock;
-class WebAppUrlLoader;
-enum class WebAppUrlLoaderResult;
 
 // Installs a web app using a raw manifest JSON string, which is interpreted as
 // if it was loaded from the renderer for a given URL. This does not attempt to
@@ -74,7 +76,7 @@ class InstallPreloadedVerifiedAppCommand
   void StartWithLock(std::unique_ptr<SharedWebContentsLock> lock) override;
 
  private:
-  void OnAboutBlankLoaded(WebAppUrlLoaderResult result);
+  void OnAboutBlankLoaded(webapps::WebAppUrlLoaderResult result);
   void OnManifestParsed(blink::mojom::ManifestPtr manifest);
   void OnIconsRetrieved(IconsDownloadedResult result,
                         IconsMap icons_map,
@@ -82,8 +84,7 @@ class InstallPreloadedVerifiedAppCommand
   void OnAppLockAcquired(
       std::unique_ptr<SharedWebContentsWithAppLock> app_lock);
   void OnInstallFinalized(const webapps::AppId& app_id,
-                          webapps::InstallResultCode code,
-                          OsHooksErrors os_hooks_errors);
+                          webapps::InstallResultCode code);
 
   void Abort(CommandResult result, webapps::InstallResultCode code);
 
@@ -99,7 +100,7 @@ class InstallPreloadedVerifiedAppCommand
   // SharedWebContentsWithAppLock is held while installing the app.
   std::unique_ptr<SharedWebContentsWithAppLock> app_lock_;
 
-  std::unique_ptr<WebAppUrlLoader> url_loader_;
+  std::unique_ptr<webapps::WebAppUrlLoader> url_loader_;
   std::unique_ptr<WebAppDataRetriever> data_retriever_;
 
   std::unique_ptr<WebAppInstallInfo> web_app_info_;

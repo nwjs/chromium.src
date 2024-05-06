@@ -100,6 +100,8 @@ found in the LICENSE file.
 
     <!-- The size of the text for tab titles. -->
     <dimen name="compositor_tab_title_text_size">13sp</dimen>
+    <!-- The size of the text for group titles. -->
+    <dimen name="compositor_group_title_text_size">12sp</dimen>
     <!-- The size of the bounding box for favicons. -->
     <dimen name="compositor_tab_title_favicon_size">16dp</dimen>
     <!-- Slop value for allowing slight misses on the compositor button. -->
@@ -124,9 +126,6 @@ found in the LICENSE file.
     <dimen name="control_container_height">56dp</dimen>
     <dimen name="custom_tabs_control_container_height">56dp</dimen>
 
-    <!-- The combined height of the tab strip and toolbar. -->
-    <dimen name="tab_strip_and_toolbar_height">56dp</dimen>
-
     <!-- Find in Page dimensions -->
     <dimen name="find_in_page_popup_width">375dp</dimen>
     <dimen name="find_in_page_popup_height">60dp</dimen>
@@ -138,7 +137,6 @@ found in the LICENSE file.
     <dimen name="tile_grid_layout_top_margin_push_down_large">54dp</dimen>
     <dimen name="tile_grid_layout_top_margin_pull_up">16dp</dimen>
     <dimen name="tile_grid_layout_no_logo_top_margin">20dp</dimen>
-    <dimen name="tile_grid_layout_bleed">8dp</dimen>
     <dimen name="tile_grid_layout_vertical_spacing">6dp</dimen>
     <dimen name="tile_grid_layout_vertical_spacing_push_down_small">24dp</dimen>
     <dimen name="tile_grid_layout_vertical_spacing_push_down_large">36dp</dimen>
@@ -150,7 +148,6 @@ found in the LICENSE file.
     <dimen name="tile_grid_layout_bottom_margin_pull_up">24dp</dimen>
     <dimen name="tile_carousel_layout_bottom_margin">24dp</dimen>
     <dimen name="mvt_container_lateral_margin_polish">@dimen/signin_promo_lateral_paddings</dimen>
-    <dimen name="search_box_lateral_margin_polish">16dp</dimen>
     <dimen name="mvt_container_top_padding_polish">17dp</dimen>
     <dimen name="mvt_container_bottom_padding_polish">22dp</dimen>
     <dimen name="tile_view_title_margin_top_modern_polish">63dp</dimen>
@@ -176,7 +173,6 @@ found in the LICENSE file.
     <dimen name="ntp_search_box_transition_length_polish_offset">4dp</dimen>
     <dimen name="ntp_search_box_lateral_margin_tablet_polish">100dp</dimen>
     <dimen name="snippets_article_header_height">40dp</dimen>
-    <dimen name="snippets_article_header_menu_size">48dp</dimen>
     <dimen name="content_suggestions_card_bottom_margin">12dp</dimen>
     <!-- This is in sp because we want the icon to scale with the TextView it sits alongside. -->
     <dimen name="md_incognito_ntp_line_spacing">6sp</dimen>
@@ -187,7 +183,6 @@ found in the LICENSE file.
     <dimen name="feed_header_icon_margin">16dp</dimen>
     <dimen name="feed_header_icon_size">20dp</dimen>
     <dimen name="feed_header_tab_layout_height">40dp</dimen>
-    <dimen name="feed_v2_header_menu_width">20dp</dimen>
     <dimen name="feed_header_tab_list_view_top_bottom_margin">8dp</dimen>
 
     <!-- Incognito NTP -->

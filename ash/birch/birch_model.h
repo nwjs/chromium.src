@@ -14,6 +14,7 @@
 #include "ash/birch/birch_item.h"
 #include "ash/public/cpp/session/session_observer.h"
 #include "base/time/clock.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chromeos/ash/components/geolocation/simple_geolocation_provider.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -23,6 +24,7 @@ class PrefRegistrySimple;
 namespace ash {
 
 class BirchDataProvider;
+class BirchItemRemover;
 
 // Birch model, which is used to aggregate and store relevant information from
 // different providers. Both data and prefs are associated with the primary user
@@ -30,27 +32,44 @@ class BirchDataProvider;
 class ASH_EXPORT BirchModel : public SessionObserver,
                               public SimpleGeolocationProvider::Observer {
  public:
+  // BirchModel Observers are notified when the BirchClient has been set.
+  class Observer : public base::CheckedObserver {
+   public:
+    ~Observer() override = default;
+
+    virtual void OnBirchClientSet() = 0;
+  };
+
   BirchModel();
   BirchModel(const BirchModel&) = delete;
   BirchModel& operator=(const BirchModel&) = delete;
   ~BirchModel() override;
 
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
+
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
   // Sends a request to the birch keyed service to fetch data into the model.
+  // `is_post_login` determines fetch timeout depending on whether this request
+  // is made post login.
   // `callback` will run once either all data is fresh or the request timeout
   // has expired.
-  void RequestBirchDataFetch(base::OnceClosure callback);
+  void RequestBirchDataFetch(bool is_post_login, base::OnceClosure callback);
 
-  void SetCalendarItems(std::vector<BirchCalendarItem> calendar_items);
-  void SetAttachmentItems(std::vector<BirchAttachmentItem> attachment_items);
-  void SetFileSuggestItems(std::vector<BirchFileItem> file_suggest_items);
-  void SetRecentTabItems(std::vector<BirchTabItem> recent_tab_items);
+  void SetCalendarItems(const std::vector<BirchCalendarItem>& calendar_items);
+  void SetAttachmentItems(
+      const std::vector<BirchAttachmentItem>& attachment_items);
+  void SetFileSuggestItems(
+      const std::vector<BirchFileItem>& file_suggest_items);
+  void SetRecentTabItems(const std::vector<BirchTabItem>& recent_tab_items);
   void SetReleaseNotesItems(
-      std::vector<BirchReleaseNotesItem> release_notes_items);
-  void SetWeatherItems(std::vector<BirchWeatherItem> weather_items);
+      const std::vector<BirchReleaseNotesItem>& release_notes_items);
+  void SetWeatherItems(const std::vector<BirchWeatherItem>& weather_items);
 
-  void SetClient(BirchClient* client) { birch_client_ = client; }
+  // Sets the BirchClient and begins initializing the BirchItemRemover.
+  void SetClientAndInit(BirchClient* client);
+
   BirchClient* birch_client() { return birch_client_; }
 
   const std::vector<BirchCalendarItem>& GetCalendarItemsForTest() const {
@@ -72,6 +91,7 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   const std::vector<BirchWeatherItem>& GetWeatherForTest() const {
     return weather_items_;
   }
+  BirchItemRemover* GetItemRemoverForTest() { return item_remover_.get(); }
 
   // Returns all items, sorted by ranking. Includes unranked items.
   std::vector<std::unique_ptr<BirchItem>> GetAllItems();
@@ -81,6 +101,9 @@ class ASH_EXPORT BirchModel : public SessionObserver,
 
   // Returns whether all data in the model is currently fresh.
   bool IsDataFresh();
+
+  // Add the BirchItem to the list of persistenly removed items.
+  void RemoveItem(BirchItem* item);
 
   // SessionObserver:
   void OnActiveUserSessionChanged(const AccountId& account_id) override;
@@ -93,6 +116,8 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   void OverrideClockForTest(base::Clock* clock);
 
  private:
+  friend class BirchModelTest;
+
   // Timer and callback for a pending data fetch request.
   // The callback will be run if the timer expires before all data is fetched.
   struct PendingRequest {
@@ -111,7 +136,7 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   void MaybeRespondToDataFetchRequest();
 
   // Get current time. The clock may be overridden for testing purposes.
-  base::Time GetTime() const;
+  base::Time GetNow() const;
 
   // Clears all items.
   void ClearAllItems();
@@ -128,6 +153,15 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   void OnRecentTabPrefChanged();
   void OnWeatherPrefChanged();
   void OnReleaseNotesPrefChanged();
+
+  // Records metrics on which providers are hidden based on prefs.
+  void RecordProviderHiddenHistograms();
+
+  // Whether `item_remover_` is created and initialized.
+  bool IsItemRemoverInitialized();
+
+  // Whether this is a post-login fetch (occurring right after login).
+  bool is_post_login_fetch_ = false;
 
   // Whether the calendar event data is freshly fetched.
   bool is_calendar_data_fresh_ = false;
@@ -154,6 +188,17 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   // Pending data fetched requests mapped by their request IDs. IDs are
   // generated by incrementing `next_request_id_`.
   std::map<size_t, PendingRequest> pending_requests_;
+
+  // When the last fetch was started. Used for metrics.
+  base::Time fetch_start_time_;
+
+  // Which fetches are in progress. Used for metrics.
+  bool is_fetching_calendar_ = false;
+  bool is_fetching_attachment_ = false;
+  bool is_fetching_file_suggest_ = false;
+  bool is_fetching_recent_tab_ = false;
+  bool is_fetching_weather_ = false;
+  bool is_fetching_release_notes_ = false;
 
   // A type-specific list of calendar event items.
   std::vector<BirchCalendarItem> calendar_items_;
@@ -190,6 +235,12 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   PrefChangeRegistrar recent_tab_pref_registrar_;
   PrefChangeRegistrar weather_pref_registrar_;
   PrefChangeRegistrar release_notes_pref_registrar_;
+
+  // Used to filter out items which have previously been removed by the user.
+  std::unique_ptr<BirchItemRemover> item_remover_;
+
+  // A list of current BirchModel::Observers.
+  base::ObserverList<Observer> observers_;
 };
 
 }  // namespace ash

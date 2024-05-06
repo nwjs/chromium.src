@@ -23,6 +23,10 @@ BASE_FEATURE(kSeedAccountsRevamp,
 BASE_FEATURE(kEnterprisePolicyOnSignin,
              "EnterprisePolicyOnSignin",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kHideSettingsSignInPromo,
+             "HideSettingsSignInPromo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // Clears the token service before using it. This allows simulating the
@@ -159,6 +163,13 @@ const base::FeatureParam<int> kMinorModeRestrictionsFetchDeadlineMs{
 BASE_FEATURE(kUseSystemCapabilitiesForMinorModeRestrictions,
              "UseSystemCapabilitiesForMinorModeRestrictions",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr int kFetchImmediatelyAvailableCapabilityDeadlineDefaultValueMs = 100;
+
+const base::FeatureParam<int> kFetchImmediatelyAvailableCapabilityDeadlineMs{
+    &kUseSystemCapabilitiesForMinorModeRestrictions,
+    /*name=*/"FetchImmediatelyAvailableCapabilityDeadlineMs",
+    kFetchImmediatelyAvailableCapabilityDeadlineDefaultValueMs};
 
 BASE_FEATURE(kRemoveSignedInAccountsDialog,
              "RemoveSignedInAccountsDialog",

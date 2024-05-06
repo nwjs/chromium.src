@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #include "base/files/file_util.h"
@@ -34,7 +35,6 @@
 #include "components/account_id/account_id.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/profile_metrics/state.h"
-#include "components/supervised_user/core/common/buildflags.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/sync_preferences/pref_service_syncable.h"
 #include "content/public/test/browser_task_environment.h"
@@ -368,10 +368,8 @@ TEST_F(ProfileAttributesStorageTest, AddProfiles) {
 
 #endif  // !BUILDFLAG(IS_ANDROID)
     std::string supervised_user_id;
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
     if (i == 3u)
       supervised_user_id = supervised_user::kChildAccountSUID;
-#endif
 
     ProfileAttributesInitParams params;
     params.profile_path = profile_path;
@@ -399,12 +397,7 @@ TEST_F(ProfileAttributesStorageTest, AddProfiles) {
     EXPECT_EQ(icon->width(), actual_icon->width());
     EXPECT_EQ(icon->height(), actual_icon->height());
 #endif
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
     EXPECT_EQ(i == 3u, entry->IsSupervised());
-#else
-    EXPECT_FALSE(entry->IsSupervised());
-    EXPECT_FALSE(entry->IsOmitted());
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
     EXPECT_EQ(supervised_user_id, entry->GetSupervisedUserId());
   }
 
@@ -1122,16 +1115,13 @@ TEST_F(ProfileAttributesStorageTest, SupervisedUsersAccessors) {
   ASSERT_TRUE(entry->IsSupervised());
   ASSERT_FALSE(entry->IsChild());
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   EXPECT_CALL(observer(), OnProfileSupervisedUserIdChanged(path)).Times(1);
   entry->SetSupervisedUserId(supervised_user::kChildAccountSUID);
   VerifyAndResetCallExpectations();
   ASSERT_TRUE(entry->IsSupervised());
   ASSERT_TRUE(entry->IsChild());
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 }
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 TEST_F(ProfileAttributesStorageTest, CreateSupervisedTestingProfile) {
   DisableObserver();  // This test doesn't test observers.
 
@@ -1156,7 +1146,6 @@ TEST_F(ProfileAttributesStorageTest, CreateSupervisedTestingProfile) {
     EXPECT_EQ(supervised_user_id, entry->GetSupervisedUserId());
   }
 }
-#endif
 
 TEST_F(ProfileAttributesStorageTest, ReSortTriggered) {
   DisableObserver();  // No need to test observers in this test.
@@ -1547,7 +1536,7 @@ TEST_F(ProfileAttributesStorageTest, LoadAvatarFromDiskTest) {
       "\x24\x00\x00\x00\x0A\x49\x44\x41\x54\x08\x1D\x63\x60\x00\x00\x00"
       "\x02\x00\x01\xCF\xC8\x35\xE5\x00\x00\x00\x00\x49\x45\x4E\x44\xAE"
       "\x42\x60\x82";
-  base::WriteFile(icon_path, base::StringPiece(bitmap, sizeof(bitmap)));
+  base::WriteFile(icon_path, std::string_view(bitmap, sizeof(bitmap)));
   ASSERT_TRUE(base::PathExists(icon_path));
 
   // Add a new profile.

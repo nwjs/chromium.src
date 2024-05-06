@@ -23,6 +23,9 @@ declare_args() {
 
   # Path to a PrivacyInfo.xcprivacy file to be included in the application.
   ios_chrome_privacy_manifest = ""
+
+  # Path to an orderfile to be used when building the application binary.
+  ios_chrome_orderfile = ""
 }
 
 # If fast_app_terminate_enabled is not enabled, default to true,
@@ -343,8 +346,10 @@ source_set("first_run_app_state_agent") {
     "//ios/chrome/browser/geolocation/model",
     "//ios/chrome/browser/shared/coordinator/scene:observing_scene_agent",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/public/commands:commands",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/ui/blocking_overlay",
     "//ios/chrome/browser/ui/browser_view",
     "//ios/chrome/browser/ui/first_run",
@@ -678,7 +683,9 @@ source_set("main") {
   if (ios_enable_sandbox_dump) {
     deps += [ "//ios/chrome/app/startup:sandbox_dump" ]
   }
-
+  if (ios_chrome_generate_order_file) {
+    deps += [ "//ios/components/order_file" ]
+  }
   assert_no_deps = []
 
   if (ios_chrome_links_with_material_components_framework) {
@@ -737,8 +744,10 @@ chrome_app("chrome") {
 
   entitlements_target = ":entitlements"
   info_plist_target = ":info_plist"
-  bundle_identifier = "$chromium_bundle_id"
-  orderfile_path = "//ios/chrome/app/Chromium.order"
+  bundle_identifier = "$ios_chromium_bundle_id"
+  if (ios_chrome_orderfile != "") {
+    orderfile_path = ios_chrome_orderfile
+  }
 
   bundle_deps = [
     "//ios/chrome/app/resources",
@@ -792,11 +801,14 @@ chrome_app("chrome") {
     if (ios_enable_intents_extension) {
       deps += [ ":intents_extension_bundle" ]
     }
+    if (ios_enable_push_notification_service_extension) {
+      deps += [ ":push_notification_service_extension_bundle" ]
+    }
   }
 
   extra_substitutions = [
-    "CONTENT_WIDGET_EXTENSION_BUNDLE_ID=$chromium_bundle_id.ContentTodayExtension",
-    "CHROMIUM_BUNDLE_ID=$chromium_bundle_id",
+    "CONTENT_WIDGET_EXTENSION_BUNDLE_ID=$ios_chromium_bundle_id.ContentTodayExtension",
+    "CHROMIUM_BUNDLE_ID=$ios_chromium_bundle_id",
     "CHROMIUM_HANDOFF_ID=$chromium_handoff_id",
     "CHROMIUM_SHORT_NAME=$chromium_short_name",
     "CHROMIUM_URL_SCHEME_1=$url_unsecure_scheme",
@@ -839,7 +851,7 @@ chrome_app("chrome") {
   }
 }
 
-if (current_toolchain == default_toolchain) {
+if (current_toolchain == default_toolchain && !ios_chrome_generate_order_file) {
   _extension_toolchain = "${current_toolchain}_app_ext"
   if (ios_enable_search_widget_extension) {
     extension_bundle_data("search_widget_extension_bundle") {
@@ -891,6 +903,13 @@ if (current_toolchain == default_toolchain) {
       extension_name = "intents_extension.appex"
       extension_target =
           "//ios/chrome/intents_extension/appex(${_extension_toolchain})"
+    }
+  }
+
+  if (ios_enable_push_notification_service_extension) {
+    extension_bundle_data("push_notification_service_extension_bundle") {
+      extension_name = "push_notification_service_extension.appex"
+      extension_target = "//ios/chrome/push_notification_service_extension/appex(${_extension_toolchain})"
     }
   }
 }

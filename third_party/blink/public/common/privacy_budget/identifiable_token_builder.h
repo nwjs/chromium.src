@@ -9,7 +9,6 @@
 
 #include "base/containers/span.h"
 #include "base/strings/string_piece.h"
-#include "base/sys_byteorder.h"
 #include "base/template_util.h"
 #include "third_party/blink/public/common/common_export.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_internal_templates.h"
@@ -101,8 +100,7 @@ class BLINK_COMMON_EXPORT IdentifiableTokenBuilder {
                 sizeof(T) <= sizeof(uint64_t)>* = nullptr>
   IdentifiableTokenBuilder& AddValue(T in) {
     AlignPartialBuffer();
-    int64_t clean_buffer =
-        base::ByteSwapToLE64(internal::DigestOfObjectRepresentation(in));
+    int64_t clean_buffer = internal::DigestOfObjectRepresentation(in);
     return AddBytes(base::make_span(
         reinterpret_cast<const uint8_t*>(&clean_buffer), sizeof(clean_buffer)));
   }
@@ -127,6 +125,9 @@ class BLINK_COMMON_EXPORT IdentifiableTokenBuilder {
   // No comparisons.
   bool operator==(const IdentifiableTokenBuilder&) const = delete;
   bool operator<(const IdentifiableTokenBuilder&) const = delete;
+
+  // A big random prime. It's also the digest returned for an empty block.
+  static constexpr uint64_t kChainingValueSeed = UINT64_C(6544625333304541877);
 
  private:
   // Block size. Must be a multiple of 64. Higher block sizes consume more

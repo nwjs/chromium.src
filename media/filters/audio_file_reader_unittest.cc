@@ -5,6 +5,7 @@
 #include "media/filters/audio_file_reader.h"
 
 #include <memory>
+#include <string_view>
 
 #include "base/hash/md5.h"
 #include "base/time/time.h"
@@ -31,8 +32,8 @@ class AudioFileReaderTest : public testing::Test {
 
   void Initialize(const char* filename) {
     data_ = ReadTestDataFile(filename);
-    protocol_ = std::make_unique<InMemoryUrlProtocol>(
-        data_->data(), data_->data_size(), false);
+    protocol_ = std::make_unique<InMemoryUrlProtocol>(data_->data(),
+                                                      data_->size(), false);
     reader_ = std::make_unique<AudioFileReader>(protocol_.get());
   }
 
@@ -61,20 +62,19 @@ class AudioFileReaderTest : public testing::Test {
   // Verify packets are consistent across demuxer runs.  Reads the first few
   // packets and then seeks back to the start timestamp and verifies that the
   // hashes match on the packets just read.
-  void VerifyPackets() {
-    const int kReads = 3;
+  void VerifyPackets(int packet_reads) {
     const int kTestPasses = 2;
 
     AVPacket packet;
     base::TimeDelta start_timestamp;
     std::vector<std::string> packet_md5_hashes_;
     for (int i = 0; i < kTestPasses; ++i) {
-      for (int j = 0; j < kReads; ++j) {
+      for (int j = 0; j < packet_reads; ++j) {
         ASSERT_TRUE(reader_->ReadPacketForTesting(&packet));
 
         // On the first pass save the MD5 hash of each packet, on subsequent
         // passes ensure it matches.
-        const std::string md5_hash = base::MD5String(base::StringPiece(
+        const std::string md5_hash = base::MD5String(std::string_view(
             reinterpret_cast<char*>(packet.data), packet.size));
         if (i == 0) {
           packet_md5_hashes_.push_back(md5_hash);
@@ -98,7 +98,8 @@ class AudioFileReaderTest : public testing::Test {
                int sample_rate,
                base::TimeDelta duration,
                int frames,
-               int expected_frames) {
+               int expected_frames,
+               int packet_reads = 3) {
     Initialize(fn);
     ASSERT_TRUE(reader_->Open());
     EXPECT_EQ(channels, reader_->channels());
@@ -112,7 +113,7 @@ class AudioFileReaderTest : public testing::Test {
       EXPECT_EQ(reader_->HasKnownDuration(), false);
     }
     if (!packet_verification_disabled_)
-      ASSERT_NO_FATAL_FAILURE(VerifyPackets());
+      ASSERT_NO_FATAL_FAILURE(VerifyPackets(packet_reads));
     ReadAndVerify(hash, expected_frames);
   }
 
@@ -219,7 +220,7 @@ TEST_F(AudioFileReaderTest, AAC_ADTS) {
 }
 
 TEST_F(AudioFileReaderTest, MidStreamConfigChangesFail) {
-  RunTestFailingDecode("midstream_config_change.mp3", 42624);
+  RunTestFailingDecode("midstream_config_change.mp3", 0);
 }
 #endif
 
@@ -229,7 +230,7 @@ TEST_F(AudioFileReaderTest, VorbisInvalidChannelLayout) {
 
 TEST_F(AudioFileReaderTest, WaveValidFourChannelLayout) {
   RunTest("4ch.wav", "131.71,38.02,130.31,44.89,135.98,42.52,", 4, 44100,
-          base::Microseconds(100001), 4411, 4410);
+          base::Microseconds(100001), 4411, 4410, /*packet_reads=*/2);
 }
 
 TEST_F(AudioFileReaderTest, ReadPartialMP3) {

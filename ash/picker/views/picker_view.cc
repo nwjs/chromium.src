@@ -123,19 +123,23 @@ gfx::Rect GetPickerViewBounds(const gfx::Rect& anchor_bounds,
   return picker_view_bounds;
 }
 
-std::optional<ui::EmojiPickerCategory> PickerCategoryToEmojiPickerCategory(
-    PickerCategory category) {
-  switch (category) {
-    case PickerCategory::kEmojis:
-      return ui::EmojiPickerCategory::kEmojis;
-    case PickerCategory::kSymbols:
-      return ui::EmojiPickerCategory::kSymbols;
-    case PickerCategory::kEmoticons:
-      return ui::EmojiPickerCategory::kEmoticons;
-    case PickerCategory::kGifs:
-      return ui::EmojiPickerCategory::kGifs;
-    default:
-      return std::nullopt;
+PickerCategory GetCategoryForMoreResults(PickerSectionType type) {
+  switch (type) {
+    case PickerSectionType::kCategories:
+    case PickerSectionType::kSuggestions:
+    case PickerSectionType::kRecentlyUsed:
+    case PickerSectionType::kExamples:
+      NOTREACHED_NORETURN();
+    case PickerSectionType::kExpressions:
+      return PickerCategory::kExpressions;
+    case PickerSectionType::kLinks:
+      return PickerCategory::kLinks;
+    case PickerSectionType::kFiles:
+      return PickerCategory::kLocalFiles;
+    case PickerSectionType::kDriveFiles:
+      return PickerCategory::kDriveFiles;
+    case PickerSectionType::kGifs:
+      return PickerCategory::kExpressions;
   }
 }
 
@@ -210,6 +214,11 @@ gfx::Rect PickerView::GetTargetBounds(const gfx::Rect& anchor_bounds,
                              search_field_view_->bounds().CenterPoint().y());
 }
 
+void PickerView::OnSelectMoreResults(PickerSectionType type) {
+  SelectCategoryWithQuery(GetCategoryForMoreResults(type),
+                          search_field_view_->GetQueryText());
+}
+
 void PickerView::StartSearch(const std::u16string& query) {
   if (!query.empty()) {
     SetActivePage(search_results_view_);
@@ -242,6 +251,11 @@ void PickerView::SelectSearchResult(const PickerSearchResult& result) {
   if (const PickerSearchResult::CategoryData* category_data =
           std::get_if<PickerSearchResult::CategoryData>(&result.data())) {
     SelectCategory(category_data->category);
+  } else if (const PickerSearchResult::SearchRequestData* search_request_data =
+                 std::get_if<PickerSearchResult::SearchRequestData>(
+                     &result.data())) {
+    search_field_view_->SetQueryText(search_request_data->text);
+    StartSearch(search_request_data->text);
   } else {
     delegate_->InsertResultOnNextFocus(result);
     GetWidget()->Close();
@@ -249,27 +263,64 @@ void PickerView::SelectSearchResult(const PickerSearchResult& result) {
 }
 
 void PickerView::SelectCategory(PickerCategory category) {
+  SelectCategoryWithQuery(category, /*query=*/u"");
+}
+
+void PickerView::SelectCategoryWithQuery(PickerCategory category,
+                                         std::u16string_view query) {
   selected_category_ = category;
 
-  if (std::optional<ui::EmojiPickerCategory> emoji_picker_category =
-          PickerCategoryToEmojiPickerCategory(category);
-      emoji_picker_category.has_value()) {
+  if (category == PickerCategory::kExpressions) {
     if (auto* widget = GetWidget()) {
       // TODO(b/316936394): Correctly handle opening of emoji picker. Probably
       // best to wait for the IME on focus event, or save some coordinates and
       // open emoji picker in the correct location in some other way.
       widget->CloseWithReason(views::Widget::ClosedReason::kLostFocus);
     }
-    delegate_->ShowEmojiPicker(*emoji_picker_category);
+    delegate_->ShowEmojiPicker(ui::EmojiPickerCategory::kEmojis);
+    return;
+  }
+
+  if (category == PickerCategory::kEditor) {
+    if (auto* widget = GetWidget()) {
+      // TODO: b/330267329 - Correctly handle opening of Editor. Probably
+      // best to wait for the IME on focus event, or save some coordinates and
+      // open Editor in the correct location in some other way.
+      widget->CloseWithReason(views::Widget::ClosedReason::kLostFocus);
+    }
+    delegate_->ShowEditor();
+    return;
+  }
+
+  if (GetPickerCategoryType(category) ==
+      PickerCategoryType::kCaseTransformations) {
+    delegate_->TransformSelectedText(category);
+    GetWidget()->Close();
+    return;
+  }
+
+  if (category == PickerCategory::kCapsOn ||
+      category == PickerCategory::kCapsOff) {
+    GetWidget()->Close();
+    delegate_->SetCapsLockEnabled(category == PickerCategory::kCapsOn);
     return;
   }
 
   search_field_view_->SetPlaceholderText(
       GetSearchFieldPlaceholderTextForPickerCategory(category));
-  SetActivePage(category_view_);
-  delegate_->GetResultsForCategory(
-      category, base::BindRepeating(&PickerView::PublishCategoryResults,
-                                    weak_ptr_factory_.GetWeakPtr()));
+  search_field_view_->SetQueryText(std::u16string(query));
+
+  if (query.empty()) {
+    // Getting suggested results for a category can be slow, so show a loading
+    // animation.
+    category_view_->ShowLoadingAnimation();
+    SetActivePage(category_view_);
+    delegate_->GetResultsForCategory(
+        category, base::BindRepeating(&PickerView::PublishCategoryResults,
+                                      weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    StartSearch(std::u16string(query));
+  }
 }
 
 void PickerView::PublishCategoryResults(
@@ -298,7 +349,8 @@ void PickerView::AddContentsView(PickerLayoutType layout_type) {
   // `zero_state_view_`, `category_view_` and `search_results_view`_.
   zero_state_view_ =
       contents_view_->AddPage(std::make_unique<PickerZeroStateView>(
-          kPickerSize.width(),
+          delegate_->GetAvailableCategories(),
+          delegate_->ShouldShowSuggestedResults(), kPickerSize.width(),
           base::BindRepeating(&PickerView::SelectCategory,
                               base::Unretained(this)),
           base::BindRepeating(&PickerView::SelectSearchResult,
@@ -312,6 +364,8 @@ void PickerView::AddContentsView(PickerLayoutType layout_type) {
           kPickerSize.width(),
           base::BindOnce(&PickerView::SelectSearchResult,
                          base::Unretained(this)),
+          base::BindRepeating(&PickerView::OnSelectMoreResults,
+                              base::Unretained(this)),
           delegate_->GetAssetFetcher()));
   SetActivePage(zero_state_view_);
 }

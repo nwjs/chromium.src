@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+#include "components/search_engines/search_terms_data.h"
+#include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
@@ -170,6 +172,22 @@ class AutocompleteInput {
     return current_page_classification_;
   }
 
+  // The Suggest or Search request source. Determines the client= and source= or
+  // sourceid= in the Suggest and Search request URLs respectively.
+  SearchTermsData::RequestSource request_source() const {
+    switch (current_page_classification()) {
+      case metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX:
+        return SearchTermsData::RequestSource::CONTEXTUAL_SEARCHBOX;
+      case metrics::OmniboxEventProto::SEARCH_SIDE_PANEL_SEARCHBOX:
+        return SearchTermsData::RequestSource::SEARCH_SIDE_PANEL_SEARCHBOX;
+      case metrics::OmniboxEventProto::LENS_SIDE_PANEL_SEARCHBOX:
+        return SearchTermsData::RequestSource::LENS_SIDE_PANEL_SEARCHBOX;
+      default:
+        break;
+    }
+    return SearchTermsData::RequestSource::SEARCHBOX;
+  }
+
   // The type of input supplied.
   metrics::OmniboxInputType type() const { return type_; }
 
@@ -265,17 +283,15 @@ class AutocompleteInput {
     return terms_prefixed_by_http_or_https_;
   }
 
-  // Returns the ID of the query tile selected by the user, if any.
-  // If no tile was selected, returns std::nullopt.
-  const std::optional<std::string>& query_tile_id() const {
-    return query_tile_id_;
+  const std::optional<lens::LensOverlayInteractionResponse>&
+  lens_overlay_interaction_response() const {
+    return lens_overlay_interaction_response_;
   }
 
-  // Called to indicate that the query tile represented by |tile_id| was
-  // clicked by the user. In the absence of a |query_tile_id_|, top level tiles
-  // will be displayed.
-  void set_query_tile_id(const std::string& tile_id) {
-    query_tile_id_ = tile_id;
+  void set_lens_overlay_interaction_response(
+      const lens::LensOverlayInteractionResponse&
+          lens_overlay_interaction_response) {
+    lens_overlay_interaction_response_ = lens_overlay_interaction_response;
   }
 
   // Resets all internal variables to the null-constructed state.
@@ -337,7 +353,10 @@ class AutocompleteInput {
   metrics::OmniboxFocusType focus_type_ =
       metrics::OmniboxFocusType::INTERACTION_DEFAULT;
   std::vector<std::u16string> terms_prefixed_by_http_or_https_;
-  std::optional<std::string> query_tile_id_;
+  // The lens overlay interaction response to be sent as a query parameter in
+  // the suggest requests.
+  std::optional<lens::LensOverlayInteractionResponse>
+      lens_overlay_interaction_response_;
 
   // Flags for OmniboxDefaultNavigationsToHttps feature.
   bool should_use_https_as_default_scheme_;

@@ -114,9 +114,7 @@ void AutoEnrollmentCheckScreen::ShowImpl() {
 }
 
 void AutoEnrollmentCheckScreen::HideImpl() {
-  if (NetworkHandler::IsInitialized()) {
-    NetworkHandler::Get()->network_state_handler()->RemoveObserver(this);
-  }
+  ClearState();
 }
 
 bool AutoEnrollmentCheckScreen::MaybeSkip(WizardContext& context) {
@@ -197,9 +195,6 @@ bool AutoEnrollmentCheckScreen::ShowCaptivePortalState(
       ShowErrorScreen(NetworkError::ERROR_STATE_PORTAL);
       if (captive_portal_state_ != new_captive_portal_state)
         error_screen_->FixCaptivePortal();
-      return true;
-    case NetworkState::PortalState::kProxyAuthRequired:
-      ShowErrorScreen(NetworkError::ERROR_STATE_PROXY);
       return true;
   }
 }

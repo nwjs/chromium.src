@@ -4,18 +4,28 @@
 
 #include "chrome/browser/ash/accessibility/facegaze_test_utils.h"
 
+#include "ash/constants/ash_pref_names.h"
 #include "base/base_paths.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/json/json_writer.h"
 #include "base/path_service.h"
+#include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/prefs/pref_service.h"
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/browser/extension_host_test_helper.h"
+#include "ui/gfx/geometry/point.h"
 
 namespace ash {
+
+using FaceGazeGesture = FaceGazeTestUtils::FaceGazeGesture;
+using MacroName = FaceGazeTestUtils::MacroName;
+using MediapipeGesture = FaceGazeTestUtils::MediapipeGesture;
 
 namespace {
 
@@ -26,7 +36,126 @@ constexpr char kTestSupportPath[] =
     "chrome/browser/resources/chromeos/accessibility/accessibility_common/"
     "facegaze/facegaze_test_support.js";
 
+PrefService* GetPrefs() {
+  return AccessibilityManager::Get()->profile()->GetPrefs();
+}
+
+std::string ToString(const FaceGazeGesture& gesture) {
+  switch (gesture) {
+    case FaceGazeGesture::BROW_INNER_UP:
+      return "browInnerUp";
+    case FaceGazeGesture::BROWS_DOWN:
+      return "browsDown";
+    case FaceGazeGesture::EYE_SQUINT_LEFT:
+      return "eyeSquintLeft";
+    case FaceGazeGesture::EYE_SQUINT_RIGHT:
+      return "eyeSquintRight";
+    case FaceGazeGesture::EYES_BLINK:
+      return "eyesBlink";
+    case FaceGazeGesture::EYES_LOOK_DOWN:
+      return "eyesLookDown";
+    case FaceGazeGesture::EYES_LOOK_LEFT:
+      return "eyesLookLeft";
+    case FaceGazeGesture::EYES_LOOK_RIGHT:
+      return "eyesLookRight";
+    case FaceGazeGesture::EYES_LOOK_UP:
+      return "eyesLookUp";
+    case FaceGazeGesture::JAW_OPEN:
+      return "jawOpen";
+    case FaceGazeGesture::MOUTH_LEFT:
+      return "mouthLeft";
+    case FaceGazeGesture::MOUTH_PUCKER:
+      return "mouthPucker";
+    case FaceGazeGesture::MOUTH_RIGHT:
+      return "mouthRight";
+    case FaceGazeGesture::MOUTH_SMILE:
+      return "mouthSmile";
+    case FaceGazeGesture::MOUTH_UPPER_UP:
+      return "mouthUpperUp";
+  }
+}
+
+std::string ToString(const MediapipeGesture& gesture) {
+  switch (gesture) {
+    case MediapipeGesture::BROW_DOWN_LEFT:
+      return "browDownLeft";
+    case MediapipeGesture::BROW_DOWN_RIGHT:
+      return "browDownRight";
+    case MediapipeGesture::BROW_INNER_UP:
+      return "browInnerUp";
+    case MediapipeGesture::EYE_BLINK_LEFT:
+      return "eyeBlinkLeft";
+    case MediapipeGesture::EYE_BLINK_RIGHT:
+      return "eyeBlinkRight";
+    case MediapipeGesture::EYE_LOOK_DOWN_LEFT:
+      return "eyeLookDownLeft";
+    case MediapipeGesture::EYE_LOOK_DOWN_RIGHT:
+      return "eyeLookDownRight";
+    case MediapipeGesture::EYE_LOOK_IN_LEFT:
+      return "eyeLookInLeft";
+    case MediapipeGesture::EYE_LOOK_IN_RIGHT:
+      return "eyeLookInRight";
+    case MediapipeGesture::EYE_LOOK_OUT_LEFT:
+      return "eyeLookOutLeft";
+    case MediapipeGesture::EYE_LOOK_OUT_RIGHT:
+      return "eyeLookOutRight";
+    case MediapipeGesture::EYE_LOOK_UP_LEFT:
+      return "eyeLookUpLeft";
+    case MediapipeGesture::EYE_LOOK_UP_RIGHT:
+      return "eyeLookUpRight";
+    case MediapipeGesture::EYE_SQUINT_LEFT:
+      return "eyeSquintLeft";
+    case MediapipeGesture::EYE_SQUINT_RIGHT:
+      return "eyeSquintRight";
+    case MediapipeGesture::JAW_OPEN:
+      return "jawOpen";
+    case MediapipeGesture::MOUTH_LEFT:
+      return "mouthLeft";
+    case MediapipeGesture::MOUTH_PUCKER:
+      return "mouthPucker";
+    case MediapipeGesture::MOUTH_RIGHT:
+      return "mouthRight";
+    case MediapipeGesture::MOUTH_SMILE_LEFT:
+      return "mouthSmileLeft";
+    case MediapipeGesture::MOUTH_SMILE_RIGHT:
+      return "mouthSmileRight";
+    case MediapipeGesture::MOUTH_UPPER_UP_LEFT:
+      return "mouthUpperUpLeft";
+    case MediapipeGesture::MOUTH_UPPER_UP_RIGHT:
+      return "mouthUpperUpRight";
+  }
+}
+
 }  // namespace
+
+FaceGazeTestUtils::MockFaceLandmarkerResult::MockFaceLandmarkerResult() =
+    default;
+FaceGazeTestUtils::MockFaceLandmarkerResult::~MockFaceLandmarkerResult() =
+    default;
+
+FaceGazeTestUtils::MockFaceLandmarkerResult&
+FaceGazeTestUtils::MockFaceLandmarkerResult::WithNormalizedForeheadLocation(
+    double x,
+    double y) {
+  forehead_location_.Set("x", x);
+  forehead_location_.Set("y", y);
+  return *this;
+}
+
+FaceGazeTestUtils::MockFaceLandmarkerResult&
+FaceGazeTestUtils::MockFaceLandmarkerResult::WithGesture(
+    const MediapipeGesture& gesture,
+    int confidence) {
+  // For readability and consistency with the gesture confidence pref, this
+  // method accepts confidence values [0, 100]. However, the FaceLandmarker
+  // receives confidence scores as values [0, 1], so we need to convert the
+  // confidence to a decimal before processing it.
+  recognized_gestures_.Append(
+      base::Value::Dict()
+          .Set("categoryName", ToString(gesture))
+          .Set("score", static_cast<double>(confidence) / 100.0));
+  return *this;
+}
 
 FaceGazeTestUtils::FaceGazeTestUtils() = default;
 FaceGazeTestUtils::~FaceGazeTestUtils() = default;
@@ -45,6 +174,7 @@ void FaceGazeTestUtils::EnableFaceGaze() {
 
   WaitForJSReady();
   SetUpJSTestSupport();
+  CancelMouseControllerInterval();
 }
 
 void FaceGazeTestUtils::SetUpMediapipeDir() {
@@ -89,8 +219,91 @@ void FaceGazeTestUtils::SetUpJSTestSupport() {
   ExecuteAccessibilityCommonScript(script);
 }
 
+void FaceGazeTestUtils::CancelMouseControllerInterval() {
+  std::string script = "faceGazeTestSupport.cancelMouseControllerInterval();";
+  ExecuteAccessibilityCommonScript(script);
+}
+
 void FaceGazeTestUtils::CreateFaceLandmarker() {
   std::string script = "faceGazeTestSupport.createFaceLandmarker();";
+  ExecuteAccessibilityCommonScript(script);
+}
+
+void FaceGazeTestUtils::WaitForCursorPosition(const gfx::Point& location) {
+  std::string script =
+      base::StringPrintf("faceGazeTestSupport.waitForCursorLocation(%d, %d);",
+                         location.x(), location.y());
+  ExecuteAccessibilityCommonScript(script);
+}
+
+void FaceGazeTestUtils::SetCursorSpeeds(const CursorSpeeds& speeds) {
+  GetPrefs()->SetInteger(prefs::kAccessibilityFaceGazeCursorSpeedUp, speeds.up);
+  GetPrefs()->SetInteger(prefs::kAccessibilityFaceGazeCursorSpeedDown,
+                         speeds.down);
+  GetPrefs()->SetInteger(prefs::kAccessibilityFaceGazeCursorSpeedLeft,
+                         speeds.left);
+  GetPrefs()->SetInteger(prefs::kAccessibilityFaceGazeCursorSpeedRight,
+                         speeds.right);
+  GetPrefs()->CommitPendingWrite();
+}
+
+void FaceGazeTestUtils::SetBufferSize(int size) {
+  GetPrefs()->SetInteger(prefs::kAccessibilityFaceGazeCursorSmoothing, size);
+  GetPrefs()->CommitPendingWrite();
+}
+
+void FaceGazeTestUtils::SetCursorAcceleration(bool use_acceleration) {
+  GetPrefs()->SetBoolean(prefs::kAccessibilityFaceGazeCursorUseAcceleration,
+                         use_acceleration);
+  GetPrefs()->CommitPendingWrite();
+}
+
+void FaceGazeTestUtils::SetGesturesToMacros(
+    const base::flat_map<FaceGazeGesture, MacroName>& gestures_to_macros) {
+  // Copy the stricly-typed mapping of gestures to macros into a dictionary
+  // value that can be used as the preference value.
+  base::Value::Dict dict;
+  for (const auto& mapping : gestures_to_macros) {
+    dict.Set(ToString(mapping.first), mapping.second);
+  }
+  GetPrefs()->SetDict(prefs::kAccessibilityFaceGazeGesturesToMacros,
+                      std::move(dict));
+  GetPrefs()->CommitPendingWrite();
+}
+
+void FaceGazeTestUtils::SetGestureConfidences(
+    const base::flat_map<FaceGazeGesture, int>& gesture_confidences) {
+  // Copy the stricly-typed mapping of gestures to confidences into a dictionary
+  // value that can be used as the preference value.
+  base::Value::Dict dict;
+  for (const auto& mapping : gesture_confidences) {
+    dict.Set(ToString(mapping.first), mapping.second);
+  }
+  GetPrefs()->SetDict(prefs::kAccessibilityFaceGazeGesturesToConfidence,
+                      std::move(dict));
+  GetPrefs()->CommitPendingWrite();
+}
+
+void FaceGazeTestUtils::SetGestureRepeatDelayMs(int delay) {
+  std::string script = base::StringPrintf(
+      "faceGazeTestSupport.setGestureRepeatDelayMs(%d);", delay);
+  ExecuteAccessibilityCommonScript(script);
+}
+
+void FaceGazeTestUtils::ProcessFaceLandmarkerResult(
+    const MockFaceLandmarkerResult& result) {
+  std::string forehead_location_json =
+      base::WriteJson(result.forehead_location()).value();
+  std::string recognized_gestures_json =
+      base::WriteJson(result.recognized_gestures()).value();
+  std::string script = base::StringPrintf(
+      "faceGazeTestSupport.processFaceLandmarkerResult(%s, %s)",
+      forehead_location_json.c_str(), recognized_gestures_json.c_str());
+  ExecuteAccessibilityCommonScript(script);
+}
+
+void FaceGazeTestUtils::TriggerMouseControllerInterval() {
+  std::string script = "faceGazeTestSupport.triggerMouseControllerInterval();";
   ExecuteAccessibilityCommonScript(script);
 }
 

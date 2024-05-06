@@ -79,9 +79,9 @@ void EditorMediator::SetUpNewEditorService() {
         std::move(system_actuator_remote),
         std::move(text_query_provider_remote));
 
-    // TODO: b:300838514 - We should only bind the native UI with the shared lib when the
-    // Rewrite UI is shown. Consider add a listener to the write/rewrite UI and
-    // move the binding there.
+    // TODO: b:300838514 - We should only bind the native UI with the shared lib
+    // when the Rewrite UI is shown. Consider add a listener to the
+    // write/rewrite UI and move the binding there.
     panel_manager_.BindEditorClient();
   }
 }
@@ -213,10 +213,20 @@ void EditorMediator::CacheContext() {
   }
 }
 
+void EditorMediator::FetchAndUpdateInputContext() {
+  GetTextFieldContextualInfo(
+      base::BindOnce(&EditorMediator::OnTextFieldContextualInfoChanged,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
 void EditorMediator::OnTextFieldContextualInfoChanged(
     const TextFieldContextualInfo& info) {
   editor_switch_->OnInputContextUpdated(
       IMEBridge::Get()->GetCurrentInputContext(), info);
+
+  if (system_actuator_ != nullptr) {
+    system_actuator_->OnInputContextUpdated(info.tab_url);
+  }
 }
 
 bool EditorMediator::IsAllowedForUse() {

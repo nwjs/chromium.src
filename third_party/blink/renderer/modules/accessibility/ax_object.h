@@ -57,7 +57,9 @@
 #include "ui/accessibility/ax_common.h"
 #include "ui/accessibility/ax_enums.mojom-blink.h"
 #include "ui/accessibility/ax_mode.h"
+#include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_tree_id.h"
+#include "ui/accessibility/ax_tree_serializer.h"
 #include "ui/gfx/geometry/quad_f.h"
 
 namespace gfx {
@@ -376,7 +378,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Determine subclass type.
   virtual bool IsImageMapLink() const;
   virtual bool IsAXNodeObject() const;
-  virtual bool IsAXLayoutObject() const;
   virtual bool IsAXInlineTextBox() const;
   virtual bool IsList() const;
   virtual bool IsAXListBox() const;
@@ -390,17 +391,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual bool IsSlider() const;
   virtual bool IsValidationMessage() const;
   virtual bool IsVirtualObject() const;
-
-  // Check object role or purpose.
-  ax::mojom::blink::Role RoleValue() const;
-
-  // This method is useful in cases where the final role exposed to ATs needs
-  // to change based on contextual information. For instance, an svgRoot should
-  // be exposed as an image if it lacks accessible children. Whether or not it
-  // has accessible children is not known at the time the role is assigned and
-  // may depend on whether or not a given platform includes children that other
-  // platforms ignore.
-  ax::mojom::blink::Role ComputeFinalRoleForSerialization() const;
 
   // Returns true if this object is an ARIA text field, i.e. it is neither an
   // <input> nor a <textarea>, but it has an ARIA role of textbox, searchbox or
@@ -495,7 +485,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual bool IsSelectedFromFocusSupported() const;
   // Is the object selected because selection is following focus?
   virtual bool IsSelectedFromFocus() const;
-  virtual bool IsSelectedOptionActive() const;
   virtual bool IsNotUserSelectable() const;
   virtual bool IsVisible() const;
   virtual bool IsVisited() const;
@@ -812,7 +801,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // For range controls, such as sliders and scroll bars, the value of
   // aria-valuetext takes priority over the value of aria-valuenow.
   virtual String GetValueForControl() const;
-  virtual String GetValueForControl(AXObjectSet& visited) const;
 
   // Similar to `AXObject::GetValueForControl()` above, but also computes the
   // value of a content editable from its inner text. Sending this value to the
@@ -820,19 +808,81 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // So, we should prefer computing the value of a content editable on the
   // browser side.
   virtual String SlowGetValueForControlIncludingContentEditable() const;
-  virtual String SlowGetValueForControlIncludingContentEditable(
-      AXObjectSet& visited) const;
 
   virtual AXRestriction Restriction() const;
 
+  //
+  // ARIA role attribute.
+  //
+  // How role calculation works:
+  //
+  // Note that “ARIA role” does not refer to the same thing as “role” here.
+  //
+  // (1) Extract the raw ARIA role from the role=”role type” in the object.
+  // (2) Process the raw ARIA role by applying a set of rules. This new value is
+  //     considered the ARIA role.
+  // (3) Determine the native role.
+  // (4) Using the ARIA role and native role, determine the role.
+  // (5) If possible, apply contextual rules on the role to get the final role.
+  //
+  // Because the final role calculation in (5) involves ancestor values, a
+  // change in an ancestor can affect the final role of the object. In cases
+  // where it is difficult to check for this change, the role from (4) is used
+  // instead of the final role from (5).
+
+  // (1) Determine the ARIA role purely based on the role attribute, when no
+  // additional rules or limitations on role usage are applied. Use
+  // RawAriaRole() instead if the raw role does not need to be recomputed.
+  ax::mojom::blink::Role DetermineRawAriaRole() const;
+
+  // (2) Determine the ARIA role after applying rules based on other properties.
+  ax::mojom::blink::Role DetermineAriaRole() const;
+
+  // (3) Determine the native role using other ARIA properties (without using
+  // the ARIA role).
+  virtual ax::mojom::blink::Role NativeRoleIgnoringAria() const = 0;
+
+  // (4) Determine the role using the ARIA role and native role. Use
+  // RoleValue() instead if the role does not need to be recomputed.
+  virtual ax::mojom::blink::Role DetermineRoleValue();
+
+  // (5) Return the role after all possible rules from HTML-AAM, WAI-ARIA, etc.
+  // have been applied.
+  //
+  // This method is useful in cases where the final role exposed to ATs needs
+  // to change based on contextual information. For instance, an svgRoot should
+  // be exposed as an image if it lacks accessible children. Whether or not it
+  // has accessible children is not known at the time the role is assigned and
+  // may depend on whether or not a given platform includes children that other
+  // platforms ignore.
+  ax::mojom::blink::Role ComputeFinalRoleForSerialization() const;
+
+  // Returns the cached raw ARIA role from DetermineRawAriaRole().
+  virtual ax::mojom::blink::Role RawAriaRole() const;
+
+  // Returns the cached role from DetermineRoleValue().
+  ax::mojom::blink::Role RoleValue() const;
+
+  static ax::mojom::blink::Role AriaRoleStringToRoleEnum(const String&);
+
+  // Return the equivalent ARIA name for an enumerated role, or g_null_atom.
+  static const AtomicString& AriaRoleName(ax::mojom::blink::Role);
+
+  // Return the equivalent internal role name as a string. Used in DOM Inspector
+  // and for debugging.
+  static const String InternalRoleName(ax::mojom::blink::Role);
+
+  // Return a role name, preferring the ARIA over the internal name.
+  // Optional boolean out param |*is_internal| will be false if the role matches
+  // an ARIA role, and true if an internal role name is used (no ARIA mapping).
+  static const String RoleName(ax::mojom::blink::Role,
+                               bool* is_internal = nullptr);
+
+  // Get the role to be used in StringAttribute::kRole, which is used in the
+  // xml-roles object attribute.
+  const AtomicString& GetRoleStringForSerialization(ui::AXNodeData* node_data);
+
   // ARIA attributes.
-  virtual ax::mojom::blink::Role DetermineAccessibilityRole();
-  // Determine the ARIA role purely based on the role attribute, when no
-  // additional rules or limitations on role usage are applied.
-  ax::mojom::blink::Role RawAriaRole() const;
-  // Determine the ARIA role after post-processing on the raw ARIA role.
-  ax::mojom::blink::Role DetermineAriaRoleAttribute() const;
-  virtual ax::mojom::blink::Role AriaRoleAttribute() const;
   bool HasAriaAttribute(bool does_undo_role_presentation = false) const;
   virtual AXObject* ActiveDescendant() { return nullptr; }
   virtual String AutoComplete() const { return String(); }
@@ -897,6 +947,9 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Returns 0-based index.
   int IndexInParent() const;
 
+  // Returns true if the object is not orphaned and has no siblings.
+  bool IsOnlyChild() const;
+
   // Value should be 1-based. 0 means not supported.
   virtual int PosInSet() const { return 0; }
   virtual int SetSize() const { return 0; }
@@ -953,7 +1006,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
     return nullptr;
   }
   // Called on the AX object after the layout tree determines which is the right
-  // AXLayoutObject.
+  // AXObject.
   AXObject* ElementAccessibilityHitTest(const gfx::Point&) const;
 
   //
@@ -1041,6 +1094,8 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Works for all nodes that are included in the accessibility tree,
   // and may return nodes that are accessibility ignored.
   AXObject* PreviousSiblingIncludingIgnored() const;
+  // This version is safe to call in methods used to build the parents children.
+  AXObject* CachedPreviousSiblingIncludingIgnored() const;
 
   // Returns the next object in tree using depth-first pre-order traversal,
   // optionally staying within a specified AXObject.
@@ -1369,19 +1424,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual bool IsEmbeddingElement() const { return false; }
   // Is this a widget that requires container widget.
   bool IsSubWidget() const;
-  static ax::mojom::blink::Role AriaRoleStringToRoleEnum(const String&);
-
-  // Return the equivalent ARIA name for an enumerated role, or g_null_atom.
-  static const AtomicString& ARIARoleName(ax::mojom::blink::Role);
-
-  // Return the equivalent internal role name as a string.
-  static const String InternalRoleName(ax::mojom::blink::Role);
-
-  // Return a role name, preferring the ARIA over the internal name.
-  // Optional boolean out param |*is_internal| will be false if the role matches
-  // an ARIA role, and true if an internal role name is used (no ARIA mapping).
-  static const String RoleName(ax::mojom::blink::Role,
-                               bool* is_internal = nullptr);
 
   static void AccessibleNodeListToElementVector(const AccessibleNodeList&,
                                                 HeapVector<Member<Element>>&);
@@ -1400,14 +1442,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   bool IsHiddenForTextAlternativeCalculation(
       const AXObject* aria_label_or_description_root) const;
-
-  // What should the role be assuming an ARIA role is not present?
-  virtual ax::mojom::blink::Role NativeRoleIgnoringAria() const = 0;
-
-  // Get the role to be used in StringAttribute::kRole, which is used in the
-  // xml-roles object attribute.
-  const AtomicString& GetRoleAttributeStringForObjectAttribute(
-      ui::AXNodeData* node_data);
 
   // Extra checks that occur right before a node is evaluated for serialization.
   void PreSerializationConsistencyCheck();

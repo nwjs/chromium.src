@@ -4,15 +4,21 @@
 
 #include "ash/system/video_conference/bubble/set_camera_background_view.h"
 
+#include "ash/public/cpp/image_util.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/system/camera/camera_effects_controller.h"
 #include "ash/system/video_conference/bubble/bubble_view.h"
 #include "ash/system/video_conference/bubble/bubble_view_ids.h"
+#include "ash/system/video_conference/resources/grit/vc_resources.h"
 #include "ash/system/video_conference/video_conference_tray_controller.h"
+#include "ash/system/video_conference/video_conference_utils.h"
+#include "ash/wallpaper/wallpaper_utils/sea_pen_metadata_utils.h"
+#include "ash/webui/common/mojom/sea_pen.mojom.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "skia/ext/image_operations.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -23,10 +29,14 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/image/image_skia_operations.h"
+#include "ui/gfx/image/image_skia_rep.h"
 #include "ui/views/background.h"
+#include "ui/views/controls/animated_image_view.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/label_button.h"
+#include "ui/views/controls/image_view.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/fill_layout.h"
 
 namespace ash::video_conference {
 
@@ -34,13 +44,18 @@ namespace {
 
 using BackgroundImageInfo = CameraEffectsController::BackgroundImageInfo;
 
+constexpr char kBackgroundImageButtonHistogramName[] =
+    "Ash.VideoConferenceTray.BackgroundImageButton.Click";
+
+constexpr char kCreateWithAiButtonHistogramName[] =
+    "Ash.VideoConferenceTray.CreateWithAiButton.Click";
+
 // Decides the margin for the `SetCameraBackgroundView`.
 constexpr gfx::Insets kSetCameraBackgroundViewInsideBorderInsets =
     gfx::Insets::TLBR(10, 0, 0, 0);
 
-// This extra border is added to `CreateImageButton` to make it consistent with
-// other buttons in the video conference bubble.
-constexpr gfx::Insets kCreateImageButtonBorderInsets = gfx::Insets::VH(8, 0);
+constexpr gfx::Insets kImageLabelContainerInsideBorderInsets =
+    gfx::Insets::TLBR(6, 0, 6, 0);
 
 constexpr int kCreateImageButtonBetweenChildSpacing = 12;
 constexpr int kSetCameraBackgroundViewBetweenChildSpacing = 10;
@@ -52,74 +67,46 @@ constexpr int kRecentlyUsedImagesFullLength = 336;
 constexpr int kRecentlyUsedImagesHeight = 64;
 constexpr int kRecentlyUsedImagesSpacing = 10;
 
-// Helper for getting the width of each recently used images.
-int GetRecentlyUsedImageWidth(const int index, int image_count) {
-  CHECK_LT(index, image_count);
+constexpr int kRecentlyUsedImageButtonId[] = {
+    BubbleViewID::kBackgroundImage0,
+    BubbleViewID::kBackgroundImage1,
+    BubbleViewID::kBackgroundImage2,
+    BubbleViewID::kBackgroundImage3,
+};
 
-  // If there is only 1 image, we only want that image to take half of the whole
-  // area, not the full area.
-  if (image_count == 1) {
-    return (kRecentlyUsedImagesFullLength - kRecentlyUsedImagesSpacing) / 2;
-  }
+// Helper for getting the size of each recently used images.
+gfx::Size CalculateWantedImageSize(const int index, int image_count) {
+  CHECK_LT(index, image_count);
 
   const int spacing = (image_count - 1) * kRecentlyUsedImagesSpacing;
 
-  return (kRecentlyUsedImagesFullLength - spacing) / image_count;
+  // If there is only 1 image, we only want that image to take half of the whole
+  // area, not the full area.
+  const int expected_width =
+      image_count == 1
+          ? (kRecentlyUsedImagesFullLength - kRecentlyUsedImagesSpacing) / 2
+          : (kRecentlyUsedImagesFullLength - spacing) / image_count;
+
+  return gfx::Size(expected_width, kRecentlyUsedImagesHeight);
 }
 
 CameraEffectsController* GetCameraEffectsController() {
   return Shell::Get()->camera_effects_controller();
 }
 
-// Resize the `bitmap` (keeping its ratio) to just cover the `expected_size`;
-// then crop the extra bit that is outside of the `expected_size`.
-gfx::ImageSkia ConstrainedScaleAndCrop(const SkBitmap& bitmap,
-                                       const gfx::Size& expected_size) {
-  const int bitmap_height = bitmap.height();
-  const int bitmap_width = bitmap.width();
-  const int expected_height = expected_size.height();
-  const int expected_width = expected_size.width();
+// Returns a gradient lottie animation defined in the resource file for the
+// `Create with AI` button.
+std::unique_ptr<lottie::Animation> GetGradientAnimation(
+    const ui::ColorProvider* color_provider) {
+  std::optional<std::vector<uint8_t>> lottie_data =
+      ui::ResourceBundle::GetSharedInstance().GetLottieData(
+          IDR_VC_CREATE_WITH_AI_BUTTON_ANIMATION);
+  CHECK(lottie_data.has_value());
 
-  // We need to scale to the larger ratio so the image can still fully cover the
-  // expected_size.
-  const float ratio = std::max(
-      static_cast<float>(expected_height) / static_cast<float>(bitmap_height),
-      static_cast<float>(expected_width) / static_cast<float>(bitmap_width));
-
-  const auto new_size =
-      gfx::ScaleToCeiledSize(gfx::Size(bitmap_width, bitmap_height), ratio);
-
-  // target_area is a cropped area from the center.
-  const auto target_area =
-      SkIRect::MakeXYWH((new_size.width() - expected_width) / 2,
-                        (new_size.height() - expected_height) / 2,
-                        expected_width, expected_height);
-
-  // Resize and only take the expected_size.
-  auto resized = skia::ImageOperations::Resize(
-      bitmap, skia::ImageOperations::RESIZE_LANCZOS3, new_size.width(),
-      new_size.height(), target_area);
-
-  return gfx::ImageSkia::CreateFrom1xBitmap(resized);
-}
-
-// Helper to resize the image and return as ImageSkia.
-gfx::ImageSkia GetResizedBackground(const std::string& jpeg_bytes,
-                                    const int expected_width) {
-  // TODO(b/329324151): evaluate the cost of the decoding and consider moving
-  // this to the io thread. The same code is also used in
-  // VcBackgroundUISeaPenProviderImpl.
-  std::unique_ptr<SkBitmap> bitmap = gfx::JPEGCodec::Decode(
-      reinterpret_cast<const unsigned char*>(jpeg_bytes.data()),
-      jpeg_bytes.size());
-
-  const auto resized_ = ConstrainedScaleAndCrop(
-      *bitmap, gfx::Size(expected_width, kRecentlyUsedImagesHeight));
-
-  const auto img = gfx::ImageSkiaOperations::CreateImageWithRoundRectClip(
-      kSetCameraBackgroundViewRadius, resized_);
-
-  return img;
+  return std::make_unique<lottie::Animation>(
+      cc::SkottieWrapper::UnsafeCreateSerializable(lottie_data.value()),
+      video_conference_utils::CreateColorMapForGradientAnimation(
+          color_provider));
 }
 
 // Image button for the recently used images as camera background.
@@ -128,15 +115,24 @@ class RecentlyUsedImageButton : public views::ImageButton {
 
  public:
   RecentlyUsedImageButton(
-      const std::string& jpeg_bytes,
-      const int expected_width,
+      const gfx::ImageSkia& image,
+      const std::string& metadata,
+      int id,
       const base::RepeatingCallback<void()>& image_button_callback)
       : ImageButton(image_button_callback),
         check_icon_(&kBackgroundSelectionIcon,
                     cros_tokens::kCrosSysFocusRingOnPrimaryContainer) {
-    background_image_ = GetResizedBackground(jpeg_bytes, expected_width);
+    SetID(id);
+    background_image_ = image;
+
     SetImageModel(ButtonState::STATE_NORMAL,
                   ui::ImageModel::FromImageSkia(background_image_));
+
+    // TODO(b/332573200): only construct this button when the metadata is
+    // decodable.
+    SetAccessibilityLabelFromMetadata(metadata);
+
+    SetFlipCanvasOnPaintForRTLUI(false);
   }
 
   void SetSelected(bool selected) {
@@ -160,6 +156,43 @@ class RecentlyUsedImageButton : public views::ImageButton {
       // Otherwise, draw the normal background image.
       canvas->DrawImageInt(background_image_, 0, 0);
     }
+  }
+
+  // Extract medata then decode it.
+  void SetAccessibilityLabelFromMetadata(const std::string& metadata) {
+    // Used for testing.
+    if (metadata.empty()) {
+      SetAccessibilityLabelFromRecentSeaPenImageInfo(nullptr);
+      return;
+    }
+
+    const std::string extracted_metadata =
+        ExtractDcDescriptionContents(metadata);
+
+    DecodeJsonMetadata(
+        extracted_metadata.empty() ? metadata : extracted_metadata,
+        base::BindOnce(&RecentlyUsedImageButton::
+                           SetAccessibilityLabelFromRecentSeaPenImageInfo,
+                       weak_factory_.GetWeakPtr()));
+  }
+
+  // Called when decoding metadata complete.
+  void SetAccessibilityLabelFromRecentSeaPenImageInfo(
+      personalization_app::mojom::RecentSeaPenImageInfoPtr info) {
+    SetAccessibleRole(ax::mojom::Role::kListItem);
+    SetAccessibleDescription(l10n_util::GetStringUTF16(
+        IDS_ASH_VIDEO_CONFERENCE_BUBBLE_BACKGROUND_BLUR_IMAGE_LIST_ITEM_DESCRIPTION));
+
+    std::u16string query;
+    if (!info.is_null() && !info->user_visible_query.is_null()) {
+      const auto& text = info->user_visible_query->text;
+      if (!base::UTF8ToUTF16(text.c_str(), text.size(), &query)) {
+        query.clear();
+      }
+    }
+    SetAccessibleName(
+        query, query.empty() ? ax::mojom::NameFrom::kAttributeExplicitlyEmpty
+                             : ax::mojom::NameFrom::kAttribute);
   }
 
   SkPath GetClipPath() {
@@ -200,6 +233,8 @@ class RecentlyUsedImageButton : public views::ImageButton {
 
   bool selected_ = false;
   const ui::ThemedVectorIcon check_icon_;
+
+  base::WeakPtrFactory<RecentlyUsedImageButton> weak_factory_{this};
 };
 
 BEGIN_METADATA(RecentlyUsedImageButton)
@@ -230,12 +265,25 @@ class RecentlyUsedBackgroundView : public views::View {
   void GetRecentlyUsedBackgroundImagesComplete(
       const std::vector<BackgroundImageInfo>& images_info) {
     for (std::size_t i = 0; i < images_info.size(); ++i) {
-      AddChildView(std::make_unique<RecentlyUsedImageButton>(
-          images_info[i].jpeg_bytes,
-          GetRecentlyUsedImageWidth(i, images_info.size()),
-          base::BindRepeating(&RecentlyUsedBackgroundView::OnImageButtonClicked,
-                              weak_factory_.GetWeakPtr(), i,
-                              images_info[i].basename)));
+      auto image = image_util::ResizeAndCropImage(
+          images_info[i].image,
+          CalculateWantedImageSize(i, images_info.size()));
+
+      image = gfx::ImageSkiaOperations::CreateImageWithRoundRectClip(
+          kSetCameraBackgroundViewRadius, image);
+
+      auto recently_used_image_button =
+          std::make_unique<RecentlyUsedImageButton>(
+              image, images_info[i].metadata, kRecentlyUsedImageButtonId[i],
+              base::BindRepeating(
+                  &RecentlyUsedBackgroundView::OnImageButtonClicked,
+                  weak_factory_.GetWeakPtr(), i, images_info[i].basename));
+      // If background replace is applied, then set first image as selected.
+      if (i == 0 &&
+          GetCameraEffectsController()->GetCameraEffects()->replace_enabled) {
+        recently_used_image_button->SetSelected(true);
+      }
+      AddChildView(std::move(recently_used_image_button));
     }
 
     // Because this is async, we need to update the ui when all images are
@@ -256,6 +304,8 @@ class RecentlyUsedBackgroundView : public views::View {
 
     GetCameraEffectsController()->SetBackgroundImage(filename,
                                                      base::DoNothing());
+
+    base::UmaHistogramBoolean(kBackgroundImageButtonHistogramName, true);
   }
 
  private:
@@ -268,25 +318,44 @@ BEGIN_METADATA(RecentlyUsedBackgroundView)
 END_METADATA
 
 // Button for "Create with AI".
-class CreateImageButton : public views::LabelButton {
-  METADATA_HEADER(CreateImageButton, views::LabelButton)
+class CreateImageButton : public views::Button {
+  METADATA_HEADER(CreateImageButton, views::Button)
 
  public:
-  CreateImageButton(VideoConferenceTrayController* controller)
-      : views::LabelButton(
-            base::BindRepeating(&CreateImageButton::OnButtonClicked,
-                                base::Unretained(this)),
-            l10n_util::GetStringUTF16(
-                IDS_ASH_VIDEO_CONFERENCE_CREAT_WITH_AI_NAME)),
+  explicit CreateImageButton(VideoConferenceTrayController* controller)
+      : views::Button(base::BindRepeating(&CreateImageButton::OnButtonClicked,
+                                          base::Unretained(this))),
         controller_(controller) {
-    SetBorder(views::CreateEmptyBorder(kCreateImageButtonBorderInsets));
-    SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_CENTER);
-    SetImageLabelSpacing(kCreateImageButtonBetweenChildSpacing);
+    // TODO(b/334205690): Use view builder pattern.
+    SetID(BubbleViewID::kCreateWithAiButton);
+    SetAccessibleName(
+        l10n_util::GetStringUTF16(IDS_ASH_VIDEO_CONFERENCE_CREAT_WITH_AI_NAME));
+    SetLayoutManager(std::make_unique<views::FillLayout>());
     SetBackground(views::CreateThemedRoundedRectBackground(
         cros_tokens::kCrosSysSystemOnBase, kSetCameraBackgroundViewRadius));
-    SetImageModel(ButtonState::STATE_NORMAL,
-                  ui::ImageModel::FromVectorIcon(
-                      kAiWandIcon, ui::kColorMenuIcon, kButtonHeight));
+
+    lottie_animation_view_ =
+        AddChildView(std::make_unique<views::AnimatedImageView>());
+
+    auto* image_label_view_container =
+        AddChildView(std::make_unique<views::BoxLayoutView>());
+    image_label_view_container->SetBetweenChildSpacing(
+        kCreateImageButtonBetweenChildSpacing);
+    image_label_view_container->SetOrientation(
+        views::BoxLayout::Orientation::kHorizontal);
+    image_label_view_container->SetMainAxisAlignment(
+        views::LayoutAlignment::kCenter);
+    image_label_view_container->SetInsideBorderInsets(
+        kImageLabelContainerInsideBorderInsets);
+    image_label_view_container->SetMainAxisAlignment(
+        views::LayoutAlignment::kCenter);
+
+    image_label_view_container->AddChildView(
+        std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
+            kAiWandIcon, ui::kColorMenuIcon, kButtonHeight)));
+    image_label_view_container->AddChildView(
+        std::make_unique<views::Label>(l10n_util::GetStringUTF16(
+            IDS_ASH_VIDEO_CONFERENCE_CREAT_WITH_AI_NAME)));
   }
 
   CreateImageButton(const CreateImageButton&) = delete;
@@ -294,12 +363,116 @@ class CreateImageButton : public views::LabelButton {
   ~CreateImageButton() override = default;
 
  private:
+  // views::Button:
+  // Reset the animated image on theme changed to get correct color for the
+  // animation if the `lottie_animation_view_` should be shown and is visible.
+  void OnThemeChanged() override {
+    views::Button::OnThemeChanged();
+
+    // Don't need to reset the animated image when animation shouldn't be shown
+    // or `lottie_animation_view_` is invisible, or this button's bounds is
+    // empty.
+    // TODO(b/334205691): Set visibility correctly to make the check for bounds
+    // no longer needed.
+    if (!controller_->ShouldShowCreateWithAiButtonAnimation() ||
+        !lottie_animation_view_->GetVisible() ||
+        GetBoundsInScreen().IsEmpty()) {
+      return;
+    }
+
+    lottie_animation_view_->SetAnimatedImage(
+        GetGradientAnimation(GetColorProvider()));
+    lottie_animation_view_->Play();
+  }
+
+  // CreateImageButton could be not laid out if there's no recently used images.
+  // We don't want to play the animation if the button is not shown yet.
+  void AddedToWidget() override {
+    // TODO(b/334205691): Set visibility correctly to make the check for bounds
+    // no longer needed.
+    if (!controller_->ShouldShowCreateWithAiButtonAnimation() ||
+        GetBoundsInScreen().IsEmpty()) {
+      lottie_animation_view_->SetVisible(false);
+      if (lottie_animation_view_->animated_image()) {
+        lottie_animation_view_->Stop();
+      }
+      return;
+    }
+
+    PlayAnimation();
+  }
+
+  // Used to indicate when the button is laid out and shown.
+  // TODO(b/334205691): Set visibility correctly. Change this function to
+  // VisibilityChanged();
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override {
+    UpdateAnimationViewVisibility();
+  }
+
+  void UpdateAnimationViewVisibility() {
+    // TODO(b/334205691): Set visibility correctly to make the check for bounds
+    // no longer needed.
+    if (!is_first_time_animation_ ||
+        !controller_->ShouldShowCreateWithAiButtonAnimation() ||
+        GetBoundsInScreen().IsEmpty()) {
+      lottie_animation_view_->SetVisible(false);
+      if (lottie_animation_view_->animated_image()) {
+        lottie_animation_view_->Stop();
+      }
+      return;
+    }
+
+    PlayAnimation();
+  }
+
   void OnButtonClicked(const ui::Event& event) {
+    HideAnimationView();
     controller_->CreateBackgroundImage();
+    controller_->DismissCreateWithAiButtonAnimationForever();
+
+    base::UmaHistogramBoolean(kCreateWithAiButtonHistogramName, true);
+  }
+
+  void PlayAnimation() {
+    if (!lottie_animation_view_->animated_image()) {
+      lottie_animation_view_->SetAnimatedImage(
+          GetGradientAnimation(GetColorProvider()));
+    }
+    lottie_animation_view_->SetVisible(true);
+    lottie_animation_view_->Play();
+    stop_animation_timer_.Start(FROM_HERE, kGradientAnimationDuration, this,
+                                &CreateImageButton::StopAnimation);
+  }
+
+  void StopAnimation() {
+    is_first_time_animation_ = false;
+    stop_animation_timer_.Stop();
+    lottie_animation_view_->Stop();
+    lottie_animation_view_->SetVisible(false);
+  }
+
+  void HideAnimationView() {
+    if (!lottie_animation_view_->GetVisible()) {
+      return;
+    }
+    stop_animation_timer_.Stop();
+    lottie_animation_view_->Stop();
+    lottie_animation_view_->SetVisible(false);
   }
 
   // Unowned by `CreateImageButton`.
   const raw_ptr<VideoConferenceTrayController> controller_;
+
+  // Owned by the View's hierarchy. Used to play the animation on the button.
+  raw_ptr<views::AnimatedImageView> lottie_animation_view_ = nullptr;
+
+  // It's set false when the animation has been played during the lifetime of
+  // `this`. When it's false, we shouldn't play animation animation anymore.
+  bool is_first_time_animation_ = true;
+
+  // Started when `lottie_animation_view_` starts playing the animation. It's
+  // used to stop the animation after the animation duration.
+  base::OneShotTimer stop_animation_timer_;
 };
 
 BEGIN_METADATA(CreateImageButton)
@@ -336,6 +509,13 @@ void SetCameraBackgroundView::SetBackgroundReplaceUiVisible(bool visible) {
   }
 
   SetVisible(visible);
+
+  // Unselect all recently image buttons if this view is invisible.
+  if (!visible) {
+    for (auto& button : recently_used_background_view_->children()) {
+      views::AsViewClass<RecentlyUsedImageButton>(button)->SetSelected(false);
+    }
+  }
 }
 
 BEGIN_METADATA(SetCameraBackgroundView)

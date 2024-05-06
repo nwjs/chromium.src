@@ -39,7 +39,7 @@ class SampleForTests {
 
     public void startExample() {
         // Calls C++ Init(...) method and holds a pointer to the C++ class.
-        mNativeCPPObject = SampleForTestsJni.get().init(this, "myParam");
+        mNativeCPPObject = SampleForTestsJni.get().init(this, "myParam", new byte[0], null);
     }
 
     public void doStuff() {
@@ -47,7 +47,7 @@ class SampleForTests {
         // be done to:
         // * avoid leaks.
         // * using finalizers are not allowed to destroy the cpp class.
-        SampleForTestsJni.get().method(mNativeCPPObject, this);
+        SampleForTestsJni.get().method(mNativeCPPObject, this, new String[] {"test"});
     }
 
     // Just a comment to ensure we aren't reading comments:
@@ -55,7 +55,7 @@ class SampleForTests {
 
     public void finishExample() {
         // We're done, so let's destroy nativePtr object.
-        SampleForTestsJni.get().destroy(mNativeCPPObject, this);
+        SampleForTestsJni.get().destroy(mNativeCPPObject, this, new byte[0]);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -110,7 +110,9 @@ class SampleForTests {
     // Tests @JniType for @CalledByNative methods.
     @CalledByNative
     @JniType("std::string")
-    public String getFirstString(@JniType("std::vector<std::string>") String[] array) {
+    public String getFirstString(
+            @JniType("std::vector<const char*>") String[] array,
+            @JniType("const char*") String finalArg) {
         return array[0];
     }
 
@@ -140,7 +142,7 @@ class SampleForTests {
     // The generator is not confused by @Annotated parameters.
     @CalledByNative
     void javaMethodWithAnnotatedParam(
-            @SomeAnnotation @JniType("int") int foo,
+            @SomeAnnotation @JniType("MyEnum") int foo,
             final @SomeAnnotation int bar,
             @SomeAnnotation final int baz,
             @SomeAnnotation @JniType("long") final @AnotherAnnotation long bat) {}
@@ -265,7 +267,11 @@ class SampleForTests {
         // The caller of this method should store it, and supply it as a the nativeCPPClass param to
         // subsequent native method calls (see the methods below that take an "int native..." as
         // first param).
-        long init(SampleForTests caller, String param);
+        long init(
+                SampleForTests caller,
+                String param,
+                @JniType("jni_zero::ByteArrayView") byte[] bytes,
+                @JniType("jni_zero::tests::CPPClass*") SampleForTests convertedType);
 
         // This defines a function binding to the associated C++ class member function. The name is
         // derived from |nativeDestroy| and |nativeCPPClass| to arrive at CPPClass::Destroy() (i.e.
@@ -274,7 +280,10 @@ class SampleForTests {
         // The |nativeCPPClass| is automatically cast to type CPPClass*, in order to obtain the
         // object on which to invoke the member function. Replace "CPPClass" with your particular
         // class name!
-        void destroy(long nativeCPPClass, SampleForTests caller);
+        void destroy(
+                long nativeCPPClass,
+                SampleForTests caller,
+                @JniType("std::vector<uint8_t>") byte[] bytes);
 
         // This declares a C++ function which the application code must implement:
         // static jdouble GetDoubleFunction(JNIEnv* env, jobject caller);
@@ -299,12 +308,19 @@ class SampleForTests {
 
         // Test jclass and jthrowable, as well as generics.
         Class<Map<String, String>> getClass(Class<Map<String, String>> arg0);
+
         Throwable getThrowable(Throwable arg0);
+
+        // Test Map.
+        Map<String, String> getMap(Map<String, String> arg0);
 
         // Similar to nativeDestroy above, this will cast nativeCPPClass into pointer of CPPClass
         // type and call its Method member function. Replace "CPPClass" with your particular class
         // name!
-        int method(long nativeCPPClass, SampleForTests caller);
+        int method(
+                long nativeCPPClass,
+                SampleForTests caller,
+                @JniType("std::vector<std::string>") String[] strings);
 
         // Similar to nativeMethod above, but here the C++ fully qualified class name is taken from
         // the annotation rather than parameter name, which can thus be chosen freely.

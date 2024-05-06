@@ -1214,9 +1214,13 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method constructor
 [Worker]     method drop
 [Worker]     method filter
+[Worker]     method first
+[Worker]     method flatMap
 [Worker]     method forEach
+[Worker]     method last
 [Worker]     method map
 [Worker]     method subscribe
+[Worker]     method switchMap
 [Worker]     method take
 [Worker]     method takeUntil
 [Worker]     method toArray

@@ -29,7 +29,9 @@ AUTO_AUTH_FLAGS = """
 # Googler auth flags
 experimental_credentials_helper={credshelper}
 experimental_credentials_helper_args={args}
-""".format(credshelper=os.path.join(CHROMIUM_SRC, "buildtools", "reclient", "credshelper"), args="--auth_source=automaticAuth --gcert_refresh_timeout=20")
+""".format(credshelper=os.path.join(CHROMIUM_SRC, "buildtools", "reclient",
+                                    "credshelper"),
+           args="--auth_source=automaticAuth --gcert_refresh_timeout=20")
 
 ADC_AUTH_FLAGS = """
 # ADC auth flags
@@ -40,7 +42,23 @@ GCLOUD_AUTH_FLAGS = """
 use_external_auth_token=true
 experimental_credentials_helper={credshelper}
 experimental_credentials_helper_args={args}
-""".format(credshelper=os.path.join(CHROMIUM_SRC, "buildtools", "reclient", "credshelper"), args="--auth_source=gcloud")
+""".format(credshelper=os.path.join(CHROMIUM_SRC, "buildtools", "reclient",
+                                    "credshelper"),
+           args="--auth_source=gcloud")
+
+LUCI_AUTH_CREDSHELPER_FLAGS = """
+experimental_credentials_helper={credshelper}
+experimental_credentials_helper_args={args}
+""".format(
+    credshelper=os.path.join("luci-auth"),
+    args=" ".join([
+        "token",
+        "-scopes-context",
+        "-json-output=-",
+        "-json-format=reclient",
+        "-lifetime=5m",
+    ]),
+)
 
 
 def ClangRevision():
@@ -162,7 +180,8 @@ def RbeProjectFromInstance(instance):
     return m.group(1)
 
 
-def GenerateReproxyCfg(reproxy_cfg_template, rbe_instance, rbe_project):
+def GenerateReproxyCfg(reproxy_cfg_template, rbe_instance, rbe_project,
+                       use_luci_auth):
     tmpl_path = os.path.join(THIS_DIR, "reproxy_cfg_templates",
                              reproxy_cfg_template)
     logging.info(f"generate reproxy.cfg using {tmpl_path}")
@@ -179,6 +198,9 @@ def GenerateReproxyCfg(reproxy_cfg_template, rbe_instance, rbe_project):
         auth_flags = ADC_AUTH_FLAGS
     if sys.platform == "darwin":
         auth_flags = GCLOUD_AUTH_FLAGS
+    if use_luci_auth:
+        auth_flags = LUCI_AUTH_CREDSHELPER_FLAGS
+
     reproxy_cfg = reproxy_cfg_tmpl.substitute({
         "rbe_instance": rbe_instance,
         "rbe_project": rbe_project,
@@ -246,6 +268,11 @@ def main():
         help="skip downloading reclient cfgs from CIPD server",
         action="store_true",
     )
+    parser.add_argument(
+        "--use_luci_auth_credshelper",
+        help="use luci_auth in credshelper mode for authentication",
+        action="store_true",
+    )
     parser.add_argument("--quiet",
                         help="Suppresses info logs",
                         action="store_true")
@@ -273,7 +300,7 @@ def main():
                 "--rbe_instance is required if --reproxy_cfg_template is set")
             return 1
         if not GenerateReproxyCfg(args.reproxy_cfg_template, args.rbe_instance,
-                                  rbe_project):
+                                  rbe_project, args.use_luci_auth_credshelper):
             return 1
 
     if args.skip_remoteexec_cfg_fetch:

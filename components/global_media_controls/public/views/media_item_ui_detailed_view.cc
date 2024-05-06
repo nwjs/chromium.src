@@ -3,11 +3,12 @@
 // found in the LICENSE file.
 
 #include "components/global_media_controls/public/views/media_item_ui_detailed_view.h"
+
 #include <memory>
 
 #include "base/metrics/histogram_functions.h"
+#include "components/global_media_controls/public/views/media_action_button.h"
 #include "components/global_media_controls/public/views/media_progress_view.h"
-#include "components/global_media_controls/views/media_action_button.h"
 #include "components/media_message_center/media_notification_container.h"
 #include "components/media_message_center/media_notification_item.h"
 #include "components/media_message_center/media_notification_util.h"
@@ -423,8 +424,12 @@ void MediaItemUIDetailedView::UpdateWithMediaMetadata(
 
   for (int index = 0; index < static_cast<int>(metadata.chapters.size());
        index++) {
-    chapters_[index] = chapter_list_view_->AddChildView(
-        std::make_unique<ChapterItemView>(metadata.chapters[index], theme_));
+    chapters_[index] =
+        chapter_list_view_->AddChildView(std::make_unique<ChapterItemView>(
+            metadata.chapters[index], theme_,
+            /*on_chapter_pressed=*/
+            base::BindRepeating(&MediaItemUIDetailedView::SeekToTimestamp,
+                                weak_factory_.GetWeakPtr())));
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
@@ -611,6 +616,11 @@ void MediaItemUIDetailedView::OnProgressDragging(bool pause) {
 
 void MediaItemUIDetailedView::SeekTo(double seek_progress) {
   const auto time = seek_progress * position_.duration();
+  SeekToTimestamp(time);
+}
+
+void MediaItemUIDetailedView::SeekToTimestamp(
+    const base::TimeDelta time) const {
   if (item_) {
     item_->SeekTo(time);
   } else {
@@ -675,7 +685,15 @@ void MediaItemUIDetailedView::UpdateCastingState() {
       start_casting_button_->UpdateText(
           IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_SHOW_DEVICE_LIST);
     }
-    device_selector_view_separator_->SetVisible(is_expanded);
+
+    bool is_ash_background_listening_enabled = false;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    is_ash_background_listening_enabled =
+        base::FeatureList::IsEnabled(media::kBackgroundListening);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+    device_selector_view_separator_->SetVisible(
+        is_expanded && !is_ash_background_listening_enabled);
   } else {
     device_selector_view_->SetVisible(false);
     device_selector_view_separator_->SetVisible(false);

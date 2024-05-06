@@ -20,7 +20,7 @@ AddressCountryCode GetCountryCodeForNewAddress(
   PersonalDataManager* pdm =
       ContentAutofillClient::FromWebContents(web_contents)
           ->GetPersonalDataManager();
-  return AddressCountryCode(pdm->GetDefaultCountryCodeForNewAddress());
+  return pdm->address_data_manager().GetDefaultCountryCodeForNewAddress();
 }
 
 bool IsEligibleForAccountStorage(content::WebContents* web_contents,
@@ -32,7 +32,7 @@ bool IsEligibleForAccountStorage(content::WebContents* web_contents,
   // Note: addresses from unsupported countries can't be saved in account.
   // TODO(crbug.com/1432505): remove temporary unsupported countries
   // filtering.
-  return pdm->IsEligibleForAddressAccountStorage() &&
+  return pdm->address_data_manager().IsEligibleForAddressAccountStorage() &&
          pdm->IsCountryEligibleForAccountStorage(country_code);
 }
 
@@ -84,6 +84,7 @@ void AddNewAddressBubbleController::OnAddButtonClicked() {
                             ? AutofillProfile::Source::kAccount
                             : AutofillProfile::Source::kLocalOrSyncable,
                         country_code_),
+        l10n_util::GetStringUTF16(IDS_AUTOFILL_ADD_NEW_ADDRESS_EDITOR_TITLE),
         GetFooterMessage(),
         /*is_editing_existing_address=*/false);
   }

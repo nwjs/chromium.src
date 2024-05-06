@@ -12,7 +12,7 @@
 #include "ui/views/view.h"
 
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-#include "chrome/browser/ui/views/media_preview/active_devices_media_coordinator.h"
+#include "chrome/browser/ui/views/media_preview/page_info_previews_coordinator.h"
 #include "components/media_effects/media_device_info.h"
 #endif
 
@@ -69,6 +69,15 @@ class PageInfoPermissionContentView
   void SetPermissionInfo(const PermissionInfoList& permission_info_list,
                          ChosenObjectInfoList chosen_object_info_list) override;
 
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+  const raw_ptr<views::Label> GetTitleForTesting() const { return title_; }
+
+  const std::optional<PageInfoPreviewsCoordinator>&
+  GetPreviewsCoordinatorForTesting() const {
+    return previews_coordinator_;
+  }
+#endif
+
  private:
   // views::View overrides
   void ChildPreferredSizeChanged(views::View* child) override;
@@ -97,7 +106,7 @@ class PageInfoPermissionContentView
   raw_ptr<PageInfo> presenter_ = nullptr;
   ContentSettingsType type_;
   raw_ptr<ChromePageInfoUiDelegate> ui_delegate_ = nullptr;
-  raw_ptr<content::WebContents> web_contents_ = nullptr;
+  base::WeakPtr<content::WebContents> web_contents_;
   PageInfo::PermissionInfo permission_;
 
   raw_ptr<NonAccessibleImageView> icon_ = nullptr;
@@ -107,8 +116,7 @@ class PageInfoPermissionContentView
   raw_ptr<views::Checkbox> remember_setting_ = nullptr;
 
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-  std::optional<ActiveDevicesMediaCoordinator>
-      active_devices_media_preview_coordinator_;
+  std::optional<PageInfoPreviewsCoordinator> previews_coordinator_;
   base::ScopedObservation<media_effects::MediaDeviceInfo,
                           PageInfoPermissionContentView>
       devices_observer_{this};

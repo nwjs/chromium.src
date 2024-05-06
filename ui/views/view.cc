@@ -131,25 +131,13 @@ const View* GetHierarchyRoot(const View* view) {
 namespace internal {
 
 #if DCHECK_IS_ON()
-class ScopedChildrenLock {
- public:
-  explicit ScopedChildrenLock(const View* view)
-      : reset_(&view->iterating_, true) {}
+ScopedChildrenLock::ScopedChildrenLock(const View* view)
+    : reset_(&view->iterating_, true) {}
 
-  ScopedChildrenLock(const ScopedChildrenLock&) = delete;
-  ScopedChildrenLock& operator=(const ScopedChildrenLock&) = delete;
-
-  ~ScopedChildrenLock() = default;
-
- private:
-  base::AutoReset<bool> reset_;
-};
+ScopedChildrenLock::~ScopedChildrenLock() = default;
 #else
-class ScopedChildrenLock {
- public:
-  explicit ScopedChildrenLock(const View* view) {}
-  ~ScopedChildrenLock() {}
-};
+ScopedChildrenLock::ScopedChildrenLock(const View* view) {}
+ScopedChildrenLock::~ScopedChildrenLock() {}
 #endif
 
 }  // namespace internal
@@ -567,13 +555,6 @@ gfx::Rect View::GetAnchorBoundsInScreen() const {
   return GetBoundsInScreen();
 }
 
-gfx::Size View::GetPreferredSize() const {
-  if (preferred_size_) {
-    return *preferred_size_;
-  }
-  return CalculatePreferredSize();
-}
-
 gfx::Size View::GetPreferredSize(const SizeBounds& available_size) const {
   if (preferred_size_) {
     return *preferred_size_;
@@ -603,7 +584,7 @@ gfx::Size View::GetMinimumSize() const {
     return GetLayoutManager()->GetMinimumSize(this);
   }
 
-  return GetPreferredSize();
+  return GetPreferredSize(SizeBounds(0, 0));
 }
 
 gfx::Size View::GetMaximumSize() const {
@@ -614,7 +595,7 @@ int View::GetHeightForWidth(int w) const {
   if (HasLayoutManager()) {
     return GetLayoutManager()->GetPreferredHeightForWidth(this, w);
   }
-  return GetPreferredSize().height();
+  return GetPreferredSize(SizeBounds(w, {})).height();
 }
 
 SizeBounds View::GetAvailableSize(const View* child) const {
@@ -919,7 +900,8 @@ void View::Layout(PassKey) {
   // action.
   internal::ScopedChildrenLock lock(this);
   for (views::View* child : children_) {
-    if (child->needs_layout_ || !HasLayoutManager()) {
+    if (child->needs_layout_ || !HasLayoutManager() ||
+        child->GetProperty(kViewIgnoredByLayoutKey)) {
       TRACE_EVENT1("views", "View::LayoutChildren", "class",
                    child->GetClassName());
       child->needs_layout_ = false;
@@ -930,6 +912,11 @@ void View::Layout(PassKey) {
 
 void View::InvalidateLayout() {
   if (invalidating_) {
+    return;
+  }
+
+  // There is no need to `InvalidateLayout()` when `Widget::IsClosed()`.
+  if (Widget* widget = GetWidget(); widget && widget->IsClosed()) {
     return;
   }
 
@@ -955,7 +942,7 @@ void View::InvalidateLayout() {
   } else {
     Widget* widget = GetWidget();
     if (widget) {
-      widget->ScheduleLayout();
+      widget->OnRootViewLayoutInvalidated();
     }
   }
 }
@@ -1242,6 +1229,11 @@ void View::SchedulePaint() {
 }
 
 void View::SchedulePaintInRect(const gfx::Rect& rect) {
+  // There is no need to `SchedulePaintInRect()` when `Widget::IsClosed()`.
+  if (Widget* widget = GetWidget(); widget && widget->IsClosed()) {
+    return;
+  }
+
   needs_paint_ = true;
   SchedulePaintInRectImpl(rect);
 }
@@ -1940,10 +1932,6 @@ bool View::IsFocusable() const {
          IsDrawn();
 }
 
-bool View::IsAccessibilityFocusable() const {
-  return GetViewAccessibility().IsAccessibilityFocusable();
-}
-
 FocusManager* View::GetFocusManager() {
   Widget* widget = GetWidget();
   return widget ? widget->GetFocusManager() : nullptr;
@@ -1958,7 +1946,7 @@ void View::RequestFocus() {
   FocusManager* focus_manager = GetFocusManager();
   if (focus_manager) {
     bool focusable = focus_manager->keyboard_accessible()
-                         ? IsAccessibilityFocusable()
+                         ? GetViewAccessibility().IsAccessibilityFocusable()
                          : IsFocusable();
     if (focusable) {
       focus_manager->SetFocusedView(this);
@@ -2094,9 +2082,10 @@ void View::SetAccessibilityProperties(
   // See the comment above regarding the NameFrom value.
   if (description.has_value()) {
     if (description_from.has_value()) {
-      SetAccessibleDescription(description.value(), description_from.value());
+      GetViewAccessibility().SetDescription(description.value(),
+                                            description_from.value());
     } else {
-      SetAccessibleDescription(description.value());
+      GetViewAccessibility().SetDescription(description.value());
     }
   }
 }
@@ -2276,7 +2265,7 @@ bool View::HandleAccessibleAction(const ui::AXActionData& action_data) {
       return true;
     }
     case ax::mojom::Action::kFocus:
-      if (IsAccessibilityFocusable()) {
+      if (GetViewAccessibility().IsAccessibilityFocusable()) {
         RequestFocus();
         return true;
       }
@@ -3811,7 +3800,7 @@ void View::AdvanceFocusIfNecessary() {
   // unfocusable. If the view is still focusable or is not focused, we can
   // return early avoiding further unnecessary checks. Focusability check is
   // performed first as it tends to be faster.
-  if (IsAccessibilityFocusable() || !HasFocus()) {
+  if (GetViewAccessibility().IsAccessibilityFocusable() || !HasFocus()) {
     return;
   }
 

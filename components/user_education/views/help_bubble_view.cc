@@ -125,7 +125,7 @@ class MdIPHBubbleButton : public views::MdTextButton {
       : MdTextButton(std::move(callback), text),
         delegate_(delegate),
         is_default_button_(is_default_button) {
-    GetViewAccessibility().OverrideIsLeaf(true);
+    GetViewAccessibility().SetIsLeaf(true);
 
     if (features::IsChromeRefresh2023()) {
       views::FocusRing::Get(this)->SetColorId(
@@ -187,7 +187,7 @@ class MdIPHBubbleButton : public views::MdTextButton {
             : delegate_->GetHelpBubbleForegroundColorId());
     SetEnabledTextColors(foreground_color);
 
-    // TODO(crbug/1112244): Temporary fix for Mac. Bubble shouldn't be in
+    // TODO(crbug.com/40709599): Temporary fix for Mac. Bubble shouldn't be in
     // inactive style when the bubble loses focus.
     SetTextColor(ButtonState::STATE_DISABLED, foreground_color);
   }
@@ -958,7 +958,7 @@ void HelpBubbleView::OnThemeChanged() {
       color_provider->GetColor(delegate_->GetHelpBubbleForegroundColorId());
   if (icon_view_) {
     icon_view_->SetBackground(views::CreateRoundedRectBackground(
-        foreground_color, icon_view_->GetPreferredSize().height() / 2));
+        foreground_color, icon_view_->GetPreferredSize({}).height() / 2));
   }
 
   for (views::Label* label : labels_) {
@@ -1026,7 +1026,9 @@ void HelpBubbleView::OnBeforeBubbleWidgetInit(views::Widget::InitParams* params,
   // issues in Weston, the windowing environment used on chrome's Wayland
   // testbots:
   // https://gitlab.freedesktop.org/wayland/weston/-/issues/669
-  params->requires_accelerated_widget = (GetAnchorAsMenuItem(this) != nullptr);
+  if (GetAnchorAsMenuItem(this) != nullptr) {
+    params->use_accelerated_widget_override = true;
+  }
 #endif
 }
 

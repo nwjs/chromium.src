@@ -1257,6 +1257,18 @@ const CGFloat kSymbolSize = 18;
                                   isNewWebState:YES];
       break;
     }
+    case WebStateListChange::Type::kGroupCreate:
+      NOTREACHED() << "Old Tab Strip doesn't support Tab Groups.";
+      break;
+    case WebStateListChange::Type::kGroupVisualDataUpdate:
+      NOTREACHED() << "Old Tab Strip doesn't support Tab Groups.";
+      break;
+    case WebStateListChange::Type::kGroupMove:
+      NOTREACHED() << "Old Tab Strip doesn't support Tab Groups.";
+      break;
+    case WebStateListChange::Type::kGroupDelete:
+      NOTREACHED() << "Old Tab Strip doesn't support Tab Groups.";
+      break;
   }
 
   if (status.active_web_state_change() && status.new_active_web_state) {

@@ -20,12 +20,16 @@
 #include "chrome/browser/ash/login/wizard_context.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/webui/ash/login/add_child_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/consumer_update_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/error_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_info_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/network_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/online_login_utils.h"
 #include "chrome/browser/ui/webui/ash/login/quick_start_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/update_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/user_creation_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/welcome_screen_handler.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
@@ -79,16 +83,63 @@ std::optional<QuickStartController::EntryPoint> EntryPointFromScreen(
 
 QuickStartMetrics::ScreenName ScreenNameFromOobeScreenId(
     OobeScreenId screen_id) {
-  // TODO(b/298042953): Check Screen IDs for Unicorn account setup flow.
-  if (screen_id == ConsumerUpdateScreenView::kScreenId) {
-    // TODO(b/298042953): Update Screen ID when the new OOBE Checking for
-    // update and determining device configuration screen is added.
+  if (screen_id == WelcomeView::kScreenId) {
+    return QuickStartMetrics::ScreenName::kWelcomeScreen;
+  } else if (screen_id == NetworkScreenView::kScreenId) {
+    return QuickStartMetrics::ScreenName::kNetworkScreen;
+  } else if (screen_id == GaiaInfoScreenView::kScreenId) {
+    return QuickStartMetrics::ScreenName::kGaiaInfoScreen;
+  } else if (screen_id == GaiaView::kScreenId) {
+    return QuickStartMetrics::ScreenName::kGaiaScreen;
+  } else if (screen_id == UpdateView::kScreenId) {
     return QuickStartMetrics::ScreenName::
         kCheckingForUpdateAndDeterminingDeviceConfiguration;
   } else if (screen_id == UserCreationView::kScreenId) {
     return QuickStartMetrics::ScreenName::kChooseChromebookSetup;
+  } else if (screen_id == ConsumerUpdateScreenView::kScreenId) {
+    return QuickStartMetrics::ScreenName::kConsumerUpdate;
+  } else if (screen_id == AddChildScreenView::kScreenId) {
+    return QuickStartMetrics::ScreenName::kAddChild;
+  } else {
+    return QuickStartMetrics::ScreenName::kOther;
   }
-  return QuickStartMetrics::ScreenName::kOther;
+}
+
+QuickStartMetrics::ScreenName ScreenNameFromUiState(
+    QuickStartController::UiState ui_state,
+    QuickStartController::ControllerState controller_state) {
+  switch (ui_state) {
+    case QuickStartController::UiState::SHOWING_QR:
+      [[fallthrough]];
+    case QuickStartController::UiState::SHOWING_PIN:
+      return QuickStartMetrics::ScreenName::kQSSetUpWithAndroidPhone;
+    case QuickStartController::UiState::CONNECTING_TO_WIFI:
+      return QuickStartMetrics::ScreenName::kQSConnectingToWifi;
+    case QuickStartController::UiState::WIFI_CREDENTIALS_RECEIVED:
+      return QuickStartMetrics::ScreenName::kQSWifiCredentialsReceived;
+    case QuickStartController::UiState::CONFIRM_GOOGLE_ACCOUNT:
+      return QuickStartMetrics::ScreenName::kQSSelectGoogleAccount;
+    case QuickStartController::UiState::SIGNING_IN:
+      return QuickStartMetrics::ScreenName::kQSGettingGoogleAccountInfo;
+    case QuickStartController::UiState::CREATING_ACCOUNT:
+      return QuickStartMetrics::ScreenName::kQSCreatingAccount;
+    case QuickStartController::UiState::SETUP_COMPLETE:
+      return QuickStartMetrics::ScreenName::kQSComplete;
+    case QuickStartController::UiState::CONNECTING_TO_PHONE:
+      if (controller_state == QuickStartController::ControllerState::
+                                  WAITING_TO_RESUME_AFTER_UPDATE) {
+        return QuickStartMetrics::ScreenName::kQSResumingConnectionAfterUpdate;
+      }
+      [[fallthrough]];
+    case QuickStartController::UiState::FALLBACK_URL_FLOW:
+      [[fallthrough]];
+    case QuickStartController::UiState::EXIT_SCREEN:
+      [[fallthrough]];
+    case QuickStartController::UiState::SHOWING_BLUETOOTH_DIALOG:
+      [[fallthrough]];
+    default:
+      return QuickStartMetrics::ScreenName::kNone;
+  }
 }
 
 bool IsConnectedToWiFi() {
@@ -106,6 +157,8 @@ ConnectionClosedReasonFromAbortFlowReason(
       [[fallthrough]];
     case QuickStartController::AbortFlowReason::SIGNIN_SCHOOL:
       [[fallthrough]];
+    case QuickStartController::AbortFlowReason::ADD_CHILD:
+      [[fallthrough]];
     case QuickStartController::AbortFlowReason::ENTERPRISE_ENROLLMENT:
       return TargetDeviceBootstrapController::ConnectionClosedReason::
           kUserAborted;
@@ -120,8 +173,14 @@ ConnectionClosedReasonFromAbortFlowReason(
 }  // namespace
 
 QuickStartController::QuickStartController() {
+  metrics_ = std::make_unique<QuickStartMetrics>();
+
   // Main feature flag
   if (!features::IsOobeQuickStartEnabled()) {
+    if (g_browser_process->local_state()->GetBoolean(
+            prefs::kShouldResumeQuickStartAfterReboot)) {
+      ForceEnableQuickStart();
+    }
     return;
   }
 
@@ -129,6 +188,12 @@ QuickStartController::QuickStartController() {
   if (session_manager::SessionManager::Get()->session_state() !=
           session_manager::SessionState::OOBE &&
       !features::IsOobeQuickStartOnLoginScreenEnabled()) {
+    return;
+  }
+
+  // A guest session state is SessionState::OOBE if there are no other users
+  // added. Quick Start is not available in this case.
+  if (ProfileManager::GetActiveUserProfile()->IsGuestSession()) {
     return;
   }
 
@@ -153,13 +218,36 @@ void QuickStartController::DetachFrontend(
   ui_delegates_.RemoveObserver(delegate);
 }
 
+void QuickStartController::MaybeRecordQuickStartScreenOpened(
+    QuickStartController::UiState new_ui) {
+  QuickStartMetrics::ScreenName screen_name =
+      ScreenNameFromUiState(new_ui, controller_state_);
+  if (screen_name != QuickStartMetrics::ScreenName::kNone) {
+    metrics_->QuickStartMetrics::RecordScreenOpened(screen_name);
+  }
+}
+
+void QuickStartController::MaybeRecordQuickStartScreenClosed(
+    QuickStartController::UiState closed_ui) {
+  QuickStartMetrics::ScreenName screen_name =
+      ScreenNameFromUiState(closed_ui, controller_state_);
+  if (screen_name != QuickStartMetrics::ScreenName::kNone) {
+    metrics_->RecordScreenClosed(screen_name);
+  }
+}
+
 void QuickStartController::UpdateUiState(UiState ui_state) {
   QS_LOG(INFO) << "Updating UI state to " << ui_state;
+  std::optional<UiState> previous_ui_state = ui_state_;
   ui_state_ = ui_state;
   CHECK(!ui_delegates_.empty());
   for (auto& delegate : ui_delegates_) {
     delegate.OnUiUpdateRequested(ui_state_.value());
   }
+  if (previous_ui_state.has_value()) {
+    MaybeRecordQuickStartScreenClosed(previous_ui_state.value());
+  }
+  MaybeRecordQuickStartScreenOpened(ui_state);
 }
 
 void QuickStartController::ForceEnableQuickStart() {
@@ -281,16 +369,12 @@ void QuickStartController::OnStatusChanged(
   using Step = TargetDeviceBootstrapController::Step;
   using ErrorCode = TargetDeviceBootstrapController::ErrorCode;
 
-  // TODO(b/298042953): Emit ScreenOpened metrics when automatically
-  // resuming after an update.
   switch (status.step) {
     case Step::ADVERTISING_WITH_QR_CODE:
       controller_state_ = ControllerState::ADVERTISING;
       CHECK(absl::holds_alternative<QRCode::PixelData>(status.payload));
       qr_code_data_ = absl::get<QRCode::PixelData>(status.payload);
       UpdateUiState(UiState::SHOWING_QR);
-      QuickStartMetrics::RecordScreenOpened(
-          QuickStartMetrics::ScreenName::kSetUpWithAndroidPhone);
       return;
     case Step::ADVERTISING_WITHOUT_QR_CODE:
       UpdateUiState(UiState::CONNECTING_TO_PHONE);
@@ -300,8 +384,6 @@ void QuickStartController::OnStatusChanged(
       pin_ = *absl::get<PinString>(status.payload);
       CHECK_EQ(pin_.value().length(), 4UL);
       UpdateUiState(UiState::SHOWING_PIN);
-      QuickStartMetrics::RecordScreenOpened(
-          QuickStartMetrics::ScreenName::kSetUpWithAndroidPhone);
       return;
     case Step::CONNECTED:
       controller_state_ = ControllerState::CONNECTED;
@@ -309,8 +391,6 @@ void QuickStartController::OnStatusChanged(
       return;
     case Step::REQUESTING_WIFI_CREDENTIALS:
       UpdateUiState(UiState::CONNECTING_TO_WIFI);
-      QuickStartMetrics::RecordScreenOpened(
-          QuickStartMetrics::ScreenName::kConnectingToWifi);
       return;
     case Step::WIFI_CREDENTIALS_RECEIVED:
       CHECK(absl::holds_alternative<mojom::WifiCredentials>(status.payload));
@@ -347,8 +427,6 @@ void QuickStartController::OnStatusChanged(
                       << controller_state_;
         AbortFlow(AbortFlowReason::ERROR);
       }
-      // TODO(b/298042953): Record Gaia Transfer screen shown once UI is
-      // implemented.
       return;
     case Step::TRANSFERRED_GOOGLE_ACCOUNT_DETAILS:
       if (controller_state_ != ControllerState::CONNECTED) {
@@ -362,10 +440,19 @@ void QuickStartController::OnStatusChanged(
       if (absl::holds_alternative<
               TargetDeviceBootstrapController::GaiaCredentials>(
               status.payload)) {
-        QS_LOG(INFO) << "Successfully received an OAuth authorization code.";
-        OnOAuthTokenReceived(
+        const TargetDeviceBootstrapController::GaiaCredentials gaia_creds =
             absl::get<TargetDeviceBootstrapController::GaiaCredentials>(
-                status.payload));
+                status.payload);
+        if (!gaia_creds.auth_code.empty()) {
+          QS_LOG(INFO) << "Successfully received an OAuth authorization code.";
+          OnOAuthTokenReceived(gaia_creds);
+        } else {
+          QS_LOG(INFO) << "QuickStart flow will continue via fallback URL";
+          CHECK(!gaia_creds.fallback_url_path->empty());
+          fallback_url_ = gaia_creds.fallback_url_path.value();
+          controller_state_ = ControllerState::FALLBACK_URL_FLOW_ON_GAIA_SCREEN;
+          UpdateUiState(UiState::FALLBACK_URL_FLOW);
+        }
       } else {
         CHECK(absl::holds_alternative<ErrorCode>(status.payload));
         QS_LOG(ERROR) << "Error receiving FIDO assertion. Error Code = "
@@ -400,13 +487,28 @@ void QuickStartController::OnCurrentScreenChanged(OobeScreenId previous_screen,
   current_screen_ = current_screen;
   previous_screen_ = previous_screen;
 
+  QS_LOG(INFO) << "Current screen changed from " << previous_screen << " to "
+               << current_screen;
+
   if (current_screen_ == QuickStartScreenHandler::kScreenId) {
     // Just switched into the quick start screen. The ScreenOpened metrics on
     // the Quick Start screen are recorded from OnStatusChanged().
     HandleTransitionToQuickStartScreen();
   } else if (IsSetupOngoing()) {
-    QuickStartMetrics::RecordScreenOpened(
-        ScreenNameFromOobeScreenId(current_screen));
+    metrics_->RecordScreenClosed(ScreenNameFromOobeScreenId(previous_screen));
+    metrics_->RecordScreenOpened(ScreenNameFromOobeScreenId(current_screen));
+
+    // Detect when the user leaves the Gaia screen during the fallback flow.
+    if (controller_state_ ==
+            ControllerState::FALLBACK_URL_FLOW_ON_GAIA_SCREEN &&
+        previous_screen_ == GaiaScreenHandler::kScreenId) {
+      QS_LOG(INFO) << "Gaia screen dismissed while handling fallback URL flow.";
+      if (current_screen_ == ErrorScreenHandler::kScreenId) {
+        AbortFlow(AbortFlowReason::ERROR);
+      } else {
+        AbortFlow(AbortFlowReason::USER_CLICKED_BACK);
+      }
+    }
   }
 }
 
@@ -590,6 +692,7 @@ void QuickStartController::FinishAccountCreation() {
 void QuickStartController::ResetState() {
   entry_point_.reset();
   qr_code_data_.reset();
+  fallback_url_.reset();
   pin_.reset();
   user_info_ = UserInfo();
   gaia_creds_ = TargetDeviceBootstrapController::GaiaCredentials();
@@ -636,6 +739,17 @@ void QuickStartController::OnPropertiesUpdated(
 
 bool QuickStartController::IsBluetoothDisabled() {
   return bluetooth_system_state_ == BluetoothSystemState::kDisabled;
+}
+
+bool QuickStartController::WillRequestWiFi() {
+  return !IsConnectedToWiFi();
+}
+
+void QuickStartController::OnFallbackUrlFlowSuccess() {
+  if (controller_state_ == ControllerState::FALLBACK_URL_FLOW_ON_GAIA_SCREEN) {
+    SavePhoneInstanceID();
+    controller_state_ = ControllerState::SETUP_COMPLETE;
+  }
 }
 
 void QuickStartController::OnBluetoothPermissionGranted() {
@@ -688,6 +802,9 @@ std::ostream& operator<<(std::ostream& stream,
     case QuickStartController::UiDelegate::UiState::CREATING_ACCOUNT:
       stream << "[creating account]";
       break;
+    case QuickStartController::UiDelegate::UiState::FALLBACK_URL_FLOW:
+      stream << "[fallback URL flow]";
+      break;
     case QuickStartController::UiDelegate::UiState::SETUP_COMPLETE:
       stream << "[setup complete]";
       break;
@@ -720,6 +837,9 @@ std::ostream& operator<<(
       break;
     case QuickStartController::AbortFlowReason::ERROR:
       stream << "[error]";
+      break;
+    case QuickStartController::AbortFlowReason::ADD_CHILD:
+      stream << "[add child]";
       break;
   }
 
@@ -756,6 +876,10 @@ std::ostream& operator<<(
     case QuickStartController::ControllerState::
         CONTINUING_AFTER_ENROLLMENT_CHECKS:
       stream << "[continuing after enrollment checks]";
+      break;
+    case QuickStartController::ControllerState::
+        FALLBACK_URL_FLOW_ON_GAIA_SCREEN:
+      stream << "[fallback URL flow on Gaia screen]";
       break;
     case QuickStartController::ControllerState::SETUP_COMPLETE:
       stream << "[setup complete]";

@@ -15,7 +15,6 @@
 #include "ui/gl/dc_layer_tree.h"
 #include "ui/gl/dcomp_presenter.h"
 #include "ui/gl/direct_composition_support.h"
-#include "ui/gl/gl_angle_util_win.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/init/gl_factory.h"
 #include "ui/gl/test/gl_test_helper.h"
@@ -122,7 +121,6 @@ class DelegatedInkPointRendererGpuTest : public testing::Test {
     // Create the swap chain
     constexpr gfx::Size window_size(100, 100);
     EXPECT_TRUE(presenter_->Resize(window_size, 1.0, gfx::ColorSpace(), true));
-    EXPECT_TRUE(presenter_->SetDrawRectangle(gfx::Rect(window_size)));
   }
 
   void TearDown() override {
@@ -138,7 +136,6 @@ class DelegatedInkPointRendererGpuTest : public testing::Test {
   void CreateDCompPresenter() {
     DCompPresenter::Settings settings;
     presenter_ = base::MakeRefCounted<DCompPresenter>(settings);
-    EXPECT_TRUE(presenter_->Initialize());
 
     // Add our child window to the root window.
     if (parent_window_)

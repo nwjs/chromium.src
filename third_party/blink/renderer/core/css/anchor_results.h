@@ -11,6 +11,7 @@
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/anchor_evaluator.h"
+#include "third_party/blink/renderer/core/css/anchor_query.h"
 #include "third_party/blink/renderer/core/css/css_anchor_query_enums.h"
 #include "third_party/blink/renderer/core/style/anchor_specifier_value.h"
 #include "third_party/blink/renderer/platform/geometry/length.h"
@@ -24,13 +25,15 @@
 
 namespace blink {
 
+class ComputedStyle;
+
 // An AnchorItem represents an anchor query in a give Mode, i.e. either
 // anchor(...) or anchor-size(). Its purpose is to act as the key for the hash
 // map in AnchorResults, which can answer anchor queries based on predefined
 // results.
 class CORE_EXPORT AnchorItem : public GarbageCollected<AnchorItem> {
  public:
-  AnchorItem(AnchorScope::Mode mode, AnchorQuery query)
+  AnchorItem(AnchorEvaluator::Mode mode, AnchorQuery query)
       : mode_(mode), query_(query) {}
 
   bool operator==(const AnchorItem& other) const {
@@ -38,7 +41,7 @@ class CORE_EXPORT AnchorItem : public GarbageCollected<AnchorItem> {
   }
   bool operator!=(const AnchorItem& other) const { return !operator==(other); }
 
-  AnchorScope::Mode GetMode() const { return mode_; }
+  AnchorEvaluator::Mode GetMode() const { return mode_; }
   const AnchorQuery& Query() const { return query_; }
 
   unsigned GetHash() const {
@@ -51,7 +54,7 @@ class CORE_EXPORT AnchorItem : public GarbageCollected<AnchorItem> {
   void Trace(Visitor*) const;
 
  private:
-  AnchorScope::Mode mode_;
+  AnchorEvaluator::Mode mode_;
   AnchorQuery query_;
 };
 
@@ -95,16 +98,26 @@ class CORE_EXPORT AnchorResults : public AnchorEvaluator {
   DISALLOW_NEW();
 
  public:
-  std::optional<LayoutUnit> Evaluate(const AnchorQuery&) override;
+  std::optional<LayoutUnit> Evaluate(
+      const AnchorQuery&,
+      const ScopedCSSName* position_anchor,
+      const std::optional<InsetAreaOffsets>&) override;
+  std::optional<InsetAreaOffsets> ComputeInsetAreaOffsetsForLayout(
+      const ScopedCSSName* position_anchor,
+      InsetArea inset_area) override;
+  std::optional<PhysicalOffset> ComputeAnchorCenterOffsets(
+      const ComputedStyleBuilder&) override;
 
-  void Set(AnchorScope::Mode, const AnchorQuery&, std::optional<LayoutUnit>);
+  void Set(AnchorEvaluator::Mode,
+           const AnchorQuery&,
+           std::optional<LayoutUnit>);
   void Clear();
 
   // Used for invalidation, see class comment.
   bool IsEmpty() const { return map_.empty(); }
-  bool IsAnyResultDifferent(AnchorEvaluator*) const;
+  bool IsAnyResultDifferent(const ComputedStyle&, AnchorEvaluator*) const;
 
-  void Trace(Visitor*) const;
+  void Trace(Visitor*) const override;
 
  private:
   AnchorResultMap map_;

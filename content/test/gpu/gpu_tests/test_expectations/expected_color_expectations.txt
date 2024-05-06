@@ -10,7 +10,7 @@
 # Devices
 # tags: [ android-nexus-5x android-pixel-2 android-pixel-4
 #             android-pixel-6 android-shield-android-tv android-sm-a135m
-#             android-sm-a235m
+#             android-sm-a235m android-sm-s911u1
 #         chromeos-board-amd64-generic chromeos-board-eve chromeos-board-jacuzzi
 #             chromeos-board-octopus chromeos-board-volteer
 #         fuchsia-board-astro fuchsia-board-nelson fuchsia-board-sherlock
@@ -58,6 +58,7 @@
 # Driver
 # tags: [ mesa_lt_19.1
 #         mesa_ge_21.0
+#         mesa_ge_23.2
 #         nvidia_ge_31.0.15.4601 nvidia_lt_31.0.15.4601 ]
 # ASan
 # tags: [ asan no-asan ]
@@ -73,6 +74,11 @@
 # tags: [ webgpu-compat webgpu-not-compat ]
 # WebGPU DXC
 # tags: [ webgpu-dxc-enabled webgpu-dxc-disabled ]
+# WebGPU worker usage
+# tags: [ webgpu-no-worker
+#         webgpu-service-worker
+#         webgpu-dedicated-worker
+#         webgpu-shared-worker ]
 # Clang coverage
 # tags: [ clang-coverage no-clang-coverage ]
 # Skia Graphite
@@ -115,7 +121,6 @@ crbug.com/1382332 [ android-nexus-5x android angle-disabled no-clang-coverage no
 crbug.com/1469270 [ bigsur nvidia-0xfe9 angle-opengl ] ExpectedColor_MediaRecorderFromVideoElementWithOoprCanvasDisabled [ Failure ]
 
 crbug.com/1506258 [ asan graphite-enabled intel-0x3e9b mac no-clang-coverage release ] ExpectedColor_MediaRecorderFromVideoElement [ Failure ]
-crbug.com/1506258 [ debug graphite-enabled intel-0x3e9b mac no-asan no-clang-coverage ] ExpectedColor_MediaRecorderFromVideoElement [ Failure ]
 
 # Gardener 2024-03-18
 crbug.com/330132405 [ fuchsia fuchsia-board-qemu-x64 ] ExpectedColor_MediaRecorderFrom2DCanvas [ Failure ]

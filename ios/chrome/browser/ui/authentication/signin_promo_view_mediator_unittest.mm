@@ -8,7 +8,6 @@
 #import "base/run_loop.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
-#import "base/test/scoped_feature_list.h"
 #import "build/branding_buildflags.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
@@ -189,7 +188,7 @@ class SigninPromoViewMediatorTest : public PlatformTest {
     NSString* title = nil;
     switch (style) {
       case SigninPromoViewStyleStandard:
-        title = GetNSString(IDS_IOS_SYNC_PROMO_TURN_ON_SYNC);
+        title = GetNSString(IDS_IOS_CONSISTENCY_PROMO_SIGN_IN);
         break;
       case SigninPromoViewStyleCompactHorizontal:
       case SigninPromoViewStyleCompactVertical:

@@ -5,6 +5,7 @@
 #include "chrome/browser/net/profile_network_context_service.h"
 
 #include <string>
+#include <string_view>
 
 #include "base/base64.h"
 #include "base/check_op.h"
@@ -38,6 +39,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/sct_reporting_service.h"
 #include "chrome/browser/ssl/sct_reporting_service_factory.h"
+#include "chrome/browser/webid/federated_identity_permission_context.h"
+#include "chrome/browser/webid/federated_identity_permission_context_factory.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_content_client.h"
@@ -130,6 +133,13 @@
 #include "chrome/browser/lacros/cert/client_cert_store_lacros.h"
 #include "chrome/browser/profiles/incognito_helpers.h"
 #include "chromeos/startup/browser_params_proxy.h"
+#endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "chrome/browser/enterprise/client_certificates/certificate_provisioning_service_factory.h"
+#include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
+#include "components/enterprise/client_certificates/core/client_certificates_service.h"
+#include "components/enterprise/client_certificates/core/features.h"
 #endif
 
 namespace {
@@ -246,15 +256,52 @@ void UpdateCookieSettings(Profile* profile, ContentSettingsType type) {
   if (!IsContentSettingsTypeEnabled(type)) {
     return;
   }
-  ContentSettingsForOneType settings =
-      HostContentSettingsMapFactory::GetForProfile(profile)
-          ->GetSettingsForOneType(type);
+
+  ContentSettingsForOneType settings;
+  if (type == ContentSettingsType::FEDERATED_IDENTITY_SHARING) {
+    // Note: FederatedIdentityPermissionContext also syncs the permissions
+    // directly, in order to avoid a race condition. (Namely,
+    // FederatedIdentityPermissionContext must guarantee that the permissions
+    // have propagated before it calls its callback. However, the syncing that
+    // occurs in this class is unsynchronized, so it would be racy to rely on
+    // this update finishing before calling the context's callback.) This
+    // unfortunately triggers a double-update here.
+    if (FederatedIdentityPermissionContext* fedcm_context =
+            FederatedIdentityPermissionContextFactory::GetForProfile(profile);
+        fedcm_context) {
+      settings = fedcm_context->GetSharingPermissionGrantsAsContentSettings();
+    }
+  } else {
+    settings = HostContentSettingsMapFactory::GetForProfile(profile)
+                   ->GetSettingsForOneType(type);
+  }
   profile->ForEachLoadedStoragePartition(
       [&](content::StoragePartition* storage_partition) {
         storage_partition->GetCookieManagerForBrowserProcess()
             ->SetContentSettings(type, settings, base::NullCallback());
       });
 }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+std::unique_ptr<net::ClientCertStore> GetWrappedCertStore(
+    Profile* profile,
+    std::unique_ptr<net::ClientCertStore> platform_store) {
+  if (!profile || !client_certificates::features::
+                      IsManagedClientCertificateForUserEnabled()) {
+    return platform_store;
+  }
+
+  auto* provisioning_service =
+      client_certificates::CertificateProvisioningServiceFactory::GetForProfile(
+          profile);
+  if (!provisioning_service) {
+    return platform_store;
+  }
+
+  return client_certificates::ClientCertificatesService::Create(
+      provisioning_service, std::move(platform_store));
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
 }  // namespace
 
@@ -680,7 +727,7 @@ ProfileNetworkContextService::GetCertificatePolicy() {
     if (!base::Base64Decode(cert_b64.GetString(), &decoded)) {
       continue;
     }
-    base::StringPiece spki_piece;
+    std::string_view spki_piece;
     bool success = net::asn1::ExtractSPKIFromDERCert(decoded, &spki_piece);
     if (success) {
       additional_certificates->distrusted_spkis.emplace_back(spki_piece.begin(),
@@ -778,8 +825,19 @@ ProfileNetworkContextService::CreateCookieManagerParams(
     if (!IsContentSettingsTypeEnabled(type)) {
       continue;
     }
-    out->content_settings[type] =
-        host_content_settings_map->GetSettingsForOneType(type);
+    if (type == ContentSettingsType::FEDERATED_IDENTITY_SHARING) {
+      if (FederatedIdentityPermissionContext* fedcm_context =
+              FederatedIdentityPermissionContextFactory::GetForProfile(profile);
+          fedcm_context) {
+        out->content_settings[type] =
+            fedcm_context->GetSharingPermissionGrantsAsContentSettings();
+      } else {
+        out->content_settings[type] = ContentSettingsForOneType();
+      }
+    } else {
+      out->content_settings[type] =
+          host_content_settings_map->GetSettingsForOneType(type);
+    }
   }
 
   out->cookie_access_delegate_type =
@@ -804,6 +862,15 @@ void ProfileNetworkContextService::FlushCachedClientCertIfNeeded(
       [&](content::StoragePartition* storage_partition) {
         storage_partition->GetNetworkContext()->FlushCachedClientCertIfNeeded(
             host, certificate);
+      });
+}
+
+void ProfileNetworkContextService::FlushMatchingCachedClientCert(
+    const scoped_refptr<net::X509Certificate>& certificate) {
+  profile_->ForEachLoadedStoragePartition(
+      [&](content::StoragePartition* storage_partition) {
+        storage_partition->GetNetworkContext()->FlushMatchingCachedClientCert(
+            certificate);
       });
 }
 
@@ -890,9 +957,11 @@ ProfileNetworkContextService::CreateClientCertStore() {
 
   return store;
 #elif BUILDFLAG(IS_WIN)
-  return std::make_unique<net::ClientCertStoreWin>();
+  return GetWrappedCertStore(profile_,
+                             std::make_unique<net::ClientCertStoreWin>());
 #elif BUILDFLAG(IS_MAC)
-  return std::make_unique<net::ClientCertStoreMac>();
+  return GetWrappedCertStore(profile_,
+                             std::make_unique<net::ClientCertStoreMac>());
 #elif BUILDFLAG(IS_ANDROID)
   // Android does not use the ClientCertStore infrastructure. On Android client
   // cert matching is done by the OS as part of the call to show the cert
@@ -1247,6 +1316,9 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
     network_context_params->enable_ip_protection =
         ipp_config_provider->IsIpProtectionEnabled();
   }
+
+  network_context_params->device_bound_sessions_enabled =
+      base::FeatureList::IsEnabled(net::features::kDeviceBoundSessions);
 }
 
 base::FilePath ProfileNetworkContextService::GetPartitionPath(

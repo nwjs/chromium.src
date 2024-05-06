@@ -24,6 +24,10 @@
 
 class HostContentSettingsMap;
 
+namespace net {
+class SchemefulSite;
+}
+
 namespace url {
 class Origin;
 }
@@ -42,7 +46,7 @@ class ObjectPermissionContextBase : public KeyedService {
            content_settings::SettingSource source,
            bool incognito);
     // DEPRECATED.
-    // TODO(https://crbug.com/1187001): Migrate value to base::Value::Dict.
+    // TODO(crbug.com/40172729): Migrate value to base::Value::Dict.
     Object(const url::Origin& origin,
            base::Value value,
            content_settings::SettingSource source,
@@ -103,6 +107,12 @@ class ObjectPermissionContextBase : public KeyedService {
   // stored in |host_content_settings_map_|.
   virtual std::vector<std::unique_ptr<Object>> GetGrantedObjects(
       const url::Origin& origin);
+
+  // Returns a list of objects that |site| has been granted permission to
+  // access. This method may be extended by a subclass to return objects not
+  // stored in |host_content_settings_map_|.
+  virtual std::vector<std::unique_ptr<Object>> GetGrantedObjects(
+      const net::SchemefulSite& site);
 
   // Returns a set of all origins that have granted permission(s).
   // This method may be extended by a subclass to return origins with objects

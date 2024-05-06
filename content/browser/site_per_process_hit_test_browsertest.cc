@@ -553,9 +553,11 @@ void HitTestNestedFramesHelper(
     base::OnceClosure quit_closure = run_loop.QuitClosure();
     DCHECK(child_node->current_frame_host()
                ->GetRenderWidgetHost()
+               ->GetRenderInputRouter()
                ->input_target_client());
     child_node->current_frame_host()
         ->GetRenderWidgetHost()
+        ->GetRenderInputRouter()
         ->input_target_client()
         ->FrameSinkIdAt(
             point_in_child, 0,
@@ -579,9 +581,11 @@ void HitTestNestedFramesHelper(
     base::OnceClosure quit_closure = run_loop.QuitClosure();
     DCHECK(child_node->current_frame_host()
                ->GetRenderWidgetHost()
+               ->GetRenderInputRouter()
                ->input_target_client());
     child_node->current_frame_host()
         ->GetRenderWidgetHost()
+        ->GetRenderInputRouter()
         ->input_target_client()
         ->FrameSinkIdAt(
             point_in_nested_child_transformed, 0,
@@ -3166,6 +3170,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
     // Raise error for call disconnect handler.
     static_cast<RenderWidgetHostImpl*>(
         root->current_frame_host()->GetRenderWidgetHost())
+        ->GetRenderInputRouter()
         ->input_target_client()
         .internal_state()
         ->RaiseError();
@@ -3421,8 +3426,8 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
 
 // This test verifies that MouseEnter and MouseLeave events fire correctly
 // when the mouse cursor moves between processes.
-// Flaky (timeout): https://crbug.com/1006635.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+// Flaky (timeout): https://crbug.com/1006635, crbug.com/334105909.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
 #define MAYBE_CrossProcessMouseEnterAndLeaveTest \
   DISABLED_CrossProcessMouseEnterAndLeaveTest
 #else
@@ -6841,6 +6846,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
     viz::FrameSinkId received_frame_sink_id;
     root->current_frame_host()
         ->GetRenderWidgetHost()
+        ->GetRenderInputRouter()
         ->input_target_client()
         ->FrameSinkIdAt(
             point_in_border, 0,
@@ -6859,6 +6865,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
     viz::FrameSinkId received_frame_sink_id;
     root->current_frame_host()
         ->GetRenderWidgetHost()
+        ->GetRenderInputRouter()
         ->input_target_client()
         ->FrameSinkIdAt(
             point_in_padding, 0,
@@ -6877,6 +6884,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
     viz::FrameSinkId received_frame_sink_id;
     root->current_frame_host()
         ->GetRenderWidgetHost()
+        ->GetRenderInputRouter()
         ->input_target_client()
         ->FrameSinkIdAt(
             point_in_content_box, 0,
@@ -7399,7 +7407,8 @@ using SitePerProcessDelegatedInkBrowserTest = SitePerProcessHitTestBrowserTest;
 // RenderWidgetHost and is usable for sending delegated ink points.
 // TODO(https://crbug.com/1318221): Fix and enable the test on Fuchsia.
 // TODO(https://crbug.com/1490367): flaky on ChromeOS
-#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_CHROMEOS)
+// TODO(http://b/331190208): Test failing on Linux
+#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 #define MAYBE_MetadataAndPointGoThroughOOPIF \
   DISABLED_MetadataAndPointGoThroughOOPIF
 #else

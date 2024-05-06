@@ -1046,7 +1046,7 @@ void ComputedStyle::AdjustDiffForNeedsPaintInvalidation(
     StyleDifference& diff,
     const Document& document) const {
   if (ComputedStyleBase::DiffNeedsPaintInvalidation(*this, other) ||
-      !BorderVisuallyEqual(other) || !RadiiEqual(other)) {
+      !BorderVisuallyEqual(other) || !BorderRadiusEqual(other)) {
     diff.SetNeedsNormalPaintInvalidation();
   }
 
@@ -1309,8 +1309,7 @@ static bool HasPropertyThatCreatesStackingContext(
       case CSSPropertyID::kScale:
       case CSSPropertyID::kOffsetPath:
       case CSSPropertyID::kOffsetPosition:
-      case CSSPropertyID::kWebkitMask:
-      case CSSPropertyID::kAlternativeMask:
+      case CSSPropertyID::kMask:
       case CSSPropertyID::kWebkitMaskBoxImage:
       case CSSPropertyID::kClipPath:
       case CSSPropertyID::kWebkitBoxReflect:
@@ -2556,14 +2555,12 @@ TextEmphasisMark ComputedStyle::GetTextEmphasisMark() const {
 
 PhysicalBoxStrut ComputedStyle::ImageOutsets(
     const NinePieceImage& image) const {
-  return {NinePieceImage::ComputeOutset(image.Outset().Top(),
-                                        BorderTopWidth().ToInt()),
-          NinePieceImage::ComputeOutset(image.Outset().Right(),
-                                        BorderRightWidth().ToInt()),
-          NinePieceImage::ComputeOutset(image.Outset().Bottom(),
-                                        BorderBottomWidth().ToInt()),
-          NinePieceImage::ComputeOutset(image.Outset().Left(),
-                                        BorderLeftWidth().ToInt())};
+  return {
+      NinePieceImage::ComputeOutset(image.Outset().Top(), BorderTopWidth()),
+      NinePieceImage::ComputeOutset(image.Outset().Right(), BorderRightWidth()),
+      NinePieceImage::ComputeOutset(image.Outset().Bottom(),
+                                    BorderBottomWidth()),
+      NinePieceImage::ComputeOutset(image.Outset().Left(), BorderLeftWidth())};
 }
 
 bool ComputedStyle::BorderObscuresBackground() const {
@@ -2613,25 +2610,23 @@ PhysicalBoxStrut ComputedStyle::BoxDecorationOutsets() const {
 
 void ComputedStyle::GetBorderEdgeInfo(BorderEdge edges[],
                                       PhysicalBoxSides sides_to_include) const {
-  edges[static_cast<unsigned>(BoxSide::kTop)] =
-      BorderEdge(BorderTopWidth().ToInt(),
-                 VisitedDependentColor(GetCSSPropertyBorderTopColor()),
-                 BorderTopStyle(), sides_to_include.top);
+  edges[static_cast<unsigned>(BoxSide::kTop)] = BorderEdge(
+      BorderTopWidth(), VisitedDependentColor(GetCSSPropertyBorderTopColor()),
+      BorderTopStyle(), sides_to_include.top);
 
   edges[static_cast<unsigned>(BoxSide::kRight)] =
-      BorderEdge(BorderRightWidth().ToInt(),
+      BorderEdge(BorderRightWidth(),
                  VisitedDependentColor(GetCSSPropertyBorderRightColor()),
                  BorderRightStyle(), sides_to_include.right);
 
   edges[static_cast<unsigned>(BoxSide::kBottom)] =
-      BorderEdge(BorderBottomWidth().ToInt(),
+      BorderEdge(BorderBottomWidth(),
                  VisitedDependentColor(GetCSSPropertyBorderBottomColor()),
                  BorderBottomStyle(), sides_to_include.bottom);
 
-  edges[static_cast<unsigned>(BoxSide::kLeft)] =
-      BorderEdge(BorderLeftWidth().ToInt(),
-                 VisitedDependentColor(GetCSSPropertyBorderLeftColor()),
-                 BorderLeftStyle(), sides_to_include.left);
+  edges[static_cast<unsigned>(BoxSide::kLeft)] = BorderEdge(
+      BorderLeftWidth(), VisitedDependentColor(GetCSSPropertyBorderLeftColor()),
+      BorderLeftStyle(), sides_to_include.left);
 }
 
 void ComputedStyle::CopyChildDependentFlagsFrom(
@@ -2712,19 +2707,17 @@ std::optional<blink::Color> ComputedStyle::AccentColorResolved() const {
 }
 
 std::optional<blink::Color> ComputedStyle::ScrollbarThumbColorResolved() const {
-  const std::optional<StyleScrollbarColor>& scrollbar_color = ScrollbarColor();
-  if (scrollbar_color.has_value()) {
-    return scrollbar_color.value().GetThumbColor().Resolve(GetCurrentColor(),
-                                                           UsedColorScheme());
+  if (const StyleScrollbarColor* scrollbar_color = ScrollbarColor()) {
+    return scrollbar_color->GetThumbColor().Resolve(GetCurrentColor(),
+                                                    UsedColorScheme());
   }
   return std::nullopt;
 }
 
 std::optional<blink::Color> ComputedStyle::ScrollbarTrackColorResolved() const {
-  const std::optional<StyleScrollbarColor>& scrollbar_color = ScrollbarColor();
-  if (scrollbar_color.has_value()) {
-    return scrollbar_color.value().GetTrackColor().Resolve(GetCurrentColor(),
-                                                           UsedColorScheme());
+  if (const StyleScrollbarColor* scrollbar_color = ScrollbarColor()) {
+    return scrollbar_color->GetTrackColor().Resolve(GetCurrentColor(),
+                                                    UsedColorScheme());
   }
   return std::nullopt;
 }

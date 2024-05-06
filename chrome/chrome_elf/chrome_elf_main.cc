@@ -5,8 +5,9 @@
 #include "chrome/chrome_elf/chrome_elf_main.h"
 
 #include "components/crash/core/app/crash_reporter_client.h"
-#include <assert.h>
 #include <windows.h>
+
+#include <assert.h>
 
 #include "chrome/chrome_elf/chrome_elf_security.h"
 #include "chrome/chrome_elf/crash/crash_helper.h"

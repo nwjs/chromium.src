@@ -12,7 +12,6 @@ import android.graphics.Region;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
-import android.os.Build;
 import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.Gravity;
@@ -155,8 +154,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
     private Drawable getTempTabStripDrawable(boolean incognito) {
         Drawable bgdColor =
                 new ColorDrawable(
-                        TabUiThemeUtil.getTabStripBackgroundColor(
-                                getContext(), incognito, /* isActivityFocused= */ true));
+                        TabUiThemeUtil.getTabStripBackgroundColor(getContext(), incognito));
         Drawable bdgTabImage =
                 ResourcesCompat.getDrawable(
                         getContext().getResources(),
@@ -228,7 +226,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
     }
 
     @Override
-    // TODO(crbug.com/1231201): work out why this is causing a lint error
+    // TODO(crbug.com/40779510): work out why this is causing a lint error
     @SuppressWarnings("Override")
     public boolean gatherTransparentRegion(Region region) {
         // Reset the translation on the control container before attempting to compute the
@@ -278,11 +276,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
 
         @Override
         protected ViewResourceAdapter createResourceAdapter() {
-            boolean useHardwareBitmapDraw = false;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                useHardwareBitmapDraw = ChromeFeatureList.sToolbarUseHardwareBitmapDraw.isEnabled();
-            }
-            return new ToolbarViewResourceAdapter(this, useHardwareBitmapDraw);
+            return new ToolbarViewResourceAdapter(this);
         }
 
         /**
@@ -371,8 +365,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
         private int mControlsToken = TokenHolder.INVALID_TOKEN;
 
         /** Builds the resource adapter for the toolbar. */
-        public ToolbarViewResourceAdapter(View toolbarContainer, boolean useHardwareBitmapDraw) {
-            super(toolbarContainer, useHardwareBitmapDraw);
+        public ToolbarViewResourceAdapter(View toolbarContainer) {
+            super(toolbarContainer);
             mToolbarContainer = toolbarContainer;
             mToolbarHairline = mToolbarContainer.findViewById(R.id.toolbar_hairline);
         }
@@ -439,7 +433,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
             }
 
             if (ToolbarFeatures.shouldSuppressCaptures()) {
-                if (ToolbarFeatures.shouldBlockCapturesForFullscreen()
+                if (ChromeFeatureList.sShouldBlockCapturesForFullscreenParam.getValue()
                         && mFullscreenManager.getPersistentFullscreenMode()) {
                     // The toolbar is never shown during fullscreen, so no point in capturing. The
                     // dimensions are likely wrong and will only be restored after fullscreen is
@@ -455,7 +449,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
                     if (mConstraintsObserver != null && mTabSupplier != null) {
                         Tab tab = mTabSupplier.get();
 
-                        // TODO(https://crbug.com/1355516): Understand and fix this for native
+                        // TODO(crbug.com/40859837): Understand and fix this for native
                         // pages. It seems capturing is required for some part of theme observers to
                         // work correctly, but it shouldn't be.
                         boolean isNativePage = tab == null || tab.isNativePage();
@@ -579,7 +573,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
             if (!Boolean.TRUE.equals(compositorInMotion)) {
                 if (mControlsToken == TokenHolder.INVALID_TOKEN) {
                     // Only needed when the ConstraintsChecker doesn't drive the capture.
-                    // TODO(https://crbug.com/1378721): Make this post a task similar to
+                    // TODO(crbug.com/40244055): Make this post a task similar to
                     // ConstraintsChecker.
                     onResourceRequested();
                 } else {

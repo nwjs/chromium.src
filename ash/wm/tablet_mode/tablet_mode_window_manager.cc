@@ -92,6 +92,9 @@ void MaybeEndSplitViewAndOverview() {
 }
 
 // Snap the carry over windows into splitview mode at |divider_position|.
+// TODO(b/327269057): Refactor split view transition. Also determine whether we
+// should snap the windows in mru order, since it can cause
+// `SplitViewDivider::observed_windows()` to get out of order.
 void DoSplitViewTransition(
     std::vector<std::pair<aura::Window*, WindowStateType>> windows,
     int divider_position,
@@ -261,6 +264,13 @@ void TabletModeWindowManager::Shutdown(ShutdownReason shutdown_reason) {
         /*exiting_tablet_mode=*/true);
     ArrangeWindowsForClamshellMode(carryover_windows_in_splitview,
                                    was_in_overview);
+  } else {
+    CHECK_EQ(shutdown_reason, ShutdownReason::kSystemShutdown);
+    while (window_state_map_.size()) {
+      WindowToState::iterator iter = window_state_map_.begin();
+      iter->first->RemoveObserver(this);
+      window_state_map_.erase(iter);
+    }
   }
 }
 

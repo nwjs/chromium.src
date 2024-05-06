@@ -172,7 +172,10 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PDF)
+#include "base/test/with_feature_override.h"
 #include "chrome/browser/pdf/pdf_extension_test_util.h"
+#include "chrome/browser/pdf/test_pdf_viewer_stream_manager.h"
+#include "pdf/pdf_features.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 using extensions::ContextMenuMatcher;
@@ -2400,7 +2403,7 @@ class WebViewSafeBrowsingTest : public WebViewTest {
 
   void AddDangerousUrl(const GURL& dangerous_url) {
     fake_safe_browsing_database_manager_->AddDangerousUrl(
-        dangerous_url, safe_browsing::SB_THREAT_TYPE_URL_MALWARE);
+        dangerous_url, safe_browsing::SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
   }
 
  private:
@@ -2754,7 +2757,7 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, OpenURLFromTab_CurrentTab_Abort) {
                                 ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
                                 true /* is_renderer_initiated */);
   GetGuestWebContents()->GetDelegate()->OpenURLFromTab(
-      GetGuestWebContents(), params);
+      GetGuestWebContents(), params, /*navigation_handle_callback=*/{});
 
   ASSERT_TRUE(load_listener.WaitUntilSatisfied());
 
@@ -2776,8 +2779,8 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, OpenURLFromTab_CurrentTab_Succeed) {
   content::OpenURLParams params(
       test_url, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
       ui::PAGE_TRANSITION_AUTO_TOPLEVEL, false /* is_renderer_initiated */);
-  GetGuestWebContents()->GetDelegate()->OpenURLFromTab(GetGuestWebContents(),
-                                                       params);
+  GetGuestWebContents()->GetDelegate()->OpenURLFromTab(
+      GetGuestWebContents(), params, /*navigation_handle_callback=*/{});
 
   ASSERT_TRUE(load_listener.WaitUntilSatisfied());
 
@@ -2797,7 +2800,7 @@ IN_PROC_BROWSER_TEST_P(WebViewNewWindowTest, OpenURLFromTab_NewWindow_Abort) {
                                 ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
                                 true /* is_renderer_initiated */);
   GetGuestWebContents()->GetDelegate()->OpenURLFromTab(
-      GetGuestWebContents(), params);
+      GetGuestWebContents(), params, /*navigation_handle_callback=*/{});
 
   ASSERT_TRUE(new_window_listener.WaitUntilSatisfied());
 
@@ -4613,53 +4616,99 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, Shim_TestFocusWhileFocused) {
 }
 
 #if BUILDFLAG(ENABLE_PDF)
-using WebViewPdfTest = WebViewTest;
+class WebViewPdfTest : public base::test::WithFeatureOverride,
+                       public WebViewTest {
+ public:
+  WebViewPdfTest()
+      : base::test::WithFeatureOverride(chrome_pdf::features::kPdfOopif) {}
 
-IN_PROC_BROWSER_TEST_F(WebViewPdfTest, NestedGuestContainerBounds) {
+  bool UseOopif() const { return GetParam(); }
+
+  pdf::TestPdfViewerStreamManager* GetTestPdfViewerStreamManager(
+      content::WebContents* contents) {
+    return factory_.GetTestPdfViewerStreamManager(contents);
+  }
+
+  // Waits until the PDF has loaded in the given `web_view_rfh`.
+  testing::AssertionResult WaitUntilPdfLoaded(
+      content::RenderFrameHost* web_view_rfh) {
+    if (UseOopif()) {
+      auto* web_contents =
+          content::WebContents::FromRenderFrameHost(web_view_rfh);
+      return GetTestPdfViewerStreamManager(web_contents)
+          ->WaitUntilPdfLoaded(web_view_rfh);
+    }
+    return pdf_extension_test_util::EnsurePDFHasLoaded(web_view_rfh);
+  }
+
+ private:
+  pdf::TestPdfViewerStreamManagerFactory factory_;
+};
+
+// Test that the PDF viewer has the same bounds as the WebView.
+IN_PROC_BROWSER_TEST_P(WebViewPdfTest, PdfContainerBounds) {
   TestHelper("testPDFInWebview", "web_view/shim", NO_TEST_SERVER);
 
+  // OOPIF PDF should only have one guest for the WebView. GuestView PDF should
+  // have a second guest for the PDF (`MimeHandlerViewGuest`).
+  const size_t expected_guest_count = UseOopif() ? 1u : 2u;
   std::vector<content::RenderFrameHost*> guest_rfh_list;
-  GetGuestViewManager()->WaitForNumGuestsCreated(2u);
+  GetGuestViewManager()->WaitForNumGuestsCreated(expected_guest_count);
   GetGuestViewManager()->GetGuestRenderFrameHostList(&guest_rfh_list);
-  ASSERT_EQ(2u, guest_rfh_list.size());
+  ASSERT_EQ(expected_guest_count, guest_rfh_list.size());
 
   content::RenderFrameHost* web_view_rfh = guest_rfh_list[0];
-  content::RenderFrameHost* mime_handler_view_rfh = guest_rfh_list[1];
 
-  // Make sure we've completed loading |mime_handler_view_guest|.
-  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(web_view_rfh));
+  // Make sure the PDF loaded.
+  ASSERT_TRUE(WaitUntilPdfLoaded(web_view_rfh));
+
+  content::RenderFrameHost* extension_rfh =
+      UseOopif() ? pdf_extension_test_util::GetPdfExtensionHostFromEmbedder(
+                       web_view_rfh, /*allow_multiple_frames=*/false)
+                 : guest_rfh_list[1];
+  ASSERT_TRUE(extension_rfh);
 
   gfx::Rect web_view_container_bounds =
       web_view_rfh->GetRenderWidgetHost()->GetView()->GetViewBounds();
-  gfx::Rect mime_handler_view_container_bounds =
-      mime_handler_view_rfh->GetRenderWidgetHost()->GetView()->GetViewBounds();
+  gfx::Rect extension_container_bounds =
+      extension_rfh->GetRenderWidgetHost()->GetView()->GetViewBounds();
   EXPECT_EQ(web_view_container_bounds.origin(),
-            mime_handler_view_container_bounds.origin());
+            extension_container_bounds.origin());
 }
 
-// Test that context menu Back/Forward items in a MimeHandlerViewGuest affect
-// the embedder WebContents. See crbug.com/587355.
-IN_PROC_BROWSER_TEST_F(WebViewPdfTest, ContextMenuNavigationInMimeHandlerView) {
+// Test that context menu Back/Forward items in a WebView affect the embedder
+// WebContents. See crbug.com/587355.
+IN_PROC_BROWSER_TEST_P(WebViewPdfTest, ContextMenuNavigationInWebView) {
   TestHelper("testNavigateToPDFInWebview", "web_view/shim", NO_TEST_SERVER);
 
-  GetGuestViewManager()->WaitForNumGuestsCreated(2u);
+  // OOPIF PDF should only have one guest for the WebView. GuestView PDF should
+  // have a second guest for the PDF (`MimeHandlerViewGuest`).
+  const size_t expected_guest_count = UseOopif() ? 1u : 2u;
   std::vector<content::RenderFrameHost*> guest_rfh_list;
+  GetGuestViewManager()->WaitForNumGuestsCreated(expected_guest_count);
   GetGuestViewManager()->GetGuestRenderFrameHostList(&guest_rfh_list);
-  ASSERT_EQ(2u, guest_rfh_list.size());
+  ASSERT_EQ(expected_guest_count, guest_rfh_list.size());
 
   content::RenderFrameHost* web_view_rfh = guest_rfh_list[0];
-  content::RenderFrameHost* mime_handler_view_rfh = guest_rfh_list[1];
-  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(web_view_rfh));
+
+  // Make sure the PDF loaded.
+  ASSERT_TRUE(WaitUntilPdfLoaded(web_view_rfh));
+
+  content::RenderFrameHost* extension_rfh =
+      UseOopif() ? pdf_extension_test_util::GetPdfExtensionHostFromEmbedder(
+                       web_view_rfh, /*allow_multiple_frames=*/false)
+                 : guest_rfh_list[1];
+  ASSERT_TRUE(extension_rfh);
 
   // Ensure the <webview> has a previous entry, so we can navigate back to it.
   EXPECT_EQ(true,
             content::EvalJs(GetEmbedderWebContents(),
                             "document.querySelector('webview').canGoBack();"));
 
-  // Open a context menu for the MimeHandlerViewGuest. Since the <webview> can
+  // Open a context menu for the PDF viewer. Since the <webview> can
   // navigate back, the Back item should be enabled.
   content::ContextMenuParams params;
-  TestRenderViewContextMenu menu(*mime_handler_view_rfh, params);
+  TestRenderViewContextMenu menu(*extension_rfh, params);
   menu.Init();
   ASSERT_TRUE(menu.IsCommandIdEnabled(IDC_BACK));
 
@@ -4677,9 +4726,13 @@ IN_PROC_BROWSER_TEST_F(WebViewPdfTest, ContextMenuNavigationInMimeHandlerView) {
   EXPECT_EQ(GURL(url::kAboutBlankURL), web_view_rfh2->GetLastCommittedURL());
 }
 
-IN_PROC_BROWSER_TEST_F(WebViewPdfTest, Shim_TestDialogInPdf) {
+IN_PROC_BROWSER_TEST_P(WebViewPdfTest, Shim_TestDialogInPdf) {
   TestHelper("testDialogInPdf", "web_view/shim", NO_TEST_SERVER);
 }
+
+// TODO(crbug.com/40268279): Stop testing both modes after OOPIF PDF viewer
+// launches.
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(WebViewPdfTest);
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 IN_PROC_BROWSER_TEST_F(WebViewTest, Shim_TestMailtoLink) {

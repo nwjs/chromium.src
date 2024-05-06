@@ -434,11 +434,13 @@ void ExpireHistoryBackend::BroadcastNotifications(
         effects->modified_urls,
         /*is_from_expiration=*/type == DELETION_EXPIRED);
   }
-  if (!effects->deleted_urls.empty() || time_range.IsValid()) {
-    notifier_->NotifyURLsDeleted(DeletionInfo(
+  if (!effects->deleted_urls.empty() || !effects->deleted_visit_ids_.empty() ||
+      time_range.IsValid()) {
+    notifier_->NotifyDeletions(DeletionInfo(
         time_range, type == DELETION_EXPIRED, deletion_reason,
-        std::move(effects->deleted_urls), std::move(effects->deleted_favicons),
-        std::move(restrict_urls)));
+        std::move(effects->deleted_urls),
+        std::move(effects->deleted_visit_ids_),
+        std::move(effects->deleted_favicons), std::move(restrict_urls)));
   }
 }
 
@@ -466,6 +468,9 @@ void ExpireHistoryBackend::DeleteVisitRelatedInfo(const VisitVector& visits,
   for (const auto& visit : visits) {
     // Delete the visit itself.
     main_db_->DeleteVisit(visit);
+
+    // Add the deleted visit to the affected visit list.
+    effects->deleted_visit_ids_.insert(visit.visit_id);
 
     // Add the URL row to the affected URL list.
     if (!effects->affected_urls.count(visit.url_id)) {

@@ -10,6 +10,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_controller_browsertest.h"
+#include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
+#include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -289,6 +291,11 @@ class WebAppNotificationsBrowserTest_MacPermissions
     // The installation opens a new Browser window: |user_display_mode| is
     // kStandalone.
     SetAppBrowserForAppId(app_id);
+  }
+
+  void TearDownOnMainThread() override {
+    test::UninstallAllWebApps(browser()->profile());
+    WebAppNotificationsBrowserTest::TearDownOnMainThread();
   }
 };
 

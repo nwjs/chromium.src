@@ -321,11 +321,14 @@ def main():
       'lib/clang/$V/lib/darwin/libclang_rt.asan_iossim_dynamic.dylib',
       'lib/clang/$V/lib/darwin/libclang_rt.asan_osx_dynamic.dylib',
 
-      # OS X and iOS builtin libraries for the _IsOSVersionAtLeast runtime
-      # function.
+      # Builtin libraries for the _IsOSVersionAtLeast runtime function.
       'lib/clang/$V/lib/darwin/libclang_rt.ios.a',
       'lib/clang/$V/lib/darwin/libclang_rt.iossim.a',
       'lib/clang/$V/lib/darwin/libclang_rt.osx.a',
+      'lib/clang/$V/lib/darwin/libclang_rt.watchos.a',
+      'lib/clang/$V/lib/darwin/libclang_rt.watchossim.a',
+      'lib/clang/$V/lib/darwin/libclang_rt.xros.a',
+      'lib/clang/$V/lib/darwin/libclang_rt.xrossim.a',
 
       # Profile runtime (used by profiler and code coverage).
       'lib/clang/$V/lib/darwin/libclang_rt.profile_iossim.a',
@@ -575,8 +578,6 @@ def main():
     os.symlink('llvm-objcopy', os.path.join(pdir, 'bin', 'llvm-strip'))
     os.symlink('llvm-objcopy',
                os.path.join(pdir, 'bin', 'llvm-install-name-tool'))
-    os.symlink('llvm-install-name-tool',
-               os.path.join(pdir, 'bin', 'install_name_tool'))
 
     # Make `--target=*-cros-linux-gnu` work with
     # LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=ON.

@@ -11,6 +11,7 @@
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/runtime_feature_state/runtime_feature_state_document_data.h"
 #include "content/browser/webid/fedcm_metrics.h"
+#include "content/browser/webid/federated_auth_request_page_data.h"
 #include "content/browser/webid/flags.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/federated_identity_api_permission_context_delegate.h"
@@ -19,7 +20,6 @@
 #include "net/base/net_errors.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/url_util.h"
-
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
 #include "url/origin.h"
@@ -154,11 +154,6 @@ bool ShouldFailAccountsEndpointRequestBecauseNotSignedInWithIdp(
     FederatedIdentityPermissionContextDelegate* permission_delegate) {
   const url::Origin idp_origin =
       url::Origin::Create(identity_provider_config_url);
-  if (webid::GetIdpSigninStatusMode(host, idp_origin) ==
-      FedCmIdpSigninStatusMode::DISABLED) {
-    return false;
-  }
-
   const std::optional<bool> idp_signin_status =
       permission_delegate->GetIdpSigninStatus(idp_origin);
   return !idp_signin_status.value_or(true);
@@ -172,10 +167,6 @@ void UpdateIdpSigninStatusForAccountsEndpointResponse(
     FederatedIdentityPermissionContextDelegate* permission_delegate,
     FedCmMetrics* metrics) {
   url::Origin idp_origin = url::Origin::Create(identity_provider_config_url);
-  if (webid::GetIdpSigninStatusMode(host, idp_origin) ==
-      FedCmIdpSigninStatusMode::DISABLED) {
-    return;
-  }
 
   // Record metrics on effect of IDP sign-in status API.
   const std::optional<bool> idp_signin_status =
@@ -329,6 +320,12 @@ std::string GetConsoleErrorMessageFromResult(
              "FedCM without third-party cookies, enable the "
              "#fedcm-without-third-party-cookies flag.";
     }
+    case FederatedAuthRequestResult::kErrorMissingTransientUserActivation: {
+      return "FedCM button mode requires transient user activation.";
+    }
+    case FederatedAuthRequestResult::kErrorReplacedByButtonMode: {
+      return "The request is replaced by a new one with button mode.";
+    }
     case FederatedAuthRequestResult::kErrorNotSignedInWithIdp: {
       return "Not signed in with the identity provider.";
     }
@@ -455,13 +452,42 @@ bool HasSharingPermissionOrIdpHasThirdPartyCookiesAccess(
     const std::optional<std::string>& account_id,
     FederatedIdentityPermissionContextDelegate* sharing_permission_delegate,
     FederatedIdentityApiPermissionContextDelegate* api_permission_delegate) {
-  bool has_access = IsFedCmExemptIdpWithThirdPartyCookiesEnabled() &&
-                    api_permission_delegate->HasThirdPartyCookiesAccess(
-                        host, provider_url, embedder_origin);
+  bool has_access = api_permission_delegate->HasThirdPartyCookiesAccess(
+      host, provider_url, embedder_origin);
   return sharing_permission_delegate->HasSharingPermission(
              requester_origin, embedder_origin,
              url::Origin::Create(provider_url), account_id) ||
          has_access;
+}
+
+bool IsFedCmAuthzEnabled(RenderFrameHost& host, const url::Origin& idp_origin) {
+  RuntimeFeatureStateDocumentData* rfs_document_data =
+      RuntimeFeatureStateDocumentData::GetForCurrentDocument(&host);
+  // If field trials or an explicit user selection disables authz, we should
+  // respect that.
+  std::optional<bool> is_overridden = IsFedCmAuthzOverridden();
+  if (is_overridden) {
+    return *is_overridden;
+  }
+
+  // Should not be null as this gets initialized when the host gets created.
+  DCHECK(rfs_document_data);
+  std::vector<url::Origin> third_party_origins = {idp_origin};
+  // This includes origin trials.
+  bool runtime_enabled =
+      rfs_document_data->runtime_feature_state_read_context()
+          .IsFedCmAuthzEnabled() ||
+      rfs_document_data->runtime_feature_state_read_context()
+          .IsFedCmAuthzEnabledForThirdParty(host.GetLastCommittedOrigin(),
+                                            third_party_origins);
+
+  bool flag_enabled = IsFedCmAuthzFlagEnabled();
+  return runtime_enabled || flag_enabled;
+}
+
+FederatedAuthRequestPageData* GetPageData(RenderFrameHost* render_frame_host) {
+  return FederatedAuthRequestPageData::GetOrCreateForPage(
+      render_frame_host->GetPage());
 }
 
 }  // namespace content::webid

@@ -56,7 +56,7 @@
 #include "chrome/browser/extensions/installed_loader.h"
 #include "chrome/browser/extensions/omaha_attributes_handler.h"
 #include "chrome/browser/extensions/pending_extension_manager.h"
-#include "chrome/browser/extensions/permissions_updater.h"
+#include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "chrome/browser/extensions/profile_util.h"
 #include "chrome/browser/extensions/shared_module_service.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
@@ -72,7 +72,6 @@
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/crash_keys.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -80,7 +79,7 @@
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
-#include "components/supervised_user/core/common/buildflags.h"
+#include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
@@ -107,6 +106,7 @@
 #include "extensions/browser/updater/extension_downloader.h"
 #include "extensions/browser/updater/manifest_fetch_data.h"
 #include "extensions/common/constants.h"
+#include "extensions/common/crash_keys.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/features/feature_developer_mode_only.h"
@@ -130,10 +130,6 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "storage/browser/file_system/file_system_context.h"
 #endif
-
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-#include "components/supervised_user/core/browser/supervised_user_preferences.h"
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
 #include "content/nw/src/nw_content.h"
 
@@ -1332,11 +1328,9 @@ void ExtensionService::CheckManagementPolicy() {
 
     // If this profile is not supervised, then remove any supervised user
     // related disable reasons.
-    bool is_supervised = false;
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-    is_supervised = profile() && supervised_user::IsSubjectToParentalControls(
-                                     *profile()->GetPrefs());
-#endif
+    bool is_supervised =
+        profile() &&
+        supervised_user::IsSubjectToParentalControls(*profile()->GetPrefs());
     if (!is_supervised) {
       disable_reasons &= (~disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED);
     }
@@ -1348,7 +1342,7 @@ void ExtensionService::CheckManagementPolicy() {
       // OnExternalExtensionUpdateUrlFound(), but already-broken browsers (from
       // previous Chromium versions) also need to be fixed here.
       //
-      // TODO(crbug.com/1114778): This won't be needed after a few milestones.
+      // TODO(crbug.com/40144051): This won't be needed after a few milestones.
       // It should be safe to remove in M107.
       disable_reasons &= (~disable_reason::DISABLE_EXTERNAL_EXTENSION);
     }

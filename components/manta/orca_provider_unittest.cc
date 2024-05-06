@@ -9,6 +9,7 @@
 
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "components/manta/base_provider.h"
@@ -37,8 +38,14 @@ class FakeOrcaProvider : public OrcaProvider, public FakeBaseProvider {
   FakeOrcaProvider(
       scoped_refptr<network::SharedURLLoaderFactory> test_url_loader_factory,
       signin::IdentityManager* identity_manager)
-      : BaseProvider(test_url_loader_factory, identity_manager),
-        OrcaProvider(test_url_loader_factory, identity_manager),
+      : BaseProvider(test_url_loader_factory,
+                     identity_manager,
+                     /*is_demo_mode=*/false),
+        OrcaProvider(test_url_loader_factory,
+                     identity_manager,
+                     /*is_demo_mode=*/false,
+                     /*chrome_version=*/std::string(),
+                     /*locale=*/std::string()),
         FakeBaseProvider(test_url_loader_factory, identity_manager) {}
 };
 
@@ -207,6 +214,8 @@ TEST_F(OrcaProviderTest, ParseSuccessfulResponse) {
   proto::OutputData& output_data = *response.add_output_data();
   output_data.set_text("foo");
 
+  base::HistogramTester histogram_tester;
+
   std::map<std::string, std::string> input = {{"data", "simple post data"},
                                               {"tone", "SHORTEN"}};
   std::unique_ptr<FakeOrcaProvider> orca_provider = CreateOrcaProvider();
@@ -234,6 +243,8 @@ TEST_F(OrcaProviderTest, ParseSuccessfulResponse) {
             quit_closure.Run();
           }));
   task_environment_.RunUntilQuit();
+  histogram_tester.ExpectTotalCount("Ash.MantaService.OrcaProvider.TimeCost",
+                                    1);
 }
 
 TEST_F(OrcaProviderTest, EmptyResponseAfterIdentityManagerShutdown) {
@@ -241,15 +252,17 @@ TEST_F(OrcaProviderTest, EmptyResponseAfterIdentityManagerShutdown) {
 
   identity_test_env_.reset();
 
+  std::map<std::string, std::string> input = {{"data", "simple post data"},
+                                              {"tone", "SHORTEN"}};
   orca_provider->Call(
-      {}, base::BindLambdaForTesting(
-              [quit_closure = task_environment_.QuitClosure()](
-                  base::Value::Dict dict, MantaStatus manta_status) {
-                ASSERT_TRUE(dict.empty());
-                ASSERT_EQ(MantaStatusCode::kNoIdentityManager,
-                          manta_status.status_code);
-                quit_closure.Run();
-              }));
+      input, base::BindLambdaForTesting(
+                 [quit_closure = task_environment_.QuitClosure()](
+                     base::Value::Dict dict, MantaStatus manta_status) {
+                   ASSERT_TRUE(dict.empty());
+                   ASSERT_EQ(MantaStatusCode::kNoIdentityManager,
+                             manta_status.status_code);
+                   quit_closure.Run();
+                 }));
   task_environment_.RunUntilQuit();
 }
 

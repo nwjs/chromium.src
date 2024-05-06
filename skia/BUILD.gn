@@ -235,8 +235,10 @@ component("skia") {
     "ext/benchmarking_canvas.h",
     "ext/cicp.h",
     "ext/convolver.h",
+    "ext/draw_gainmap_image.h",
     "ext/event_tracer_impl.h",
     "ext/font_utils.h",
+    "ext/geometry.h",
     "ext/image_operations.h",
     "ext/legacy_display_globals.h",
     "ext/opacity_filter_canvas.h",
@@ -259,8 +261,10 @@ component("skia") {
     "ext/benchmarking_canvas.cc",
     "ext/cicp.cc",
     "ext/convolver.cc",
+    "ext/draw_gainmap_image.cc",
     "ext/event_tracer_impl.cc",
     "ext/font_utils.cc",
+    "ext/geometry.cc",
     "ext/google_logging.cc",
     "ext/image_operations.cc",
     "ext/legacy_display_globals.cc",
@@ -339,6 +343,8 @@ component("skia") {
   sources += skia_encode_png_srcs
   sources += skia_encode_webp_srcs
   sources += [
+    "//third_party/skia/src/codec/SkEncodedInfo.cpp",
+    "//third_party/skia/src/codec/SkPngCodec.cpp",
     "//third_party/skia/src/fonts/SkFontMgr_indirect.cpp",
     "//third_party/skia/src/fonts/SkRemotableFontMgr.cpp",
     "//third_party/skia/src/ports/SkGlobalInitialization_default.cpp",
@@ -353,7 +359,6 @@ component("skia") {
     sources += skia_encode_jpeg_srcs
     public += skia_encode_jpeg_public
     sources += [
-      "//third_party/skia/src/codec/SkEncodedInfo.cpp",
       "//third_party/skia/src/codec/SkIcoCodec.cpp",
       "//third_party/skia/src/codec/SkJpegCodec.cpp",
       "//third_party/skia/src/codec/SkJpegDecoderMgr.cpp",
@@ -362,7 +367,6 @@ component("skia") {
       "//third_party/skia/src/codec/SkJpegSourceMgr.cpp",
       "//third_party/skia/src/codec/SkJpegUtility.cpp",
       "//third_party/skia/src/codec/SkParseEncodedOrigin.cpp",
-      "//third_party/skia/src/codec/SkPngCodec.cpp",
       "//third_party/skia/src/codec/SkWebpCodec.cpp",
       "//third_party/skia/src/codec/SkWuffsCodec.cpp",
       "//third_party/skia/src/ports/SkImageGenerator_skia.cpp",
@@ -486,7 +490,6 @@ component("skia") {
     ":skia_opts",
     ":skia_switches",
     "//base",
-    "//base/third_party/dynamic_annotations",
     "//third_party/libpng",
     "//third_party/libwebp",
     "//third_party/libwebp:libwebp_webp",
@@ -963,6 +966,7 @@ source_set("test_fonts") {
 test("skia_unittests") {
   sources = [
     "ext/convolver_unittest.cc",
+    "ext/geometry_unittest.cc",
     "ext/image_operations_unittest.cc",
     "ext/platform_canvas_unittest.cc",
     "ext/recursive_gaussian_convolution_unittest.cc",

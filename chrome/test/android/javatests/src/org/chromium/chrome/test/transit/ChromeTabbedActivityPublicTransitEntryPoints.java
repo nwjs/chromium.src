@@ -25,21 +25,25 @@ public class ChromeTabbedActivityPublicTransitEntryPoints {
     /**
      * Start the test in a blank page.
      *
-     * @return the active {@link EntryPageStation}
+     * @return the active entry {@link PageStation}
      */
-    public EntryPageStation startOnBlankPage() {
-        EntryPageStation entryPageStation = new EntryPageStation(mActivityTestRule, false);
+    public PageStation startOnBlankPage() {
+        PageStation entryPageStation =
+                PageStation.newPageStationBuilder()
+                        .withActivityTestRule(mActivityTestRule)
+                        .withIsOpeningTab(false)
+                        .withIsSelectingTab(false)
+                        .build();
         return Trip.travelSync(
-                null, entryPageStation, (t) -> mActivityTestRule.startMainActivityOnBlankPage());
+                null, entryPageStation, () -> mActivityTestRule.startMainActivityOnBlankPage());
     }
 
     /**
      * Start the batched test in a blank page.
      *
-     * @return the active {@link EntryPageStation}
+     * @return the active entry {@link PageStation}
      */
-    public BasePageStation startOnBlankPageBatched(
-            BatchedPublicTransitRule<BasePageStation> batchedRule) {
+    public PageStation startOnBlankPageBatched(BatchedPublicTransitRule<PageStation> batchedRule) {
         return startBatched(batchedRule, this::startOnBlankPage);
     }
 

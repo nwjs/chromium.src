@@ -141,6 +141,10 @@ BASE_FEATURE(kChangePictureVideoMode,
              "ChangePictureVideoMode",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kEnableCertManagementUIV2,
+             "EnableCertManagementUIV2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // Enables or disables "usm" service in the list of user services returned by
 // userInfo Gaia message.
@@ -234,12 +238,6 @@ BASE_FEATURE(kEnableWatermarkView,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
-// Enables migration of apps that are loaded erroneously but installed
-// correctly by policy in the web app system.
-BASE_FEATURE(kMigrateErrorLoadedPolicyApps,
-             "MigrateErrorLoadedPolicyApps",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Whether to allow installed-by-default web apps to be installed or not.
 BASE_FEATURE(kPreinstalledWebAppInstallation,
              "DefaultWebAppInstallation",
@@ -489,6 +487,14 @@ BASE_FEATURE(kCbdTimeframeRequired,
 BASE_FEATURE(kHappinessTrackingSurveysForDesktopDemo,
              "HappinessTrackingSurveysForDesktopDemo",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kHappinessTrackingSurveysConfiguration,
+             "HappinessTrackingSurveysConfiguration",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<std::string> kHappinessTrackingSurveysHostedUrl{
+    &kHappinessTrackingSurveysConfiguration, "custom-url",
+    "https://storage.googleapis.com/chrome_hats/index.html"};
 
 // Enables or disables the Happiness Tracking System for COEP issues in Chrome
 // DevTools on Desktop.
@@ -796,13 +802,6 @@ BASE_FEATURE(kImmersiveFullscreenTabs,
 BASE_FEATURE(kImmersiveFullscreenPWAs,
              "ImmersiveFullscreenPWAs",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Changes how Chrome responds to accessibility activation signals on macOS
-// Sonoma, to avoid unnecessary changes to the screen reader state.
-BASE_FEATURE(kSonomaAccessibilityActivationRefinements,
-             "SonomaAccessibilityActivationRefinements",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -910,13 +909,6 @@ BASE_FEATURE(kKAnonymityServiceOHTTPRequests,
 BASE_FEATURE(kKAnonymityServiceStorage,
              "KAnonymityServiceStorage",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-// Place Lacros's browser components in a location shared across users.
-BASE_FEATURE(kLacrosSharedComponentsDir,
-             "LacrosSharedComponentsDir",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kLinuxLowMemoryMonitor,
@@ -1123,6 +1115,14 @@ BASE_FEATURE(kRemoveSupervisedUsersOnStartup,
 BASE_FEATURE(kSafetyCheckExtensions,
              "SafetyCheckExtensions",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSafetyHubExtensionsUwSTrigger,
+             "SafetyHubExtensionsUwSTrigger",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables offstore extensions to be shown in the Safety Hub Extension
+// review panel.
+BASE_FEATURE(kSafetyHubExtensionsOffStoreTrigger,
+             "SafetyHubExtensionsOffStoreTrigger",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // Enables Safety Hub feature.
@@ -1131,6 +1131,51 @@ BASE_FEATURE(kSafetyHub, "SafetyHub", base::FEATURE_DISABLED_BY_DEFAULT);
 // Time between automated runs of the password check.
 const base::FeatureParam<base::TimeDelta> kBackgroundPasswordCheckInterval{
     &kSafetyHub, "background-password-check-interval", base::Days(10)};
+
+// When the password check didn't run at its scheduled time (e.g. client was
+// offline) it will be scheduled to run within this time frame. Changing the
+// value  will flaten the picks on rush hours, e.g: 1h will cause higher
+// picks than 4h.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta> kPasswordCheckOverdueInterval{
+    &kSafetyHub, "password-check-overdue-interval", base::Hours(4)};
+
+// Password check runs randomly based on the weight of each day. Parameters
+// below will be used to adjust weights, if necessary. Weight to randomly
+// schedule for Mondays.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kPasswordCheckMonWeight{
+    &kSafetyHub, "password-check-mon-weight", 8};
+
+// Weight to randomly schedule for Tuesdays.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kPasswordCheckTueWeight{
+    &kSafetyHub, "password-check-tue-weight", 9};
+
+// Weight to randomly schedule for Wednesdays.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kPasswordCheckWedWeight{
+    &kSafetyHub, "password-check-wed-weight", 9};
+
+// Weight to randomly schedule for Thursdays.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kPasswordCheckThuWeight{
+    &kSafetyHub, "password-check-thu-weight", 9};
+
+// Weight to randomly schedule for Fridays.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kPasswordCheckFriWeight{
+    &kSafetyHub, "password-check-fri-weight", 9};
+
+// Weight to randomly schedule for Saturdays.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kPasswordCheckSatWeight{
+    &kSafetyHub, "password-check-sat-weight", 6};
+
+// Weight to randomly schedule for Sundays.
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kPasswordCheckSunWeight{
+    &kSafetyHub, "password-check-sun-weight", 6};
 
 // Engagement limits Notification permissions module.
 const base::FeatureParam<int>
@@ -1260,53 +1305,6 @@ BASE_FEATURE(kThirdPartyModulesBlocking,
 BASE_FEATURE(kTreatUnsafeDownloadsAsActive,
              "TreatUnsafeDownloadsAsActive",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// TrackingProtectionSentimentSurvey
-#if !BUILDFLAG(IS_ANDROID)
-
-BASE_FEATURE(kTrackingProtectionSentimentSurvey,
-             "TrackingProtectionSentimentSurvey",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-extern const base::FeatureParam<double>
-    kTrackingProtectionSentimentSurveyImmediateOverDelayedProbability{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-immediate-over-delayed-probability", 0.5};
-
-extern const base::FeatureParam<double>
-    kTrackingProtectionSentimentSurveyControlImmediateProbability{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-control-immediate-probability", 0.0};
-extern const base::FeatureParam<double>
-    kTrackingProtectionSentimentSurveyTreatmentImmediateProbability{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-treatment-immediate-probability", 0.0};
-extern const base::FeatureParam<double>
-    kTrackingProtectionSentimentSurveyControlDelayedProbability{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-control-delayed-probability", 0.0};
-extern const base::FeatureParam<double>
-    kTrackingProtectionSentimentSurveyTreatmentDelayedProbability{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-treatment-delayed-probability", 0.0};
-
-extern const base::FeatureParam<std::string>
-    kTrackingProtectionSentimentSurveyControlImmediateTriggerId{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-control-immediate-trigger-id", ""};
-extern const base::FeatureParam<std::string>
-    kTrackingProtectionSentimentSurveyTreatmentImmediateTriggerId{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-treatment-immediate-trigger-id", ""};
-extern const base::FeatureParam<std::string>
-    kTrackingProtectionSentimentSurveyControlDelayedTriggerId{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-control-delayed-trigger-id", ""};
-extern const base::FeatureParam<std::string>
-    kTrackingProtectionSentimentSurveyTreatmentDelayedTriggerId{
-        &kTrackingProtectionSentimentSurvey,
-        "tracking-protection-treatment-delayed-trigger-id", ""};
-#endif
 
 // TrustSafetySentimentSurvey
 #if !BUILDFLAG(IS_ANDROID)
@@ -1658,6 +1656,14 @@ bool IsParentAccessCodeForOnlineLoginEnabled() {
 BASE_FEATURE(kSupportsRtcWakeOver24Hours,
              "SupportsRtcWakeOver24Hours",
              base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+// A feature to enable event based log uploads. See
+// go/cros-eventbasedlogcollection-dd.
+BASE_FEATURE(kEventBasedLogUpload,
+             "EventBasedLogUpload",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 }  // namespace features

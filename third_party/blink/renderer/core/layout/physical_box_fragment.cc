@@ -491,28 +491,23 @@ const PhysicalBoxFragment* PhysicalBoxFragment::PostLayout() const {
     return this;
   }
 
-  const auto* layout_object = GetSelfOrContainerLayoutObject();
+  const LayoutObject* layout_object = GetLayoutObject();
   if (UNLIKELY(!layout_object)) {
-    // In some cases the layout object may have been removed. This can of course
-    // not happen if we have actually performed layout, but we may in some cases
-    // clone a fragment *before* layout, to ensure that the fragment tree spine
-    // is correctly rebuilt after a subtree layout.
+    // Some fragments don't have a layout object associated directly with
+    // them. This is the case for lines and fragmentainers (columns / pages).
+    // We don't need to do anything special for such fragments. Any post-layout
+    // fragmentainers should be found as children of the post-layout fragments
+    // of the containing block.
+    //
+    // In some cases the layout object may also have been removed. This can of
+    // course not happen if we have actually performed layout, but we may in
+    // some cases clone a fragment *before* layout, to ensure that the fragment
+    // tree spine is correctly rebuilt after a subtree layout.
     return this;
   }
   const auto* box = DynamicTo<LayoutBox>(layout_object);
   if (UNLIKELY(!box)) {
     DCHECK(IsInlineBox());
-    return this;
-  }
-  if (UNLIKELY(!IsCSSBox())) {
-    // We don't need to do anything special for fragments that don't correspond
-    // to entries in the CSS box tree (such as fragmentainers). Any post-layout
-    // fragmentainers should be found as children of the post-layout fragments
-    // of the containing block.
-    //
-    // TODO(mstensho): Clean up this method. Rather than calling
-    // GetSelfOrContainerLayoutObject() above, we first bail on !IsCSSBox(), and
-    // then simply use GetLayoutObject().
     return this;
   }
 
@@ -974,9 +969,6 @@ PhysicalRect PhysicalBoxFragment::RecalcContentsInkOverflow() {
 PhysicalRect PhysicalBoxFragment::ComputeSelfInkOverflow() const {
   DCHECK_EQ(PostLayout(), this);
   const ComputedStyle& style = Style();
-
-  // TODO(crbug.com/325215738): Remove this when we're done investigating.
-  CHECK(&style);
 
   PhysicalRect ink_overflow(LocalRect());
   if (UNLIKELY(IsTableRow())) {

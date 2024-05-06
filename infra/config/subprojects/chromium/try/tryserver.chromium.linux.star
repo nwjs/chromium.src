@@ -5,10 +5,11 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
+load("//lib/builder_url.star", "linkify_builder")
 load("//lib/builders.star", "os", "reclient", "siso")
+load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
 load("//lib/try.star", "try_")
-load("//lib/consoles.star", "consoles")
 load("//project.star", "settings")
 
 try_.defaults.set(
@@ -89,6 +90,22 @@ try_.builder(
             "no_symbols",
         ],
     ),
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "linux-arm64-cast-rel",
+    branch_selector = branches.selector.MAIN,
+    description_html = "Try builder for linux-arm64-cast-rel",
+    mirrors = [
+        "ci/linux-arm64-cast-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/linux-arm64-cast-rel",
+        ],
+    ),
+    contact_team_email = "cast-eng@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -177,17 +194,6 @@ try_.builder(
         "ci/linux-exp-msan-fyi-rel",
     ],
     gn_args = "ci/linux-exp-msan-fyi-rel",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
-)
-
-# TODO(crbug.com/1442587): Remove this builder after burning down failures
-# found when we now post-process stdout.
-try_.builder(
-    name = "linux-exp-tsan-fyi-rel",
-    mirrors = [
-        "ci/linux-exp-tsan-fyi-rel",
-    ],
-    gn_args = "ci/linux-exp-tsan-fyi-rel",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -319,8 +325,6 @@ try_.builder(
         "chromium.enable_cleandead": 100,
     },
     main_list_view = "try",
-    # TODO: b/311312613 - enable Siso after fixing sanitizer build performance.
-    siso_enabled = False,
     tryjob = try_.job(),
 )
 
@@ -385,6 +389,30 @@ try_.compilator_builder(
     main_list_view = "try",
 )
 
+try_.orchestrator_builder(
+    name = "linux-full-remote-rel",
+    description_html = "Experimental " + linkify_builder("try", "linux-rel", "chromium") + " builder with more kinds of remote actions. e.g. remote linking",
+    mirrors = builder_config.copy_from("linux-rel"),
+    builder_config_settings = builder_config.try_settings(
+        is_compile_only = True,
+    ),
+    gn_args = "try/linux-rel",
+    compilator = "linux-full-remote-rel-compilator",
+    contact_team_email = "chrome-build-team@google.com",
+    siso_configs = ["builder", "remote-library-link", "remote-exec-link"],
+    tryjob = try_.job(
+        experiment_percentage = 10,
+    ),
+    use_clang_coverage = True,
+)
+
+try_.compilator_builder(
+    name = "linux-full-remote-rel-compilator",
+    # TODO: compilator_builder doesn't need description_html as it's automatically generated.
+    description_html = "Compilator for linux-full-remote-rel",
+    contact_team_email = "chrome-build-team@google.com",
+)
+
 # TODO(crbug.com/1394755): Remove this builder after burning down failures
 # and measuring performance to see if we can roll UBSan into ASan.
 try_.builder(
@@ -412,12 +440,18 @@ try_.builder(
         ],
     ),
     ssd = True,
+    # TODO(crbug.com/329118490): Re-enable flake endorser.
+    check_for_flakiness = False,
+    check_for_flakiness_with_resultdb = False,
     coverage_test_types = ["unit", "overall"],
     tryjob = try_.job(
         location_filters = [
-            "ui/ozone/platform/wayland/.+",
             "chrome/browser/.+(ui|browser)test.+",
             "chrome/browser/ui/views/.+test.+",
+            "chrome/browser/ui/views/tabs/.+",
+            "third_party/wayland/.+",
+            "third_party/wayland-protocols/.+",
+            "ui/ozone/platform/wayland/.+",
             "ui/views/widget/.+test.+",
         ],
     ),
@@ -482,6 +516,22 @@ try_.builder(
 )
 
 try_.builder(
+    name = "linux-x64-cast-dbg",
+    branch_selector = branches.selector.MAIN,
+    description_html = "Try builder for linux-x64-cast-dbg",
+    mirrors = [
+        "ci/linux-x64-cast-dbg",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/linux-x64-cast-dbg",
+        ],
+    ),
+    contact_team_email = "cast-eng@google.com",
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "linux_chromium_archive_rel_ng",
     mirrors = [
         "ci/linux-archive-rel",
@@ -515,47 +565,12 @@ try_.orchestrator_builder(
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
-    # TODO: b/311312613 - enable Siso after fixing sanitizer build performance.
-    siso_enabled = False,
     tryjob = try_.job(),
 )
 
 try_.compilator_builder(
     name = "linux_chromium_asan_rel_ng-compilator",
     branch_selector = branches.selector.LINUX_BRANCHES,
-    main_list_view = "try",
-    # TODO: b/311312613 - enable Siso after fixing sanitizer build performance.
-    siso_enabled = False,
-)
-
-# TODO: crbug.com/1502025 - Reduce duplicated configs from the shadow builder.
-try_.orchestrator_builder(
-    name = "linux_chromium_asan_siso_rel_ng",
-    description_html = """\
-This builder shadows linux_chromium_asan_rel_ng builder to compare between Siso builds and Ninja builds.<br/>
-This builder should be removed after migrating linux_chromium_asan_rel_ng from Ninja to Siso. b/277863839
-""",
-    mirrors = builder_config.copy_from("try/linux_chromium_asan_rel_ng"),
-    builder_config_settings = builder_config.try_settings(
-        is_compile_only = True,
-    ),
-    gn_args = "try/linux_chromium_asan_rel_ng",
-    compilator = "linux_chromium_asan_siso_rel_ng-compilator",
-    experiments = {
-        # go/nplus1shardsproposal
-        "chromium.add_one_test_shard": 10,
-    },
-    main_list_view = "try",
-    # b/311312613 - Siso's sanitizer builds are slower than Ninja builds.
-    # Many concurrent compile jobs may cause the slowness.
-    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
-    tryjob = try_.job(
-        experiment_percentage = 10,
-    ),
-)
-
-try_.compilator_builder(
-    name = "linux_chromium_asan_siso_rel_ng-compilator",
     main_list_view = "try",
 )
 
@@ -763,47 +778,12 @@ try_.orchestrator_builder(
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
-    # TODO: b/311312613 - enable Siso after fixing sanitizer build performance.
-    siso_enabled = False,
     tryjob = try_.job(),
 )
 
 try_.compilator_builder(
     name = "linux_chromium_tsan_rel_ng-compilator",
     branch_selector = branches.selector.LINUX_BRANCHES,
-    main_list_view = "try",
-    # TODO: b/311312613 - enable Siso after fixing sanitizer build performance.
-    siso_enabled = False,
-)
-
-# TODO: crbug.com/1502025 - Reduce duplicated configs from the shadow builder.
-try_.orchestrator_builder(
-    name = "linux_chromium_tsan_siso_rel_ng",
-    description_html = """\
-This builder shadows linux_chromium_tsan_rel_ng builder to compare between Siso builds and Ninja builds.<br/>
-This builder should be removed after migrating linux_chromium_tsan_rel_ng from Ninja to Siso. b/277863839
-""",
-    mirrors = builder_config.copy_from("try/linux_chromium_tsan_rel_ng"),
-    builder_config_settings = builder_config.try_settings(
-        is_compile_only = True,
-    ),
-    gn_args = "try/linux_chromium_tsan_rel_ng",
-    compilator = "linux_chromium_tsan_siso_rel_ng-compilator",
-    experiments = {
-        # go/nplus1shardsproposal
-        "chromium.add_one_test_shard": 10,
-    },
-    main_list_view = "try",
-    # b/311312613 - Siso's sanitizer builds are slower than Ninja builds.
-    # Many concurrent compile jobs may cause the slowness.
-    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
-    tryjob = try_.job(
-        experiment_percentage = 10,
-    ),
-)
-
-try_.compilator_builder(
-    name = "linux_chromium_tsan_siso_rel_ng-compilator",
     main_list_view = "try",
 )
 
@@ -835,7 +815,6 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder",
-            "goma",
         ],
     ),
     builderless = True,

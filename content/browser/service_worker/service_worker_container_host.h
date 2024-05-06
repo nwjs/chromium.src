@@ -533,6 +533,11 @@ class CONTENT_EXPORT ServiceWorkerContainerHost final
 
   ukm::SourceId ukm_source_id() const { return ukm_source_id_; }
 
+  void SetContainerReady();
+
+  bool is_inherited() const { return is_inherited_; }
+  void SetInherited() { is_inherited_ = true; }
+
  private:
   class ServiceWorkerRunningStatusObserver;
   friend class ServiceWorkerContainerHostTest;
@@ -636,6 +641,10 @@ class CONTENT_EXPORT ServiceWorkerContainerHost final
                                     const char* error_prefix,
                                     Args... args);
 
+  // Flushes features stored, when it gets ready to send.
+  // If it is still not ready to send, the features are buffered again.
+  void FlushFeatures();
+
   base::WeakPtr<ServiceWorkerContextCore> context_;
 
   // The time when the container host is created.
@@ -732,6 +741,12 @@ class CONTENT_EXPORT ServiceWorkerContainerHost final
   // |container_| is the remote renderer-side ServiceWorkerContainer that |this|
   // is hosting.
   mojo::AssociatedRemote<blink::mojom::ServiceWorkerContainer> container_;
+  // |is_container_ready_| is set to be true after |container_| has been passed
+  // to the renderer process. This flag is needed to prevent |container_| used
+  // before the association to the existing message pipe, which happens when
+  // |container_| is passed to the renderer via a mojo call. Note that the mojo
+  // call's message pipe is piggy-backed.
+  bool is_container_ready_ = false;
 
   // The type of client.
   std::optional<ServiceWorkerClientInfo> client_info_;
@@ -743,10 +758,23 @@ class CONTENT_EXPORT ServiceWorkerContainerHost final
   // case of a service worker client with a blob URL.
   GURL scope_match_url_for_blob_client_;
 
+  // Become true if the container is inherited by other container.
+  bool is_inherited_ = false;
+
   // The observer for the running status change.
   // It is used for notifying the ServiceWorker running status change to
   // the ServiceWorkerContainerHost in the renderer.
   std::unique_ptr<ServiceWorkerRunningStatusObserver> running_status_observer_;
+
+  // Until |container_| gets associated, its method cannot be used.
+  // If CountFeature() is called before |container_| gets ready, features are
+  // kept here, and flushed in SetContainerReady().
+  std::set<blink::mojom::WebFeature> buffered_used_features_;
+
+  // Until |container_| gets associated, postMessage will be queued.
+  std::vector<std::tuple<base::WeakPtr<ServiceWorkerObjectHost>,
+                         blink::TransferableMessage>>
+      buffered_messages_;
 
   // For worker clients only ---------------------------------------------------
 

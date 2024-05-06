@@ -8,6 +8,7 @@
 
 #include "ash/components/arc/arc_prefs.h"
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
@@ -25,11 +26,10 @@
 #include "chrome/browser/ash/login/oobe_quick_start/oobe_quick_start_pref_names.h"
 #include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/ui/login_display_host_common.h"
-#include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -62,6 +62,13 @@ void SaveStringPreferenceForced(const char* pref_name,
                                 const std::string& value) {
   PrefService* prefs = g_browser_process->local_state();
   prefs->SetString(pref_name, value);
+  prefs->CommitPendingWrite();
+}
+
+// Saves time "Local State" preference and forces its persistence to disk.
+void SaveTimePreferenceForced(const char* pref_name, base::Time value) {
+  PrefService* prefs = g_browser_process->local_state();
+  prefs->SetTime(pref_name, value);
   prefs->CommitPendingWrite();
 }
 
@@ -104,6 +111,7 @@ void StartupUtils::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(prefs::kOobeScreenPending, "");
   registry->RegisterTimePref(prefs::kOobeStartTime, base::Time());
   registry->RegisterIntegerPref(::prefs::kDeviceRegistered, -1);
+  registry->RegisterTimePref(ash::prefs::kDeviceRegisteredTime, base::Time());
   registry->RegisterBooleanPref(::prefs::kEnrollmentRecoveryRequired, false);
   registry->RegisterStringPref(::prefs::kInitialLocale, "en-US");
   registry->RegisterBooleanPref(kDisableHIDDetectionScreenForTests, false);
@@ -200,12 +208,20 @@ void StartupUtils::SaveScreenAfterConsumerUpdate(const std::string& screen) {
 }
 
 // static
-base::TimeDelta StartupUtils::GetTimeSinceOobeFlagFileCreation() {
+base::Time StartupUtils::GetTimeOfOobeFlagFileCreation() {
   const base::FilePath oobe_complete_flag_path = GetOobeCompleteFlagPath();
   base::File::Info file_info;
-  if (base::GetFileInfo(oobe_complete_flag_path, &file_info))
-    return base::Time::Now() - file_info.creation_time;
-  return base::TimeDelta();
+  if (base::GetFileInfo(oobe_complete_flag_path, &file_info)) {
+    return file_info.creation_time;
+  }
+  return base::Time();
+}
+
+// static
+base::TimeDelta StartupUtils::GetTimeSinceOobeFlagFileCreation() {
+  base::Time creation_time = GetTimeOfOobeFlagFileCreation();
+  return !creation_time.is_null() ? base::Time::Now() - creation_time
+                                  : base::TimeDelta();
 }
 
 // static
@@ -246,6 +262,9 @@ void StartupUtils::ClearSpecificOobePrefs() {
 // static
 void StartupUtils::MarkDeviceRegistered(base::OnceClosure done_callback) {
   SaveIntegerPreferenceForced(::prefs::kDeviceRegistered, 1);
+
+  SaveTimePreferenceForced(ash::prefs::kDeviceRegisteredTime,
+                           base::Time::Now());
 
   auto* host = LoginDisplayHost::default_host();
   if (host) {
@@ -299,10 +318,8 @@ void StartupUtils::SetInitialLocale(const std::string& locale) {
 
 // static
 bool StartupUtils::IsDeviceOwned() {
-  policy::BrowserPolicyConnectorAsh* connector =
-      g_browser_process->platform_part()->browser_policy_connector_ash();
   return !user_manager::UserManager::Get()->GetUsers().empty() ||
-         connector->IsDeviceEnterpriseManaged();
+         ash::InstallAttributes::Get()->IsEnterpriseManaged();
 }
 
 }  // namespace ash

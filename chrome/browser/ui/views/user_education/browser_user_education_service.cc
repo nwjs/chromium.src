@@ -80,7 +80,6 @@ namespace {
 const char kTabGroupTutorialMetricPrefix[] = "TabGroup";
 const char kSavedTabGroupTutorialMetricPrefix[] = "SavedTabGroup";
 const char kCustomizeChromeTutorialMetricPrefix[] = "CustomizeChromeSidePanel";
-const char kSideSearchTutorialMetricPrefix[] = "SideSearch";
 const char kPasswordManagerTutorialMetricPrefix[] = "PasswordManager";
 constexpr char kTabGroupHeaderElementName[] = "TabGroupHeader";
 constexpr char kChromeThemeBackElementName[] = "ChromeThemeBackElement";
@@ -178,7 +177,20 @@ void MaybeRegisterChromeFeaturePromos(
     return;
   }
 
-  // TODO(1432894): Use toast or snooze instead of legacy promo.
+  // kIPHAutofillCreditCardBenefitFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHAutofillCreditCardBenefitFeature,
+          kAutofillCreditCardBenefitElementId,
+          IDS_AUTOFILL_CREDIT_CARD_BENEFIT_IPH_BUBBLE_LABEL,
+          IDS_AUTOFILL_CREDIT_CARD_BENEFIT_IPH_BUBBLE_LABEL_SCREENREADER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)
+          .SetMetadata(125, "justinleewells@google.com",
+                       "Triggered after a credit card benefit is displayed for "
+                       "the first time.")));
+
+  // TODO(crbug.com/40264177): Use toast or snooze instead of legacy promo.
   // kIPHAutofillExternalAccountProfileSuggestionFeature:
   registry.RegisterFeature(
       std::move(FeaturePromoSpecification::CreateForLegacyPromo(
@@ -602,14 +614,6 @@ void MaybeRegisterChromeFeaturePromos(
             .SetBubbleArrow(HelpBubbleArrow::kTopRight)));
   }
 
-  // kIPHSideSearchFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForTutorialPromo(
-          feature_engagement::kIPHSideSearchFeature, kSideSearchButtonElementId,
-          IDS_SIDE_SEARCH_PROMO, kSideSearchTutorialId)
-          .SetBubbleArrow(HelpBubbleArrow::kTopCenter)
-          .SetBubbleIcon(kLightbulbOutlineIcon)));
-
   // kIPHTabOrganizationSuccessFeature:
   registry.RegisterFeature(
       std::move(FeaturePromoSpecification::CreateForToastPromo(
@@ -830,7 +834,7 @@ void MaybeRegisterChromeFeaturePromos(
               }))
           .SetBubbleArrow(HelpBubbleArrow::kTopRight)
           .SetPromoSubtype(user_education::FeaturePromoSpecification::
-                               PromoSubtype::kPerApp)));
+                               PromoSubtype::kKeyedNotice)));
 
   if (base::FeatureList::IsEnabled(compose::features::kEnableCompose)) {
     // kIPHComposeMSBBSettingsFeature:
@@ -844,23 +848,6 @@ void MaybeRegisterChromeFeaturePromos(
                       .SetBubbleArrow(HelpBubbleArrow::kBottomRight)));
   }
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
-
-  // kIPHDeepScanPromptRemovalFeature
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForCustomAction(
-          feature_engagement::kIPHDeepScanPromptRemovalFeature,
-          kToolbarDownloadButtonElementId, IDS_DEEP_SCANNING_PROMPT_REMOVAL_IPH,
-          IDS_DEEP_SCANNING_PROMPT_REMOVAL_IPH_ACTION,
-          base::BindRepeating(
-              [](ui::ElementContext ctx,
-                 user_education::FeaturePromoHandle promo_handle) {
-                auto* browser = chrome::FindBrowserWithUiElementContext(ctx);
-                if (!browser) {
-                  return;
-                }
-                chrome::ShowSafeBrowsingEnhancedProtection(browser);
-              }))
-          .SetBubbleArrow(HelpBubbleArrow::kTopRight)));
 }
 
 void MaybeRegisterChromeTutorials(
@@ -1075,38 +1062,6 @@ void MaybeRegisterChromeTutorials(
               .SetBubbleBodyText(IDS_TUTORIAL_CUSTOMIZE_CHROME_SUCCESS_BODY)
               .InAnyContext()));
 
-  {  // Side Search tutorial
-    auto side_search_tutorial =
-        TutorialDescription::Create<kSideSearchTutorialMetricPrefix>(
-            // 1st bubble appears and prompts users to open side search
-            BubbleStep(kSideSearchButtonElementId)
-                .SetBubbleBodyText(IDS_SIDE_SEARCH_TUTORIAL_OPEN_SIDE_PANEL)
-                .SetBubbleArrow(HelpBubbleArrow::kTopCenter),
-
-            // 2nd bubble appears and prompts users to open a link
-            BubbleStep(kSideSearchWebViewElementId)
-                .SetBubbleBodyText(IDS_SIDE_SEARCH_TUTORIAL_OPEN_A_LINK_TO_TAB)
-                .SetBubbleArrow(HelpBubbleArrow::kRightCenter),
-
-            // Hidden step that detects a link is pressed
-            EventStep(kSideSearchResultsClickedCustomEventId,
-                      kSideSearchWebViewElementId),
-
-            // 3rd bubble appears and prompts users to press close button
-            BubbleStep(kSidePanelCloseButtonElementId)
-                .SetBubbleBodyText(IDS_SIDE_SEARCH_TUTORIAL_CLOSE_SIDE_PANEL)
-                .SetBubbleArrow(HelpBubbleArrow::kTopRight),
-
-            // Completion of the tutorial.
-            BubbleStep(kSideSearchButtonElementId)
-                .SetBubbleTitleText(IDS_TUTORIAL_GENERIC_SUCCESS_TITLE)
-                .SetBubbleBodyText(IDS_SIDE_SEARCH_PROMO)
-                .SetBubbleArrow(HelpBubbleArrow::kTopRight));
-    side_search_tutorial.can_be_restarted = true;
-    tutorial_registry.AddTutorial(kSideSearchTutorialId,
-                                  std::move(side_search_tutorial));
-  }
-
   // Password Manager tutorial
   tutorial_registry.AddTutorial(
       kPasswordManagerTutorialId,
@@ -1169,7 +1124,7 @@ void MaybeRegisterChromeTutorials(
               .SetBubbleArrow(HelpBubbleArrow::kNone)));
 }
 
-void MaybeRegisterNewBadges(user_education::NewBadgeRegistry& registry) {
+void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
   if (registry.IsFeatureRegistered(
           user_education::features::kNewBadgeTestFeature)) {
     return;
@@ -1208,7 +1163,7 @@ std::unique_ptr<BrowserFeaturePromoController> CreateUserEducationResources(
   MaybeRegisterChromeTutorials(user_education_service->tutorial_registry());
   CHECK(user_education_service->new_badge_registry());
 
-  MaybeRegisterNewBadges(*user_education_service->new_badge_registry());
+  MaybeRegisterChromeNewBadges(*user_education_service->new_badge_registry());
   user_education_service->new_badge_controller()->InitData();
 
   return std::make_unique<BrowserFeaturePromoController>(

@@ -61,26 +61,26 @@ FormData GenerateFormData(FuzzedDataProvider& provider) {
     const bool force_empty_value = bools[1];
     result.fields[i].is_focusable = bools[2];
 
-    result.fields[i].form_control_type =
-        provider.ConsumeEnum<FormControlType>();
+    result.fields[i].set_form_control_type(
+        provider.ConsumeEnum<FormControlType>());
     result.fields[i].autocomplete_attribute =
         provider.ConsumeRandomLengthString();
     result.fields[i].label = ConsumeU16String(provider);
-    result.fields[i].name = ConsumeU16String(provider);
-    result.fields[i].name_attribute = result.fields[i].name;
+    result.fields[i].set_name(ConsumeU16String(provider));
+    result.fields[i].name_attribute = result.fields[i].name();
     result.fields[i].id_attribute = ConsumeU16String(provider);
-    result.fields[i].renderer_id =
-        FieldRendererId(provider.ConsumeIntegralInRange(-32, 31));
+    result.fields[i].set_renderer_id(
+        FieldRendererId(provider.ConsumeIntegralInRange(-32, 31)));
 
     if (same_value_field) {
       if (first_field_with_same_value == -1) {
         first_field_with_same_value = static_cast<int>(i);
       } else {
-        result.fields[i].value =
-            result.fields[first_field_with_same_value].value;
+        result.fields[i].set_value(
+            result.fields[first_field_with_same_value].value());
       }
     } else if (!force_empty_value) {
-      result.fields[i].value = ConsumeU16String(provider);
+      result.fields[i].set_value(ConsumeU16String(provider));
     }
   }
 

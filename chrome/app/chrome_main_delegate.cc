@@ -17,8 +17,8 @@
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/cpu.h"
-#include "base/cpu_reduction_experiment.h"
 #include "base/dcheck_is_on.h"
+#include "base/features.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -35,12 +35,8 @@
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/sequence_manager/sequence_manager_impl.h"
-#include "base/task/sequence_manager/thread_controller.h"
-#include "base/task/sequence_manager/thread_controller_power_monitor.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/threading/hang_watcher.h"
-#include "base/threading/platform_thread.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/trace_event_impl.h"
@@ -114,7 +110,6 @@
 
 #include "base/base_switches.h"
 #include "base/files/important_file_writer_cleaner.h"
-#include "base/threading/platform_thread_win.h"
 #include "base/win/atl.h"
 #include "base/win/dark_mode_support.h"
 #include "base/win/resource_exhaustion.h"
@@ -131,10 +126,6 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "base/apple/foundation_util.h"
-#include "base/message_loop/message_pump_apple.h"
-#include "base/message_loop/message_pump_default.h"
-#include "base/message_loop/message_pump_kqueue.h"
-#include "base/synchronization/condition_variable.h"
 #include "chrome/app/chrome_main_mac.h"
 #include "chrome/browser/chrome_browser_application_mac.h"
 #include "chrome/browser/headless/headless_mode_util.h"
@@ -168,14 +159,14 @@
 #include "base/system/sys_info.h"
 #include "chrome/browser/ash/boot_times_recorder.h"
 #include "chrome/browser/ash/dbus/ash_dbus_helper.h"
+#include "chrome/browser/ash/dbus_schedqos_state_handler.h"
 #include "chrome/browser/ash/startup_settings_cache.h"
-#include "chromeos/ash/components/memory/memory.h"
 #include "chromeos/ash/components/memory/mglru.h"
+#include "content/public/common/content_features.h"
 #include "ui/lottie/resource.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/android/input_hint_checker.h"
 #include "base/android/java_exception_reporter.h"
 #include "base/android/library_loader/library_loader_hooks.h"
 #include "chrome/browser/android/flags/chrome_cached_flags.h"
@@ -201,6 +192,7 @@
 
 #if BUILDFLAG(IS_LINUX)
 #include "base/nix/scoped_xdg_activation_token_injector.h"
+#include "ui/linux/display_server_utils.h"
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
@@ -255,6 +247,9 @@
 #include "base/scoped_add_feature_flags.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/ozone/public/ozone_platform.h"
+#if BUILDFLAG(IS_LINUX)
+#include "chrome/browser/chrome_browser_main_extra_parts_linux.h"
+#endif
 #endif  // BUILDFLAG(IS_OZONE)
 
 #include "third_party/node-nw/src/node_webkit.h"
@@ -829,12 +824,11 @@ void OnResourceExhausted() {
 }
 #endif  // !BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(IS_OZONE)
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
 void AddFeatureFlagsToCommandLine() {
   CHECK(!base::FeatureList::GetInstance());
   base::ScopedAddFeatureFlags flags(base::CommandLine::ForCurrentProcess());
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
   const auto& init_params = *chromeos::BrowserParamsProxy::Get();
   if (init_params.IsVariableRefreshRateAlwaysOn()) {
     flags.EnableIfNotSet(features::kEnableVariableRefreshRateAlwaysOn);
@@ -843,16 +837,14 @@ void AddFeatureFlagsToCommandLine() {
   if (init_params.IsPdfOcrEnabled()) {
     flags.EnableIfNotSet(features::kPdfOcr);
   }
+}
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
-  // Disable currently unsupported web features per platform properties.
-  if (!ui::OzonePlatform::GetInstance()
-           ->GetPlatformProperties()
-           .supports_color_picker_dialog) {
-    flags.DisableIfNotSet(features::kEyeDropper);
-  }
+bool IsCanaryDev() {
+  const auto channel = chrome::GetChannel();
+  return channel == version_info::Channel::CANARY ||
+         channel == version_info::Channel::DEV;
 }
-#endif  // BUILDFLAG(IS_OZONE)
 
 }  // namespace
 
@@ -982,13 +974,9 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
   chrome::SetLacrosDefaultPathsFromInitParams(init_params.DefaultPaths().get());
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
-#if BUILDFLAG(IS_OZONE)
-  // Initialize Ozone platform and add required feature flags as per platform's
-  // properties. Must be added before feature list is created otherwise the
-  // added flag won't be picked up.
-  ui::OzonePlatform::PreEarlyInitialization();
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
   AddFeatureFlagsToCommandLine();
-#endif  // BUILDFLAG(IS_OZONE)
+#endif
 
   // The DBus initialization above is needed for FeatureList creation here;
   // features are needed for Mojo initialization; and Mojo initialization is
@@ -998,7 +986,32 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
           ->chrome_feature_list_creator();
   chrome_feature_list_creator->CreateFeatureList();
 
+#if BUILDFLAG(IS_OZONE)
+  // Initialize Ozone platform and add required feature flags as per platform's
+  // properties.
+#if BUILDFLAG(IS_LINUX)
+  ui::SetOzonePlatformForLinuxIfNeeded(*base::CommandLine::ForCurrentProcess());
+#endif
+  ui::OzonePlatform::PreEarlyInitialization();
+
+  // Disable currently unsupported web features per platform properties.
+  if (!ui::OzonePlatform::GetInstance()
+           ->GetPlatformProperties()
+           .supports_color_picker_dialog) {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        features::kEyeDropperNotSupported);
+  }
+#endif  // BUILDFLAG(IS_OZONE)
+
   content::InitializeMojoCore();
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (base::FeatureList::IsEnabled(features::kSchedQoSOnResourcedForChrome)) {
+    ash::DBusSchedQOSStateHandler::Create(
+        base::SequencedTaskRunner::GetCurrentDefault());
+    base::Process::Current().InitializePriority();
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   // LacrosService instance needs the sequence of the main thread,
@@ -1133,11 +1146,6 @@ void ChromeMainDelegate::CommonEarlyInitialization(InvokedIn invoked_in) {
   // Similarly, enable network state partitioning by default.
   net::NetworkAnonymizationKey::PartitionByDefault();
 
-#if BUILDFLAG(IS_CHROMEOS)
-  // Threading features.
-  base::PlatformThread::InitFeaturesPostFieldTrial();
-#endif
-
   // Start memory observation as early as possible so it can start recording
   // memory allocations. This includes heap profiling.
   InitializeMemorySystem();
@@ -1147,12 +1155,6 @@ void ChromeMainDelegate::CommonEarlyInitialization(InvokedIn invoked_in) {
     ash::InitializeMGLRU();
 #endif
   }
-
-#if BUILDFLAG(IS_WIN)
-  base::sequence_manager::internal::ThreadControllerPowerMonitor::
-      InitializeOnMainThread();
-  base::InitializePlatformThreadFeatures();
-#endif
 
   // Initialize the HangWatcher.
   base::HangWatcher::ProcessType hang_watcher_process_type;
@@ -1177,9 +1179,7 @@ void ChromeMainDelegate::CommonEarlyInitialization(InvokedIn invoked_in) {
                        }},
       invoked_in);
 
-  const bool is_canary_dev =
-      chrome::GetChannel() == version_info::Channel::CANARY ||
-      chrome::GetChannel() == version_info::Channel::DEV;
+  const bool is_canary_dev = IsCanaryDev();
   const bool emit_crashes =
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
     BUILDFLAG(IS_WIN)
@@ -1192,26 +1192,13 @@ void ChromeMainDelegate::CommonEarlyInitialization(InvokedIn invoked_in) {
                                             /*is_zygote_child=*/is_zygote_child,
                                             emit_crashes);
 
-  base::InitializeCpuReductionExperiment();
-  base::sequence_manager::internal::SequenceManagerImpl::InitializeFeatures();
-  // Set `record_sample_metadata` on dev and canary channels since these are the
-  // only channels where this metadata is expected to be useful for the
-  // foreseeable future. Please refer to
-  // https://source.chromium.org/chromium/chromium/src/+/main:chrome/common/profiler/
-  // for more context.
-  base::sequence_manager::internal::ThreadController::InitializeFeatures(
-      /*record_sample_metadata=*/is_canary_dev);
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-  base::MessagePumpLibevent::InitializeFeatures();
-#elif BUILDFLAG(IS_MAC)
-  base::PlatformThread::InitFeaturesPostFieldTrial();
-  base::MessagePumpCFRunLoopBase::InitializeFeatures();
-  base::MessagePumpKqueue::InitializeFeatures();
-  base::ConditionVariable::InitializeFeatures();
-#endif
-#if BUILDFLAG(IS_ANDROID)
-  base::android::InputHintChecker::InitializeFeatures();
-#endif
+  // Force emitting `ThreadController` profiler metadata on Canary and Dev only,
+  // since they are the only channels where the data is used.
+  base::features::Init(
+      is_canary_dev
+          ? base::features::EmitThreadControllerProfilerMetadata::kForce
+          : base::features::EmitThreadControllerProfilerMetadata::
+                kFeatureDependent);
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -1728,9 +1715,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
 
   int updated_components_dir =
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-      command_line.HasSwitch(switches::kEnableLacrosSharedComponentsDir)
-          ? static_cast<int>(chromeos::lacros_paths::LACROS_SHARED_DIR)
-          : static_cast<int>(chrome::DIR_USER_DATA);
+      static_cast<int>(chromeos::lacros_paths::LACROS_SHARED_DIR);
 #else
       chrome::DIR_USER_DATA;
 #endif
@@ -2132,14 +2117,11 @@ void ChromeMainDelegate::InitializeMemorySystem() {
   const std::string process_type =
       command_line->GetSwitchValueASCII(switches::kProcessType);
   const bool is_browser_process = process_type.empty();
-  const version_info::Channel channel = chrome::GetChannel();
-  const bool is_canary_dev = (channel == version_info::Channel::CANARY ||
-                              channel == version_info::Channel::DEV);
-  const bool gwp_asan_boost_sampling = is_canary_dev || is_browser_process;
+  const bool gwp_asan_boost_sampling = is_browser_process || IsCanaryDev();
 
   memory_system::Initializer()
       .SetGwpAsanParameters(gwp_asan_boost_sampling, process_type)
-      .SetProfilingClientParameters(channel,
+      .SetProfilingClientParameters(chrome::GetChannel(),
                                     GetProfileParamsProcess(*command_line))
       .SetDispatcherParameters(memory_system::DispatcherParameters::
                                    PoissonAllocationSamplerInclusion::kEnforce,

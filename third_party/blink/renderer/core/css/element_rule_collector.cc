@@ -33,6 +33,7 @@
 #include "base/containers/span.h"
 #include "base/substring_set_matcher/substring_set_matcher.h"
 #include "base/trace_event/common/trace_event_common.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
 #include "third_party/blink/renderer/core/css/cascade_layer_map.h"
 #include "third_party/blink/renderer/core/css/check_pseudo_has_cache_scope.h"
 #include "third_party/blink/renderer/core/css/container_query_evaluator.h"
@@ -395,6 +396,12 @@ void ElementRuleCollector::AddTryStyleProperties(
   if (!property_set) {
     return;
   }
+  if (!style_recalc_context_.is_interleaved_oof) {
+    // TODO(crbug.com/333608683): The anchor result cache is currently disabled
+    // for non-OOF recalcs to work around invalidation problems. See
+    // `ComputeAnchorEvaluator` in style_resolver_state.cc for more information.
+    return;
+  }
   auto link_match_type = static_cast<unsigned>(CSSSelector::kMatchAll);
   result_.AddMatchedProperties(
       property_set, CascadeOrigin::kAuthor,
@@ -407,6 +414,12 @@ void ElementRuleCollector::AddTryStyleProperties(
 void ElementRuleCollector::AddTryTacticsStyleProperties(
     const CSSPropertyValueSet* property_set) {
   if (!property_set) {
+    return;
+  }
+  if (!style_recalc_context_.is_interleaved_oof) {
+    // TODO(crbug.com/333608683): The anchor result cache is currently disabled
+    // for non-OOF recalcs to work around invalidation problems. See
+    // `ComputeAnchorEvaluator` in style_resolver_state.cc for more information.
     return;
   }
   auto link_match_type = static_cast<unsigned>(CSSSelector::kMatchAll);
@@ -960,7 +973,7 @@ void ElementRuleCollector::CollectMatchingShadowHostRules(
     CollectMatchingRulesForList</*stop_at_first_match=*/false>(
         bundle.rule_set->ShadowHostRules(), match_request, bundle.rule_set,
         bundle.style_sheet_index, checker, context.context);
-    if (bundle.rule_set->MayHaveScopeInUniversalBucket()) {
+    if (bundle.rule_set->MustCheckUniversalBucketForShadowHost()) {
       CollectMatchingRulesForList</*stop_at_first_match=*/false>(
           bundle.rule_set->UniversalRules(), match_request, bundle.rule_set,
           bundle.style_sheet_index, checker, context.context);
@@ -983,7 +996,7 @@ bool ElementRuleCollector::CheckIfAnyShadowHostRuleMatches(
             bundle.style_sheet_index, checker, context.context)) {
       return true;
     }
-    if (bundle.rule_set->MayHaveScopeInUniversalBucket()) {
+    if (bundle.rule_set->MustCheckUniversalBucketForShadowHost()) {
       if (CollectMatchingRulesForList</*stop_at_first_match=*/true>(
               bundle.rule_set->UniversalRules(), match_request, bundle.rule_set,
               bundle.style_sheet_index, checker, context.context)) {
@@ -1230,6 +1243,10 @@ void ElementRuleCollector::DidMatchRule(
       result_.SetFirstLineDependsOnSizeContainerQueries();
     }
   } else {
+    if (rule_data->Rule()->Properties().ContainsCursorHand()) {
+      context_.GetElement().GetDocument().CountUse(
+          WebFeature::kQuirksModeCursorHandApplied);
+    }
     matched_rules_.emplace_back(rule_data, layer_order, proximity,
                                 style_sheet_index);
   }

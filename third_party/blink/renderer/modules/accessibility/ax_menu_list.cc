@@ -36,8 +36,13 @@ namespace blink {
 
 AXMenuList::AXMenuList(LayoutObject* layout_object,
                        AXObjectCacheImpl& ax_object_cache)
-    : AXLayoutObject(layout_object, ax_object_cache) {
+    : AXNodeObject(layout_object, ax_object_cache) {
   DCHECK(IsA<HTMLSelectElement>(layout_object->GetNode()));
+}
+
+AXMenuList::AXMenuList(Node* node, AXObjectCacheImpl& ax_object_cache)
+    : AXNodeObject(node, ax_object_cache) {
+  DCHECK(IsA<HTMLSelectElement>(node));
 }
 
 ax::mojom::blink::Role AXMenuList::NativeRoleIgnoringAria() const {
@@ -45,8 +50,9 @@ ax::mojom::blink::Role AXMenuList::NativeRoleIgnoringAria() const {
 }
 
 bool AXMenuList::OnNativeClickAction() {
-  if (!layout_object_)
+  if (!GetLayoutObject()) {
     return false;
+  }
 
   HTMLSelectElement* select = To<HTMLSelectElement>(GetNode());
   if (select->PopupIsVisible())
@@ -89,7 +95,7 @@ void AXMenuList::Detach() {
     popup_ = nullptr;
   }
 
-  AXLayoutObject::Detach();
+  AXNodeObject::Detach();
 }
 
 void AXMenuList::ChildrenChangedWithCleanLayout() {
@@ -100,12 +106,12 @@ void AXMenuList::ChildrenChangedWithCleanLayout() {
     popup_->ChildrenChangedWithCleanLayout();
   }
 
-  AXLayoutObject::ChildrenChangedWithCleanLayout();
+  AXNodeObject::ChildrenChangedWithCleanLayout();
 }
 
 void AXMenuList::SetNeedsToUpdateChildren(bool update) const {
   if (!update) {
-    AXLayoutObject::SetNeedsToUpdateChildren(false);
+    AXNodeObject::SetNeedsToUpdateChildren(false);
     return;
   }
 
@@ -116,14 +122,14 @@ void AXMenuList::SetNeedsToUpdateChildren(bool update) const {
     popup_->SetNeedsToUpdateChildren();
   }
 
-  AXLayoutObject::SetNeedsToUpdateChildren();
+  AXNodeObject::SetNeedsToUpdateChildren();
 }
 
 void AXMenuList::ClearChildren() const {
   if (popup_) {
     popup_->ClearChildren();
   }
-  AXLayoutObject::ClearChildren();
+  AXNodeObject::ClearChildren();
 }
 
 void AXMenuList::AddChildren() {
@@ -180,11 +186,6 @@ AXObject* AXMenuList::GetOrCreateMockPopupChild() {
 }
 
 bool AXMenuList::IsCollapsed() const {
-  // Collapsed is the "default" state, so if the LayoutObject doesn't exist
-  // this makes slightly more sense than returning false.
-  if (!layout_object_)
-    return true;
-
   return !To<HTMLSelectElement>(GetNode())->PopupIsVisible();
 }
 
@@ -243,7 +244,7 @@ void AXMenuList::DidHidePopup() {
 
 void AXMenuList::Trace(Visitor* visitor) const {
   visitor->Trace(popup_);
-  AXLayoutObject::Trace(visitor);
+  AXNodeObject::Trace(visitor);
 }
 
 }  // namespace blink

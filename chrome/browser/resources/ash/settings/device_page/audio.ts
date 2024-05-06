@@ -14,7 +14,7 @@ import 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import '../icons.html.js';
 import '../settings_shared.css.js';
 
-import {PrefsMixin} from 'chrome://resources/cr_components/settings_prefs/prefs_mixin.js';
+import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {CrSliderElement} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/ash/common/cr_elements/web_ui_listener_mixin.js';
@@ -123,7 +123,6 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
 
       isHfpMicSrEnabled: {
         type: Boolean,
-        observer: SettingsAudioElement.prototype.onHfpMicSrEnabledChanged,
       },
 
       showHfpMicSr: {
@@ -201,7 +200,7 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
     this.isHfpMicSrEnabled =
         (activeInputDevice?.hfpMicSrState === AudioEffectState.kEnabled);
     this.isHfpMicSrSupported_ = activeInputDevice !== undefined &&
-        !(activeInputDevice?.hfpMicSrState === AudioEffectState.kNotSupported);
+        activeInputDevice?.hfpMicSrState !== AudioEffectState.kNotSupported;
     this.showHfpMicSr =
         (this.isHfpMicSrSupported_ &&
          loadTimeData.getBoolean('enableAudioHfpMicSRToggle'));
@@ -259,21 +258,6 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
     }
 
     this.crosAudioConfig_.setForceRespectUiGainsEnabled(!enabled);
-  }
-
-  /** Handles updates to hfp mic sr state. */
-  protected onHfpMicSrEnabledChanged(
-      enabled: SettingsAudioElement['isHfpMicSrEnabled'],
-      previousEnabled: SettingsAudioElement['isHfpMicSrEnabled']): void {
-    // Polymer triggers change event on all assignment to
-    // `isHfpMicSrEnabled_` even if the value is logically unchanged.
-    // Check previous value before calling `setHfpMicSrEnabled` to test
-    // if value actually updated.
-    if (previousEnabled === undefined || previousEnabled === enabled) {
-      return;
-    }
-
-    this.crosAudioConfig_.setHfpMicSrEnabled(enabled);
   }
 
   /**
@@ -436,6 +420,10 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
 
   private toggleNoiseCancellationEnabled_(e: CustomEvent<boolean>): void {
     this.crosAudioConfig_.setNoiseCancellationEnabled(e.detail);
+  }
+
+  private toggleHfpMicSrEnabled_(e: CustomEvent<boolean>): void {
+    this.crosAudioConfig_.setHfpMicSrEnabled(e.detail);
   }
 
   private toggleStartupSoundEnabled_(e: CustomEvent<boolean>): void {

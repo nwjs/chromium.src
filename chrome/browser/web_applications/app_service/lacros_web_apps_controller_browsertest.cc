@@ -337,11 +337,10 @@ IN_PROC_BROWSER_TEST_F(LacrosWebAppsControllerBrowserTest, ManifestUpdate) {
     base::RunLoop run_loop;
     provider().install_finalizer().FinalizeUpdate(
         *web_app_info,
-        base::BindLambdaForTesting([&run_loop](const webapps::AppId& app_id,
-                                               webapps::InstallResultCode code,
-                                               OsHooksErrors os_hooks_errors) {
+        base::BindLambdaForTesting([&run_loop](
+                                       const webapps::AppId& app_id,
+                                       webapps::InstallResultCode code) {
           EXPECT_EQ(code, webapps::InstallResultCode::kSuccessAlreadyInstalled);
-          EXPECT_TRUE(os_hooks_errors.none());
           run_loop.Quit();
         }));
 
@@ -1090,18 +1089,6 @@ IN_PROC_BROWSER_TEST_F(LacrosWebAppsControllerBrowserTest,
       browser(),
       embedded_test_server()->GetURL("/web_app_file_handling/basic_app.html"));
   ASSERT_FALSE(app_id.empty());
-  // Have to call it explicitly due to usage of
-  // OsIntegrationManager::ScopedSuppressForTesting
-  base::RunLoop run_loop;
-  provider()
-      .os_integration_manager()
-      .file_handler_manager()
-      .EnableAndRegisterOsFileHandlers(
-          app_id, base::BindLambdaForTesting([&](Result result) {
-            EXPECT_EQ(result, Result::kOk);
-            run_loop.Quit();
-          }));
-  run_loop.Run();
 
   MockAppPublisher mock_app_publisher(profile());
   LacrosWebAppsController lacros_web_apps_controller(profile());

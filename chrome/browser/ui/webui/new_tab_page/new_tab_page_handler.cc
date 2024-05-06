@@ -113,7 +113,7 @@ std::vector<std::string> GetSurveyEligibleModuleIds() {
 // and the One Google Bar. This is done to fix specific GWS themes where the
 // always-light logo and OGB colors do not sufficiently contrast with lighter
 // image backgrounds (see crbug.com/1329552).
-// TODO(crbug.com/1328918): Address this in a general way and extend support to
+// TODO(crbug.com/40842305): Address this in a general way and extend support to
 // custom background images, not just CWS themes.
 bool ShouldForceDarkForegroundColorsForLogo(const ThemeService* theme_service) {
   const auto* theme_supplier = theme_service->GetThemeSupplier();
@@ -164,7 +164,7 @@ new_tab_page::mojom::ThemePtr MakeTheme(
     theme->logo_color =
         color_provider.GetColor(kColorNewTabPageLogoUnthemedLight);
 
-    // TODO(crbug.com/1375760): Post GM3 launch, we can remove the
+    // TODO(crbug.com/40061384): Post GM3 launch, we can remove the
     // kColorNewTabPageMostVisitedTileBackgroundUnthemed color and related
     // logic.
     most_visited->background_color =
@@ -468,8 +468,8 @@ NewTabPageHandler::NewTabPageHandler(
         customize_chrome_feature_promo_helper,
     const base::Time& ntp_navigation_start_time,
     const std::vector<std::pair<const std::string, int>>* module_id_names)
-    : SettingsEnabledObserver(optimization_guide::proto::ModelExecutionFeature::
-                                  MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH),
+    : SettingsEnabledObserver(
+          optimization_guide::UserVisibleFeatureKey::kWallpaperSearch),
       ntp_background_service_(
           NtpBackgroundServiceFactory::GetForProfile(profile)),
       ntp_custom_background_service_(ntp_custom_background_service),

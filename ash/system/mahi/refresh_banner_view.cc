@@ -3,12 +3,15 @@
 // found in the LICENSE file.
 
 #include "ash/system/mahi/refresh_banner_view.h"
+
 #include <string>
 
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
 #include "ash/style/typography.h"
 #include "ash/system/mahi/mahi_constants.h"
+#include "base/check_is_test.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
@@ -19,6 +22,8 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animator.h"
+#include "ui/gfx/text_constants.h"
 #include "ui/views/animation/animation_builder.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/label.h"
@@ -35,7 +40,7 @@ constexpr int kRefreshBannerCornerRadius = 20;
 constexpr base::TimeDelta kRefreshBannerAnimationDurationMs =
     base::Milliseconds(100);
 constexpr gfx::Insets kRefreshBannerInteriorMargin =
-    gfx::Insets::TLBR(4, 28, mahi_constants::kRefreshBannerStackDepth + 4, 28);
+    gfx::Insets::TLBR(4, 20, mahi_constants::kRefreshBannerStackDepth + 4, 20);
 constexpr gfx::Insets kTitleLabelMargin = gfx::Insets::TLBR(0, 0, 0, 8);
 
 SkPath GetClipPath(gfx::Size size) {
@@ -78,23 +83,26 @@ SkPath GetClipPath(gfx::Size size) {
 
 }  // namespace
 
-RefreshBannerView::RefreshBannerView() {
-  auto* manager = chromeos::MahiManager::Get();
-
-  SetBackground(views::CreateThemedRoundedRectBackground(
-      cros_tokens::kCrosSysSystemPrimaryContainer, /*radius=*/0));
+RefreshBannerView::RefreshBannerView(MahiUiController* ui_controller)
+    : MahiUiController::Delegate(ui_controller), ui_controller_(ui_controller) {
+  CHECK(ui_controller_);
 
   SetOrientation(views::LayoutOrientation::kHorizontal);
-  SetMainAxisAlignment(views::LayoutAlignment::kCenter);
   SetInteriorMargin(kRefreshBannerInteriorMargin);
   SetID(mahi_constants::ViewId::kRefreshView);
+  SetBackground(views::CreateThemedRoundedRectBackground(
+      cros_tokens::kCrosSysSystemPrimaryContainer, /*radius=*/0));
+  SetVisible(false);
 
   // We need to paint this view to a layer for animations.
   SetPaintToLayer();
-  SetVisible(false);
+
+  auto* const manager = chromeos::MahiManager::Get();
 
   AddChildView(
       views::Builder<views::Label>()
+          .CopyAddressTo(&title_label_)
+          .SetID(mahi_constants::ViewId::kBannerTitleLabel)
           .SetText(l10n_util::GetStringFUTF16(
               IDS_ASH_MAHI_REFRESH_BANNER_LABEL_TEXT,
               manager ? manager->GetContentTitle() : base::EmptyString16()))
@@ -102,19 +110,56 @@ RefreshBannerView::RefreshBannerView() {
           .SetEnabledColorId(cros_tokens::kCrosSysSystemOnPrimaryContainer)
           .SetFontList(TypographyProvider::Get()->ResolveTypographyToken(
               TypographyToken::kCrosAnnotation2))
+          .SetHorizontalAlignment(gfx::ALIGN_LEFT)
+          .SetProperty(
+              views::kFlexBehaviorKey,
+              views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+                                       views::MaximumFlexSizeRule::kUnbounded))
           .SetProperty(views::kMarginsKey, kTitleLabelMargin)
           .Build());
+
   auto* icon_button =
       AddChildView(IconButton::Builder()
+                       .SetViewId(mahi_constants::ViewId::kRefreshButton)
+                       .SetCallback(base::BindRepeating(
+                           [](MahiUiController* ui_controller) {
+                             ui_controller->RefreshContents();
+                             base::UmaHistogramEnumeration(
+                                 mahi_constants::kMahiButtonClickHistogramName,
+                                 mahi_constants::PanelButton::kRefreshButton);
+                           },
+                           // Using `base::Unretained()` is safe here since
+                           // `ui_controller` outlives this `RefreshBannerView`.
+                           base::Unretained(ui_controller)))
                        .SetVectorIcon(&vector_icons::kReloadChromeRefreshIcon)
                        .SetType(IconButton::Type::kSmallProminentFloating)
+                       // TODO(b/319264190): Replace the a11y string.
+                       .SetAccessibleName(u"Refresh contents")
                        .Build());
   icon_button->SetIconColor(cros_tokens::kCrosSysSystemOnPrimaryContainer);
+  views::FocusRing::Get(icon_button)
+      ->SetColorId(cros_tokens::kCrosSysSystemOnPrimaryContainer);
 }
 
 RefreshBannerView::~RefreshBannerView() = default;
 
 void RefreshBannerView::Show() {
+  auto* manager = chromeos::MahiManager::Get();
+  if (!manager) {
+    CHECK_IS_TEST();
+    return;
+  }
+
+  title_label_->SetText(l10n_util::GetStringFUTF16(
+      IDS_ASH_MAHI_REFRESH_BANNER_LABEL_TEXT, manager->GetContentTitle()));
+
+  // Abort all running animations before showing the banner, to prevent fade
+  // out animations from hiding the banner again right after it is shown.
+  CHECK(layer());
+  layer()->GetAnimator()->AbortAllAnimations();
+
+  // TODO(b/331109652): Determine whether the banner should still animate if it
+  // was already visible.
   SetVisible(true);
   gfx::Transform transform;
   transform.Translate(
@@ -131,17 +176,19 @@ void RefreshBannerView::Show() {
 }
 
 void RefreshBannerView::Hide() {
-  views::AnimationBuilder()
-      .OnEnded(base::BindOnce(
-          [](base::WeakPtr<views::View> view) {
-            if (view) {
-              view->SetVisible(false);
-            }
-          },
-          weak_ptr_factory_.GetWeakPtr()))
-      .Once()
-      .SetDuration(kRefreshBannerAnimationDurationMs)
-      .SetOpacity(this, 0.0);
+  if (GetVisible()) {
+    views::AnimationBuilder()
+        .OnEnded(base::BindOnce(
+            [](const base::WeakPtr<views::View>& view) {
+              if (view) {
+                view->SetVisible(false);
+              }
+            },
+            weak_ptr_factory_.GetWeakPtr()))
+        .Once()
+        .SetDuration(kRefreshBannerAnimationDurationMs)
+        .SetOpacity(this, 0.0);
+  }
 }
 
 void RefreshBannerView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
@@ -150,6 +197,41 @@ void RefreshBannerView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   // Make sure the refresh banner is always shown on top.
   if (layer() && layer()->parent()) {
     layer()->parent()->StackAtTop(layer());
+  }
+}
+
+views::View* RefreshBannerView::GetView() {
+  return this;
+}
+
+bool RefreshBannerView::GetViewVisibility(VisibilityState state) const {
+  // Do not change visibility because visibility depends on the refresh
+  // availability instead of `state`.
+  return GetVisible();
+}
+
+void RefreshBannerView::OnUpdated(const MahiUiUpdate& update) {
+  switch (update.type()) {
+    case MahiUiUpdateType::kRefreshAvailabilityUpdated:
+      if (update.GetRefreshAvailability()) {
+        Show();
+      } else {
+        Hide();
+      }
+      return;
+    case MahiUiUpdateType::kContentsRefreshInitiated:
+      Hide();
+      return;
+    case MahiUiUpdateType::kErrorReceived:
+    case MahiUiUpdateType::kAnswerLoaded:
+    case MahiUiUpdateType::kOutlinesLoaded:
+    case MahiUiUpdateType::kQuestionAndAnswerViewNavigated:
+    case MahiUiUpdateType::kQuestionPosted:
+    case MahiUiUpdateType::kQuestionReAsked:
+    case MahiUiUpdateType::kSummaryLoaded:
+    case MahiUiUpdateType::kSummaryAndOutlinesSectionNavigated:
+    case MahiUiUpdateType::kSummaryAndOutlinesReloaded:
+      return;
   }
 }
 

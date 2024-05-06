@@ -17,15 +17,19 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/screen_ai/screen_ai_service_router.h"
 #include "chrome/browser/screen_ai/screen_ai_service_router_factory.h"
+#include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_prefs.h"
 #include "chrome/common/accessibility/read_anything_constants.h"
-#include "chrome/common/pdf_util.h"
 #include "components/language/core/common/locale_util.h"
+#include "components/pdf/common/pdf_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/translate/core/browser/language_state.h"
+#include "components/translate/core/browser/translate_driver.h"
+#include "components/translate/core/common/translate_constants.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/scoped_accessibility_mode.h"
@@ -221,6 +225,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
 
 ReadAnythingUntrustedPageHandler::~ReadAnythingUntrustedPageHandler() {
   TabStripModelObserver::StopObservingAll(this);
+  translate_observation_.Reset();
   main_observer_.reset();
   pdf_observer_.reset();
   LogTextStyle();
@@ -433,7 +438,8 @@ void ReadAnythingUntrustedPageHandler::OnReadAnythingThemeChanged(
 
 void ReadAnythingUntrustedPageHandler::SetDefaultLanguageCode(
     const std::string& code) {
-  page_->SetDefaultLanguageCode(code);
+  default_language_code_ = code;
+  page_->SetLanguageCode(code);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -517,7 +523,7 @@ void ReadAnythingUntrustedPageHandler::SetUpPdfObserver() {
   if (inner_contents.size() == 1 &&
       IsPdfExtensionOrigin(
           inner_contents[0]->GetPrimaryMainFrame()->GetLastCommittedOrigin())) {
-    // TODO(crbug.com/1513227): Improve PDF OCR support for Reading Mode. Maybe
+    // TODO(crbug.com/41485800): Improve PDF OCR support for Reading Mode. Maybe
     // it would make it easy to read and maintain the code if setting the AXMode
     // for PDF OCR (i.e. `ui::AXMode::kPDFOcr`) is handled by
     // `PdfOcrController`. Enable accessibility to receive events (data) from
@@ -533,32 +539,81 @@ void ReadAnythingUntrustedPageHandler::SetUpPdfObserver() {
 }
 
 void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
-  ui::AXTreeID tree_id = ui::AXTreeIDUnknown();
-  ukm::SourceId ukm_source_id = ukm::kInvalidSourceId;
-  GURL visible_url;
   bool is_pdf = !!pdf_observer_;
-  if (main_observer_ && active_) {
-    content::WebContents* contents =
-        is_pdf ? pdf_observer_->web_contents() : main_observer_->web_contents();
-    if (contents) {
-      visible_url = contents->GetVisibleURL();
-      content::RenderFrameHost* render_frame_host = nullptr;
-      if (is_pdf) {
-        contents->ForEachRenderFrameHost([&](content::RenderFrameHost* rfh) {
-          if (rfh->GetProcess()->IsPdf()) {
-            render_frame_host = rfh;
-          }
-        });
-      } else {
-        render_frame_host = contents->GetPrimaryMainFrame();
-      }
-      if (render_frame_host) {
-        tree_id = render_frame_host->GetAXTreeID();
-        ukm_source_id = render_frame_host->GetPageUkmSourceId();
-      }
+  if (!main_observer_ || !active_) {
+    page_->OnActiveAXTreeIDChanged(ui::AXTreeIDUnknown(), ukm::kInvalidSourceId,
+                                   is_pdf);
+    return;
+  }
+
+  content::WebContents* contents =
+      is_pdf ? pdf_observer_->web_contents() : main_observer_->web_contents();
+  if (!contents) {
+    page_->OnActiveAXTreeIDChanged(ui::AXTreeIDUnknown(), ukm::kInvalidSourceId,
+                                   is_pdf);
+    return;
+  }
+#if 0
+  // Observe the new contents so we can get the page language once it's
+  // determined.
+  if (ChromeTranslateClient* translate_client =
+          ChromeTranslateClient::FromWebContents(contents)) {
+    translate::TranslateDriver* driver = translate_client->GetTranslateDriver();
+    // If the page was already open when Reading Mode opened, then we're already
+    // observing the page, so just set the language.
+    if (translate_observation_.IsObservingSource(driver)) {
+      const std::string& source_language =
+          translate_client->GetLanguageState().source_language();
+      SetLanguageCode(source_language);
+      translate_observation_.Reset();
+    } else {
+      translate_observation_.Observe(driver);
     }
   }
-  page_->OnActiveAXTreeIDChanged(tree_id, ukm_source_id, visible_url, is_pdf);
+#endif
+
+  if (is_pdf) {
+    // What happens if there are multiple such `rfhs`?
+    contents->ForEachRenderFrameHost([this](content::RenderFrameHost* rfh) {
+      if (rfh->GetProcess()->IsPdf()) {
+        page_->OnActiveAXTreeIDChanged(rfh->GetAXTreeID(),
+                                       rfh->GetPageUkmSourceId(),
+                                       /*is_pdf=*/true);
+      }
+    });
+    return;
+  }
+
+  content::RenderFrameHost* rfh = contents->GetPrimaryMainFrame();
+  if (!rfh) {
+    // THis case doesn't seem possible.
+    page_->OnActiveAXTreeIDChanged(ui::AXTreeIDUnknown(), ukm::kInvalidSourceId,
+                                   /*is_pdf=*/false);
+    return;
+  }
+
+  page_->OnActiveAXTreeIDChanged(rfh->GetAXTreeID(), rfh->GetPageUkmSourceId(),
+                                 /*is_pdf=*/false);
+}
+
+void ReadAnythingUntrustedPageHandler::SetLanguageCode(
+    const std::string& code) {
+  if (code.empty() || code == translate::kUnknownLanguageCode) {
+    page_->SetLanguageCode(default_language_code_);
+  } else {
+    page_->SetLanguageCode(code);
+  }
+}
+
+void ReadAnythingUntrustedPageHandler::OnLanguageDetermined(
+    const translate::LanguageDetectionDetails& details) {
+  SetLanguageCode(details.adopted_language);
+  translate_observation_.Reset();
+}
+
+void ReadAnythingUntrustedPageHandler::OnTranslateDriverDestroyed(
+    translate::TranslateDriver* driver) {
+  translate_observation_.Reset();
 }
 
 void ReadAnythingUntrustedPageHandler::LogTextStyle() {

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string_view>
+
 #include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_base.h"
@@ -44,10 +46,10 @@ enum class FeatureEnableType { FeatureFlagEnable, OriginTrialEnable };
 
 struct ReduceAcceptLanguageTestOptions {
   std::optional<std::string> content_language_in_parent = std::nullopt;
-  std::optional<std::string> variants_in_parent = std::nullopt;
+  std::optional<std::string> avail_language_in_parent = std::nullopt;
   std::optional<std::string> vary_in_parent = std::nullopt;
   std::optional<std::string> content_language_in_child = std::nullopt;
-  std::optional<std::string> variants_in_child = std::nullopt;
+  std::optional<std::string> avail_language_in_child = std::nullopt;
   std::optional<std::string> vary_in_child = std::nullopt;
   bool is_fenced_frame = false;
 };
@@ -217,9 +219,9 @@ class ReduceAcceptLanguageBrowserTest : public InProcessBrowserTest {
   // accept-language, otherwise set as the first available language.
   std::string GetResponseContentLanguage(
       const std::string& accept_language,
-      const std::vector<std::string>& variants_languages) {
-    auto iter = base::ranges::find(variants_languages, accept_language);
-    return iter != variants_languages.end() ? *iter : variants_languages[0];
+      const std::vector<std::string>& avail_languages) {
+    auto iter = base::ranges::find(avail_languages, accept_language);
+    return iter != avail_languages.end() ? *iter : avail_languages[0];
   }
 
  protected:
@@ -326,7 +328,7 @@ class ReduceAcceptLanguageBrowserTest : public InProcessBrowserTest {
       base::StrAppend(&headers, {"Supports-Loading-Mode: fenced-frame\r\n"});
     }
     static constexpr auto kSubresourcePaths =
-        base::MakeFixedFlatSet<base::StringPiece>({
+        base::MakeFixedFlatSet<std::string_view>({
             "/subframe_iframe_basic.html",
             "/subframe_iframe_3p.html",
             "/subframe_redirect.html",
@@ -360,7 +362,7 @@ class ReduceAcceptLanguageBrowserTest : public InProcessBrowserTest {
     }
 
     static constexpr auto kServiceWorkerPaths =
-        base::MakeFixedFlatSet<base::StringPiece>({
+        base::MakeFixedFlatSet<std::string_view>({
             "/create_service_worker.html",
             "/navigation_preload_worker.js",
         });
@@ -387,10 +389,10 @@ class ReduceAcceptLanguageBrowserTest : public InProcessBrowserTest {
           &headers, {"Content-Language: ",
                      test_options_.content_language_in_parent.value(), "\r\n"});
     }
-    if (test_options_.variants_in_parent) {
-      base::StrAppend(
-          &headers,
-          {"Variants: ", test_options_.variants_in_parent.value(), "\r\n"});
+    if (test_options_.avail_language_in_parent) {
+      base::StrAppend(&headers,
+                      {"Avail-Language: ",
+                       test_options_.avail_language_in_parent.value(), "\r\n"});
     }
     if (test_options_.vary_in_parent) {
       base::StrAppend(&headers,
@@ -406,10 +408,10 @@ class ReduceAcceptLanguageBrowserTest : public InProcessBrowserTest {
           &headers, {"Content-Language: ",
                      test_options_.content_language_in_child.value(), "\r\n"});
     }
-    if (test_options_.variants_in_child) {
-      base::StrAppend(
-          &headers,
-          {"Variants: ", test_options_.variants_in_child.value(), "\r\n"});
+    if (test_options_.avail_language_in_child) {
+      base::StrAppend(&headers,
+                      {"Avail-Language: ",
+                       test_options_.avail_language_in_child.value(), "\r\n"});
     }
     if (test_options_.vary_in_child) {
       base::StrAppend(&headers,
@@ -437,7 +439,7 @@ class DisableFeatureReduceAcceptLanguageBrowserTest
 IN_PROC_BROWSER_TEST_F(DisableFeatureReduceAcceptLanguageBrowserTest,
                        NoAcceptLanguageHeader) {
   SetTestOptions({.content_language_in_parent = "en",
-                  .variants_in_parent = "accept-language=(en en-US)",
+                  .avail_language_in_parent = "en, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
   SetPrefsAcceptLanguage({"zh", "en-us"});
@@ -453,10 +455,10 @@ IN_PROC_BROWSER_TEST_F(DisableFeatureReduceAcceptLanguageBrowserTest,
 IN_PROC_BROWSER_TEST_F(DisableFeatureReduceAcceptLanguageBrowserTest,
                        IframeNoAcceptLanguageHeader) {
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "es",
-                  .variants_in_child = "accept-language=(es en-US)",
+                  .avail_language_in_child = "es, en-US",
                   .vary_in_child = "accept-language"},
                  {SameOriginIframeUrl(), SimpleRequestUrl()});
 
@@ -486,7 +488,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -515,11 +517,11 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
-                       NoVariantsHeader) {
+                       NoAvailLanguageHeader) {
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = std::nullopt,
+                  .avail_language_in_parent = std::nullopt,
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -542,7 +544,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = std::nullopt,
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -554,18 +556,18 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   // Ensure metrics report correctly.
   histograms.ExpectBucketCount(
       "ReduceAcceptLanguage.AcceptLanguageNegotiationRestart",
-      /*=kVariantsAndContentLanguageHeaderPresent=*/2, 0);
+      /*=kAvailLanguageAndContentLanguageHeaderPresent=*/2, 0);
   histograms.ExpectTotalCount("ReduceAcceptLanguage.FetchLatencyUs", 1);
   // Persist won't happen.
   histograms.ExpectTotalCount("ReduceAcceptLanguage.StoreLatency", 0);
 }
 
 IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
-                       EmptyVariantsAcceptLanguages) {
+                       EmptyAvailLanguageAcceptLanguages) {
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=()",
+                  .avail_language_in_parent = "",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -581,11 +583,11 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
-                       VariantsAcceptLanguagesWhiteSpace) {
+                       AvailLanguageAcceptLanguagesWhiteSpace) {
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(   )",
+                  .avail_language_in_parent = "   ",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -609,7 +611,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -631,7 +633,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
 
   base::HistogramTester histograms_after;
   SetTestOptions({.content_language_in_parent = "en-us",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -656,7 +658,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
                        ServiceWorkerNavigationPreload) {
   SetTestOptions(
       {.content_language_in_parent = "es",
-       .variants_in_parent = "accept-language=(es en-US)",
+       .avail_language_in_parent = "es, en-US",
        .vary_in_parent = "accept-language"},
       {CreateServiceWorkerRequestUrl(), NavigationPreloadWorkerRequestUrl()});
 
@@ -682,7 +684,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms2;
   SetTestOptions(
       {.content_language_in_parent = "en-us",
-       .variants_in_parent = "accept-language=(es en-US)",
+       .avail_language_in_parent = "es, en-US",
        .vary_in_parent = "accept-language"},
       {CreateServiceWorkerRequestUrl(), NavigationPreloadWorkerRequestUrl()});
 
@@ -708,7 +710,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms3;
   SetTestOptions(
       {.content_language_in_parent = "es",
-       .variants_in_parent = "accept-language=(es en-US)",
+       .avail_language_in_parent = "es, en-US",
        .vary_in_parent = "accept-language"},
       {CreateServiceWorkerRequestUrl(), NavigationPreloadWorkerRequestUrl()});
 
@@ -734,7 +736,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -761,7 +763,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
                        SubresourceRequestNoRestart) {
   base::HistogramTester histograms;
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginImgUrl(), SimpleImgUrl()});
   SetPrefsAcceptLanguage({"es", "en-us"});
@@ -787,7 +789,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US ja)",
+                  .avail_language_in_parent = "es, en-US, ja",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -809,7 +811,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
 
   base::HistogramTester histograms_after;
   SetTestOptions({.content_language_in_parent = "en-us",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -833,7 +835,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -860,7 +862,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
 IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
                        PersistedAcceptLanguageNotAvailable) {
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es ja en-US)",
+                  .avail_language_in_parent = "es, ja, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
 
@@ -887,10 +889,10 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "es",
-                  .variants_in_child = "accept-language=(es en-US)",
+                  .avail_language_in_child = "es, en-US",
                   .vary_in_child = "accept-language"},
                  {SameOriginIframeUrl(), SimpleRequestUrl()});
 
@@ -932,10 +934,10 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "es",
-                  .variants_in_child = "accept-language=(es en-US)",
+                  .avail_language_in_child = "es, en-US",
                   .vary_in_child = "accept-language"},
                  {SameOriginImgUrl(), SimpleImgUrl()});
 
@@ -965,10 +967,10 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = std::nullopt,
-                  .variants_in_child = "accept-language=(es en-US)",
+                  .avail_language_in_child = "es, en-US",
                   .vary_in_child = "accept-language"},
                  {SameOriginIframeUrl(), SimpleRequestUrl()});
 
@@ -994,14 +996,14 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
-                       IframeNoVariantsAcceptLanguageInChild) {
+                       IframeNoAvailLanguageAcceptLanguageInChild) {
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "es",
-                  .variants_in_child = std::nullopt,
+                  .avail_language_in_child = std::nullopt,
                   .vary_in_child = "accept-language"},
                  {SameOriginIframeUrl(), SimpleRequestUrl()});
 
@@ -1031,10 +1033,10 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "es",
-                  .variants_in_child = "accept-language=(es en-US)",
+                  .avail_language_in_child = "es, en-US",
                   .vary_in_child = "accept-language"},
                  {SameOriginIframeUrl(), SimpleRequestUrl()});
 
@@ -1064,10 +1066,10 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "zh",
-                  .variants_in_child = "accept-language=(zh)",
+                  .avail_language_in_child = "zh",
                   .vary_in_child = "accept-language"},
                  {SameOriginIframeUrl(), SimpleRequestUrl()});
 
@@ -1152,10 +1154,10 @@ IN_PROC_BROWSER_TEST_F(ThirdPartyReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "zh",
-                  .variants_in_child = "accept-language=(zh)",
+                  .avail_language_in_child = "zh",
                   .vary_in_child = "accept-language"},
                  {CrossOriginIframeUrl(), SimpleThirdPartyRequestUrl()});
 
@@ -1187,10 +1189,10 @@ IN_PROC_BROWSER_TEST_F(ThirdPartyReduceAcceptLanguageBrowserTest,
 
   SetTestOptions(
       {.content_language_in_parent = "es",
-       .variants_in_parent = "accept-language=(es en-US)",
+       .avail_language_in_parent = "es, en-US",
        .vary_in_parent = "accept-language",
        .content_language_in_child = "zh",
-       .variants_in_child = "accept-language=(zh)",
+       .avail_language_in_child = "zh",
        .vary_in_child = "accept-language"},
       {CrossOriginIframeWithSubresourceUrl(), IframeThirdPartyRequestUrl(),
        OtherSiteCssRequestUrl(), OtherSiteBasicRequestUrl()});
@@ -1225,10 +1227,10 @@ IN_PROC_BROWSER_TEST_F(ThirdPartyReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "zh",
-                  .variants_in_child = "accept-language=(zh)",
+                  .avail_language_in_child = "zh",
                   .vary_in_child = "accept-language"},
                  {TopLevelWithIframeRedirectUrl(),
                   SubframeThirdPartyRequestUrl(), OtherSiteCssRequestUrl()});
@@ -1300,10 +1302,10 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "zh",
-                  .variants_in_child = "accept-language=(zh)",
+                  .avail_language_in_child = "zh",
                   .vary_in_child = "accept-language",
                   .is_fenced_frame = true},
                  {CrossOriginFencedFrameUrl(), SimpleThirdPartyRequestUrl()});
@@ -1342,10 +1344,10 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReduceAcceptLanguageBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "zh",
-                  .variants_in_child = "accept-language=(zh)",
+                  .avail_language_in_child = "zh",
                   .vary_in_child = "accept-language",
                   .is_fenced_frame = true},
                  {SameOriginFencedFrameUrl(), SimpleRequestUrl()});
@@ -1408,12 +1410,11 @@ class SameOriginRedirectReduceAcceptLanguageBrowserTest
   }
 
   static constexpr const char kAcceptLanguage[] = "accept-language";
-  static constexpr auto kValidPaths =
-      base::MakeFixedFlatSet<base::StringPiece>({
-          "/same_origin_redirect.html",
-          "/same_origin_redirect_a.html",
-          "/same_origin_redirect_b.html",
-      });
+  static constexpr auto kValidPaths = base::MakeFixedFlatSet<std::string_view>({
+      "/same_origin_redirect.html",
+      "/same_origin_redirect_a.html",
+      "/same_origin_redirect_b.html",
+  });
 
   GURL same_origin_redirect() const { return same_origin_redirect_; }
 
@@ -1468,8 +1469,8 @@ class SameOriginRedirectReduceAcceptLanguageBrowserTest
 
     if (origin_trial_first_party_token_ != kInvalidOriginToken) {
       response->AddCustomHeader(
-          "Variants", base::StrCat({"accept-language=(", content_language_a_,
-                                    " ", content_language_b_, ")"}));
+          "Avail-Language",
+          base::StrCat({content_language_a_, ", ", content_language_b_}));
     }
 
     if (!origin_trial_first_party_token_.empty()) {
@@ -1577,20 +1578,19 @@ class CrossOriginRedirectReduceAcceptLanguageBrowserTest
   }
 
   static constexpr const char kAcceptLanguage[] = "accept-language";
-  static constexpr auto kValidPaths =
-      base::MakeFixedFlatSet<base::StringPiece>({
-          "/cross_origin_redirect_a.html",
-          "/cross_origin_redirect_b.html",
-      });
+  static constexpr auto kValidPaths = base::MakeFixedFlatSet<std::string_view>({
+      "/cross_origin_redirect_a.html",
+      "/cross_origin_redirect_b.html",
+  });
 
   GURL cross_origin_redirect_a() const { return cross_origin_redirect_a_; }
 
   GURL cross_origin_redirect_b() const { return cross_origin_redirect_b_; }
 
-  void SetOptions(const std::vector<std::string> variants_accept_language_a,
-                  const std::vector<std::string> variants_accept_language_b) {
-    variants_accept_language_a_ = variants_accept_language_a;
-    variants_accept_language_b_ = variants_accept_language_b;
+  void SetOptions(const std::vector<std::string> avail_language_a,
+                  const std::vector<std::string> avail_language_b) {
+    avail_language_a_ = avail_language_a;
+    avail_language_b_ = avail_language_b;
   }
 
   void SetOriginTrialFirstPartyToken(const std::string& origin_trial_token_a,
@@ -1622,16 +1622,12 @@ class CrossOriginRedirectReduceAcceptLanguageBrowserTest
       response->set_code(net::HTTP_FOUND);
       response->AddCustomHeader(
           "Content-Language",
-          GetResponseContentLanguage(accept_language,
-                                     variants_accept_language_a_));
-      // Stop sending Variants header as well if tests set an invalid origin
-      // token.
+          GetResponseContentLanguage(accept_language, avail_language_a_));
+      // Stop sending Avail-Language header as well if tests set an invalid
+      // origin token.
       if (origin_trial_token_a_ != kInvalidOriginToken) {
-        response->AddCustomHeader(
-            "Variants",
-            base::StrCat({"accept-language=(",
-                          base::JoinString(variants_accept_language_a_, " "),
-                          ")"}));
+        response->AddCustomHeader("Avail-Language",
+                                  base::JoinString(avail_language_a_, ", "));
       }
       response->AddCustomHeader("Location", cross_origin_redirect_b().spec());
       if (!origin_trial_token_a_.empty()) {
@@ -1641,14 +1637,10 @@ class CrossOriginRedirectReduceAcceptLanguageBrowserTest
       response->set_code(net::HTTP_OK);
       response->AddCustomHeader(
           "Content-Language",
-          GetResponseContentLanguage(accept_language,
-                                     variants_accept_language_b_));
+          GetResponseContentLanguage(accept_language, avail_language_b_));
       if (origin_trial_token_b_ != kInvalidOriginToken) {
-        response->AddCustomHeader(
-            "Variants",
-            base::StrCat({"accept-language=(",
-                          base::JoinString(variants_accept_language_b_, " "),
-                          ")"}));
+        response->AddCustomHeader("Avail-Language",
+                                  base::JoinString(avail_language_b_, ", "));
       }
       if (!origin_trial_token_b_.empty()) {
         response->AddCustomHeader("Origin-Trial", origin_trial_token_b_);
@@ -1673,8 +1665,8 @@ class CrossOriginRedirectReduceAcceptLanguageBrowserTest
   GURL cross_origin_redirect_b_;
   net::EmbeddedTestServer https_server_a_;
   net::EmbeddedTestServer https_server_b_;
-  std::vector<std::string> variants_accept_language_a_;
-  std::vector<std::string> variants_accept_language_b_;
+  std::vector<std::string> avail_language_a_;
+  std::vector<std::string> avail_language_b_;
   std::string origin_trial_token_a_;
   std::string origin_trial_token_b_;
 };
@@ -1682,8 +1674,8 @@ class CrossOriginRedirectReduceAcceptLanguageBrowserTest
 IN_PROC_BROWSER_TEST_F(CrossOriginRedirectReduceAcceptLanguageBrowserTest,
                        RestartOnA) {
   SetPrefsAcceptLanguage({"en-us", "zh"});
-  SetOptions(/*variants_accept_language_a=*/{"ja", "zh"},
-             /*variants_accept_language_b=*/{"en-us"});
+  SetOptions(/*avail_language_a=*/{"ja", "zh"},
+             /*avail_language_b=*/{"en-us"});
 
   // initial redirect request.
   ASSERT_TRUE(
@@ -1710,8 +1702,8 @@ IN_PROC_BROWSER_TEST_F(CrossOriginRedirectReduceAcceptLanguageBrowserTest,
 IN_PROC_BROWSER_TEST_F(CrossOriginRedirectReduceAcceptLanguageBrowserTest,
                        RestartOnB) {
   SetPrefsAcceptLanguage({"en-us", "zh"});
-  SetOptions(/*variants_accept_language_a=*/{"en-us", "zh"},
-             /*variants_accept_language_b=*/{"de", "zh"});
+  SetOptions(/*avail_language_a=*/{"en-us", "zh"},
+             /*avail_language_b=*/{"de", "zh"});
 
   // initial redirect request.
   ASSERT_TRUE(
@@ -1740,8 +1732,8 @@ IN_PROC_BROWSER_TEST_F(CrossOriginRedirectReduceAcceptLanguageBrowserTest,
 IN_PROC_BROWSER_TEST_F(CrossOriginRedirectReduceAcceptLanguageBrowserTest,
                        RestartBothAB) {
   SetPrefsAcceptLanguage({"en-us", "zh"});
-  SetOptions(/*variants_accept_language_a=*/{"ja", "zh"},
-             /*variants_accept_language_b=*/{"de", "zh"});
+  SetOptions(/*avail_language_a=*/{"ja", "zh"},
+             /*avail_language_b=*/{"de", "zh"});
 
   // initial redirect request.
   ASSERT_TRUE(
@@ -2063,8 +2055,8 @@ class CrossOriginRedirectReduceAcceptLanguageOTBrowserTest
 
   void VerifyRestartOnABBothABOptInOT() {
     SetPrefsAcceptLanguage({"en-us", "zh"});
-    SetOptions(/*variants_accept_language_a=*/{"ja", "zh"},
-               /*variants_accept_language_b=*/{"de", "zh"});
+    SetOptions(/*avail_language_a=*/{"ja", "zh"},
+               /*avail_language_b=*/{"de", "zh"});
 
     // Set A opt-in and B opt-in the origin trial.
     SetOriginTrialFirstPartyToken(
@@ -2115,8 +2107,8 @@ IN_PROC_BROWSER_TEST_F(CrossOriginRedirectReduceAcceptLanguageOTBrowserTest,
   // Restart only happens on A, and only A opt-in the origin trial, then
   // invalidate only B's token.
   SetPrefsAcceptLanguage({"en-us", "zh"});
-  SetOptions(/*variants_accept_language_a=*/{"ja", "zh"},
-             /*variants_accept_language_b=*/{"en-us"});
+  SetOptions(/*avail_language_a=*/{"ja", "zh"},
+             /*avail_language_b=*/{"en-us"});
 
   // Set A opt-in and B opt-out the origin trial.
   SetOriginTrialFirstPartyToken(
@@ -2181,8 +2173,8 @@ IN_PROC_BROWSER_TEST_F(CrossOriginRedirectReduceAcceptLanguageOTBrowserTest,
   // Restart only happens on B, and only B opt-in the origin trial, then
   // invalidate only B's token.
   SetPrefsAcceptLanguage({"en-us", "zh"});
-  SetOptions(/*variants_accept_language_a=*/{"en-us", "zh"},
-             /*variants_accept_language_b=*/{"de", "zh"});
+  SetOptions(/*avail_language_a=*/{"en-us", "zh"},
+             /*avail_language_b=*/{"de", "zh"});
 
   // Set B opt-in and A opt-out the origin trial.
   SetOriginTrialFirstPartyToken(/*origin_trial_token_a=*/kInvalidOriginToken,
@@ -2313,10 +2305,10 @@ class SameOriginReduceAcceptLanguageOTBrowserTest
                                    int expect_fetch_count) {
     base::HistogramTester histograms;
     SetTestOptions({.content_language_in_parent = "es",
-                    .variants_in_parent = "accept-language=(es en-US)",
+                    .avail_language_in_parent = "es, en-US",
                     .vary_in_parent = "accept-language",
                     .content_language_in_child = "es",
-                    .variants_in_child = "accept-language=(es en-US)",
+                    .avail_language_in_child = "es, en-US",
                     .vary_in_child = "accept-language"},
                    expected_request_urls);
     SetPrefsAcceptLanguage({"zh", "en-US"});
@@ -2398,7 +2390,7 @@ class SameOriginReduceAcceptLanguageOTBrowserTest
 IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageOTBrowserTest,
                        SimpleRequestOriginTrial_MatchPrimaryLanguage) {
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
   SetOriginTrialFirstPartyToken(kValidFirstPartyToken);
@@ -2423,7 +2415,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageOTBrowserTest,
     base::HistogramTester histograms;
 
     SetTestOptions({.content_language_in_parent = "es",
-                    .variants_in_parent = "accept-language=(es en-US)",
+                    .avail_language_in_parent = "en-US, es;d",
                     .vary_in_parent = "accept-language"},
                    {SameOriginRequestUrl()});
     SetOriginTrialFirstPartyToken(kValidFirstPartyToken);
@@ -2446,7 +2438,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageOTBrowserTest,
 
   {
     SetTestOptions({.content_language_in_parent = "en-us",
-                    .variants_in_parent = "accept-language=(es en-US)",
+                    .avail_language_in_parent = "es, en-US",
                     .vary_in_parent = "accept-language"},
                    {SameOriginRequestUrl()});
 
@@ -2461,7 +2453,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageOTBrowserTest,
 IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageOTBrowserTest,
                        SimpleRequestOriginTrial_NoMatchLanguage) {
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
   SetOriginTrialFirstPartyToken(kValidFirstPartyToken);
@@ -2501,7 +2493,7 @@ IN_PROC_BROWSER_TEST_F(SameOriginReduceAcceptLanguageOTBrowserTest,
                        SubresourceRequestNoRestart) {
   base::HistogramTester histograms;
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language"},
                  {{SameOriginImgUrl(), SimpleImgUrl()}});
   SetOriginTrialFirstPartyToken(kValidFirstPartyToken);
@@ -2557,10 +2549,10 @@ IN_PROC_BROWSER_TEST_F(ThirdPartyReduceAcceptLanguageOTBrowserTest,
   base::HistogramTester histograms;
 
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "zh",
-                  .variants_in_child = "accept-language=(zh)",
+                  .avail_language_in_child = "zh",
                   .vary_in_child = "accept-language"},
                  {CrossOriginIframeUrl(), SimpleThirdPartyRequestUrl()});
 
@@ -2603,10 +2595,10 @@ IN_PROC_BROWSER_TEST_F(ThirdPartyReduceAcceptLanguageOTBrowserTest,
 
   SetTestOptions(
       {.content_language_in_parent = "es",
-       .variants_in_parent = "accept-language=(es en-US)",
+       .avail_language_in_parent = "es, en-US",
        .vary_in_parent = "accept-language",
        .content_language_in_child = "zh",
-       .variants_in_child = "accept-language=(zh)",
+       .avail_language_in_child = "zh",
        .vary_in_child = "accept-language"},
       {CrossOriginIframeWithSubresourceUrl(), IframeThirdPartyRequestUrl(),
        OtherSiteCssRequestUrl(), OtherSiteBasicRequestUrl()});
@@ -2666,7 +2658,7 @@ class DisableReduceAcceptLanguageOTBrowserTest
 IN_PROC_BROWSER_TEST_F(DisableReduceAcceptLanguageOTBrowserTest,
                        SimpleRequestOriginTrialDisable) {
   SetTestOptions({.content_language_in_parent = "en",
-                  .variants_in_parent = "accept-language=(en en-US)",
+                  .avail_language_in_parent = "en, en-US",
                   .vary_in_parent = "accept-language"},
                  {SameOriginRequestUrl()});
   SetPrefsAcceptLanguage({"zh", "en-us"});
@@ -2676,10 +2668,10 @@ IN_PROC_BROWSER_TEST_F(DisableReduceAcceptLanguageOTBrowserTest,
 IN_PROC_BROWSER_TEST_F(DisableReduceAcceptLanguageOTBrowserTest,
                        IframeRequestOriginTrialDisable) {
   SetTestOptions({.content_language_in_parent = "es",
-                  .variants_in_parent = "accept-language=(es en-US)",
+                  .avail_language_in_parent = "es, en-US",
                   .vary_in_parent = "accept-language",
                   .content_language_in_child = "es",
-                  .variants_in_child = "accept-language=(es en-US)",
+                  .avail_language_in_child = "es, en-US",
                   .vary_in_child = "accept-language"},
                  {SameOriginIframeUrl(), SimpleRequestUrl()});
   SetPrefsAcceptLanguage({"zh", "en-us"});

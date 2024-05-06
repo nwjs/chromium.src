@@ -27,8 +27,13 @@ mojom::IdentityType ConvertIdentityTypeToMojom(
 ::nearby::internal::IdentityType ConvertMojomIdentityType(
     mojom::IdentityType identity_type);
 
+mojom::CredentialType ConvertCredentialTypeToMojom(
+    ::nearby::internal::CredentialType credential_type);
+::nearby::internal::CredentialType ConvertMojomCredentialType(
+    mojom::CredentialType credential_type);
+
 mojom::ActionType ConvertActionTypeToMojom(uint32_t action);
-mojo_base::mojom::AbslStatusCode CovertStatusToMojomStatus(absl::Status status);
+mojo_base::mojom::AbslStatusCode ConvertStatusToMojom(absl::Status status);
 
 mojom::SharedCredentialPtr SharedCredentialToMojom(
     ::nearby::internal::SharedCredential shared_credential);

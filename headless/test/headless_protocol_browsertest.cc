@@ -13,6 +13,7 @@
 #include "base/json/json_writer.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
+#include "base/strings/stringprintf.h"
 #include "build/build_config.h"
 #include "content/public/common/content_switches.h"
 #include "headless/lib/browser/headless_web_contents_impl.h"
@@ -411,6 +412,65 @@ class HeadlessProtocolBrowserTestWithProxy
 
 HEADLESS_PROTOCOL_TEST_WITH_PROXY(BrowserSetProxyConfig,
                                   "sanity/browser-set-proxy-config.js")
+
+class HeadlessAllowedVideoCodecsTest
+    : public HeadlessDevTooledBrowserTest,
+      public testing::WithParamInterface<
+          std::tuple<std::string, std::string, bool>> {
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitchASCII("allow-video-codecs", allowlist());
+  }
+
+  void RunDevTooledTest() override {
+    ASSERT_TRUE(embedded_test_server()->Start());
+    SendCommandSync(devtools_client_, "Page.enable");
+    devtools_client_.AddEventHandler(
+        "Page.loadEventFired",
+        base::BindRepeating(&HeadlessAllowedVideoCodecsTest::OnLoadEventFired,
+                            base::Unretained(this)));
+    devtools_client_.SendCommand(
+        "Page.navigate",
+        Param("url", embedded_test_server()->GetURL("/hello.html").spec()));
+  }
+
+  void OnLoadEventFired(const base::Value::Dict& params) {
+    base::Value::Dict eval_params;
+    eval_params.Set("returnByValue", true);
+    eval_params.Set("awaitPromise", true);
+    eval_params.Set("expression", base::StringPrintf(R"(
+      VideoDecoder.isConfigSupported({codec: "%s"})
+          .then(result => result.supported)
+    )",
+                                                     codec_name().c_str()));
+    base::Value::Dict result = SendCommandSync(
+        devtools_client_, "Runtime.evaluate", std::move(eval_params));
+    EXPECT_THAT(result.FindBoolByDottedPath("result.result.value"),
+                testing::Optional(is_codec_enabled()));
+    FinishAsynchronousTest();
+  }
+
+  const std::string& allowlist() const { return std::get<0>(GetParam()); }
+  const std::string& codec_name() const { return std::get<1>(GetParam()); }
+  bool is_codec_enabled() const { return std::get<2>(GetParam()); }
+};
+
+constexpr bool have_proprietary_codecs =
+#if BUILDFLAG(USE_PROPRIETARY_CODECS)
+    true;
+#else
+    false;
+#endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    HeadlessAllowedVideoCodecsTest,
+    testing::Values(
+        std::make_tuple("av1,-*", "av01.0.04M.08", true),
+        std::make_tuple("-av1,*", "av01.0.04M.08", false),
+        std::make_tuple("*", "avc1.64000b", have_proprietary_codecs)));
+
+HEADLESS_DEVTOOLED_TEST_P(HeadlessAllowedVideoCodecsTest);
 
 // TODO(crbug.com/1086872): The whole test suite is flaky on Mac ASAN.
 #if (BUILDFLAG(IS_MAC) && defined(ADDRESS_SANITIZER))

@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/containers/contains.h"
 #include "base/containers/map_util.h"
 #include "base/functional/bind.h"
@@ -61,6 +62,9 @@ const char kServiceWorkerVersion[] = "version";
 
 ServiceWorkerTaskQueue::TestObserver* g_test_observer = nullptr;
 
+// Prevent check on multiple workers per extension for testing purposes.
+bool g_allow_multiple_workers_per_extension = false;
+
 // ServiceWorkerRegistration state of an activated extension.
 enum class RegistrationState {
   // Not registered.
@@ -75,10 +79,13 @@ enum class RegistrationState {
 enum class BrowserState {
   // Initial state, not started.
   kInitial,
-  // Worker is in the process of starting from the browser process.
-  kStarting,
-  // Worker has completed starting (i.e. has seen DidStartWorkerForScope).
+  // Worker has completed starting at least once (i.e. has seen
+  // DidStartWorkerForScope).
   kStarted,
+  // Worker has completed starting at least once and has run all pending
+  // tasks (i.e. has seen DidStartWorkerForScope and
+  // DidStartServiceWorkerContext).
+  kReady,
 };
 
 // Render process worker state of an activated extension.
@@ -122,7 +129,12 @@ class ServiceWorkerTaskQueue::WorkerState {
   void SetWorkerId(const WorkerId& worker_id, ProcessManager* process_manager) {
     if (worker_id_ && *worker_id_ != worker_id) {
       // Sanity check that the old worker is gone.
-      DCHECK(!process_manager->HasServiceWorker(*worker_id_));
+      // TODO(crbug.com/40936639): remove
+      // `g_allow_multiple_workers_per_extension` once bug is fixed so that this
+      // DCHECK() will be default behavior everywhere. Also upgrade to a CHECK
+      // once the bug is completely fixed.
+      DCHECK(!process_manager->HasServiceWorker(*worker_id_) ||
+             g_allow_multiple_workers_per_extension);
       // Clear stale renderer state if there's any.
       renderer_state_ = RendererState::kInitial;
     }
@@ -389,11 +401,28 @@ bool ServiceWorkerTaskQueue::IsReadyToRunTasks(
   const WorkerState* worker_state = GetWorkerState(context_id);
 
   if (!worker_state || !worker_state->worker_id_) {
-    // Assume the worker has not been started (is kRunning). It is likely in
+    // Assume the worker has not been started. It is likely in
     // blink::EmbeddedWorkerStatus::(kStarting|kStopped) status.
     return false;
   }
 
+  // We must check both states since the worker could begin stopping and call
+  // DidStopServiceWorkerContext after BrowserState::kReady.
+  if (worker_state->browser_state_ != BrowserState::kReady) {
+    return false;
+  }
+  if (worker_state->renderer_state_ != RendererState::kStarted) {
+    return false;
+  }
+
+  // `browser_ready` and `renderer_ready` are //extension browser's view of the
+  // worker being ready to run tasks and are mostly accurate for whether a
+  // worker is ready to run. But there are edge cases if a worker is in
+  // transition (stopping or starting). `browser_ready` and `renderer_ready`
+  // would be true in these edge cases, but the worker wouldn't be ready to run
+  // a task. Due to the current async-ness of stopping/starting a worker
+  // //extension browser can't synchronously check this, so we synchonously
+  // check the //content browser layer instead.
   content::ServiceWorkerContext* sw_context =
       util::GetServiceWorkerContextForExtensionId(extension->id(), context);
   return sw_context->IsLiveRunningServiceWorker(
@@ -405,7 +434,7 @@ void ServiceWorkerTaskQueue::AddPendingTask(
     PendingTask task) {
   DCHECK(lazy_context_id.IsForServiceWorker());
   base::UmaHistogramBoolean(
-      "Extensions.ServiceWorkerBackground.AddPendingTaskForRunningWorker",
+      "Extensions.ServiceWorkerBackground.AddPendingTaskForRunningWorker2",
       IsReadyToRunTasks(
           browser_context_,
           extensions::ExtensionRegistry::Get(browser_context_)
@@ -609,8 +638,8 @@ void ServiceWorkerTaskQueue::DidRegisterServiceWorker(
   WorkerState* worker_state = GetWorkerState(context_id);
   DCHECK(worker_state);
   const bool success = status_code == blink::ServiceWorkerStatusCode::kOk;
-  UMA_HISTOGRAM_BOOLEAN("Extensions.ServiceWorkerBackground.RegistrationStatus",
-                        success);
+  base::UmaHistogramBoolean(
+      "Extensions.ServiceWorkerBackground.RegistrationStatus", success);
 
   if (reason == RegistrationReason::RE_REGISTER_ON_STATE_MISMATCH) {
     UMA_HISTOGRAM_BOOLEAN(
@@ -622,6 +651,9 @@ void ServiceWorkerTaskQueue::DidRegisterServiceWorker(
   }
 
   if (!success) {
+    base::UmaHistogramEnumeration(
+        "Extensions.ServiceWorkerBackground.Registration_FailStatus",
+        status_code);
     std::string msg = base::StringPrintf(
         "Service worker registration failed. Status code: %d",
         static_cast<int>(status_code));
@@ -720,10 +752,13 @@ void ServiceWorkerTaskQueue::RunPendingTasksIfWorkerReady(
     return;
   }
 
-  // Running |pending_tasks_[context_id]| marks the completion of
-  // DidStartWorkerForScope, clean up |browser_ready| state of the worker so
-  // that new tasks can be queued up.
-  worker_state->browser_state_ = BrowserState::kInitial;
+  // Running `pending_tasks_[context_id]` marks the completion of both
+  // DidStartWorkerForScope and DidStartWorkerContext, change `browser_ready`
+  // state of the worker so that new tasks can be queued up.
+  worker_state->browser_state_ = BrowserState::kReady;
+  if (g_test_observer) {
+    g_test_observer->DidStartWorker(context_id.extension_id);
+  }
 
   DCHECK(worker_state->has_pending_tasks())
       << "Worker ready, but no tasks to run!";
@@ -817,6 +852,12 @@ void ServiceWorkerTaskQueue::OnDestruct(
   StopObserving(context);
 }
 
+void ServiceWorkerTaskQueue::OnVersionStoppedRunning(int64_t version_id) {
+  // TODO(crbug.com/40936639): Confirming this is true in order to allow for
+  // synchronous notification of this status change.
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+}
+
 size_t ServiceWorkerTaskQueue::GetNumPendingTasksForTest(
     const LazyContextId& lazy_context_id) {
   auto activation_token =
@@ -829,6 +870,12 @@ size_t ServiceWorkerTaskQueue::GetNumPendingTasksForTest(
                                          *activation_token};
   WorkerState* worker_state = GetWorkerState(context_id);
   return worker_state ? worker_state->pending_tasks_.size() : 0;
+}
+
+// static
+base::AutoReset<bool>
+ServiceWorkerTaskQueue::AllowMultipleWorkersPerExtensionForTesting() {
+  return base::AutoReset<bool>(&g_allow_multiple_workers_per_extension, true);
 }
 
 const ServiceWorkerTaskQueue::WorkerState*
@@ -873,7 +920,7 @@ void ServiceWorkerTaskQueue::DidVerifyRegistration(
     content::ServiceWorkerCapability capability) {
   const bool is_registered =
       capability != content::ServiceWorkerCapability::NO_SERVICE_WORKER;
-  UMA_HISTOGRAM_BOOLEAN(
+  base::UmaHistogramBoolean(
       "Extensions.ServiceWorkerBackground.RegistrationWhenExpected",
       is_registered);
 
@@ -893,7 +940,7 @@ void ServiceWorkerTaskQueue::DidVerifyRegistration(
     return;
   }
 
-  UMA_HISTOGRAM_ENUMERATION(
+  base::UmaHistogramEnumeration(
       "Extensions.ServiceWorkerBackground.RegistrationMismatchLocation",
       extension->location());
 
@@ -908,7 +955,7 @@ void ServiceWorkerTaskQueue::EmitWorkerWillBeStartedHistograms(
                             ->GetInstalledExtension(extension_id));
   base::UmaHistogramBoolean(
       "Extensions.ServiceWorkerBackground."
-      "RequestedWorkerStartForStartedWorker",
+      "RequestedWorkerStartForStartedWorker2",
       worker_is_ready_to_run_tasks);
 }
 

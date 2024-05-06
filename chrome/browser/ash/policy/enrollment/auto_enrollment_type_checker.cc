@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 
+#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
 #include "base/functional/callback.h"
@@ -16,6 +17,8 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "build/branding_buildflags.h"
+#include "chrome/browser/ash/login/configuration_keys.h"
+#include "chrome/browser/ash/login/oobe_configuration.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chromeos/ash/components/system/factory_ping_embargo_check.h"
@@ -72,7 +75,9 @@ static std::string FRERequirementToString(
 }
 
 // Returns true if FRE is allowed to be enabled on Flex by the command line.
-static bool IsFREEnabledOnFlexByCommandLineSwitch() {
+// Note that this function does *not* check whether the device is running Flex
+// or not.
+static bool IsFREOnFlexEnabledByCommandLineSwitch() {
   return base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
              ash::switches::kEnterpriseEnableForcedReEnrollmentOnFlex) ==
          AutoEnrollmentTypeChecker::kForcedReEnrollmentAlways;
@@ -81,7 +86,9 @@ static bool IsFREEnabledOnFlexByCommandLineSwitch() {
 // Returns true if FRE state keys are supported.
 static bool AreFREStateKeysSupported() {
   return IsOfficialGoogleChrome() ||
-         (IsOfficialGoogleFlex() && IsFREEnabledOnFlexByCommandLineSwitch());
+         // TODO(b/331677599): Replace with IsOfficialGoogleFlex().
+         (ash::switches::IsRevenBranding() &&
+          IsFREOnFlexEnabledByCommandLineSwitch());
 }
 
 // Kill switch config request parameters.
@@ -131,8 +138,7 @@ constexpr int kUMAKSFetchNumTriesBuckets =
 // switch for a particular version, we can increment it after fixing the logic.
 // The devices running new code will not be affected by kill switch and we can
 // test our fixes.
-// TODO(b/265923216): Change to 1 to launch unified state determination.
-const int kCodeVersion = 0;
+const int kCodeVersion = 1;
 
 // When set to true, unified state determination is disabled.
 std::optional<bool> g_unified_state_determination_kill_switch;
@@ -251,8 +257,8 @@ bool AutoEnrollmentTypeChecker::IsUnifiedStateDeterminationEnabled() {
     return false;
   }
 
-  // TODO(drcrash): Replace with AreFREStateKeysSupported() to enable Flex too.
-  return IsOfficialGoogleChrome();
+  // Devices supporting FRE state keys do support unified state determination.
+  return AreFREStateKeysSupported();
 }
 
 // static
@@ -272,9 +278,7 @@ bool AutoEnrollmentTypeChecker::IsFREEnabled() {
   std::string command_line_mode = command_line->GetSwitchValueASCII(
       ash::switches::kEnterpriseEnableForcedReEnrollment);
   if (command_line_mode == kForcedReEnrollmentAlways) {
-    // Enable if not on Flex, or if the Flex-specific flag is also forced.
-    return !ash::switches::IsRevenBranding() ||
-           IsFREEnabledOnFlexByCommandLineSwitch();
+    return true;
   }
   if (command_line_mode.empty() ||
       command_line_mode == kForcedReEnrollmentOfficialBuild) {
@@ -293,9 +297,9 @@ bool AutoEnrollmentTypeChecker::IsInitialEnrollmentEnabled() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
   if (!command_line->HasSwitch(
-          ash::switches::kEnterpriseEnableInitialEnrollment))
-    return IsOfficialGoogleChrome();
-
+          ash::switches::kEnterpriseEnableInitialEnrollment)) {
+    return IsOfficialGoogleChrome() || IsOfficialGoogleFlex();
+  }
   std::string command_line_mode = command_line->GetSwitchValueASCII(
       ash::switches::kEnterpriseEnableInitialEnrollment);
   if (command_line_mode == kInitialEnrollmentAlways)
@@ -303,7 +307,7 @@ bool AutoEnrollmentTypeChecker::IsInitialEnrollmentEnabled() {
 
   if (command_line_mode.empty() ||
       command_line_mode == kInitialEnrollmentOfficialBuild) {
-    return IsOfficialGoogleChrome();
+    return IsOfficialGoogleChrome() || IsOfficialGoogleFlex();
   }
 
   if (command_line_mode == kInitialEnrollmentNever)
@@ -328,12 +332,6 @@ AutoEnrollmentTypeChecker::GetFRERequirementAccordingToVPD(
   // TODO(b/265923216): Migrate legacy code to support unified state
   // determination.
   if (IsUnifiedStateDeterminationEnabled()) {
-    // Flex devices should not do FRE if not explicitly enabled.
-    if (ash::switches::IsRevenBranding() &&
-        !IsFREEnabledOnFlexByCommandLineSwitch()) {
-      LOG(WARNING) << "Unified state determination on Flex is not enabled.";
-      return FRERequirement::kRequired;
-    }
     LOG(WARNING) << "Unified state determination is enabled. Forcing"
                     "re-enrollment check.";
     return FRERequirement::kExplicitlyRequired;
@@ -361,7 +359,7 @@ AutoEnrollmentTypeChecker::GetFRERequirementAccordingToVPD(
   if (ash::switches::IsRevenBranding()) {
     // We only enable FRE for Flex devices if the command line forces it to be
     // always enabled.
-    if (IsFREEnabledOnFlexByCommandLineSwitch()) {
+    if (IsFREOnFlexEnabledByCommandLineSwitch()) {
       LOG(WARNING) << "Requiring re-enrollment check on Flex.";
       return FRERequirement::kExplicitlyRequired;
     } else {
@@ -468,6 +466,17 @@ AutoEnrollmentTypeChecker::GetInitialStateDeterminationRequirement(
     LOG(WARNING)
         << "Skip Initial State Determination due to missing brand code.";
     return InitialStateDeterminationRequirement::kNotRequired;
+  }
+
+  if (IsOfficialGoogleFlex()) {
+    const std::string* flex_token =
+        ash::OobeConfiguration::Get()->configuration().FindString(
+            ash::configuration::kFlexToken);
+    if (!flex_token || flex_token->empty()) {
+      LOG(WARNING) << "Skipping Initial State Determination on Flex as no Flex "
+                      "token was found.";
+      return InitialStateDeterminationRequirement::kNotRequired;
+    }
   }
 
   switch (embargo_state) {

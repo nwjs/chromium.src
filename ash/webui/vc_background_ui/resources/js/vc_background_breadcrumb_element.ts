@@ -23,6 +23,8 @@ import {AnchorAlignment, CrActionMenuElement} from 'chrome://resources/ash/commo
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {getSeaPenTemplates, SeaPenTemplate} from 'chrome://resources/ash/common/sea_pen/constants.js';
 import {setThumbnailResponseStatusCodeAction} from 'chrome://resources/ash/common/sea_pen/sea_pen_actions.js';
+import {SeaPenTemplateId} from 'chrome://resources/ash/common/sea_pen/sea_pen_generated.mojom-webui.js';
+import {logSeaPenTemplateSelect} from 'chrome://resources/ash/common/sea_pen/sea_pen_metrics_logger.js';
 import {SeaPenPaths, SeaPenRouterElement} from 'chrome://resources/ash/common/sea_pen/sea_pen_router_element.js';
 import {getSeaPenStore} from 'chrome://resources/ash/common/sea_pen/sea_pen_store.js';
 import {isNonEmptyArray} from 'chrome://resources/ash/common/sea_pen/sea_pen_utils.js';
@@ -198,13 +200,6 @@ export class VcBackgroundBreadcrumbElement extends
       breadcrumb.blur();
       this.goBackToRoute_(newPath as SeaPenPaths);
     }
-    // If the user clicks the last breadcrumb and the sea pen dropdown is
-    // present, open the dropdown.
-    const targetElement = e.currentTarget as HTMLElement;
-    if (index === this.breadcrumbs_.length - 1 &&
-        !!targetElement.querySelector('#seaPenDropdown')) {
-      this.onClickMenuIcon_(e);
-    }
   }
 
   private onClickMenuIcon_(e: Event) {
@@ -241,6 +236,10 @@ export class VcBackgroundBreadcrumbElement extends
     // Then resets it back to the original value after routing is done to not
     // interfere with other page transitions.
     setTransitionsEnabled(false);
+    // log metrics for the selected template.
+    if (templateId && templateId in SeaPenTemplateId) {
+      logSeaPenTemplateSelect(parseInt(templateId) as SeaPenTemplateId);
+    }
     SeaPenRouterElement.instance()
         .goToRoute(SeaPenPaths.RESULTS, {seaPenTemplateId: templateId})
         ?.finally(() => {
@@ -261,9 +260,9 @@ export class VcBackgroundBreadcrumbElement extends
     return path === SeaPenPaths.RESULTS && !!template;
   }
 
-  private getAriaSelected_(templateId: string, seaPenTemplateId: string):
-      'true'|'false' {
-    return templateId === seaPenTemplateId ? 'true' : 'false';
+  private getAriaChecked_(
+      templateId: SeaPenTemplateId, seaPenTemplateId: string): 'true'|'false' {
+    return templateId.toString() === seaPenTemplateId ? 'true' : 'false';
   }
 
   // Helper method to apply back transition style when navigating to path.

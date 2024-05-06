@@ -45,8 +45,11 @@
 // Whether the right background view of the selected cell is hidden.
 @property(nonatomic, assign) BOOL rightSelectedBorderBackgroundViewHidden;
 
-// Preview parameters of the cell when dragged.
-@property(nonatomic, readonly) UIDragPreviewParameters* dragPreviewParameters;
+// Whether the cell is the first of its group. Default value is NO.
+@property(nonatomic, assign) BOOL isFirstTabInGroup;
+
+// Whether the cell is the last of its group. Default value is NO.
+@property(nonatomic, assign) BOOL isLastTabInGroup;
 
 // The item associated with this cell. Passed as an opaque NSObject to use the
 // isEqual method on it.

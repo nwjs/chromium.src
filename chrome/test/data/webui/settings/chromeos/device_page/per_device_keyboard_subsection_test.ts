@@ -5,7 +5,7 @@
 import 'chrome://os-settings/os_settings.js';
 import 'chrome://resources/polymer/v3_0/iron-test-helpers/mock-interactions.js';
 
-import {CrLinkRowElement, FakeInputDeviceSettingsProvider, fakeKeyboards, MetaKey, PolicyStatus, Router, routes, setInputDeviceSettingsProviderForTesting, SettingsPerDeviceKeyboardSubsectionElement, SettingsToggleButtonElement} from 'chrome://os-settings/os_settings.js';
+import {CrLinkRowElement, FakeInputDeviceSettingsProvider, fakeKeyboards, Keyboard, MetaKey, PolicyStatus, Router, routes, setInputDeviceSettingsProviderForTesting, SettingsPerDeviceKeyboardSubsectionElement, SettingsSliderElement, SettingsToggleButtonElement} from 'chrome://os-settings/os_settings.js';
 import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -20,21 +20,45 @@ suite('<settings-per-device-keyboard-subsection>', () => {
   let provider: FakeInputDeviceSettingsProvider;
 
   setup(async () => {
-    provider = new FakeInputDeviceSettingsProvider();
-    provider.setFakeKeyboards(fakeKeyboards);
-    setInputDeviceSettingsProviderForTesting(provider);
-
-    subsection =
-        document.createElement('settings-per-device-keyboard-subsection');
-    subsection.set('keyboard', {...fakeKeyboards[0]});
-    document.body.appendChild(subsection);
-    await flushTasks();
+    await initializePerDeviceKeyboardSubsection(
+        fakeKeyboards, /*rgbKeyboardSupported=*/ true,
+        /*hasKeyboardBacklight=*/ true);
   });
 
   teardown(() => {
     subsection.remove();
     Router.getInstance().resetRouteForTesting();
   });
+
+  function initializePerDeviceKeyboardSubsection(
+      fakeKeyboards: Keyboard[], rgbKeyboardSupported: boolean,
+      hasKeyboardBacklight: boolean): Promise<void> {
+    provider = new FakeInputDeviceSettingsProvider();
+    provider.setFakeKeyboards(fakeKeyboards);
+    provider.setFakeIsRgbKeyboardSupported(rgbKeyboardSupported);
+    provider.setFakeHasKeyboardBacklight(hasKeyboardBacklight);
+    setInputDeviceSettingsProviderForTesting(provider);
+
+    subsection =
+        document.createElement('settings-per-device-keyboard-subsection');
+    subsection.set('keyboard', {...fakeKeyboards[0]});
+    document.body.appendChild(subsection);
+    return flushTasks();
+  }
+
+  function getElement(selector: string): Element|null {
+    return subsection.shadowRoot!.querySelector(selector);
+  }
+
+  /**
+   * Override enableKeyboardBacklightControlInSettings feature flag.
+   * @param {!boolean} isEnabled
+   */
+  function setKeyboardBacklightControlEnabled(isEnabled: boolean): void {
+    loadTimeData.overrideValues({
+      enableKeyboardBacklightControlInSettings: isEnabled,
+    });
+  }
 
   /**
    * Changes the external state of the keyboard.
@@ -348,4 +372,126 @@ suite('<settings-per-device-keyboard-subsection>', () => {
         assertTrue(subsection.shadowRoot!.querySelector('#remapKeyboardKeys')!
                        .classList.contains('remap-keyboard-keys-row-internal'));
       });
+
+  test(
+      'Verify keyboard backlight control elements visibility with flag',
+      async () => {
+        setKeyboardBacklightControlEnabled(true);
+        await changeIsExternalState(false);
+
+        // Initially, both elements should be visible.
+        assertTrue(isVisible(getElement('#rgbKeyboardControlLink')));
+        assertTrue(isVisible(getElement('#keyboardBrightnessSection')));
+
+        // Disable keyboard backlight control flag and reinitialize.
+        setKeyboardBacklightControlEnabled(false);
+        await initializePerDeviceKeyboardSubsection(
+            fakeKeyboards, /*rgbKeyboardSupported=*/ true,
+            /*hasKeyboardBacklight=*/ true);
+        await changeIsExternalState(false);
+
+        // Both elements should be hidden after flag is disabled.
+        assertFalse(isVisible(getElement('#rgbKeyboardControlLink')));
+        assertFalse(isVisible(getElement('#keyboardBrightnessSection')));
+      });
+
+  test('Verify rgb keyboard control link visiblity', async () => {
+    setKeyboardBacklightControlEnabled(true);
+    await initializePerDeviceKeyboardSubsection(
+        fakeKeyboards, /*rgbKeyboardSupported=*/ true,
+        /*hasKeyboardBacklight=*/ true);
+    await changeIsExternalState(false);
+    assertTrue(isVisible(getElement('#rgbKeyboardControlLink')));
+
+    // Disable RGB keyboard support, then reinitialize.
+    await initializePerDeviceKeyboardSubsection(
+        fakeKeyboards, /*rgbKeyboardSupported=*/ false,
+        /*hasKeyboardBacklight=*/ true);
+    await changeIsExternalState(false);
+    assertFalse(isVisible(getElement('#rgbKeyboardControlLink')));
+  });
+
+  test('Verify keyboard brightness section visibility', async () => {
+    setKeyboardBacklightControlEnabled(true);
+    await initializePerDeviceKeyboardSubsection(
+        fakeKeyboards, /*rgbKeyboardSupported=*/ true,
+        /*hasKeyboardBacklight=*/ true);
+    await changeIsExternalState(false);
+    assertTrue(isVisible(getElement('#keyboardBrightnessSection')));
+
+    // Disable keyboard backlight, then reinitialize.
+    await initializePerDeviceKeyboardSubsection(
+        fakeKeyboards, /*rgbKeyboardSupported=*/ true,
+        /*hasKeyboardBacklight=*/ false);
+    await changeIsExternalState(false);
+    assertFalse(isVisible(getElement('#keyboardBrightnessSection')));
+  });
+
+  test('observe keyboard brightness change', async () => {
+    await changeIsExternalState(false);
+
+    const slider = subsection.shadowRoot!.querySelector<SettingsSliderElement>(
+        '#keyboardBrightnessSlider');
+    assertTrue(!!slider);
+
+    // Define initial and test values for keyboard brightness to improve
+    // readability.
+    const initialBrightness = 40.0;
+    const firstAdjustedBrightness = 60.5;
+    const secondAdjustedBrightness = 20.5;
+
+    // Verify initial brightness is set correctly when observer is registered.
+    assertEquals(initialBrightness, slider.pref!.value);
+
+    // Simulate a keyboard brightness change and verify the slider updates
+    // accordingly.
+    provider.sendKeyboardBrightnessChange(firstAdjustedBrightness);
+    await flushTasks();
+    assertEquals(firstAdjustedBrightness, slider.pref!.value);
+
+    // Simulate another keyboard brightness change.
+    provider.sendKeyboardBrightnessChange(secondAdjustedBrightness);
+    await flushTasks();
+    assertEquals(secondAdjustedBrightness, slider.pref!.value);
+  });
+
+  test('Set keyboard brightness via slider', async () => {
+    await changeIsExternalState(false);
+    const slider = subsection.shadowRoot!.querySelector<SettingsSliderElement>(
+        '#keyboardBrightnessSlider');
+    assertTrue(!!slider);
+
+    const initialBrightness = 40;
+    const firstAdjustedBrightness = 60.5;
+    const secondAdjustedBrightness = 20.5;
+
+    // Default brightness is 40.
+    assertEquals(initialBrightness, slider.pref.value);
+    assertEquals(initialBrightness, provider.getKeyboardBrightness());
+
+    // Set keyboard brightness via slider.
+    slider.pref.value = firstAdjustedBrightness;
+    slider.dispatchEvent(new CustomEvent('cr-slider-value-changed'));
+    await flushTasks();
+    assertEquals(firstAdjustedBrightness, provider.getKeyboardBrightness());
+
+    // Set keyboard brightness via slider again.
+    slider.pref.value = secondAdjustedBrightness;
+    slider.dispatchEvent(new CustomEvent('cr-slider-value-changed'));
+    await flushTasks();
+    assertEquals(secondAdjustedBrightness, provider.getKeyboardBrightness());
+  });
+
+  test('Record keyboard color link clicked', async () => {
+    await changeIsExternalState(false);
+    assertEquals(0, provider.getKeyboardColorLinkClicks());
+    const rgbKeyboardControlLink =
+        subsection.shadowRoot!.querySelector<CrLinkRowElement>(
+            '#rgbKeyboardControlLink');
+    assertTrue(!!rgbKeyboardControlLink);
+
+    rgbKeyboardControlLink.click();
+    await flushTasks();
+    assertEquals(1, provider.getKeyboardColorLinkClicks());
+  });
 });

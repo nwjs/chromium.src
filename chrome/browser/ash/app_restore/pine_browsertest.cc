@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ash/app_restore/full_restore_service.h"
-
 #include "ash/accelerators/accelerator_controller_impl.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
@@ -16,14 +14,17 @@
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_grid_test_api.h"
 #include "ash/wm/overview/overview_test_util.h"
+#include "ash/wm/window_restore/pine_constants.h"
 #include "ash/wm/window_restore/pine_contents_data.h"
 #include "ash/wm/window_restore/pine_contents_view.h"
 #include "ash/wm/window_restore/pine_controller.h"
 #include "ash/wm/window_restore/pine_test_api.h"
 #include "ash/wm/window_restore/window_restore_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ash/app_restore/app_restore_test_util.h"
 #include "chrome/browser/ash/app_restore/full_restore_app_launch_handler.h"
+#include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/ash_test_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
@@ -60,14 +61,16 @@ const PineContentsView* GetPineContentsView() {
 const PillButton* GetPineDialogRestoreButton() {
   const PineContentsView* pine_contents_view = GetPineContentsView();
   return pine_contents_view
-             ? PineContentsViewTestApi(pine_contents_view).restore_button()
+             ? static_cast<const PillButton*>(
+                   pine_contents_view->GetViewByID(pine::kRestoreButtonID))
              : nullptr;
 }
 
 const PillButton* GetPineDialogCancelButton() {
   const PineContentsView* pine_contents_view = GetPineContentsView();
   return pine_contents_view
-             ? PineContentsViewTestApi(pine_contents_view).cancel_button()
+             ? static_cast<const PillButton*>(
+                   pine_contents_view->GetViewByID(pine::kCancelButtonID))
              : nullptr;
 }
 
@@ -123,6 +126,9 @@ class PineBrowserTest : public InProcessBrowserTest {
     prefs->SetBoolean(prefs::kShouldShowPineOnboarding, false);
   }
 
+ protected:
+  base::HistogramTester histogram_tester_;
+
  private:
   base::test::ScopedFeatureList feature_list_{features::kForestFeature};
 };
@@ -156,6 +162,8 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, LaunchBrowsers) {
   test::Click(restore_button, /*flag=*/0);
   waiter.Wait();
   EXPECT_EQ(2u, BrowserList::GetInstance()->size());
+
+  histogram_tester_.ExpectBucketCount("Apps.FullRestoreWindowCount2", 2, 1);
 }
 
 // Creates SWAs that will be restored in the main test.
@@ -310,14 +318,9 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_WindowStates) {
   AppLaunchInfoSaveWaiter::Wait();
 }
 
-// TODO(crbug.com/330098654): Test is flaky.
+// TODO(crbug.com/330516096): Test is flaky.
 // Tests that the browser windows are restored to their old window states.
-#if (BUILDFLAG(IS_CHROMEOS_ASH) && defined(MEMORY_SANITIZER))
-#define MAYBE_WindowStates DISABLED_WindowStates
-#else
-#define MAYBE_WindowStates WindowStates
-#endif
-IN_PROC_BROWSER_TEST_F(PineBrowserTest, MAYBE_WindowStates) {
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, DISABLED_WindowStates) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
 
   // Verify we have entered overview. The restore button will be null if we
@@ -415,6 +418,8 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_TabInfo) {
   AppLaunchInfoSaveWaiter::Wait();
 }
 
+// TODO(http://b/329152636): Update or add to this test to check that the
+// windows and tabs are listed with proper activation order.
 // Verify that the tab info that is sent to ash shell is as expected.
 IN_PROC_BROWSER_TEST_F(PineBrowserTest, TabInfo) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
@@ -441,10 +446,9 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_ReenterOverviewPineSession) {
   AppLaunchInfoSaveWaiter::Wait();
 }
 
-// TODO(crbug.com/329585661): Test is flaky.
 // Test that if we exit overview and reenter without opening a new window, we
 // see the pine dialog again.
-IN_PROC_BROWSER_TEST_F(PineBrowserTest, DISABLED_ReenterOverviewPineSession) {
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, ReenterOverviewPineSession) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
 
   // Verify we have entered overview with the pine dialog.
@@ -497,9 +501,8 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, RestoreOff) {
   views::test::WidgetDestroyedWaiter(onboarding_dialog->GetWidget()).Wait();
   EXPECT_FALSE(PineTestApi().GetOnboardingDialog());
 
-  // Verify we have entered overview with no pine contents.
-  WaitForOverviewEnterAnimation();
-  EXPECT_FALSE(GetPineContentsView());
+  // Verify we do not enter overview.
+  EXPECT_FALSE(Shell::Get()->overview_controller()->InOverviewSession());
 
   // Verify the restore pref is updated.
   EXPECT_EQ(static_cast<int>(RestoreOption::kAskEveryTime),
@@ -526,9 +529,8 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, NoRestoreData) {
   views::test::WidgetDestroyedWaiter(onboarding_dialog->GetWidget()).Wait();
   EXPECT_FALSE(PineTestApi().GetOnboardingDialog());
 
-  // Verify we have entered overview with no pine contents.
-  WaitForOverviewEnterAnimation();
-  EXPECT_FALSE(GetPineContentsView());
+  // Verify we do not enter overview.
+  EXPECT_FALSE(Shell::Get()->overview_controller()->InOverviewSession());
 }
 
 IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_Onboarding) {

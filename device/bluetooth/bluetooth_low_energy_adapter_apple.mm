@@ -68,8 +68,7 @@ BluetoothLowEnergyAdapterApple::BluetoothLowEnergyAdapterApple()
       low_energy_peripheral_manager_delegate_(
           [[BluetoothLowEnergyPeripheralManagerDelegate alloc]
               initWithAdvertisementManager:
-                  low_energy_advertisement_manager_.get()
-                                andAdapter:this]) {
+                  low_energy_advertisement_manager_.get()]) {
   DCHECK(low_energy_discovery_manager_);
 }
 
@@ -491,7 +490,7 @@ void BluetoothLowEnergyAdapterApple::LowEnergyCentralManagerUpdatedState() {
       // GetDevices() returns instances of BluetoothClassicDeviceMac and
       // BluetoothLowEnergyDeviceMac. The DidDisconnectPeripheral() method is
       // only available on BluetoothLowEnergyDeviceMac.
-      if (!static_cast<BluetoothDeviceMac*>(device)->IsLowEnergyDevice()) {
+      if (!device->IsLowEnergyDevice()) {
         continue;
       }
       BluetoothLowEnergyDeviceMac* device_mac =
@@ -631,10 +630,9 @@ BluetoothLowEnergyAdapterApple::GetBluetoothLowEnergyDeviceMac(
   // device_mac can be BluetoothClassicDeviceMac* or
   // BluetoothLowEnergyDeviceMac* To return valid BluetoothLowEnergyDeviceMac*
   // we need to first check with IsLowEnergyDevice()
-  BluetoothDeviceMac* device_mac =
-      static_cast<BluetoothDeviceMac*>(iter->second.get());
-  return device_mac->IsLowEnergyDevice()
-             ? static_cast<BluetoothLowEnergyDeviceMac*>(device_mac)
+  BluetoothDevice* device = iter->second.get();
+  return device->IsLowEnergyDevice()
+             ? static_cast<BluetoothLowEnergyDeviceMac*>(device)
              : nullptr;
 }
 

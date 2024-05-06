@@ -14,7 +14,7 @@
 #include "ash/glanceables/common/glanceables_view_id.h"
 #include "ash/glanceables/common/test/glanceables_test_new_window_delegate.h"
 #include "ash/glanceables/glanceables_controller.h"
-#include "ash/glanceables/tasks/glanceables_task_view_v2.h"
+#include "ash/glanceables/tasks/glanceables_task_view.h"
 #include "ash/glanceables/tasks/test/glanceables_tasks_test_util.h"
 #include "ash/shell.h"
 #include "ash/style/combobox.h"
@@ -22,6 +22,7 @@
 #include "ash/test/ash_test_base.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/strcat.h"
+#include "base/test/gtest_tags.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -86,7 +87,8 @@ class GlanceablesTasksViewTest : public AshTestBase {
     }
 
     // Simulate closing the glanceables bubble to cache the tasks.
-    fake_glanceables_tasks_client_->OnGlanceablesBubbleClosed();
+    fake_glanceables_tasks_client_->OnGlanceablesBubbleClosed(
+        base::DoNothing());
 
     // Recreate the tasks view to update the task views.
     view_ = widget_->SetContentsView(std::make_unique<GlanceablesTasksView>(
@@ -613,6 +615,42 @@ TEST_F(GlanceablesTasksViewTest, HandlesErrorAfterChangingTaskList) {
             u"Task List 1 Title");
 }
 
+TEST_F(GlanceablesTasksViewTest, TasksContainerIsInvisibleWhenNoTask) {
+  // Check that task list items from the first list are shown.
+  auto* combobox = GetComboBoxView();
+  EXPECT_EQ(combobox->GetTextForRow(combobox->GetSelectedIndex().value()),
+            u"Task List 1 Title");
+
+  // Click on the combo box to show the task lists.
+  LeftClickOn(combobox);
+
+  // Go to the list with no task in it.
+  auto* third_menu_item_label = combobox->MenuItemAtIndex(2);
+  ASSERT_TRUE(third_menu_item_label);
+  LeftClickOn(third_menu_item_label);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(combobox->GetTextForRow(combobox->GetSelectedIndex().value()),
+            u"Task List 3 Title (empty)");
+
+  const auto* const task_items_container = GetTaskItemsContainerView();
+  EXPECT_EQ(task_items_container->children().size(), 0u);
+  EXPECT_FALSE(task_items_container->GetVisible());
+
+  // Click on the "Add a task" button. The task container should be visible now.
+  auto* add_task_button = GetAddNewTaskButton();
+  ASSERT_TRUE(add_task_button);
+  LeftClickOn(add_task_button);
+  EXPECT_EQ(task_items_container->children().size(), 1u);
+  EXPECT_TRUE(task_items_container->GetVisible());
+
+  // Commit the empty new task, which removes the temporary task view. The task
+  // container is reset to invisible.
+  GetEventGenerator()->PressAndReleaseKey(ui::VKEY_ESCAPE);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(task_items_container->children().size(), 0u);
+  EXPECT_FALSE(task_items_container->GetVisible());
+}
+
 TEST_F(GlanceablesTasksViewTest, ShowTasksWebUIFromHeaderView) {
   base::UserActionTester user_actions;
   const auto* const header_icon_button = GetHeaderIconView();
@@ -626,6 +664,9 @@ TEST_F(GlanceablesTasksViewTest, ShowTasksWebUIFromHeaderView) {
 }
 
 TEST_F(GlanceablesTasksViewTest, ShowTasksWebUIFromEditInBrowserView) {
+  base::AddFeatureIdTagToTestResult(
+      "screenplay-75d32091-1825-49cb-843b-8bb9d998a47d");
+
   base::HistogramTester histogram_tester;
   base::UserActionTester user_actions;
   const auto* const title_label = views::AsViewClass<views::Label>(

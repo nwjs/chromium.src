@@ -9,7 +9,6 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_run_loop_timeout.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/browsing_data/cookies_tree_model.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -405,7 +404,7 @@ class PageSpecificSiteDataDialogIsolatedWebAppInteractiveUiTest
 
   void SetUpOnMainThread() override {
 #if !BUILDFLAG(IS_MAC)
-    // TODO(https://crbug.com/1454297): OsIntegrationTestOverrideImpl seems
+    // TODO(crbug.com/40272260): OsIntegrationTestOverrideImpl seems
     // to interfere with Kombucha on the Mac.
     base::ScopedAllowBlockingForTesting allow_blocking;
     override_registration_ =

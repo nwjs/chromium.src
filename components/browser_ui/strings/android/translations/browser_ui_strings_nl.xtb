@@ -94,7 +94,6 @@
 <translation id="2501278716633472235">Terug</translation>
 <translation id="2546283357679194313">Cookies en sitegegevens</translation>
 <translation id="2550801787432930915">Kaart met prijsdaling</translation>
-<translation id="2569468611847789653">{COOKIE_COUNT,plural, =1{1 cookie geblokkeerd}other{# cookies geblokkeerd}}</translation>
 <translation id="2570922361219980984">Locatietoegang staat ook uit voor dit apparaat. Zet deze aan via de <ph name="BEGIN_LINK" />Android-instellingen<ph name="END_LINK" />.</translation>
 <translation id="257931822824936280">Uitgevouwen; klik om samen te vouwen.</translation>
 <translation id="2586657967955657006">Klembord</translation>
@@ -177,6 +176,7 @@
 <translation id="3895926599014793903">Zoom verplicht aan</translation>
 <translation id="3908288065506437185">Cookies van derden blokkeren in de incognitomodus</translation>
 <translation id="3918378745482005425">Sommige functies werken misschien niet. Gerelateerde sites kunnen nog steeds cookies van derden gebruiken.</translation>
+<translation id="3933121352599513978">Ongewenste verzoeken samenvouwen (aanbevolen)</translation>
 <translation id="3955193568934677022">Toestaan dat sites beschermde content afspelen (aanbevolen)</translation>
 <translation id="3967822245660637423">Downloaden voltooid</translation>
 <translation id="3974105241379491420">Sites kunnen vragen of ze informatie over je mogen gebruiken</translation>
@@ -199,6 +199,7 @@
 <translation id="429312253194641664">Een site speelt media af</translation>
 <translation id="42981349822642051">Uitvouwen</translation>
 <translation id="4336566011000459927">Chrome beperkt vandaag weer cookies</translation>
+<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Je laatste tabblad</translation>
 <translation id="4338831206024587507">Alle sites onder <ph name="DOMAIN" /></translation>
 <translation id="4402755511846832236">Voorkomen dat sites weten wanneer je dit apparaat actief gebruikt</translation>
 <translation id="4412992751769744546">Cookies van derden toestaan</translation>
@@ -289,6 +290,7 @@
 <translation id="5853982612236235577">Als deze optie aanstaat, kunnen sites vragen of ze je meldingen mogen sturen. Staat de optie uit, dan kunnen sites geen meldingen sturen.</translation>
 <translation id="5860033963881614850">Uit</translation>
 <translation id="5876056640971328065">Video pauzeren</translation>
+<translation id="5877248419911025165">Alle verzoeken samenvouwen</translation>
 <translation id="5884085660368669834">Sitevoorkeur</translation>
 <translation id="5887687176710214216">Laatst bezocht: gisteren</translation>
 <translation id="5916664084637901428">Aan</translation>
@@ -457,7 +459,6 @@
 <translation id="8441146129660941386">Achteruit zoeken</translation>
 <translation id="8444433999583714703">Als je <ph name="APP_NAME" /> toegang wilt geven tot je locatie, moet je je locatie ook aanzetten via de <ph name="BEGIN_LINK" />Android-instellingen<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Rechten voor apparaat intrekken</translation>
-<translation id="8451050538944905715">{NUM_SELECTED,plural, =1{1 cookie in gebruik}other{# cookies in gebruik}}</translation>
 <translation id="8487700953926739672">Offline beschikbaar</translation>
 <translation id="848952951823693243">Altijd mobiele site aanvragen</translation>
 <translation id="8499083585497694743">Microfoon aanzetten</translation>
@@ -497,6 +498,7 @@
 <translation id="8959122750345127698">Navigatie is onbereikbaar: <ph name="URL" /></translation>
 <translation id="8986362086234534611">Vergeten</translation>
 <translation id="8990043154272859344">Je wordt uitgelogd van alle sites</translation>
+<translation id="8993853206419610596">Alle verzoeken uitvouwen</translation>
 <translation id="9002538116239926534">Als deze optie aanstaat, kunnen sites gegevens opslaan op je apparaat. Staat de optie uit, dan kunnen sites geen gegevens opslaan op je apparaat.</translation>
 <translation id="9011903857143958461"><ph name="SITE_NAME" /> toegestaan</translation>
 <translation id="9019902583201351841">Beheerd door je ouders</translation>

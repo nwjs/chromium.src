@@ -1072,6 +1072,14 @@ void DesktopNativeWidgetAura::RunShellDrag(
                       source);
 }
 
+void DesktopNativeWidgetAura::CancelShellDrag(View* view) {
+  if (!content_window_) {
+    return;
+  }
+
+  views::CancelShellDrag(content_window_);
+}
+
 void DesktopNativeWidgetAura::SchedulePaintInRect(const gfx::Rect& rect) {
   if (content_window_)
     content_window_->SchedulePaintInRect(rect);
@@ -1409,7 +1417,8 @@ void DesktopNativeWidgetAura::OnWindowActivated(
   }
 
   // Give the native widget a chance to handle any specific changes it needs.
-  desktop_window_tree_host_->OnActiveWindowChanged(content_window_activated);
+  desktop_window_tree_host_->OnActiveWindowChanged(
+      content_window_->Contains(gained_active));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

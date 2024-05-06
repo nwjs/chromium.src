@@ -242,7 +242,7 @@ public final class CronetLoggerTest {
         // The test framework bypasses the logic in CronetEngine.Builder, so we have to call it
         // directly. We want to use the test framework context though for things like
         // intercepting manifest reads.
-        // TODO(https://crbug.com/1521393): this is ugly. Ideally the test framework should be
+        // TODO(crbug.com/41494362): this is ugly. Ideally the test framework should be
         // refactored to stop violating the Single Responsibility Principle (e.g. Context
         // management and implementation selection should be separated)
         var builder = new CronetEngine.Builder(mTestRule.getTestFramework().getContext());
@@ -664,6 +664,8 @@ public final class CronetLoggerTest {
         assertThat(trafficInfo.getNegotiatedProtocol()).isNotNull();
         assertThat(trafficInfo.wasConnectionMigrationAttempted()).isFalse();
         assertThat(trafficInfo.didConnectionMigrationSucceed()).isFalse();
+        assertThat(trafficInfo.getTerminalState())
+                .isEqualTo(CronetTrafficInfo.RequestTerminalState.SUCCEEDED);
 
         assertThat(mTestLogger.callsToLogCronetEngineCreation()).isEqualTo(1);
         assertThat(mTestLogger.callsToLogCronetTrafficInfo()).isEqualTo(1);
@@ -697,6 +699,8 @@ public final class CronetLoggerTest {
         assertThat(trafficInfo.getNegotiatedProtocol()).isEmpty();
         assertThat(trafficInfo.wasConnectionMigrationAttempted()).isFalse();
         assertThat(trafficInfo.didConnectionMigrationSucceed()).isFalse();
+        assertThat(trafficInfo.getTerminalState())
+                .isEqualTo(CronetTrafficInfo.RequestTerminalState.ERROR);
 
         assertThat(mTestLogger.callsToLogCronetEngineCreation()).isEqualTo(1);
         assertThat(mTestLogger.callsToLogCronetTrafficInfo()).isEqualTo(1);
@@ -732,6 +736,8 @@ public final class CronetLoggerTest {
         assertThat(trafficInfo.getNegotiatedProtocol()).isEmpty();
         assertThat(trafficInfo.wasConnectionMigrationAttempted()).isFalse();
         assertThat(trafficInfo.didConnectionMigrationSucceed()).isFalse();
+        assertThat(trafficInfo.getTerminalState())
+                .isEqualTo(CronetTrafficInfo.RequestTerminalState.CANCELLED);
 
         assertThat(mTestLogger.callsToLogCronetEngineCreation()).isEqualTo(1);
         assertThat(mTestLogger.callsToLogCronetTrafficInfo()).isEqualTo(1);

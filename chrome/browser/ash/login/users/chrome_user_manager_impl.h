@@ -20,12 +20,12 @@
 #include "chrome/browser/ash/policy/core/device_local_account.h"
 #include "chrome/browser/ash/policy/core/device_local_account_policy_service.h"
 #include "chrome/browser/ash/policy/handlers/minimum_version_policy_handler.h"
-#include "chrome/browser/ash/settings/cros_settings.h"
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chromeos/ash/components/login/auth/mount_performer.h"
+#include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/multi_user/multi_user_sign_in_policy_controller.h"
 #include "components/user_manager/user.h"
@@ -42,8 +42,6 @@ class PrefRegistrySyncable;
 }  // namespace user_prefs
 
 namespace ash {
-
-class SessionLengthLimiter;
 
 // Chrome specific implementation of the UserManager.
 class ChromeUserManagerImpl
@@ -100,9 +98,7 @@ class ChromeUserManagerImpl
   void OnDeviceLocalAccountsChanged() override;
 
   void StopPolicyObserverForTesting();
-  SessionLengthLimiter* GetSessionLengthLimiterForTesting() {
-    return session_length_limiter_.get();
-  }
+  void SetUsingSamlForTesting(const AccountId& account_id, bool using_saml);
 
   // policy::MinimumVersionPolicyHandler::Observer:
   void OnMinimumVersionStateChanged() override;
@@ -116,25 +112,15 @@ class ChromeUserManagerImpl
   void OnProfileWillBeDestroyed(Profile* profile) override;
 
  protected:
-  const std::string& GetApplicationLocale() const override;
   void LoadDeviceLocalAccounts(std::set<AccountId>* users_set) override;
   void NotifyOnLogin() override;
   void NotifyUserAddedToSession(const user_manager::User* added_user,
                                 bool user_switch_pending) override;
-  void PerformPostUserLoggedInActions(bool browser_restart) override;
   void RemoveNonCryptohomeData(const AccountId& account_id) override;
   void RemoveUserInternal(const AccountId& account_id,
                           user_manager::UserRemovalReason reason) override;
   bool IsDeviceLocalAccountMarkedForRemoval(
       const AccountId& account_id) const override;
-  void GuestUserLoggedIn() override;
-  void KioskAppLoggedIn(user_manager::User* user) override;
-  void PublicAccountUserLoggedIn(user_manager::User* user) override;
-  void RegularUserLoggedIn(const AccountId& account_id,
-                           const user_manager::UserType user_type) override;
-  void RegularUserLoggedInAsEphemeral(
-      const AccountId& account_id,
-      const user_manager::UserType user_type) override;
   bool IsEphemeralAccountIdByPolicy(const AccountId& account_id) const override;
 
  private:
@@ -192,15 +178,9 @@ class ChromeUserManagerImpl
   void RemoveNonCryptohomeDataPostExternalDataRemoval(
       const AccountId& account_id);
 
-  // Interface to the signed settings store.
-  raw_ptr<CrosSettings> cros_settings_;
-
   // Interface to device-local account definitions and associated policy.
   raw_ptr<policy::DeviceLocalAccountPolicyService>
       device_local_account_policy_service_;
-
-  // Session length limiter.
-  std::unique_ptr<SessionLengthLimiter> session_length_limiter_;
 
   // Cros settings change subscriptions.
   base::CallbackListSubscription allow_guest_subscription_;

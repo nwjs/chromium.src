@@ -66,6 +66,7 @@
 #include "extensions/browser/url_loader_factory_manager.h"
 #include "extensions/browser/url_request_util.h"
 #include "extensions/browser/view_type_utils.h"
+#include "extensions/common/api/sockets/sockets_manifest_data.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/extension_urls.h"
@@ -75,12 +76,18 @@
 #include "extensions/common/mojom/manifest.mojom-shared.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/switches.h"
+#include "pdf/buildflags.h"
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/chromeos/extensions/vpn_provider/vpn_service_factory.h"
 #include "chromeos/constants/chromeos_features.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "base/feature_list.h"
+#include "pdf/pdf_features.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 using blink::web_pref::WebPreferences;
 using content::BrowserContext;
@@ -99,6 +106,12 @@ namespace extensions {
 // See crbug.com/1519931.
 BASE_FEATURE(kStopUsingRenderProcessHostPrivilege,
              "StopUsingRenderProcessHostPrivilege",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This feature is a kill switch for the Direct Sockets API in Chrome Apps.
+// See crbug.com/329445684 for details.
+BASE_FEATURE(kDirectSocketsInChromeApps,
+             "DirectSocketsInChromeApps",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
@@ -824,12 +837,23 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcessAndSite(
 
   if (extension->is_nwjs_app() && !content::RenderProcessHostImpl::main_host())
     ((content::RenderProcessHostImpl*)site_instance->GetProcess())->set_main_host();
-  // Don't consider guests that load extension URLs as extension processes.
-  // This is possible when an embedder app navigates <webview> to a
-  // webview-accessible app resource; the resulting <webview> process shouldn't
-  // receive extension process privileges.
-  if (site_instance->IsGuest())
+  // Don't consider guests that load extension URLs as extension processes,
+  // except for the PDF Viewer extension URL. This is possible when an embedder
+  // app navigates <webview> to a webview-accessible app resource; the resulting
+  // <webview> process shouldn't receive extension process privileges. The PDF
+  // Viewer extension is an exception. The PDF extension is in a separate
+  // process that needs to be classified as privileged in order to expose the
+  // appropriate API methods to it.
+#if BUILDFLAG(ENABLE_PDF)
+  const bool is_oopif_pdf_extension =
+      base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif) &&
+      extension->id() == extension_misc::kPdfExtensionId;
+#else
+  constexpr bool is_oopif_pdf_extension = false;
+#endif  // BUILDFLAG(ENABLE_PDF)
+  if (site_instance->IsGuest() && !is_oopif_pdf_extension) {
     return;
+  }
 
   // Note that this may be called more than once for multiple instances
   // of the same extension, such as when the same hosted app is opened in
@@ -945,6 +969,22 @@ void ChromeContentBrowserClientExtensionsPart::
       if (extensions.contains(extension)) {
         command_line->AppendSwitch(::switches::kInitIsolateAsForeground);
         break;
+      }
+    }
+    if (base::FeatureList::IsEnabled(kDirectSocketsInChromeApps) &&
+        extensions.size() == 1) {
+      // Chrome Apps never share their processes with other apps or extensions.
+      // With this precondition, it's sufficient to check that there's exactly
+      // one extension running in the current process, and that this extension
+      // is indeed a Chrome App with "sockets" permission to enable the Direct
+      // Sockets API.
+      auto* extension = ExtensionRegistry::Get(process.GetBrowserContext())
+                            ->enabled_extensions()
+                            .GetByID(*extensions.begin());
+      if (extension && extension->is_platform_app() &&
+          SocketsManifestData::Get(extension)) {
+        command_line->AppendSwitchASCII(::switches::kEnableBlinkFeatures,
+                                        "DirectSockets");
       }
     }
   }

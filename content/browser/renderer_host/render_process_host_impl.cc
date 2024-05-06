@@ -69,6 +69,7 @@
 #include "cc/base/switches.h"
 #include "components/discardable_memory/public/mojom/discardable_shared_memory_manager.mojom.h"
 #include "components/discardable_memory/service/discardable_shared_memory_manager.h"
+#include "components/metrics/histogram_controller.h"
 #include "components/metrics/single_sample_metrics.h"
 #include "components/services/storage/privileged/mojom/indexed_db_control.mojom.h"
 #include "components/services/storage/public/cpp/buckets/bucket_id.h"
@@ -102,7 +103,6 @@
 #include "content/browser/locks/lock_manager.h"
 #include "content/browser/media/frameless_media_interface_proxy.h"
 #include "content/browser/media/media_internals.h"
-#include "content/browser/metrics/histogram_controller.h"
 #include "content/browser/metrics/histogram_shared_memory_config.h"
 #include "content/browser/mime_registry_impl.h"
 #include "content/browser/network_service_instance_impl.h"
@@ -1892,7 +1892,7 @@ void RenderProcessHostImpl::BindIndexedDB(
 
   auto [state_checker, token] =
       IndexedDBClientStateCheckerFactory::InitializePendingRemote(rfh_id);
-  storage_partition_impl_->GetIndexedDBControl().BindIndexedDB(
+  storage_partition_impl_->BindIndexedDB(
       storage::BucketLocator::ForDefaultBucket(storage_key),
       std::move(state_checker), token, std::move(receiver));
 }
@@ -2489,11 +2489,6 @@ void RenderProcessHostImpl::RegisterMojoInterfaces() {
       [](mojo::PendingReceiver<blink::mojom::PluginRegistry> receiver) {}));
 #endif
 
-#if BUILDFLAG(ENABLE_LIBRARY_CDMS) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
-  AddUIThreadInterface(
-      registry.get(), base::BindRepeating(&KeySystemSupportImpl::BindReceiver));
-#endif
-
   AddUIThreadInterface(
       registry.get(),
       base::BindRepeating(&RenderProcessHostImpl::BindMediaInterfaceProxy,
@@ -2865,6 +2860,16 @@ bool RenderProcessHostImpl::AreRefCountsDisabled() {
 
 mojom::Renderer* RenderProcessHostImpl::GetRendererInterface() {
   return renderer_interface_.get();
+}
+
+blink::mojom::CallStackGenerator*
+RenderProcessHostImpl::GetJavaScriptCallStackGeneratorInterface() {
+  if (!javascript_call_stack_generator_interface_.is_bound()) {
+    BindReceiver(javascript_call_stack_generator_interface_
+                     .BindNewPipeAndPassReceiver());
+    javascript_call_stack_generator_interface_.reset_on_disconnect();
+  }
+  return javascript_call_stack_generator_interface_.get();
 }
 
 ProcessLock RenderProcessHostImpl::GetProcessLock() const {
@@ -3527,7 +3532,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     blink::switches::kForcePermissionPolicyUnloadDefaultEnabled,
     blink::switches::kDisableImageAnimationResync,
     blink::switches::kDisableLowResTiling,
-    blink::switches::kDisableNewBaseUrlInheritanceBehavior,
     blink::switches::kDisablePreferCompositingToLCDText,
     blink::switches::kDisableRGBA4444Textures,
     blink::switches::kEnableLeakDetectionHeapSnapshot,
@@ -3685,6 +3689,34 @@ bool RenderProcessHostImpl::IsReady() {
   // The process launch result (that sets GetHandle()) and the channel
   // connection (that sets channel_connected_) can happen in either order.
   return GetProcess().Handle() && channel_connected_;
+}
+
+const std::string&
+RenderProcessHostImpl::GetUnresponsiveDocumentJavascriptCallStack() const {
+  return unresponsive_document_javascript_call_stack_;
+}
+
+const blink::LocalFrameToken&
+RenderProcessHostImpl::GetUnresponsiveDocumentToken() const {
+  return unresponsive_document_token_;
+}
+
+void RenderProcessHostImpl::SetUnresponsiveDocumentJSCallStackAndToken(
+    const std::string& untrusted_javascript_call_stack,
+    const std::optional<blink::LocalFrameToken>& frame_token) {
+  if (!frame_token) {
+    return;
+  }
+  unresponsive_document_javascript_call_stack_ =
+      untrusted_javascript_call_stack;
+  unresponsive_document_token_ = frame_token.value();
+}
+
+void RenderProcessHostImpl::InterruptJavaScriptIsolateAndCollectCallStack() {
+  GetJavaScriptCallStackGeneratorInterface()->CollectJavaScriptCallStack(
+      base::BindOnce(
+          &RenderProcessHostImpl::SetUnresponsiveDocumentJSCallStackAndToken,
+          instance_weak_factory_.GetWeakPtr()));
 }
 
 bool RenderProcessHostImpl::Shutdown(int exit_code) {
@@ -4926,8 +4958,9 @@ void RenderProcessHostImpl::CreateMetricsAllocator() {
 }
 
 void RenderProcessHostImpl::ShareMetricsMemoryRegion() {
-  HistogramController::GetInstance()->SetHistogramMemory<RenderProcessHost>(
-      this, std::move(metrics_memory_region_));
+  metrics::HistogramController::GetInstance()->SetHistogramMemory(
+      this, std::move(metrics_memory_region_),
+      metrics::HistogramController::ChildProcessMode::kGetHistogramData);
 }
 
 ChildProcessTerminationInfo RenderProcessHostImpl::GetChildTerminationInfo(
@@ -5008,7 +5041,7 @@ void RenderProcessHostImpl::ProcessDied(
 
   compositing_mode_reporter_.reset();
 
-  HistogramController::GetInstance()->NotifyChildDied<RenderProcessHost>(this);
+  metrics::HistogramController::GetInstance()->NotifyChildDied(this);
   // This object is not deleted at this point and might be reused later.
   // TODO(darin): clean this up
 }
@@ -5412,6 +5445,12 @@ void RenderProcessHostImpl::OnProcessLaunchFailed(int error_code) {
   PopulateTerminationInfoRendererFields(&info);
 #endif  // BUILDFLAG(IS_ANDROID)
   ProcessDied(info);
+}
+
+void RenderProcessHostImpl::BindChildHistogramFetcherFactory(
+    mojo::PendingReceiver<metrics::mojom::ChildHistogramFetcherFactory>
+        factory) {
+  BindReceiver(std::move(factory));
 }
 
 // static

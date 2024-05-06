@@ -5,6 +5,7 @@
 #ifndef CHROME_UPDATER_TEST_INTEGRATION_TEST_COMMANDS_H_
 #define CHROME_UPDATER_TEST_INTEGRATION_TEST_COMMANDS_H_
 
+#include <optional>
 #include <string>
 
 #include "base/memory/ref_counted.h"
@@ -31,6 +32,7 @@ class IntegrationTestCommands
   virtual void EnterTestMode(const GURL& update_url,
                              const GURL& crash_upload_url,
                              const GURL& device_management_url,
+                             const GURL& app_logo_url,
                              const base::TimeDelta& idle_timeout) const = 0;
   virtual void ExitTestMode() const = 0;
   virtual void SetGroupPolicies(const base::Value::Dict& values) const = 0;
@@ -40,19 +42,28 @@ class IntegrationTestCommands
   virtual void ExpectClean() const = 0;
   virtual void ExpectInstalled() const = 0;
   virtual void ExpectCandidateUninstalled() const = 0;
-  virtual void Install() const = 0;
-  virtual void InstallEulaRequired() const = 0;
+  virtual void Install(const base::Value::List& switches) const = 0;
   virtual void InstallUpdaterAndApp(
       const std::string& app_id,
       bool is_silent_install,
       const std::string& tag,
       const std::string& child_window_text_to_find,
-      bool always_launch_cmd) const = 0;
+      bool always_launch_cmd,
+      bool verify_app_logo_loaded) const = 0;
   virtual void SetActive(const std::string& app_id) const = 0;
   virtual void ExpectActive(const std::string& app_id) const = 0;
   virtual void ExpectNotActive(const std::string& app_id) const = 0;
   virtual void ExpectSelfUpdateSequence(ScopedServer* test_server) const = 0;
-  virtual void ExpectPing(ScopedServer* test_server, int event_type) const = 0;
+  virtual void ExpectPing(ScopedServer* test_server,
+                          int event_type,
+                          std::optional<GURL> target_url) const = 0;
+  virtual void ExpectAppCommandPing(ScopedServer* test_server,
+                                    const std::string& appid,
+                                    const std::string& appcommandid,
+                                    int errorcode,
+                                    int eventresult,
+                                    int event_type,
+                                    const base::Version& version) const = 0;
   virtual void ExpectUpdateCheckRequest(ScopedServer* test_server) const = 0;
   virtual void ExpectUpdateCheckSequence(
       ScopedServer* test_server,

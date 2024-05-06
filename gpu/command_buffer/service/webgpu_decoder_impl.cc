@@ -1165,6 +1165,8 @@ void WebGPUDecoderImpl::Destroy(bool have_context) {
   known_device_metadata_.clear();
   wire_server_ = nullptr;
 
+  dawn_instance_->DisconnectDawnPlatform();
+
   destroyed_ = true;
 }
 
@@ -1720,19 +1722,20 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
     // upload/readback to/from shared images.
     bool supports_external_textures = false;
 #if BUILDFLAG(IS_APPLE)
-    // On Apple, Chromium uses SharedTextureMemory to import IOSurfaces.
     wgpu::Adapter adapter_obj(adapter.Get());
     supports_external_textures =
         adapter_obj.HasFeature(wgpu::FeatureName::SharedTextureMemoryIOSurface);
+#elif BUILDFLAG(IS_ANDROID)
+    wgpu::Adapter adapter_obj(adapter.Get());
+    supports_external_textures = adapter_obj.HasFeature(
+        wgpu::FeatureName::SharedTextureMemoryAHardwareBuffer);
 #else
-    // On all other platforms, Chromium currently uses the platform-specific
-    // ExternalImage API surfaces.
-    // NOTE: These platforms should be switched to the corresponding
+    // Chromium is in the midst of being transitioned to SharedTextureMemory
+    // platform by platform. On platforms that have not yet been transitioned,
+    // Chromium uses the platform-specific ExternalImage API surfaces.  NOTE:
+    // These platforms should be switched to the corresponding
     // SharedTextureMemory feature check as they are converted to using
     // SharedTextureMemory.
-    // TODO(crbug.com/327111284): Change this to check for
-    // SharedTextureMemoryAHardwareBuffer on Android-Vulkan once we've made the
-    // switch there.
     supports_external_textures = adapter.SupportsExternalImages();
 #endif
     if (!(supports_external_textures || is_swiftshader)) {

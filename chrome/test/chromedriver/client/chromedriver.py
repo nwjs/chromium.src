@@ -52,6 +52,11 @@ def _ExceptionForLegacyResponse(response):
 def _ExceptionForStandardResponse(response):
   error = response['value']['error']
   msg = response['value']['message']
+
+  stacktrace = response['value']['stacktrace']
+  if stacktrace:
+      msg += '\n\nStackTrace:\n\n' + stacktrace
+
   return EXCEPTION_MAP.get(error, ChromeDriverException)(msg)
 
 class ChromeDriver(object):
@@ -594,6 +599,12 @@ class ChromeDriver(object):
   def FullScreenWindow(self):
     return self.ExecuteCommand(Command.FULLSCREEN_WINDOW)
 
+  def SetDevicePosture(self, posture):
+    return self.ExecuteCommand(Command.SET_DEVICE_POSTURE, {'posture': posture})
+
+  def ClearDevicePosture(self):
+    return self.ExecuteCommand(Command.CLEAR_DEVICE_POSTURE)
+
   def TakeScreenshot(self):
     return self.ExecuteCommand(Command.SCREENSHOT)
 
@@ -790,6 +801,9 @@ class ChromeDriver(object):
 
   def ResetCooldown(self):
     return self.ExecuteCommand(Command.RESET_COOLDOWN, {})
+
+  def RunBounceTrackingMitigations(self):
+    return self.ExecuteCommand(Command.RUN_BOUNCE_TRACKING_MITIGATIONS, {})
 
   def GetSessionId(self):
     if not hasattr(self, '_session_id'):

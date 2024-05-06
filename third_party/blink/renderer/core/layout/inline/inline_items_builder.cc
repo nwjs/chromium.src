@@ -715,7 +715,8 @@ void InlineItemsBuilderTemplate<MappingBuilder>::AppendCollapseWhitespace(
     // LayoutBR does not set preserve_newline, but should be preserved.
     if (UNLIKELY(space_run_has_newline && string.length() == 1 &&
                  layout_object && layout_object->IsBR())) {
-      if (UNLIKELY(is_text_combine_)) {
+      // https://drafts.csswg.org/css-ruby/#anon-gen-unbreak
+      if (UNLIKELY(is_text_combine_ || ruby_text_nesting_level_ > 0)) {
         AppendTextItem(TransformedString(" "), layout_object);
       } else {
         AppendForcedBreakCollapseWhitespace(layout_object);
@@ -1411,12 +1412,18 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterInline(
   }
 
   has_ruby_ = has_ruby_ || node->IsInlineRubyText();
-  if (node->IsInlineRubyText() && !node->Parent()->IsInlineRuby()) {
-    // This creates a ruby column with no ruby-base items.
-    AppendOpaque(InlineItem::kOpenRubyColumn,
-                 IsLtr(style->Direction()) ? kLeftToRightIsolateCharacter
-                                           : kRightToLeftIsolateCharacter,
-                 nullptr);
+  if (node->IsInlineRubyText()) {
+    ++ruby_text_nesting_level_;
+    if (!node->Parent()->IsInlineRuby()) {
+      // This creates a ruby column with a placeholder-only ruby-base.
+      AppendOpaque(InlineItem::kOpenRubyColumn,
+                   IsLtr(style->Direction()) ? kLeftToRightIsolateCharacter
+                                             : kRightToLeftIsolateCharacter,
+                   nullptr);
+      AppendOpaque(InlineItem::kRubyLinePlaceholder, nullptr);
+    } else {
+      AppendOpaque(InlineItem::kRubyLinePlaceholder, node->Parent());
+    }
   }
   AppendOpaque(InlineItem::kOpenTag, node);
 
@@ -1438,6 +1445,9 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterInline(
                  IsLtr(style->Direction()) ? kLeftToRightIsolateCharacter
                                            : kRightToLeftIsolateCharacter,
                  node);
+    AppendOpaque(InlineItem::kRubyLinePlaceholder, node);
+  } else if (node->IsInlineRubyText()) {
+    AppendOpaque(InlineItem::kRubyLinePlaceholder, node);
   }
 }
 
@@ -1459,6 +1469,8 @@ void InlineItemsBuilderTemplate<MappingBuilder>::ExitInline(
   if (node->IsInlineRuby()) {
     AppendOpaque(InlineItem::kCloseRubyColumn, kPopDirectionalIsolateCharacter,
                  node);
+  } else if (node->IsInlineRubyText()) {
+    AppendOpaque(InlineItem::kRubyLinePlaceholder, node);
   }
 
   if (NeedsBoxInfo()) {
@@ -1503,17 +1515,19 @@ void InlineItemsBuilderTemplate<MappingBuilder>::ExitInline(
   AppendOpaque(InlineItem::kCloseTag, node);
 
   if (node->IsInlineRubyText()) {
+    --ruby_text_nesting_level_;
     if (node->Parent()->IsInlineRuby()) {
       LayoutObject* ruby_container = node->Parent();
       AppendOpaque(InlineItem::kCloseRubyColumn,
                    kPopDirectionalIsolateCharacter, ruby_container);
-      // This produces empty ruby-columns if </ruby> follows.  LineBreaker
-      // should ignore such ruby-columns.
+      // This produces almost-empty ruby-columns if </ruby> follows.
+      // LineBreaker should ignore such ruby-columns.
       AppendOpaque(InlineItem::kOpenRubyColumn,
                    IsLtr(node->Parent()->Style()->Direction())
                        ? kLeftToRightIsolateCharacter
                        : kRightToLeftIsolateCharacter,
                    ruby_container);
+      AppendOpaque(InlineItem::kRubyLinePlaceholder, node);
     } else {
       AppendOpaque(InlineItem::kCloseRubyColumn,
                    kPopDirectionalIsolateCharacter, nullptr);

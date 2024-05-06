@@ -7,15 +7,19 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import static android.os.Build.VERSION_CODES.O_MR1;
 import static android.os.Build.VERSION_CODES.Q;
 
+import static androidx.test.espresso.Espresso.closeSoftKeyboard;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.longClick;
+import static androidx.test.espresso.action.ViewActions.pressImeActionButton;
+import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.contrib.RecyclerViewActions.actionOnItemAtPosition;
 import static androidx.test.espresso.matcher.ViewMatchers.Visibility.VISIBLE;
 import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withParent;
@@ -44,12 +48,17 @@ import static org.chromium.components.embedder_support.util.UrlConstants.NTP_URL
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -90,7 +99,6 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
@@ -103,6 +111,9 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabUtils;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
+import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupColorUtils;
@@ -123,7 +134,10 @@ import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.WebContentsUtils;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.PageTransition;
+import org.chromium.ui.modaldialog.DialogDismissalCause;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.test.util.DisableAnimationsTestRule;
 import org.chromium.ui.test.util.UiRestriction;
 import org.chromium.ui.test.util.ViewUtils;
@@ -149,7 +163,7 @@ import java.util.concurrent.atomic.AtomicReference;
     "force-fieldtrials=Study/Group"
 })
 @EnableFeatures({ChromeFeatureList.DEFER_TAB_SWITCHER_LAYOUT_CREATION})
-@DisableFeatures({ChromeFeatureList.ANDROID_HUB})
+@DisableFeatures({ChromeFeatureList.ANDROID_HUB, ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
 @Restriction({
     UiRestriction.RESTRICTION_TYPE_PHONE,
     Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE
@@ -174,7 +188,7 @@ public class TabSwitcherLayoutTest {
     @Rule
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(3)
+                    .setRevision(4)
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_START)
                     .build();
 
@@ -188,6 +202,7 @@ public class TabSwitcherLayoutTest {
     private Callback<Bitmap> mBitmapListener =
             (bitmap) -> mAllBitmaps.add(new WeakReference<>(bitmap));
     private TabSwitcher.TabListDelegate mTabListDelegate;
+    private ModalDialogManager mModalDialogManager;
 
     @Before
     public void setUp() throws ExecutionException {
@@ -213,6 +228,9 @@ public class TabSwitcherLayoutTest {
 
         CriteriaHelper.pollUiThread(
                 mActivityTestRule.getActivity().getTabModelSelector()::isTabStateInitialized);
+        mModalDialogManager =
+                TestThreadUtils.runOnUiThreadBlockingNoException(
+                        mActivityTestRule.getActivity()::getModalDialogManager);
 
         assertEquals(0, mTabListDelegate.getBitmapFetchCountForTesting());
     }
@@ -223,6 +241,7 @@ public class TabSwitcherLayoutTest {
                 ChromeNightModeTestUtils::tearDownNightModeAfterChromeActivityDestroyed);
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(null));
+        dismissAllModalDialogs();
     }
 
     @Test
@@ -388,6 +407,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
         mergeAllNormalTabsToAGroup(cta);
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
         // Hardcode TabGroupColorId.GREY as the tab group color for render testing purposes.
         Tab tab = cta.getTabModelSelector().getCurrentTab();
@@ -1646,33 +1666,6 @@ public class TabSwitcherLayoutTest {
 
     @Test
     @MediumTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANT_START,
-        ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"
-    })
-    // TODO(crbug.com/1112557): Remove this test when critical tests in StartSurfaceLayoutTest are
-    // running with InstantStart on.
-    public void testSetup_WithInstantStart() {
-        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
-        enterTabSwitcher(cta);
-        verifyTabSwitcherCardCount(cta, 1);
-
-        // Verify TabModelObserver is correctly setup by checking if tab switcher changes with tab
-        // closure.
-        closeFirstTabInTabSwitcher(cta);
-        verifyTabSwitcherCardCount(cta, 0);
-
-        // Verify TabGroupModelFilter is correctly setup by checking if tab switcher changes with
-        // tab grouping.
-        createTabs(cta, false, 3);
-        enterTabSwitcher(cta);
-        verifyTabSwitcherCardCount(cta, 2);
-        mergeAllNormalTabsToAGroup(cta);
-        verifyTabSwitcherCardCount(cta, 1);
-    }
-
-    @Test
-    @MediumTest
     public void testUndoGroupClosureInTabSwitcher() {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
@@ -1704,9 +1697,208 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
         mergeAllNormalTabsToAGroup(cta);
+
+        // Expect that the the dialog is dismissed via another action.
+        HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.TabGroupParity.TabGroupCreationDialogResultAction", 2);
+
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         // Verify the color icon exists.
         onView(allOf(withId(R.id.tab_favicon), withParent(withId(R.id.card_view))))
                 .check(matches(isDisplayed()));
+        watcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
+    public void testTabGroupCreation_acceptInputValues() {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 2);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 2);
+
+        // Create a tab group.
+        mergeAllNormalTabsToAGroup(cta);
+        // Verify the creation dialog exists.
+        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
+        onViewWaiting(withId(R.id.creation_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+
+        // Change the title.
+        editGroupCreationDialogTitle(cta, "Test");
+        // Change the color.
+        String blueColor =
+                cta.getString(R.string.accessibility_tab_group_color_picker_color_item_blue);
+        String notSelectedStringBlue =
+                cta.getString(
+                        R.string
+                                .accessibility_tab_group_color_picker_color_item_not_selected_description,
+                        blueColor);
+        onView(withContentDescription(notSelectedStringBlue)).perform(click());
+
+        // Expect a changed color and title selection to be recorded and an acceptance action.
+        var histograms =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.TabGroupParity.TabGroupCreationFinalSelections", 3)
+                        .expectIntRecord(
+                                "Android.TabGroupParity.TabGroupCreationDialogResultAction", 0)
+                        .build();
+
+        // Accept the change.
+        onView(withId(R.id.positive_button)).perform(click());
+        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
+        // Check that the title change is reflected.
+        verifyFirstCardTitle("Test");
+        // Verify the color icon exists.
+        verifyFirstCardColor(TabGroupColorId.BLUE);
+        histograms.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
+    public void testTabGroupCreation_acceptNullTitle() {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 2);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 2);
+
+        // Create a tab group.
+        mergeAllNormalTabsToAGroup(cta);
+        // Verify the creation dialog exists.
+        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
+        onViewWaiting(withId(R.id.creation_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+
+        // Close the soft keyboard that appears when the dialog is shown.
+        closeSoftKeyboard();
+
+        // Expect changed color and title selection to be recorded.
+        HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.TabGroupParity.TabGroupCreationFinalSelections", 0);
+
+        // Accept without changing the title.
+        onView(withId(R.id.positive_button)).perform(click());
+        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
+
+        // Check that the title change is reflected.
+        verifyFirstCardTitle("2 tabs");
+        verifyFirstCardColor(TabGroupColorId.GREY);
+        watcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
+    public void testTabGroupCreation_dismissEmptyTitle() {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 2);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 2);
+
+        // Create a tab group.
+        mergeAllNormalTabsToAGroup(cta);
+        // Verify the creation dialog exists.
+        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
+        onViewWaiting(withId(R.id.creation_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+
+        // Close the soft keyboard that appears when the dialog is shown.
+        closeSoftKeyboard();
+
+        // Change the title.
+        editGroupCreationDialogTitle(cta, "");
+        // Change the color.
+        String blueColor =
+                cta.getString(R.string.accessibility_tab_group_color_picker_color_item_blue);
+        String notSelectedStringBlue =
+                cta.getString(
+                        R.string
+                                .accessibility_tab_group_color_picker_color_item_not_selected_description,
+                        blueColor);
+        onView(withContentDescription(notSelectedStringBlue)).perform(click());
+
+        // Enact a backpress to dismiss the dialog.
+        Espresso.pressBack();
+        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
+        // Check that the title change has reverted to the default null state.
+        verifyFirstCardTitle("2 tabs");
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
+    public void testTabGroupCreation_rejectInvalidTitle() {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 2);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 2);
+
+        // Create a tab group.
+        mergeAllNormalTabsToAGroup(cta);
+        // Verify the creation dialog exists.
+        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
+        onViewWaiting(withId(R.id.creation_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+
+        // Change the title and accept.
+        editGroupCreationDialogTitle(cta, "");
+        onView(withId(R.id.positive_button)).perform(click());
+
+        // Verify that the change was rejected and the dialog is still showing.
+        onViewWaiting(withId(R.id.creation_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+
+        // Exit the dialog.
+        Espresso.pressBack();
+        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
+    public void testTabGroupCreation_dismissSavesState() {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 2);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 2);
+
+        // Create a tab group.
+        mergeAllNormalTabsToAGroup(cta);
+        // Verify the creation dialog exists.
+        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
+        onViewWaiting(withId(R.id.creation_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+
+        // Change the title.
+        editGroupCreationDialogTitle(cta, "Test");
+        // Change the color.
+        String blueColor =
+                cta.getString(R.string.accessibility_tab_group_color_picker_color_item_blue);
+        String notSelectedStringBlue =
+                cta.getString(
+                        R.string
+                                .accessibility_tab_group_color_picker_color_item_not_selected_description,
+                        blueColor);
+        onView(withContentDescription(notSelectedStringBlue)).perform(click());
+
+        // Expect that the dismiss action is recorded.
+        HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.TabGroupParity.TabGroupCreationDialogResultAction", 1);
+
+        // Enact a backpress to dismiss the dialog.
+        Espresso.pressBack();
+        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
+        // Check that the title change is reflected.
+        verifyFirstCardTitle("Test");
+        // Verify the color icon exists.
+        verifyFirstCardColor(TabGroupColorId.BLUE);
+        watcher.assertExpected();
     }
 
     @Test
@@ -1784,46 +1976,6 @@ public class TabSwitcherLayoutTest {
     @Test
     @MediumTest
     @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
-    public void testUndoGroupMergeInTabSwitcher_TabToTab() {
-        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
-        SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
-        createTabs(cta, false, 2);
-        enterTabSwitcher(cta);
-        verifyTabSwitcherCardCount(cta, 2);
-
-        // Get the next suggested color id.
-        int nextSuggestedColorId =
-                TabGroupColorUtils.getNextSuggestedColorId(
-                        (TabGroupModelFilter)
-                                cta.getTabModelSelectorSupplier()
-                                        .get()
-                                        .getTabModelFilterProvider()
-                                        .getCurrentTabModelFilter());
-
-        // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-
-        // Assert that the suggested default color was set.
-        TabModel normalTabModel = cta.getTabModelSelectorSupplier().get().getModel(false);
-        int tabGroupRootId = normalTabModel.getTabAt(0).getRootId();
-        assertEquals(nextSuggestedColorId, TabGroupColorUtils.getTabGroupColor(tabGroupRootId));
-
-        // Undo merge in tab switcher.
-        verifyTabSwitcherCardCount(cta, 1);
-        assertEquals("2", snackbarManager.getCurrentSnackbarForTesting().getTextForTesting());
-        CriteriaHelper.pollInstrumentationThread(TabUiTestHelper::verifyUndoBarShowingAndClickUndo);
-        verifyTabSwitcherCardCount(cta, 2);
-
-        // Assert the color is no longer set for that group.
-        assertEquals(INVALID_COLOR_ID, TabGroupColorUtils.getTabGroupColor(tabGroupRootId));
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
     public void testUndoGroupMergeInTabSwitcher_TabToGroupAdjacent() {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
@@ -1846,13 +1998,10 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> filter.setTabGroupTitle(normalTabModel.getTabAt(0).getRootId(), "Foo"));
         verifyTabSwitcherCardCount(cta, 2);
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-        assertEquals("2", snackbarManager.getCurrentSnackbarForTesting().getTextForTesting());
 
         // Assert default color was set properly.
         assertEquals(
@@ -1920,11 +2069,8 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(3), normalTabModel.getTabAt(4)));
         createTabGroup(cta, false, tabGroup);
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 4);
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-        assertEquals("2", snackbarManager.getCurrentSnackbarForTesting().getTextForTesting());
 
         // Assert default color 1 was set properly.
         assertEquals(
@@ -1945,16 +2091,13 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup2);
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 3);
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     filter.setTabGroupTitle(normalTabModel.getTabAt(3).getRootId(), "Foo");
                     filter.setTabGroupTitle(normalTabModel.getTabAt(1).getRootId(), "Bar");
                 });
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-        assertEquals("2", snackbarManager.getCurrentSnackbarForTesting().getTextForTesting());
 
         // Assert default color 2 was set properly.
         assertEquals(
@@ -2026,6 +2169,7 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         int[] ungroupedRootId = new int[1];
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -2034,10 +2178,6 @@ public class TabSwitcherLayoutTest {
                     filter.setTabGroupTitle(ungroupedRootId[0], "Bar");
                 });
         verifyTabSwitcherCardCount(cta, 2);
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-        assertEquals("2", snackbarManager.getCurrentSnackbarForTesting().getTextForTesting());
 
         // Assert default color was set properly.
         assertEquals(
@@ -2100,11 +2240,8 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-        assertEquals("2", snackbarManager.getCurrentSnackbarForTesting().getTextForTesting());
 
         // Assert default color was set properly.
         assertEquals(
@@ -2112,8 +2249,8 @@ public class TabSwitcherLayoutTest {
                 TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
         TestThreadUtils.runOnUiThreadBlocking(() -> snackbarManager.dismissAllSnackbars());
 
-        // Temporarily save the rootID to check during closure.
-        int groupRootId = normalTabModel.getTabAt(1).getRootId();
+        // Temporarily save the tab to get the rootId later.
+        Tab tab2 = normalTabModel.getTabAt(1);
 
         closeFirstTabInTabSwitcher(cta);
         assertTrue(
@@ -2121,8 +2258,8 @@ public class TabSwitcherLayoutTest {
                         instanceof UndoBarController);
         verifyTabSwitcherCardCount(cta, 0);
 
-        // Assert default color still persists.
-        assertEquals(nextSuggestedColorId, TabGroupColorUtils.getTabGroupColor(groupRootId));
+        // Default color should still persist, though the root id might change.
+        assertEquals(nextSuggestedColorId, TabGroupColorUtils.getTabGroupColor(tab2.getRootId()));
 
         CriteriaHelper.pollInstrumentationThread(TabUiTestHelper::verifyUndoBarShowingAndClickUndo);
         verifyTabSwitcherCardCount(cta, 1);
@@ -2160,11 +2297,8 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
+        verifyGroupCreationDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-        assertEquals("2", snackbarManager.getCurrentSnackbarForTesting().getTextForTesting());
 
         // Assert default color was set properly.
         assertEquals(
@@ -2173,7 +2307,8 @@ public class TabSwitcherLayoutTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> snackbarManager.dismissAllSnackbars());
 
         // Temporarily save the rootID to check during closure.
-        int groupRootId = normalTabModel.getTabAt(1).getRootId();
+        Tab tab2 = normalTabModel.getTabAt(1);
+        int groupRootId = tab2.getRootId();
 
         closeFirstTabInTabSwitcher(cta);
         assertTrue(
@@ -2181,13 +2316,14 @@ public class TabSwitcherLayoutTest {
                         instanceof UndoBarController);
         verifyTabSwitcherCardCount(cta, 0);
 
-        // Assert default color still persists.
-        assertEquals(nextSuggestedColorId, TabGroupColorUtils.getTabGroupColor(groupRootId));
+        // Default color should still persist, though the root id might change.
+        assertEquals(nextSuggestedColorId, TabGroupColorUtils.getTabGroupColor(tab2.getRootId()));
 
         TestThreadUtils.runOnUiThreadBlocking(() -> snackbarManager.dismissAllSnackbars());
 
         // Assert default color is cleared.
         assertEquals(INVALID_COLOR_ID, TabGroupColorUtils.getTabGroupColor(groupRootId));
+        assertEquals(INVALID_COLOR_ID, TabGroupColorUtils.getTabGroupColor(tab2.getRootId()));
     }
 
     // TODO(crbug/324919909): Delete this test once Hub is launched. It is migrated to
@@ -2507,5 +2643,94 @@ public class TabSwitcherLayoutTest {
                                 TabUiTestHelper.getTabSwitcherAncestorId(
                                         mActivityTestRule.getActivity()))),
                 withId(R.id.tab_list_recycler_view));
+    }
+
+    private void editGroupCreationDialogTitle(ChromeTabbedActivity cta, String title) {
+        onView(withId(R.id.title_input_text))
+                .perform(click())
+                .perform(replaceText(title))
+                .perform(pressImeActionButton());
+        // Wait until the keyboard is hidden to make sure the edit has taken effect.
+        KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
+        CriteriaHelper.pollUiThread(
+                () -> !delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
+    }
+
+    private void verifyFirstCardTitle(String title) {
+        onView(
+                        allOf(
+                                isDescendantOfA(
+                                        withId(
+                                                TabUiTestHelper.getTabSwitcherAncestorId(
+                                                        mActivityTestRule.getActivity()))),
+                                withId(R.id.tab_list_recycler_view)))
+                .check(
+                        (v, noMatchException) -> {
+                            if (noMatchException != null) throw noMatchException;
+
+                            RecyclerView recyclerView = (RecyclerView) v;
+                            TextView firstCardTitleTextView =
+                                    recyclerView
+                                            .findViewHolderForAdapterPosition(0)
+                                            .itemView
+                                            .findViewById(R.id.tab_title);
+                            assertEquals(title, firstCardTitleTextView.getText().toString());
+                        });
+    }
+
+    private void verifyFirstCardColor(@TabGroupColorId int color) {
+        onView(allOf(withId(R.id.tab_favicon), withParent(withId(R.id.card_view))))
+                .check(
+                        (v, noMatchException) -> {
+                            if (noMatchException != null) throw noMatchException;
+
+                            ImageView imageView = (ImageView) v;
+                            LayerDrawable layerDrawable = (LayerDrawable) imageView.getDrawable();
+                            GradientDrawable drawable =
+                                    (GradientDrawable) layerDrawable.getDrawable(1);
+
+                            assertEquals(
+                                    ColorStateList.valueOf(
+                                            ColorPickerUtils.getTabGroupColorPickerItemColor(
+                                                    mActivityTestRule.getActivity(), color, false)),
+                                    drawable.getColor());
+                        });
+    }
+
+    private void verifyGroupCreationDialogOpenedAndDismiss(ChromeTabbedActivity cta) {
+        // Verify that the modal dialog is now showing.
+        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
+        // Verify the creation dialog exists.
+        onViewWaiting(withId(R.id.creation_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+        // Wait until the keyboard is showing.
+        KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
+        CriteriaHelper.pollUiThread(
+                () -> delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
+        // Dismiss the tab group creation dialog.
+        dismissAllModalDialogs();
+        // Verify that the modal dialog is now hidden.
+        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
+    }
+
+    private void verifyModalDialogShowingAnimationCompleteInTabSwitcher() {
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Criteria.checkThat(mModalDialogManager.isShowing(), Matchers.is(true));
+                });
+    }
+
+    private void verifyModalDialogHidingAnimationCompleteInTabSwitcher() {
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Criteria.checkThat(mModalDialogManager.isShowing(), Matchers.is(false));
+                });
+    }
+
+    private void dismissAllModalDialogs() {
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mModalDialogManager.dismissAllDialogs(DialogDismissalCause.UNKNOWN);
+                });
     }
 }

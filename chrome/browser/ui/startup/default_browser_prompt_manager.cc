@@ -3,16 +3,16 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/startup/default_browser_prompt_manager.h"
+
 #include <memory>
 
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/memory/singleton.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/startup/default_browser_infobar_delegate.h"
@@ -29,78 +29,85 @@ DefaultBrowserPromptManager* DefaultBrowserPromptManager::GetInstance() {
 }
 
 // static
-void DefaultBrowserPromptManager::MaybeJoinDefaultBrowserPromptCohort() {
+void DefaultBrowserPromptManager::ResetPromptPrefs(Profile* profile) {
+  profile->GetPrefs()->ClearPref(prefs::kDefaultBrowserLastDeclined);
+
   PrefService* local_state = g_browser_process->local_state();
-  if (!local_state) {
-    return;  // Can be null in unit tests;
-  }
-
-  std::string active_study_group =
-      features::kDefaultBrowserPromptRefreshStudyGroup.Get();
-  // If the study group isn't set, don't add the user to the cohort.
-  if (active_study_group.empty()) {
-    return;
-  }
-
-  local_state->SetString(prefs::kDefaultBrowserPromptRefreshStudyGroup,
-                         active_study_group);
-  DefaultBrowserPromptManager::RegisterSyntheticFieldTrial(active_study_group);
+  local_state->ClearPref(prefs::kDefaultBrowserLastDeclinedTime);
+  local_state->ClearPref(prefs::kDefaultBrowserDeclinedCount);
+  local_state->ClearPref(prefs::kDefaultBrowserFirstShownTime);
 }
 
 // static
-void DefaultBrowserPromptManager::EnsureStickToDefaultBrowserPromptCohort() {
-  PrefService* local_state = g_browser_process->local_state();
-  if (!local_state) {
-    return;  // Can be null in unit tests;
-  }
+void DefaultBrowserPromptManager::UpdatePrefsForDismissedPrompt(
+    Profile* profile) {
+  base::Time now = base::Time::Now();
+  profile->GetPrefs()->SetInt64(prefs::kDefaultBrowserLastDeclined,
+                                now.ToInternalValue());
 
-  auto enrolled_study_group =
-      local_state->GetString(prefs::kDefaultBrowserPromptRefreshStudyGroup);
-  if (enrolled_study_group.empty()) {
-    // The user was not enrolled or exited the study at some point.
+  PrefService* local_state = g_browser_process->local_state();
+  local_state->SetTime(prefs::kDefaultBrowserLastDeclinedTime, now);
+  local_state->SetInteger(
+      prefs::kDefaultBrowserDeclinedCount,
+      local_state->GetInteger(prefs::kDefaultBrowserDeclinedCount) + 1);
+  local_state->ClearPref(prefs::kDefaultBrowserFirstShownTime);
+}
+
+// static
+void DefaultBrowserPromptManager::MaybeResetAppMenuPromptPrefs(
+    Profile* profile) {
+  if (!base::FeatureList::IsEnabled(features::kDefaultBrowserPromptRefresh) ||
+      !features::kShowDefaultBrowserAppMenuChip.Get()) {
+    g_browser_process->local_state()->ClearPref(
+        prefs::kDefaultBrowserFirstShownTime);
     return;
   }
 
-  DefaultBrowserPromptManager::RegisterSyntheticFieldTrial(
-      enrolled_study_group);
+  if (!ShouldShowAppMenuPrompt()) {
+    // Found that app menu should no longer be shown. Triggers an implicit
+    // dismissal so that the subsequent call to ShouldShowPrompts() will return
+    // false.
+    UpdatePrefsForDismissedPrompt(profile);
+  }
 }
 
-DefaultBrowserPromptManager::DefaultBrowserPromptManager() = default;
-
-DefaultBrowserPromptManager::~DefaultBrowserPromptManager() = default;
-
-void DefaultBrowserPromptManager::ShowPrompt() {
-  browser_tab_strip_tracker_ =
-      std::make_unique<BrowserTabStripTracker>(this, this);
-  browser_tab_strip_tracker_->Init();
+void DefaultBrowserPromptManager::AddObserver(Observer* observer) {
+  observers_.AddObserver(observer);
+}
+void DefaultBrowserPromptManager::RemoveObserver(Observer* observer) {
+  observers_.RemoveObserver(observer);
 }
 
-void DefaultBrowserPromptManager::CreateInfoBarForWebContents(
-    content::WebContents* web_contents,
-    Profile* profile) {
-  // Ensure that an infobar hasn't already been created.
-  CHECK(!infobars_.contains(web_contents));
+void DefaultBrowserPromptManager::MaybeShowPrompt() {
+  CHECK(base::FeatureList::IsEnabled(features::kDefaultBrowserPromptRefresh));
 
-  infobars::InfoBar* infobar = chrome::DefaultBrowserInfoBarDelegate::Create(
-      infobars::ContentInfoBarManager::FromWebContents(web_contents), profile);
-  infobars_[web_contents] = infobar;
-
-  static_cast<ConfirmInfoBarDelegate*>(infobar->delegate())->AddObserver(this);
-
-  auto* infobar_manager =
-      infobars::ContentInfoBarManager::FromWebContents(web_contents);
-  infobar_manager->AddObserver(this);
-}
-
-void DefaultBrowserPromptManager::CloseAllInfoBars() {
-  browser_tab_strip_tracker_.reset();
-
-  for (const auto& infobars_entry : infobars_) {
-    infobars_entry.second->owner()->RemoveObserver(this);
-    infobars_entry.second->RemoveSelf();
+  if (features::kShowDefaultBrowserAppMenuItem.Get()) {
+    SetAppMenuItemVisibility(true);
   }
 
-  infobars_.clear();
+  if (!ShouldShowPrompts()) {
+    return;
+  }
+
+  if (features::kShowDefaultBrowserAppMenuChip.Get()) {
+    SetShowAppMenuPromptVisibility(true);
+  }
+
+  if (features::kShowDefaultBrowserInfoBar.Get()) {
+    browser_tab_strip_tracker_ =
+        std::make_unique<BrowserTabStripTracker>(this, this);
+    browser_tab_strip_tracker_->Init();
+  }
+}
+
+void DefaultBrowserPromptManager::CloseAllPrompts(CloseReason close_reason) {
+  CloseAllInfoBars();
+
+  SetShowAppMenuPromptVisibility(false);
+
+  if (close_reason == CloseReason::kAccept) {
+    SetAppMenuItemVisibility(false);
+  }
 }
 
 bool DefaultBrowserPromptManager::ShouldTrackBrowser(Browser* browser) {
@@ -136,9 +143,9 @@ void DefaultBrowserPromptManager::OnInfoBarRemoved(infobars::InfoBar* infobar,
   static_cast<ConfirmInfoBarDelegate*>(infobar->delegate())
       ->RemoveObserver(this);
 
-  if (user_initiated_close_pending_) {
-    CloseAllInfoBars();
-    user_initiated_close_pending_ = false;
+  if (user_initiated_info_bar_close_pending_.has_value()) {
+    CloseAllPrompts(user_initiated_info_bar_close_pending_.value());
+    user_initiated_info_bar_close_pending_.reset();
   }
 }
 
@@ -147,19 +154,131 @@ void DefaultBrowserPromptManager::OnAccept() {
                               g_browser_process->local_state()->GetInteger(
                                   prefs::kDefaultBrowserDeclinedCount) +
                                   1);
-  user_initiated_close_pending_ = true;
+  user_initiated_info_bar_close_pending_ = CloseReason::kAccept;
 }
 
 void DefaultBrowserPromptManager::OnDismiss() {
-  user_initiated_close_pending_ = true;
+  user_initiated_info_bar_close_pending_ = CloseReason::kDismiss;
+}
+
+DefaultBrowserPromptManager::DefaultBrowserPromptManager() = default;
+
+DefaultBrowserPromptManager::~DefaultBrowserPromptManager() = default;
+
+// static
+bool DefaultBrowserPromptManager::ShouldShowPrompts() {
+  PrefService* local_state = g_browser_process->local_state();
+
+  const int declined_count =
+      local_state->GetInteger(prefs::kDefaultBrowserDeclinedCount);
+  const base::Time last_declined_time =
+      local_state->GetTime(prefs::kDefaultBrowserLastDeclinedTime);
+  const int max_prompt_count = features::kMaxPromptCount.Get();
+
+  // A negative value for the max prompt count indicates that the prompt
+  // should be shown indefinitely. Otherwise, don't show the prompt if
+  // declined count equals or exceeds the max prompt count. A max prompt count
+  // of zero should mean that the prompt is never shown.
+  if (max_prompt_count >= 0 && declined_count >= max_prompt_count) {
+    return false;
+  }
+
+  // Show if the user has never declined the prompt.
+  if (declined_count == 0) {
+    return true;
+  }
+
+  // Show if it has been long enough since the last declined time
+  base::TimeDelta reprompt_duration =
+      features::kRepromptDuration.Get() *
+      std::pow(features::kRepromptDurationMultiplier.Get(), declined_count - 1);
+  return (base::Time::Now() - last_declined_time) > reprompt_duration;
 }
 
 // static
-void DefaultBrowserPromptManager::RegisterSyntheticFieldTrial(
-    const std::string& group_name) {
-  CHECK(!group_name.empty());
+bool DefaultBrowserPromptManager::ShouldShowAppMenuPrompt() {
+  PrefService* local_state = g_browser_process->local_state();
+  const PrefService::Preference* first_shown_time_pref =
+      local_state->FindPreference(prefs::kDefaultBrowserFirstShownTime);
+  base::Time first_shown_time =
+      local_state->GetTime(prefs::kDefaultBrowserFirstShownTime);
 
-  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-      "DefaultBrowserPromptRefreshSynthetic", group_name,
-      variations::SyntheticTrialAnnotationMode::kCurrentLog);
+  return first_shown_time_pref->IsDefaultValue() ||
+         (base::Time::Now() - first_shown_time) <
+             features::kDefaultBrowserAppMenuDuration.Get();
+}
+
+void DefaultBrowserPromptManager::CreateInfoBarForWebContents(
+    content::WebContents* web_contents,
+    Profile* profile) {
+  // Ensure that an infobar hasn't already been created.
+  CHECK(!infobars_.contains(web_contents));
+
+  infobars::InfoBar* infobar = chrome::DefaultBrowserInfoBarDelegate::Create(
+      infobars::ContentInfoBarManager::FromWebContents(web_contents), profile);
+  infobars_[web_contents] = infobar;
+
+  static_cast<ConfirmInfoBarDelegate*>(infobar->delegate())->AddObserver(this);
+
+  auto* infobar_manager =
+      infobars::ContentInfoBarManager::FromWebContents(web_contents);
+  infobar_manager->AddObserver(this);
+}
+
+void DefaultBrowserPromptManager::CloseAllInfoBars() {
+  browser_tab_strip_tracker_.reset();
+
+  for (const auto& infobars_entry : infobars_) {
+    infobars_entry.second->owner()->RemoveObserver(this);
+    infobars_entry.second->RemoveSelf();
+  }
+
+  infobars_.clear();
+}
+
+void DefaultBrowserPromptManager::SetShowAppMenuPromptVisibility(bool show) {
+  if (show == show_app_menu_prompt_) {
+    return;
+  }
+
+  if (show) {
+    PrefService* local_state = g_browser_process->local_state();
+    base::TimeDelta app_menu_remaining_duration;
+    if (local_state->FindPreference(prefs::kDefaultBrowserFirstShownTime)
+            ->IsDefaultValue()) {
+      local_state->SetTime(prefs::kDefaultBrowserFirstShownTime,
+                           base::Time::Now());
+      app_menu_remaining_duration =
+          features::kDefaultBrowserAppMenuDuration.Get();
+    } else {
+      base::Time first_shown_time =
+          local_state->GetTime(prefs::kDefaultBrowserFirstShownTime);
+      // There is a chance the remaining duration is negative due to time
+      // passing since `ShouldShowAppMenuPrompt()` was last checked, so clamp to
+      // >= 0.
+      app_menu_remaining_duration =
+          std::max(features::kDefaultBrowserAppMenuDuration.Get() -
+                       (base::Time::Now() - first_shown_time),
+                   base::Microseconds(0));
+    }
+
+    app_menu_prompt_dismiss_timer_.Start(
+        FROM_HERE, app_menu_remaining_duration, base::BindOnce([]() {
+          UpdatePrefsForDismissedPrompt(
+              BrowserList::GetInstance()->GetLastActive()->profile());
+          DefaultBrowserPromptManager::GetInstance()->CloseAllPrompts(
+              CloseReason::kDismiss);
+        }));
+  } else {
+    app_menu_prompt_dismiss_timer_.Stop();
+  }
+
+  show_app_menu_prompt_ = show;
+  for (auto& obs : observers_) {
+    obs.OnShowAppMenuPromptChanged();
+  }
+}
+
+void DefaultBrowserPromptManager::SetAppMenuItemVisibility(bool show) {
+  show_app_menu_item_ = show;
 }

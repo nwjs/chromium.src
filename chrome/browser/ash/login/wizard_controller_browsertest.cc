@@ -1271,7 +1271,7 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateTest,
   EXPECT_TRUE(StartupUtils::IsOobeCompleted());
 }
 
-// TODO(crbug.com/911661) Flaky time outs on Linux ChromiumOS ASan LSan bot.
+// TODO(crbug.com/41429868) Flaky time outs on Linux ChromiumOS ASan LSan bot.
 #if defined(ADDRESS_SANITIZER)
 #define MAYBE_ControlFlowDeviceDisabled DISABLED_ControlFlowDeviceDisabled
 #else
@@ -1355,6 +1355,15 @@ class WizardControllerDeviceStateExplicitRequirementTest
       fake_statistics_provider_.SetMachineStatistic(system::kCheckEnrollmentKey,
                                                     "1");
     }
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    WizardControllerDeviceStateTest::SetUpCommandLine(command_line);
+
+    // Explicitly test legacy state determination flow.
+    command_line->AppendSwitchASCII(
+        switches::kEnterpriseEnableUnifiedStateDetermination,
+        policy::AutoEnrollmentTypeChecker::kUnifiedStateDeterminationNever);
   }
 
   // Returns true if forced re-enrollment was explicitly required (which

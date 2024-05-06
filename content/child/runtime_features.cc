@@ -36,6 +36,7 @@
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/buildflags.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/loader/referrer_utils.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
@@ -185,8 +186,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
       blinkFeatureToBaseFeatureMapping[] = {
           {wf::EnableAccessibilityAriaVirtualContent,
            raw_ref(features::kEnableAccessibilityAriaVirtualContent)},
-          {wf::EnableAccessibilityExposeHTMLElement,
-           raw_ref(features::kEnableAccessibilityExposeHTMLElement)},
 #if BUILDFLAG(IS_ANDROID)
           {wf::EnableAccessibilityPageZoom,
            raw_ref(features::kAccessibilityPageZoom)},
@@ -210,7 +209,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            raw_ref(features::kConsolidatedMovementXY)},
           {wf::EnableCooperativeScheduling,
            raw_ref(features::kCooperativeScheduling)},
-          {wf::EnableDevicePosture, raw_ref(features::kDevicePosture)},
           {wf::EnableDigitalGoods, raw_ref(features::kDigitalGoodsApi),
            kSetOnlyIfOverridden},
           {wf::EnableDocumentPolicyNegotiation,
@@ -218,15 +216,9 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableEyeDropperAPI, raw_ref(features::kEyeDropper),
            kSetOnlyIfOverridden},
           {wf::EnableFedCm, raw_ref(features::kFedCm), kSetOnlyIfOverridden},
-          {wf::EnableFedCmAutoSelectedFlag,
-           raw_ref(features::kFedCmAutoSelectedFlag), kSetOnlyIfOverridden},
           {wf::EnableFedCmButtonMode, raw_ref(features::kFedCmButtonMode),
            kSetOnlyIfOverridden},
           {wf::EnableFedCmAuthz, raw_ref(features::kFedCmAuthz), kDefault},
-          {wf::EnableFedCmError, raw_ref(features::kFedCmError),
-           kSetOnlyIfOverridden},
-          {wf::EnableFedCmDomainHint, raw_ref(features::kFedCmDomainHint),
-           kSetOnlyIfOverridden},
           {wf::EnableFedCmIdPRegistration,
            raw_ref(features::kFedCmIdPRegistration), kDefault},
           {wf::EnableFedCmIdpSigninStatus,
@@ -242,12 +234,10 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            kSetOnlyIfOverridden},
           {wf::EnableSharedStorageAPIM118,
            raw_ref(blink::features::kSharedStorageAPIM118), kDefault},
-          {wf::EnableSharedStorageAPIM124,
-           raw_ref(blink::features::kSharedStorageAPIM124), kDefault},
+          {wf::EnableSharedStorageAPIM125,
+           raw_ref(blink::features::kSharedStorageAPIM125), kDefault},
           {wf::EnableFedCmMultipleIdentityProviders,
            raw_ref(features::kFedCmMultipleIdentityProviders), kDefault},
-          {wf::EnableFedCmDisconnect, raw_ref(features::kFedCmDisconnect),
-           kSetOnlyIfOverridden},
           {wf::EnableFedCmSelectiveDisclosure,
            raw_ref(features::kFedCmSelectiveDisclosure), kDefault},
           {wf::EnableFencedFrames,
@@ -308,7 +298,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            raw_ref(features::kUserActivationSameOriginVisibility)},
           {wf::EnableVideoPlaybackQuality,
            raw_ref(features::kVideoPlaybackQuality)},
-          {wf::EnableViewportSegments, raw_ref(features::kViewportSegments)},
           {wf::EnableWebBluetooth, raw_ref(features::kWebBluetooth),
            kSetOnlyIfOverridden},
           {wf::EnableWebBluetoothGetDevices,
@@ -351,8 +340,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
 #endif
           {wf::EnableRemoveMobileViewportDoubleTap,
            raw_ref(features::kRemoveMobileViewportDoubleTap)},
-          {wf::EnableServiceWorkerBypassFetchHandler,
-           raw_ref(features::kServiceWorkerBypassFetchHandler)},
           {wf::EnableServiceWorkerStaticRouter,
            raw_ref(features::kServiceWorkerStaticRouter)},
       };
@@ -399,6 +386,9 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            raw_ref(features::kCookieDeprecationFacilitatedTesting)},
           {"Database", raw_ref(blink::features::kWebSQLAccess),
            kSetOnlyIfOverridden},
+          {"DocumentPolicyIncludeJSCallStacksInCrashReports",
+           raw_ref(blink::features::
+                       kDocumentPolicyIncludeJSCallStacksInCrashReports)},
           {"FencedFramesLocalUnpartitionedDataAccess",
            raw_ref(blink::features::kFencedFramesLocalUnpartitionedDataAccess)},
           {"Fledge", raw_ref(blink::features::kFledge), kSetOnlyIfOverridden},
@@ -610,21 +600,6 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
         break;
     }
   }
-
-  if (base::FeatureList::IsEnabled(blink::features::kPendingBeaconAPI)) {
-    // The Chromium flag `kPendingBeaconAPI` is true, which enables the
-    // parts of the API's implementation in Chromium.
-    if (blink::features::kPendingBeaconAPIRequiresOriginTrial.Get()) {
-      // `kPendingBeaconAPIRequiresOriginTrial`=true specifies that
-      // execution context needs to have an origin trial token in order to use
-      // the PendingBeacon web API.
-      // So disable the RuntimeEnabledFeature flag PendingBeaconAPI here and let
-      // the existence of OT token to decide whether the web API is enabled.
-      WebRuntimeFeatures::EnablePendingBeaconAPI(false);
-    } else {
-      WebRuntimeFeatures::EnablePendingBeaconAPI(true);
-    }
-  }
 }
 
 // Ensures that the various ways of enabling/disabling features do not produce
@@ -700,15 +675,15 @@ void ResolveInvalidConfigurations() {
     WebRuntimeFeatures::EnableSharedStorageAPIM118(false);
   }
 
-  if (!base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM124) ||
+  if (!base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM125) ||
       !base::FeatureList::IsEnabled(blink::features::kSharedStorageAPI)) {
-    LOG_IF(WARNING, WebRuntimeFeatures::IsSharedStorageAPIM124Enabled())
-        << "SharedStorage for M124+ cannot be enabled in this "
+    LOG_IF(WARNING, WebRuntimeFeatures::IsSharedStorageAPIM125Enabled())
+        << "SharedStorage for M125+ cannot be enabled in this "
            "configuration. Use --"
         << switches::kEnableFeatures << "="
         << blink::features::kSharedStorageAPI.name << ","
-        << blink::features::kSharedStorageAPIM124.name << " in addition.";
-    WebRuntimeFeatures::EnableSharedStorageAPIM124(false);
+        << blink::features::kSharedStorageAPIM125.name << " in addition.";
+    WebRuntimeFeatures::EnableSharedStorageAPIM125(false);
   }
 
   if (!base::FeatureList::IsEnabled(

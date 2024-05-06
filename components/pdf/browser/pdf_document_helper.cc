@@ -10,6 +10,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
 #include "components/pdf/browser/pdf_document_helper_client.h"
+#include "components/pdf/browser/pdf_frame_util.h"
 #include "content/public/browser/document_user_data.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -24,8 +25,8 @@
 namespace pdf {
 
 // static
-void PDFDocumentHelper::BindPdfService(
-    mojo::PendingAssociatedReceiver<mojom::PdfService> pdf_service,
+void PDFDocumentHelper::BindPdfHost(
+    mojo::PendingAssociatedReceiver<mojom::PdfHost> pdf_host,
     content::RenderFrameHost* rfh,
     std::unique_ptr<PDFDocumentHelperClient> client) {
   auto* pdf_helper = PDFDocumentHelper::GetForCurrentDocument(rfh);
@@ -33,15 +34,14 @@ void PDFDocumentHelper::BindPdfService(
     PDFDocumentHelper::CreateForCurrentDocument(rfh, std::move(client));
     pdf_helper = PDFDocumentHelper::GetForCurrentDocument(rfh);
   }
-  pdf_helper->pdf_service_receivers_.Bind(rfh, std::move(pdf_service));
+  pdf_helper->pdf_host_receivers_.Bind(rfh, std::move(pdf_host));
 }
 
 PDFDocumentHelper::PDFDocumentHelper(
     content::RenderFrameHost* rfh,
     std::unique_ptr<PDFDocumentHelperClient> client)
     : content::DocumentUserData<PDFDocumentHelper>(rfh),
-      pdf_service_receivers_(content::WebContents::FromRenderFrameHost(rfh),
-                             this),
+      pdf_host_receivers_(content::WebContents::FromRenderFrameHost(rfh), this),
       client_(std::move(client)) {}
 
 PDFDocumentHelper::~PDFDocumentHelper() {
@@ -69,7 +69,19 @@ void PDFDocumentHelper::SetListener(
   if (pdf_rwh_) {
     pdf_rwh_->RemoveObserver(this);
   }
-  pdf_rwh_ = client_->FindPdfFrame(&GetWebContents())->GetRenderWidgetHost();
+
+  content::RenderFrameHost* pdf_host;
+  if (base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif)) {
+    pdf_host = &render_frame_host();
+  } else {
+    content::RenderFrameHost* main_frame =
+        GetWebContents().GetPrimaryMainFrame();
+    content::RenderFrameHost* pdf_frame =
+        pdf_frame_util::FindPdfChildFrame(main_frame);
+    pdf_host = pdf_frame ? pdf_frame : main_frame;
+  }
+
+  pdf_rwh_ = pdf_host->GetRenderWidgetHost();
   pdf_rwh_->AddObserver(this);
 }
 
@@ -112,7 +124,7 @@ void PDFDocumentHelper::SelectionChanged(const gfx::PointF& left,
 }
 
 void PDFDocumentHelper::SetPluginCanSave(bool can_save) {
-  client_->SetPluginCanSave(pdf_service_receivers_.GetCurrentTargetFrame(),
+  client_->SetPluginCanSave(pdf_host_receivers_.GetCurrentTargetFrame(),
                             can_save);
 }
 
@@ -317,14 +329,13 @@ void PDFDocumentHelper::SaveUrlAs(const GURL& url,
                                   network::mojom::ReferrerPolicy policy) {
   client_->OnSaveURL(&GetWebContents());
 
-  content::RenderFrameHost* rfh;
-  if (base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif)) {
-    rfh = &render_frame_host();
-  } else {
-    rfh = GetWebContents().GetOuterWebContentsFrame();
-    if (!rfh) {
-      return;
-    }
+  // Save using the PDF embedder host.
+  content::RenderFrameHost* rfh =
+      base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif)
+          ? pdf_frame_util::GetEmbedderHost(&render_frame_host())
+          : GetWebContents().GetOuterWebContentsFrame();
+  if (!rfh) {
+    return;
   }
 
   content::Referrer referrer(url, policy);
@@ -335,7 +346,7 @@ void PDFDocumentHelper::SaveUrlAs(const GURL& url,
 void PDFDocumentHelper::UpdateContentRestrictions(
     int32_t content_restrictions) {
   client_->UpdateContentRestrictions(
-      pdf_service_receivers_.GetCurrentTargetFrame(), content_restrictions);
+      pdf_host_receivers_.GetCurrentTargetFrame(), content_restrictions);
 }
 
 DOCUMENT_USER_DATA_KEY_IMPL(PDFDocumentHelper);

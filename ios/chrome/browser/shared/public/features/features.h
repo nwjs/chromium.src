@@ -111,9 +111,6 @@ BASE_DECLARE_FEATURE(kNonModalDefaultBrowserPromoCooldownRefactor);
 extern const base::FeatureParam<int>
     kNonModalDefaultBrowserPromoCooldownRefactorParam;
 
-// Feature flag that enables the default browser video promo.
-BASE_DECLARE_FEATURE(kDefaultBrowserVideoPromo);
-
 // Feature param under kIOSEditMenuPartialTranslate to disable on incognito.
 extern const char kIOSEditMenuPartialTranslateNoIncognitoParam[];
 // Feature flag to enable partial translate in the edit menu.
@@ -220,12 +217,6 @@ BASE_DECLARE_FEATURE(kSpotlightReadingListSource);
 // Enables intent donation for new intent types.
 BASE_DECLARE_FEATURE(kSpotlightDonateNewIntents);
 
-// Feature to enable sign-in only flow without device level account.
-BASE_DECLARE_FEATURE(kConsistencyNewAccountInterface);
-
-// Whether the flag for consistency new-account interface is enabled.
-bool IsConsistencyNewAccountInterfaceEnabled();
-
 // Feature flag to enable the new layout of the NTP omnibox.
 BASE_DECLARE_FEATURE(kNewNTPOmniboxLayout);
 
@@ -317,18 +308,14 @@ BASE_DECLARE_FEATURE(kIOSSaveToPhotos);
 BASE_DECLARE_FEATURE(kEnableUIEditMenuInteraction);
 
 // Causes the restore shorty and re-signin flows to offer a history opt-in
-// screen. This only has any effect if kReplaceSyncPromosWithSignInPromos is
-// also enabled.
+// screen.
 BASE_DECLARE_FEATURE(kHistoryOptInForRestoreShortyAndReSignin);
 
 // Enables batch upload entry point from the Bookmarks Manager.
-// Note: This has no effect if kReplaceSyncPromosWithSignInPromos is not
-// enabled.
 BASE_DECLARE_FEATURE(kEnableBatchUploadFromBookmarksManager);
 
 // Enables the promo in the Bookmarks Manager or Reading Lists Manager to review
-// account settings when these types are disabled. Note: This should only be
-// used if kReplaceSyncPromosWithSignInPromos is enabled.
+// account settings when these types are disabled.
 BASE_DECLARE_FEATURE(kEnableReviewAccountSettingsPromo);
 
 // Enables linking account settings in the Privacy Settings page footer for
@@ -370,6 +357,9 @@ BASE_DECLARE_FEATURE(kFullscreenImprovement);
 
 // Feature flag to enable Tab Groups in Grid.
 BASE_DECLARE_FEATURE(kTabGroupsInGrid);
+
+// Feature flag to enable Tab Groups on iPad.
+BASE_DECLARE_FEATURE(kTabGroupsIPad);
 
 // Whether the Tab Groups should be enabled in the Grid.
 bool IsTabGroupInGridEnabled();
@@ -555,8 +545,9 @@ extern const char kTabResumptionAllTabsOneDayThresholdParam[];
 bool IsFeedContainmentEnabled();
 
 // The minimum padding between the modules and the screen bounds on the Home
-// surface. Relies on `IsFeedContainmentEnabled()` being enabled.
-int HomeModuleMinimumPadding();
+// surface. Relies on `IsFeedContainmentEnabled()` being enabled. This padding
+// is dynamic, so the value represents a percentage including both sides.
+CGFloat HomeModuleMinimumPadding();
 
 // Whether the tab resumption feature is enabled.
 bool IsTabResumptionEnabled();
@@ -611,5 +602,15 @@ bool IsIOSMagicStackCollectionViewEnabled();
 
 // Feature flag to disable fullscreen scrolling logic.
 BASE_DECLARE_FEATURE(kDisableFullscreenScrolling);
+
+// Convenience method for determining if Pinned Tabs is enabled.
+// The Pinned Tabs feature is fully enabled on iPhone and disabled on iPad.
+bool IsPinnedTabsEnabled();
+
+// Feature flag to prefetch system capabilities on first run.
+BASE_DECLARE_FEATURE(kPrefetchSystemCapabilitiesOnFirstRun);
+
+// Returns true if the system capabilities are prefetched on first run.
+bool IsPrefetchingSystemCapabilitiesOnFirstRun();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

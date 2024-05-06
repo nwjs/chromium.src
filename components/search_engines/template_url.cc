@@ -763,8 +763,8 @@ bool TemplateURLRef::ParseParameter(size_t start,
   } else if (parameter == "google:omniboxFocusType") {
     replacements->push_back(
         Replacement(TemplateURLRef::GOOGLE_OMNIBOX_FOCUS_TYPE, start));
-  } else if (parameter == "google:iOSSearchLanguage") {
-    replacements->push_back(Replacement(GOOGLE_IOS_SEARCH_LANGUAGE, start));
+  } else if (parameter == "google:language") {
+    replacements->push_back(Replacement(GOOGLE_LANGUAGE, start));
   } else if (parameter == "google:contextualSearchVersion") {
     replacements->push_back(
         Replacement(GOOGLE_CONTEXTUAL_SEARCH_VERSION, start));
@@ -1287,11 +1287,20 @@ std::string TemplateURLRef::HandleReplacements(
 
       case GOOGLE_SEARCH_SOURCE_ID: {
         DCHECK(!replacement.is_post_param);
+        switch (search_terms_args.request_source) {
+          case RequestSource::CONTEXTUAL_SEARCHBOX:
+          case RequestSource::SEARCH_SIDE_PANEL_SEARCHBOX:
+          case RequestSource::LENS_SIDE_PANEL_SEARCHBOX:
+            HandleReplacement("source", "chrome.gsc", replacement, &url);
+            break;
+          default:
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-        HandleReplacement("sourceid", "chrome-mobile", replacement, &url);
+            HandleReplacement("sourceid", "chrome-mobile", replacement, &url);
 #else
-        HandleReplacement("sourceid", "chrome", replacement, &url);
+            HandleReplacement("sourceid", "chrome", replacement, &url);
 #endif
+            break;
+        }
         break;
       }
 
@@ -1307,17 +1316,65 @@ std::string TemplateURLRef::HandleReplacements(
       }
 
       case GOOGLE_SUGGEST_CLIENT:
-        HandleReplacement(std::string(),
-                          search_terms_data.GetSuggestClient(
-                              search_terms_args.request_source),
-                          replacement, &url);
+        switch (search_terms_args.request_source) {
+          case RequestSource::NTP_MODULE:
+#if BUILDFLAG(IS_ANDROID)
+            HandleReplacement(std::string(),
+                              "chrome-android-search-resumption-module",
+                              replacement, &url);
+#elif BUILDFLAG(IS_IOS)
+            HandleReplacement(std::string(), "chrome-ios-ntp", replacement,
+                              &url);
+#else
+            NOTREACHED();
+#endif
+            break;
+          case RequestSource::CONTEXTUAL_SEARCHBOX:
+          case RequestSource::SEARCH_SIDE_PANEL_SEARCHBOX:
+            HandleReplacement(std::string(), "chrome-contextual", replacement,
+                              &url);
+            break;
+          case RequestSource::LENS_SIDE_PANEL_SEARCHBOX:
+            HandleReplacement(std::string(), "chrome-multimodal", replacement,
+                              &url);
+            break;
+          case RequestSource::SEARCHBOX:
+          case RequestSource::CROS_APP_LIST:
+#if BUILDFLAG(IS_ANDROID)
+            if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
+              HandleReplacement(std::string(), "chrome", replacement, &url);
+              break;
+            }
+            HandleReplacement(std::string(), "chrome-omni", replacement, &url);
+#elif BUILDFLAG(IS_IOS)
+            HandleReplacement(std::string(), "chrome", replacement, &url);
+#else
+            HandleReplacement(std::string(), "chrome-omni", replacement, &url);
+#endif
+            break;
+        }
         break;
 
       case GOOGLE_SUGGEST_REQUEST_ID:
-        HandleReplacement(std::string(),
-                          search_terms_data.GetSuggestRequestIdentifier(
-                              search_terms_args.request_source),
-                          replacement, &url);
+        switch (search_terms_args.request_source) {
+          case RequestSource::NTP_MODULE:
+          case RequestSource::CONTEXTUAL_SEARCHBOX:
+          case RequestSource::SEARCH_SIDE_PANEL_SEARCHBOX:
+          case RequestSource::LENS_SIDE_PANEL_SEARCHBOX:
+            break;
+          case RequestSource::SEARCHBOX:
+          case RequestSource::CROS_APP_LIST:
+#if BUILDFLAG(IS_ANDROID)
+            if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
+              HandleReplacement(std::string(), "chrome-mobile-ext-ansg",
+                                replacement, &url);
+              break;
+            }
+#endif
+            HandleReplacement(std::string(), "chrome-ext-ansg", replacement,
+                              &url);
+            break;
+        }
         break;
 
       case GOOGLE_UNESCAPED_SEARCH_TERMS: {
@@ -1410,10 +1467,13 @@ std::string TemplateURLRef::HandleReplacements(
                           replacement, &url);
         break;
 
-      case GOOGLE_IOS_SEARCH_LANGUAGE:
+      case GOOGLE_LANGUAGE:
 #if BUILDFLAG(IS_IOS)
-        HandleReplacement("hl", search_terms_data.GetApplicationLocale(),
-                          replacement, &url);
+        if (base::FeatureList::IsEnabled(
+                omnibox::kReportApplicationLanguageInSearchRequest)) {
+          HandleReplacement("hl", search_terms_data.GetApplicationLocale(),
+                            replacement, &url);
+        }
 #endif
         break;
 

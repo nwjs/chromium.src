@@ -71,7 +71,6 @@ import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorListener;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.embedder_support.util.UrlUtilities;
-import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -159,6 +158,7 @@ class LocationBarMediator
     private final LocationBarLayout mLocationBarLayout;
     private VoiceRecognitionHandler mVoiceRecognitionHandler;
     private final LocationBarDataProvider mLocationBarDataProvider;
+    private final LocationBarEmbedderUiOverrides mEmbedderUiOverrides;
     private StatusCoordinator mStatusCoordinator;
     private AutocompleteCoordinator mAutocompleteCoordinator;
     private OmniboxPrerender mOmniboxPrerender;
@@ -211,6 +211,7 @@ class LocationBarMediator
             @NonNull Context context,
             @NonNull LocationBarLayout locationBarLayout,
             @NonNull LocationBarDataProvider locationBarDataProvider,
+            @NonNull LocationBarEmbedderUiOverrides embedderUiOverrides,
             @NonNull ObservableSupplier<Profile> profileSupplier,
             @NonNull PrivacyPreferencesManager privacyPreferencesManager,
             @NonNull OverrideUrlLoadingDelegate overrideUrlLoadingDelegate,
@@ -229,6 +230,7 @@ class LocationBarMediator
         mLocationBarLayout = locationBarLayout;
         mLocationBarDataProvider = locationBarDataProvider;
         mLocationBarDataProvider.addObserver(this);
+        mEmbedderUiOverrides = embedderUiOverrides;
         mOverrideUrlLoadingDelegate = overrideUrlLoadingDelegate;
         mLocaleManager = localeManager;
         mVoiceRecognitionHandler = new VoiceRecognitionHandler(this, profileSupplier);
@@ -463,7 +465,7 @@ class LocationBarMediator
     /*package */ void revertChanges() {
         if (mUrlHasFocus) {
             GURL currentUrl = mLocationBarDataProvider.getCurrentGurl();
-            if (NativePage.isNativePageUrl(currentUrl, mLocationBarDataProvider.isIncognito())) {
+            if (NativePage.isChromePageUrl(currentUrl, mLocationBarDataProvider.isIncognito())) {
                 setUrlBarTextEmpty();
             } else {
                 setUrlBarText(
@@ -499,9 +501,11 @@ class LocationBarMediator
         }
 
         if (mNativeInitialized
+                && mProfileSupplier.hasValue()
                 && !CommandLine.getInstance().hasSwitch(ChromeSwitches.DISABLE_INSTANT)
                 && DeviceClassManager.enablePrerendering()
-                && PreloadPagesSettingsBridge.getState() != PreloadPagesState.NO_PRELOADING
+                && PreloadPagesSettingsBridge.getState(mProfileSupplier.get())
+                        != PreloadPagesState.NO_PRELOADING
                 && mLocationBarDataProvider.hasTab()) {
             mOmniboxPrerender.prerenderMaybe(
                     userText,
@@ -523,7 +527,7 @@ class LocationBarMediator
         // side is initialized
         assert mNativeInitialized : "Loading URL before native side initialized";
 
-        // TODO(crbug.com/1085812): Should be taking a full loaded LoadUrlParams.
+        // TODO(crbug.com/40693835): Should be taking a full loaded LoadUrlParams.
         if (mOverrideUrlLoadingDelegate.willHandleLoadUrlWithPostData(
                 omniboxLoadUrlParams, mLocationBarDataProvider.isIncognito())) {
             return;
@@ -1129,7 +1133,8 @@ class LocationBarMediator
         if (shouldShowDeleteButton()) return false;
         if (!mNativeInitialized
                 || mVoiceRecognitionHandler == null
-                || !mVoiceRecognitionHandler.isVoiceSearchEnabled()) {
+                || !mVoiceRecognitionHandler.isVoiceSearchEnabled()
+                || !mEmbedderUiOverrides.isVoiceEntrypointAllowed()) {
             return false;
         }
         boolean isToolbarMicEnabled = mIsToolbarMicEnabledSupplier.getAsBoolean();
@@ -1157,8 +1162,7 @@ class LocationBarMediator
         // This widget must guarantee consistent feature set regardless of search engine choice or
         // other aspects that may not be met by Lens.
         LocationBarDataProvider dataProvider = getLocationBarDataProvider();
-        if (dataProvider.getPageClassification(dataProvider.isIncognito(), /* isPrefetch= */ false)
-                == PageClassification.ANDROID_SEARCH_WIDGET_VALUE) {
+        if (!mEmbedderUiOverrides.isLensEntrypointAllowed()) {
             return false;
         }
 
@@ -1368,7 +1372,7 @@ class LocationBarMediator
 
     @Override
     public @Nullable VoiceRecognitionHandler getVoiceRecognitionHandler() {
-        // TODO(crbug.com/1140333): StartSurfaceMediator can call this method after destroy().
+        // TODO(crbug.com/40153763): StartSurfaceMediator can call this method after destroy().
         if (mLocationBarLayout == null) {
             return null;
         }
@@ -1598,7 +1602,7 @@ class LocationBarMediator
         ColorStateList tint =
                 useColorfulButtonTint
                         ? AppCompatResources.getColorStateList(
-                                mContext, R.color.default_icon_color_accent1_container_tint_list)
+                                mContext, R.color.default_icon_color_on_accent1_container_tint_list)
                         : ThemeUtils.getThemedToolbarIconTint(mContext, mBrandedColorScheme);
         mLocationBarLayout.setMicButtonTint(tint);
         mLocationBarLayout.setLensButtonTint(tint);

@@ -81,6 +81,10 @@ BASE_FEATURE(kUseHostResolverCache,
              "UseHostResolverCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kUseServiceEndpointRequest,
+             "UseServiceEndpointRequest",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<int> kAlternativePortForGloballyReachableCheck{
     &kUseAlternativePortForGloballyReachableCheck,
     "AlternativePortForGloballyReachableCheck", 443};
@@ -286,6 +290,10 @@ BASE_FEATURE(kTpcdMetadataGrants,
              "TpcdMetadataGrants",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTpcdMetadataStagedRollback,
+             "TpcdMetadataStageControl",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAlpsParsing, "AlpsParsing", base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAlpsClientHintParsing,
@@ -429,6 +437,26 @@ const base::FeatureParam<bool> kIpPrivacyRestrictTopLevelSiteSchemes{
     /*name=*/"IpPrivacyRestrictTopLevelSiteSchemes",
     /*default_value=*/true};
 
+const base::FeatureParam<bool> kIpPrivacyUseQuicProxies{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyUseQuicProxies",
+    /*default_value=*/false};
+
+const base::FeatureParam<bool> kIpPrivacyUseQuicProxiesOnly{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyUseQuicProxiesOnly",
+    /*default_value=*/false};
+
+const base::FeatureParam<bool> kIpPrivacyUseSingleProxy{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyUseSingleProxy",
+    /*default_value=*/false};
+
+const base::FeatureParam<std::string> kIpPrivacyAlwaysProxy{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyAlwaysProxy",
+    /*default_value=*/""};
+
 // Network-change migration requires NetworkHandle support, which are currently
 // only supported on Android (see
 // NetworkChangeNotifier::AreNetworkHandlesSupported).
@@ -506,12 +534,6 @@ BASE_FEATURE(kSpdyHeadersToHttpResponseUseBuilder,
 
 BASE_FEATURE(kReceiveEcn, "ReceiveEcn", base::FEATURE_DISABLED_BY_DEFAULT);
 
-// TODO(crbug.com/634470): Remove this feature flag in January 2024 if the new
-// limit sticks.
-BASE_FEATURE(kNewCertPathBuilderIterationLimit,
-             "NewCertPathBuilderIterationLimit",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kUseNewAlpsCodepointHttp2,
              "UseNewAlpsCodepointHttp2",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -533,5 +555,9 @@ BASE_FEATURE(kReduceIPAddressChangeNotification,
              "ReduceIPAddressChangeNotification",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_MAC)
+
+BASE_FEATURE(kDeviceBoundSessions,
+             "DeviceBoundSessions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features

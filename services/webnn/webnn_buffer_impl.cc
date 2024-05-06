@@ -4,12 +4,13 @@
 
 #include "services/webnn/webnn_buffer_impl.h"
 
+#include "services/webnn/error.h"
 #include "services/webnn/webnn_context_impl.h"
 
 namespace webnn {
 
 WebNNBufferImpl::WebNNBufferImpl(
-    mojo::PendingReceiver<mojom::WebNNBuffer> receiver,
+    mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
     WebNNContextImpl* context,
     uint64_t size,
     const base::UnguessableToken& buffer_handle)
@@ -23,6 +24,14 @@ WebNNBufferImpl::WebNNBufferImpl(
 }
 
 WebNNBufferImpl::~WebNNBufferImpl() = default;
+
+void WebNNBufferImpl::ReadBuffer(ReadBufferCallback callback) {
+  context_->ReadBuffer(*this, std::move(callback));
+}
+
+void WebNNBufferImpl::WriteBuffer(mojo_base::BigBuffer src_buffer) {
+  context_->WriteBuffer(*this, std::move(src_buffer));
+}
 
 void WebNNBufferImpl::OnDisconnect() {
   context_->DisconnectAndDestroyWebNNBufferImpl(handle());

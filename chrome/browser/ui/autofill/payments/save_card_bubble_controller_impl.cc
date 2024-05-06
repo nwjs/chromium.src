@@ -152,7 +152,7 @@ void SaveCardBubbleControllerImpl::OfferUploadSave(
 
   // Reset legal_message_lines for CVC only upload as there is no legal message
   // for this case.
-  // TODO(crbug.com/1481933): Refactor ConfirmSaveCreditCardToCloud to change
+  // TODO(crbug.com/40931101): Refactor ConfirmSaveCreditCardToCloud to change
   // legal_message_lines_ to optional.
   if (current_bubble_type_ == BubbleType::UPLOAD_CVC_SAVE) {
     legal_message_lines_.clear();
@@ -338,7 +338,8 @@ AccountInfo SaveCardBubbleControllerImpl::GetAccountInfo() {
   }
 
   return identity_manager->FindExtendedAccountInfo(
-      personal_data_manager->GetAccountInfoForPaymentsServer());
+      personal_data_manager->payments_data_manager()
+          .GetAccountInfoForPaymentsServer());
 }
 
 Profile* SaveCardBubbleControllerImpl::GetProfile() const {
@@ -412,7 +413,8 @@ void SaveCardBubbleControllerImpl::OnSaveButton(
         autofill_metrics::LogSaveCardPromptResultMetric(
             autofill_metrics::SaveCardPromptResult::kAccepted, is_upload_save_,
             is_reshow_, options_, GetSecurityLevel(),
-            personal_data_manager_->GetPaymentsSigninStateForMetrics());
+            personal_data_manager_->payments_data_manager()
+                .GetPaymentsSigninStateForMetrics());
         autofill_metrics::LogCreditCardUploadLoadingViewShownMetric(
             /*is_shown=*/true);
         current_bubble_type_ = BubbleType::UPLOAD_IN_PROGRESS;
@@ -521,7 +523,8 @@ void SaveCardBubbleControllerImpl::OnBubbleClosed(
       autofill_metrics::LogSaveCardPromptResultMetric(
           get_metric(closed_reason), is_upload_save_, is_reshow_, options_,
           GetSecurityLevel(),
-          personal_data_manager_->GetPaymentsSigninStateForMetrics());
+          personal_data_manager_->payments_data_manager()
+              .GetPaymentsSigninStateForMetrics());
       break;
     case BubbleType::UPLOAD_IN_PROGRESS:
       autofill_metrics::LogCreditCardUploadLoadingViewResultMetric(
@@ -620,7 +623,8 @@ bool SaveCardBubbleControllerImpl::
     IsPaymentsSyncTransportEnabledWithoutSyncFeature() const {
   // TODO(crbug.com/1464264): Migrate away from IsSyncFeatureEnabled() when the
   // API returns false on desktop.
-  return personal_data_manager_->IsPaymentsDownloadActive() &&
+  return personal_data_manager_->payments_data_manager()
+             .IsPaymentsDownloadActive() &&
          !sync_service_->IsSyncFeatureEnabled();
 }
 
@@ -743,7 +747,8 @@ void SaveCardBubbleControllerImpl::DoShowBubble() {
       autofill_metrics::LogSaveCardPromptOfferMetric(
           autofill_metrics::SaveCardPromptOffer::kShown, is_upload_save_,
           is_reshow_, options_, GetSecurityLevel(),
-          personal_data_manager_->GetPaymentsSigninStateForMetrics());
+          personal_data_manager_->payments_data_manager()
+              .GetPaymentsSigninStateForMetrics());
       break;
     case BubbleType::UPLOAD_CVC_SAVE:
     case BubbleType::LOCAL_CVC_SAVE:
@@ -811,7 +816,8 @@ void SaveCardBubbleControllerImpl::ShowIconOnly() {
       autofill_metrics::LogSaveCardPromptOfferMetric(
           autofill_metrics::SaveCardPromptOffer::kNotShownMaxStrikesReached,
           is_upload_save_, is_reshow_, options_, GetSecurityLevel(),
-          personal_data_manager_->GetPaymentsSigninStateForMetrics());
+          personal_data_manager_->payments_data_manager()
+              .GetPaymentsSigninStateForMetrics());
       break;
     case BubbleType::UPLOAD_CVC_SAVE:
     case BubbleType::LOCAL_CVC_SAVE:
@@ -833,9 +839,11 @@ void SaveCardBubbleControllerImpl::OpenUrl(const GURL& url) {
     was_url_opened_ = true;
   }
 
-  web_contents()->OpenURL(content::OpenURLParams(
-      url, content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PAGE_TRANSITION_LINK, false));
+  web_contents()->OpenURL(
+      content::OpenURLParams(url, content::Referrer(),
+                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                             ui::PAGE_TRANSITION_LINK, false),
+      /*navigation_handle_callback=*/{});
 }
 
 bool SaveCardBubbleControllerImpl::IsWebContentsActive() {

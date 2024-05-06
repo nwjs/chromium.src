@@ -112,8 +112,8 @@ SoftNavigationHeuristics::SoftNavigationHeuristics(LocalDOMWindow& window)
     : Supplement<LocalDOMWindow>(window) {
   LocalFrame* frame = window.GetFrame();
   CHECK(frame && frame->View());
-  gfx::Size viewport_size = frame->View()->GetLayoutSize();
-  viewport_area_ = viewport_size.width() * viewport_size.height();
+
+  viewport_area_ = frame->View()->GetLayoutSize().Area64();
 }
 
 SoftNavigationHeuristics* SoftNavigationHeuristics::From(
@@ -209,8 +209,6 @@ void SoftNavigationHeuristics::UserInitiatedInteraction() {
 
 std::optional<scheduler::TaskAttributionId>
 SoftNavigationHeuristics::GetUserInteractionAncestorTaskIfAny() {
-  using IterationStatus = scheduler::TaskAttributionTracker::IterationStatus;
-
   if (potential_soft_navigation_tasks_.empty()) {
     return std::nullopt;
   }
@@ -226,16 +224,9 @@ SoftNavigationHeuristics::GetUserInteractionAncestorTaskIfAny() {
       return cached_result->value;
     }
     std::optional<scheduler::TaskAttributionId> ancestor_task_id;
-    // Check if any of `potential_soft_navigation_tasks_` is an ancestor of
-    // `task`.
-    tracker->ForEachAncestor(
-        *task, [&](const scheduler::TaskAttributionInfo& ancestor) {
-          if (potential_soft_navigation_tasks_.Contains(&ancestor)) {
-            ancestor_task_id = ancestor.Id();
-            return IterationStatus::kStop;
-          }
-          return IterationStatus::kContinue;
-        });
+    if (potential_soft_navigation_tasks_.Contains(task)) {
+      ancestor_task_id = task->Id();
+    }
     soft_navigation_descendant_cache_.insert(task->Id().value(),
                                              ancestor_task_id);
     return ancestor_task_id;

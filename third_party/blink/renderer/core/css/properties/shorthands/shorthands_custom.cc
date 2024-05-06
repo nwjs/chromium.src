@@ -561,7 +561,7 @@ const CSSValue* BackgroundPosition::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::BackgroundPositionOrWebkitMaskPosition(
+  return ComputedStyleUtils::BackgroundPositionOrMaskPosition(
       *this, style, &style.BackgroundLayers());
 }
 
@@ -589,14 +589,14 @@ bool BorderBlock::ParseShorthand(
     bool important,
     CSSParserTokenRange& range,
     const CSSParserContext& context,
-    const CSSParserLocalContext&,
+    const CSSParserLocalContext& local_context,
     HeapVector<CSSPropertyValue, 64>& properties) const {
   const CSSValue* width = nullptr;
   const CSSValue* style = nullptr;
   const CSSValue* color = nullptr;
 
-  if (!css_parsing_utils::ConsumeBorderShorthand(range, context, width, style,
-                                                 color)) {
+  if (!css_parsing_utils::ConsumeBorderShorthand(range, context, local_context,
+                                                 width, style, color)) {
     return false;
   };
 
@@ -731,14 +731,14 @@ bool Border::ParseShorthand(
     bool important,
     CSSParserTokenRange& range,
     const CSSParserContext& context,
-    const CSSParserLocalContext&,
+    const CSSParserLocalContext& local_context,
     HeapVector<CSSPropertyValue, 64>& properties) const {
   const CSSValue* width = nullptr;
   const CSSValue* style = nullptr;
   const CSSValue* color = nullptr;
 
-  if (!css_parsing_utils::ConsumeBorderShorthand(range, context, width, style,
-                                                 color)) {
+  if (!css_parsing_utils::ConsumeBorderShorthand(range, context, local_context,
+                                                 width, style, color)) {
     return false;
   };
 
@@ -863,14 +863,14 @@ bool BorderInline::ParseShorthand(
     bool important,
     CSSParserTokenRange& range,
     const CSSParserContext& context,
-    const CSSParserLocalContext&,
+    const CSSParserLocalContext& local_context,
     HeapVector<CSSPropertyValue, 64>& properties) const {
   const CSSValue* width = nullptr;
   const CSSValue* style = nullptr;
   const CSSValue* color = nullptr;
 
-  if (!css_parsing_utils::ConsumeBorderShorthand(range, context, width, style,
-                                                 color)) {
+  if (!css_parsing_utils::ConsumeBorderShorthand(range, context, local_context,
+                                                 width, style, color)) {
     return false;
   };
 
@@ -2001,34 +2001,6 @@ const CSSValue* GridColumn::CSSValueFromComputedStyleInternal(
       value_phase);
 }
 
-bool GridColumnGap::ParseShorthand(
-    bool important,
-    CSSParserTokenRange& range,
-    const CSSParserContext& context,
-    const CSSParserLocalContext&,
-    HeapVector<CSSPropertyValue, 64>& properties) const {
-  CSSValue* gap_length = css_parsing_utils::ConsumeGapLength(range, context);
-  if (!gap_length || !range.AtEnd()) {
-    return false;
-  }
-
-  css_parsing_utils::AddProperty(
-      CSSPropertyID::kColumnGap, CSSPropertyID::kGridColumnGap, *gap_length,
-      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-      properties);
-  return true;
-}
-
-const CSSValue* GridColumnGap::CSSValueFromComputedStyleInternal(
-    const ComputedStyle& style,
-    const LayoutObject* layout_object,
-    bool allow_visited_style,
-    CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValuesForShorthandProperty(
-      gridColumnGapShorthand(), style, layout_object, allow_visited_style,
-      value_phase);
-}
-
 namespace {
 
 CSSValueList* ConsumeImplicitAutoFlow(
@@ -2229,40 +2201,6 @@ const CSSValue* Grid::CSSValueFromComputedStyleInternal(
       gridShorthand(), style, layout_object, allow_visited_style, value_phase);
 }
 
-bool GridGap::ParseShorthand(
-    bool important,
-    CSSParserTokenRange& range,
-    const CSSParserContext& context,
-    const CSSParserLocalContext&,
-    HeapVector<CSSPropertyValue, 64>& properties) const {
-  DCHECK_EQ(shorthandForProperty(CSSPropertyID::kGridGap).length(), 2u);
-  CSSValue* row_gap = css_parsing_utils::ConsumeGapLength(range, context);
-  CSSValue* column_gap = css_parsing_utils::ConsumeGapLength(range, context);
-  if (!row_gap || !range.AtEnd()) {
-    return false;
-  }
-  if (!column_gap) {
-    column_gap = row_gap;
-  }
-  css_parsing_utils::AddProperty(
-      CSSPropertyID::kRowGap, CSSPropertyID::kGap, *row_gap, important,
-      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-  css_parsing_utils::AddProperty(
-      CSSPropertyID::kColumnGap, CSSPropertyID::kGap, *column_gap, important,
-      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-  return true;
-}
-
-const CSSValue* GridGap::CSSValueFromComputedStyleInternal(
-    const ComputedStyle& style,
-    const LayoutObject* layout_object,
-    bool allow_visited_style,
-    CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValuesForShorthandProperty(
-      gridGapShorthand(), style, layout_object, allow_visited_style,
-      value_phase);
-}
-
 bool GridRow::ParseShorthand(
     bool important,
     CSSParserTokenRange& range,
@@ -2299,34 +2237,6 @@ const CSSValue* GridRow::CSSValueFromComputedStyleInternal(
     CSSValuePhase value_phase) const {
   return ComputedStyleUtils::ValuesForGridLineShorthand(
       gridRowShorthand(), style, layout_object, allow_visited_style,
-      value_phase);
-}
-
-bool GridRowGap::ParseShorthand(
-    bool important,
-    CSSParserTokenRange& range,
-    const CSSParserContext& context,
-    const CSSParserLocalContext&,
-    HeapVector<CSSPropertyValue, 64>& properties) const {
-  CSSValue* gap_length = css_parsing_utils::ConsumeGapLength(range, context);
-  if (!gap_length || !range.AtEnd()) {
-    return false;
-  }
-
-  css_parsing_utils::AddProperty(
-      CSSPropertyID::kRowGap, CSSPropertyID::kGridRowGap, *gap_length,
-      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-      properties);
-  return true;
-}
-
-const CSSValue* GridRowGap::CSSValueFromComputedStyleInternal(
-    const ComputedStyle& style,
-    const LayoutObject* layout_object,
-    bool allow_visited_style,
-    CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValuesForShorthandProperty(
-      gridRowGapShorthand(), style, layout_object, allow_visited_style,
       value_phase);
 }
 
@@ -2595,8 +2505,7 @@ bool Margin::IsLayoutDependent(const ComputedStyle* style,
   return layout_object && layout_object->IsBox() &&
          (!style || !style->MarginBottom().IsFixed() ||
           !style->MarginTop().IsFixed() || !style->MarginLeft().IsFixed() ||
-          !style->MarginRight().IsFixed() ||
-          style->MayHavePositionFallbackList());
+          !style->MarginRight().IsFixed());
 }
 
 const CSSValue* Margin::CSSValueFromComputedStyleInternal(
@@ -2713,72 +2622,46 @@ bool Offset::ParseShorthand(
     return false;
   }
 
-  if ((offset_position || offset_anchor) &&
-      !RuntimeEnabledFeatures::CSSOffsetPositionAnchorEnabled()) {
-    return false;
+  if (!offset_position) {
+    offset_position = CSSIdentifierValue::Create(CSSValueID::kNormal);
   }
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kOffsetPosition, CSSPropertyID::kOffset, *offset_position,
+      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
+      properties);
 
-  if (offset_position) {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetPosition, CSSPropertyID::kOffset,
-        *offset_position, important,
-        css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-  } else if (RuntimeEnabledFeatures::CSSOffsetPositionAnchorEnabled()) {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetPosition, CSSPropertyID::kOffset,
-        *CSSIdentifierValue::Create(CSSValueID::kNormal), important,
-        css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
+  if (!offset_path) {
+    offset_path = CSSIdentifierValue::Create(CSSValueID::kNone);
   }
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kOffsetPath, CSSPropertyID::kOffset, *offset_path,
+      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
+      properties);
 
-  if (offset_path) {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetPath, CSSPropertyID::kOffset, *offset_path,
-        important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-        properties);
-  } else {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetPath, CSSPropertyID::kOffset,
-        *CSSIdentifierValue::Create(CSSValueID::kNone), important,
-        css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
+  if (!offset_distance) {
+    offset_distance =
+        CSSNumericLiteralValue::Create(0, CSSPrimitiveValue::UnitType::kPixels);
   }
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kOffsetDistance, CSSPropertyID::kOffset, *offset_distance,
+      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
+      properties);
 
-  if (offset_distance) {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetDistance, CSSPropertyID::kOffset,
-        *offset_distance, important,
-        css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-  } else {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetDistance, CSSPropertyID::kOffset,
-        *CSSNumericLiteralValue::Create(0,
-                                        CSSPrimitiveValue::UnitType::kPixels),
-        important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-        properties);
+  if (!offset_rotate) {
+    offset_rotate = CSSIdentifierValue::Create(CSSValueID::kAuto);
   }
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kOffsetRotate, CSSPropertyID::kOffset, *offset_rotate,
+      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
+      properties);
 
-  if (offset_rotate) {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetRotate, CSSPropertyID::kOffset, *offset_rotate,
-        important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-        properties);
-  } else {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetRotate, CSSPropertyID::kOffset,
-        *CSSIdentifierValue::Create(CSSValueID::kAuto), important,
-        css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
+  if (!offset_anchor) {
+    offset_anchor = CSSIdentifierValue::Create(CSSValueID::kAuto);
   }
-
-  if (offset_anchor) {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetAnchor, CSSPropertyID::kOffset, *offset_anchor,
-        important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-        properties);
-  } else if (RuntimeEnabledFeatures::CSSOffsetPositionAnchorEnabled()) {
-    css_parsing_utils::AddProperty(
-        CSSPropertyID::kOffsetAnchor, CSSPropertyID::kOffset,
-        *CSSIdentifierValue::Create(CSSValueID::kAuto), important,
-        css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-  }
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kOffsetAnchor, CSSPropertyID::kOffset, *offset_anchor,
+      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
+      properties);
 
   return true;
 }
@@ -3931,36 +3814,22 @@ const CSSValue* WebkitMaskBoxImage::CSSValueFromComputedStyleInternal(
       style.MaskBoxImage(), style, allow_visited_style, value_phase);
 }
 
-bool WebkitMask::ParseShorthand(
-    bool important,
-    CSSParserTokenRange& range,
-    const CSSParserContext& context,
-    const CSSParserLocalContext& local_context,
-    HeapVector<CSSPropertyValue, 64>& properties) const {
-  CHECK(!RuntimeEnabledFeatures::CSSMaskingInteropEnabled());
+bool Mask::ParseShorthand(bool important,
+                          CSSParserTokenRange& range,
+                          const CSSParserContext& context,
+                          const CSSParserLocalContext& local_context,
+                          HeapVector<CSSPropertyValue, 64>& properties) const {
   return css_parsing_utils::ParseBackgroundOrMask(important, range, context,
                                                   local_context, properties);
 }
 
-bool AlternativeMask::ParseShorthand(
-    bool important,
-    CSSParserTokenRange& range,
-    const CSSParserContext& context,
-    const CSSParserLocalContext& local_context,
-    HeapVector<CSSPropertyValue, 64>& properties) const {
-  CHECK(RuntimeEnabledFeatures::CSSMaskingInteropEnabled());
-  return css_parsing_utils::ParseBackgroundOrMask(important, range, context,
-                                                  local_context, properties);
-}
-
-const CSSValue* AlternativeMask::CSSValueFromComputedStyleInternal(
+const CSSValue* Mask::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   return ComputedStyleUtils::ValuesForMaskShorthand(
-      alternativeMaskShorthand(), style, layout_object, allow_visited_style,
-      value_phase);
+      maskShorthand(), style, layout_object, allow_visited_style, value_phase);
 }
 
 bool MaskPosition::ParseShorthand(
@@ -3982,27 +3851,7 @@ const CSSValue* MaskPosition::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::BackgroundPositionOrWebkitMaskPosition(
-      *this, style, &style.MaskLayers());
-}
-
-bool WebkitMaskPosition::ParseShorthand(
-    bool important,
-    CSSParserTokenRange& range,
-    const CSSParserContext& context,
-    const CSSParserLocalContext&,
-    HeapVector<CSSPropertyValue, 64>& properties) const {
-  return ParseBackgroundOrMaskPosition(
-      webkitMaskPositionShorthand(), important, range, context,
-      WebFeature::kThreeValuedPositionBackground, properties);
-}
-
-const CSSValue* WebkitMaskPosition::CSSValueFromComputedStyleInternal(
-    const ComputedStyle& style,
-    const LayoutObject*,
-    bool allow_visited_style,
-    CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::BackgroundPositionOrWebkitMaskPosition(
+  return ComputedStyleUtils::BackgroundPositionOrMaskPosition(
       *this, style, &style.MaskLayers());
 }
 

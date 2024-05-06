@@ -12,7 +12,9 @@
 #include "chrome/browser/ash/input_method/editor_consent_enums.h"
 #include "chrome/browser/ash/input_method/editor_identity_utils.h"
 #include "chrome/browser/ash/input_method/url_utils.h"
+#include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/manta/manta_service_factory.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -20,6 +22,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "components/language/core/common/locale_util.h"
 #include "components/manta/manta_service.h"
 #include "extensions/common/constants.h"
 #include "google_apis/gaia/gaia_auth_util.h"
@@ -30,8 +33,8 @@ namespace ash::input_method {
 namespace {
 
 constexpr std::string_view kCountryAllowlist[] = {
-    "au", "be", "ch", "cz", "de", "dk", "es", "fi", "fr",
-    "gb", "ie", "in", "it", "jp", "kr", "lu", "mx", "no",
+    "au", "be", "ca", "ch", "cz", "de", "dk", "es", "fi",
+    "fr", "gb", "ie", "in", "it", "jp", "lu", "mx", "no",
     "nz", "nl", "pl", "pt", "se", "us", "za",
 };
 
@@ -45,26 +48,36 @@ constexpr AppType kAppTypeDenylist[] = {
 };
 
 const char* kWorkspaceDomainsWithPathDenylist[][2] = {
-    {"calendar.google", ""},
-    {"docs.google", "/document"},
-    {"docs.google", "/presentation"},
-    {"docs.google", "/spreadsheets"},
-    {"drive.google", ""},
-    {"keep.google", ""},
-    {"mail.google", "/chat"},
-    {"mail.google", "/mail"},
+    {"calendar.google", ""}, {"docs.google", ""},      {"drive.google", ""},
+    {"keep.google", ""},     {"mail.google", "/chat"}, {"mail.google", "/mail"},
     {"meet.google", ""},
 };
 
 const char* kWorkspaceAppIdDenylist[] = {
-    extension_misc::kGmailAppId,        extension_misc::kCalendarAppId,
-    extension_misc::kGoogleDocsAppId,   extension_misc::kGoogleSlidesAppId,
-    extension_misc::kGoogleSheetsAppId, extension_misc::kGoogleDriveAppId,
-    extension_misc::kGoogleKeepAppId,   web_app::kGmailAppId,
-    web_app::kGoogleChatAppId,          web_app::kGoogleMeetAppId,
-    web_app::kGoogleDocsAppId,          web_app::kGoogleSlidesAppId,
-    web_app::kGoogleSheetsAppId,        web_app::kGoogleDriveAppId,
-    web_app::kGoogleKeepAppId,          web_app::kGoogleCalendarAppId,
+    extension_misc::kGmailAppId,
+    extension_misc::kCalendarAppId,
+    extension_misc::kGoogleDocsAppId,
+    extension_misc::kGoogleSlidesAppId,
+    extension_misc::kGoogleSheetsAppId,
+    extension_misc::kGoogleDriveAppId,
+    extension_misc::kGoogleKeepAppId,
+    extension_misc::kGoogleMeetPwaAppId,
+    extension_misc::kGoogleDocsPwaAppId,
+    extension_misc::kGoogleSheetsPwaAppId,
+    // App ids in demo mode
+    extension_misc::kCalendarDemoAppId,
+    extension_misc::kGoogleDocsDemoAppId,
+    extension_misc::kGoogleSheetsDemoAppId,
+    extension_misc::kGoogleSlidesDemoAppId,
+    web_app::kGmailAppId,
+    web_app::kGoogleChatAppId,
+    web_app::kGoogleMeetAppId,
+    web_app::kGoogleDocsAppId,
+    web_app::kGoogleSlidesAppId,
+    web_app::kGoogleSheetsAppId,
+    web_app::kGoogleDriveAppId,
+    web_app::kGoogleKeepAppId,
+    web_app::kGoogleCalendarAppId,
 };
 
 const char* kNonWorkspaceAppIdDenylist[] = {
@@ -164,9 +177,12 @@ bool IsTriggerableFromTextLength(int text_length) {
 std::vector<std::string> GetAllowedInputMethodEngines() {
   // Default English IMEs.
   std::vector<std::string> allowed_imes = {
-      "xkb:gb::eng",
-      "xkb:gb:extd:eng",          // UK
-      "xkb:gb:dvorak:eng",        // UK Extended
+      "xkb:ca:eng:eng",           // Canada
+      "xkb:gb::eng",              // UK
+      "xkb:gb:extd:eng",          // UK Extended
+      "xkb:gb:dvorak:eng",        // UK Dvorak
+      "xkb:in::eng",              // India
+      "xkb:pk::eng",              // Pakistan
       "xkb:us:altgr-intl:eng",    // US Extended
       "xkb:us:colemak:eng",       // US Colemak
       "xkb:us:dvorak:eng",        // US Dvorak
@@ -175,7 +191,8 @@ std::vector<std::string> GetAllowedInputMethodEngines() {
       "xkb:us:intl:eng",          // US Intl
       "xkb:us:workman-intl:eng",  // US Workman Intl
       "xkb:us:workman:eng",       // US Workman
-      "xkb:us::eng",              // US
+      "xkb:us::eng",              // US,
+      "xkb:za:gb:eng"             // South Africa
   };
 
   // Loads allowed imes from field trials
@@ -193,6 +210,50 @@ std::vector<std::string> GetAllowedInputMethodEngines() {
 }
 
 }  // namespace
+
+bool IsAllowedForUseInDemoMode(std::string_view country_code) {
+  return base::FeatureList::IsEnabled(chromeos::features::kOrca) &&
+         base::FeatureList::IsEnabled(
+             chromeos::features::kFeatureManagementOrca) &&
+         IsCountryAllowed(country_code);
+}
+
+bool IsAllowedForUseInNonDemoMode(Profile* profile,
+                                  std::string_view country_code) {
+  if (!base::FeatureList::IsEnabled(chromeos::features::kOrca) ||
+      !base::FeatureList::IsEnabled(
+          chromeos::features::kFeatureManagementOrca) ||
+      !IsCountryAllowed(country_code) ||
+      (base::FeatureList::IsEnabled(
+           ash::features::kOrcaUseAccountCapabilities) &&
+       FetchOrcaAccountCapabilityFromMantaService(profile) !=
+           manta::FeatureSupportStatus::kSupported)) {
+    return false;
+  }
+
+  // Always allow the feature on unmanaged users.
+  if (!IsProfileManaged(profile)) {
+    return true;
+  }
+
+  // For managed users, if the feature flag `OrcaControlledByPolicy `is set, let
+  // the feature enablement be driven by the policy.
+  if (base::FeatureList::IsEnabled(features::kOrcaControlledByPolicy)) {
+    return profile->GetPrefs()->IsManagedPreference(prefs::kManagedOrcaEnabled)
+               ? profile->GetPrefs()->GetBoolean(prefs::kManagedOrcaEnabled)
+               : false;
+  }
+
+  // If the Orca policy is not ready to launch on managed users, disallow the
+  // feature.
+  return false;
+}
+
+bool IsSystemInEnglishLanguage() {
+  return g_browser_process != nullptr &&
+         language::ExtractBaseLanguage(
+             g_browser_process->GetApplicationLocale()) == "en";
+}
 
 EditorSwitch::EditorSwitch(Delegate* delegate,
                            Profile* profile,
@@ -217,33 +278,10 @@ bool EditorSwitch::IsAllowedForUse() const {
     return false;
   }
 
-  if (!base::FeatureList::IsEnabled(chromeos::features::kOrca) ||
-      !base::FeatureList::IsEnabled(
-          chromeos::features::kFeatureManagementOrca) ||
-      !IsCountryAllowed(country_code_) || 
-      (base::FeatureList::IsEnabled(
-          ash::features::kOrcaUseAccountCapabilities) &&
-      FetchOrcaAccountCapabilityFromMantaService(profile_) !=
-          manta::FeatureSupportStatus::kSupported)) {
-    return false;
-  }
-
-  // Always allow the feature on unmanaged users.
-  if (!IsProfileManaged(profile_)) {
-    return true;
-  }
-
-  // For managed users, if the feature flag `OrcaControlledByPolicy `is set, let
-  // the feature enablement be driven by the policy.
-  if (base::FeatureList::IsEnabled(features::kOrcaControlledByPolicy)) {
-    return profile_->GetPrefs()->IsManagedPreference(prefs::kManagedOrcaEnabled)
-               ? profile_->GetPrefs()->GetBoolean(prefs::kManagedOrcaEnabled)
-               : false;
-  }
-
-  // If the Orca policy is not ready to launch on managed users, disallow the
-  // feature.
-  return false;
+  return base::FeatureList::IsEnabled(ash::features::kOrcaSupportDemoMode) &&
+                 ash::DemoSession::IsDeviceInDemoMode()
+             ? IsAllowedForUseInDemoMode(country_code_)
+             : IsAllowedForUseInNonDemoMode(profile_, country_code_);
 }
 
 EditorOpportunityMode EditorSwitch::GetEditorOpportunityMode() const {
@@ -344,7 +382,9 @@ bool EditorSwitch::CanBeTriggered() const {
          !net::NetworkChangeNotifier::IsOffline() && !tablet_mode_enabled_ &&
          // user pref value
          profile_->GetPrefs()->GetBoolean(prefs::kOrcaEnabled) &&
-         text_length_ <= kTextLengthMaxLimit;
+         text_length_ <= kTextLengthMaxLimit &&
+         (!base::FeatureList::IsEnabled(features::kOrcaOnlyInEnglishLocales) ||
+          IsSystemInEnglishLanguage());
 }
 
 EditorMode EditorSwitch::GetEditorMode() const {

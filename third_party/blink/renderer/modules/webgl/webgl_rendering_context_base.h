@@ -672,7 +672,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
 
   void commit();
 
-  ScriptPromise makeXRCompatible(ScriptState*, ExceptionState&);
+  ScriptPromise<IDLUndefined> makeXRCompatible(ScriptState*, ExceptionState&);
   bool IsXRCompatible() const;
 
   void UpdateNumberOfUserAllocatedMultisampledRenderbuffers(int delta);
@@ -916,7 +916,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
       device::mojom::blink::XrCompatibleResult xr_compatible_result);
   void CompleteXrCompatiblePromiseIfPending(DOMExceptionCode exception_code);
   bool xr_compatible_;
-  Member<ScriptPromiseResolver> make_xr_compatible_resolver_;
+  Member<ScriptPromiseResolver<IDLUndefined>> make_xr_compatible_resolver_;
 
   HeapVector<TextureUnitState> texture_units_;
   wtf_size_t active_texture_unit_;
@@ -1546,7 +1546,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   bool ValidateTexFuncData(const TexImageParams& params,
                            DOMArrayBufferView* pixels,
                            NullDisposition,
-                           GLuint src_offset);
+                           int64_t src_offset);
 
   // Helper function to validate a given texture format is settable as in
   // you can supply data to texImage2D, or call texImage2D, copyTexImage2D and
@@ -1616,6 +1616,23 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   // Helper function to validate a GL capability.
   virtual bool ValidateCapability(const char* function_name, GLenum);
 
+  bool ValidateUniformLocation(const char* function_name,
+                               const WebGLUniformLocation* location,
+                               const WebGLProgram* program) {
+    const WebGLProgram* loc_program = location->Program();
+    if (!loc_program) {
+      SynthesizeGLError(GL_INVALID_OPERATION, function_name,
+                        "location has been invalidated");
+      return false;
+    }
+    if (loc_program != program) {
+      SynthesizeGLError(GL_INVALID_OPERATION, function_name,
+                        "location is not from the associated program");
+      return false;
+    }
+    return true;
+  }
+
   // Helper function to validate input parameters for uniform functions.
   template <typename T>
   bool ValidateUniformParameters(const char* function_name,
@@ -1675,9 +1692,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
     DCHECK(size >= 0 && required_min_size > 0);
     if (!location)
       return false;
-    if (location->Program() != current_program_) {
-      SynthesizeGLError(GL_INVALID_OPERATION, function_name,
-                        "location is not from current program");
+    if (!ValidateUniformLocation(function_name, location, current_program_)) {
       return false;
     }
     if (!v) {
@@ -1922,7 +1937,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   void TexImageHelperDOMArrayBufferView(TexImageParams params,
                                         DOMArrayBufferView*,
                                         NullDisposition,
-                                        GLuint src_offset);
+                                        int64_t src_offset);
   void TexImageHelperImageData(TexImageParams, ImageData*);
 
   void TexImageHelperHTMLImageElement(const SecurityOrigin*,

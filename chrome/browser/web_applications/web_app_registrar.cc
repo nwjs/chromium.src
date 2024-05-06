@@ -738,7 +738,11 @@ void WebAppRegistrar::Start() {
   if (ProfileManager* profile_manager = g_browser_process->profile_manager())
     profile_manager_observation_.Observe(profile_manager);
 
-  int num_user_installed_apps = CountUserInstalledApps();
+  int num_user_installed_apps =
+      std::get<InstallableAppCount>(CountTotalUserInstalledAppsIncludingDiy())
+          .value();
+  int num_user_installed_diy_apps =
+      std::get<DiyAppCount>(CountTotalUserInstalledAppsIncludingDiy()).value();
   int num_non_locally_installed = CountUserInstalledNotLocallyInstalledApps();
 
   base::UmaHistogramCounts1000("WebApp.InstalledCount.ByUser",
@@ -746,6 +750,8 @@ void WebAppRegistrar::Start() {
   base::UmaHistogramCounts1000(
       "WebApp.InstalledCount.ByUserNotLocallyInstalled",
       num_non_locally_installed);
+  base::UmaHistogramCounts1000("WebApp.DiyAppsInstalledCount.ByUser",
+                               num_user_installed_diy_apps);
 
 #if BUILDFLAG(IS_MAC)
   auto multi_profile_app_ids =
@@ -809,7 +815,7 @@ bool WebAppRegistrar::IsInstalled(const webapps::AppId& app_id) const {
   WebAppManagementTypes sources_except_sync = web_app->GetSources();
   sources_except_sync.Remove(WebAppManagement::kSync);
   return !(web_app->is_from_sync_and_pending_installation() &&
-           sources_except_sync.Empty());
+           sources_except_sync.empty());
 }
 
 bool WebAppRegistrar::IsUninstalling(const webapps::AppId& app_id) const {
@@ -856,6 +862,9 @@ bool WebAppRegistrar::IsInstalledByPolicy(const webapps::AppId& app_id) const {
   }
 
   WebAppManagementTypes sources = web_app->GetSources();
+  if (web_app->isolation_data().has_value()) {
+    return sources.Has(WebAppManagement::Type::kIwaPolicy);
+  }
   return sources.Has(WebAppManagement::Type::kPolicy);
 }
 
@@ -940,22 +949,14 @@ base::flat_set<std::string> WebAppRegistrar::GetAllDisallowedLaunchProtocols()
 }
 
 int WebAppRegistrar::CountUserInstalledApps() const {
-  int num_user_installed = 0;
-  for (const WebApp& app : GetApps()) {
-    if (app.is_locally_installed() && app.WasInstalledByUser())
-      ++num_user_installed;
-  }
-  return num_user_installed;
+  return std::get<InstallableAppCount>(
+             CountTotalUserInstalledAppsIncludingDiy())
+      .value();
 }
 
-int WebAppRegistrar::CountUserInstalledNotLocallyInstalledApps() const {
-  int num_non_locally_installed = 0;
-  for (const WebApp& app : GetApps()) {
-    if (!app.is_locally_installed() && app.WasInstalledByUser()) {
-      ++num_non_locally_installed;
-    }
-  }
-  return num_non_locally_installed;
+int WebAppRegistrar::CountUserInstalledDiyApps() const {
+  return std::get<DiyAppCount>(CountTotalUserInstalledAppsIncludingDiy())
+      .value();
 }
 
 std::vector<content::StoragePartitionConfig>
@@ -1824,5 +1825,30 @@ bool WebAppRegistrar::IsShortcutAppChromeOs(
   return false;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+int WebAppRegistrar::CountUserInstalledNotLocallyInstalledApps() const {
+  int num_non_locally_installed = 0;
+  for (const WebApp& app : GetApps()) {
+    if (!app.is_locally_installed() && app.WasInstalledByUser()) {
+      ++num_non_locally_installed;
+    }
+  }
+  return num_non_locally_installed;
+}
+
+std::tuple<DiyAppCount, InstallableAppCount>
+WebAppRegistrar::CountTotalUserInstalledAppsIncludingDiy() const {
+  InstallableAppCount num_user_installed(0);
+  DiyAppCount num_diy_apps_user_installed(0);
+  for (const WebApp& app : GetApps()) {
+    if (app.is_locally_installed() && app.WasInstalledByUser()) {
+      if (app.is_diy_app()) {
+        ++num_diy_apps_user_installed.value();
+      }
+      ++num_user_installed.value();
+    }
+  }
+  return std::make_tuple(num_diy_apps_user_installed, num_user_installed);
+}
 
 }  // namespace web_app

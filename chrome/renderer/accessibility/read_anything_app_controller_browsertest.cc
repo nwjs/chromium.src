@@ -152,8 +152,7 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
 
   void SetIsPdf() {
     // Call OnActiveAXTreeIDChanged() to set is_pdf_ state.
-    GURL pdf_url("http://www.google.com/foo/bar.pdf");
-    OnActiveAXTreeIDChanged(tree_id_, pdf_url, true);
+    OnActiveAXTreeIDChanged(tree_id_, true /* is_pdf */);
   }
 
   void SetUpdateTreeID(ui::AXTreeUpdate* update) {
@@ -200,14 +199,9 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
     controller_->model_.SetDistillationInProgress(in_progress);
   }
 
-  void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id) {
-    OnActiveAXTreeIDChanged(tree_id, GURL());
-  }
-
   void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id,
-                               const GURL& url,
                                bool is_pdf = false) {
-    controller_->OnActiveAXTreeIDChanged(tree_id, ukm::kInvalidSourceId, url,
+    controller_->OnActiveAXTreeIDChanged(tree_id, ukm::kInvalidSourceId,
                                          is_pdf);
   }
 
@@ -287,8 +281,6 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
 
   float LetterSpacing() { return controller_->LetterSpacing(); }
 
-  bool isSelectable() { return controller_->IsSelectable(); }
-
   void OnFontSizeReset() { controller_->OnFontSizeReset(); }
 
   void OnLinksEnabledToggled() { controller_->OnLinksEnabledToggled(); }
@@ -340,7 +332,15 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
 
   bool IsGoogleDocs() { return controller_->IsGoogleDocs(); }
 
+  bool IsUrlInformationSet(ui::AXTreeID tree_id) {
+    return controller_->model_.GetTreesForTesting()
+        ->at(tree_id)
+        ->is_url_information_set;
+  }
+
   bool IsReadAloudEnabled() { return controller_->IsReadAloudEnabled(); }
+
+  bool IsWebUIToolbarEnabled() { return controller_->IsWebUIToolbarEnabled(); }
 
   bool IsLeafNode(ui::AXNodeID ax_node_id) {
     return controller_->IsLeafNode(ax_node_id);
@@ -402,6 +402,14 @@ TEST_F(ReadAnythingAppControllerTest, IsReadAloudEnabled) {
 
   scoped_feature_list_.InitAndEnableFeature(features::kReadAnythingReadAloud);
   EXPECT_TRUE(IsReadAloudEnabled());
+}
+
+TEST_F(ReadAnythingAppControllerTest, IsWebUIToolbarEnabled) {
+  EXPECT_FALSE(IsWebUIToolbarEnabled());
+
+  scoped_feature_list_.InitAndEnableFeature(
+      features::kReadAnythingWebUIToolbar);
+  EXPECT_TRUE(IsWebUIToolbarEnabled());
 }
 
 TEST_F(ReadAnythingAppControllerTest, Theme) {
@@ -584,16 +592,19 @@ TEST_F(ReadAnythingAppControllerTest, GetHtmlTag_SvgReturnsDivIfGoogleDocs) {
 
   ui::AXNodeData root;
   root.id = 1;
+  root.AddStringAttribute(
+      ax::mojom::StringAttribute::kUrl,
+      "https://docs.google.com/document/d/"
+      "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
+      "edit?ouid=103677288878638916900&usp=docs_home&ths=true");
   root.child_ids = {node.id};
   update.nodes = {root, node};
   update.root_id = root.id;
 
   AccessibilityEventReceived({update});
+  EXPECT_TRUE(IsUrlInformationSet(id_1));
   OnAXTreeDistilled({});
-  OnActiveAXTreeIDChanged(
-      id_1, GURL("https://docs.google.com/document/d/"
-                 "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
-                 "edit?ouid=103677288878638916900&usp=docs_home&ths=true"));
+  OnActiveAXTreeIDChanged(id_1);
   EXPECT_TRUE(IsGoogleDocs());
   EXPECT_EQ(div, GetHtmlTag(2));
 }
@@ -617,15 +628,18 @@ TEST_F(ReadAnythingAppControllerTest,
   ui::AXNodeData root;
   root.role = ax::mojom::Role::kParagraph;
   root.id = 1;
+  root.AddStringAttribute(
+      ax::mojom::StringAttribute::kUrl,
+      "https://docs.google.com/document/d/"
+      "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
+      "edit?ouid=103677288878638916900&usp=docs_home&ths=true");
   root.child_ids = {paragraph_node.id, svg_node.id};
   update.root_id = root.id;
   update.nodes = {root, paragraph_node, svg_node};
   AccessibilityEventReceived({update});
+  EXPECT_TRUE(IsUrlInformationSet(id_1));
   OnAXTreeDistilled({});
-  OnActiveAXTreeIDChanged(
-      id_1, GURL("https://docs.google.com/document/d/"
-                 "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
-                 "edit?ouid=103677288878638916900&usp=docs_home&ths=true"));
+  OnActiveAXTreeIDChanged(id_1);
   EXPECT_TRUE(IsGoogleDocs());
   EXPECT_EQ("", GetHtmlTag(1));
   EXPECT_EQ(p, GetHtmlTag(2));
@@ -891,6 +905,44 @@ TEST_F(ReadAnythingAppControllerTest, GetTextContent_WithSelection) {
 }
 
 TEST_F(ReadAnythingAppControllerTest,
+       GetTextContent_IgoreStaticTextIfGoogleDocs) {
+  std::string text_content = "Hello";
+  std::string more_text_content = "world";
+  ui::AXTreeUpdate update;
+  ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
+  SetUpdateTreeID(&update, id_1);
+  ui::AXNodeData node1;
+  node1.id = 2;
+  node1.role = ax::mojom::Role::kStaticText;
+  node1.SetNameChecked(text_content);
+
+  ui::AXNodeData node2;
+  node2.id = 3;
+  node2.role = ax::mojom::Role::kStaticText;
+  node2.SetNameExplicitlyEmpty();
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.AddStringAttribute(
+      ax::mojom::StringAttribute::kUrl,
+      "https://docs.google.com/document/d/"
+      "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
+      "edit?ouid=103677288878638916900&usp=docs_home&ths=true");
+  root.child_ids = {node1.id, node2.id};
+  root.role = ax::mojom::Role::kParagraph;
+  update.root_id = root.id;
+  update.nodes = {root, node1, node2};
+
+  AccessibilityEventReceived({update});
+  EXPECT_TRUE(IsUrlInformationSet(id_1));
+  OnAXTreeDistilled({});
+  OnActiveAXTreeIDChanged(id_1);
+  EXPECT_TRUE(IsGoogleDocs());
+  EXPECT_EQ("", GetTextContent(2));
+  EXPECT_EQ("", GetTextContent(3));
+}
+
+TEST_F(ReadAnythingAppControllerTest,
        GetTextContent_UseNameAttributeTextIfGoogleDocs) {
   std::string text_content = "Hello";
   std::string more_text_content = "world";
@@ -907,21 +959,24 @@ TEST_F(ReadAnythingAppControllerTest,
                            more_text_content);
   ui::AXNodeData root;
   root.id = 1;
+  root.AddStringAttribute(
+      ax::mojom::StringAttribute::kUrl,
+      "https://docs.google.com/document/d/"
+      "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
+      "edit?ouid=103677288878638916900&usp=docs_home&ths=true");
   root.child_ids = {node1.id, node2.id};
   root.role = ax::mojom::Role::kParagraph;
   update.root_id = root.id;
   update.nodes = {root, node1, node2};
 
   AccessibilityEventReceived({update});
+  EXPECT_TRUE(IsUrlInformationSet(id_1));
   OnAXTreeDistilled({});
-  OnActiveAXTreeIDChanged(
-      id_1, GURL("https://docs.google.com/document/d/"
-                 "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
-                 "edit?ouid=103677288878638916900&usp=docs_home&ths=true"));
+  OnActiveAXTreeIDChanged(id_1);
   EXPECT_TRUE(IsGoogleDocs());
-  EXPECT_EQ("Hello world", GetTextContent(1));
-  EXPECT_EQ(text_content, GetTextContent(2));
-  EXPECT_EQ(more_text_content, GetTextContent(3));
+  EXPECT_EQ("Hello world ", GetTextContent(1));
+  EXPECT_EQ(text_content + " ", GetTextContent(2));
+  EXPECT_EQ(more_text_content + " ", GetTextContent(3));
 }
 
 TEST_F(ReadAnythingAppControllerTest,
@@ -942,14 +997,17 @@ TEST_F(ReadAnythingAppControllerTest,
 
   ui::AXNodeData root;
   root.id = 1;
+  root.AddStringAttribute(ax::mojom::StringAttribute::kUrl,
+                          "https://www.google.com/");
   root.child_ids = {node1.id, node2.id};
   root.role = ax::mojom::Role::kParagraph;
   update.root_id = root.id;
   update.nodes = {root, node1, node2};
 
   AccessibilityEventReceived({update});
+  EXPECT_TRUE(IsUrlInformationSet(id_1));
   OnAXTreeDistilled({});
-  OnActiveAXTreeIDChanged(id_1, GURL("https://www.google.com/"));
+  OnActiveAXTreeIDChanged(id_1);
   EXPECT_FALSE(IsGoogleDocs());
   EXPECT_EQ("", GetTextContent(1));
   EXPECT_EQ("", GetTextContent(2));
@@ -1086,18 +1144,6 @@ TEST_F(ReadAnythingAppControllerTest, IsLeafNode) {
   EXPECT_EQ(true, IsLeafNode(2));
   EXPECT_EQ(true, IsLeafNode(3));
   EXPECT_EQ(true, IsLeafNode(4));
-}
-
-TEST_F(ReadAnythingAppControllerTest, IsGoogleDocs) {
-  ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
-  OnActiveAXTreeIDChanged(id_1, GURL("www.google.com"));
-  EXPECT_FALSE(IsGoogleDocs());
-
-  OnActiveAXTreeIDChanged(
-      tree_id_, GURL("https://docs.google.com/document/d/"
-                     "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
-                     "edit?ouid=103677288878638916900&usp=docs_home&ths=true"));
-  EXPECT_TRUE(IsGoogleDocs());
 }
 
 TEST_F(ReadAnythingAppControllerTest, IsNodeIgnoredForReadAnything) {
@@ -1338,38 +1384,43 @@ TEST_F(ReadAnythingAppControllerTest, OnActiveAXTreeIDChanged) {
   Mock::VerifyAndClearExpectations(distiller_);
 }
 
-TEST_F(ReadAnythingAppControllerTest,
-       OnActiveAXTreeIDChanged_DocsLabeledNotSelectable) {
+TEST_F(ReadAnythingAppControllerTest, IsGoogleDocs) {
   ui::AXTreeUpdate update;
   ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
   SetUpdateTreeID(&update, id_1);
   update.root_id = 1;
+
   ui::AXNodeData node;
   node.id = 1;
+  node.AddStringAttribute(ax::mojom::StringAttribute::kUrl, "www.google.com");
   update.nodes = {node};
   AccessibilityEventReceived({update});
+  EXPECT_TRUE(IsUrlInformationSet(id_1));
   OnAXTreeDistilled({1});
 
   EXPECT_CALL(*distiller_, Distill).Times(1);
-  OnActiveAXTreeIDChanged(id_1, GURL("www.google.com"));
-  EXPECT_TRUE(isSelectable());
+  OnActiveAXTreeIDChanged(id_1);
+  EXPECT_FALSE(IsGoogleDocs());
   Mock::VerifyAndClearExpectations(distiller_);
 
   ui::AXTreeUpdate update_1;
   SetUpdateTreeID(&update_1, tree_id_);
   ui::AXNodeData root;
   root.id = 1;
+  root.AddStringAttribute(
+      ax::mojom::StringAttribute::kUrl,
+      "https://docs.google.com/document/d/"
+      "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
+      "edit?ouid=103677288878638916900&usp=docs_home&ths=true");
   update_1.root_id = root.id;
   update_1.nodes = {root};
   AccessibilityEventReceived({update_1});
+  EXPECT_TRUE(IsUrlInformationSet(tree_id_));
   OnAXTreeDistilled({1});
 
   EXPECT_CALL(*distiller_, Distill).Times(1);
-  OnActiveAXTreeIDChanged(
-      tree_id_, GURL("https://docs.google.com/document/d/"
-                     "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
-                     "edit?ouid=103677288878638916900&usp=docs_home&ths=true"));
-  EXPECT_FALSE(isSelectable());
+  OnActiveAXTreeIDChanged(tree_id_);
+  EXPECT_TRUE(IsGoogleDocs());
   Mock::VerifyAndClearExpectations(distiller_);
 }
 

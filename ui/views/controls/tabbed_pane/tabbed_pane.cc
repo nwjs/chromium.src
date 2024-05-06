@@ -71,7 +71,7 @@ TabbedPaneTab::TabbedPaneTab(TabbedPane* tabbed_pane,
 
   // Use leaf so that name is spoken by screen reader without exposing the
   // children.
-  GetViewAccessibility().OverrideIsLeaf(true);
+  GetViewAccessibility().SetIsLeaf(true);
 
   OnStateChanged();
 }
@@ -281,10 +281,10 @@ void TabbedPaneTab::UpdatePreferredTitleWidth() {
   // and reserve that amount of space.
   const State old_state = state_;
   SetState(State::kActive);
-  preferred_title_width_ = title_->GetPreferredSize().width();
+  preferred_title_width_ = title_->GetPreferredSize({}).width();
   SetState(State::kInactive);
   preferred_title_width_ =
-      std::max(preferred_title_width_, title_->GetPreferredSize().width());
+      std::max(preferred_title_width_, title_->GetPreferredSize({}).width());
   SetState(old_state);
 }
 

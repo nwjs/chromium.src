@@ -227,9 +227,10 @@ class TabStripLayout: UICollectionViewFlowLayout {
     cell.trailingSeparatorHidden = isNextCellSelected
 
     /// Hide the `leadingSeparator` if the previous cell is selected or the
-    /// collection view is not scrollable.
-    let isPreviousCellSelected = (indexPath.item - 1) == selectedIndexPath?.item
-    cell.leadingSeparatorHidden = isPreviousCellSelected || !isScrollable
+    /// collection view is not scrollable, or the previous cell is a group.
+    let indexPathOfPreviousItem = IndexPath(item: indexPath.item - 1, section: indexPath.section)
+    let isPreviousCellSelected = indexPathOfPreviousItem == selectedIndexPath
+    cell.leadingSeparatorHidden = isPreviousCellSelected || !isScrollable || cell.isFirstTabInGroup
 
     if UIAccessibility.isVoiceOverRunning {
       // Prevent frame resizing while VoiceOver is active.
@@ -579,19 +580,20 @@ class TabStripLayout: UICollectionViewFlowLayout {
   // Calculates the dynamic size of a tab according to the number of tabs and
   // groups.
   public func calculateTabCellSize() {
-    guard let collectionView = self.collectionView, let snapshot = dataSource?.snapshot() else {
+    guard let collectionView = self.collectionView, let snapshot = dataSource?.snapshot(for: .tabs)
+    else {
       return
     }
 
     var groupCellWidthSum: CGFloat = 0
     var tabCellCount: CGFloat = 0
-    let cellCount: CGFloat = CGFloat(snapshot.itemIdentifiers.count)
+    let cellCount: CGFloat = CGFloat(snapshot.visibleItems.count)
 
     if cellCount == 0 {
       return
     }
 
-    for itemIdentifier in snapshot.itemIdentifiers {
+    for itemIdentifier in snapshot.visibleItems {
       switch itemIdentifier.item {
       case .tab(_):
         tabCellCount += 1
@@ -617,9 +619,10 @@ class TabStripLayout: UICollectionViewFlowLayout {
   }
 
   public func calculateCellSizeForTabGroupItem(_ tabGroupItem: TabGroupItem) -> CGSize {
-    var width = tabGroupItem.title.size(withAttributes: [
-      .font: UIFont.systemFont(ofSize: TabStripConstants.GroupItem.fontSize, weight: .medium)
-    ]).width
+    var width =
+      tabGroupItem.rawTitle?.size(withAttributes: [
+        .font: UIFont.systemFont(ofSize: TabStripConstants.GroupItem.fontSize, weight: .medium)
+      ]).width ?? 0
     width += 2 * TabStripConstants.GroupItem.titleContainerHorizontalMargin
     width += 2 * TabStripConstants.GroupItem.titleContainerHorizontalPadding
     return CGSize(width: width, height: TabStripConstants.GroupItem.height)

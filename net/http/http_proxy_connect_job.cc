@@ -128,7 +128,7 @@ HttpProxyTimeoutExperiments* GetProxyTimeoutExperiments() {
 
 // Make a URL for a proxy, for use in proxy auth challenges.
 GURL MakeProxyUrl(const HttpProxySocketParams& params) {
-  const bool is_https = params.ssl_params() || params.quic_ssl_config();
+  const bool is_https = params.is_over_ssl() || params.is_over_quic();
   return GURL((is_https ? "https://" : "http://") +
               params.proxy_server().host_port_pair().ToString());
 }
@@ -136,8 +136,45 @@ GURL MakeProxyUrl(const HttpProxySocketParams& params) {
 }  // namespace
 
 HttpProxySocketParams::HttpProxySocketParams(
-    scoped_refptr<TransportSocketParams> transport_params,
-    scoped_refptr<SSLSocketParams> ssl_params,
+    ConnectJobParams nested_params,
+    const HostPortPair& endpoint,
+    const ProxyChain& proxy_chain,
+    size_t proxy_chain_index,
+    bool tunnel,
+    const NetworkTrafficAnnotationTag traffic_annotation,
+    const NetworkAnonymizationKey& network_anonymization_key,
+    SecureDnsPolicy secure_dns_policy)
+    : HttpProxySocketParams(std::move(nested_params),
+                            std::nullopt,
+                            endpoint,
+                            proxy_chain,
+                            proxy_chain_index,
+                            tunnel,
+                            std::move(traffic_annotation),
+                            network_anonymization_key,
+                            secure_dns_policy) {}
+
+HttpProxySocketParams::HttpProxySocketParams(
+    SSLConfig quic_ssl_config,
+    const HostPortPair& endpoint,
+    const ProxyChain& proxy_chain,
+    size_t proxy_chain_index,
+    bool tunnel,
+    const NetworkTrafficAnnotationTag traffic_annotation,
+    const NetworkAnonymizationKey& network_anonymization_key,
+    SecureDnsPolicy secure_dns_policy)
+    : HttpProxySocketParams(std::nullopt,
+                            std::move(quic_ssl_config),
+                            endpoint,
+                            proxy_chain,
+                            proxy_chain_index,
+                            tunnel,
+                            std::move(traffic_annotation),
+                            network_anonymization_key,
+                            secure_dns_policy) {}
+
+HttpProxySocketParams::HttpProxySocketParams(
+    std::optional<ConnectJobParams> nested_params,
     std::optional<SSLConfig> quic_ssl_config,
     const HostPortPair& endpoint,
     const ProxyChain& proxy_chain,
@@ -146,8 +183,7 @@ HttpProxySocketParams::HttpProxySocketParams(
     const NetworkTrafficAnnotationTag traffic_annotation,
     const NetworkAnonymizationKey& network_anonymization_key,
     SecureDnsPolicy secure_dns_policy)
-    : transport_params_(std::move(transport_params)),
-      ssl_params_(std::move(ssl_params)),
+    : nested_params_(std::move(nested_params)),
       quic_ssl_config_(std::move(quic_ssl_config)),
       endpoint_(endpoint),
       proxy_chain_(proxy_chain),
@@ -161,29 +197,18 @@ HttpProxySocketParams::HttpProxySocketParams(
   CHECK(proxy_chain_index_ < proxy_chain_.length());
 
   // This is either a connection to an HTTP proxy,an SSL proxy, or a QUIC proxy.
-  if (transport_params_) {
-    DCHECK(!ssl_params_);
-    DCHECK(!quic_ssl_config_);
-    DCHECK(!proxy_server().is_quic());
-  } else if (ssl_params_) {
-    DCHECK(!transport_params_);
-    DCHECK(!quic_ssl_config_);
-    DCHECK(!proxy_server().is_quic());
-  } else if (quic_ssl_config_) {
-    DCHECK(!ssl_params_);
-    DCHECK(!transport_params_);
-    DCHECK(proxy_server().is_quic());
-  }
+  DCHECK(nested_params_ || quic_ssl_config_);
+  DCHECK(!(nested_params_ && quic_ssl_config_));
 
   // Only supports proxy endpoints without scheme for now.
   // TODO(crbug.com/1206799): Handle scheme.
-  if (transport_params_) {
+  if (is_over_transport()) {
     DCHECK(absl::holds_alternative<HostPortPair>(
-        transport_params_->destination()));
-  } else if (ssl_params_ && ssl_params_->GetConnectionType() ==
-                                SSLSocketParams::ConnectionType::DIRECT) {
+        nested_params_->transport()->destination()));
+  } else if (is_over_ssl() && nested_params_->ssl()->GetConnectionType() ==
+                                  SSLSocketParams::ConnectionType::DIRECT) {
     DCHECK(absl::holds_alternative<HostPortPair>(
-        ssl_params_->GetDirectConnectionParams()->destination()));
+        nested_params_->ssl()->GetDirectConnectionParams()->destination()));
   }
 }
 
@@ -466,7 +491,7 @@ int HttpProxyConnectJob::DoTransportConnect() {
         params_->transport_params(), this, &net_log());
   } else {
     DCHECK_EQ(scheme, ProxyServer::SCHEME_HTTPS);
-    DCHECK(params_->ssl_params());
+    DCHECK(params_->is_over_ssl());
     // Skip making a new connection if we have an existing HTTP/2 session.
     if (params_->tunnel() &&
         common_connect_job_params()->spdy_session_pool->FindAvailableSession(
@@ -621,7 +646,7 @@ int HttpProxyConnectJob::DoHttpProxyConnectComplete(int result) {
 
 int HttpProxyConnectJob::DoSpdyProxyCreateStream() {
   DCHECK(params_->tunnel());
-  DCHECK(params_->ssl_params());
+  DCHECK(params_->is_over_ssl());
 
   // Reset the timer to just the length of time allowed for HttpProxy handshake
   // so that a fast TCP connection plus a slow HttpProxy failure doesn't take
@@ -703,19 +728,25 @@ int HttpProxyConnectJob::DoQuicProxyCreateSession() {
   // Use default QUIC version, which is the version listed supported version.
   quic::ParsedQuicVersion quic_version =
       common_connect_job_params()->quic_supported_versions->front();
-  // TODO(https://crbug.com/1491092): Update to handle multi-proxy chains. We
-  // will need to create a proxy chain corresponding to all proxy servers up to
-  // but not including the one we are connecting to (or ProxyChain::Direct for
-  // the first proxy server) and use that instead of ProxyChain::Direct() below.
-  CHECK(!params_->proxy_chain().is_multi_proxy());
+
+  // The QuicSessionRequest will handle connecting to any proxies earlier in the
+  // chain to this one, but expects a ProxyChain containing only QUIC proxies.
+  ProxyChain quic_proxies =
+      params_->proxy_chain().Prefix(params_->proxy_chain_index());
+
+  // The ConnectJobParamsFactory ensures that this prefix is all QUIC proxies.
+  for (const ProxyServer& ps : quic_proxies.proxy_servers()) {
+    CHECK(ps.is_quic());
+  }
+
   return quic_session_request_->Request(
       // TODO(crbug.com/1206799) Pass the destination directly once it's
       // converted to contain scheme.
       url::SchemeHostPort(url::kHttpsScheme, proxy_server.host(),
                           proxy_server.port()),
-      quic_version, ProxyChain::Direct(), params_->traffic_annotation(),
-      SessionUsage::kProxy, ssl_config.privacy_mode, kH2QuicTunnelPriority,
-      socket_tag(), params_->network_anonymization_key(),
+      quic_version, quic_proxies, params_->traffic_annotation(),
+      http_user_agent_settings(), SessionUsage::kProxy, ssl_config.privacy_mode,
+      kH2QuicTunnelPriority, socket_tag(), params_->network_anonymization_key(),
       params_->secure_dns_policy(),
       /*require_dns_https_alpn=*/false, ssl_config.GetCertVerifyFlags(),
       GURL("https://" + proxy_server.ToString()), net_log(),

@@ -14434,94 +14434,52 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
 namespace {
 
-class AllowDialogInterceptor
-    : public blink::mojom::LocalFrameHostInterceptorForTesting {
- public:
-  AllowDialogInterceptor() = default;
-  ~AllowDialogInterceptor() override = default;
-
-  void Init(RenderFrameHostImpl* render_frame_host) {
-    render_frame_host_ = render_frame_host;
-    std::ignore = render_frame_host_->local_frame_host_receiver_for_testing()
-                      .SwapImplForTesting(this);
-  }
-
-  blink::mojom::LocalFrameHost* GetForwardingInterface() override {
-    return render_frame_host_;
-  }
-
-  void RunModalAlertDialog(const std::u16string& alert_message,
-                           bool disable_third_party_subframe_suppresion,
-                           RunModalAlertDialogCallback callback) override {
-    alert_callback_ = std::move(callback);
-    alert_message_ = alert_message;
-  }
-
-  void ResumeProcessingModalAlertDialogHandling() {
-    has_called_callback_ = true;
-    render_frame_host_->RunModalAlertDialog(alert_message_, false,
-                                            std::move(alert_callback_));
-  }
-
-  bool HasCalledAlertCallback() const { return has_called_callback_; }
-
- private:
-  raw_ptr<RenderFrameHostImpl> render_frame_host_;
-  std::u16string alert_message_;
-  RunModalAlertDialogCallback alert_callback_;
-  bool has_called_callback_ = false;
-};
-
 class NavigationControllerAlertDialogBrowserTest
     : public NavigationControllerBrowserTest,
       public WebContentsObserver,
       public WebContentsDelegate {
  public:
   void BindWebContents(WebContents* web_contents) {
-    alert_interceptor_.Init(
-        static_cast<RenderFrameHostImpl*>(web_contents->GetPrimaryMainFrame()));
     Observe(web_contents);
     web_contents->SetDelegate(this);
   }
 
-  void DidFinishNavigation(NavigationHandle* navigation_handle) override {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    if (!navigation_handle->HasCommitted())
-      return;
-
-    // Continue handling the rest of the alert dialog handling.
-    alert_interceptor_.ResumeProcessingModalAlertDialogHandling();
+  void RenderFrameHostChanged(RenderFrameHost* old_rfh,
+                              RenderFrameHost* new_rfh) override {
+    static_cast<RenderFrameHostImpl*>(old_rfh)->RunModalAlertDialog(
+        u"alert text", false,
+        base::BindOnce(base::BindLambdaForTesting([&](RenderFrameHost* rfh) {
+                         ASSERT_FALSE(rfh->IsActive());
+                         callback_called_ = true;
+                       }),
+                       old_rfh));
+    ASSERT_TRUE(callback_called_);
   }
 
   // WebContentsDelegate:
   JavaScriptDialogManager* GetJavaScriptDialogManager(
       WebContents* source) override {
     CHECK(false);
-    return nullptr;  // agh compiler
+    return nullptr;
   }
 
-  bool HasCalledAlertCallback() const {
-    return alert_interceptor_.HasCalledAlertCallback();
-  }
+  bool callback_called() const { return callback_called_; }
 
  private:
-  AllowDialogInterceptor alert_interceptor_;
+  bool callback_called_ = false;
 };
 
 }  // namespace
 
 // Check that swapped out frames cannot spawn JavaScript dialogs.
-// TODO(crbug.com/1112336): Flaky
 IN_PROC_BROWSER_TEST_P(NavigationControllerAlertDialogBrowserTest,
-                       DISABLED_NoDialogsFromSwappedOutFrames) {
+                       NoDialogsFromSwappedOutFrames) {
   // Start on a normal page.
-  GURL url1 = embedded_test_server()->GetURL(
-      "/navigation_controller/beforeunload_dialog.html");
-  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  EXPECT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/empty.html")));
 
-  // Bind the WebContents observer to start watching for the finished
-  // navigation callback. When the navigation is called we resume the
-  // suspended alert dialog handling.
+  // Bind the WebContents observer to start watching for the RenderFrameHost
+  // changed callback.
   WebContents* web_contents = shell()->web_contents();
   BindWebContents(web_contents);
 
@@ -14530,14 +14488,12 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerAlertDialogBrowserTest,
             kChromeUIGpuHost);
   EXPECT_TRUE(NavigateToURL(shell(), url2));
 
-  // What happens now is that attempting to unload the first page will trigger a
-  // JavaScript alert but allow navigation. The alert mojo message will be
-  // suspended by the subclassed RenderFrameHostImplForAllowDialogInterceptor.
-  // The commit of the second page will cause the alert dialog message handling
-  // to resume. If the dialog mojo message is allowed to spawn a dialog, the
-  // call by the WebContents to its delegate to get the JavaScriptDialogManager
-  // will cause a CHECK and the test will fail.
-  EXPECT_TRUE(HasCalledAlertCallback());
+  // The cross-process navigation will cause a change of RenderFrameHost and
+  // while observing that change, the base class calls the JavaScript alert
+  // Mojo message handler. If the handler allows the dialog to be created
+  // the call by the WebContents to its delegate to get the
+  // JavaScriptDialogManager will cause a CHECK and the test will fail.
+  EXPECT_TRUE(callback_called());
 }
 
 // Check that the referrer is stored inside FrameNavigationEntry for subframes.
@@ -15059,16 +15015,8 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 // make a spoof possible. Ideally they would create an error page, but some
 // extensions rely on them being silently blocked. See https://crbug.com/935175
 // and https://crbug.com/941653.
-// This test is flaky on Linux : http://crbug.com/1223051
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_JavascriptRedirectSilentlyCanceled \
-  DISABLED_JavascriptRedirectSilentlyCanceled
-#else
-#define MAYBE_JavascriptRedirectSilentlyCanceled \
-  JavascriptRedirectSilentlyCanceled
-#endif
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
-                       MAYBE_JavascriptRedirectSilentlyCanceled) {
+                       JavascriptRedirectSilentlyCanceled) {
   NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
       shell()->web_contents()->GetController());
 
@@ -20169,52 +20117,29 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_EQ(1, controller.GetEntryCount());
   EXPECT_TRUE(controller.GetLastCommittedEntry()->IsInitialEntry());
 
-  if (blink::features::IsNewBaseUrlInheritanceBehaviorEnabled()) {
-    EXPECT_NE("about:blank",
-              EvalJs(new_root, "document.baseURI").ExtractString());
-  } else {
-    EXPECT_EQ("about:blank",
-              EvalJs(new_root, "document.baseURI").ExtractString());
-  }
+  EXPECT_NE("about:blank",
+            EvalJs(new_root, "document.baseURI").ExtractString());
 
   // Navigate the popup main frame to a same-document relative URL.
   FrameNavigateParamsCapturer capturer(new_root);
   EXPECT_TRUE(ExecJs(new_root, "location.href = '#foo';"));
   capturer.Wait();
 
-  if (blink::features::IsNewBaseUrlInheritanceBehaviorEnabled()) {
-    // When an about:blank popup inherits its base url from the initiator,
-    // it will not be able to do same-document navigations without specifying an
-    // absolute url.
+  // When an about:blank popup inherits its base url from the initiator,
+  // it will not be able to do same-document navigations without specifying an
+  // absolute url.
 
-    EXPECT_EQ(embedded_test_server()->GetURL("/title1.html#foo"),
-              new_root->current_url());
-    EXPECT_EQ(NAVIGATION_TYPE_MAIN_FRAME_NEW_ENTRY, capturer.navigation_type());
-    EXPECT_FALSE(capturer.is_same_document());
+  EXPECT_EQ(embedded_test_server()->GetURL("/title1.html#foo"),
+            new_root->current_url());
+  EXPECT_EQ(NAVIGATION_TYPE_MAIN_FRAME_NEW_ENTRY, capturer.navigation_type());
+  EXPECT_FALSE(capturer.is_same_document());
 
-    // The navigation is a cross-document navigation from the initial empty
-    // document, so we committed a new non-initial NavigationEntry that replaced
-    // the initial entry.
-    EXPECT_TRUE(capturer.did_replace_entry());
-    EXPECT_EQ(1, controller.GetEntryCount());
-    EXPECT_FALSE(controller.GetLastCommittedEntry()->IsInitialEntry());
-  } else {
-    // When the new inheritance behavior is disabled, an about:blank popup will
-    // have about:blank for the baseURI also, and so relative URLs can be used
-    // for same document navigations.
-
-    EXPECT_EQ(GURL("about:blank#foo"), new_root->current_url());
-    EXPECT_EQ(NAVIGATION_TYPE_MAIN_FRAME_EXISTING_ENTRY,
-              capturer.navigation_type());
-    EXPECT_TRUE(capturer.is_same_document());
-
-    // The navigation is a same-document navigation from the initial empty
-    // document, so we committed a new initial NavigationEntry that replaced the
-    // previous initial NavigationEntry.
-    EXPECT_TRUE(capturer.did_replace_entry());
-    EXPECT_EQ(1, controller.GetEntryCount());
-    EXPECT_TRUE(controller.GetLastCommittedEntry()->IsInitialEntry());
-  }
+  // The navigation is a cross-document navigation from the initial empty
+  // document, so we committed a new non-initial NavigationEntry that replaced
+  // the initial entry.
+  EXPECT_TRUE(capturer.did_replace_entry());
+  EXPECT_EQ(1, controller.GetEntryCount());
+  EXPECT_FALSE(controller.GetLastCommittedEntry()->IsInitialEntry());
 }
 
 // Tests that committing iframes and doing same-document navigations with the

@@ -99,7 +99,7 @@ std::ostream& FormForestTestApi::PrintForm(std::ostream& os,
   i = 0;
   for (const FormFieldData& field : form.fields) {
     os << prefix << std::setfill(' ') << std::setw(2) << ++i << ". Field "
-       << *field.renderer_id << " at " << field.host_frame << " at "
+       << *field.renderer_id() << " at " << field.host_frame << " at "
        << field.origin.Serialize() << std::endl;
     if (!field.id_attribute.empty()) {
       os << prefix << "    ID " << field.id_attribute << std::endl;
@@ -107,8 +107,8 @@ std::ostream& FormForestTestApi::PrintForm(std::ostream& os,
     if (!field.name_attribute.empty()) {
       os << prefix << "    Name " << field.name_attribute << std::endl;
     }
-    if (!field.value.empty()) {
-      os << prefix << "    Value " << field.value << std::endl;
+    if (!field.value().empty()) {
+      os << prefix << "    Value " << field.value() << std::endl;
     }
     if (!field.label.empty()) {
       os << prefix << "    Label "

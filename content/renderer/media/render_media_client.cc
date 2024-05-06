@@ -76,11 +76,6 @@ RenderMediaClient::RenderMediaClient()
 
 RenderMediaClient::~RenderMediaClient() = default;
 
-std::unique_ptr<media::KeySystemSupportObserver>
-RenderMediaClient::GetSupportedKeySystems(media::GetSupportedKeySystemsCB cb) {
-  return GetContentClient()->renderer()->GetSupportedKeySystems(std::move(cb));
-}
-
 bool RenderMediaClient::IsSupportedAudioType(const media::AudioType& type) {
   return GetContentClient()->renderer()->IsSupportedAudioType(type);
 }
@@ -137,6 +132,10 @@ void RenderMediaClient::OnGetSupportedVideoDecoderConfigs(
   video_decoder_for_supported_profiles_.reset();
   interface_factory_for_supported_profiles_.reset();
 #endif
+}
+
+media::ExternalMemoryAllocator* RenderMediaClient::GetMediaAllocator() {
+  return GetContentClient()->renderer()->GetMediaAllocator();
 }
 
 }  // namespace content

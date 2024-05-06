@@ -20,14 +20,14 @@ extern crate crypto;
 extern crate prost;
 
 use super::{
-    debug, unwrap, AuthLevel, Authentication, DirtyFlag, PINState, ParsedState, RequestError,
+    debug, AuthLevel, Authentication, DirtyFlag, PINState, ParsedState, Reauth, RequestError,
     PUB_KEY,
 };
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
-use cbor::{MapKey, MapKeyRef, MapLookupKey, Value};
+use cbor::{cbor, MapKey, MapKeyRef, MapLookupKey, Value};
 use chromesync::pb::webauthn_credential_specifics::EncryptedData;
 use chromesync::pb::WebauthnCredentialSpecifics;
 use core::ops::Deref;
@@ -35,18 +35,21 @@ use crypto::EcdsaKeyPair;
 use prost::Message;
 
 map_keys! {
+    CLAIMED_PIN, CLAIMED_PIN_KEY = "claimed_pin",
     CLIENT_DATA_JSON, CLIENT_DATA_JSON_KEY = "client_data_json",
     COSE_ALGORITHM, COSE_ALGORITHM_KEY = "alg",
     ENCRYPTED, ENCRYPTED_KEY = "encrypted",
+    PIN_CLAIM_KEY, PIN_CLAIM_KEY_KEY = "pin_claim_key",
+    PIN_GENERATION, PIN_GENERATION_KEY = "pin_generation",
+    PIN_HASH, PIN_HASH_KEY = "pin_hash",
     PROTOBUF, PROTOBUF_KEY = "protobuf",
     PUB_KEY_CRED_PARAMS, PUB_KEY_CRED_PARAMS_KEY = "pubKeyCredParams",
     RP_ID, RP_ID_KEY = "rpId",
+    SECRET, SECRET_KEY = "secret",
     VERSION, VERSION_KEY = "version",
     WEBAUTHN_REQUEST, WEBAUTHN_REQUEST_KEY = "request",
-    WRAPPED_SECRET, WRAPPED_SECRET_KEY = "wrapped_secret",
-    WRAPPED_SECRETS, WRAPPED_SECRETS_KEY = "wrapped_secrets",
     WRAPPED_PIN_DATA, WRAPPED_PIN_DATA_KEY = "wrapped_pin_data",
-    CLAIMED_PIN, CLAIMED_PIN_KEY = "claimed_pin",
+    WRAPPED_SECRET, WRAPPED_SECRET_KEY = "wrapped_secret",
 }
 
 // The encrypted part of a WebauthnCredentialSpecifics sync entity is encrypted
@@ -88,12 +91,44 @@ fn key(k: &str) -> MapKey {
     MapKey::String(String::from(k))
 }
 
+enum SourceOfSecret {
+    Wrapped,
+    Direct,
+}
+
+/// Get the security domain secret for a client's request, either because it's
+/// wrapped, or because the client provided it directly.
+fn get_secret_from_request(
+    state: &mut DirtyFlag<ParsedState>,
+    request: &BTreeMap<MapKey, Value>,
+    device_id: &[u8],
+) -> Result<([u8; 32], SourceOfSecret), RequestError> {
+    let (secret, source) =
+        if let Some(Value::Bytestring(wrapped_secret)) = request.get(WRAPPED_SECRET_KEY) {
+            if request.get(SECRET_KEY).is_some() {
+                return debug("both wrapped and unwrapped secret provided");
+            } else {
+                (
+                    state.unwrap(device_id, wrapped_secret, KEY_PURPOSE_SECURITY_DOMAIN_SECRET)?,
+                    SourceOfSecret::Wrapped,
+                )
+            }
+        } else if let Some(Value::Bytestring(secret)) = request.get(SECRET_KEY) {
+            (secret.to_vec(), SourceOfSecret::Direct)
+        } else {
+            return debug("must provide secret or wrapped secret");
+        };
+    let secret =
+        secret.as_slice().try_into().map_err(|_| RequestError::Debug("wrong length secret"))?;
+    Ok((secret, source))
+}
+
 pub(crate) fn do_assert(
     auth: &Authentication,
     state: &mut DirtyFlag<ParsedState>,
     request: BTreeMap<MapKey, Value>,
 ) -> Result<cbor::Value, RequestError> {
-    let Authentication::Device(device_id, auth_level) = auth else {
+    let Authentication::Device(device_id, auth_level, _) = auth else {
         return debug("device identity required");
     };
     let Some(Value::Bytestring(proto_bytes)) = request.get(PROTOBUF_KEY) else {
@@ -106,38 +141,28 @@ pub(crate) fn do_assert(
     let Some(Value::Map(webauthn_request)) = request.get(WEBAUTHN_REQUEST_KEY) else {
         return debug("WebAuthn request required");
     };
-    let Some(Value::Array(wrapped_secrets)) = request.get(WRAPPED_SECRETS_KEY) else {
-        return debug("wrapped secrets required");
-    };
-    let wrapped_secrets: Option<Vec<Vec<u8>>> = wrapped_secrets
-        .iter()
-        .map(|value| match value {
-            Value::Bytestring(wrapped) => Some(wrapped.to_vec()),
-            _ => None,
-        })
-        .collect();
-    let wrapped_secrets =
-        wrapped_secrets.ok_or(RequestError::Debug("wrapped secrets contained non-bytestring"))?;
     let Some(Value::String(rp_id)) = webauthn_request.get(RP_ID_KEY) else {
         return debug("rpId required");
     };
     let rp_id_hash = crypto::sha256(rp_id.as_bytes());
-
+    let (security_domain_secret, secret_source) =
+        get_secret_from_request(state, &request, device_id)?;
     let proto = WebauthnCredentialSpecifics::decode(proto_bytes.deref())
         .map_err(|_| RequestError::Debug("failed to decode protobuf"))?;
     let Some(ref user_id) = proto.user_id else {
         return debug("protobuf is missing user ID");
     };
 
-    let (entity_secrets, security_domain_secret) =
-        entity_secrets_from_proto(state.wrapping_key(device_id)?, wrapped_secrets, &proto)?;
+    let entity_secrets = entity_secrets_from_proto(&security_domain_secret, &proto)?;
 
     let pin_verified =
         maybe_validate_pin_from_request(&request, state, device_id, &security_domain_secret)?;
-    let user_verification = matches!(auth_level, AuthLevel::UserVerification) || pin_verified;
+    let user_verification = matches!(auth_level, AuthLevel::UserVerification)
+        || pin_verified
+        // If the client provided the security domain secret itself, then it could have
+        // done the signing itself too. Thus this is sufficient to claim UV.
+        || matches!(secret_source, SourceOfSecret::Direct);
 
-    // We may, in the future, want to limit UV requests to the UV key, if
-    // a device has one registered.
     let flags = [FLAG_BACKUP_ELIGIBLE
         | FLAG_BACKED_UP
         | FLAG_USER_PRESENT
@@ -166,15 +191,10 @@ pub(crate) fn do_create(
     state: &mut DirtyFlag<ParsedState>,
     request: BTreeMap<MapKey, Value>,
 ) -> Result<cbor::Value, RequestError> {
-    let Authentication::Device(device_id, _) = auth else {
+    let Authentication::Device(device_id, _, _) = auth else {
         return debug("device identity required");
     };
-    let Some(Value::Bytestring(wrapped_secret)) = request.get(WRAPPED_SECRET_KEY) else {
-        return debug("wrapped secret required");
-    };
-    let secret = state.unwrap(device_id, wrapped_secret, KEY_PURPOSE_SECURITY_DOMAIN_SECRET)?;
-    let security_domain_secret: &[u8; 32] =
-        secret.as_slice().try_into().map_err(|_| RequestError::Debug("wrong length secret"))?;
+    let (security_domain_secret, _) = get_secret_from_request(state, &request, device_id)?;
     let Some(Value::Map(webauthn_request)) = request.get(WEBAUTHN_REQUEST_KEY) else {
         return debug("WebAuthn request required");
     };
@@ -203,7 +223,7 @@ pub(crate) fn do_create(
     // Creating a credential doesn't sign anything, so the return value here
     // isn't used. But an incorrect PIN will still cause the request to fail
     // so that the client can check whether it was correct.
-    maybe_validate_pin_from_request(&request, state, device_id, security_domain_secret)?;
+    maybe_validate_pin_from_request(&request, state, device_id, &security_domain_secret)?;
 
     let pkcs8 = EcdsaKeyPair::generate_pkcs8();
     let key = EcdsaKeyPair::from_pkcs8(pkcs8.as_ref())
@@ -219,7 +239,7 @@ pub(crate) fn do_create(
         large_blob: None,
         large_blob_uncompressed_size: None,
     };
-    let ciphertext = encrypt(security_domain_secret, pb.encode_to_vec(), ENCRYPTED_FIELD_AAD)?;
+    let ciphertext = encrypt(&security_domain_secret, pb.encode_to_vec(), ENCRYPTED_FIELD_AAD)?;
 
     Ok(Value::Map(BTreeMap::from([
         (MapKey::String(String::from(ENCRYPTED)), Value::from(ciphertext)),
@@ -270,32 +290,21 @@ struct EntitySecrets {
 /// returns the entity secrets from a protobuf and the security domain secret
 /// used.
 fn entity_secrets_from_proto(
-    wrapping_key: &[u8],
-    wrapped_secrets: Vec<Vec<u8>>,
+    security_domain_secret: &[u8; 32],
     proto: &WebauthnCredentialSpecifics,
-) -> Result<(EntitySecrets, [u8; 32]), RequestError> {
+) -> Result<EntitySecrets, RequestError> {
     let Some(encrypted_data) = &proto.encrypted_data else {
         return debug("sync entity missing encrypted data");
     };
     match encrypted_data {
         EncryptedData::PrivateKey(ciphertext) => {
-            let (plaintext, secret) = decrypt_entity_secret(
-                wrapping_key,
-                wrapped_secrets,
-                ciphertext,
-                PRIVATE_KEY_FIELD_AAD,
-            )?;
+            let plaintext = decrypt(ciphertext, security_domain_secret, PRIVATE_KEY_FIELD_AAD)?;
             let primary_key = EcdsaKeyPair::from_pkcs8(&plaintext)
                 .map_err(|_| RequestError::Debug("PKCS#8 parse failed"))?;
-            Ok((EntitySecrets { primary_key, hmac_secret: None }, secret))
+            Ok(EntitySecrets { primary_key, hmac_secret: None })
         }
         EncryptedData::Encrypted(ciphertext) => {
-            let (plaintext, secret) = decrypt_entity_secret(
-                wrapping_key,
-                wrapped_secrets,
-                ciphertext,
-                ENCRYPTED_FIELD_AAD,
-            )?;
+            let plaintext = decrypt(ciphertext, security_domain_secret, ENCRYPTED_FIELD_AAD)?;
             let encrypted = chromesync::pb::webauthn_credential_specifics::Encrypted::decode(
                 plaintext.as_slice(),
             )
@@ -306,7 +315,7 @@ fn entity_secrets_from_proto(
             let primary_key = EcdsaKeyPair::from_pkcs8(&private_key_bytes)
                 .map_err(|_| RequestError::Debug("PKCS#8 parse failed"))?;
 
-            Ok((EntitySecrets { primary_key, hmac_secret: encrypted.hmac_secret }, secret))
+            Ok(EntitySecrets { primary_key, hmac_secret: encrypted.hmac_secret })
         }
     }
 }
@@ -327,39 +336,12 @@ fn encrypt(
     Ok([nonce_bytes.as_slice(), &plaintext].concat())
 }
 
-/// Trial decrypt an entity secret given a list of possible wrapped secrets.
-/// Return the decrypted value and the secret used.
-fn decrypt_entity_secret(
-    wrapping_key: &[u8],
-    wrapped_secrets: Vec<Vec<u8>>,
-    ciphertext: &[u8],
-    aad: &[u8],
-) -> Result<(Vec<u8>, [u8; 32]), RequestError> {
-    for wrapped_secret in wrapped_secrets {
-        let secret = unwrap(wrapping_key, &wrapped_secret, KEY_PURPOSE_SECURITY_DOMAIN_SECRET)?;
-        let security_domain_secret: [u8; 32] = secret
-            .as_slice()
-            .try_into()
-            .map_err(|_| RequestError::Debug("wrapped secret is wrong length"))?;
-        let result = decrypt_entity_secret_with_security_domain_secret(
-            ciphertext,
-            &security_domain_secret,
-            aad,
-        );
-        if result.is_err() {
-            continue;
-        }
-        return result.map(|plaintext| (plaintext, security_domain_secret));
-    }
-    Err(RequestError::MissingSecrets)
-}
-
 /// Decrypt an entity secret using a security domain secret.
 ///
 /// Different entity secrets will have different "additional authenticated
 /// data" values to ensure that ciphertexts are interpreted in their correct
 /// context.
-fn decrypt_entity_secret_with_security_domain_secret(
+fn decrypt(
     ciphertext: &[u8],
     security_domain_secret: &[u8; 32],
     aad: &[u8],
@@ -389,16 +371,17 @@ fn security_domain_secret_to_encryption_key(
 
 /// A representation of the PIN data after unwrapping with the
 /// security domain secret.
-struct PinData {
+#[derive(PartialEq, Debug)]
+pub(crate) struct PinData {
     /// The hash of the PIN. Usually hashed with scrypt, but this code only
     /// deals with hashes and so isn't affected by the choice of algorithm so
     /// long as the output is 256 bits long.
-    pin_hash: [u8; 32],
+    pub pin_hash: [u8; 32],
     /// The generation number. Starts at zero and is incremented for each
     /// PIN change.
-    generation: i64,
+    pub generation: i64,
     /// An AES-256-GCM key used to encrypt claimed PIN hashes.
-    claim_key: [u8; 32],
+    pub claim_key: [u8; 32],
 }
 
 impl TryFrom<Vec<u8>> for PinData {
@@ -424,6 +407,17 @@ impl TryFrom<Vec<u8>> for PinData {
             generation: *generation,
             claim_key: claim_key.as_ref().try_into().map_err(|_| ())?,
         })
+    }
+}
+
+impl PinData {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        cbor!({
+            1: (&self.pin_hash),
+            2: (self.generation),
+            3: (&self.claim_key),
+        })
+        .to_bytes()
     }
 }
 
@@ -525,14 +519,69 @@ fn decrypt_pin_data(
         .ok_or(RequestError::Debug("PIN data decryption failed"))
 }
 
+pub(crate) fn encrypt_pin_data(
+    mut serialized_pin_data: Vec<u8>,
+    security_domain_secret: &[u8],
+) -> Vec<u8> {
+    let mut pin_data_key = [0u8; 32];
+    // unwrap: this only fails if the output is too long, but the output length
+    // is fixed at 32.
+    crypto::hkdf_sha256(security_domain_secret, &[], KEY_PURPOSE_PIN_DATA_KEY, &mut pin_data_key)
+        .unwrap();
+
+    let mut nonce = [0u8; crypto::NONCE_LEN];
+    crypto::rand_bytes(&mut nonce);
+    crypto::aes_256_gcm_seal_in_place(&pin_data_key, &nonce, &[], &mut serialized_pin_data);
+    [nonce.as_ref(), &serialized_pin_data].concat()
+}
+
+pub(crate) fn do_wrap_pin(
+    auth: &Authentication,
+    state: &mut DirtyFlag<ParsedState>,
+    request: BTreeMap<MapKey, Value>,
+) -> Result<cbor::Value, RequestError> {
+    // Either UV or reauth is required to perform this command.
+    let device_id = match auth {
+        Authentication::Device(device_id, AuthLevel::UserVerification, _) => device_id,
+        Authentication::Device(device_id, _, Reauth::Done) => device_id,
+        _ => return debug("not authenticated"),
+    };
+    let Some(Value::Bytestring(pin_hash)) = request.get(PIN_HASH_KEY) else {
+        return debug("pin_hash required");
+    };
+    let Some(Value::Int(generation)) = request.get(PIN_GENERATION_KEY) else {
+        return debug("pin_generation required");
+    };
+    let Some(Value::Bytestring(claim_key)) = request.get(PIN_CLAIM_KEY_KEY) else {
+        return debug("pin_claim_key required");
+    };
+    let Some(Value::Bytestring(wrapped_secret)) = request.get(WRAPPED_SECRET_KEY) else {
+        return debug("wrapped secret required");
+    };
+    let security_domain_secret =
+        state.unwrap(device_id, wrapped_secret, KEY_PURPOSE_SECURITY_DOMAIN_SECRET)?;
+
+    let pin_data = PinData {
+        pin_hash: pin_hash
+            .as_ref()
+            .try_into()
+            .map_err(|_| RequestError::Debug("incorrect length PIN hash"))?,
+        generation: *generation,
+        claim_key: claim_key
+            .as_ref()
+            .try_into()
+            .map_err(|_| RequestError::Debug("incorrect length claim key"))?,
+    };
+    Ok(Value::from(encrypt_pin_data(pin_data.to_bytes(), &security_domain_secret)))
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
     use crate::tests::{
-        PROTOBUF2_BYTES, PROTOBUF_BYTES, SAMPLE_SECURITY_DOMAIN_SECRET, SAMPLE_WRAPPED_SECRET,
-        SAMPLE_WRAPPING_KEY, WEBAUTHN_SECRETS_ENCRYPTION_KEY,
+        PROTOBUF2_BYTES, PROTOBUF_BYTES, SAMPLE_SECURITY_DOMAIN_SECRET,
+        WEBAUTHN_SECRETS_ENCRYPTION_KEY,
     };
-    use crate::wrap;
 
     lazy_static! {
         static ref PROTOBUF: WebauthnCredentialSpecifics =
@@ -542,26 +591,17 @@ pub mod tests {
     }
 
     #[test]
-    fn test_decrypt_passkey_ciphertext_with_security_domain_secret() {
+    fn test_decrypt() {
         let Some(EncryptedData::PrivateKey(ciphertext)) = &PROTOBUF.encrypted_data else {
             panic!("bad protobuf");
         };
-        let pkcs8 = decrypt_entity_secret_with_security_domain_secret(
-            &ciphertext,
-            SAMPLE_SECURITY_DOMAIN_SECRET.try_into().unwrap(),
-            &[],
-        )
-        .unwrap();
+        let pkcs8 =
+            decrypt(&ciphertext, SAMPLE_SECURITY_DOMAIN_SECRET.try_into().unwrap(), &[]).unwrap();
 
         assert!(EcdsaKeyPair::from_pkcs8(&pkcs8).is_ok());
 
         assert!(
-            decrypt_entity_secret_with_security_domain_secret(
-                &[0u8; 8],
-                SAMPLE_SECURITY_DOMAIN_SECRET.try_into().unwrap(),
-                &[],
-            )
-            .is_err()
+            decrypt(&[0u8; 8], SAMPLE_SECURITY_DOMAIN_SECRET.try_into().unwrap(), &[]).is_err()
         );
     }
 
@@ -571,84 +611,14 @@ pub mod tests {
         let protobuf2: &WebauthnCredentialSpecifics = &PROTOBUF2;
 
         for (n, proto) in [protobuf1, protobuf2].iter().enumerate() {
-            let result = entity_secrets_from_proto(
-                SAMPLE_WRAPPING_KEY,
-                vec![SAMPLE_WRAPPED_SECRET.to_vec()],
-                proto,
-            );
+            let result =
+                entity_secrets_from_proto(SAMPLE_SECURITY_DOMAIN_SECRET.try_into().unwrap(), proto);
             assert!(result.is_ok(), "{:?}", proto);
-            let (result, _) = result.unwrap();
+            let result = result.unwrap();
 
             let should_have_hmac_secret = n == 1;
             assert_eq!(matches!(result.hmac_secret, Some(_)), should_have_hmac_secret);
         }
-    }
-
-    #[test]
-    fn test_decrypt_entity_secret() {
-        let Some(EncryptedData::PrivateKey(ciphertext)) = &PROTOBUF.encrypted_data else {
-            panic!("bad protobuf");
-        };
-
-        // An empty list of secrets should fail to decrypt.
-        assert_eq!(
-            decrypt_entity_secret(SAMPLE_WRAPPING_KEY, Vec::new(), ciphertext, &[]),
-            Err(RequestError::MissingSecrets)
-        );
-        // The correct wrapping secret should work.
-        assert!(
-            decrypt_entity_secret(
-                SAMPLE_WRAPPING_KEY,
-                vec![SAMPLE_WRAPPED_SECRET.to_vec()],
-                ciphertext,
-                &[]
-            )
-            .is_ok()
-        );
-        // ... but not with the wrong ciphertext
-        assert!(
-            decrypt_entity_secret(
-                SAMPLE_WRAPPING_KEY,
-                vec![SAMPLE_WRAPPED_SECRET.to_vec()],
-                &[42u8; 50],
-                &[]
-            )
-            .is_err()
-        );
-        // Putting incorrect wrapped keys around the correct key should still work.
-        let incorrect1 = wrap(SAMPLE_WRAPPING_KEY, &[1u8; 32], KEY_PURPOSE_SECURITY_DOMAIN_SECRET);
-        let incorrect2 = wrap(SAMPLE_WRAPPING_KEY, &[2u8; 32], KEY_PURPOSE_SECURITY_DOMAIN_SECRET);
-        assert!(
-            decrypt_entity_secret(
-                SAMPLE_WRAPPING_KEY,
-                vec![incorrect1, SAMPLE_WRAPPED_SECRET.to_vec(), incorrect2],
-                ciphertext,
-                &[]
-            )
-            .is_ok()
-        );
-        // But an wrapped secret that doesn't decrypt will stop the process.
-        let incorrect3 = wrap(SAMPLE_WRAPPING_KEY, &[1u8; 32], "wrong purpose");
-        assert!(matches!(
-            decrypt_entity_secret(
-                SAMPLE_WRAPPING_KEY,
-                vec![incorrect3, SAMPLE_WRAPPED_SECRET.to_vec()],
-                ciphertext,
-                &[]
-            ),
-            Err(RequestError::Debug(_))
-        ));
-        // ... and so will one that's the wrong length.
-        let incorrect4 = wrap(SAMPLE_WRAPPING_KEY, &[1u8; 1], KEY_PURPOSE_SECURITY_DOMAIN_SECRET);
-        assert!(matches!(
-            decrypt_entity_secret(
-                SAMPLE_WRAPPING_KEY,
-                vec![incorrect4, SAMPLE_WRAPPED_SECRET.to_vec()],
-                ciphertext,
-                &[]
-            ),
-            Err(RequestError::Debug(_))
-        ));
     }
 
     #[test]
@@ -658,13 +628,8 @@ pub mod tests {
             encrypt(SAMPLE_SECURITY_DOMAIN_SECRET.try_into().unwrap(), plaintext.to_vec(), &[])
                 .unwrap();
 
-        let (plaintext2, _) = decrypt_entity_secret(
-            SAMPLE_WRAPPING_KEY,
-            vec![SAMPLE_WRAPPED_SECRET.to_vec()],
-            &ciphertext,
-            &[],
-        )
-        .unwrap();
+        let plaintext2 =
+            decrypt(&ciphertext, SAMPLE_SECURITY_DOMAIN_SECRET.try_into().unwrap(), &[]).unwrap();
         assert_eq!(plaintext, plaintext2.as_slice());
     }
 
@@ -701,4 +666,21 @@ pub mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_pin_data() {
+        let pin_data = PinData { pin_hash: [1u8; 32], generation: 42, claim_key: [2u8; 32] };
+        let pin_data2: PinData = pin_data.to_bytes().try_into().unwrap();
+        assert_eq!(pin_data, pin_data2);
+
+        let security_domain_secret = [3u8; 32];
+        let encrypted = encrypt_pin_data(pin_data.to_bytes(), &security_domain_secret);
+        let decrypted =
+            decrypt_pin_data(&encrypted, &security_domain_secret).unwrap().try_into().unwrap();
+        assert_eq!(pin_data, decrypted);
+    }
+
+    // Integration tests of this code are done in Chromium, which builds this
+    // code and runs it against the client code to ensure that, e.g.,
+    // assertions work end-to-end.
 }

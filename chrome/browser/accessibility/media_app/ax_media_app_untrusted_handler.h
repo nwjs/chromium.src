@@ -9,6 +9,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "ash/webui/media_app_ui/media_app_ui_untrusted.mojom.h"
@@ -29,14 +30,18 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/ax_mode_observer.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_serializable_tree.h"
+#include "ui/accessibility/ax_tree_data.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_manager.h"
 #include "ui/accessibility/ax_tree_serializer.h"
 #include "ui/accessibility/ax_tree_source.h"
 #include "ui/accessibility/ax_tree_update.h"
 #include "ui/accessibility/platform/ax_platform.h"
+
+class SkBitmap;
 
 namespace content {
 
@@ -66,9 +71,13 @@ class AXMediaAppUntrustedHandler
       private ui::AXActionHandlerBase,
       private ui::AXModeObserver {
  public:
-  using TreeSource = ui::AXTreeSource<const ui::AXNode*>;
-  using TreeSerializer =
-      ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>>;
+  using TreeSource =
+      ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>;
+  using TreeSerializer = ui::AXTreeSerializer<const ui::AXNode*,
+                                              std::vector<const ui::AXNode*>,
+                                              ui::AXTreeUpdate*,
+                                              ui::AXTreeData*,
+                                              ui::AXNodeData>;
 
   AXMediaAppUntrustedHandler(
       content::BrowserContext& context,
@@ -97,9 +106,6 @@ class AXMediaAppUntrustedHandler
   void ViewportUpdated(const ::gfx::RectF& viewport_box,
                        float scale_factor) override;
 
-  // TODO(b/309860428): Delete once AXMediaApp is deleted.
-  void SetMediaAppForTesting(AXMediaApp* media_app) { media_app_ = media_app; }
-
  protected:
   void PushDirtyPage(const std::string& dirty_page_id);
   std::string PopDirtyPage();
@@ -125,12 +131,18 @@ class AXMediaAppUntrustedHandler
   void UpdateDocumentTree();
   void UpdatePageLocation(const std::string& page_id,
                           const gfx::RectF& page_location);
+  // A callback which is run after the Media App sends the bitmap of the page
+  // that should be OCRed.
+  void OnBitmapReceived(const std::string& dirty_page_id,
+                        const SkBitmap& bitmap);
   void OnPageOcred(const std::string& dirty_page_id,
                    const ui::AXTreeUpdate& tree_update);
   content::WebContents* GetMediaAppWebContents() const;
   content::RenderFrameHost* GetMediaAppRenderFrameHost() const;
   ui::AXNodeID GetMediaAppRootNodeID() const;
   void StitchDocumentTree();
+  bool HasRendererTerminatedDueToBadPageId(const std::string& method_name,
+                                           const std::string& page_id);
 
   base::ScopedObservation<ui::AXPlatform, ui::AXModeObserver>
       ax_mode_observation_{this};
@@ -141,6 +153,8 @@ class AXMediaAppUntrustedHandler
   base::circular_deque<std::string> dirty_page_ids_;
   ui::AXTreeID document_tree_id_ = ui::AXTreeID::CreateNewAXTreeID();
   SEQUENCE_CHECKER(sequence_checker_);
+  std::optional<mojo::ReportBadMessageCallback> bad_message_callback_ =
+      std::nullopt;
   base::WeakPtrFactory<AXMediaAppUntrustedHandler> weak_ptr_factory_{this};
 };
 

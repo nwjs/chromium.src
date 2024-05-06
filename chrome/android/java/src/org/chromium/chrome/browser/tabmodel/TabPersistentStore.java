@@ -21,7 +21,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.StreamUtil;
-import org.chromium.base.StrictModeContext;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
@@ -612,7 +611,7 @@ public class TabPersistentStore {
         // detection of unbuffered input/output operations.
         // This will no longer be necessary when the TabState schema is replaced with
         // a FlatBuffer approach - go/tabstate-flatbuffer-decision.
-        try (StrictModeContext ignored = StrictModeContext.allowUnbufferedIo()) {
+        try {
             int restoredTabId =
                     ChromeSharedPreferences.getInstance()
                             .readInt(
@@ -864,6 +863,11 @@ public class TabPersistentStore {
         if (mTabsToSave.contains(tab)
                 || dirtinessState == TabStateAttributes.DirtinessState.CLEAN) {
             return;
+        }
+
+        if (mSaveTabTask != null && mSaveTabTask.mId == tab.getId()) {
+            RecordHistogram.recordCount100Histogram(
+                    "Tabs.PotentialDoubleDirty.SaveQueueSize", mTabsToSave.size());
         }
 
         mTabsToSave.addLast(tab);
@@ -1346,6 +1350,7 @@ public class TabPersistentStore {
         @Override
         protected void onPreExecute() {
             if (mDestroyed || isCancelled()) return;
+            TabStateAttributes.from(mTab).clearTabStateDirtiness();
             mState = TabStateExtractor.from(mTab);
         }
 
@@ -1358,9 +1363,6 @@ public class TabPersistentStore {
         @Override
         protected void onPostExecute(Void v) {
             if (mDestroyed || isCancelled()) return;
-            if (mStateSaved) {
-                if (!mTab.isDestroyed()) TabStateAttributes.from(mTab).clearTabStateDirtiness();
-            }
             mSaveTabTask = null;
             saveNextTab();
         }

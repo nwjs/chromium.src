@@ -29,14 +29,14 @@ namespace {
 void SanitizeFormData(FormData* form) {
   form->main_frame_origin = url::Origin();
   for (FormFieldData& field : form->fields) {
-    field.label.clear();
-    field.value.clear();
-    field.autocomplete_attribute.clear();
+    field.label = {};
+    field.set_value({});
+    field.autocomplete_attribute = {};
     field.options.clear();
-    field.placeholder.clear();
-    field.css_classes.clear();
-    field.id_attribute.clear();
-    field.name_attribute.clear();
+    field.placeholder = {};
+    field.css_classes = {};
+    field.id_attribute = {};
+    field.name_attribute = {};
   }
 }
 
@@ -62,8 +62,8 @@ void PostProcessMatches(
     const bool is_affiliated_android_match =
         match_type == password_manager_util::GetLoginMatchType::kAffiliated &&
         affiliations::IsValidAndroidFacetURI(match->signon_realm);
-    // TODO(crbug.com/1428539): include affiliated website matches when Android
-    // supports them.
+    // TODO(crbug.com/1428539): include affiliated, grouped website matches when
+    // Android supports them.
     if (same_password && username_was_added &&
         (match_type == password_manager_util::GetLoginMatchType::kExact ||
          is_affiliated_android_match)) {

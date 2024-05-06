@@ -81,7 +81,7 @@
 #include "components/google/core/common/google_util.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/os_crypt/sync/os_crypt_mocker.h"
-#include "components/search_engines/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/common/content_paths.h"
@@ -104,6 +104,7 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/win/scoped_com_initializer.h"
 #include "base/win/windows_version.h"
+#include "chrome/browser/os_crypt/app_bound_encryption_win.h"
 #include "components/version_info/version_info.h"
 #include "ui/base/win/atl_module.h"
 #endif
@@ -473,6 +474,13 @@ void InProcessBrowserTest::Initialize() {
   launch_browser_for_testing_ =
       std::make_unique<ash::full_restore::ScopedLaunchBrowserForTesting>();
 #endif
+
+#if BUILDFLAG(IS_WIN)
+  // Browser tests use a custom user data dir, which would normally result in
+  // App-Bound encryption being disabled, so in order to get full test coverage
+  // in browser tests, bypass this check.
+  os_crypt::SetNonStandardUserDataDirSupportedForTesting(/*supported=*/true);
+#endif
 }
 
 InProcessBrowserTest::~InProcessBrowserTest() {
@@ -779,6 +787,7 @@ bool InProcessBrowserTest::AddTabAtIndexToBrowser(
   params.tabstrip_index = index;
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   Navigate(&params);
+  RunScheduledLayouts();
 
   return content::WaitForLoadStop(params.navigated_or_inserted_contents);
 }
@@ -888,7 +897,7 @@ void InProcessBrowserTest::AddBlankTabAndShow(Browser* browser) {
       browser, GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   content::TestNavigationObserver observer(blank_tab);
   observer.Wait();
-
+  RunScheduledLayouts();
   browser->window()->Show();
   ASSERT_TRUE(WaitForWindowCreation(browser));
 }

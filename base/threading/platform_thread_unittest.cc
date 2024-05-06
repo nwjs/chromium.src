@@ -20,6 +20,7 @@
 #include "base/threading/platform_thread_internal_posix.h"
 #elif BUILDFLAG(IS_WIN)
 #include <windows.h>
+
 #include "base/threading/platform_thread_win.h"
 #endif
 
@@ -509,7 +510,8 @@ TEST(PlatformThreadTest, SetCurrentThreadTypeTest) {
   TestPriorityResultingFromThreadType(ThreadType::kDefault,
                                       ThreadPriorityForTest::kNormal);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || \
+    BUILDFLAG(IS_APPLE)
   TestPriorityResultingFromThreadType(ThreadType::kCompositing,
                                       ThreadPriorityForTest::kDisplay);
   TestPriorityResultingFromThreadType(ThreadType::kCompositing,
@@ -518,7 +520,7 @@ TEST(PlatformThreadTest, SetCurrentThreadTypeTest) {
   TestPriorityResultingFromThreadType(ThreadType::kCompositing,
                                       MessagePumpType::IO,
                                       ThreadPriorityForTest::kDisplay);
-#else  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_FUCHSIA)
+#else  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA)
   TestPriorityResultingFromThreadType(ThreadType::kCompositing,
                                       ThreadPriorityForTest::kNormal);
   TestPriorityResultingFromThreadType(ThreadType::kCompositing,
@@ -672,7 +674,7 @@ TEST_P(RealtimePlatformThreadTest, RealtimeAudioConfigMac) {
     feature_list.InitAndDisableFeature(kOptimizedRealtimeThreadingMac);
   }
 
-  PlatformThread::InitFeaturesPostFieldTrial();
+  PlatformThread::InitializeFeatures();
   VerifyRealtimeConfig(std::get<2>(GetParam()));
 }
 

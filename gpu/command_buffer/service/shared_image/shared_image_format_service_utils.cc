@@ -37,9 +37,9 @@ VkFormat ToVkFormatSinglePlanarInternal(viz::SharedImageFormat format) {
   } else if (format == viz::SinglePlaneFormat::kR_8) {
     return VK_FORMAT_R8_UNORM;
   } else if (format == viz::SinglePlaneFormat::kRGB_565) {
-    return VK_FORMAT_R5G6B5_UNORM_PACK16;
-  } else if (format == viz::SinglePlaneFormat::kBGR_565) {
     return VK_FORMAT_B5G6R5_UNORM_PACK16;
+  } else if (format == viz::SinglePlaneFormat::kBGR_565) {
+    return VK_FORMAT_R5G6B5_UNORM_PACK16;
   } else if (format == viz::SinglePlaneFormat::kRG_88) {
     return VK_FORMAT_R8G8_UNORM;
   } else if (format == viz::SinglePlaneFormat::kRGBA_F16) {
@@ -193,22 +193,21 @@ class SharedImageFormatRestrictedUtilsAccessor {
   }
 };
 
-gfx::BufferFormat ToBufferFormat(viz::SharedImageFormat format) {
-  if (format.is_single_plane()) {
-    return viz::SinglePlaneSharedImageFormatToBufferFormat(format);
+// This class method is primarily meant to be accessed by gpu service side code
+// with the exception of some client needing access temporarily until the
+// BufferFormat usage is deprecated. This requires usage of below wrapper class
+// to access this method from service side code conveniently.
+class GPU_GLES2_EXPORT SharedImageFormatToBufferFormatRestrictedUtilsAccessor {
+ public:
+  static gfx::BufferFormat ToBufferFormat(viz::SharedImageFormat format) {
+    return viz::SharedImageFormatToBufferFormatRestrictedUtils::ToBufferFormat(
+        format);
   }
+};
 
-  if (format == viz::MultiPlaneFormat::kYV12) {
-    return gfx::BufferFormat::YVU_420;
-  } else if (format == viz::MultiPlaneFormat::kNV12) {
-    return gfx::BufferFormat::YUV_420_BIPLANAR;
-  } else if (format == viz::MultiPlaneFormat::kNV12A) {
-    return gfx::BufferFormat::YUVA_420_TRIPLANAR;
-  } else if (format == viz::MultiPlaneFormat::kP010) {
-    return gfx::BufferFormat::P010;
-  }
-  NOTREACHED() << "format=" << format.ToString();
-  return gfx::BufferFormat::RGBA_8888;
+gfx::BufferFormat ToBufferFormat(viz::SharedImageFormat format) {
+  return SharedImageFormatToBufferFormatRestrictedUtilsAccessor::ToBufferFormat(
+      format);
 }
 
 SkYUVAInfo::PlaneConfig ToSkYUVAPlaneConfig(viz::SharedImageFormat format) {
@@ -470,6 +469,8 @@ wgpu::TextureFormat ToDawnFormat(viz::SharedImageFormat format) {
     return wgpu::TextureFormat::RGBA16Float;
   } else if (format == viz::SinglePlaneFormat::kRGBA_1010102) {
     return wgpu::TextureFormat::RGB10A2Unorm;
+  } else if (format == viz::SinglePlaneFormat::kETC1) {
+    return wgpu::TextureFormat::ETC2RGB8Unorm;
   } else if (format == viz::LegacyMultiPlaneFormat::kNV12 ||
              format == viz::MultiPlaneFormat::kNV12) {
     return wgpu::TextureFormat::R8BG8Biplanar420Unorm;
@@ -533,12 +534,17 @@ wgpu::TextureFormat ToDawnTextureViewFormat(viz::SharedImageFormat format,
 }
 
 wgpu::TextureUsage SupportedDawnTextureUsage(
+    viz::SharedImageFormat format,
     bool is_yuv_plane,
     bool is_dcomp_surface,
     bool supports_multiplanar_rendering,
     bool supports_multiplanar_copy) {
   // TextureBinding usage is always supported.
   wgpu::TextureUsage usage = wgpu::TextureUsage::TextureBinding;
+
+  if (format == viz::SinglePlaneFormat::kETC1) {
+    return usage | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst;
+  }
 
   if (is_dcomp_surface) {
     // Textures from DComp surfaces cannot be used as TextureBinding, however
@@ -676,8 +682,8 @@ skgpu::graphite::DawnTextureInfo DawnBackendTextureInfo(
   dawn_texture_info.fViewFormat = wgpu_view_format;
   dawn_texture_info.fAspect = ToDawnTextureAspect(is_yuv_plane, plane_index);
   dawn_texture_info.fUsage = SupportedDawnTextureUsage(
-      is_yuv_plane, scanout_dcomp_surface, supports_multiplanar_rendering,
-      supports_multiplanar_copy);
+      format, is_yuv_plane, scanout_dcomp_surface,
+      supports_multiplanar_rendering, supports_multiplanar_copy);
   if (readonly) {
     constexpr wgpu::TextureUsage kReadOnlyTextureUsage =
         wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding;

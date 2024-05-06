@@ -27,6 +27,8 @@
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_usage_data_sync_bridge.h"
 #include "components/browser_sync/active_devices_provider_impl.h"
 #include "components/browser_sync/browser_sync_client.h"
+#include "components/commerce/core/commerce_feature_list.h"
+#include "components/commerce/core/product_specifications/product_specifications_service.h"
 #include "components/history/core/browser/sync/history_delete_directives_model_type_controller.h"
 #include "components/history/core/browser/sync/history_model_type_controller.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
@@ -35,6 +37,7 @@
 #include "components/password_manager/core/browser/sharing/password_receiver_service.h"
 #include "components/password_manager/core/browser/sharing/password_sender_service.h"
 #include "components/password_manager/core/browser/sync/password_model_type_controller.h"
+#include "components/plus_addresses/features.h"
 #include "components/plus_addresses/webdata/plus_address_webdata_service.h"
 #include "components/power_bookmarks/core/power_bookmark_features.h"
 #include "components/power_bookmarks/core/power_bookmark_service.h"
@@ -70,7 +73,6 @@
 #include "components/supervised_user/core/browser/supervised_user_settings_service.h"
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USER)
 
-using syncer::DataTypeController;
 using syncer::DataTypeManager;
 using syncer::DataTypeManagerImpl;
 using syncer::DataTypeManagerObserver;
@@ -179,7 +181,8 @@ SyncApiComponentFactoryImpl::SyncApiComponentFactoryImpl(
     supervised_user::SupervisedUserSettingsService*
         supervised_user_settings_service,
     const scoped_refptr<plus_addresses::PlusAddressWebDataService>&
-        plus_address_webdata_service)
+        plus_address_webdata_service,
+    commerce::ProductSpecificationsService* product_specifications_service)
     : sync_client_(sync_client),
       channel_(channel),
       ui_thread_(ui_thread),
@@ -197,17 +200,18 @@ SyncApiComponentFactoryImpl::SyncApiComponentFactoryImpl(
       account_bookmark_sync_service_(account_bookmark_sync_service),
       power_bookmark_service_(power_bookmark_service),
       supervised_user_settings_service_(supervised_user_settings_service),
-      plus_address_webdata_service_(plus_address_webdata_service) {
+      plus_address_webdata_service_(plus_address_webdata_service),
+      product_specifications_service_(product_specifications_service) {
   DCHECK(sync_client_);
 }
 
 SyncApiComponentFactoryImpl::~SyncApiComponentFactoryImpl() = default;
 
-syncer::DataTypeController::TypeVector
-SyncApiComponentFactoryImpl::CreateCommonDataTypeControllers(
+syncer::ModelTypeController::TypeVector
+SyncApiComponentFactoryImpl::CreateCommonModelTypeControllers(
     syncer::ModelTypeSet disabled_types,
     syncer::SyncService* sync_service) {
-  syncer::DataTypeController::TypeVector controllers;
+  syncer::ModelTypeController::TypeVector controllers;
 
   const base::RepeatingClosure dump_stack =
       base::BindRepeating(&syncer::ReportUnrecoverableError, channel_);
@@ -348,12 +352,25 @@ SyncApiComponentFactoryImpl::CreateCommonDataTypeControllers(
     if (!disabled_types.Has(syncer::POWER_BOOKMARK) &&
         power_bookmark_service_ &&
         base::FeatureList::IsEnabled(power_bookmarks::kPowerBookmarkBackend)) {
-      // TODO(crbug.com/1426496): Support transport mode for POWER_BOOKMARK.
+      // TODO(crbug.com/40261319): Support transport mode for POWER_BOOKMARK.
       controllers.push_back(std::make_unique<ModelTypeController>(
           syncer::POWER_BOOKMARK,
           power_bookmark_service_->CreateSyncControllerDelegate(),
           /*delegate_for_transport_mode=*/nullptr));
     }
+  }
+
+  if (!disabled_types.Has(syncer::COMPARE) && product_specifications_service_ &&
+      base::FeatureList::IsEnabled(commerce::kProductSpecificationsSync)) {
+    syncer::ModelTypeControllerDelegate* delegate =
+        product_specifications_service_->GetSyncControllerDelegate().get();
+    controllers.push_back(std::make_unique<ModelTypeController>(
+        syncer::COMPARE,
+        std::make_unique<syncer::ForwardingModelTypeControllerDelegate>(
+            delegate),
+        /*delegate_for_transport_mode= */
+        std::make_unique<syncer::ForwardingModelTypeControllerDelegate>(
+            delegate)));
   }
 
   if (!disabled_types.Has(syncer::HISTORY)) {
@@ -425,6 +442,8 @@ SyncApiComponentFactoryImpl::CreateCommonDataTypeControllers(
   // `plus_address_webdata_service_` is null on iOS WebView.
   if (!disabled_types.Has(syncer::PLUS_ADDRESS) &&
       plus_address_webdata_service_ &&
+      base::FeatureList::IsEnabled(
+          plus_addresses::features::kPlusAddressesEnabled) &&
       base::FeatureList::IsEnabled(syncer::kSyncPlusAddress)) {
     controllers.push_back(std::make_unique<syncer::ModelTypeController>(
         syncer::PLUS_ADDRESS,
@@ -534,7 +553,7 @@ SyncApiComponentFactoryImpl::CreateCommonDataTypeControllers(
         CreateForwardingControllerDelegate(syncer::USER_CONSENTS)));
   }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials) &&
       !disabled_types.Has(syncer::WEBAUTHN_CREDENTIAL)) {
     controllers.push_back(
@@ -563,12 +582,11 @@ SyncApiComponentFactoryImpl::CreateCommonDataTypeControllers(
 
 std::unique_ptr<DataTypeManager>
 SyncApiComponentFactoryImpl::CreateDataTypeManager(
-    const DataTypeController::TypeMap* controllers,
+    const ModelTypeController::TypeMap* controllers,
     const syncer::DataTypeEncryptionHandler* encryption_handler,
-    syncer::ModelTypeConfigurer* configurer,
     DataTypeManagerObserver* observer) {
   return std::make_unique<DataTypeManagerImpl>(controllers, encryption_handler,
-                                               configurer, observer);
+                                               observer);
 }
 
 std::unique_ptr<syncer::SyncEngine>

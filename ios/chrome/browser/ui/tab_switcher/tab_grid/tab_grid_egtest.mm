@@ -12,7 +12,6 @@
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
 #import "components/bookmarks/common/bookmark_pref_names.h"
-#import "components/sync/base/features.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_type.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -355,16 +354,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [super tearDown];
 }
 
-- (AppLaunchConfiguration)appConfigurationForTestCase {
-  AppLaunchConfiguration config = [super appConfigurationForTestCase];
-  if ([self isRunningTest:@selector
-            (testPromoInTabsFromOtherDevicesListensToSignin)]) {
-    config.features_enabled.push_back(
-        syncer::kReplaceSyncPromosWithSignInPromos);
-  }
-  return config;
-}
-
 // Tests entering and leaving the tab grid.
 - (void)testEnteringAndLeavingTabGrid {
   [ChromeEarlGreyUI openTabGrid];
@@ -669,7 +658,8 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 }
 
 // Tests that the user interface style is respected after a drag and drop.
-- (void)testTraitCollection {
+// TODO(crbug.com/332714545): Test is flaky.
+- (void)FLAKY_testTraitCollection {
   [ChromeEarlGrey loadURL:_URL1];
   [ChromeEarlGrey waitForWebStateContainingText:kResponse1];
   [ChromeEarlGrey openNewTab];
@@ -1800,7 +1790,8 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
 // Tests that the scrim view is always shown when the search bar is empty in the
 // search mode.
-- (void)testScrimVisibleInSearchModeWhenSearchBarIsEmpty {
+// TODO(crbug.com/332714545): Test is flaky.
+- (void)FLAKY_testScrimVisibleInSearchModeWhenSearchBarIsEmpty {
   [ChromeEarlGrey openNewTab];
   [ChromeEarlGreyUI openTabGrid];
 
@@ -1863,7 +1854,8 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
 // Tests that searching in open tabs in the regular mode will filter the tabs
 // correctly.
-- (void)testSearchRegularOpenTabs {
+// TODO(crbug.com/332714545): Test is flaky.
+- (void)FLAKY_testSearchRegularOpenTabs {
   [self loadTestURLsInNewTabs];
   [ChromeEarlGreyUI openTabGrid];
 
@@ -2842,7 +2834,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 // other devices" reacts accordingly if the user signs in via a different
 // surface. More specifically: on tap the promo shouldn't offer the sign-in
 // sheet but only the history opt-in.
-// kReplaceSyncPromosWithSignInPromos is enabled.
 - (void)testPromoInTabsFromOtherDevicesListensToSignin {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
 

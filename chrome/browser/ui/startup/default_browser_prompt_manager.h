@@ -6,8 +6,10 @@
 #define CHROME_BROWSER_UI_STARTUP_DEFAULT_BROWSER_PROMPT_MANAGER_H_
 
 #include <map>
-#include <string>
 
+#include "base/memory/singleton.h"
+#include "base/timer/timer.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/browser_tab_strip_tracker.h"
@@ -28,26 +30,42 @@ class DefaultBrowserPromptManager : public BrowserTabStripTrackerDelegate,
   DefaultBrowserPromptManager& operator=(const DefaultBrowserPromptManager&) =
       delete;
 
+  class Observer : public base::CheckedObserver {
+   public:
+    virtual void OnShowAppMenuPromptChanged() = 0;
+  };
+
+  enum class CloseReason {
+    kAccept,
+    kDismiss,
+  };
+
   static DefaultBrowserPromptManager* GetInstance();
 
-  // Enrolls this client with a synthetic field trial based on the Finch params.
-  // Should be called when the default browser prompt is potentially shown, then
-  // the client needs to register again on each process startup by calling
-  // `EnsureStickToDefaultBrowserPromptCohort()`.
-  static void MaybeJoinDefaultBrowserPromptCohort();
+  // Resets the tracking preferences for the default browser prompts so that
+  // they are re-shown if the browser ceases to be the user's chosen default.
+  static void ResetPromptPrefs(Profile* profile);
 
-  // Ensures that the user's experiment group is appropriately reported to track
-  // the effect of the default browser prompt over time. Should be called once
-  // per browser process startup.
-  static void EnsureStickToDefaultBrowserPromptCohort();
+  // Updates the tracking preferences for the default browser prompts to reflect
+  // that the prompt was just dismissed. This will ensure the proper delay
+  // before re-prompting.
+  static void UpdatePrefsForDismissedPrompt(Profile* profile);
 
-  DefaultBrowserPromptManager();
-  ~DefaultBrowserPromptManager() override;
+  // If enough time has passed since the first show time, the app menu should
+  // implicitly be dismissed, in which case prompts will not be shown when
+  // `MaybeShowPrompt()` is called.
+  static void MaybeResetAppMenuPromptPrefs(Profile* profile);
 
-  void ShowPrompt();
-  void CreateInfoBarForWebContents(content::WebContents* contents,
-                                   Profile* profile);
-  void CloseAllInfoBars();
+  bool get_show_app_menu_prompt() const { return show_app_menu_prompt_; }
+
+  bool get_show_app_menu_item() const { return show_app_menu_item_; }
+
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
+
+  void MaybeShowPrompt();
+
+  void CloseAllPrompts(CloseReason close_reason);
 
   // BrowserTabStripTrackerDelegate
   bool ShouldTrackBrowser(Browser* browser) override;
@@ -66,14 +84,37 @@ class DefaultBrowserPromptManager : public BrowserTabStripTrackerDelegate,
   void OnDismiss() override;
 
  private:
-  // Reports to the launch study for the default browser prompt synthetic trial.
-  static void RegisterSyntheticFieldTrial(const std::string& group_name);
+  friend struct base::DefaultSingletonTraits<DefaultBrowserPromptManager>;
+
+  DefaultBrowserPromptManager();
+  ~DefaultBrowserPromptManager() override;
+
+  // Whether prompts should be shown based on the last declined time/count prefs
+  // and the recurrence feature params.
+  static bool ShouldShowPrompts();
+
+  static bool ShouldShowAppMenuPrompt();
+
+  void CreateInfoBarForWebContents(content::WebContents* contents,
+                                   Profile* profile);
+
+  void CloseAllInfoBars();
+
+  void SetShowAppMenuPromptVisibility(bool show);
+
+  void SetAppMenuItemVisibility(bool show);
 
   std::unique_ptr<BrowserTabStripTracker> browser_tab_strip_tracker_;
-
   std::map<content::WebContents*, infobars::InfoBar*> infobars_;
 
-  bool user_initiated_close_pending_ = false;
+  std::optional<CloseReason> user_initiated_info_bar_close_pending_;
+
+  bool show_app_menu_prompt_ = false;
+  bool show_app_menu_item_ = false;
+
+  base::ObserverList<Observer> observers_;
+
+  base::OneShotTimer app_menu_prompt_dismiss_timer_;
 };
 
 #endif  // CHROME_BROWSER_UI_STARTUP_DEFAULT_BROWSER_PROMPT_MANAGER_H_

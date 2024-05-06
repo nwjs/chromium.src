@@ -122,7 +122,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
-#import "ios/chrome/browser/snapshots/model/snapshot_storage.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/ui/appearance/appearance_customization.h"
 #import "ios/chrome/browser/ui/first_run/first_run_util.h"
@@ -234,10 +233,9 @@ NSString* const kPurgeWebSessionStates = @"PurgeWebSessionStates";
 // Constants for deferred favicons clean up.
 NSString* const kFaviconsCleanup = @"FaviconsCleanup";
 
-// The minimum amount of time (2 weeks in seconds) between calculating and
+// The minimum amount of time (2 weeks) between calculating and
 // logging metrics about the amount of device storage space used by Chrome.
-const NSTimeInterval kMinimumTimeBetweenDocumentsSizeLogging =
-    60.0 * 60.0 * 24.0 * 14.0;
+const base::TimeDelta kMinimumTimeBetweenDocumentsSizeLogging = base::Days(14);
 
 // Adapted from chrome/browser/ui/browser_init.cc.
 void RegisterComponentsForUpdate() {
@@ -353,10 +351,14 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 // Handles collecting metrics on user triggered screenshots
 @property(nonatomic, strong)
     ScreenshotMetricsRecorder* screenshotMetricsRecorder;
+// Cleanup any persisted data for the session restration on disk.
+- (void)cleanupSessionStateCache;
 // Cleanup snapshots on disk.
 - (void)cleanupSnapshots;
 // Cleanup discarded sessions on disk.
 - (void)cleanupDiscardedSessions;
+// Pings distribution services.
+- (void)pingDistributionServices;
 // Sends any feedback that happens to still be on local storage.
 - (void)sendQueuedFeedback;
 // Called whenever an orientation change is received.
@@ -606,6 +608,8 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
     // start.
     tracker->NotifyEvent(feature_engagement::events::kChromeOpened);
 
+    [_metricsMediator notifyCredentialProviderWasUsed:tracker];
+
     [_spotlightManagers
         addObject:[SpotlightManager
                       spotlightManagerWithBrowserState:chromeBrowserState]];
@@ -783,6 +787,8 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
       [appState queueTransitionToNextInitStage];
       break;
     case InitStageFirstRun:
+      break;
+    case InitStageChoiceScreen:
       break;
     case InitStageFinal:
       break;
@@ -1043,24 +1049,10 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 }
 
 - (void)scheduleAppDistributionPings {
-  // TODO(crbug.com/325611888): Refactor this block to be a single method call.
-  // Have it handle multiple browser states.
   [[DeferredInitializationRunner sharedInstance]
       enqueueBlockNamed:kSendInstallPingIfNecessary
                   block:^{
-                    auto URLLoaderFactory = self.appState.mainBrowserState
-                                                ->GetSharedURLLoaderFactory();
-
-                    const bool is_first_run = FirstRun::IsChromeFirstRun();
-                    ios::provider::ScheduleAppDistributionNotifications(
-                        URLLoaderFactory, is_first_run);
-
-                    const base::Time install_date = base::Time::FromTimeT(
-                        GetApplicationContext()->GetLocalState()->GetInt64(
-                            metrics::prefs::kInstallDate));
-
-                    ios::provider::InitializeFirebase(install_date,
-                                                      is_first_run);
+                    [self pingDistributionServices];
                   }];
 }
 
@@ -1097,19 +1089,10 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 }
 
 - (void)scheduleSessionStateCacheCleanup {
-  // TODO(crbug.com/325612229): Refactor this to handle multiple browser states.
-  // Consider dedicated handling in DeferredInitializationRunner.
   [[DeferredInitializationRunner sharedInstance]
       enqueueBlockNamed:kPurgeWebSessionStates
                   block:^{
-                    ChromeBrowserState* browserState =
-                        self.appState.mainBrowserState;
-
-                    if (browserState) {
-                      SessionRestorationServiceFactory::GetForBrowserState(
-                          browserState)
-                          ->PurgeUnassociatedData(base::DoNothing());
-                    }
+                    [self cleanupSessionStateCache];
                   }];
 }
 
@@ -1120,20 +1103,20 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   [self scheduleCrashReportUpload];
 
   // ClearSessionCookies() is not synchronous.
-  // TODO(crbug.com/325612247): Rewrite this to properly handle both multiwindow
-  // and multi- profile, and to not use `browserProviderInterface`.
-  ChromeBrowserState* browserState = self.appState.mainBrowserState;
-  if (cookie_util::ShouldClearSessionCookies(browserState->GetPrefs())) {
-    cookie_util::ClearSessionCookies(
-        browserState->GetOriginalChromeBrowserState());
-    Browser* otrBrowser =
-        self.browserProviderInterface.incognitoBrowserProvider.browser;
-    if (otrBrowser && !(otrBrowser->GetWebStateList()->empty())) {
+  std::vector<ChromeBrowserState*> loadedBrowserStates =
+      GetApplicationContext()
+          ->GetChromeBrowserStateManager()
+          ->GetLoadedBrowserStates();
+  for (ChromeBrowserState* browserState : loadedBrowserStates) {
+    if (cookie_util::ShouldClearSessionCookies(browserState->GetPrefs())) {
       cookie_util::ClearSessionCookies(
-          browserState->GetOffTheRecordChromeBrowserState());
+          browserState->GetOriginalChromeBrowserState());
+      if (browserState->HasOffTheRecordChromeBrowserState()) {
+        cookie_util::ClearSessionCookies(
+            browserState->GetOffTheRecordChromeBrowserState());
+      }
     }
   }
-
   // Remove all discarded sessions from disk.
   [self scheduleDiscardedSessionsCleanup];
 
@@ -1168,6 +1151,9 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   [[DeferredInitializationRunner sharedInstance]
       enqueueBlockNamed:kMailtoHandlingInitialization
                   block:^{
+                    // TODO(crbug.com/330724241) Remove use of
+                    // appState.mainBrowserState. Force creation of
+                    // MailtoHandlerService for all loaded browserStates.
                     __strong __typeof(weakSelf) strongSelf = weakSelf;
                     if (!strongSelf || !strongSelf.appState.mainBrowserState) {
                       return;
@@ -1365,23 +1351,26 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   if (!base::FeatureList::IsEnabled(kLogApplicationStorageSizeMetrics)) {
     return;
   }
-
-  // TODO(crbug.com/325612236): Rewrite this to use LocalStorage for time
-  // logging and to either do per-profile size logging or to aggregate to a
-  // single value for all profiles summed.
-  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-  NSDate* lastLogged = base::apple::ObjCCast<NSDate>(
-      [defaults objectForKey:kLastApplicationStorageMetricsLogTime]);
-  if (lastLogged && [[NSDate date] timeIntervalSinceDate:lastLogged] <
-                        kMinimumTimeBetweenDocumentsSizeLogging) {
-    return;
+  std::vector<ChromeBrowserState*> loadedBrowserStates =
+      GetApplicationContext()
+          ->GetChromeBrowserStateManager()
+          ->GetLoadedBrowserStates();
+  for (ChromeBrowserState* browserState : loadedBrowserStates) {
+    PrefService* prefService = browserState->GetPrefs();
+    const base::Time lastLogged =
+        prefService->GetTime(prefs::kLastApplicationStorageMetricsLogTime);
+    if (lastLogged != base::Time() &&
+        base::Time::Now() - lastLogged <
+            kMinimumTimeBetweenDocumentsSizeLogging) {
+      continue;
+    }
+    prefService->SetTime(prefs::kLastApplicationStorageMetricsLogTime,
+                         base::Time::Now());
+    base::FilePath profilePath = browserState->GetStatePath();
+    base::FilePath offTheRecordStatePath =
+        browserState->GetOffTheRecordStatePath();
+    LogApplicationStorageMetrics(profilePath, offTheRecordStatePath);
   }
-
-  ChromeBrowserState* browserState = self.appState.mainBrowserState;
-  base::FilePath profilePath = browserState->GetStatePath();
-  base::FilePath offTheRecordStatePath =
-      browserState->GetOffTheRecordStatePath();
-  LogApplicationStorageMetrics(profilePath, offTheRecordStatePath);
 }
 
 - (void)expireFirstUserActionRecorder {
@@ -1418,16 +1407,17 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   }
 }
 
-#pragma mark - Helper methods backed by interfaces.
+#pragma mark - Helper methods.
 
-// TODO(crbug.com/325612259): Perform favicon cleanup for all browser states and
-// remove this helper.
-- (ChromeBrowserState*)currentBrowserState {
-  if (!self.browserProviderInterface.currentBrowserProvider.browser) {
-    return nullptr;
+- (void)cleanupSessionStateCache {
+  std::vector<ChromeBrowserState*> loadedBrowserStates =
+      GetApplicationContext()
+          ->GetChromeBrowserStateManager()
+          ->GetLoadedBrowserStates();
+  for (ChromeBrowserState* browserState : loadedBrowserStates) {
+    SessionRestorationServiceFactory::GetForBrowserState(browserState)
+        ->PurgeUnassociatedData(base::DoNothing());
   }
-  return self.browserProviderInterface.currentBrowserProvider.browser
-      ->GetBrowserState();
 }
 
 - (void)cleanupSnapshots {
@@ -1484,6 +1474,18 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
           ->DeleteDataForDiscardedSessions(identifiers, dataDeletedClosure);
     }
   }
+}
+
+- (void)pingDistributionServices {
+  const base::Time installDate =
+      base::Time::FromTimeT(GetApplicationContext()->GetLocalState()->GetInt64(
+          metrics::prefs::kInstallDate));
+
+  auto URLLoaderFactory = GetApplicationContext()->GetSharedURLLoaderFactory();
+  const bool isFirstRun = FirstRun::IsChromeFirstRun();
+  ios::provider::ScheduleAppDistributionNotifications(URLLoaderFactory,
+                                                      isFirstRun);
+  ios::provider::InitializeFirebase(installDate, isFirstRun);
 }
 
 #pragma mark - BrowsingDataCommands
@@ -1580,24 +1582,25 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
 - (void)performFaviconsCleanup {
-  ChromeBrowserState* browserState = self.currentBrowserState;
-  if (!browserState)
-    return;
-
-  // TODO(crbug.com/325612259): Perform cleanup for all browser states.
-  syncer::SyncService* syncService =
-      SyncServiceFactory::GetForBrowserState(browserState);
-  // Only use the fallback to the Google server when fetching favicons for
-  // normal encryption users saving to the account, because they are the only
-  // users who consented to share data to Google.
-  BOOL fallbackToGoogleServer =
-      password_manager_util::IsSavingPasswordsToAccountWithNormalEncryption(
-          syncService);
-  if (fallbackToGoogleServer) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&UpdateFaviconsStorageForBrowserState,
-                       browserState->AsWeakPtr(), fallbackToGoogleServer));
+  std::vector<ChromeBrowserState*> loadedBrowserStates =
+      GetApplicationContext()
+          ->GetChromeBrowserStateManager()
+          ->GetLoadedBrowserStates();
+  for (ChromeBrowserState* browserState : loadedBrowserStates) {
+    syncer::SyncService* syncService =
+        SyncServiceFactory::GetForBrowserState(browserState);
+    // Only use the fallback to the Google server when fetching favicons for
+    // normal encryption users saving to the account, because they are the only
+    // users who consented to share data to Google.
+    BOOL fallbackToGoogleServer =
+        password_manager_util::IsSavingPasswordsToAccountWithNormalEncryption(
+            syncService);
+    if (fallbackToGoogleServer) {
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(&UpdateFaviconsStorageForBrowserState,
+                         browserState->AsWeakPtr(), fallbackToGoogleServer));
+    }
   }
 }
 #endif

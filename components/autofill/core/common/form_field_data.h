@@ -217,7 +217,7 @@ struct FormFieldData {
   // for details.
   //
   // Must not be leaked to renderer process. See FieldGlobalId for details.
-  FieldGlobalId global_id() const { return {host_frame, renderer_id}; }
+  FieldGlobalId global_id() const { return {host_frame, renderer_id()}; }
 
   // An identifier of the renderer form that contained this field.
   // This may be different from the browser form that contains this field in the
@@ -271,7 +271,8 @@ struct FormFieldData {
   // priority given to the name_attribute. This value is used when computing
   // form signatures.
   // TODO(crbug/896689): remove this and use attributes/unique_id instead.
-  std::u16string name;
+  const std::u16string& name() const { return name_; }
+  void set_name(std::u16string name) { name_ = std::move(name); }
 
   std::u16string id_attribute;
   std::u16string name_attribute;
@@ -281,7 +282,8 @@ struct FormFieldData {
   // depending on the `form_control_type`.
   // Truncated at `kMaxStringLength`.
   // TODO(crbug.com/1501362): Extract the value of contenteditables on iOS.
-  std::u16string value;
+  const std::u16string& value() const { return value_; }
+  void set_value(std::u16string value) { value_ = std::move(value); }
 
   // The selected text, or the empty string if no text is selected.
   // Truncated at `50 * kMaxStringLength`.
@@ -291,7 +293,12 @@ struct FormFieldData {
   // TODO(crbug.com/1501362): Extract on iOS.
   std::u16string selected_text;
 
-  FormControlType form_control_type = FormControlType::kInputText;
+  const FormControlType& form_control_type() const {
+    return form_control_type_;
+  }
+  void set_form_control_type(FormControlType form_control_type) {
+    form_control_type_ = std::move(form_control_type);
+  }
   std::string autocomplete_attribute;
   std::optional<AutocompleteParsingResult> parsed_autocomplete;
   std::u16string placeholder;
@@ -309,7 +316,10 @@ struct FormFieldData {
   // field DOM elements in the same frame.
   // In the browser process, use global_id() instead.
   // See global_id() for details on the properties and pitfalls.
-  FieldRendererId renderer_id;
+  const FieldRendererId& renderer_id() const { return renderer_id_; }
+  void set_renderer_id(FieldRendererId renderer_id) {
+    renderer_id_ = std::move(renderer_id);
+  }
 
   // Renderer ID of the owning form in the same frame.
   FormRendererId host_form_id;
@@ -417,6 +427,12 @@ struct FormFieldData {
   // should be filled even though it is already considered autofilled OR
   // user modified.
   bool force_override = false;
+
+ private:
+  std::u16string name_;
+  std::u16string value_;
+  FormControlType form_control_type_ = FormControlType::kInputText;
+  FieldRendererId renderer_id_;
 };
 
 // Structure containing necessary information to be sent from the browser to the
@@ -456,7 +472,7 @@ struct FormFieldData::FillData {
   // When sent from browser to renderer, this bit indicates whether a field
   // should be filled even though it is already considered autofilled OR
   // user modified.
-  // TODO(crbug.com/1502814): Remove.
+  // TODO(crbug.com/40943206): Remove.
   bool force_override = false;
 };
 
@@ -490,13 +506,13 @@ std::ostream& operator<<(std::ostream& os, const FormFieldData& field);
 
 // Prefer to use this macro in place of |EXPECT_EQ()| for comparing
 // |FormFieldData|s in test code.
-// TODO(crbug.com/1208354): Replace this with FormData::DeepEqual().
+// TODO(crbug.com/40765988): Replace this with FormData::DeepEqual().
 #define EXPECT_FORM_FIELD_DATA_EQUALS(expected, actual)                        \
   do {                                                                         \
     EXPECT_EQ(expected.label, actual.label);                                   \
-    EXPECT_EQ(expected.name, actual.name);                                     \
-    EXPECT_EQ(expected.value, actual.value);                                   \
-    EXPECT_EQ(expected.form_control_type, actual.form_control_type);           \
+    EXPECT_EQ(expected.name(), actual.name());                                 \
+    EXPECT_EQ(expected.value(), actual.value());                               \
+    EXPECT_EQ(expected.form_control_type(), actual.form_control_type());       \
     EXPECT_EQ(expected.autocomplete_attribute, actual.autocomplete_attribute); \
     EXPECT_EQ(expected.parsed_autocomplete, actual.parsed_autocomplete);       \
     EXPECT_EQ(expected.placeholder, actual.placeholder);                       \

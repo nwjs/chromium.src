@@ -61,12 +61,14 @@
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/browser/web_applications/web_app_origin_association_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/ui/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/webapps/services/web_app_origin_association/test/test_web_app_origin_association_fetcher.h"
@@ -86,11 +88,13 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/widget/constants.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/core/SkRect.h"
 #include "ui/base/hit_test.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/test/views_test_utils.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/any_widget_observer.h"
@@ -290,7 +294,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
   EXPECT_EQ(menu_button->width(), original_menu_button_width);
 }
 
-// TODO(crbug.com/1500064): Re-enable this test
+// TODO(crbug.com/40940526): Re-enable this test
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #define MAYBE_ThemeChange DISABLED_ThemeChange
 #else
@@ -374,7 +378,10 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, TitleHover) {
 
   // With a narrow window, we have insufficient space for the full title.
   const int narrow_title_gap =
-      window_title->CalculatePreferredSize().width() * 3 / 4;
+      window_title
+          ->GetPreferredSize(views::SizeBounds(window_title->width(), {}))
+          .width() *
+      3 / 4;
   int narrow_width =
       helper()->frame_view()->width() - original_title_gap + narrow_title_gap;
 #if BUILDFLAG(IS_MAC)
@@ -1130,7 +1137,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   EXPECT_EQ(u"onresize", title_watcher2.WaitAndGetTitle());
 }
 
-// TODO(crbug.com/1306499): Enable for mac/win when flakiness has been fixed.
+// TODO(crbug.com/40827841): Enable for mac/win when flakiness has been fixed.
 #if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_WIN)
 // Test to ensure crbug.com/1298226 won't reproduce.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
@@ -1338,6 +1345,13 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
 // Regression test for https://crbug.com/1448878.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        DraggableRegionsIgnoredForOwnedWidgets) {
+  // TODO(https://crbug.com/329235190): Lacros using accelerated widget for
+  // bubble, so the point within browser_view is still draggable and returns
+  // `HTCAPTION`.
+  if (views::test::IsOzoneBubblesUsingPlatformWidgets()) {
+    GTEST_SKIP();
+  }
+
   auto app_id = InstallAndLaunchFullyDraggableWebApp();
   ToggleWindowControlsOverlayAndWait();
 
@@ -1374,6 +1388,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
 #endif  // BUILDFLAG(IS_WIN)
 
   views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_TRUE(base::test::RunUntil([&]() { return widget->IsVisible(); }));
 
   // A point inside the widget is not draggable and returns `HTCLIENT` and not
   // e.g. `HTCAPTION`.
@@ -1381,6 +1396,10 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   gfx::Point point_in_widget = widget_in_screen_bounds.CenterPoint();
   views::View::ConvertPointToTarget(
       browser_view, browser_view->contents_web_view(), &point_in_widget);
+  EXPECT_TRUE(browser_view->browser()
+                  ->app_controller()
+                  ->draggable_region()
+                  .has_value());
   EXPECT_TRUE(browser_view->ShouldDescendIntoChildForEventHandling(
       browser_view->GetWidget()->GetNativeView(), point_in_widget));
   EXPECT_EQ(frame_view->NonClientHitTest(point_in_widget), HTCLIENT);
@@ -1800,7 +1819,7 @@ class WebAppFrameToolbarBrowserTest_AdditionalWindowingControls
   }
 
   bool RunUntil(base::FunctionRef<bool(void)> condition) {
-    // TODO(crbug.com/1519551):`base::test::RunUntil` is flaky on Mac.
+    // TODO(crbug.com/41492531):`base::test::RunUntil` is flaky on Mac.
 #if BUILDFLAG(IS_MAC)
     while (!condition()) {
       base::test::TestFuture<void> future;
@@ -1984,9 +2003,16 @@ IN_PROC_BROWSER_TEST_F(
   }
 }
 
+// TODO(crbug.com/333641972): Re-enable this test on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_WindowSetResizableBlocksResizeToAndResizeByApis \
+  DISABLED_WindowSetResizableBlocksResizeToAndResizeByApis
+#else
+#define MAYBE_WindowSetResizableBlocksResizeToAndResizeByApis WindowSetResizableBlocksResizeToAndResizeByApis
+#endif
 IN_PROC_BROWSER_TEST_F(
     WebAppFrameToolbarBrowserTest_AdditionalWindowingControls,
-    WindowSetResizableBlocksResizeToAndResizeByApis) {
+    MAYBE_WindowSetResizableBlocksResizeToAndResizeByApis) {
   InstallAndLaunchWebApp();
   helper()->GrantWindowManagementPermission();
 

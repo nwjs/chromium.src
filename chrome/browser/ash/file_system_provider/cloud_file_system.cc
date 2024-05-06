@@ -16,6 +16,7 @@
 #include "base/strings/string_util.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
+#include "chrome/browser/ash/file_system_provider/cloud_file_info.h"
 #include "chrome/browser/ash/file_system_provider/provided_file_system_interface.h"
 #include "chrome/browser/ash/file_system_provider/queue.h"
 #include "url/origin.h"
@@ -73,19 +74,31 @@ std::ostream& operator<<(std::ostream& out,
   NOTREACHED_NORETURN() << "Unknown ChangeType: " << type;
 }
 
-std::ostream& operator<<(std::ostream& out,
-                         ProvidedFileSystemObserver::Changes changes) {
-  if (changes.empty()) {
+std::ostream& operator<<(std::ostream& out, CloudFileInfo* cloud_file_info) {
+  if (!cloud_file_info) {
     return out << "none";
   }
-  for (size_t i = 0; i < changes.size(); ++i) {
-    const auto& [entry_path, change_type] = changes[i];
-    out << entry_path << ": " << change_type;
-    if (i < changes.size() - 1) {
+  return out << "{version_tag = '" << cloud_file_info->version_tag << "'}";
+}
+
+std::ostream& operator<<(std::ostream& out,
+                         ProvidedFileSystemObserver::Changes* changes) {
+  if (!changes) {
+    return out << "none";
+  }
+  for (size_t i = 0; i < changes->size(); ++i) {
+    const auto& [entry_path, change_type, cloud_file_info] = (*changes)[i];
+    out << entry_path << ": change_type = " << change_type
+        << ", cloud_file_info = " << cloud_file_info.get();
+    if (i < changes->size() - 1) {
       out << ", ";
     }
   }
   return out;
+}
+
+const std::string GetVersionTag(CloudFileInfo* cloud_file_info) {
+  return (cloud_file_info) ? cloud_file_info->version_tag : "";
 }
 
 }  // namespace
@@ -103,7 +116,7 @@ CloudFileSystem::CloudFileSystem(
   }
 
   cache_manager->InitializeForProvider(
-      file_system_->GetFileSystemInfo().mount_path().BaseName(),
+      file_system_->GetFileSystemInfo(),
       base::BindOnce(&CloudFileSystem::OnContentCacheInitialized,
                      weak_ptr_factory_.GetWeakPtr()));
 
@@ -147,6 +160,7 @@ AbortCallback CloudFileSystem::GetMetadata(const base::FilePath& entry_path,
                                             GetMetadataCallback callback) {
   VLOG(2) << "GetMetadata {fsid = '" << GetFileSystemId() << "', entry_path = '"
           << entry_path << "', fields = '" << fields << "'}";
+  fields |= METADATA_FIELD_CLOUD_FILE_INFO;
   return file_system_->GetMetadata(entry_path, fields, std::move(callback));
 }
 
@@ -177,17 +191,85 @@ AbortCallback CloudFileSystem::ReadDirectory(
   return file_system_->ReadDirectory(directory_path, callback);
 }
 
-AbortCallback CloudFileSystem::ReadFile(int operation_id,
+bool CloudFileSystem::ShouldAttemptToServeReadFileFromCache(
+    const OpenedCloudFileMap::const_iterator it) {
+  return content_cache_ && it != opened_files_.end() &&
+         it->second.mode == OpenFileMode::OPEN_FILE_MODE_READ &&
+         !it->second.version_tag.empty();
+}
+
+AbortCallback CloudFileSystem::ReadFile(int file_handle,
                                         net::IOBuffer* buffer,
                                         int64_t offset,
                                         int length,
                                         ReadChunkReceivedCallback callback) {
-  VLOG(1) << "ReadFile {fsid = '" << GetFileSystemId() << "', operation_id = '"
-          << operation_id << "', offset = '" << offset << "', length = '"
+  VLOG(1) << "ReadFile {fsid = '" << GetFileSystemId() << "', file_handle = '"
+          << file_handle << "', offset = '" << offset << "', length = '"
           << length << "'}";
-  DCHECK(operation_id_to_file_handle_[operation_id]);
-  return file_system_->ReadFile(operation_id_to_file_handle_[operation_id],
-                                buffer, offset, length, callback);
+
+  // In the event the file isn't found in the `opened_files_` map, the content
+  // cache hasn't or won't be initialized OR there is an empty `version_tag`,
+  // then pass the request directly to the FSP.
+  const OpenedCloudFileMap::const_iterator it = opened_files_.find(file_handle);
+  if (!ShouldAttemptToServeReadFileFromCache(it)) {
+    return file_system_->ReadFile(file_handle, buffer, offset, length,
+                                  callback);
+  }
+
+  // Attempt to read the file from the content cache, in the event
+  // `StartReadBytes` succeeds, an actual read of the underlying FD will be
+  // kicked off, for the purposes of this method it has finished successfully.
+  // TODO(b/331691461): Fallback to serving the file from the FSP if the read
+  // from the cache fails.
+  const OpenedCloudFile& opened_cloud_file = it->second;
+  if (content_cache_->StartReadBytes(opened_cloud_file, buffer, offset, length,
+                                     callback)) {
+    return AbortCallback();
+  }
+
+  // The file doesn't exist in the cache, we need to make a cloud request
+  // first and write the result into the cache upon successful return.
+  return file_system_->ReadFile(
+      file_handle, buffer, offset, length,
+      base::BindRepeating(&CloudFileSystem::OnReadFileCompleted,
+                          weak_ptr_factory_.GetWeakPtr(), file_handle, buffer,
+                          offset, length, callback));
+}
+
+void CloudFileSystem::OnReadFileCompleted(int file_handle,
+                                          net::IOBuffer* buffer,
+                                          int64_t offset,
+                                          int length,
+                                          ReadChunkReceivedCallback callback,
+                                          int bytes_read,
+                                          bool has_more,
+                                          base::File::Error result) {
+  const OpenedCloudFileMap::const_iterator it = opened_files_.find(file_handle);
+  if (it == opened_files_.end() || result != base::File::FILE_OK ||
+      !content_cache_) {
+    callback.Run(bytes_read, has_more, result);
+    return;
+  }
+
+  // The `ReadChunkReceivedCallback` should always respond with the result from
+  // the FSP. If the content cache write fails, we should always be serving this
+  // from the FSP.
+  auto readchunk_success_callback = base::BindRepeating(
+      std::move(callback), bytes_read, has_more, base::File::FILE_OK);
+
+  if (!content_cache_->StartWriteBytes(
+          it->second, buffer, offset, bytes_read,
+          base::BindOnce(&CloudFileSystem::OnBytesWrittenToCache,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         readchunk_success_callback))) {
+    readchunk_success_callback.Run();
+  }
+}
+
+void CloudFileSystem::OnBytesWrittenToCache(
+    base::RepeatingCallback<void()> readchunk_success_callback,
+    base::File::Error result) {
+  readchunk_success_callback.Run();
 }
 
 AbortCallback CloudFileSystem::OpenFile(const base::FilePath& file_path,
@@ -195,23 +277,23 @@ AbortCallback CloudFileSystem::OpenFile(const base::FilePath& file_path,
                                          OpenFileCallback callback) {
   VLOG(1) << "OpenFile {fsid = '" << GetFileSystemId() << "', file_path = '"
           << file_path << "', mode = '" << mode << "'}";
+
   return file_system_->OpenFile(
       file_path, mode,
       base::BindOnce(&CloudFileSystem::OnOpenFileCompleted,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+                     weak_ptr_factory_.GetWeakPtr(), file_path, mode,
+                     std::move(callback)));
 }
 
 AbortCallback CloudFileSystem::CloseFile(
-    int operation_id,
+    int file_handle,
     storage::AsyncFileUtil::StatusCallback callback) {
-  VLOG(1) << "CloseFile {fsid = '" << GetFileSystemId() << "', operation_id = '"
-          << operation_id << "'}";
-  DCHECK(operation_id_to_file_handle_[operation_id]);
+  VLOG(1) << "CloseFile {fsid = '" << GetFileSystemId() << "', file_handle = '"
+          << file_handle << "'}";
   return file_system_->CloseFile(
-      operation_id_to_file_handle_[operation_id],
-      base::BindOnce(&CloudFileSystem::OnCloseFileCompleted,
-                     weak_ptr_factory_.GetWeakPtr(), operation_id,
-                     std::move(callback)));
+      file_handle, base::BindOnce(&CloudFileSystem::OnCloseFileCompleted,
+                                  weak_ptr_factory_.GetWeakPtr(), file_handle,
+                                  std::move(callback)));
 }
 
 AbortCallback CloudFileSystem::CreateDirectory(
@@ -252,27 +334,24 @@ AbortCallback CloudFileSystem::CopyEntry(
 }
 
 AbortCallback CloudFileSystem::WriteFile(
-    int operation_id,
+    int file_handle,
     net::IOBuffer* buffer,
     int64_t offset,
     int length,
     storage::AsyncFileUtil::StatusCallback callback) {
-  VLOG(1) << "WriteFile {fsid = '" << GetFileSystemId() << "', operation_id = '"
-          << operation_id << "', offset = '" << offset << "', length = '"
+  VLOG(1) << "WriteFile {fsid = '" << GetFileSystemId() << "', file_handle = '"
+          << file_handle << "', offset = '" << offset << "', length = '"
           << length << "'}";
-  DCHECK(operation_id_to_file_handle_[operation_id]);
-  return file_system_->WriteFile(operation_id_to_file_handle_[operation_id],
-                                 buffer, offset, length, std::move(callback));
+  return file_system_->WriteFile(file_handle, buffer, offset, length,
+                                 std::move(callback));
 }
 
 AbortCallback CloudFileSystem::FlushFile(
-    int operation_id,
+    int file_handle,
     storage::AsyncFileUtil::StatusCallback callback) {
-  VLOG(1) << "FlushFile {fsid = '" << GetFileSystemId() << "', operation_id = '"
-          << operation_id << "'}";
-  DCHECK(operation_id_to_file_handle_[operation_id]);
-  return file_system_->FlushFile(operation_id_to_file_handle_[operation_id],
-                                 std::move(callback));
+  VLOG(1) << "FlushFile {fsid = '" << GetFileSystemId() << "', file_handle = '"
+          << file_handle << "'}";
+  return file_system_->FlushFile(file_handle, std::move(callback));
 }
 
 AbortCallback CloudFileSystem::MoveEntry(
@@ -372,9 +451,7 @@ void CloudFileSystem::Notify(
     storage::AsyncFileUtil::StatusCallback callback) {
   VLOG(2) << "Notify {fsid = '" << GetFileSystemId() << "', recursive = '"
           << recursive << "', change_type = '" << change_type << "', tag = '"
-          << tag << "', changes = {"
-          << (changes ? *changes : ProvidedFileSystemObserver::Changes())
-          << "}}";
+          << tag << "', changes = {" << changes.get() << "}}";
   return file_system_->Notify(entry_path, recursive, change_type,
                               std::move(changes), tag, std::move(callback));
 }
@@ -410,28 +487,32 @@ void CloudFileSystem::OnTimer() {
                 }));
 }
 
-void CloudFileSystem::OnOpenFileCompleted(OpenFileCallback callback,
-                                          int file_handle,
-                                          base::File::Error result) {
-  int returned_id = file_handle;
-  // If the file is opened successfully then hold the operation_id until the
-  // file is closed.
+void CloudFileSystem::OnOpenFileCompleted(
+    const base::FilePath& file_path,
+    OpenFileMode mode,
+    OpenFileCallback callback,
+    int file_handle,
+    base::File::Error result,
+    std::unique_ptr<CloudFileInfo> cloud_file_info) {
+  VLOG(1) << "OnOpenFileCompleted {fsid = " << GetFileSystemId()
+          << ", file_handle = '" << file_handle << "', result = '" << result
+          << "', cloud_file_info = " << cloud_file_info.get() << "}";
+
   if (result == base::File::FILE_OK) {
-    const int operation_id = ++next_operation_id_;
-    operation_id_to_file_handle_[operation_id] = file_handle;
-    returned_id = operation_id;
+    opened_files_.try_emplace(
+        file_handle,
+        OpenedCloudFile(file_path, mode, GetVersionTag(cloud_file_info.get())));
   }
-  std::move(callback).Run(returned_id, result);
+  std::move(callback).Run(file_handle, result, std::move(cloud_file_info));
 }
 
 void CloudFileSystem::OnCloseFileCompleted(
-    int operation_id,
+    int file_handle,
     storage::AsyncFileUtil::StatusCallback callback,
     base::File::Error result) {
-  // Closing is always final. Even if an error happened, the file is considered
-  // closed on the C++ side.
-  operation_id_to_file_handle_.erase(operation_id);
-
+  // Closing is always final. Even if an error happened, we remove it from the
+  // list of opened files.
+  opened_files_.erase(file_handle);
   std::move(callback).Run(result);
 }
 

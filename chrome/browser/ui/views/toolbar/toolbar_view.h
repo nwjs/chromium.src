@@ -149,6 +149,7 @@ class ToolbarView : public views::AccessiblePaneView,
   ExtensionsToolbarContainer* extensions_container() const {
     return extensions_container_;
   }
+  ToolbarButton* forward_button() const { return forward_; }
   ExtensionsToolbarButton* GetExtensionsButton() const;
   ReloadButton* reload_button() const { return reload_; }
   LocationBarView* location_bar() const { return location_bar_; }
@@ -243,7 +244,7 @@ class ToolbarView : public views::AccessiblePaneView,
   gfx::Rect GetFindBarBoundingBox(int contents_bottom) override;
   void FocusToolbar() override;
   views::AccessiblePaneView* GetAsAccessiblePaneView() override;
-  views::View* GetAnchorView(PageActionIconType type) override;
+  views::View* GetAnchorView(std::optional<PageActionIconType> type) override;
   void ZoomChangedForActiveTab(bool can_show_bubble) override;
   AvatarToolbarButton* GetAvatarToolbarButton() override;
   ToolbarButton* GetBackButton() override;
@@ -264,6 +265,8 @@ class ToolbarView : public views::AccessiblePaneView,
 
   // Loads the images for all the child views.
   void LoadImages();
+
+  void OnShowForwardButtonChanged();
 
   void OnShowHomeButtonChanged();
 
@@ -313,6 +316,8 @@ class ToolbarView : public views::AccessiblePaneView,
 
   std::unique_ptr<ChromeLabsModel> chrome_labs_model_;
   std::unique_ptr<ExtensionsToolbarCoordinator> extensions_toolbar_coordinator_;
+
+  BooleanPrefMember show_forward_button_;
 
   // Controls whether or not a home button should be shown on the toolbar.
   BooleanPrefMember show_home_button_;

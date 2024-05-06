@@ -9,6 +9,7 @@
 #include <optional>
 #include <string_view>
 
+#include "base/functional/callback_forward.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/app_service/app_install/app_install_types.h"
@@ -22,9 +23,13 @@ class PackageId;
 
 // Matches URIs of the form almanac://install-app?package_id=<package id> and
 // triggers an installation using app metadata from Almanac.
+// Design doc: go/app-install-service-uri
 class AppInstallNavigationThrottle : public content::NavigationThrottle {
  public:
   using ThrottleCheckResult = content::NavigationThrottle::ThrottleCheckResult;
+
+  static base::OnceCallback<void(bool created)>&
+  MaybeCreateCallbackForTesting();
 
   // Possibly creates a navigation throttle that handles special instructions to
   // install an app on Chrome OS.

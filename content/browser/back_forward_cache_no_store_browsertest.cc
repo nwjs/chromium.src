@@ -957,9 +957,9 @@ IN_PROC_BROWSER_TEST_P(
                     {}, {}, {}, FROM_HERE);
 
   auto subframe_result = MatchesNotRestoredReasons(
-      /*id=*/"", /*name=*/"", /*src=*/url_a_no_store.spec(),
+      /*id=*/std::nullopt, /*name=*/std::nullopt, /*src=*/url_a_no_store.spec(),
       /*reasons=*/
-      {MatchesDetailedReason("cache-control-no-store",
+      {MatchesDetailedReason("response-cache-control-no-store",
                              /*source=*/std::nullopt)},
       MatchesSameOriginDetails(
           /*url=*/url_a_no_store,
@@ -969,7 +969,7 @@ IN_PROC_BROWSER_TEST_P(
       MatchesNotRestoredReasons(
           /*id=*/std::nullopt, /*name=*/std::nullopt, /*src=*/std::nullopt,
           /*reasons=*/
-          {MatchesDetailedReason("cache-control-no-store",
+          {MatchesDetailedReason("response-cache-control-no-store",
                                  /*source=*/std::nullopt)},
           MatchesSameOriginDetails(
               /*url=*/url_a_no_store,

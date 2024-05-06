@@ -37,6 +37,7 @@ class ProgrammaticScriptInjector : public ScriptInjector {
   blink::mojom::UserActivationOption IsUserGesture() const override;
   bool ShouldExecuteInMainWorld() const override;
   mojom::ExecutionWorld GetExecutionWorld() const override;
+  const std::optional<std::string>& GetExecutionWorldId() const override;
   mojom::CSSOrigin GetCssOrigin() const override;
   mojom::CSSInjection::Operation GetCSSInjectionOperation() const override;
   blink::mojom::WantResultOption ExpectsResults() const override;

@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/containers/map_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
@@ -49,8 +50,6 @@ void EventAckData::IncrementInflightEvent(
     start_ok = false;
   }
 
-  // TODO(lazyboy): Clean up |unacked_events_| if RenderProcessHost died before
-  // it got a chance to ack |event_id|. This shouldn't happen in common cases.
   auto insert_result = unacked_events_.try_emplace(
       event_id,
       EventInfo{request_uuid, render_process_id, start_ok, dispatch_start_time,
@@ -91,9 +90,9 @@ void EventAckData::EmitDispatchTimeMetrics(EventInfo& event_info) {
     const char* active_metric_name =
         event_info.lazy_background_active_on_dispatch
             ? "Extensions.Events.DispatchToAckTime.ExtensionServiceWorker2."
-              "Active"
+              "Active2"
             : "Extensions.Events.DispatchToAckTime.ExtensionServiceWorker2."
-              "Inactive";
+              "Inactive2";
     base::UmaHistogramCustomMicrosecondsTimes(
         active_metric_name,
         /*sample=*/base::TimeTicks::Now() - event_info.dispatch_start_time,
@@ -184,6 +183,16 @@ void EventAckData::DecrementInflightEvent(
       // indicate a bug in the tracking of external requests in the browser.
       break;
   }
+}
+
+void EventAckData::ClearUnackedEventsForRenderProcess(int render_process_id) {
+  std::erase_if(unacked_events_, [render_process_id](const auto& entry) {
+    return entry.second.render_process_id == render_process_id;
+  });
+}
+
+EventAckData::EventInfo* EventAckData::GetUnackedEventForTesting(int event_id) {
+  return base::FindOrNull(unacked_events_, event_id);
 }
 
 }  // namespace extensions

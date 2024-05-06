@@ -20,6 +20,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chromeos/dbus/power_manager/backlight.pb.h"
 
 namespace chromeos {
 
@@ -55,6 +56,10 @@ power_manager::BacklightBrightnessChange_Cause RequestCauseToChangeCause(
       return power_manager::BacklightBrightnessChange_Cause_USER_REQUEST;
     case power_manager::SetBacklightBrightnessRequest_Cause_MODEL:
       return power_manager::BacklightBrightnessChange_Cause_MODEL;
+    case power_manager::
+        SetBacklightBrightnessRequest_Cause_USER_REQUEST_FROM_SETTINGS_APP:
+      return power_manager::
+          BacklightBrightnessChange_Cause_USER_REQUEST_FROM_SETTINGS_APP;
   }
   NOTREACHED() << "Unhandled brightness request cause " << cause;
   return power_manager::BacklightBrightnessChange_Cause_USER_REQUEST;
@@ -146,6 +151,41 @@ void FakePowerManagerClient::GetScreenBrightnessPercent(
       base::BindOnce(std::move(callback), screen_brightness_percent_));
 }
 
+void FakePowerManagerClient::SetAmbientLightSensorEnabled(bool enabled) {
+  // If this is a no-op, don't emit a signal.
+  if (is_ambient_light_sensor_enabled_ == enabled) {
+    return;
+  }
+
+  is_ambient_light_sensor_enabled_ = enabled;
+
+  power_manager::AmbientLightSensorChange change;
+  change.set_sensor_enabled(is_ambient_light_sensor_enabled_);
+  // Changes to the Ambient Light Sensor status that are triggered via the
+  // PowerManagerClient are assumed to be caused by the Settings app.
+  change.set_cause(
+      power_manager::AmbientLightSensorChange_Cause_USER_REQUEST_SETTINGS_APP);
+
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          &FakePowerManagerClient::SendAmbientLightSensorEnabledChanged,
+          weak_ptr_factory_.GetWeakPtr(), change));
+}
+
+void FakePowerManagerClient::HasAmbientLightSensor(
+    DBusMethodCallback<bool> callback) {
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), has_ambient_light_sensor_));
+}
+
+void FakePowerManagerClient::HasKeyboardBacklight(
+    DBusMethodCallback<bool> callback) {
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), has_keyboard_backlight_));
+}
+
 void FakePowerManagerClient::DecreaseKeyboardBrightness() {}
 
 void FakePowerManagerClient::IncreaseKeyboardBrightness() {
@@ -192,7 +232,10 @@ void FakePowerManagerClient::RequestAllPeripheralBatteryUpdate() {}
 
 void FakePowerManagerClient::RequestThermalState() {}
 
-void FakePowerManagerClient::RequestSuspend() {
+void FakePowerManagerClient::RequestSuspend(
+    std::optional<uint64_t> wakeup_count,
+    int32_t duration_secs,
+    power_manager::RequestSuspendFlavor flavor) {
   ++num_request_suspend_calls_;
 }
 
@@ -510,6 +553,13 @@ void FakePowerManagerClient::SendScreenBrightnessChanged(
     const power_manager::BacklightBrightnessChange& change) {
   for (auto& observer : observers_)
     observer.ScreenBrightnessChanged(change);
+}
+
+void FakePowerManagerClient::SendAmbientLightSensorEnabledChanged(
+    const power_manager::AmbientLightSensorChange& proto) {
+  for (auto& observer : observers_) {
+    observer.AmbientLightSensorEnabledChanged(proto);
+  }
 }
 
 void FakePowerManagerClient::SendKeyboardBrightnessChanged(

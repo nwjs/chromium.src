@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/ash/settings/services/settings_manager/os_settings_manager.h"
 
 #include "ash/public/cpp/input_device_settings_controller.h"
+#include "ash/webui/common/backend/accelerator_fetcher.h"
 #include "ash/webui/common/backend/shortcut_input_provider.h"
 #include "chrome/browser/nearby_sharing/common/nearby_share_features.h"
 #include "chrome/browser/profiles/profile.h"
@@ -64,7 +65,8 @@ OsSettingsManager::OsSettingsManager(
       input_device_settings_provider_(
           std::make_unique<InputDeviceSettingsProvider>()),
       display_settings_provider_(std::make_unique<DisplaySettingsProvider>()),
-      shortcut_input_provider_(std::make_unique<ShortcutInputProvider>()) {}
+      shortcut_input_provider_(std::make_unique<ShortcutInputProvider>()),
+      accelerator_fetcher_(std::make_unique<AcceleratorFetcher>()) {}
 
 OsSettingsManager::~OsSettingsManager() = default;
 
@@ -73,13 +75,10 @@ void OsSettingsManager::AddLoadTimeData(content::WebUIDataSource* html_source) {
     section->AddLoadTimeData(html_source);
   }
 
-  // TODO(b/319740292) Remove this boolean once no shared UI code depends on it.
-  html_source->AddBoolean("isJellyEnabled",
-                          chromeos::features::IsJellyEnabled());
-
   html_source->AddBoolean("isCrosComponentsEnabled",
                           chromeos::features::IsCrosComponentsEnabled());
-  html_source->AddBoolean("isSelfShareEnabled", features::IsSelfShareEnabled());
+  html_source->AddBoolean("isSelfShareEnabled",
+                          ::features::IsSelfShareEnabled());
   html_source->UseStringsJs();
 }
 
@@ -92,6 +91,7 @@ void OsSettingsManager::AddHandlers(content::WebUI* web_ui) {
 void OsSettingsManager::Shutdown() {
   // Note: These must be deleted in the opposite order of their creation to
   // prevent against UAF violations.
+  accelerator_fetcher_.reset();
   shortcut_input_provider_.reset();
   display_settings_provider_.reset();
   input_device_settings_provider_.reset();

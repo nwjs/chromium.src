@@ -280,15 +280,18 @@ bool ExtractFormFieldData(const base::Value::Dict& field,
     return false;
   }
 
-  field_data->name = base::UTF8ToUTF16(*name);
-  field_data->form_control_type = autofill::StringToFormControlTypeDiscouraged(
-      *form_control_type, /*fallback=*/std::nullopt);
+  field_data->set_name(base::UTF8ToUTF16(*name));
+  field_data->set_form_control_type(
+      autofill::StringToFormControlTypeDiscouraged(*form_control_type,
+                                                   /*fallback=*/std::nullopt));
 
   const std::string* renderer_id = field.FindString("renderer_id");
   if (renderer_id && !renderer_id->empty()) {
-    StringToUint(*renderer_id, &field_data->renderer_id.value());
+    FieldRendererId field_renderer_id;
+    StringToUint(*renderer_id, &field_renderer_id.value());
+    field_data->set_renderer_id(field_renderer_id);
   } else {
-    field_data->renderer_id = FieldRendererId();
+    field_data->set_renderer_id(FieldRendererId());
   }
 
   // Optional fields.
@@ -302,7 +305,7 @@ bool ExtractFormFieldData(const base::Value::Dict& field,
     field_data->label = base::UTF8ToUTF16(*label);
   }
   if (const std::string* value = field.FindString("value")) {
-    field_data->value = base::UTF8ToUTF16(*value);
+    field_data->set_value(base::UTF8ToUTF16(*value));
   }
   field_data->is_autofilled =
       field.FindBool("is_autofilled").value_or(field_data->is_autofilled);
@@ -374,11 +377,11 @@ bool ExtractFormFieldData(const base::Value::Dict& field,
   }
 
   // Fill user input and properties mask.
-  if (field_data_manager.HasFieldData(field_data->renderer_id)) {
+  if (field_data_manager.HasFieldData(field_data->renderer_id())) {
     field_data->user_input =
-        field_data_manager.GetUserInput(field_data->renderer_id);
+        field_data_manager.GetUserInput(field_data->renderer_id());
     field_data->properties_mask =
-        field_data_manager.GetFieldPropertiesMask(field_data->renderer_id);
+        field_data_manager.GetFieldPropertiesMask(field_data->renderer_id());
   }
 
   return true;
@@ -452,28 +455,6 @@ void ExecuteJavaScriptFunction(const std::string& name,
   } else {
     frame->CallJavaScriptFunction(name, parameters);
   }
-}
-
-bool ExtractIDs(NSString* json_string, std::vector<FieldRendererId>* ids) {
-  DCHECK(ids);
-  std::unique_ptr<base::Value> ids_value = ParseJson(json_string);
-  if (!ids_value) {
-    return false;
-  }
-
-  if (!ids_value->is_list()) {
-    return false;
-  }
-
-  for (const auto& unique_id : ids_value->GetList()) {
-    if (!unique_id.is_string()) {
-      return false;
-    }
-    uint32_t id_num = 0;
-    StringToUint(unique_id.GetString(), &id_num);
-    ids->push_back(FieldRendererId(id_num));
-  }
-  return true;
 }
 
 bool ExtractFillingResults(

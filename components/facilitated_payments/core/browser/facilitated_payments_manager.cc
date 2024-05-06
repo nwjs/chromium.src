@@ -5,10 +5,13 @@
 #include "components/facilitated_payments/core/browser/facilitated_payments_manager.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
+#include "components/facilitated_payments/core/browser/facilitated_payments_api_client.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
+#include "components/facilitated_payments/core/features/features.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 
 namespace payments::facilitated {
@@ -16,9 +19,11 @@ namespace payments::facilitated {
 FacilitatedPaymentsManager::FacilitatedPaymentsManager(
     FacilitatedPaymentsDriver* driver,
     FacilitatedPaymentsClient* client,
+    std::unique_ptr<FacilitatedPaymentsApiClient> api_client,
     optimization_guide::OptimizationGuideDecider* optimization_guide_decider)
     : driver_(*driver),
       client_(*client),
+      api_client_(std::move(api_client)),
       optimization_guide_decider_(optimization_guide_decider) {
   DCHECK(optimization_guide_decider_);
   // TODO(b/314826708): Check if at least 1 GPay linked PIX account is
@@ -33,6 +38,7 @@ void FacilitatedPaymentsManager::Reset() {
   ukm_source_id_ = 0;
   weak_ptr_factory_.InvalidateWeakPtrs();
   pix_code_detection_triggering_timer_.Stop();
+  selected_instrument_id_ = std::nullopt;
 }
 
 void FacilitatedPaymentsManager::
@@ -117,7 +123,16 @@ void FacilitatedPaymentsManager::ProcessPixCodeDetectionResult(
       .SetResult(static_cast<uint8_t>(result))
       .SetLatencyInMillis(GetPixCodeDetectionLatencyInMillis())
       .SetAttempts(pix_code_detection_attempt_count_)
+      .SetDetectionTriggeredOnDomContentLoaded(
+          base::FeatureList::IsEnabled(kEnablePixDetectionOnDomContentLoaded))
       .Record(ukm::UkmRecorder::Get());
+
+  if (result == mojom::PixCodeDetectionResult::kValidPixCodeFound &&
+      base::FeatureList::IsEnabled(kEnablePixPayments)) {
+    api_client_->IsAvailable(
+        base::BindOnce(&FacilitatedPaymentsManager::OnApiAvailabilityReceived,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void FacilitatedPaymentsManager::StartPixCodeDetectionLatencyTimer() {
@@ -128,6 +143,38 @@ int64_t FacilitatedPaymentsManager::GetPixCodeDetectionLatencyInMillis() const {
   return (base::TimeTicks::Now() -
           pix_code_detection_latency_measuring_timestamp_)
       .InMilliseconds();
+}
+
+void FacilitatedPaymentsManager::OnApiAvailabilityReceived(
+    bool is_api_available) {
+  if (!is_api_available) {
+    return;
+  }
+
+  client_->ShowPixPaymentPrompt(
+      base::BindOnce(&FacilitatedPaymentsManager::OnPixPaymentPromptResult,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void FacilitatedPaymentsManager::OnPixPaymentPromptResult(
+    bool is_prompt_accepted,
+    int64_t selected_instrument_id) {
+  if (!is_prompt_accepted) {
+    return;
+  }
+
+  selected_instrument_id_ = selected_instrument_id;
+  api_client_->GetClientToken(
+      base::BindOnce(&FacilitatedPaymentsManager::OnGetClientToken,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void FacilitatedPaymentsManager::OnGetClientToken(
+    std::vector<uint8_t> client_token) {
+  // TODO(rouslan): If the client token is not empty, call the
+  // ChromePaymentsService.InitiatePayment with the client token,  instrument
+  // ID, and PIX string parameters. See:
+  // go/pix-chrome-initiate-fm-dd
 }
 
 }  // namespace payments::facilitated

@@ -163,9 +163,9 @@ void VerifyReceivedRendererMessages(
   // The tuple also includes a timestamp, which is ignored.
   const FormData& submitted_form = *(fake_driver.form_submitted());
   ASSERT_LE(2U, submitted_form.fields.size());
-  EXPECT_EQ(u"fname", submitted_form.fields[0].name);
-  EXPECT_EQ(base::UTF8ToUTF16(fname), submitted_form.fields[0].value);
-  EXPECT_EQ(u"lname", submitted_form.fields[1].name);
+  EXPECT_EQ(u"fname", submitted_form.fields[0].name());
+  EXPECT_EQ(base::UTF8ToUTF16(fname), submitted_form.fields[0].value());
+  EXPECT_EQ(u"lname", submitted_form.fields[1].name());
   EXPECT_EQ(expect_known_success, fake_driver.known_success());
   EXPECT_EQ(expect_submission_source,
             mojo::ConvertTo<SubmissionSource>(fake_driver.submission_source()));
@@ -181,8 +181,8 @@ void VerifyReceivedAddressRendererMessages(
   // The tuple also includes a timestamp, which is ignored.
   const FormData& submitted_form = *(fake_driver.form_submitted());
   ASSERT_LE(1U, submitted_form.fields.size());
-  EXPECT_EQ(u"address", submitted_form.fields[0].name);
-  EXPECT_EQ(base::UTF8ToUTF16(address), submitted_form.fields[0].value);
+  EXPECT_EQ(u"address", submitted_form.fields[0].name());
+  EXPECT_EQ(base::UTF8ToUTF16(address), submitted_form.fields[0].value());
   EXPECT_EQ(expect_known_success, fake_driver.known_success());
   EXPECT_EQ(expect_submission_source,
             mojo::ConvertTo<SubmissionSource>(fake_driver.submission_source()));
@@ -213,17 +213,17 @@ FormData CreateAutofillFormData(blink::WebLocalFrame* main_frame) {
           .To<WebFormControlElement>();
 
   FormFieldData field_data;
-  field_data.name = u"fname";
-  field_data.value = u"John";
+  field_data.set_name(u"fname");
+  field_data.set_value(u"John");
   field_data.is_autofilled = true;
-  field_data.renderer_id = form_util::GetFieldRendererId(fname_element);
+  field_data.set_renderer_id(form_util::GetFieldRendererId(fname_element));
   data.fields.push_back(field_data);
 
   if (!lname_element.IsNull()) {
-    field_data.name = u"lname";
-    field_data.value = u"Smith";
+    field_data.set_name(u"lname");
+    field_data.set_value(u"Smith");
     field_data.is_autofilled = true;
-    field_data.renderer_id = form_util::GetFieldRendererId(lname_element);
+    field_data.set_renderer_id(form_util::GetFieldRendererId(lname_element));
     data.fields.push_back(field_data);
   }
 
@@ -294,23 +294,23 @@ void SimulateFillFormWithNonFillableFields(
   form.renderer_id = test::MakeFormRendererId();  // Default value.
 
   FormFieldData field;
-  field.name = u"fname";
-  field.value = u"John";
+  field.set_name(u"fname");
+  field.set_value(u"John");
   field.is_autofilled = true;
-  field.renderer_id = form_util::GetFieldRendererId(fname_element);
+  field.set_renderer_id(form_util::GetFieldRendererId(fname_element));
   form.fields.push_back(field);
 
-  field.name = u"lname";
-  field.value = u"Smith";
+  field.set_name(u"lname");
+  field.set_value(u"Smith");
   field.is_autofilled = true;
-  field.renderer_id = form_util::GetFieldRendererId(lname_element);
+  field.set_renderer_id(form_util::GetFieldRendererId(lname_element));
   form.fields.push_back(field);
 
   // Additional non-autofillable field.
-  field.name = u"mname";
-  field.value = u"James";
+  field.set_name(u"mname");
+  field.set_value(u"James");
   field.is_autofilled = false;
-  field.renderer_id = form_util::GetFieldRendererId(mname_element);
+  field.set_renderer_id(form_util::GetFieldRendererId(mname_element));
   form.fields.push_back(field);
 
   // This call is necessary to setup the autofill agent appropriate for the
@@ -716,8 +716,8 @@ TEST_F(FormAutocompleteTest, SelectControlChanged) {
 
   const FormFieldData* field = fake_driver_.select_control_changed();
   ASSERT_TRUE(field);
-  EXPECT_EQ(u"color", field->name);
-  EXPECT_EQ(u"blue", field->value);
+  EXPECT_EQ(u"color", field->name());
+  EXPECT_EQ(u"blue", field->value());
 }
 
 // Parameterized test for submission detection. The parameter dictates whether

@@ -188,12 +188,16 @@ class SigninMetricsTest : public ::testing::Test {
         return "TipsNotification";
       case AccessPoint::ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE:
         return "NotificationsOptInScreenContentToggle";
+      case AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
+        return "SigninChoiceRemembered";
+      case AccessPoint::ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
+        return "ProfileMenuSignoutConfirmationPrompt";
+      case AccessPoint::ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+        return "SettingsSignoutConfirmationPrompt";
       case AccessPoint::ACCESS_POINT_MAX:
         NOTREACHED();
         return "";
     }
-    NOTREACHED();
-    return "";
   }
 };
 

@@ -185,6 +185,8 @@ class PasswordStoreAndroidAccountBackendTest : public testing::Test {
     prefs_.registry()->RegisterIntegerPref(
         prefs::kPasswordsUseUPMLocalAndSeparateStores,
         static_cast<int>(prefs::UseUpmLocalAndSeparateStoresState::kOff));
+    prefs_.registry()->RegisterBooleanPref(
+        prefs::kEmptyProfileStoreLoginDatabase, false);
 
     backend_ = std::make_unique<PasswordStoreAndroidAccountBackend>(
         base::PassKey<class PasswordStoreAndroidAccountBackendTest>(),
@@ -1819,7 +1821,10 @@ TEST_F(PasswordStoreAndroidAccountBackendTest, CallsBridgeForGroupedMatchingLogi
       "Marcus McSpartanGregor", "S0m3th1ngCr34t1v3",
       GURL(u"https://m.example.com/"),
       PasswordForm::MatchType::kGrouped | PasswordForm::MatchType::kPSL));
-  // Grouped only match is filtered.
+  // Grouped only match.
+  expected_logins.push_back(CreateEntry(
+      "Marcus McSpartanGregor", "S0m3th1ngCr34t1v3",
+      GURL(u"https://example.org/"), PasswordForm::MatchType::kGrouped));
 
   base::HistogramTester histogram_tester;
   EXPECT_CALL(
@@ -1827,11 +1832,6 @@ TEST_F(PasswordStoreAndroidAccountBackendTest, CallsBridgeForGroupedMatchingLogi
       Run(VariantWith<LoginsResult>(ElementsAreArray(expected_logins))));
   consumer().OnCompleteWithLogins(kJobId, std::move(returned_logins));
   RunUntilIdle();
-  histogram_tester.ExpectUniqueSample(
-      "PasswordManager.GetLogins.GroupedMatchesStatus",
-      password_manager::metrics_util::GroupedPasswordFetchResult::
-          kBetterMatchesExist,
-      1);
 }
 
 TEST_F(PasswordStoreAndroidAccountBackendTest,
@@ -2136,6 +2136,45 @@ TEST_F(PasswordStoreAndroidAccountBackendTest, NoEvictIfM4FlagEnabled) {
   EXPECT_FALSE(prefs()->GetBoolean(
       prefs::kUnenrolledFromGoogleMobileServicesDueToErrors));
   EXPECT_FALSE(backend().IsAbleToSavePasswords());
+}
+
+TEST_F(PasswordStoreAndroidAccountBackendTest,
+       CallOnSyncEnabledDisabledCallbackOnSyncChanges) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      password_manager::features::kUnifiedPasswordManagerSyncOnlyInGMSCore);
+  EnableSyncForTestAccount();
+
+  base::MockRepeatingClosure mock_callback;
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        /*remote_form_changes_received=*/base::DoNothing(),
+                        /*sync_enabled_or_disabled_cb=*/mock_callback.Get(),
+                        /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
+
+  EXPECT_CALL(mock_callback, Run);
+
+  DisableSyncFeature();
+  RunUntilIdle();
+}
+
+TEST_F(PasswordStoreAndroidAccountBackendTest,
+       DoesnNotCallOnSyncEnabledDisabledCallbackOnSyncChanges) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      password_manager::features::kUnifiedPasswordManagerSyncOnlyInGMSCore);
+  EnableSyncForTestAccount();
+
+  base::MockRepeatingClosure mock_callback;
+  backend().InitBackend(/*affiliated_match_helper=*/nullptr,
+                        /*remote_form_changes_received=*/base::DoNothing(),
+                        /*sync_enabled_or_disabled_cb=*/mock_callback.Get(),
+                        /*completion=*/base::DoNothing());
+  backend().OnSyncServiceInitialized(sync_service());
+
+  EXPECT_CALL(mock_callback, Run).Times(0);
+
+  DisableSyncFeature();
+  RunUntilIdle();
 }
 
 // Test suite to verify there is no unenrollment for most of the errors except

@@ -32,10 +32,12 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_TEXT_CHARACTER_H_
 
 #include <unicode/uchar.h>
+#include <unicode/uniset.h>
 
 #include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/character_property.h"
 #include "third_party/blink/renderer/platform/text/han_kerning_char_type.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
@@ -80,6 +82,12 @@ class PLATFORM_EXPORT Character {
            IsInRange(character, 0xFE00, 0xFE0F)  // VARIATION SELECTOR-1 to 16
            || IsInRange(character, 0xE0100,
                         0xE01EF);  // VARIATION SELECTOR-17 to 256
+  }
+
+  static inline bool IsUnicodeEmojiVariationSelector(UChar32 character) {
+    // https://www.unicode.org/Public/emoji/5.0/emoji-variation-sequences.txt
+    return character == 0xFE0E ||
+           character == 0xFE0F;  // VARIATION SELECTOR-15 to 16
   }
 
   static bool IsCJKIdeographOrSymbol(UChar32 c) {
@@ -141,7 +149,8 @@ class PLATFORM_EXPORT Character {
            c == kTabulationCharacter || c == kCarriageReturnCharacter;
   }
   static bool IsLineFeed(UChar c) { return c == kNewlineCharacter; }
-  static bool IsOtherSpaceSeparator(UChar c) {
+  template <typename CharacterType>
+  static bool IsOtherSpaceSeparator(CharacterType c) {
     return c == kIdeographicSpaceCharacter;
   }
   static bool TreatAsSpace(UChar32 c) {
@@ -152,20 +161,28 @@ class PLATFORM_EXPORT Character {
     return TreatAsZeroWidthSpaceInComplexScript(c) ||
            c == kZeroWidthNonJoinerCharacter || c == kZeroWidthJoinerCharacter;
   }
-  static bool LegacyTreatAsZeroWidthSpaceInComplexScript(UChar32 c) {
-    return c < 0x20  // ASCII Control Characters
-           ||
-           (c >= 0x7F && c < 0xA0)  // ASCII Delete .. No-break spaceCharacter
-           || TreatAsZeroWidthSpaceInComplexScript(c);
-  }
   static bool TreatAsZeroWidthSpaceInComplexScript(UChar32 c) {
-    return c == kFormFeedCharacter || c == kCarriageReturnCharacter ||
-           c == kSoftHyphenCharacter || c == kZeroWidthSpaceCharacter ||
-           (c >= kLeftToRightMarkCharacter && c <= kRightToLeftMarkCharacter) ||
-           (c >= kLeftToRightEmbedCharacter &&
-            c <= kRightToLeftOverrideCharacter) ||
-           c == kZeroWidthNoBreakSpaceCharacter ||
-           c == kObjectReplacementCharacter;
+    if (c == kFormFeedCharacter || c == kCarriageReturnCharacter ||
+        c == kObjectReplacementCharacter) {
+      return true;
+    }
+    if (RuntimeEnabledFeatures::TextAlignJustifyBidiIsolateEnabled()) {
+      return IsDefaultIgnorable(c);
+    } else {
+      return c == kSoftHyphenCharacter || c == kZeroWidthSpaceCharacter ||
+             (c >= kLeftToRightMarkCharacter &&
+              c <= kRightToLeftMarkCharacter) ||
+             (c >= kLeftToRightEmbedCharacter &&
+              c <= kRightToLeftOverrideCharacter) ||
+             c == kZeroWidthNoBreakSpaceCharacter;
+    }
+  }
+  // https://unicode.org/reports/tr44/#Default_Ignorable_Code_Point
+  static bool IsDefaultIgnorable(UChar32 c) {
+    if (c < 0x0100) {
+      return c == kSoftHyphenCharacter;
+    }
+    return u_hasBinaryProperty(c, UCHAR_DEFAULT_IGNORABLE_CODE_POINT);
   }
   static bool CanTextDecorationSkipInk(UChar32);
   static bool CanReceiveTextEmphasis(UChar32);
@@ -194,15 +211,10 @@ class PLATFORM_EXPORT Character {
   static bool IsExtendedPictographic(UChar32);
   static bool MaybeEmojiPresentation(UChar32);
 
-  static inline UChar NormalizeSpaces(UChar character) {
-    if (TreatAsSpace(character))
-      return kSpaceCharacter;
-
-    if (TreatAsZeroWidthSpace(character))
-      return kZeroWidthSpaceCharacter;
-
-    return character;
-  }
+  static bool IsStandardizedVariationSequence(UChar32, UChar32);
+  static bool IsEmojiVariationSequence(UChar32, UChar32);
+  static bool IsIdeographicVariationSequence(UChar32 ch, UChar32 vs);
+  static bool IsVariationSequence(UChar32, UChar32);
 
   static inline bool IsNormalizedCanvasSpaceCharacter(UChar32 c) {
     // According to specification all space characters should be replaced with
@@ -217,9 +229,6 @@ class PLATFORM_EXPORT Character {
     // will fail
     return c == 0x0009 || (c >= 0x000A && c <= 0x000D);
   }
-
-  static String NormalizeSpaces(const LChar*, unsigned length);
-  static String NormalizeSpaces(const UChar*, unsigned length);
 
   static bool IsCommonOrInheritedScript(UChar32);
   static bool IsPrivateUse(UChar32);
@@ -250,6 +259,8 @@ class PLATFORM_EXPORT Character {
   static bool IsHangulSlow(UChar32);
   static bool MaybeHanKerningOpenSlow(UChar32);
   static bool MaybeHanKerningCloseSlow(UChar32);
+  static void ApplyPatternAndFreezeIfEmpty(icu::UnicodeSet* unicodeSet,
+                                           const char* pattern);
 };
 
 inline bool Character::IsEastAsianWidthFullwidth(UChar32 ch) {

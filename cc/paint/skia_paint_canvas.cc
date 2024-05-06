@@ -184,6 +184,22 @@ void SkiaPaintCanvas::drawLine(SkScalar x0,
   FlushAfterDrawIfNeeded();
 }
 
+void SkiaPaintCanvas::drawArc(const SkRect& oval,
+                              SkScalar start_angle_degrees,
+                              SkScalar sweep_angle_degrees,
+                              const PaintFlags& flags) {
+  ScopedRasterFlags raster_flags(&flags, image_provider_,
+                                 canvas_->getTotalMatrix(), GetMaxTextureSize(),
+                                 1.0f);
+  if (!raster_flags.flags()) {
+    return;
+  }
+
+  DrawArcOp op(oval, start_angle_degrees, sweep_angle_degrees, flags);
+  op.RasterWithFlagsImpl(raster_flags.flags(), canvas_);
+  FlushAfterDrawIfNeeded();
+}
+
 void SkiaPaintCanvas::drawRect(const SkRect& rect, const PaintFlags& flags) {
   ScopedRasterFlags raster_flags(&flags, image_provider_,
                                  canvas_->getTotalMatrix(), GetMaxTextureSize(),
@@ -388,12 +404,12 @@ void SkiaPaintCanvas::drawTextBlob(sk_sp<SkTextBlob> blob,
 }
 
 void SkiaPaintCanvas::drawPicture(PaintRecord record) {
-  drawPicture(std::move(record), PlaybackParams::CustomDataRasterCallback(),
+  drawPicture(std::move(record), PlaybackCallbacks::CustomDataRasterCallback(),
               /*local_ctm=*/true);
 }
 
 void SkiaPaintCanvas::drawPicture(PaintRecord record, bool local_ctm) {
-  drawPicture(std::move(record), PlaybackParams::CustomDataRasterCallback(),
+  drawPicture(std::move(record), PlaybackCallbacks::CustomDataRasterCallback(),
               local_ctm);
 }
 
@@ -425,15 +441,16 @@ void SkiaPaintCanvas::setNodeId(int node_id) {
 
 void SkiaPaintCanvas::drawPicture(
     PaintRecord record,
-    PlaybackParams::CustomDataRasterCallback custom_raster_callback,
+    PlaybackCallbacks::CustomDataRasterCallback custom_raster_callback,
     bool local_ctm) {
-  auto did_draw_op_cb =
-      context_flushes_.enable
-          ? base::BindRepeating(&SkiaPaintCanvas::FlushAfterDrawIfNeeded,
-                                base::Unretained(this))
-          : PlaybackParams::DidDrawOpCallback();
+  PlaybackCallbacks callbacks;
+  callbacks.custom_callback = custom_raster_callback;
+  if (context_flushes_.enable) {
+    callbacks.did_draw_op_callback = base::BindRepeating(
+        &SkiaPaintCanvas::FlushAfterDrawIfNeeded, base::Unretained(this));
+  }
   PlaybackParams params(image_provider_, canvas_->getLocalToDevice(),
-                        custom_raster_callback, did_draw_op_cb);
+                        callbacks);
   record.Playback(canvas_, params, local_ctm);
 }
 

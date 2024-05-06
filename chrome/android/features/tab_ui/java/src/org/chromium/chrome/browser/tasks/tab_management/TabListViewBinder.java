@@ -25,6 +25,8 @@ import androidx.core.widget.ImageViewCompat;
 import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat;
 
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
+import org.chromium.chrome.browser.tab_ui.TabUiThemeUtils;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -135,12 +137,12 @@ class TabListViewBinder {
         View cardView = view.findViewById(R.id.content_view);
         cardView.getBackground().mutate();
         final @ColorInt int backgroundColor =
-                TabUiThemeProvider.getCardViewBackgroundColor(
+                TabUiThemeUtils.getCardViewBackgroundColor(
                         view.getContext(), isIncognito, /* isSelected= */ false);
         ViewCompat.setBackgroundTintList(cardView, ColorStateList.valueOf(backgroundColor));
 
         final @ColorInt int textColor =
-                TabUiThemeProvider.getTitleTextColor(
+                TabUiThemeUtils.getTitleTextColor(
                         view.getContext(), isIncognito, /* isSelected= */ false);
         TextView titleView = (TextView) view.findViewById(R.id.title);
         TextView descriptionView = (TextView) view.findViewById(R.id.description);
@@ -153,7 +155,7 @@ class TabListViewBinder {
         }
         faviconView.getBackground().mutate();
         final @ColorInt int faviconBackgroundColor =
-                TabUiThemeProvider.getMiniThumbnailPlaceholderColor(
+                TabUiThemeUtils.getMiniThumbnailPlaceholderColor(
                         view.getContext(), isIncognito, /* isSelected= */ false);
         ViewCompat.setBackgroundTintList(
                 faviconView, ColorStateList.valueOf(faviconBackgroundColor));

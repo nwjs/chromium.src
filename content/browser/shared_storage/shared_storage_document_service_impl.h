@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -85,6 +84,12 @@ class CONTENT_EXPORT SharedStorageDocumentServiceImpl final
   friend class DocumentUserData;
 
   explicit SharedStorageDocumentServiceImpl(RenderFrameHost*);
+
+  void OnCreateWorkletResponseIntercepted(
+      bool is_same_origin,
+      CreateWorkletCallback original_callback,
+      bool success,
+      const std::string& error_message);
 
   SharedStorageWorkletHostManager* GetSharedStorageWorkletHostManager();
 

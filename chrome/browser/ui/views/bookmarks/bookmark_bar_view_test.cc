@@ -249,7 +249,9 @@ class TestingPageNavigator : public PageNavigator {
 
   ~TestingPageNavigator() override {}
 
-  WebContents* OpenURL(const OpenURLParams& params) override {
+  WebContents* OpenURL(const OpenURLParams& params,
+                       base::OnceCallback<void(content::NavigationHandle&)>
+                           navigation_handle_callback) override {
     urls_.push_back(params.url);
     transitions_.push_back(params.transition);
     return nullptr;
@@ -2162,7 +2164,7 @@ class BookmarkBarViewTest25 : public BookmarkBarViewEventTestBase {
 
 // Tests that pressing F10 system key closes the menu.
 using BookmarkBarViewTest25F10 = BookmarkBarViewTest25<ui::VKEY_F10>;
-// TODO(crbug.com/1520458) flaky on windows
+// TODO(crbug.com/41493431) flaky on windows
 #if BUILDFLAG(IS_WIN)
 #define MAYBE_F10ClosesMenu DISABLED_F10ClosesMenu
 #else
@@ -2332,7 +2334,7 @@ class BookmarkBarViewTest29 : public BookmarkBarViewDragTestBase {
   }
 };
 
-// TODO(https://crbug.com/1503458): Flaky on Mac.
+// TODO(crbug.com/40943907): Flaky on Mac.
 // TODO(https://crbug.com/1506808): Flaky on Windows.
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #define MAYBE_DNDToEmptyMenu DISABLED_DNDToEmptyMenu

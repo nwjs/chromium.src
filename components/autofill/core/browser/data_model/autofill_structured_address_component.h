@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "base/strings/string_piece.h"
 #include "components/autofill/core/browser/data_model/autofill_i18n_parsing_expression_components.h"
 #include "components/autofill/core/browser/field_types.h"
 
@@ -333,6 +332,12 @@ class AddressComponent {
 
   // Returns a constant vector of pointers to the child nodes of the component.
   const SubcomponentsList& Subcomponents() const { return subcomponents_; }
+
+  // Returns a constant vector of pointers to the synthesized child nodes of the
+  // component.
+  const SubcomponentsList& SynthesizedSubcomponents() const {
+    return synthesized_subcomponents_;
+  }
 
   // Returns a pointer to the parent node.
   AddressComponent* Parent() const { return parent_; }

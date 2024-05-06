@@ -27,13 +27,6 @@ ChromeExtensionFrameHost::ChromeExtensionFrameHost(
 
 ChromeExtensionFrameHost::~ChromeExtensionFrameHost() = default;
 
-void ChromeExtensionFrameHost::UpdateDraggableRegions(std::vector<mojom::DraggableRegionPtr> regions) {
-  TabHelper* tab_helper = TabHelper::FromWebContents(web_contents_);
-  if (!tab_helper)
-    return;
-  tab_helper->UpdateDraggableRegions(regions);
-}
-
 void ChromeExtensionFrameHost::RequestScriptInjectionPermission(
     const ExtensionId& extension_id,
     mojom::InjectionType script_type,

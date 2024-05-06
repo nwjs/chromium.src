@@ -22,6 +22,7 @@
 
 #include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/heap_array.h"
 #include "base/containers/queue.h"
 #include "base/containers/span.h"
 #include "base/debug/alias.h"
@@ -966,12 +967,6 @@ class GLES2DecoderImpl : public GLES2Decoder,
   // Return 0 if no stencil attachment.
   GLenum GetBoundFramebufferStencilFormat(GLenum target);
 
-  gfx::Vector2d GetBoundFramebufferDrawOffset() const {
-    if (GetBoundDrawFramebuffer() || offscreen_target_frame_buffer_.get())
-      return gfx::Vector2d();
-    return surface_->GetDrawOffset();
-  }
-
   void MarkDrawBufferAsCleared(GLenum buffer, GLint drawbuffer_i);
 
   // Wrapper for CompressedTexImage{2|3}D commands.
@@ -1112,9 +1107,6 @@ class GLES2DecoderImpl : public GLES2Decoder,
                                    GLenum buffer_usage,
                                    GLsizei width,
                                    GLsizei height);
-
-  void DoProduceTextureDirectCHROMIUM(GLuint texture,
-                                      const volatile GLbyte* key);
 
   void DoCreateAndConsumeTextureINTERNAL(GLuint client_id,
                                          const volatile GLbyte* key);
@@ -2858,17 +2850,16 @@ bool BackTexture::AllocateStorage(
   {
     // Add extra scope to destroy zero_data and the object it owns right
     // after its usage.
-    std::unique_ptr<char[]> zero_data;
+    base::HeapArray<char> zero_data;
     if (zero) {
-      zero_data.reset(new char[image_size]);
-      memset(zero_data.get(), 0, image_size);
+      zero_data = base::HeapArray<char>::WithSize(image_size);
     }
 
     api()->glTexImage2DFn(Target(),
                           0,  // mip level
                           format, size.width(), size.height(),
                           0,  // border
-                          format, GL_UNSIGNED_BYTE, zero_data.get());
+                          format, GL_UNSIGNED_BYTE, zero_data.data());
   }
 
   decoder_->texture_manager()->SetLevelInfo(
@@ -3921,8 +3912,8 @@ bool GLES2DecoderImpl::GenBuffersHelper(GLsizei n, const GLuint* client_ids) {
       return false;
     }
   }
-  std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
-  api()->glGenBuffersARBFn(n, service_ids.get());
+  auto service_ids = base::HeapArray<GLuint>::Uninit(n);
+  api()->glGenBuffersARBFn(n, service_ids.data());
   for (GLsizei ii = 0; ii < n; ++ii) {
     CreateBuffer(client_ids[ii], service_ids[ii]);
   }
@@ -3936,8 +3927,8 @@ bool GLES2DecoderImpl::GenFramebuffersHelper(
       return false;
     }
   }
-  std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
-  api()->glGenFramebuffersEXTFn(n, service_ids.get());
+  auto service_ids = base::HeapArray<GLuint>::Uninit(n);
+  api()->glGenFramebuffersEXTFn(n, service_ids.data());
   for (GLsizei ii = 0; ii < n; ++ii) {
     CreateFramebuffer(client_ids[ii], service_ids[ii]);
   }
@@ -3951,8 +3942,8 @@ bool GLES2DecoderImpl::GenRenderbuffersHelper(
       return false;
     }
   }
-  std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
-  api()->glGenRenderbuffersEXTFn(n, service_ids.get());
+  auto service_ids = base::HeapArray<GLuint>::Uninit(n);
+  api()->glGenRenderbuffersEXTFn(n, service_ids.data());
   for (GLsizei ii = 0; ii < n; ++ii) {
     CreateRenderbuffer(client_ids[ii], service_ids[ii]);
   }
@@ -3965,8 +3956,8 @@ bool GLES2DecoderImpl::GenTexturesHelper(GLsizei n, const GLuint* client_ids) {
       return false;
     }
   }
-  std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
-  api()->glGenTexturesFn(n, service_ids.get());
+  auto service_ids = base::HeapArray<GLuint>::Uninit(n);
+  api()->glGenTexturesFn(n, service_ids.data());
   for (GLsizei ii = 0; ii < n; ++ii) {
     CreateTexture(client_ids[ii], service_ids[ii]);
   }
@@ -3979,8 +3970,8 @@ bool GLES2DecoderImpl::GenSamplersHelper(GLsizei n, const GLuint* client_ids) {
       return false;
     }
   }
-  std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
-  api()->glGenSamplersFn(n, service_ids.get());
+  auto service_ids = base::HeapArray<GLuint>::Uninit(n);
+  api()->glGenSamplersFn(n, service_ids.data());
   for (GLsizei ii = 0; ii < n; ++ii) {
     CreateSampler(client_ids[ii], service_ids[ii]);
   }
@@ -3994,8 +3985,8 @@ bool GLES2DecoderImpl::GenTransformFeedbacksHelper(
       return false;
     }
   }
-  std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
-  api()->glGenTransformFeedbacksFn(n, service_ids.get());
+  auto service_ids = base::HeapArray<GLuint>::Uninit(n);
+  api()->glGenTransformFeedbacksFn(n, service_ids.data());
   for (GLsizei ii = 0; ii < n; ++ii) {
     CreateTransformFeedback(client_ids[ii], service_ids[ii]);
   }
@@ -5916,7 +5907,7 @@ void GLES2DecoderImpl::InvalidateFramebufferImpl(
       framebuffer->HasDepthStencilFormatAttachment();
   bool invalidate_depth = false;
   bool invalidate_stencil = false;
-  std::unique_ptr<GLenum[]> validated_attachments(new GLenum[count+1]);
+  auto validated_attachments = base::HeapArray<GLenum>::Uninit(count + 1);
   GLsizei validated_count = 0;
 
   // Validates the attachments. If one of them fails, the whole command fails.
@@ -5968,7 +5959,8 @@ void GLES2DecoderImpl::InvalidateFramebufferImpl(
   // If the default framebuffer is bound but we are still rendering to an
   // FBO, translate attachment names that refer to default framebuffer
   // channels to corresponding framebuffer attachments.
-  std::unique_ptr<GLenum[]> translated_attachments(new GLenum[validated_count]);
+  auto translated_attachments =
+      base::HeapArray<GLenum>::Uninit(validated_count);
   for (GLsizei i = 0; i < validated_count; ++i) {
     GLenum attachment = validated_attachments[i];
     if (!framebuffer && GetBackbufferServiceId()) {
@@ -5995,10 +5987,10 @@ void GLES2DecoderImpl::InvalidateFramebufferImpl(
     case kFramebufferDiscard:
       if (gl_version_info().is_es3) {
         api()->glInvalidateFramebufferFn(target, validated_count,
-                                         translated_attachments.get());
+                                         translated_attachments.data());
       } else {
         api()->glDiscardFramebufferEXTFn(target, validated_count,
-                                         translated_attachments.get());
+                                         translated_attachments.data());
       }
       dirty = true;
       break;
@@ -6007,7 +5999,7 @@ void GLES2DecoderImpl::InvalidateFramebufferImpl(
         // no-op since the function isn't supported.
       } else {
         api()->glInvalidateFramebufferFn(target, validated_count,
-                                         translated_attachments.get());
+                                         translated_attachments.data());
         dirty = true;
       }
       break;
@@ -6811,9 +6803,8 @@ void GLES2DecoderImpl::DoGetBooleanv(GLenum pname,
                                      GLboolean* params,
                                      GLsizei params_size) {
   DCHECK(params);
-  std::unique_ptr<GLint[]> values(new GLint[params_size]);
-  memset(values.get(), 0, params_size * sizeof(GLint));
-  DoGetIntegerv(pname, values.get(), params_size);
+  auto values = base::HeapArray<GLint>::WithSize(params_size);
+  DoGetIntegerv(pname, values.data(), params_size);
   for (GLsizei ii = 0; ii < params_size; ++ii) {
     params[ii] = static_cast<GLboolean>(values[ii]);
   }
@@ -6839,9 +6830,8 @@ void GLES2DecoderImpl::DoGetFloatv(GLenum pname,
       return;
   }
 
-  std::unique_ptr<GLint[]> values(new GLint[params_size]);
-  memset(values.get(), 0, params_size * sizeof(GLint));
-  DoGetIntegerv(pname, values.get(), params_size);
+  auto values = base::HeapArray<GLint>::WithSize(params_size);
+  DoGetIntegerv(pname, values.data(), params_size);
   for (GLsizei ii = 0; ii < params_size; ++ii) {
     params[ii] = static_cast<GLfloat>(values[ii]);
   }
@@ -6870,9 +6860,8 @@ void GLES2DecoderImpl::DoGetInteger64v(GLenum pname,
     }
   }
 
-  std::unique_ptr<GLint[]> values(new GLint[params_size]);
-  memset(values.get(), 0, params_size * sizeof(GLint));
-  DoGetIntegerv(pname, values.get(), params_size);
+  auto values = base::HeapArray<GLint>::WithSize(params_size);
+  DoGetIntegerv(pname, values.data(), params_size);
   for (GLsizei ii = 0; ii < params_size; ++ii) {
     params[ii] = static_cast<GLint64>(values[ii]);
   }
@@ -7650,10 +7639,8 @@ void GLES2DecoderImpl::RestoreClearState() {
   state_.SetDeviceCapabilityState(GL_SCISSOR_TEST,
                                   state_.enable_flags.scissor_test);
   RestoreDeviceWindowRectangles();
-  gfx::Vector2d scissor_offset = GetBoundFramebufferDrawOffset();
-  api()->glScissorFn(state_.scissor_x + scissor_offset.x(),
-                     state_.scissor_y + scissor_offset.y(),
-                     state_.scissor_width, state_.scissor_height);
+  api()->glScissorFn(state_.scissor_x, state_.scissor_y, state_.scissor_width,
+                     state_.scissor_height);
 }
 
 GLenum GLES2DecoderImpl::DoCheckFramebufferStatus(GLenum target) {
@@ -9159,11 +9146,11 @@ void GLES2DecoderImpl::DoUniform1fv(GLint fake_location,
     return;
   }
   if (type == GL_BOOL) {
-    std::unique_ptr<GLint[]> temp(new GLint[count]);
+    auto temp = base::HeapArray<GLint>::Uninit(count);
     for (GLsizei ii = 0; ii < count; ++ii) {
       temp[ii] = static_cast<GLint>(value[ii] != 0.0f);
     }
-    api()->glUniform1ivFn(real_location, count, temp.get());
+    api()->glUniform1ivFn(real_location, count, temp.data());
   } else {
     api()->glUniform1fvFn(real_location, count,
                           const_cast<const GLfloat*>(value));
@@ -9182,11 +9169,11 @@ void GLES2DecoderImpl::DoUniform2fv(GLint fake_location,
   }
   if (type == GL_BOOL_VEC2) {
     GLsizei num_values = count * 2;
-    std::unique_ptr<GLint[]> temp(new GLint[num_values]);
+    auto temp = base::HeapArray<GLint>::Uninit(num_values);
     for (GLsizei ii = 0; ii < num_values; ++ii) {
       temp[ii] = static_cast<GLint>(value[ii] != 0.0f);
     }
-    api()->glUniform2ivFn(real_location, count, temp.get());
+    api()->glUniform2ivFn(real_location, count, temp.data());
   } else {
     api()->glUniform2fvFn(real_location, count,
                           const_cast<const GLfloat*>(value));
@@ -9205,11 +9192,11 @@ void GLES2DecoderImpl::DoUniform3fv(GLint fake_location,
   }
   if (type == GL_BOOL_VEC3) {
     GLsizei num_values = count * 3;
-    std::unique_ptr<GLint[]> temp(new GLint[num_values]);
+    auto temp = base::HeapArray<GLint>::Uninit(num_values);
     for (GLsizei ii = 0; ii < num_values; ++ii) {
       temp[ii] = static_cast<GLint>(value[ii] != 0.0f);
     }
-    api()->glUniform3ivFn(real_location, count, temp.get());
+    api()->glUniform3ivFn(real_location, count, temp.data());
   } else {
     api()->glUniform3fvFn(real_location, count,
                           const_cast<const GLfloat*>(value));
@@ -9228,11 +9215,11 @@ void GLES2DecoderImpl::DoUniform4fv(GLint fake_location,
   }
   if (type == GL_BOOL_VEC4) {
     GLsizei num_values = count * 4;
-    std::unique_ptr<GLint[]> temp(new GLint[num_values]);
+    auto temp = base::HeapArray<GLint>::Uninit(num_values);
     for (GLsizei ii = 0; ii < num_values; ++ii) {
       temp[ii] = static_cast<GLint>(value[ii] != 0.0f);
     }
-    api()->glUniform4ivFn(real_location, count, temp.get());
+    api()->glUniform4ivFn(real_location, count, temp.data());
   } else {
     api()->glUniform4fvFn(real_location, count,
                           const_cast<const GLfloat*>(value));
@@ -9981,15 +9968,15 @@ bool GLES2DecoderImpl::SimulateFixedAttribs(const char* function_name,
       int num_elements = attrib->size() * num_vertices;
       const int src_size = num_elements * sizeof(int32_t);
       const int dst_size = num_elements * sizeof(float);
-      std::unique_ptr<float[]> data(new float[num_elements]);
+      auto data = base::HeapArray<float>::Uninit(num_elements);
       const int32_t* src = reinterpret_cast<const int32_t*>(
           attrib->buffer()->GetRange(attrib->offset(), src_size));
       const int32_t* end = src + num_elements;
-      float* dst = data.get();
+      float* dst = data.data();
       while (src != end) {
         *dst++ = static_cast<float>(*src++) / 65536.0f;
       }
-      api()->glBufferSubDataFn(GL_ARRAY_BUFFER, offset, dst_size, data.get());
+      api()->glBufferSubDataFn(GL_ARRAY_BUFFER, offset, dst_size, data.data());
       api()->glVertexAttribPointerFn(attrib->index(), attrib->size(), GL_FLOAT,
                                      false, 0,
                                      reinterpret_cast<GLvoid*>(offset));
@@ -11882,17 +11869,14 @@ void GLES2DecoderImpl::DoViewport(GLint x, GLint y, GLsizei width,
   state_.viewport_y = y;
   state_.viewport_width = std::min(width, viewport_max_width_);
   state_.viewport_height = std::min(height, viewport_max_height_);
-  gfx::Vector2d viewport_offset = GetBoundFramebufferDrawOffset();
-  api()->glViewportFn(x + viewport_offset.x(), y + viewport_offset.y(), width,
-                      height);
+  api()->glViewportFn(x, y, width, height);
 }
 
 void GLES2DecoderImpl::DoScissor(GLint x,
                                  GLint y,
                                  GLsizei width,
                                  GLsizei height) {
-  gfx::Vector2d draw_offset = GetBoundFramebufferDrawOffset();
-  api()->glScissorFn(x + draw_offset.x(), y + draw_offset.y(), width, height);
+  api()->glScissorFn(x, y, width, height);
 }
 
 error::Error GLES2DecoderImpl::HandleVertexAttribDivisorANGLE(
@@ -12920,8 +12904,7 @@ bool GLES2DecoderImpl::ClearLevel(Texture* texture,
     // Add extra scope to destroy zero and the object it owns right
     // after its usage.
     // Assumes the size has already been checked.
-    std::unique_ptr<char[]> zero(new char[size]);
-    memset(zero.get(), 0, size);
+    auto zero = base::HeapArray<char>::WithSize(size);
 
     ScopedPixelUnpackState reset_restore(&state_);
     GLint y = 0;
@@ -12930,7 +12913,7 @@ bool GLES2DecoderImpl::ClearLevel(Texture* texture,
       api()->glTexSubImage2DFn(
           target, level, xoffset, yoffset + y, width, h,
           TextureManager::AdjustTexFormat(feature_info_.get(), format), type,
-          zero.get());
+          zero.data());
       y += tile_height;
     }
   }
@@ -12985,9 +12968,7 @@ bool GLES2DecoderImpl::ClearLevelUsingGL(Texture* texture,
     api()->glClearDepthFn(1.0f);
     state_.SetDeviceDepthMask(GL_TRUE);
     state_.SetDeviceCapabilityState(GL_SCISSOR_TEST, true);
-    gfx::Vector2d scissor_offset = GetBoundFramebufferDrawOffset();
-    api()->glScissorFn(xoffset + scissor_offset.x(),
-                       yoffset + scissor_offset.y(), width, height);
+    api()->glScissorFn(xoffset, yoffset, width, height);
     ClearDeviceWindowRectangles();
 
     api()->glClearFn((have_color ? GL_COLOR_BUFFER_BIT : 0) |
@@ -13031,11 +13012,10 @@ bool GLES2DecoderImpl::ClearCompressedTextureLevel(Texture* texture,
   {
     // Add extra scope to destroy zero and the object it owns right
     // after its usage.
-    std::unique_ptr<char[]> zero(new char[bytes_required]);
-    memset(zero.get(), 0, bytes_required);
+    auto zero = base::HeapArray<char>::WithSize(bytes_required);
     api()->glBindTextureFn(texture->target(), texture->service_id());
     api()->glCompressedTexSubImage2DFn(target, level, 0, 0, width, height,
-                                       format, bytes_required, zero.get());
+                                       format, zero.size(), zero.data());
   }
   TextureRef* bound_texture =
       texture_manager()->GetTextureInfoForTarget(&state_, texture->target());
@@ -13077,12 +13057,10 @@ bool GLES2DecoderImpl::ClearCompressedTextureLevel3D(Texture* texture,
   {
     // Add extra scope to destroy zero and the object it owns right
     // after its usage.
-    std::unique_ptr<char[]> zero(new char[bytes_required]);
-    memset(zero.get(), 0, bytes_required);
+    auto zero = base::HeapArray<char>::WithSize(bytes_required);
     api()->glBindTextureFn(texture->target(), texture->service_id());
     api()->glCompressedTexSubImage3DFn(target, level, 0, 0, 0, width, height,
-                                       depth, format, bytes_required,
-                                       zero.get());
+                                       depth, format, zero.size(), zero.data());
   }
   TextureRef* bound_texture =
       texture_manager()->GetTextureInfoForTarget(&state_, texture->target());
@@ -13198,10 +13176,9 @@ bool GLES2DecoderImpl::ClearLevel3D(Texture* texture,
       // Include padding as some drivers incorrectly requires padding for the
       // last row.
       buffer_size += padding;
-      std::unique_ptr<char[]> zero(new char[buffer_size]);
-      memset(zero.get(), 0, buffer_size);
+      auto zero = base::HeapArray<char>::WithSize(buffer_size);
       // TODO(zmo): Consider glMapBufferRange instead.
-      api()->glBufferDataFn(GL_PIXEL_UNPACK_BUFFER, buffer_size, zero.get(),
+      api()->glBufferDataFn(GL_PIXEL_UNPACK_BUFFER, zero.size(), zero.data(),
                             GL_STATIC_DRAW);
     }
 
@@ -13321,19 +13298,18 @@ uint32_t GetCompressedFormatDepthPitch(const CompressedFormatInfo& info,
   return num_blocks_high * GetCompressedFormatRowPitch(info, width);
 }
 
-std::unique_ptr<uint8_t[]> DecompressTextureData(
-    const ContextState& state,
-    const CompressedFormatInfo& info,
-    uint32_t width,
-    uint32_t height,
-    uint32_t depth,
-    GLsizei image_size,
-    const void* data) {
+base::HeapArray<uint8_t> DecompressTextureData(const ContextState& state,
+                                               const CompressedFormatInfo& info,
+                                               uint32_t width,
+                                               uint32_t height,
+                                               uint32_t depth,
+                                               GLsizei image_size,
+                                               const void* data) {
   auto* api = state.api();
   uint32_t output_pixel_size = GLES2Util::ComputeImageGroupSize(
       info.decompressed_format, info.decompressed_type);
-  std::unique_ptr<uint8_t[]> decompressed_data(
-      new uint8_t[output_pixel_size * width * height]);
+  auto decompressed_data =
+      base::HeapArray<uint8_t>::Uninit(output_pixel_size * width * height);
 
   // If a PBO is bound, map it to decompress the data.
   const void* input_data = data;
@@ -13343,7 +13319,7 @@ std::unique_ptr<uint8_t[]> DecompressTextureData(
                                          image_size, GL_MAP_READ_BIT);
     if (input_data == nullptr) {
       LOG(ERROR) << "Failed to map pixel unpack buffer.";
-      return nullptr;
+      return base::HeapArray<uint8_t>();
     }
   }
 
@@ -13352,13 +13328,13 @@ std::unique_ptr<uint8_t[]> DecompressTextureData(
       width, height, depth, static_cast<const uint8_t*>(input_data),
       GetCompressedFormatRowPitch(info, width),
       GetCompressedFormatDepthPitch(info, width, height),
-      decompressed_data.get(), output_pixel_size * width,
+      decompressed_data.data(), output_pixel_size * width,
       output_pixel_size * width * height);
 
   if (state.bound_pixel_unpack_buffer) {
     if (api->glUnmapBufferFn(GL_PIXEL_UNPACK_BUFFER) != GL_TRUE) {
       LOG(ERROR) << "glUnmapBuffer unexpectedly returned GL_FALSE";
-      return nullptr;
+      return base::HeapArray<uint8_t>();
     }
   }
 
@@ -13692,9 +13668,9 @@ error::Error GLES2DecoderImpl::DoCompressedTexImage(
   const CompressedFormatInfo* format_info =
       GetCompressedFormatInfo(internal_format);
   if (format_info != nullptr && !format_info->support_check(*feature_info_)) {
-    std::unique_ptr<uint8_t[]> decompressed_data = DecompressTextureData(
+    auto decompressed_data = DecompressTextureData(
         state_, *format_info, width, height, depth, image_size, data);
-    if (!decompressed_data) {
+    if (decompressed_data.empty()) {
       MarkContextLost(error::kGuilty);
       group_->LoseContexts(error::kInnocent);
       return error::kLostContext;
@@ -13704,12 +13680,12 @@ error::Error GLES2DecoderImpl::DoCompressedTexImage(
       api()->glTexImage2DFn(
           target, level, format_info->decompressed_internal_format, width,
           height, border, format_info->decompressed_format,
-          format_info->decompressed_type, decompressed_data.get());
+          format_info->decompressed_type, decompressed_data.data());
     } else {
       api()->glTexImage3DFn(
           target, level, format_info->decompressed_internal_format, width,
           height, depth, border, format_info->decompressed_format,
-          format_info->decompressed_type, decompressed_data.get());
+          format_info->decompressed_type, decompressed_data.data());
     }
   } else {
     if (dimension == ContextState::k2D) {
@@ -14082,9 +14058,9 @@ error::Error GLES2DecoderImpl::DoCompressedTexSubImage(
   const CompressedFormatInfo* format_info =
       GetCompressedFormatInfo(internal_format);
   if (format_info != nullptr && !format_info->support_check(*feature_info_)) {
-    std::unique_ptr<uint8_t[]> decompressed_data = DecompressTextureData(
+    auto decompressed_data = DecompressTextureData(
         state_, *format_info, width, height, depth, image_size, data);
-    if (!decompressed_data) {
+    if (decompressed_data.empty()) {
       MarkContextLost(error::kGuilty);
       group_->LoseContexts(error::kInnocent);
       return error::kLostContext;
@@ -14094,12 +14070,12 @@ error::Error GLES2DecoderImpl::DoCompressedTexSubImage(
       api()->glTexSubImage2DFn(target, level, xoffset, yoffset, width, height,
                                format_info->decompressed_format,
                                format_info->decompressed_type,
-                               decompressed_data.get());
+                               decompressed_data.data());
     } else {
       api()->glTexSubImage3DFn(target, level, xoffset, yoffset, zoffset, width,
                                height, depth, format_info->decompressed_format,
                                format_info->decompressed_type,
-                               decompressed_data.get());
+                               decompressed_data.data());
     }
   } else {
     if (dimension == ContextState::k2D) {
@@ -14337,11 +14313,10 @@ void GLES2DecoderImpl::DoCopyTexImage2D(
       // after its usage.
       // some part was clipped so clear the rect.
 
-      std::unique_ptr<char[]> zero(new char[pixels_size]);
-      memset(zero.get(), 0, pixels_size);
+      auto zero = base::HeapArray<char>::WithSize(pixels_size);
       ScopedPixelUnpackState reset_restore(&state_);
       api()->glTexImage2DFn(target, level, final_internal_format, width, height,
-                            border, format, type, zero.get());
+                            border, format, type, zero.data());
     }
 
     if (!src.IsEmpty()) {
@@ -14979,8 +14954,8 @@ error::Error GLES2DecoderImpl::HandleGetUniformfv(
     if (result_type == GL_BOOL || result_type == GL_BOOL_VEC2 ||
         result_type == GL_BOOL_VEC3 || result_type == GL_BOOL_VEC4) {
       GLsizei num_values = result_size / sizeof(GLfloat);
-      std::unique_ptr<GLint[]> temp(new GLint[num_values]);
-      api()->glGetUniformivFn(service_id, real_location, temp.get());
+      auto temp = base::HeapArray<GLint>::Uninit(num_values);
+      api()->glGetUniformivFn(service_id, real_location, temp.data());
       GLfloat* dst = result->GetData();
       for (GLsizei ii = 0; ii < num_values; ++ii) {
         dst[ii] = (temp[ii] != 0);
@@ -15364,7 +15339,7 @@ error::Error GLES2DecoderImpl::HandleShaderBinary(
   if (shaders == nullptr || binary == nullptr) {
     return error::kOutOfBounds;
   }
-  std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
+  auto service_ids = base::HeapArray<GLuint>::Uninit(n);
   for (GLsizei ii = 0; ii < n; ++ii) {
     Shader* shader = GetShader(shaders[ii]);
     if (!shader) {
@@ -16271,9 +16246,9 @@ bool GLES2DecoderImpl::GenVertexArraysOESHelper(
       CreateVertexAttribManager(client_ids[ii], 0, true);
     }
   } else {
-    std::unique_ptr<GLuint[]> service_ids(new GLuint[n]);
+    auto service_ids = base::HeapArray<GLuint>::Uninit(n);
 
-    api()->glGenVertexArraysOESFn(n, service_ids.get());
+    api()->glGenVertexArraysOESFn(n, service_ids.data());
     for (GLsizei ii = 0; ii < n; ++ii) {
       CreateVertexAttribManager(client_ids[ii], service_ids[ii], true);
     }
@@ -17021,27 +16996,6 @@ void GLES2DecoderImpl::DoTexStorage3D(GLenum target,
       "widthXheight", width * height, "depth", depth);
   TexStorageImpl(target, levels, internal_format, width, height, depth,
                  ContextState::k3D, "glTexStorage3D");
-}
-
-void GLES2DecoderImpl::DoProduceTextureDirectCHROMIUM(
-    GLuint client_id,
-    const volatile GLbyte* data) {
-  TRACE_EVENT2("gpu", "GLES2DecoderImpl::DoProduceTextureDirectCHROMIUM",
-      "context", logger_.GetLogPrefix(),
-      "mailbox[0]", static_cast<unsigned char>(data[0]));
-  Mailbox mailbox =
-      Mailbox::FromVolatile(*reinterpret_cast<const volatile Mailbox*>(data));
-  DLOG_IF(ERROR, !mailbox.Verify())
-      << "ProduceTextureDirectCHROMIUM was not passed a crypto-random mailbox.";
-
-  TextureRef* texture_ref = GetTexture(client_id);
-  if (!texture_ref) {
-    LOCAL_SET_GL_ERROR(GL_INVALID_OPERATION, "glProduceTextureDirectCHROMIUM",
-                       "unknown texture");
-    return;
-  }
-
-  group_->mailbox_manager()->ProduceTexture(mailbox, texture_ref->texture());
 }
 
 void GLES2DecoderImpl::DoCreateAndConsumeTextureINTERNAL(

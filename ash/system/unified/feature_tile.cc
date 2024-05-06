@@ -197,6 +197,7 @@ FeatureTile::~FeatureTile() {
   // Remove the InkDrop explicitly so FeatureTile::RemoveLayerFromRegions() is
   // called before views::View teardown.
   views::InkDrop::Remove(this);
+  title_container_->RemoveObserver(this);
 }
 
 void FeatureTile::CreateChildViews() {
@@ -239,6 +240,7 @@ void FeatureTile::CreateChildViews() {
                        .SetMainAxisAlignment(views::LayoutAlignment::kCenter)
                        .SetCrossAxisAlignment(views::LayoutAlignment::kStretch)
                        .Build());
+  title_container_->AddObserver(this);
   // Set `MaximumFlexSizeRule` to `kUnbounded` so that `title_container_` takes
   // up all of the available space in the middle of the primary tile.
   if (!is_compact) {
@@ -312,6 +314,11 @@ void FeatureTile::SetIconClickCallback(
   icon_button_->SetCallback(std::move(callback));
 }
 
+void FeatureTile::SetOnTitleBoundsChangedCallback(
+    base::RepeatingCallback<void()> callback) {
+  on_title_container_bounds_changed_ = std::move(callback);
+}
+
 void FeatureTile::CreateDecorativeDrillInArrow() {
   CHECK_EQ(type_, TileType::kPrimary)
       << "Drill-in arrows are just used in Primary tiles";
@@ -344,8 +351,10 @@ void FeatureTile::UpdateColors() {
                        cros_tokens::kCrosSysSystemOnPrimaryContainer)
                  : foreground_color_.value_or(cros_tokens::kCrosSysOnSurface);
     foreground_optional_color =
-        toggled_ ? cros_tokens::kCrosSysSystemOnPrimaryContainer
-                 : cros_tokens::kCrosSysOnSurfaceVariant;
+        toggled_ ? foreground_optional_toggled_color_.value_or(
+                       cros_tokens::kCrosSysSystemOnPrimaryContainer)
+                 : foreground_optional_color_.value_or(
+                       cros_tokens::kCrosSysOnSurfaceVariant);
   } else {
     background_color = background_disabled_color_.value_or(
         cros_tokens::kCrosSysDisabledContainer);
@@ -366,7 +375,8 @@ void FeatureTile::UpdateColors() {
 
   auto* ink_drop = views::InkDrop::Get(this);
   ink_drop->SetBaseColorId(toggled_
-                               ? cros_tokens::kCrosSysRipplePrimary
+                               ? ink_drop_toggled_base_color_.value_or(
+                                     cros_tokens::kCrosSysRipplePrimary)
                                : cros_tokens::kCrosSysRippleNeutralOnSubtle);
 
   auto icon_image_model = ui::ImageModel::FromVectorIcon(
@@ -473,6 +483,40 @@ void FeatureTile::SetForegroundDisabledColorId(
     return;
   }
   foreground_disabled_color_ = foreground_disabled_color_id;
+  if (!GetEnabled()) {
+    UpdateColors();
+  }
+}
+
+void FeatureTile::SetForegroundOptionalColorId(
+    ui::ColorId foreground_optional_color_id) {
+  if (foreground_optional_color_ == foreground_optional_color_id) {
+    return;
+  }
+  foreground_optional_color_ = foreground_optional_color_id;
+  if (!GetEnabled()) {
+    UpdateColors();
+  }
+}
+
+void FeatureTile::SetForegroundOptionalToggledColorId(
+    ui::ColorId foreground_optional_toggled_color_id) {
+  if (foreground_optional_toggled_color_ ==
+      foreground_optional_toggled_color_id) {
+    return;
+  }
+  foreground_optional_toggled_color_ = foreground_optional_toggled_color_id;
+  if (!GetEnabled()) {
+    UpdateColors();
+  }
+}
+
+void FeatureTile::SetInkDropToggledBaseColorId(
+    ui::ColorId ink_drop_toggled_base_color_id) {
+  if (ink_drop_toggled_base_color_ == ink_drop_toggled_base_color_id) {
+    return;
+  }
+  ink_drop_toggled_base_color_ = ink_drop_toggled_base_color_id;
   if (!GetEnabled()) {
     UpdateColors();
   }
@@ -596,6 +640,12 @@ void FeatureTile::RemoveLayerFromRegions(ui::Layer* layer) {
   // This routes background layers to `ink_drop_container_` instead of `this` to
   // avoid painting effects underneath our background.
   ink_drop_container_->RemoveLayerFromRegions(layer);
+}
+
+void FeatureTile::OnViewBoundsChanged(views::View* observed_view) {
+  if (observed_view == title_container_ && on_title_container_bounds_changed_) {
+    on_title_container_bounds_changed_.Run();
+  }
 }
 
 ui::ColorId FeatureTile::GetIconColorId() const {

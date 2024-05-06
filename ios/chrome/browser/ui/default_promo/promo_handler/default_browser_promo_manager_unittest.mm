@@ -94,77 +94,9 @@ class DefaultBrowserPromoManagerTest : public PlatformTest {
   base::test::ScopedFeatureList feature_list_;
 };
 
-// Tests that the DefaultPromoTypeMadeForIOS tailored promo is shown when it was
-// detected that the user is likely interested in the promo.
-TEST_F(DefaultBrowserPromoManagerTest, ShowTailoredPromoMadeForIOS) {
-  TestingApplicationContext::GetGlobal()->SetLastShutdownClean(true);
-  id mock = [OCMockObject mockForClass:[DefaultBrowserPromoManager class]];
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeMadeForIOS);
-  [[mock expect] showPromoForTesting:DefaultPromoTypeMadeForIOS];
-  [default_browser_promo_manager_ start];
-  EXPECT_OCMOCK_VERIFY(mock);
-}
-
-// Tests that the DefaultPromoTypeStaySafe tailored promo is shown when it was
-// detected that the user is likely interested in the promo.
-TEST_F(DefaultBrowserPromoManagerTest, ShowTailoredPromoStaySafe) {
-  TestingApplicationContext::GetGlobal()->SetLastShutdownClean(true);
-  id mock = [OCMockObject mockForClass:[DefaultBrowserPromoManager class]];
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeStaySafe);
-  [[mock expect] showPromoForTesting:DefaultPromoTypeStaySafe];
-  [default_browser_promo_manager_ start];
-  EXPECT_OCMOCK_VERIFY(mock);
-}
-
-// Tests that the DefaultPromoTypeAllTabs tailored promo is shown when it was
-// detected that the user is likely interested in the promo.
-TEST_F(DefaultBrowserPromoManagerTest, ShowTailoredPromoAllTabs) {
-  TestingApplicationContext::GetGlobal()->SetLastShutdownClean(true);
-  id mock = [OCMockObject mockForClass:[DefaultBrowserPromoManager class]];
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeAllTabs);
-  SignIn();
-  [[mock expect] showPromoForTesting:DefaultPromoTypeAllTabs];
-  [default_browser_promo_manager_ start];
-  EXPECT_OCMOCK_VERIFY(mock);
-}
-
-// Tests that the DefaultPromoTypeGeneral promo is shown when it was detected
-// that the user is likely interested in the promo.
-TEST_F(DefaultBrowserPromoManagerTest, showDefaultBrowserFullscreenPromo) {
-  feature_list_.InitWithFeatures({}, {kDefaultBrowserVideoPromo});
-  TestingApplicationContext::GetGlobal()->SetLastShutdownClean(true);
-  id mock = [OCMockObject mockForClass:[DefaultBrowserPromoManager class]];
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeGeneral);
-  SignIn();
-  [[mock expect] showPromoForTesting:DefaultPromoTypeGeneral];
-  [default_browser_promo_manager_ start];
-  EXPECT_OCMOCK_VERIFY(mock);
-}
-
-// Tests that the DefaultPromoTypeGeneral promo is shown if the trigger criteria
-// experiment is enabled.
-TEST_F(DefaultBrowserPromoManagerTest,
-       showDefaultBrowserFullscreenPromo_TriggerExpEnabled) {
-  feature_list_.InitWithFeatures(
-      {feature_engagement::kDefaultBrowserTriggerCriteriaExperiment},
-      {kDefaultBrowserVideoPromo});
-  TestingApplicationContext::GetGlobal()->SetLastShutdownClean(true);
-  id mock = [OCMockObject mockForClass:[DefaultBrowserPromoManager class]];
-
-  // Even if the conditions are right for tailored promo, it should display
-  // default browser promo if the trigger criteria experiment is on.
-  LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeAllTabs);
-  SignIn();
-
-  [[mock expect] showPromoForTesting:DefaultPromoTypeGeneral];
-  [default_browser_promo_manager_ start];
-  EXPECT_OCMOCK_VERIFY(mock);
-}
-
-// Tests that the DefaultPromoTypeVideo promo is shown instead of the generic
-// promo when the video promo is enabled.
+// Tests that the DefaultPromoTypeVideo promo is shown when user is interested
+// in generic promo.
 TEST_F(DefaultBrowserPromoManagerTest, showVideoPromo) {
-  feature_list_.InitWithFeatures({kDefaultBrowserVideoPromo}, {});
   TestingApplicationContext::GetGlobal()->SetLastShutdownClean(true);
   id mock = [OCMockObject mockForClass:[DefaultBrowserPromoManager class]];
   LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeGeneral);

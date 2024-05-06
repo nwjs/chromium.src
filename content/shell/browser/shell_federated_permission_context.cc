@@ -103,6 +103,10 @@ void ShellFederatedPermissionContext::RemoveEmbargoForAutoReauthn(
 
 void ShellFederatedPermissionContext::AddIdpSigninStatusObserver(
     IdpSigninStatusObserver* observer) {
+  if (idp_signin_status_observer_list_.HasObserver(observer)) {
+    return;
+  }
+
   idp_signin_status_observer_list_.AddObserver(observer);
 }
 
@@ -176,6 +180,15 @@ void ShellFederatedPermissionContext::RevokeSharingPermission(
       }
     }
   }
+}
+
+void ShellFederatedPermissionContext::RefreshExistingSharingPermission(
+    const url::Origin& relying_party_requester,
+    const url::Origin& relying_party_embedder,
+    const url::Origin& identity_provider,
+    const std::string& account_id) {
+  // `sharing_permissions_` does not currently store timestamps, so this method
+  // does nothing.
 }
 
 std::optional<bool> ShellFederatedPermissionContext::GetIdpSigninStatus(

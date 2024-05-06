@@ -29,16 +29,16 @@ export class FakeReadingMode {
 
   // Enum values for various visual theme changes.
   standardLineSpacing: number = 0;
-  looseLineSpacing: number = 0;
-  veryLooseLineSpacing: number = 0;
-  standardLetterSpacing: number = 0;
-  wideLetterSpacing: number = 0;
-  veryWideLetterSpacing: number = 0;
-  defaultTheme: number = 0;
-  lightTheme: number = 0;
-  darkTheme: number = 0;
-  yellowTheme: number = 0;
-  blueTheme: number = 0;
+  looseLineSpacing: number = 1;
+  veryLooseLineSpacing: number = 2;
+  standardLetterSpacing: number = 3;
+  wideLetterSpacing: number = 4;
+  veryWideLetterSpacing: number = 5;
+  defaultTheme: number = 6;
+  lightTheme: number = 7;
+  darkTheme: number = 8;
+  yellowTheme: number = 9;
+  blueTheme: number = 10;
   highlightOn: number = 0;
 
   // Whether the WebUI toolbar feature flag is enabled.
@@ -47,9 +47,8 @@ export class FakeReadingMode {
   // Whether the Read Aloud feature flag is enabled.
   isReadAloudEnabled: boolean = false;
 
-  // Indicates if select-to-distill works on the web page. Used to
-  // determine which empty state to display.
-  isSelectable: boolean = false;
+  // Returns true if the webpage corresponds to a Google Doc.
+  isGoogleDocs: boolean = false;
 
   // Fonts supported by the browser's preferred language.
   supportedFonts: string[] = ['roboto'];
@@ -70,6 +69,12 @@ export class FakeReadingMode {
   // contained within the selection.
   getChildren(nodeId: number): number[] {
     return (nodeId > this.maxNodeId) ? [] : [nodeId + 1];
+  }
+
+  // Returns content of "data-font-css" html attribute. This is needed for
+  // rendering content from annotated canvas in Google Docs.
+  getDataFontCss(_nodeId: number): string {
+    return '400 14.6667px "Courier New"';
   }
 
   // Returns the HTML tag of the AXNode for the provided AXNodeID. For testing,
@@ -115,11 +120,6 @@ export class FakeReadingMode {
     return nodeId === this.maxNodeId;
   }
 
-  // Returns true if the webpage corresponds to a Google Doc.
-  isGoogleDocs(): boolean {
-    return false;
-  }
-
   // Connects to the browser process. Called by ts when the read anything
   // element is added to the document.
   onConnected() {}
@@ -136,9 +136,15 @@ export class FakeReadingMode {
   onLinkClicked(_nodeId: number) {}
 
   // Called when the line spacing is changed via the webui toolbar.
-  onStandardLineSpacing() {}
-  onLooseLineSpacing() {}
-  onVeryLooseLineSpacing() {}
+  onStandardLineSpacing() {
+    this.lineSpacing = this.standardLineSpacing;
+  }
+  onLooseLineSpacing() {
+    this.lineSpacing = this.looseLineSpacing;
+  }
+  onVeryLooseLineSpacing() {
+    this.lineSpacing = this.veryLooseLineSpacing;
+  }
 
   // Called when a user makes a font size change via the webui toolbar.
   onFontSizeChanged(_increase: boolean) {
@@ -154,16 +160,32 @@ export class FakeReadingMode {
   }
 
   // Called when the letter spacing is changed via the webui toolbar.
-  onStandardLetterSpacing() {}
-  onWideLetterSpacing() {}
-  onVeryWideLetterSpacing() {}
+  onStandardLetterSpacing() {
+    this.letterSpacing = this.standardLetterSpacing;
+  }
+  onWideLetterSpacing() {
+    this.letterSpacing = this.wideLetterSpacing;
+  }
+  onVeryWideLetterSpacing() {
+    this.letterSpacing = this.veryWideLetterSpacing;
+  }
 
   // Called when the color theme is changed via the webui toolbar.
-  onDefaultTheme() {}
-  onLightTheme() {}
-  onDarkTheme() {}
-  onYellowTheme() {}
-  onBlueTheme() {}
+  onDefaultTheme() {
+    this.colorTheme = this.defaultTheme;
+  }
+  onLightTheme() {
+    this.colorTheme = this.lightTheme;
+  }
+  onDarkTheme() {
+    this.colorTheme = this.darkTheme;
+  }
+  onYellowTheme() {
+    this.colorTheme = this.yellowTheme;
+  }
+  onBlueTheme() {
+    this.colorTheme = this.blueTheme;
+  }
 
   // Called when the font is changed via the webui toolbar.
   onFontChange(font: string) {
@@ -234,7 +256,7 @@ export class FakeReadingMode {
       _foregroundColor: number, _backgroundColor: number, _lineSpacing: number,
       _letterSpacing: number) {}
 
-  // Sets the default language. Used by tests only.
+  // Sets the language. Used by tests only.
   setLanguageForTesting(_code: string) {}
 
   // Called when the side panel has finished loading and it's safe to call
@@ -320,4 +342,6 @@ export class FakeReadingMode {
   getDisplayNameForLocale(_locale: string, _displayLocale: string): string {
     return '';
   }
+
+  logMetric(_time: number, _metricName: string) : void {}
 }

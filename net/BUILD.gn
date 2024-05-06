@@ -813,6 +813,10 @@ component("net") {
     "quic/quic_session_pool_direct_job.h",
     "quic/quic_session_pool_job.cc",
     "quic/quic_session_pool_job.h",
+    "quic/quic_session_pool_proxy_job.cc",
+    "quic/quic_session_pool_proxy_job.h",
+    "quic/quic_session_pool_session_attempt.cc",
+    "quic/quic_session_pool_session_attempt.h",
     "quic/set_quic_flag.cc",
     "quic/set_quic_flag.h",
     "quic/web_transport_client.cc",
@@ -833,6 +837,8 @@ component("net") {
     "socket/connect_job.h",
     "socket/connect_job_factory.cc",
     "socket/connect_job_factory.h",
+    "socket/connect_job_params.cc",
+    "socket/connect_job_params.h",
     "socket/connect_job_params_factory.cc",
     "socket/connect_job_params_factory.h",
     "socket/connection_attempts.h",
@@ -947,6 +953,8 @@ component("net") {
     "ssl/client_cert_identity.cc",
     "ssl/client_cert_identity.h",
     "ssl/client_cert_store.h",
+    "ssl/openssl_private_key.cc",
+    "ssl/openssl_private_key.h",
     "ssl/openssl_ssl_util.cc",
     "ssl/openssl_ssl_util.h",
     "ssl/ssl_cert_request_info.cc",
@@ -1104,8 +1112,10 @@ component("net") {
 
   if (enable_device_bound_sessions) {
     sources += [
-      "device_bound_sessions/bound_session_registration_fetcher_param.cc",
-      "device_bound_sessions/bound_session_registration_fetcher_param.h",
+      "device_bound_sessions/device_bound_session_registration_fetcher_param.cc",
+      "device_bound_sessions/device_bound_session_registration_fetcher_param.h",
+      "device_bound_sessions/device_bound_session_service.cc",
+      "device_bound_sessions/device_bound_session_service.h",
     ]
   }
 
@@ -1363,6 +1373,7 @@ component("net") {
       "cert/internal/trust_store_chrome.h",
     ]
     deps += [
+      "//base/version_info",
       "//net/cert:root_store_proto_lite",
       "//net/data/ssl/chrome_root_store:gen_root_store_inc",
     ]
@@ -1594,6 +1605,10 @@ component("net") {
     configs -= [ "//build/config/compiler:default_optimization" ]
     configs += [ "//build/config/compiler:optimize_max" ]
   }
+
+  if (!is_cronet_build) {
+    deps += [ "//mojo/public/cpp/bindings:default_construct_tag" ]
+  }
 }
 
 # net_export.h has its own build target so that code (eg
@@ -1625,7 +1640,6 @@ source_set("net_deps") {
     ":net_export_header",
     ":preload_decoder",
     "//base",
-    "//base/third_party/dynamic_annotations",
     "//net/base/registry_controlled_domains",
     "//third_party/protobuf:protobuf_lite",
     "//third_party/zlib",
@@ -2406,7 +2420,6 @@ source_set("simple_quic_tools") {
   deps = [
     ":net",
     "//base",
-    "//base/third_party/dynamic_annotations",
     "//net/third_party/quiche:quiche_tool_support",
     "//third_party/protobuf:protobuf_lite",
     "//url",
@@ -2703,7 +2716,10 @@ test("net_unittests") {
     "quic/quic_session_key_unittest.cc",
     "quic/quic_session_pool_peer.cc",
     "quic/quic_session_pool_peer.h",
+    "quic/quic_session_pool_proxy_job_unittest.cc",
     "quic/quic_session_pool_test.cc",
+    "quic/quic_session_pool_test_base.cc",
+    "quic/quic_session_pool_test_base.h",
     "quic/quic_test_packet_maker.cc",
     "quic/quic_test_packet_maker.h",
     "quic/quic_test_packet_printer.cc",
@@ -2764,6 +2780,7 @@ test("net_unittests") {
     "spdy/spdy_write_queue_unittest.cc",
     "ssl/client_cert_identity_unittest.cc",
     "ssl/client_cert_store_unittest-inl.h",
+    "ssl/openssl_private_key_unittest.cc",
     "ssl/ssl_cipher_suite_names_unittest.cc",
     "ssl/ssl_client_auth_cache_unittest.cc",
     "ssl/ssl_client_session_cache_unittest.cc",
@@ -2872,7 +2889,6 @@ test("net_unittests") {
     ":test_support",
     "//base",
     "//base:i18n",
-    "//base/third_party/dynamic_annotations",
     "//build:chromeos_buildflags",
     "//crypto",
     "//crypto:test_support",
@@ -2886,6 +2902,7 @@ test("net_unittests") {
     "//net/tools/huffman_trie:huffman_trie_generator_sources",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/abseil-cpp:absl",
     "//third_party/anonymous_tokens:anonymous_tokens_tests",
     "//third_party/protobuf:protobuf_lite",
     "//third_party/zlib",
@@ -3187,7 +3204,10 @@ test("net_unittests") {
 
   if (chrome_root_store_supported) {
     sources += [ "cert/internal/trust_store_chrome_unittest.cc" ]
-    deps += [ "//net/data/ssl/chrome_root_store:gen_root_store_test_inc" ]
+    deps += [
+      "//base/version_info",
+      "//net/data/ssl/chrome_root_store:gen_root_store_test_inc",
+    ]
 
     if (is_win) {
       sources += [ "cert/internal/trust_store_win_unittest.cc" ]
@@ -3205,7 +3225,11 @@ test("net_unittests") {
   }
 
   if (enable_device_bound_sessions) {
-    sources += [ "device_bound_sessions/bound_session_registration_fetcher_param_unittest.cc" ]
+    sources += [
+      "device_bound_sessions/device_bound_session_registration_fetcher_param_unittest.cc",
+      "device_bound_sessions/test_util.cc",
+      "device_bound_sessions/test_util.h",
+    ]
   }
 }
 
@@ -3487,6 +3511,15 @@ fuzzer_test("net_http_stream_parser_fuzzer") {
     "//net",
   ]
   dict = "data/fuzzer_dictionaries/net_http_stream_parser_fuzzer.dict"
+}
+
+fuzzer_test("canonicalize_host_fuzzer") {
+  sources = [ "base/canonicalize_host_fuzzer.cc" ]
+  deps = [
+    "//net",
+    "//third_party/icu/fuzzers:fuzzer_support",
+  ]
+  dict = "base/canonicalize_host_fuzzer.dict"
 }
 
 if (!is_win) {

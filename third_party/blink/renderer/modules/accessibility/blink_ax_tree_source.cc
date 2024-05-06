@@ -178,17 +178,18 @@ bool BlinkAXTreeSource::GetTreeData(ui::AXTreeData* tree_data) const {
     if (HTMLHeadElement* head = ax_object_cache_->GetDocument().head()) {
       for (Node* child = head->firstChild(); child;
            child = child->nextSibling()) {
-        if (!child->IsElementNode())
+        const Element* elem = DynamicTo<Element>(*child);
+        if (!elem) {
           continue;
-        Element* elem = To<Element>(child);
-        if (elem->IsHTMLWithTagName("SCRIPT")) {
+        }
+        if (IsA<HTMLScriptElement>(*elem)) {
           if (elem->getAttribute(html_names::kTypeAttr) !=
               "application/ld+json") {
             continue;
           }
-        } else if (!elem->IsHTMLWithTagName("LINK") &&
-                   !elem->IsHTMLWithTagName("TITLE") &&
-                   !elem->IsHTMLWithTagName("META")) {
+        } else if (!IsA<HTMLLinkElement>(*elem) &&
+                   !IsA<HTMLTitleElement>(*elem) &&
+                   !IsA<HTMLMetaElement>(*elem)) {
           continue;
         }
         // TODO(chrishtr): replace the below with elem->outerHTML().
@@ -269,17 +270,18 @@ AXObject* BlinkAXTreeSource::ChildAt(AXObject* node, size_t index) const {
   // The child may be invalid due to issues in blink accessibility code.
   CHECK(child);
   if (child->IsDetached()) {
-    DCHECK(false) << "Should not try to serialize an invalid child:"
-                  << "\nParent: " << node->ToString(true).Utf8()
-                  << "\nChild: " << child->ToString(true).Utf8();
+    NOTREACHED(base::NotFatalUntil::M127)
+        << "Should not try to serialize an invalid child:" << "\nParent: "
+        << node->ToString(true).Utf8()
+        << "\nChild: " << child->ToString(true).Utf8();
     return nullptr;
   }
 
   if (!child->AccessibilityIsIncludedInTree()) {
-    // TODO(https://crbug.com/1407396) resolve and restore to NOTREACHED().
-    DCHECK(false) << "Should not receive unincluded child."
-                  << "\nChild: " << child->ToString(true).Utf8()
-                  << "\nParent: " << node->ToString(true).Utf8();
+    NOTREACHED(base::NotFatalUntil::M127)
+        << "Should not receive unincluded child."
+        << "\nChild: " << child->ToString(true).Utf8()
+        << "\nParent: " << node->ToString(true).Utf8();
     return nullptr;
   }
 

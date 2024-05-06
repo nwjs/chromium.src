@@ -6,14 +6,18 @@
 
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/allocator/buildflags.h"
 #include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_buildflags.h"
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
+#include "base/memory/page_size.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/process/process_metrics.h"
@@ -24,6 +28,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/tab_footprint_aggregator.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/common/chrome_switches.h"
 #include "components/metrics/metrics_data_validation.h"
 #include "components/performance_manager/public/graph/frame_node.h"
 #include "components/performance_manager/public/graph/graph.h"
@@ -328,6 +333,23 @@ const Metric kAllocatorDumpNamesForMetrics[] = {
      MetricSize::kTiny, "brp_quarantined_count_per_minute",
      EmitTo::kSizeInUmaOnly, nullptr},
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+    {"malloc/partitions/allocator/scheduler_loop_quarantine/count",
+     "Malloc.SchedulerLoopQuarantine.Count", MetricSize::kTiny,
+     MemoryAllocatorDump::kNameObjectCount, EmitTo::kSizeInUmaOnly, nullptr},
+    {"malloc/partitions/allocator/scheduler_loop_quarantine/size_in_bytes",
+     "Malloc.SchedulerLoopQuarantine.SizeInBytes", MetricSize::kSmall,
+     MemoryAllocatorDump::kUnitsBytes, EmitTo::kSizeInUmaOnly, nullptr},
+    {"malloc/partitions/allocator/scheduler_loop_quarantine/cumulative_count",
+     "Malloc.SchedulerLoopQuarantine.CumulativeCount", MetricSize::kTiny,
+     MemoryAllocatorDump::kNameObjectCount, EmitTo::kSizeInUmaOnly, nullptr},
+    {"malloc/partitions/allocator/scheduler_loop_quarantine/"
+     "cumulative_size_in_bytes",
+     "Malloc.SchedulerLoopQuarantine.CumulativeSizeInBytes", MetricSize::kSmall,
+     MemoryAllocatorDump::kUnitsBytes, EmitTo::kSizeInUmaOnly, nullptr},
+    {"malloc/partitions/allocator/scheduler_loop_quarantine/"
+     "quarantine_miss_count",
+     "Malloc.SchedulerLoopQuarantine.QuarantineMissCount", MetricSize::kTiny,
+     MemoryAllocatorDump::kNameObjectCount, EmitTo::kSizeInUmaOnly, nullptr},
     {"malloc/partitions/allocator/thread_cache", "Malloc.ThreadCache",
      MetricSize::kSmall, kSize, EmitTo::kSizeInUmaOnly, nullptr},
     {"malloc/partitions/allocator", "Malloc.MaxAllocatedSize",
@@ -720,7 +742,7 @@ void EmitProcessUma(HistogramProcessType process_type,
 
   // Always use "Gpu" in process name for command buffers to be
   // consistent even in single process mode.
-  if (base::StringPiece(item.uma_name) == "CommandBuffer") {
+  if (std::string_view(item.uma_name) == "CommandBuffer") {
     uma_name =
         EXPERIMENTAL_UMA_PREFIX "Gpu" VERSION_SUFFIX_NORMAL "CommandBuffer";
     DCHECK(item.metric_size == MetricSize::kLarge);
@@ -1122,6 +1144,27 @@ ProcessMemoryMetricsEmitter::ProcessMemoryMetricsEmitter(
 
 void ProcessMemoryMetricsEmitter::FetchAndEmitProcessMemoryMetrics() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+// https://crbug.com/330751658 (hopefully temporary).
+#if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_X86_64)
+  // Do not skip when command-line is used to specifically test it.
+  if (base::GetPageSize() == 16 * 1024) {
+    const base::CommandLine* command_line =
+        base::CommandLine::ForCurrentProcess();
+    int test_delay_in_minutes = 0;
+    if (command_line->HasSwitch(switches::kTestMemoryLogDelayInMinutes)) {
+      base::StringToInt(command_line->GetSwitchValueASCII(
+                            switches::kTestMemoryLogDelayInMinutes),
+                        &test_delay_in_minutes);
+    }
+    // Allow a negative value to test the crashing scenario.
+    if (test_delay_in_minutes >= 0) {
+      LOG(WARNING) << "Ignoring dump request to avoid emulator crash. "
+                   << "https://crbug.com/330751658";
+      return;
+    }
+  }
+#endif
 
   MarkServiceRequestsInProgress();
 

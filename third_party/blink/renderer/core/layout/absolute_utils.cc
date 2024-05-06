@@ -236,7 +236,7 @@ InsetModifiedContainingBlock ComputeUnclampedIMCB(
 
 // Absolutize margin values to pixels and resolve any auto margins.
 // https://drafts.csswg.org/css-position-3/#abspos-margins
-void ComputeMargins(const LayoutUnit margin_percentage_resolution_size,
+void ComputeMargins(LogicalSize margin_percentage_resolution_size,
                     const LayoutUnit imcb_size,
                     const Length& margin_start_length,
                     const Length& margin_end_length,
@@ -248,13 +248,13 @@ void ComputeMargins(const LayoutUnit margin_percentage_resolution_size,
                     LayoutUnit* margin_end_out) {
   std::optional<LayoutUnit> margin_start;
   if (!margin_start_length.IsAuto()) {
-    margin_start = MinimumValueForLength(margin_start_length,
-                                         margin_percentage_resolution_size);
+    margin_start = MinimumValueForLength(
+        margin_start_length, margin_percentage_resolution_size.inline_size);
   }
   std::optional<LayoutUnit> margin_end;
   if (!margin_end_length.IsAuto()) {
-    margin_end = MinimumValueForLength(margin_end_length,
-                                       margin_percentage_resolution_size);
+    margin_end = MinimumValueForLength(
+        margin_end_length, margin_percentage_resolution_size.inline_size);
   }
 
   // Solving the equation:
@@ -343,7 +343,7 @@ bool CanComputeBlockSizeWithoutLayout(
       style.LogicalMaxHeight().HasContentOrIntrinsic()) {
     return false;
   }
-  if (style.LogicalHeight().IsAuto()) {
+  if (style.LogicalHeight().HasAuto()) {
     // Any 'auto' inset will trigger shink-to-fit sizing.
     if (has_auto_block_inset) {
       return false;
@@ -365,19 +365,12 @@ LogicalOofInsets ComputeOutOfFlowInsets(
     const ComputedStyle& style,
     const LogicalSize& available_logical_size,
     const LogicalAlignment& alignment,
-    WritingDirectionMode container_writing_direction,
-    WritingDirectionMode self_writing_direction,
-    AnchorEvaluatorImpl* anchor_evaluator) {
+    WritingDirectionMode self_writing_direction) {
   bool force_x_insets_to_zero = false;
   bool force_y_insets_to_zero = false;
-  if (!style.GetInsetArea().IsNone() && anchor_evaluator->HasDefaultAnchor()) {
-    // We only need to know if the inset-area is 'auto' or not below, but need
-    // to consider writing direction as the inset-area falls back to 'auto' if
-    // the axes are not orthogonal.
-    force_x_insets_to_zero = force_y_insets_to_zero =
-        !style.GetInsetArea()
-             .ToPhysical(container_writing_direction, self_writing_direction)
-             .IsNone();
+  std::optional<InsetAreaOffsets> offsets = style.InsetAreaOffsets();
+  if (offsets.has_value()) {
+    force_x_insets_to_zero = force_y_insets_to_zero = true;
   }
   if (alignment.inline_alignment.GetPosition() == ItemPosition::kAnchorCenter) {
     if (self_writing_direction.IsHorizontal()) {
@@ -456,10 +449,10 @@ LogicalAlignment ComputeAlignment(
 }
 
 LogicalAnchorCenterPosition ComputeAnchorCenterPosition(
+    const ComputedStyle& style,
     const LogicalAlignment& alignment,
     WritingDirectionMode writing_direction,
-    LogicalSize available_logical_size,
-    AnchorEvaluatorImpl* anchor_evaluator) {
+    LogicalSize available_logical_size) {
   // Compute in physical, because anchors may be in different writing-mode.
   const ItemPosition inline_position = alignment.inline_alignment.GetPosition();
   const ItemPosition block_position = alignment.block_alignment.GetPosition();
@@ -476,24 +469,25 @@ LogicalAnchorCenterPosition ComputeAnchorCenterPosition(
   const PhysicalSize available_size = ToPhysicalSize(
       available_logical_size, writing_direction.GetWritingMode());
   std::optional<LayoutUnit> left;
-  if (has_anchor_center_in_x) {
-    left =
-        anchor_evaluator->GetPhysicalAnchorCenterOffset(/* is_y_axis */ false);
-  }
   std::optional<LayoutUnit> top;
-  if (has_anchor_center_in_y) {
-    top = anchor_evaluator->GetPhysicalAnchorCenterOffset(/* is_y_axis */ true);
+  std::optional<LayoutUnit> right;
+  std::optional<LayoutUnit> bottom;
+  if (style.AnchorCenterOffset().has_value()) {
+    if (has_anchor_center_in_x) {
+      left = style.AnchorCenterOffset()->left;
+      if (left) {
+        right = available_size.width - *left;
+      }
+    }
+    if (has_anchor_center_in_y) {
+      top = style.AnchorCenterOffset()->top;
+      if (top) {
+        bottom = available_size.height - *top;
+      }
+    }
   }
 
   // Convert result back to logical against `writing_direction`.
-  std::optional<LayoutUnit> right;
-  if (left) {
-    right = available_size.width - *left;
-  }
-  std::optional<LayoutUnit> bottom;
-  if (top) {
-    bottom = available_size.height - *top;
-  }
   PhysicalToLogical converter(writing_direction, top, right, bottom, left);
   return LogicalAnchorCenterPosition{converter.InlineStart(),
                                      converter.BlockStart()};
@@ -635,7 +629,7 @@ bool ComputeOofInlineDimensions(
 
     // If our block constraint is strong/explicit.
     const bool is_block_explicit =
-        !style.LogicalHeight().IsAuto() ||
+        !style.LogicalHeight().HasAuto() ||
         (!imcb.has_auto_block_inset &&
          block_alignment_position == ItemPosition::kStretch);
 
@@ -659,7 +653,7 @@ bool ComputeOofInlineDimensions(
 
       // Apply the automatic minimum size.
       if (style.OverflowInlineDirection() == EOverflow::kVisible &&
-          min_inline_length.IsAuto()) {
+          min_inline_length.HasAuto()) {
         min_inline_length = Length::MinIntrinsic();
       }
     } else {
@@ -689,12 +683,11 @@ bool ComputeOofInlineDimensions(
   const bool is_block_direction = !IsParallelWritingMode(
       container_writing_direction.GetWritingMode(), style.GetWritingMode());
 
-  ComputeMargins(space.PercentageResolutionInlineSizeForParentWritingMode(),
-                 imcb.InlineSize(), style.MarginInlineStart(),
-                 style.MarginInlineEnd(), inline_size,
-                 imcb.has_auto_inline_inset, is_margin_start_dominant,
-                 is_block_direction, &dimensions->margins.inline_start,
-                 &dimensions->margins.inline_end);
+  ComputeMargins(
+      space.MarginPaddingPercentageResolutionSize(), imcb.InlineSize(),
+      style.MarginInlineStart(), style.MarginInlineEnd(), inline_size,
+      imcb.has_auto_inline_inset, is_margin_start_dominant, is_block_direction,
+      &dimensions->margins.inline_start, &dimensions->margins.inline_end);
 
   ComputeInsets(space.AvailableSize().inline_size, imcb.inline_start,
                 imcb.inline_end, imcb.inline_inset_bias,
@@ -831,12 +824,11 @@ const LayoutResult* ComputeOofBlockDimensions(
   const bool is_block_direction = IsParallelWritingMode(
       container_writing_direction.GetWritingMode(), style.GetWritingMode());
 
-  ComputeMargins(space.PercentageResolutionInlineSizeForParentWritingMode(),
-                 imcb.BlockSize(), style.MarginBlockStart(),
-                 style.MarginBlockEnd(), block_size, imcb.has_auto_block_inset,
-                 is_margin_start_dominant, is_block_direction,
-                 &dimensions->margins.block_start,
-                 &dimensions->margins.block_end);
+  ComputeMargins(
+      space.MarginPaddingPercentageResolutionSize(), imcb.BlockSize(),
+      style.MarginBlockStart(), style.MarginBlockEnd(), block_size,
+      imcb.has_auto_block_inset, is_margin_start_dominant, is_block_direction,
+      &dimensions->margins.block_start, &dimensions->margins.block_end);
 
   ComputeInsets(space.AvailableSize().block_size, imcb.block_start,
                 imcb.block_end, imcb.block_inset_bias,

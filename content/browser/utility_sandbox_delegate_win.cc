@@ -14,6 +14,7 @@
 #include "content/public/common/sandboxed_process_launcher_delegate.h"
 #include "content/utility/sandbox_delegate_data.mojom.h"
 #include "printing/buildflags/buildflags.h"
+#include "sandbox/policy/features.h"
 #include "sandbox/policy/mojom/sandbox.mojom.h"
 #include "sandbox/policy/win/sandbox_win.h"
 #include "sandbox/win/src/app_container.h"
@@ -229,23 +230,18 @@ bool ScreenAIInitializeConfig(sandbox::TargetConfig* config,
 }
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
-// If preload-libraries or pinuser32 is required, adds delegate blob for
-// utility_main() to access before lockdown is initialized.
+// Adds preload-libraries to the delegate blob for utility_main() to access
+// before lockdown is initialized.
 void AddDelegateData(sandbox::TargetPolicy* policy,
-                     bool pin_user32,
                      std::vector<base::FilePath>& preload_libraries) {
-  if (!pin_user32 && preload_libraries.empty()) {
+  if (preload_libraries.empty()) {
     return;
   }
   auto sandbox_config = content::mojom::sandbox::UtilityConfig::New();
-  if (pin_user32) {
-    sandbox_config->pin_user32 = true;
+  for (const auto& library_path : preload_libraries) {
+    sandbox_config->preload_libraries.push_back(library_path);
   }
-  if (!preload_libraries.empty()) {
-    for (const auto& library_path : preload_libraries) {
-      sandbox_config->preload_libraries.push_back(library_path);
-    }
-  }
+
   std::vector<uint8_t> blob =
       content::mojom::sandbox::UtilityConfig::Serialize(&sandbox_config);
   policy->AddDelegateData(blob);
@@ -268,6 +264,15 @@ bool UtilitySandboxedProcessLauncherDelegate::GetAppContainerId(
     case sandbox::mojom::Sandbox::kXrCompositing:
       *appcontainer_id = UtilityAppContainerId(cmd_line_);
       return true;
+#if BUILDFLAG(ENABLE_PRINTING)
+    case sandbox::mojom::Sandbox::kPrintCompositor:
+      if (base::FeatureList::IsEnabled(
+              sandbox::policy::features::kPrintCompositorLPAC)) {
+        *appcontainer_id = UtilityAppContainerId(cmd_line_);
+        return true;
+      }
+      return false;
+#endif
     default:
       return false;
   }
@@ -291,6 +296,14 @@ bool UtilitySandboxedProcessLauncherDelegate::DisableDefaultPolicy() {
     case sandbox::mojom::Sandbox::kOnDeviceModelExecution:
       // An LPAC policy is used for on-device model execution.
       return true;
+#if BUILDFLAG(ENABLE_PRINTING)
+    case sandbox::mojom::Sandbox::kPrintCompositor:
+      // Default policy is disabled for Print Compositor to allow the
+      // application of specific LPAC sandbox policies, when that feature is
+      // enabled.
+      return base::FeatureList::IsEnabled(
+          sandbox::policy::features::kPrintCompositorLPAC);
+#endif
     case sandbox::mojom::Sandbox::kWindowsSystemProxyResolver:
       // Default policy is disabled for Windows System Proxy Resolver process to
       // allow the application of specific LPAC sandbox policies.
@@ -399,6 +412,19 @@ bool UtilitySandboxedProcessLauncherDelegate::InitializeConfig(
   }
 #endif
 
+#if BUILDFLAG(ENABLE_PRINTING)
+  if (sandbox_type_ == sandbox::mojom::Sandbox::kPrintCompositor &&
+      base::FeatureList::IsEnabled(
+          sandbox::policy::features::kPrintCompositorLPAC)) {
+    // LPAC sandbox is enabled, so do not use a restricted token.
+    auto result = config->SetTokenLevel(sandbox::USER_UNPROTECTED,
+                                        sandbox::USER_UNPROTECTED);
+    if (result != sandbox::SBOX_ALL_OK) {
+      return false;
+    }
+  }
+#endif
+
   return GetContentClient()->browser()->PreSpawnChild(
       config, sandbox_type_,
       ContentBrowserClient::ChildSpawnFlags::kChildSpawnFlagNone);
@@ -432,7 +458,7 @@ bool UtilitySandboxedProcessLauncherDelegate::AllowWindowsFontsDir() {
 
 bool UtilitySandboxedProcessLauncherDelegate::PreSpawnTarget(
     sandbox::TargetPolicy* policy) {
-  AddDelegateData(policy, pin_user32_, preload_libraries_);
+  AddDelegateData(policy, preload_libraries_);
   return SandboxedProcessLauncherDelegate::PreSpawnTarget(policy);
 }
 }  // namespace content

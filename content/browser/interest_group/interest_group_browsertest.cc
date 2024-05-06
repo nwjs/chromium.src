@@ -7,10 +7,12 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <variant>
 #include <vector>
@@ -108,9 +110,9 @@
 #include "third_party/blink/public/common/interest_group/ad_auction_constants.h"
 #include "third_party/blink/public/common/interest_group/ad_display_size_utils.h"
 #include "third_party/blink/public/common/interest_group/test_interest_group_builder.h"
+#include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "third_party/blink/public/mojom/interest_group/ad_auction_service.mojom.h"
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom.h"
-#include "third_party/blink/public/mojom/private_aggregation/aggregatable_report.mojom.h"
 #include "third_party/blink/public/mojom/private_aggregation/private_aggregation_host.mojom.h"
 #include "ui/display/screen.h"
 #include "url/gurl.h"
@@ -190,7 +192,7 @@ const blink::InterestGroup::AdditionalBidKey kPublicKeyWithNoMatchingSignature =
      0xd1, 0x8d, 0x16, 0x57, 0x5c, 0xe7, 0x3a, 0x2c, 0x60, 0x22, 0xfb,
      0x44, 0xe4, 0xc8, 0x5a, 0xb5, 0x41, 0xee, 0xf9, 0x34, 0xee};
 
-std::string base64Decode(base::StringPiece input) {
+std::string base64Decode(std::string_view input) {
   std::string bytes;
   CHECK(base::Base64UrlDecode(
       input, base::Base64UrlDecodePolicy::IGNORE_PADDING, &bytes));
@@ -283,7 +285,7 @@ base::Value::Dict SellerCapabilitiesToDict(
       dict.Set(origin.Serialize(), SellerCapabilitiesToList(capabilities));
     }
   }
-  if (!all_sellers_capabilities.Empty()) {
+  if (!all_sellers_capabilities.empty()) {
     dict.Set("*", SellerCapabilitiesToList(all_sellers_capabilities));
   }
   return dict;
@@ -715,6 +717,7 @@ class InterestGroupBrowserTest : public ContentBrowserTest {
          {blink::features::kFledgeSampleDebugReports, {}},
          // These are in field trial config, but we want this consistent among
          // bots.
+         {blink::features::kFledgeMultiBid, {}},
          {blink::features::kFledgeCustomMaxAuctionAdComponents,
           {{"FledgeAdComponentLimit", "40"}}},
          {blink::features::kFledgeReportingTimeout, {}}},
@@ -936,7 +939,7 @@ class InterestGroupBrowserTest : public ContentBrowserTest {
     if (group.size_groups) {
       dict.Set("sizeGroups", SizeGroupsToDict(*group.size_groups));
     }
-    if (!group.auction_server_request_flags.Empty()) {
+    if (!group.auction_server_request_flags.empty()) {
       dict.Set(
           "auctionServerRequestFlags",
           AuctionServerRequestFlagsToList(group.auction_server_request_flags));
@@ -5378,6 +5381,66 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
+                       RunAdAuctionInvalidTrustedScoringSignalsUrl2) {
+  GURL url = embedded_https_test_server().GetURL("a.test", "/echo");
+  url::Origin origin = url::Origin::Create(url);
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+  AttachInterestGroupObserver();
+
+  // Various trailing URL fields that can make it invalid
+  const char* kTests[] = {"?foo", "#foo", "?", "#"};
+
+  const char kAuctionConfigTemplate[] = R"({
+    seller: $1,
+    decisionLogicURL: $2,
+    trustedScoringSignalsURL: $1 + $3
+  })";
+
+  for (const char* test : kTests) {
+    SCOPED_TRACE(test);
+    EXPECT_EQ(base::StringPrintf(
+                  "TypeError: Failed to execute 'runAdAuction' on 'Navigator': "
+                  "trustedScoringSignalsURL '%s%s' for AuctionAdConfig with "
+                  "seller '%s' must not include a query, a fragment string, or "
+                  "embedded credentials.",
+                  origin.Serialize().c_str(), test, origin.Serialize().c_str()),
+              RunAuctionAndWait(
+                  JsReplace(kAuctionConfigTemplate, origin, url, test)));
+    WaitForAccessObserved({});
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
+                       RunAdAuctionInvalidTrustedScoringSignalsUrl3) {
+  GURL url = embedded_https_test_server().GetURL("a.test", "/echo");
+  url::Origin origin = url::Origin::Create(url);
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+  AttachInterestGroupObserver();
+
+  GURL::Replacements replacements;
+  replacements.SetUsernameStr("user");
+  replacements.SetPasswordStr("pass");
+  replacements.SetPathStr("");
+  GURL url_with_pass = url.ReplaceComponents(replacements);
+
+  const char kAuctionConfigTemplate[] = R"({
+    seller: $1,
+    decisionLogicURL: $2,
+    trustedScoringSignalsURL: $3
+  })";
+
+  EXPECT_EQ(base::StringPrintf(
+                "TypeError: Failed to execute 'runAdAuction' on 'Navigator': "
+                "trustedScoringSignalsURL '%s' for AuctionAdConfig with "
+                "seller '%s' must not include a query, a fragment string, or "
+                "embedded credentials.",
+                url_with_pass.spec().c_str(), origin.Serialize().c_str()),
+            RunAuctionAndWait(
+                JsReplace(kAuctionConfigTemplate, origin, url, url_with_pass)));
+  WaitForAccessObserved({});
+}
+
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
                        RunAdAuctionPositiveMaxTrustedScoringSignalsURLLength) {
   GURL url = embedded_https_test_server().GetURL("a.test", "/echo");
   url::Origin origin = url::Origin::Create(url);
@@ -7949,12 +8012,13 @@ IN_PROC_BROWSER_TEST_F(InterestGroupAuctionReportBuyersEnableDebugModeTest,
 
   ASSERT_TRUE(request_returned.has_value());
 
-  EXPECT_THAT(request_returned->payload_contents().contributions,
-              testing::UnorderedElementsAre(
-                  blink::mojom::AggregatableReportHistogramContribution(
-                      /*bucket=*/101, /*value=*/10),
-                  blink::mojom::AggregatableReportHistogramContribution(
-                      /*bucket=*/102, /*value=*/10)));
+  EXPECT_THAT(
+      request_returned->payload_contents().contributions,
+      testing::UnorderedElementsAre(
+          blink::mojom::AggregatableReportHistogramContribution(
+              /*bucket=*/101, /*value=*/10, /*filtering_id=*/std::nullopt),
+          blink::mojom::AggregatableReportHistogramContribution(
+              /*bucket=*/102, /*value=*/10, /*filtering_id=*/std::nullopt)));
 
   EXPECT_EQ(request_returned->shared_info().reporting_origin, test_origin_);
   EXPECT_EQ(request_returned->shared_info().debug_mode,
@@ -19376,12 +19440,39 @@ class InterestGroupBiddingAndAuctionServerBrowserTest
   [[nodiscard]] std::string GetInterestGroupAdAuctionData(
       url::Origin seller,
       std::optional<std::string> coordinator,
+      blink::mojom::AuctionDataConfig* config = nullptr,
       std::optional<ToRenderFrameHost> execution_target = std::nullopt) {
+    std::string fill_config;
+    if (config) {
+      if (config->request_size) {
+        fill_config +=
+            JsReplace("config.requestSize = $1;",
+                      static_cast<int>(config->request_size.value()));
+      }
+      if (config->per_buyer_configs.size() > 0) {
+        fill_config += "config.perBuyerConfig = {";
+        for (const auto& [buyer, per_buyer_config] :
+             config->per_buyer_configs) {
+          fill_config += JsReplace("$1: {", buyer);
+          if (per_buyer_config->target_size) {
+            fill_config += JsReplace(
+                "targetSize: $1",
+                static_cast<int>(per_buyer_config->target_size.value()));
+          }
+          fill_config += "},";
+        }
+        fill_config += "};";
+      }
+    }
+
     return EvalJs(execution_target ? *execution_target : shell(),
                   JsReplace(R"(
     let config = {seller: $1}
     if ($2) {
       config.coordinatorOrigin = $2;
+    }
+    if ($3) {
+      eval($3);
     }
     (async function() {
       try {
@@ -19392,7 +19483,7 @@ class InterestGroupBiddingAndAuctionServerBrowserTest
         return e.toString();
       }
     })())",
-                            seller, coordinator.value_or("")))
+                            seller, coordinator.value_or(""), fill_config))
         .ExtractString();
   }
 
@@ -19476,6 +19567,55 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
+                       TestInvalidBuyer) {
+  GURL test_url = embedded_https_test_server().GetURL(
+      "a.test", "/interest_group/empty.html");
+  url::Origin test_origin = url::Origin::Create(test_url);
+  const unsigned int kRequestSize = 1024;
+
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+
+  base::HistogramTester histogram_tester;
+  blink::mojom::AuctionDataConfig config;
+  config.request_size = kRequestSize;
+  config.per_buyer_configs.emplace(
+      url::Origin::Create(GURL("http://not.secure.test/")),
+      blink::mojom::AuctionDataBuyerConfig::New());
+  EXPECT_EQ(
+      "TypeError: Failed to execute 'getInterestGroupAdAuctionData' on "
+      "'Navigator': buyer origin 'http://not.secure.test' for "
+      "AdAuctionDataConfig must be a valid https origin.",
+      GetInterestGroupAdAuctionData(
+          test_origin, kDefaultBiddingAndAuctionGCPCoordinatorOrigin, &config));
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester.ExpectTotalCount(
+      "Ads.InterestGroup.GetInterestGroupAdAuctionData.TimeToResolve", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
+                       TestMissingBuyerSize) {
+  GURL test_url = embedded_https_test_server().GetURL(
+      "a.test", "/interest_group/empty.html");
+  url::Origin test_origin = url::Origin::Create(test_url);
+
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+
+  base::HistogramTester histogram_tester;
+  blink::mojom::AuctionDataConfig config;
+  config.per_buyer_configs.emplace(test_origin,
+                                   blink::mojom::AuctionDataBuyerConfig::New());
+  EXPECT_EQ(
+      "TypeError: Failed to execute 'getInterestGroupAdAuctionData' on "
+      "'Navigator': All per-buyer configs must have a target size when request "
+      "size is not specified.",
+      GetInterestGroupAdAuctionData(
+          test_origin, kDefaultBiddingAndAuctionGCPCoordinatorOrigin, &config));
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester.ExpectTotalCount(
+      "Ads.InterestGroup.GetInterestGroupAdAuctionData.TimeToResolve", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
                        Preconnects) {
   GURL test_url = embedded_https_test_server().GetURL(
       "a.test", "/interest_group/empty.html");
@@ -19540,6 +19680,86 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
+                       UsesRequestSize) {
+  GURL test_url = embedded_https_test_server().GetURL(
+      "a.test", "/interest_group/empty.html");
+  url::Origin test_origin = url::Origin::Create(test_url);
+  url::Origin test_origin2 = embedded_https_test_server().GetOrigin("b.test");
+  const unsigned int kRequestSize = 1024;
+  GURL ad_url =
+      embedded_https_test_server().GetURL("c.test", "/echo?render_cars");
+  ProvideKeys();
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+  EXPECT_EQ(kSuccess,
+            JoinInterestGroupAndVerify(
+                blink::TestInterestGroupBuilder(/*owner=*/test_origin,
+                                                /*name=*/"cars")
+                    .SetBiddingUrl(embedded_https_test_server().GetURL(
+                        "a.test", "/interest_group/bidding_logic.js"))
+                    .SetAds({{{ad_url, /*metadata=*/std::nullopt,
+                               /*size_group=*/std::nullopt,
+                               /*buyer_reporting_id=*/std::nullopt,
+                               /*buyer_and_seller_reporting_id=*/std::nullopt,
+                               /*ad_render_id=*/"buyCars"}}})
+                    .Build()));
+
+  blink::mojom::AuctionDataConfig config;
+  config.request_size = kRequestSize;
+  config.per_buyer_configs.emplace(test_origin,
+                                   blink::mojom::AuctionDataBuyerConfig::New());
+  config.per_buyer_configs.emplace(
+      test_origin2, blink::mojom::AuctionDataBuyerConfig::New(kRequestSize));
+  std::string result =
+      GetInterestGroupAdAuctionData(test_origin, std::nullopt, &config);
+
+  const unsigned int kCharsInUUID = 36;
+  const unsigned int kCharsInSeparator = 1;
+  const unsigned int kRequestBase64SizeChars =
+      std::ceil(kRequestSize / 3.0) * 4;
+  EXPECT_EQ(kRequestBase64SizeChars + kCharsInSeparator + kCharsInUUID,
+            result.size());
+}
+
+IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
+                       UsesImplicitRequestSize) {
+  GURL test_url = embedded_https_test_server().GetURL(
+      "a.test", "/interest_group/empty.html");
+  url::Origin test_origin = url::Origin::Create(test_url);
+  url::Origin test_origin2 = embedded_https_test_server().GetOrigin("b.test");
+  const unsigned int kRequestSize = 1024;
+  GURL ad_url =
+      embedded_https_test_server().GetURL("c.test", "/echo?render_cars");
+  ProvideKeys();
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+  EXPECT_EQ(kSuccess,
+            JoinInterestGroupAndVerify(
+                blink::TestInterestGroupBuilder(/*owner=*/test_origin,
+                                                /*name=*/"cars")
+                    .SetBiddingUrl(embedded_https_test_server().GetURL(
+                        "a.test", "/interest_group/bidding_logic.js"))
+                    .SetAds({{{ad_url, /*metadata=*/std::nullopt,
+                               /*size_group=*/std::nullopt,
+                               /*buyer_reporting_id=*/std::nullopt,
+                               /*buyer_and_seller_reporting_id=*/std::nullopt,
+                               /*ad_render_id=*/"buyCars"}}})
+                    .Build()));
+
+  blink::mojom::AuctionDataConfig config;
+  config.per_buyer_configs.emplace(
+      test_origin,
+      blink::mojom::AuctionDataBuyerConfig::New(/*target_size=*/kRequestSize));
+  std::string result =
+      GetInterestGroupAdAuctionData(test_origin, std::nullopt, &config);
+
+  const unsigned int kCharsInUUID = 36;
+  const unsigned int kCharsInSeparator = 1;
+  const unsigned int kRequestBase64SizeChars =
+      std::ceil(kRequestSize / 3.0) * 4;
+  EXPECT_EQ(kRequestBase64SizeChars + kCharsInSeparator + kCharsInUUID,
+            result.size());
+}
+
+IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
                        TestInvalidCoordinator) {
   GURL test_url = embedded_https_test_server().GetURL(
       "a.test", "/interest_group/empty.html");
@@ -19601,7 +19821,7 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
     EXPECT_EQ("|",
               GetInterestGroupAdAuctionData(
                   test_origin, kDefaultBiddingAndAuctionGCPCoordinatorOrigin,
-                  execution_target));
+                  /*config=*/nullptr, execution_target));
     RenderFrameHost* execution_targets_with_message[] = {
         cross_origin_iframe, inner_cross_origin_iframe,
         same_origin_iframe_in_cross_origin_iframe};
@@ -20018,12 +20238,12 @@ IN_PROC_BROWSER_TEST_F(
           "Feature run-ad-auction is not enabled by Permissions Policy",
           GetInterestGroupAdAuctionData(
               test_origin, kDefaultBiddingAndAuctionGCPCoordinatorOrigin,
-              execution_target));
+              /*config=*/nullptr, execution_target));
     } else {
       EXPECT_EQ("|",
                 GetInterestGroupAdAuctionData(
                     test_origin, kDefaultBiddingAndAuctionGCPCoordinatorOrigin,
-                    execution_target));
+                    /*config=*/nullptr, execution_target));
     }
   }
 }

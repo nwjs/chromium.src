@@ -9,6 +9,7 @@
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_file_handle.mojom-blink.h"
 #include "third_party/blink/renderer/modules/file_system_access/file_system_handle.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace blink {
 class File;
@@ -28,18 +29,18 @@ class FileSystemFileHandle final : public FileSystemHandle {
 
   bool isFile() const override { return true; }
 
-  ScriptPromiseTyped<FileSystemWritableFileStream> createWritable(
+  ScriptPromise<FileSystemWritableFileStream> createWritable(
       ScriptState*,
       const FileSystemCreateWritableOptions* options,
       ExceptionState&);
-  ScriptPromiseTyped<File> getFile(ScriptState*, ExceptionState&);
+  ScriptPromise<File> getFile(ScriptState*, ExceptionState&);
 
   // TODO(fivedots): Define if this method should be generally exposed or only
   // on files backed by the Origin Private File System.
-  ScriptPromiseTyped<FileSystemSyncAccessHandle> createSyncAccessHandle(
+  ScriptPromise<FileSystemSyncAccessHandle> createSyncAccessHandle(
       ScriptState*,
       ExceptionState&);
-  ScriptPromiseTyped<FileSystemSyncAccessHandle> createSyncAccessHandle(
+  ScriptPromise<FileSystemSyncAccessHandle> createSyncAccessHandle(
       ScriptState*,
       const FileSystemCreateSyncAccessHandleOptions* options,
       ExceptionState&);
@@ -83,6 +84,13 @@ class FileSystemFileHandle final : public FileSystemHandle {
           Vector<mojom::blink::FileSystemAccessCloudIdentifierPtr>)>) override;
 
   HeapMojoRemote<mojom::blink::FileSystemAccessFileHandle> mojo_ptr_;
+};
+
+template <>
+struct DowncastTraits<FileSystemFileHandle> {
+  static bool AllowFrom(const FileSystemHandle& handle) {
+    return handle.isFile();
+  }
 };
 
 }  // namespace blink

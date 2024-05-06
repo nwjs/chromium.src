@@ -15,6 +15,7 @@
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service.h"
+#include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/signin/dice_tab_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -33,7 +34,7 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/search_engines/prepopulated_engines.h"
-#include "components/search_engines/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -52,10 +53,6 @@
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/view_class_properties.h"
 
-#include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service_factory.h"
-#include "components/search_engines/search_engine_choice_utils.h"
-#include "components/search_engines/search_engines_switches.h"
-
 #if !BUILDFLAG(ENABLE_DICE_SUPPORT)
 #error "Unsupported platform"
 #endif
@@ -72,8 +69,8 @@ const DeepQuery kSignInButton{"intro-app", "sign-in-promo",
                               "#acceptSignInButton"};
 const DeepQuery kDontSignInButton{"intro-app", "sign-in-promo",
                                   "#declineSignInButton"};
-const DeepQuery kDeclineManagementButton{"managed-user-profile-notice-app",
-                                         "#cancelButton"};
+const DeepQuery kDeclineManagementButton{
+    "legacy-managed-user-profile-notice-app", "#cancel-button"};
 const DeepQuery kOptInSyncButton{"sync-confirmation-app", "#confirmButton"};
 const DeepQuery kDontSyncButton{"sync-confirmation-app", "#notNowButton"};
 const DeepQuery kSettingsButton{"sync-confirmation-app", "#settingsButton"};

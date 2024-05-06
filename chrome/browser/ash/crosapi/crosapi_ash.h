@@ -88,6 +88,7 @@ class FileManagerAsh;
 class FileSystemAccessCloudIdentifierProviderAsh;
 class FileSystemProviderServiceAsh;
 class ForceInstalledTrackerAsh;
+class FullRestoreAsh;
 class FullscreenControllerAsh;
 class GeolocationServiceAsh;
 class IdentityManagerAsh;
@@ -127,6 +128,7 @@ class RemotingAsh;
 class ResourceManagerAsh;
 class ScreenAIDownloaderAsh;
 class ScreenManagerAsh;
+class SearchControllerFactoryAsh;
 class SearchProviderAsh;
 class SelectFileAsh;
 class SharesheetAsh;
@@ -269,6 +271,8 @@ class CrosapiAsh : public mojom::Crosapi {
       override;
   void BindForceInstalledTracker(
       mojo::PendingReceiver<mojom::ForceInstalledTracker> receiver) override;
+  void BindFullRestore(
+      mojo::PendingReceiver<mojom::FullRestore> receiver) override;
   void BindFullscreenController(
       mojo::PendingReceiver<mojom::FullscreenController> receiver) override;
   void BindGeolocationService(
@@ -370,6 +374,8 @@ class CrosapiAsh : public mojom::Crosapi {
       mojo::PendingReceiver<mojom::ScreenAIDownloader> receiver) override;
   void BindScreenManager(
       mojo::PendingReceiver<mojom::ScreenManager> receiver) override;
+  void BindSearchControllerFactory(
+      mojo::PendingRemote<mojom::SearchControllerFactory> remote) override;
   void BindSearchControllerRegistry(
       mojo::PendingReceiver<mojom::SearchControllerRegistry> receiver) override;
   void BindSelectFile(
@@ -523,6 +529,8 @@ class CrosapiAsh : public mojom::Crosapi {
     return force_installed_tracker_ash_.get();
   }
 
+  FullRestoreAsh* full_restore_ash() { return full_restore_ash_.get(); }
+
   FullscreenControllerAsh* fullscreen_controller_ash() {
     return fullscreen_controller_ash_.get();
   }
@@ -584,6 +592,10 @@ class CrosapiAsh : public mojom::Crosapi {
   }
 
   ScreenManagerAsh* screen_manager_ash() { return screen_manager_ash_.get(); }
+
+  SearchControllerFactoryAsh* search_controller_factory_ash() {
+    return search_controller_factory_ash_.get();
+  }
 
   SearchProviderAsh* search_provider_ash() {
     return search_provider_ash_.get();
@@ -691,6 +703,7 @@ class CrosapiAsh : public mojom::Crosapi {
   std::unique_ptr<FileSystemProviderServiceAsh>
       file_system_provider_service_ash_;
   std::unique_ptr<ForceInstalledTrackerAsh> force_installed_tracker_ash_;
+  std::unique_ptr<FullRestoreAsh> full_restore_ash_;
   std::unique_ptr<FullscreenControllerAsh> fullscreen_controller_ash_;
   std::unique_ptr<GeolocationServiceAsh> geolocation_service_ash_;
   std::unique_ptr<IdentityManagerAsh> identity_manager_ash_;
@@ -739,6 +752,7 @@ class CrosapiAsh : public mojom::Crosapi {
   std::unique_ptr<ResourceManagerAsh> resource_manager_ash_;
   std::unique_ptr<ScreenAIDownloaderAsh> screen_ai_downloader_ash_;
   std::unique_ptr<ScreenManagerAsh> screen_manager_ash_;
+  std::unique_ptr<SearchControllerFactoryAsh> search_controller_factory_ash_;
   std::unique_ptr<SearchProviderAsh> search_provider_ash_;
   std::unique_ptr<SelectFileAsh> select_file_ash_;
   std::unique_ptr<SharesheetAsh> sharesheet_ash_;

@@ -355,8 +355,9 @@ void SetElementReadOnly(WebInputElement& element, bool read_only) {
 bool FormHasFieldWithValue(const autofill::FormData& form,
                            const std::u16string& value) {
   for (const auto& field : form.fields) {
-    if (field.value == value)
+    if (field.value() == value) {
       return true;
+    }
     if (field.user_input == value)
       return true;
   }
@@ -801,11 +802,11 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
 
     size_t unchecked_masks = expected_properties_masks.size();
     for (const FormFieldData& field : form_data.fields) {
-      const auto& it = expected_properties_masks.find(field.name);
+      const auto& it = expected_properties_masks.find(field.name());
       if (it == expected_properties_masks.end())
         continue;
       EXPECT_EQ(field.properties_mask, it->second)
-          << "Wrong mask for the field " << field.name;
+          << "Wrong mask for the field " << field.name();
       unchecked_masks--;
     }
     EXPECT_TRUE(unchecked_masks == 0)
@@ -2573,7 +2574,7 @@ TEST_F(PasswordAutofillAgentTest,
   EXPECT_CALL(fake_driver_, ShowPasswordSuggestions);
   autofill_agent_->TriggerSuggestions(
       form_util::GetFieldRendererId(username_element_),
-      AutofillSuggestionTriggerSource::kTextFieldDidChange);
+      AutofillSuggestionTriggerSource::kManualFallbackPasswords);
 }
 
 TEST_F(PasswordAutofillAgentTest,

@@ -30,6 +30,7 @@ class LineBreakCandidateContext;
 class LineInfo;
 class ResolvedTextLayoutAttributesIterator;
 class ShapingLineBreaker;
+struct AnnotationBreakTokenData;
 
 // The line breaker needs to know which mode its in to properly handle floats.
 enum class LineBreakerMode { kContent, kMinContent, kMaxContent };
@@ -54,9 +55,15 @@ class CORE_EXPORT LineBreaker {
 
   const InlineItemsData& ItemsData() const { return items_data_; }
 
+  // This LineBreaker handles only [start, end_item_index) of `Items()`.
+  void SetInputRange(InlineItemTextIndex start, wtf_size_t end_item_index);
+
   // True if the last line has `box-decoration-break: clone`, which affected the
   // size.
   bool HasClonedBoxDecorations() const { return has_cloned_box_decorations_; }
+  // True if the last processed line might contain ruby overhang. It affects
+  // min-max computation.
+  bool MayHaveRubyOverhang() const { return may_have_ruby_overhang_; }
 
   // Compute the next line break point and produces InlineItemResults for
   // the line.
@@ -210,6 +217,19 @@ class CORE_EXPORT LineBreaker {
                            LineInfo*);
   void ComputeMinMaxContentSizeForBlockChild(const InlineItem&,
                                              InlineItemResult*);
+  // Returns false if we can't handle the current InlineItem as a ruby.
+  bool HandleRuby(LineInfo* line_info);
+  LineInfo CreateSubLineInfo(InlineItemTextIndex start,
+                             wtf_size_t end_item_index,
+                             LayoutUnit limit);
+  InlineItemResult* AddRubyColumnResult(
+      const InlineItem& item,
+      const LineInfo& base_line_info,
+      const HeapVector<LineInfo, 1>& annotation_line_list,
+      const Vector<AnnotationBreakTokenData, 1>& annotation_data_list,
+      LayoutUnit ruby_size,
+      LineInfo& line_info);
+  bool CanBreakAfterRubyColumn(const InlineItemResult& column_result) const;
 
   bool CanBreakAfterAtomicInline(const InlineItem& item) const;
   bool CanBreakAfter(const InlineItem& item) const;
@@ -247,6 +267,7 @@ class CORE_EXPORT LineBreaker {
   bool IsPreviousItemOfType(InlineItem::InlineItemType);
   void MoveToNextOf(const InlineItem&);
   void MoveToNextOf(const InlineItemResult&);
+  bool IsAtEnd() const { return current_.item_index >= end_item_index_; }
 
   void ComputeBaseDirection();
   void RecalcClonedBoxDecorations();
@@ -342,6 +363,8 @@ class CORE_EXPORT LineBreaker {
 
   // True if the resultant line contains a RubyColumn with inline-end overhang.
   bool maybe_have_end_overhang_ = false;
+  // True if the last processed line might contain ruby overhang.
+  bool may_have_ruby_overhang_ = false;
 
   // True if ShouldCreateNewSvgSegment() should be called.
   bool needs_svg_segmentation_ = false;
@@ -355,6 +378,10 @@ class CORE_EXPORT LineBreaker {
 #endif
 
   const InlineItemsData& items_data_;
+
+  // `end_item_index_` is usually `Items().size()`.
+  // SetInputRange() updates it.
+  wtf_size_t end_item_index_;
 
   // The text content of this node. This is same as |items_data_.text_content|
   // except when sticky images quirk is needed. See

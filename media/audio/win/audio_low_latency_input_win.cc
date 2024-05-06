@@ -5,6 +5,7 @@
 #include "media/audio/win/audio_low_latency_input_win.h"
 
 #include <objbase.h>
+
 #include <propkey.h>
 #include <windows.devices.enumeration.h>
 #include <windows.media.devices.h>
@@ -790,8 +791,9 @@ void WASAPIAudioInputStream::Run() {
   if (recording && error) {
     // TODO(henrika): perhaps it worth improving the cleanup here by e.g.
     // stopping the audio client, joining the thread etc.?
+    auto saved_last_error = GetLastError();
     NOTREACHED() << "WASAPI capturing failed with error code "
-                 << GetLastError();
+                 << saved_last_error;
   }
 
   // Disable MMCSS.
@@ -925,7 +927,7 @@ void WASAPIAudioInputStream::PullCaptureDataAndPushToSink() {
         }
         glitch_reporter_.UpdateStats(glitch_duration);
         if (glitch_duration.is_positive()) {
-          glitch_accumulator_.Add(AudioGlitchInfo::SingleBoundedGlitch(
+          glitch_accumulator_.Add(AudioGlitchInfo::SingleBoundedSystemGlitch(
               glitch_duration, AudioGlitchInfo::Direction::kCapture));
         }
       }

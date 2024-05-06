@@ -24,6 +24,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/ui/tabs/tab_group_controller.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_scrubbing_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "components/sessions/core/session_id.h"
@@ -130,9 +131,13 @@ struct DetachedWebContents {
 ////////////////////////////////////////////////////////////////////////////////
 class TabStripModel : public TabGroupController {
  public:
-  // TODO(1394210): Remove this, and use std::optional<size_t> (or at least
-  // std::optional<int>) in its place.
+  // TODO(crbug.com/40881446): Remove this, and use std::optional<size_t> (or at
+  // least std::optional<int>) in its place.
   static constexpr int kNoTab = -1;
+
+  using TabDataVariant =
+      std::variant<std::vector<std::unique_ptr<tabs::TabModel>>,
+                   std::unique_ptr<tabs::TabStripCollection>>;
 
   TabStripModel() = delete;
 
@@ -162,11 +167,27 @@ class TabStripModel : public TabGroupController {
   void RemoveObserver(TabStripModelObserver* observer);
 
   // Retrieve the number of WebContentses/emptiness of the TabStripModel.
-  int count() const { return static_cast<int>(contents_data_.size()); }
-  bool empty() const { return contents_data_.empty(); }
+  int count() const;
+  bool empty() const;
 
   int GetIndexOfTab(tabs::TabHandle tab) const;
   tabs::TabHandle GetTabHandleAt(int index) const;
+
+  // Returns true if the data is a vector and not a collection tree.
+  bool IsContentsDataVector() const {
+    return std::holds_alternative<std::vector<std::unique_ptr<tabs::TabModel>>>(
+        contents_data_);
+  }
+
+  // const methods to access `contents_data_` as a vector or a collection tree.
+  const std::vector<std::unique_ptr<tabs::TabModel>>& GetContentsDataAsVector()
+      const;
+  const tabs::TabStripCollection* GetContentsDataAsCollection() const;
+
+  // non-const methods to access `contents_data_` as a vector or a collection
+  // tree.
+  std::vector<std::unique_ptr<tabs::TabModel>>& GetContentsDataAsVector();
+  tabs::TabStripCollection* GetContentsDataAsCollection();
 
   // Retrieve the Profile associated with this TabStripModel.
   Profile* profile() const { return profile_; }
@@ -243,13 +264,6 @@ class TabStripModel : public TabGroupController {
   // Detaches the tab at the specified index for reinsertion into another tab
   // strip. Returns the detached tab.
   std::unique_ptr<tabs::TabModel> DetachTabAtForInsertion(int index);
-
-  // Detaches the WebContents at the specified index for reinsertion into
-  // another tab strip. Returns the detached WebContents.
-  // TODO(1476012): Migrate callers to DetachTabAtForInsertion or
-  // DetachAndDeleteWebContentsAt.
-  std::unique_ptr<content::WebContents> DetachWebContentsAtForInsertion(
-      int index);
 
   // Detaches the WebContents at the specified index and immediately deletes it.
   void DetachAndDeleteWebContentsAt(int index);
@@ -455,11 +469,13 @@ class TabStripModel : public TabGroupController {
   tab_groups::TabGroupId AddToNewGroup(const std::vector<int>& indices);
 
   // Add the set of tabs pointed to by |indices| to the given tab group |group|.
-  // The tabs take on the pinnedness of the tabs already in the group, and are
-  // moved to immediately follow the tabs already in the group. |indices| must
-  // be sorted in ascending order.
+  // The tabs take on the pinnedness of the tabs already in the group. Tabs
+  // before the group will move to the start, while tabs after the group will
+  // move to the end. If |add_to_end| is true, all tabs will instead move to
+  // the end. |indices| must be sorted in ascending order.
   void AddToExistingGroup(const std::vector<int>& indices,
-                          const tab_groups::TabGroupId& group);
+                          const tab_groups::TabGroupId& group,
+                          const bool add_to_end = false);
 
   // Moves the set of tabs indicated by |indices| to precede the tab at index
   // |destination_index|, maintaining their order and the order of tabs not
@@ -544,6 +560,7 @@ class TabStripModel : public TabGroupController {
     CommandCopyURL,
     CommandGoBack,
     CommandCloseAllTabs,
+    CommandCommerceProductSpecifications,
     CommandLast
   };
 
@@ -659,6 +676,9 @@ class TabStripModel : public TabGroupController {
 
   int ConstrainMoveIndex(int index, bool pinned_tab) const;
 
+  // Returns the tab at an index from the `contents_data`.
+  tabs::TabModel* GetTabAtIndex(int index) const;
+
   // If |index| is selected all the selected indices are returned, otherwise a
   // vector with |index| is returned. This is used when executing commands to
   // determine which indices the command applies to. Indices are sorted in
@@ -719,7 +739,7 @@ class TabStripModel : public TabGroupController {
   // Returns the WebContentses at the specified indices. This does no checking
   // of the indices, it is assumed they are valid.
   std::vector<content::WebContents*> GetWebContentsesByIndices(
-      const std::vector<int>& indices);
+      const std::vector<int>& indices) const;
 
   // Sets the selection to |new_model| and notifies any observers.
   // Note: This function might end up sending 0 to 3 notifications in the
@@ -768,7 +788,8 @@ class TabStripModel : public TabGroupController {
   // Adds tabs to existing group |group|. This group must have been initialized
   // by a previous call to |AddToNewGroupImpl()|.
   void AddToExistingGroupImpl(const std::vector<int>& indices,
-                              const tab_groups::TabGroupId& group);
+                              const tab_groups::TabGroupId& group,
+                              const bool add_to_end = false);
 
   // Implementation of MoveTabsAndSetGroupImpl. Moves the set of tabs in
   // |indices| to the |destination_index| and updates the tabs to the
@@ -835,7 +856,7 @@ class TabStripModel : public TabGroupController {
 
   // The WebContents data currently hosted within this TabStripModel. This must
   // be kept in sync with |selection_model_|.
-  std::vector<std::unique_ptr<tabs::TabModel>> contents_data_;
+  TabDataVariant contents_data_;
 
   // The model for tab groups hosted within this TabStripModel.
   std::unique_ptr<TabGroupModel> group_model_;

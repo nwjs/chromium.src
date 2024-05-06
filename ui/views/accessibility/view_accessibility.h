@@ -59,13 +59,17 @@ class VIEWS_EXPORT ViewAccessibility {
 
   // Modifies |node_data| to reflect the current accessible state of the
   // associated View, taking any custom overrides into account
-  // (see OverrideFocus, OverrideRole, etc. below).
+  // (see OverrideFocus, etc. below).
   virtual void GetAccessibleNodeData(ui::AXNodeData* node_data) const;
 
   // Made to be overridden on platforms that need the temporary
   // `AtomicViewAXTreeManager` to enable more accessibility functionalities for
   // Views. See crbug.com/1468416 for more info.
   virtual void EnsureAtomicViewAXTreeManager() {}
+
+  void SetIgnoreMissingWidgetForTesting(bool value) {
+    ignore_missing_widget_for_testing_ = value;
+  }
 
   //
   // The following methods get or set accessibility attributes (in the owning
@@ -104,6 +108,42 @@ class VIEWS_EXPORT ViewAccessibility {
 
   // Call when a menu closes, to restore focus to where it was previously.
   virtual void FireFocusAfterMenuClose();
+
+  // Convenience function to set common accessibility properties during view
+  // construction/initialization. It should only be used to define property
+  // values as part of the creation of this view; not to provide property-
+  // change updates. This function will only modify properties for which a value
+  // has been explicitly set.
+  void SetProperties(
+      std::optional<ax::mojom::Role> role = std::nullopt,
+      std::optional<std::u16string> name = std::nullopt,
+      std::optional<std::u16string> description = std::nullopt,
+      std::optional<std::u16string> role_description = std::nullopt,
+      std::optional<ax::mojom::NameFrom> name_from = std::nullopt,
+      std::optional<ax::mojom::DescriptionFrom> description_from =
+          std::nullopt);
+
+  // Sets/gets whether or not this view's descendants should be included in
+  // the accessibility tree. It is the functional equivalent of calling
+  // `SetAccessibleIsIgnored` on each and every view descendant of this
+  // view. The default value is false, which is appropriate for most views.
+  // Note that you should not set this property if a view has no descendants.
+  // It is essential that you do not set this property to true on containers
+  // which have one or more descendants which are focusable or otherwise
+  // interactive as this would make those descendants completely inaccessible.
+  // If no value has been set, the "leafiness" of this view will be based on
+  // the type of children (if any).
+  void SetIsLeaf(bool value);
+  virtual bool IsLeaf() const;
+
+  // Returns true if an ancestor of this node (not including itself) is a
+  // leaf node, meaning that this node is not actually exposed to any
+  // platform's accessibility layer.
+  virtual bool IsChildOfLeaf() const;
+
+  // Returns true if we heuristically pruned (ignored) this view from the
+  // accessibility tree.
+  bool GetIsPruned() const;
 
   void SetCharacterOffsets(const std::vector<int32_t>& offsets);
 
@@ -150,18 +190,21 @@ class VIEWS_EXPORT ViewAccessibility {
   // The source type options are:
   //
   // * kNone: No name provided.
-  // * kAttribute: Name from a flat string (e.g. aria-label or View).
+  // * kAttribute: Name from a flat string (e.g. aria-label or View). This is
+  //   the default value.
   // * kAttributeExplicitlyEmpty: Name removed for accessibility reasons.
   // * kCaption: Name from a table caption.
   // * kContents: Name from the displayed text (e.g. label or link).
   // * kPlaceholder: Name from a textfield placeholder.
   // * kRelatedElement: Name from another object in the UI(e.g. figcaption or
-  // View).
+  //   View).
   // * kTitle: Name from a title attribute or element (HTML or SVG).
   // * kValue: Name from a value attribute (e.g. button).
   // * kPopoverAttribute: Name from a tooltip-style popover.
   void SetName(const std::string& name, ax::mojom::NameFrom name_from);
   void SetName(const std::u16string& name, ax::mojom::NameFrom name_from);
+  void SetName(const std::string& name);
+  void SetName(const std::u16string& name);
 
   // Sets the accessible name of this view to that of `naming_view`. Often
   // `naming_view` is a `views::Label`, but any view with an accessible name
@@ -196,28 +239,15 @@ class VIEWS_EXPORT ViewAccessibility {
   void SetDescription(const std::u16string& description,
                       const ax::mojom::DescriptionFrom description_from =
                           ax::mojom::DescriptionFrom::kAriaDescription);
-
-  // Deprecated. Use ViewAccessibility::SetRole instead.
-  // See https://crbug.com/324485311.
-  void OverrideRole(const ax::mojom::Role role);
-
-  // Sets the accessible name to the specified string value.
-  // By default the source type of the name is attribute. This source is
-  // appropriate for most use cases where a View is providing a non-empty flat
-  // string as the accessible name. If a View has a need to remove the
-  // accessible name, the string should be empty and the source of the name
-  // should instead be kAttributeExplicitlyEmpty. Note that the name source
-  // types were created based on needs associated with web content
-  // accessibility, and assistive technologies may make decisions based on that
-  // supposition. For instance, kTitle implies that the source of the name will
-  // be presented as a tooltip, such as would result from the HTML 'title'
-  // attribute or the SVG <title> element.
-  void OverrideName(
-      const std::string& name,
-      const ax::mojom::NameFrom name_from = ax::mojom::NameFrom::kAttribute);
-  void OverrideName(
-      const std::u16string& name,
-      const ax::mojom::NameFrom name_from = ax::mojom::NameFrom::kAttribute);
+  void SetDescription(View& describing_view);
+  // This function cannot follow the established pattern and be named
+  // GetDescription() because of a function of the same name in
+  // AXPlatformNodeDelegate. ViewAXPlatformNodeDelegate extends both
+  // ViewAccessibility and AXPlatformNodeDelegate, which would lead to conflicts
+  // and confusion.
+  // TODO(accessibility): Rename to GetDescription once the ViewsAX project is
+  // completed and we don't have ViewAXPlatformNodeDelegate anymore.
+  std::u16string GetViewAccessibilityDescription() const;
 
   // Sets the platform-specific accessible name/title property of the
   // NativeViewAccessible window. This is needed on platforms where the name
@@ -237,29 +267,9 @@ class VIEWS_EXPORT ViewAccessibility {
   // Note that this attribute does not cross widget boundaries, i.e. if a sub
   // widget is a descendant of this View, it will not be marked hidden. This
   // should not happen in practice as widgets are not children of Views.
+  // Deprecated. Use ViewAccessibility::SetIsLeaf instead.
+  // See https://crbug.com/324485311.
   void OverrideIsLeaf(bool value);
-  virtual bool IsLeaf() const;
-
-  // Returns true if an ancestor of this node (not including itself) is a
-  // leaf node, meaning that this node is not actually exposed to any
-  // platform's accessibility layer.
-  virtual bool IsChildOfLeaf() const;
-
-  // Override information provided to users by screen readers when describing
-  // elements in a menu, listbox, or another set-like item. For example, "New
-  // tab, menu item 1 of 5". If not specified, a view's index in its parent and
-  // its parent's number of children provide the values for |pos_in_set| and
-  // |set_size| respectively.
-  //
-  // Note that |pos_in_set| is one-based, i.e. it starts from 1 not 0.
-  //
-  // Deprecated. Use ViewAccessibility::SetPosInSet and
-  // ViewAccessibility::SetSetSize instead. See https://crbug.com/324485311.
-  void OverridePosInSet(int pos_in_set, int set_size);
-
-  // Deprecated. Use ViewAccessibility::ClearPosInSet and
-  // ViewAccessibility::ClearSetSize instead. See https://crbug.com/324485311.
-  void ClearPosInSetOverride();
 
   // Override the next or previous focused widget. Some assistive technologies,
   // such as screen readers, may utilize this information to transition focus
@@ -380,7 +390,7 @@ class VIEWS_EXPORT ViewAccessibility {
 
   const ui::AXUniqueId unique_id_;
 
-  // Contains data set explicitly via OverrideRole, OverrideName, etc. that
+  // Contains data set explicitly via OverrideRole etc. that
   // overrides anything provided by GetAccessibleNodeData().
   ui::AXNodeData override_data_;
 
@@ -396,7 +406,16 @@ class VIEWS_EXPORT ViewAccessibility {
 
   // If set to true, anything that is a descendant of this view will be hidden
   // from accessibility.
+  // DEPRECATED: This is being replaced by is_leaf_.
+  // TODO(javiercon): Remove this once OverrideIsLeaf is removed.
+  bool overridden_is_leaf_ = false;
+
+  // If set to true, anything that is a descendant of this view will be hidden
+  // from accessibility by 'pruning' it from the tree, and setting `pruned_` to
+  // true.
   bool is_leaf_ = false;
+
+  bool pruned_ = false;
 
   // Used by the Views system to help some assistive technologies, such as
   // screen readers, transition focus from one widget to another.
@@ -418,6 +437,30 @@ class VIEWS_EXPORT ViewAccessibility {
   // owns an ViewsAXTreeManager. For other Views, this should be nullptr.
   std::unique_ptr<views::ViewsAXTreeManager> ax_tree_manager_;
 #endif
+
+  // Prune/Unprune all descendant views from the accessibility tree. We prune
+  // for two reasons: 1) The view has been explicitly marked as a leaf node, 2)
+  // The view is focusable and lacks focusable descendants (e.g. a button with a
+  // label and/or an image).
+  void PruneSubtree();
+  void UnpruneSubtree();
+
+  bool ignore_missing_widget_for_testing_ = false;
+};
+
+class IgnoreMissingWidgetForTestingScopedSetter {
+ public:
+  explicit IgnoreMissingWidgetForTestingScopedSetter(
+      ViewAccessibility& view_accessibility)
+      : view_accessibility_(&view_accessibility) {
+    view_accessibility_->SetIgnoreMissingWidgetForTesting(true);
+  }
+  ~IgnoreMissingWidgetForTestingScopedSetter() {
+    view_accessibility_->SetIgnoreMissingWidgetForTesting(false);
+  }
+
+ private:
+  raw_ptr<ViewAccessibility> view_accessibility_;
 };
 
 }  // namespace views

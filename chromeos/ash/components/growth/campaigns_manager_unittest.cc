@@ -244,6 +244,19 @@ class CampaignsManagerTest : public testing::Test {
         kValidCampaignsFileTemplate, device_targeting.c_str()));
   }
 
+  void LoadComponentWithRegisteredTimeTargeting(
+      const std::string& registerd_time_targeting) {
+    auto device_targeting =
+        base::StringPrintf(R"(
+            "device": {
+              "registeredTime": %s
+            }
+          )",
+                           registerd_time_targeting.c_str());
+    LoadComponentAndVerifyLoadComplete(base::StringPrintf(
+        kValidCampaignsFileTemplate, device_targeting.c_str()));
+  }
+
   void LoadComponentWithExperimentTagTargeting(const std::string& exp_tags) {
     auto session_targeting = base::StringPrintf(R"(
             "session": {
@@ -257,7 +270,7 @@ class CampaignsManagerTest : public testing::Test {
 
   void LoadComponentWithScheduling(const std::string& schedulings) {
     auto session_targeting = base::StringPrintf(R"(
-            "session": {
+            "runtime": {
               "schedulings": %s
             }
           )",
@@ -268,11 +281,22 @@ class CampaignsManagerTest : public testing::Test {
 
   void LoadComponentWithAppsOpenedTargeting(const std::string& apps_opened) {
     auto session_targeting = base::StringPrintf(R"(
-            "session": {
+            "runtime": {
               "appsOpened": %s
             }
           )",
                                                 apps_opened.c_str());
+    LoadComponentAndVerifyLoadComplete(base::StringPrintf(
+        kValidCampaignsFileTemplate, session_targeting.c_str()));
+  }
+
+  void LoadComponentWithActiveUrlTargeting(const std::string& active_url) {
+    auto session_targeting = base::StringPrintf(R"(
+            "runtime": {
+              "activeUrlRegexes": %s
+            }
+          )",
+                                                active_url.c_str());
     LoadComponentAndVerifyLoadComplete(base::StringPrintf(
         kValidCampaignsFileTemplate, session_targeting.c_str()));
   }
@@ -297,6 +321,8 @@ class CampaignsManagerTest : public testing::Test {
         ash::prefs::kDemoModeRetailerId, std::string());
     local_state_->registry()->RegisterStringPref(ash::prefs::kDemoModeStoreId,
                                                  std::string());
+    local_state_->registry()->RegisterTimePref(
+        ash::prefs::kDeviceRegisteredTime, base::Time());
   }
 };
 
@@ -1068,11 +1094,6 @@ TEST_F(CampaignsManagerTest, GetSchedulingCampaignInvalidTargeting) {
   VerifyDemoModePayload(
       campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
 
-  histogram_tester.ExpectBucketCount(
-      kCampaignsManagerErrorHistogramName,
-      CampaignsManagerError::kInvalidSchedulingTargeting,
-      /*count=*/1);
-
   histogram_tester.ExpectBucketCount(kCampaignsManagerErrorHistogramName,
                                      CampaignsManagerError::kInvalidCampaign,
                                      /*count=*/1);
@@ -1107,6 +1128,155 @@ TEST_F(CampaignsManagerTest, GetSchedulingCampaignInvalidScheduling) {
   histogram_tester.ExpectBucketCount(kCampaignsManagerErrorHistogramName,
                                      CampaignsManagerError::kInvalidTargeting,
                                      /*count=*/1);
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignWithRegisteredTimeTargeting) {
+  const auto now = base::Time::Now();
+  auto start = now;
+  auto end = now + base::Seconds(5);
+  LoadComponentWithRegisteredTimeTargeting(base::StringPrintf(
+      R"({"start": %f, "end": %f})", start.InSecondsFSinceUnixEpoch(),
+      end.InSecondsFSinceUnixEpoch()));
+  campaigns_manager_->SetOobeCompleteTimeForTesting(now);
+
+  VerifyDemoModePayload(
+      campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignWithRegisteredTimeTargetingStartOnly) {
+  const auto now = base::Time::Now();
+  auto start = now;
+  LoadComponentWithRegisteredTimeTargeting(
+      base::StringPrintf(R"({"start": %f})", start.InSecondsFSinceUnixEpoch()));
+  campaigns_manager_->SetOobeCompleteTimeForTesting(now);
+
+  VerifyDemoModePayload(
+      campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignWithRegisteredTimeTargetingEndOnly) {
+  const auto now = base::Time::Now();
+  auto end = now + base::Seconds(5);
+  LoadComponentWithRegisteredTimeTargeting(
+      base::StringPrintf(R"({"end": %f})", end.InSecondsFSinceUnixEpoch()));
+  campaigns_manager_->SetOobeCompleteTimeForTesting(now);
+
+  VerifyDemoModePayload(
+      campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest,
+       GetCampaignWithRegisteredTimeTargetingStartMismatch) {
+  const auto now = base::Time::Now();
+  auto start = now + base::Seconds(5);
+  auto end = now + base::Seconds(10);
+  LoadComponentWithRegisteredTimeTargeting(base::StringPrintf(
+      R"({"start": %f, "end": %f})", start.InSecondsFSinceUnixEpoch(),
+      end.InSecondsFSinceUnixEpoch()));
+  campaigns_manager_->SetOobeCompleteTimeForTesting(now);
+
+  ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest,
+       GetCampaignWithRegisteredTimeTargetingEndMismatch) {
+  const auto now = base::Time::Now();
+  auto start = now - base::Seconds(2);
+  auto end = now - base::Seconds(1);
+  LoadComponentWithRegisteredTimeTargeting(base::StringPrintf(
+      R"({"start": %f, "end": %f})", start.InSecondsFSinceUnixEpoch(),
+      end.InSecondsFSinceUnixEpoch()));
+  campaigns_manager_->SetOobeCompleteTimeForTesting(now);
+
+  ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest,
+       GetCampaignWithRegisteredTimeTargetingStartOnlyMismatch) {
+  const auto now = base::Time::Now();
+  auto start = now + base::Seconds(5);
+  LoadComponentWithRegisteredTimeTargeting(
+      base::StringPrintf(R"({"start": %f})", start.InSecondsFSinceUnixEpoch()));
+  campaigns_manager_->SetOobeCompleteTimeForTesting(now);
+
+  ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest,
+       GetCampaignWithRegisteredTimeTargetingEndOnlyMismatch) {
+  const auto now = base::Time::Now();
+  auto end = now - base::Seconds(5);
+  LoadComponentWithRegisteredTimeTargeting(
+      base::StringPrintf(R"({"end": %f})", end.InSecondsFSinceUnixEpoch()));
+  campaigns_manager_->SetOobeCompleteTimeForTesting(now);
+
+  ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignActiveUrl) {
+  campaigns_manager_->SetActiveUrl(GURL("https://www.google.com/?foo=bar"));
+
+  LoadComponentWithActiveUrlTargeting(
+      R"([
+        "https://www\\.google\\.com/\\?foo=bar",
+        "https://gmail\\.google\\.com/\\?foo=bar",
+        "https://www\\.google\\.com/\\?foo=bar2"
+    ])");
+
+  VerifyDemoModePayload(
+      campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignActiveUrlOrRelationship) {
+  campaigns_manager_->SetActiveUrl(GURL("https://www.google.com/?foo=bar"));
+
+  LoadComponentWithActiveUrlTargeting(
+      R"([
+        "https://gmail\\.google\\.com/\\?foo=bar",
+        "https://www\\.google\\.com/\\?foo=bar",
+        "https://www\\.google\\.com/\\?foo=bar2",
+        "https://www\\.google\\.com/foo=bar"
+    ])");
+
+  VerifyDemoModePayload(
+      campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignActiveUrlMismatch) {
+  campaigns_manager_->SetActiveUrl(GURL("https://www.google.com/?foo=bar"));
+
+  LoadComponentWithActiveUrlTargeting(
+      R"([
+        "1https://gmail\\.google\\.com/\\?foo=bar",
+        "http://www\\.google\\.com/\\?foo=bar",
+        "https://www\\.google\\.com/\\?foo=bar2"
+    ])");
+
+  ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignActiveUrlEmptyActiveUrl) {
+  campaigns_manager_->SetActiveUrl(GURL::EmptyGURL());
+
+  LoadComponentWithActiveUrlTargeting(
+      R"([
+        "1https://gmail\\.google\\.com/\\?foo=bar",
+        "http://www\\.google\\.com/\\?foo=bar",
+        "https://www\\.google\\.com/\\?foo=bar2"
+    ])");
+
+  ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+}
+
+TEST_F(CampaignsManagerTest, GetCampaignActiveUrlNoActiveUrl) {
+  LoadComponentWithActiveUrlTargeting(
+      R"([
+        "1https://gmail\\.google\\.com/\\?foo=bar",
+        "http://www\\.google\\.com/\\?foo=bar",
+        "https://www\\.google\\.com/\\?foo=bar2"
+    ])");
+
+  ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
 }
 
 TEST_F(CampaignsManagerTest, GetCampaignAppsOpened) {

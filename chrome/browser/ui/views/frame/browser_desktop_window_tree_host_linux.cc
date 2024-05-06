@@ -193,7 +193,7 @@ void BrowserDesktopWindowTreeHostLinux::UpdateFrameHints() {
       static_cast<BrowserNonClientFrameView*>(browser_frame_->GetFrameView());
   bool showing_frame =
       browser_frame_->native_browser_frame()->UseCustomFrame() &&
-      !view->IsFrameCondensed();
+      !view->IsFrameCondensed() && !view->frame()->IsMinimized();
   const gfx::Size widget_size =
       view->GetWidget()->GetWindowBoundsInScreen().size();
 
@@ -334,15 +334,13 @@ void BrowserDesktopWindowTreeHostLinux::OnBoundsChanged(
 }
 
 void BrowserDesktopWindowTreeHostLinux::OnWindowStateChanged(
-    ui::PlatformWindowState old_window_show_state,
-    ui::PlatformWindowState new_window_show_state) {
-  DesktopWindowTreeHostLinux::OnWindowStateChanged(old_window_show_state,
-                                                   new_window_show_state);
+    ui::PlatformWindowState old_state,
+    ui::PlatformWindowState new_state) {
+  DesktopWindowTreeHostLinux::OnWindowStateChanged(old_state, new_state);
 
-  bool fullscreen_changed =
-      ui::IsPlatformWindowStateFullscreen(new_window_show_state) ||
-      ui::IsPlatformWindowStateFullscreen(old_window_show_state);
-  if (old_window_show_state != new_window_show_state && fullscreen_changed) {
+  bool fullscreen_changed = ui::IsPlatformWindowStateFullscreen(new_state) ||
+                            ui::IsPlatformWindowStateFullscreen(old_state);
+  if (old_state != new_state && fullscreen_changed) {
     // If the browser view initiated this state change,
     // BrowserView::ProcessFullscreen will no-op, so this call is harmless.
     browser_view_->FullscreenStateChanging();

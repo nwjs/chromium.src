@@ -71,7 +71,11 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
       ReturnType<SeaPenProviderInterface['selectSeaPenThumbnail']> =
           Promise.resolve({success: true});
 
-  shouldShowSeaPenTermsOfServiceDialogResponse = true;
+  selectSeaPenRecentImageResponse:
+      ReturnType<SeaPenProviderInterface['selectRecentSeaPenImage']> =
+          Promise.resolve({success: true});
+
+  shouldShowSeaPenIntroductionDialogResponse = true;
 
   constructor() {
     super([
@@ -81,8 +85,8 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
       'getRecentSeaPenImages',
       'getRecentSeaPenImageThumbnail',
       'deleteRecentSeaPenImage',
-      'shouldShowSeaPenTermsOfServiceDialog',
-      'handleSeaPenTermsOfServiceAccepted',
+      'shouldShowSeaPenIntroductionDialog',
+      'handleSeaPenIntroductionDialogClosed',
     ]);
   }
 
@@ -105,7 +109,7 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
     assertTrue(
         isSeaPenImageId(id), `id must be SeaPenImageId but received: ${id}`);
     this.methodCalled('selectRecentSeaPenImage', id);
-    return Promise.resolve({success: true});
+    return this.selectSeaPenRecentImageResponse;
   }
 
   getRecentSeaPenImages() {
@@ -135,14 +139,14 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
     return;
   }
 
-  shouldShowSeaPenTermsOfServiceDialog() {
-    this.methodCalled('shouldShowSeaPenTermsOfServiceDialog');
+  shouldShowSeaPenIntroductionDialog() {
+    this.methodCalled('shouldShowSeaPenIntroductionDialog');
     return Promise.resolve(
-        {shouldShowDialog: this.shouldShowSeaPenTermsOfServiceDialogResponse});
+        {shouldShowDialog: this.shouldShowSeaPenIntroductionDialogResponse});
   }
 
-  handleSeaPenTermsOfServiceAccepted() {
-    this.methodCalled('handleSeaPenTermsOfServiceAccepted');
-    this.shouldShowSeaPenTermsOfServiceDialogResponse = false;
+  handleSeaPenIntroductionDialogClosed() {
+    this.methodCalled('handleSeaPenIntroductionDialogClosed');
+    this.shouldShowSeaPenIntroductionDialogResponse = false;
   }
 }

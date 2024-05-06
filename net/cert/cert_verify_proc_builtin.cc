@@ -30,7 +30,6 @@
 #include "net/cert/internal/cert_issuer_source_aia.h"
 #include "net/cert/internal/revocation_checker.h"
 #include "net/cert/internal/system_trust_store.h"
-#include "net/cert/known_roots.h"
 #include "net/cert/signed_certificate_timestamp_and_status.h"
 #include "net/cert/test_root_certs.h"
 #include "net/cert/time_conversions.h"
@@ -49,6 +48,7 @@
 #include "third_party/boringssl/src/pki/trust_store_in_memory.h"
 
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
+#include "base/version_info/version_info.h"  // nogncheck
 #include "net/cert/internal/trust_store_chrome.h"
 #endif
 
@@ -58,11 +58,12 @@ namespace net {
 
 namespace {
 
-// Very conservative iteration count limit.
-// TODO(https://crbug.com/634470): Remove this in favor of
-// kPathBuilderIterationLimitNew.
-constexpr uint32_t kPathBuilderIterationLimit = 25000;
-constexpr uint32_t kPathBuilderIterationLimitNew = 20;
+// To avoid a denial-of-service risk, cap iterations by the path builder.
+// Without a limit, path building is potentially exponential. This limit was
+// set based on UMA histograms in the wild. See https://crrev.com/c/4903550.
+//
+// TODO(crbug.com/41267856): Move this limit into BoringSSL as a default.
+constexpr uint32_t kPathBuilderIterationLimit = 20;
 
 constexpr base::TimeDelta kMaxVerificationTime = base::Seconds(60);
 
@@ -438,29 +439,42 @@ class PathBuilderDelegateImpl : public bssl::SimplePathBuilderDelegate {
     // confusing when there are multiple ChromeRootCertConstraints objects,
     // would need to clearly distinguish which set of constraints had errors.)
 
-    if (constraint.sct_not_after.has_value()) {
-      bool found_matching_sct = false;
-      for (const auto& sct : ValidScts(delegate_data->scts)) {
-        if (sct->timestamp <= constraint.sct_not_after.value()) {
-          found_matching_sct = true;
-          break;
+    if (ct_policy_enforcer_->IsCtEnabled()) {
+      if (constraint.sct_not_after.has_value()) {
+        bool found_matching_sct = false;
+        for (const auto& sct : ValidScts(delegate_data->scts)) {
+          if (sct->timestamp <= constraint.sct_not_after.value()) {
+            found_matching_sct = true;
+            break;
+          }
         }
-      }
-      if (!found_matching_sct) {
-        return false;
-      }
-    }
-
-    if (constraint.sct_all_after.has_value()) {
-      ct::SCTList valid_scts = ValidScts(delegate_data->scts);
-      if (valid_scts.empty()) {
-        return false;
-      }
-      for (const auto& sct : ValidScts(delegate_data->scts)) {
-        if (sct->timestamp <= constraint.sct_all_after.value()) {
+        if (!found_matching_sct) {
           return false;
         }
       }
+
+      if (constraint.sct_all_after.has_value()) {
+        ct::SCTList valid_scts = ValidScts(delegate_data->scts);
+        if (valid_scts.empty()) {
+          return false;
+        }
+        for (const auto& sct : ValidScts(delegate_data->scts)) {
+          if (sct->timestamp <= constraint.sct_all_after.value()) {
+            return false;
+          }
+        }
+      }
+    }
+
+    if (constraint.min_version.has_value() &&
+        version_info::GetVersion() < constraint.min_version.value()) {
+      return false;
+    }
+
+    if (constraint.max_version_exclusive.has_value() &&
+        version_info::GetVersion() >=
+            constraint.max_version_exclusive.value()) {
+      return false;
     }
 
     return true;
@@ -972,12 +986,7 @@ bssl::CertPathBuilder::Result TryBuildPath(
     }
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kNewCertPathBuilderIterationLimit)) {
-    path_builder.SetIterationLimit(kPathBuilderIterationLimitNew);
-  } else {
-    path_builder.SetIterationLimit(kPathBuilderIterationLimit);
-  }
+  path_builder.SetIterationLimit(kPathBuilderIterationLimit);
 
   return path_builder.Run();
 }
@@ -1005,22 +1014,12 @@ int AssignVerifyResult(X509Certificate* input_cert,
 
   AppendPublicKeyHashes(partial_path, &verify_result->public_key_hashes);
 
-  for (auto it = verify_result->public_key_hashes.rbegin();
-       it != verify_result->public_key_hashes.rend() &&
-       !verify_result->is_issued_by_known_root;
-       ++it) {
-    verify_result->is_issued_by_known_root =
-        GetNetTrustAnchorHistogramIdForSPKI(*it) != 0;
-  }
-
   bool path_is_valid = partial_path.IsValid();
 
   const bssl::ParsedCertificate* trusted_cert = partial_path.GetTrustedCert();
   if (trusted_cert) {
-    if (!verify_result->is_issued_by_known_root) {
-      verify_result->is_issued_by_known_root =
-          trust_store->IsKnownRoot(trusted_cert);
-    }
+    verify_result->is_issued_by_known_root =
+        trust_store->IsKnownRoot(trusted_cert);
 
     verify_result->is_issued_by_additional_trust_anchor =
         trust_store->IsAdditionalTrustAnchor(trusted_cert);

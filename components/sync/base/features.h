@@ -17,24 +17,6 @@ inline constexpr base::FeatureParam<int>
         &kDeferredSyncStartupCustomDelay,
         "DeferredSyncStartupCustomDelayInSeconds", 1};
 
-// Causes Sync to ignore updates encrypted with keys that have been missing for
-// too long from this client; Sync will proceed normally as if those updates
-// didn't exist.
-BASE_DECLARE_FEATURE(kIgnoreSyncEncryptionKeysLongMissing);
-
-// The threshold for kIgnoreSyncEncryptionKeysLongMissing to start ignoring keys
-// (measured in number of GetUpdatesResponses messages).
-inline constexpr base::FeatureParam<int> kMinGuResponsesToIgnoreKey{
-    &kIgnoreSyncEncryptionKeysLongMissing, "MinGuResponsesToIgnoreKey", 3};
-
-#if BUILDFLAG(IS_ANDROID)
-// If the user has an explicit sync passphrase and entered it in the browser,
-// this flag silently passes the (derived) passphrase to GmsCore. Then GmsCore
-// can decrypt synced data (mainly passwords) without the user entering the
-// passphrase a second time.
-BASE_DECLARE_FEATURE(kPassExplicitSyncPassphraseToGmsCore);
-#endif
-
 // Controls whether to enable bootstrapping Public-private keys in Nigori
 // key-bag.
 BASE_DECLARE_FEATURE(kSharingOfferKeyPairBootstrap);
@@ -59,9 +41,6 @@ BASE_DECLARE_FEATURE(kSyncAutofillWalletCredentialData);
 // instantiated.
 // TODO(b/322147254): Cleanup when launched.
 BASE_DECLARE_FEATURE(kSyncPlusAddress);
-
-// If enabled, Segmentation data type will be synced.
-BASE_DECLARE_FEATURE(kSyncSegmentationDataType);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Whether explicit passphrase sharing between Ash and Lacros is enabled.
@@ -88,6 +67,7 @@ BASE_DECLARE_FEATURE(kSkipInvalidationOptimizationsWhenDeviceInfoUpdated);
 BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeInTransportMode);
 BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers);
 BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeForDasherUsers);
+BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeForChildUsers);
 
 // For users who support separate "profile" and "account" password stores -
 // see password_manager::features_util::CanCreateAccountStore() - and have
@@ -116,11 +96,12 @@ BASE_DECLARE_FEATURE(kEnablePreferencesAccountStorage);
 // TODO(crbug.com/1425071): Remove this.
 BASE_DECLARE_FEATURE(kSyncPollImmediatelyOnEveryStartup);
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_ANDROID)
 // Enables syncing the WEBAUTHN_CREDENTIAL data type.
-// Enabled by default on M123. Remove on or after M126.
+// Enabled by default on M123. Remove on or after M126 on all platforms,
+// except on iOS, where it has not been enabled by default yet.
 BASE_DECLARE_FEATURE(kSyncWebauthnCredentials);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // If enabled, ignore GetUpdates retry delay command from the server.
 BASE_DECLARE_FEATURE(kSyncIgnoreGetUpdatesRetryDelay);
@@ -184,16 +165,6 @@ inline constexpr base::FeatureParam<base::TimeDelta>
         "SyncPasswordCleanUpAccidentalBatchDeletionsTimeThreshold",
         base::Milliseconds(100)};
 
-// Flag to enable the option to batch upload local data from the new account
-// settings panel.
-BASE_DECLARE_FEATURE(kSyncEnableBatchUploadLocalData);
-
-#if BUILDFLAG(IS_ANDROID)
-// Feature flag for enabling the restoration of synced placeholder tabs missing
-// on the local session, which typically happens only on Android only.
-BASE_DECLARE_FEATURE(kRestoreSyncedPlaceholderTabs);
-#endif  // BUILDFLAG(IS_ANDROID)
-
 // If enabled, triggers a synchronisation when WebContentsObserver's
 // -OnVisibilityChanged method is called.
 BASE_DECLARE_FEATURE(kSyncSessionOnVisibilityChanged);
@@ -204,10 +175,6 @@ inline constexpr base::FeatureParam<base::TimeDelta>
     kSyncSessionOnVisibilityChangedTimeThreshold{
         &kSyncSessionOnVisibilityChanged,
         "SyncSessionOnVisibilityChangedTimeThreshold", base::Minutes(10)};
-
-// If enabled, the payment methods sync setting toggle is decoupled from
-// autofill. See crbug.com/1435431 for details.
-BASE_DECLARE_FEATURE(kSyncDecoupleAddressPaymentSettings);
 
 // If enabled, sync-the-transport will auto-start (avoid deferring startup) if
 // sync metadata isn't available (i.e. initial sync never completed).

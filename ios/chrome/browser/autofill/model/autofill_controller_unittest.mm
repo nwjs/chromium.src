@@ -30,7 +30,6 @@
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/autofill/ios/browser/test_autofill_manager_injector.h"
-#import "components/autofill/ios/form_util/unique_id_data_tab_helper.h"
 #import "components/infobars/core/confirm_infobar_delegate.h"
 #import "components/infobars/core/infobar.h"
 #import "components/infobars/core/infobar_manager.h"
@@ -158,7 +157,7 @@ void CheckField(const FormStructure& form,
                 const char* name) {
   for (const auto& field : form) {
     if (field->heuristic_type() == fieldType) {
-      EXPECT_EQ(base::UTF8ToUTF16(name), field->name);
+      EXPECT_EQ(base::UTF8ToUTF16(name), field->name());
       return;
     }
   }
@@ -276,9 +275,6 @@ class AutofillControllerTest : public PlatformTest {
   // Fails if the specified metric was not registered the given number of times.
   void ExpectMetric(const std::string& histogram_name, int sum);
 
-  // Fails if the specified user happiness metric was not registered.
-  void ExpectHappinessMetric(AutofillMetrics::UserHappinessMetric metric);
-
   TestSuggestionController* suggestion_controller() {
     return suggestion_controller_;
   }
@@ -320,7 +316,6 @@ void AutofillControllerTest::SetUp() {
 
   // Create a PasswordController instance that will handle set up for renderer
   // ids.
-  UniqueIDDataTabHelper::CreateForWebState(web_state());
   passwordController_ =
       [[PasswordController alloc] initWithWebState:web_state()];
 
@@ -357,7 +352,8 @@ void AutofillControllerTest::SetUp() {
                                       profilePasswordStore:nullptr
                                       accountPasswordStore:nullptr
                                       securityAlertHandler:nil
-                                    reauthenticationModule:nil];
+                                    reauthenticationModule:nil
+                                         engagementTracker:nil];
 
   [accessory_mediator_ injectWebState:web_state()];
   [accessory_mediator_ injectProvider:suggestion_controller_];
@@ -407,11 +403,6 @@ void AutofillControllerTest::ExpectMetric(const std::string& histogram_name,
   histogram_tester_->ExpectBucketCount(histogram_name, sum, 1);
 }
 
-void AutofillControllerTest::ExpectHappinessMetric(
-    AutofillMetrics::UserHappinessMetric metric) {
-  histogram_tester_->ExpectBucketCount("Autofill.UserHappiness", metric, 1);
-}
-
 void AutofillControllerTest::WaitForCondition(ConditionBlock condition) {
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(base::Seconds(1000),
                                                            true, condition));
@@ -436,7 +427,6 @@ TEST_F(AutofillControllerTest, ReadForm) {
   CheckField(form, ADDRESS_HOME_STATE, "state");
   CheckField(form, ADDRESS_HOME_ZIP, "zip");
   ExpectMetric("Autofill.IsEnabled.PageLoad", 1);
-  ExpectHappinessMetric(AutofillMetrics::FORMS_LOADED);
 }
 
 // Checks that viewing an HTML page containing a form with an 'id' results in
@@ -534,7 +524,6 @@ TEST_F(AutofillControllerTest, ProfileSuggestions) {
   web::test::ExecuteJavaScript(@"document.forms[0].name.focus()", web_state());
   WaitForSuggestionRetrieval(/*wait_for_trigger=*/YES);
   ExpectMetric("Autofill.AddressSuggestionsCount", 1);
-  ExpectHappinessMetric(AutofillMetrics::SUGGESTIONS_SHOWN);
   EXPECT_EQ(1U, [suggestion_controller() suggestions].count);
   FormSuggestion* suggestion = [suggestion_controller() suggestions][0];
   EXPECT_NSEQ(@"Homer Simpson", suggestion.value);
@@ -556,7 +545,6 @@ TEST_F(AutofillControllerTest, ProfileSuggestionsTwoAnonymousForms) {
   web::test::ExecuteJavaScript(@"document.forms[0].name.focus()", web_state());
   WaitForSuggestionRetrieval(/*wait_for_trigger=*/YES);
   ExpectMetric("Autofill.AddressSuggestionsCount", 1);
-  ExpectHappinessMetric(AutofillMetrics::SUGGESTIONS_SHOWN);
   EXPECT_EQ(1U, [suggestion_controller() suggestions].count);
   FormSuggestion* suggestion = [suggestion_controller() suggestions][0];
   EXPECT_NSEQ(@"Homer Simpson", suggestion.value);
@@ -577,7 +565,6 @@ TEST_F(AutofillControllerTest, ProfileSuggestionsFromSelectField) {
   web::test::ExecuteJavaScript(@"document.forms[0].state.focus()", web_state());
   WaitForSuggestionRetrieval(/*wait_for_trigger=*/YES);
   ExpectMetric("Autofill.AddressSuggestionsCount", 1);
-  ExpectHappinessMetric(AutofillMetrics::SUGGESTIONS_SHOWN);
   EXPECT_EQ(1U, [suggestion_controller() suggestions].count);
   FormSuggestion* suggestion = [suggestion_controller() suggestions][0];
   EXPECT_NSEQ(@"IL", suggestion.value);
@@ -624,7 +611,6 @@ TEST_F(AutofillControllerTest, MultipleProfileSuggestions) {
   web::test::ExecuteJavaScript(@"document.forms[0].name.focus()", web_state());
   WaitForSuggestionRetrieval(/*wait_for_trigger=*/YES);
   ExpectMetric("Autofill.AddressSuggestionsCount", 2);
-  ExpectHappinessMetric(AutofillMetrics::SUGGESTIONS_SHOWN);
   EXPECT_EQ(2U, [suggestion_controller() suggestions].count);
 }
 
@@ -673,8 +659,8 @@ void AutofillControllerTest::SetUpKeyValueData() {
   // Load value into database.
   std::vector<FormFieldData> values;
   FormFieldData fieldData;
-  fieldData.name = u"greeting";
-  fieldData.value = u"Bonjour";
+  fieldData.set_name(u"greeting");
+  fieldData.set_value(u"Bonjour");
   values.push_back(fieldData);
   web_data_service->AddFormFields(values);
 

@@ -4,6 +4,8 @@
 
 #include "chrome/browser/signin/bound_session_credentials/bound_session_registration_fetcher_impl.h"
 
+#include <string_view>
+
 #include "base/base64.h"
 #include "base/containers/span.h"
 #include "base/json/json_reader.h"
@@ -64,7 +66,7 @@ void BoundSessionRegistrationFetcherImpl::Start(
     RegistrationCompleteCallback callback) {
   TRACE_EVENT("browser", "BoundSessionRegistrationFetcherImpl::Start",
               perfetto::Flow::FromPointer(this), "endpoint",
-              registration_params_.RegistrationEndpoint());
+              registration_params_.registration_endpoint());
   CHECK(!registration_duration_.has_value());
   CHECK(!callback_);
   CHECK(!registration_token_helper_);
@@ -73,8 +75,8 @@ void BoundSessionRegistrationFetcherImpl::Start(
   // base::Unretained() is safe since `this` owns
   // `registration_token_helper_`.
   registration_token_helper_ = RegistrationTokenHelper::CreateForSessionBinding(
-      key_service_.get(), registration_params_.Challenge(),
-      registration_params_.RegistrationEndpoint(),
+      key_service_.get(), registration_params_.challenge(),
+      registration_params_.registration_endpoint(),
       base::BindOnce(
           &BoundSessionRegistrationFetcherImpl::OnRegistrationTokenCreated,
           base::Unretained(this), base::ElapsedTimer()));
@@ -128,7 +130,7 @@ void BoundSessionRegistrationFetcherImpl::OnURLLoaderComplete(
   bound_session_credentials::BoundSessionParams params =
       std::move(params_or_error).value();
   params.set_site(
-      net::SchemefulSite(registration_params_.RegistrationEndpoint())
+      net::SchemefulSite(registration_params_.registration_endpoint())
           .Serialize());
   params.set_wrapped_key(wrapped_key_str_);
   *params.mutable_creation_time() =
@@ -208,14 +210,14 @@ void BoundSessionRegistrationFetcherImpl::StartFetchingRegistration(
         })");
 
   auto request = std::make_unique<network::ResourceRequest>();
-  request->url = registration_params_.RegistrationEndpoint();
+  request->url = registration_params_.registration_endpoint();
   request->method = "POST";
-  request->site_for_cookies =
-      net::SiteForCookies::FromUrl(registration_params_.RegistrationEndpoint());
+  request->site_for_cookies = net::SiteForCookies::FromUrl(
+      registration_params_.registration_endpoint());
   request->trusted_params = network::ResourceRequest::TrustedParams();
   request->trusted_params->isolation_info =
       net::IsolationInfo::CreateForInternalRequest(
-          url::Origin::Create(registration_params_.RegistrationEndpoint()));
+          url::Origin::Create(registration_params_.registration_endpoint()));
 
   std::string content_type = "application/jwt";
 
@@ -267,7 +269,7 @@ BoundSessionRegistrationFetcherImpl::ParseJsonResponse(
     std::unique_ptr<std::string> response_body) {
   // JSON responses normally should start with XSSI-protection prefix which
   // should be removed prior to parsing.
-  base::StringPiece response_json = *response_body;
+  std::string_view response_json = *response_body;
   if (base::StartsWith(*response_body, kXSSIPrefix,
                        base::CompareCase::SENSITIVE)) {
     response_json = response_json.substr(strlen(kXSSIPrefix));

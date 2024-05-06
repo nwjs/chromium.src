@@ -11,9 +11,7 @@
 #include "ash/shell_delegate.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
-#include "ash/utility/cursor_setter.h"
 #include "ash/wm/snap_group/snap_group.h"
-#include "ash/wm/splitview/layout_divider_controller.h"
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_divider.h"
 #include "ash/wm/splitview/split_view_divider_handler_view.h"
@@ -35,19 +33,20 @@ namespace ash {
 
 namespace {
 
-// Distance between the bottom of the feedback button and the bottom of the work
-// area.
-constexpr int kFeedbackButtonDistanceFromBottom = 58;
+// Distance between the bottom / right edge of the feedback button and the
+// bottom / right of the work area.
+constexpr int kFeedbackButtonDistanceFromEdge = 58;
 
-// Size of the feedback button.
+// Feedback button size.
 constexpr gfx::Size kFeedbackButtonSize{40, 40};
+
+// Feedback button icon size.
+constexpr int kFeedbackButtonIconSize = 20;
 
 }  // namespace
 
-SplitViewDividerView::SplitViewDividerView(LayoutDividerController* controller,
-                                           SplitViewDivider* divider)
-    : controller_(controller),
-      divider_handler_view_(
+SplitViewDividerView::SplitViewDividerView(SplitViewDivider* divider)
+    : divider_handler_view_(
           AddChildView(std::make_unique<SplitViewDividerHandlerView>())),
       divider_(divider) {
   SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
@@ -55,19 +54,15 @@ SplitViewDividerView::SplitViewDividerView(LayoutDividerController* controller,
   SetPaintToLayer(ui::LAYER_TEXTURED);
   layer()->SetFillsBoundsOpaquely(false);
 
-  SetBackground(views::CreateThemedSolidBackground(
-      cros_tokens::kCrosSysSystemBaseElevated));
-  SetBorder(std::make_unique<views::HighlightBorder>(
-      /*corner_radius=*/0,
-      views::HighlightBorder::Type::kHighlightBorderNoShadow));
-
+  SetBackground(
+      views::CreateThemedSolidBackground(cros_tokens::kCrosSysSecondary));
   RefreshFeedbackButton(false);
 }
 
 SplitViewDividerView::~SplitViewDividerView() = default;
 
-void SplitViewDividerView::OnShuttingDown() {
-  controller_ = nullptr;
+void SplitViewDividerView::OnDividerClosing() {
+  divider_ = nullptr;
 }
 
 void SplitViewDividerView::DoSpawningAnimation(int spawn_position) {
@@ -108,25 +103,13 @@ void SplitViewDividerView::Layout(PassKey) {
   // `kSnapGroup` is enabled. If we are in clamshell mode without the feature
   // flag and params, then we must be transitioning from tablet mode, and the
   // divider will be destroyed and there is no need to update it.
-  if (!display::Screen::GetScreen()->InTabletMode() &&
-      !IsSnapGroupEnabledInClamshellMode()) {
+  if (!divider_ || (!display::Screen::GetScreen()->InTabletMode() &&
+                    !IsSnapGroupEnabledInClamshellMode())) {
     return;
   }
 
   SetBoundsRect(GetLocalBounds());
-  divider_handler_view_->Refresh(divider_->is_resizing_with_divider());
-
-  if (feedback_button_) {
-    // TODO(michelefan): Calculate the bounds for the feedback button for
-    // vertical layout.
-    const gfx::Size feedback_button_size = feedback_button_->GetPreferredSize();
-    const gfx::Rect feedback_button_bounds(
-        (width() - feedback_button_size.width()) / 2.f,
-        height() - feedback_button_size.height() -
-            kFeedbackButtonDistanceFromBottom,
-        feedback_button_size.width(), feedback_button_size.height());
-    feedback_button_->SetBoundsRect(feedback_button_bounds);
-  }
+  RefreshFeedbackButtonBounds();
   divider_handler_view_->Refresh(divider_->is_resizing_with_divider());
 }
 
@@ -136,19 +119,12 @@ void SplitViewDividerView::OnMouseEntered(const ui::MouseEvent& event) {
 
   if (!feedback_button_ ||
       !feedback_button_->GetBoundsInScreen().Contains(screen_location)) {
-    // Set cursor type as the resize cursor when it's on the split view divider.
-    cursor_setter_.UpdateCursor(GetWidget()->GetNativeWindow()->GetRootWindow(),
-                                ui::mojom::CursorType::kColumnResize);
     // Show `feedback_button_` on mouse entered.
     RefreshFeedbackButton(/*visible=*/true);
   }
 }
 
 void SplitViewDividerView::OnMouseExited(const ui::MouseEvent& event) {
-  // Since `notify_enter_exit_on_child_` in view.h is default to false, on mouse
-  // exit `this` the cursor will be reset.
-  cursor_setter_.ResetCursor();
-
   gfx::Point screen_location = event.location();
   ConvertPointToScreen(this, &screen_location);
   // Hide `feedback_button_` on mouse exited.
@@ -166,6 +142,7 @@ bool SplitViewDividerView::OnMousePressed(const ui::MouseEvent& event) {
 }
 
 bool SplitViewDividerView::OnMouseDragged(const ui::MouseEvent& event) {
+  CHECK(divider_);
   RefreshFeedbackButton(/*visible=*/false);
   if (!mouse_move_started_) {
     // If this is the first mouse drag event, start the resize and reset
@@ -194,6 +171,7 @@ void SplitViewDividerView::OnMouseReleased(const ui::MouseEvent& event) {
 }
 
 void SplitViewDividerView::OnGestureEvent(ui::GestureEvent* event) {
+  CHECK(divider_);
   if (event->IsSynthesized()) {
     // When `divider_` is destroyed, closing the widget can cause a window
     // visibility change which will cancel active touches and dispatch a
@@ -226,6 +204,12 @@ void SplitViewDividerView::OnGestureEvent(ui::GestureEvent* event) {
   event->SetHandled();
 }
 
+ui::Cursor SplitViewDividerView::GetCursor(const ui::MouseEvent& event) {
+  return IsLayoutHorizontal(divider_->divider_widget()->GetNativeWindow())
+             ? ui::mojom::CursorType::kColumnResize
+             : ui::mojom::CursorType::kRowResize;
+}
+
 bool SplitViewDividerView::DoesIntersectRect(const views::View* target,
                                              const gfx::Rect& rect) const {
   DCHECK_EQ(target, this);
@@ -233,13 +217,14 @@ bool SplitViewDividerView::DoesIntersectRect(const views::View* target,
 }
 
 void SplitViewDividerView::SwapWindows() {
-  controller_->SwapWindows();
+  CHECK(divider_);
+  divider_->SwapWindows();
 }
 
 void SplitViewDividerView::OnResizeStatusChanged() {
   // If split view has ended, the divider widget will be closing. In this case
   // no need to update the divider layout and do the animation.
-  if (!divider_->divider_widget()) {
+  if (!divider_ || !divider_->divider_widget()) {
     return;
   }
 
@@ -272,6 +257,7 @@ void SplitViewDividerView::OnResizeStatusChanged() {
 }
 
 void SplitViewDividerView::StartResizing(gfx::Point location) {
+  CHECK(divider_);
   // `StartResizeWithDivider()` may cause this view to be destroyed.
   auto weak_ptr = weak_ptr_factory_.GetWeakPtr();
   divider_->StartResizeWithDivider(location);
@@ -296,19 +282,40 @@ void SplitViewDividerView::RefreshFeedbackButton(bool visible) {
     feedback_button_->SetPaintToLayer();
     feedback_button_->layer()->SetFillsBoundsOpaquely(false);
     feedback_button_->SetPreferredSize(kFeedbackButtonSize);
-    feedback_button_->SetIconColor(cros_tokens::kCrosSysInverseWhiteblack);
+    feedback_button_->SetIconSize(kFeedbackButtonIconSize);
+    feedback_button_->SetIconColor(cros_tokens::kCrosSysOnSecondary);
     feedback_button_->SetVisible(true);
     feedback_button_->SetBackground(views::CreateThemedRoundedRectBackground(
-        cros_tokens::kCrosSysSystemBaseElevated,
-        kFeedbackButtonSize.height() / 2.f));
-    feedback_button_->SetVisible(/*visible=*/false);
-    return;
+        cros_tokens::kCrosSysSecondary, kFeedbackButtonSize.height() / 2.f));
   }
 
   feedback_button_->SetVisible(visible);
+  RefreshFeedbackButtonBounds();
+}
+
+void SplitViewDividerView::RefreshFeedbackButtonBounds() {
+  if (feedback_button_ && feedback_button_->GetVisible()) {
+    const gfx::Size feedback_button_size = feedback_button_->GetPreferredSize();
+    gfx::Rect feedback_button_bounds = gfx::Rect();
+    if (IsLayoutHorizontal(divider_->GetRootWindow())) {
+      feedback_button_bounds = gfx::Rect(
+          (width() - feedback_button_size.width()) / 2.f,
+          height() - feedback_button_size.height() -
+              kFeedbackButtonDistanceFromEdge,
+          feedback_button_size.width(), feedback_button_size.height());
+    } else {
+      feedback_button_bounds = gfx::Rect(
+          width() - feedback_button_size.width() / 2.f -
+              kFeedbackButtonDistanceFromEdge,
+          height() - feedback_button_size.height() / 2,
+          feedback_button_size.width(), feedback_button_size.height());
+    }
+    feedback_button_->SetBoundsRect(feedback_button_bounds);
+  }
 }
 
 void SplitViewDividerView::EndResizing(gfx::Point location, bool swap_windows) {
+  CHECK(divider_);
   // `EndResizeWithDivider()` may cause this view to be destroyed.
   auto weak_ptr = weak_ptr_factory_.GetWeakPtr();
   divider_->EndResizeWithDivider(location);

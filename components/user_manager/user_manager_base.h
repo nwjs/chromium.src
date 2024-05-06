@@ -29,9 +29,13 @@
 
 class PrefRegistrySimple;
 
+namespace ash {
+class CrosSettings;
+}  // namespace ash
+
 namespace base {
 class SingleThreadTaskRunner;
-}
+}  // namespace base
 
 namespace user_manager {
 
@@ -64,10 +68,27 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
     kMaxValue = kLSUDeleted
   };
 
+  // Delegate interface to inject //chrome/* dependency.
+  // In case you need to extend this, please consider to minimize the
+  // responsibility, because it means to depend more things on //chrome/*
+  // browser from ash-system, which we prefer minimizing.
+  class Delegate {
+   public:
+    virtual ~Delegate() = default;
+
+    // Returns the application locale.
+    virtual const std::string& GetApplicationLocale() = 0;
+
+    // Overrides the home directory path for the `primary_user`.
+    virtual void OverrideDirHome(const User& primary_user) = 0;
+  };
+
   // Creates UserManagerBase with |task_runner| for UI thread, and given
   // |local_state|. |local_state| must outlive this UserManager.
-  UserManagerBase(scoped_refptr<base::SingleThreadTaskRunner> task_runner,
-                  PrefService* local_state);
+  UserManagerBase(std::unique_ptr<Delegate> delegate,
+                  scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+                  PrefService* local_state,
+                  ash::CrosSettings* cros_settings);
 
   UserManagerBase(const UserManagerBase&) = delete;
   UserManagerBase& operator=(const UserManagerBase&) = delete;
@@ -192,6 +213,9 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
                      std::set<AccountId>* users_set);
 
  protected:
+  ash::CrosSettings* cros_settings() { return cros_settings_; }
+  const ash::CrosSettings* cros_settings() const { return cros_settings_; }
+
   // Adds |user| to users list, and adds it to front of LRU list. It is assumed
   // that there is no user with same id.
   virtual void AddUserRecord(User* user);
@@ -202,9 +226,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   // A wrapper around C++ delete operator. Deletes |user|, and when |user|
   // equals to active_user_, active_user_ is reset to NULL.
   virtual void DeleteUser(User* user);
-
-  // Returns the locale used by the application.
-  virtual const std::string& GetApplicationLocale() const = 0;
 
   // Loads |users_| from Local State if the list has not been loaded yet.
   // Subsequent calls have no effect. Must be called on the UI thread.
@@ -229,12 +250,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   // initialized yet like waiting for profile to be loaded.
   virtual void NotifyUserAddedToSession(const User* added_user,
                                         bool user_switch_pending);
-
-  // Performs any additional actions after UserLoggedIn() execution has been
-  // completed.
-  // |browser_restart| is true when reloading Chrome after crash to distinguish
-  // from normal sign in flow.
-  virtual void PerformPostUserLoggedInActions(bool browser_restart) = 0;
 
   // Implementation for RemoveUser method. It is synchronous. It is called from
   // RemoveUserInternal after owner check.
@@ -273,23 +288,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // These methods are called when corresponding user type has signed in.
 
-  // Indicates that a user just logged in as guest.
-  virtual void GuestUserLoggedIn();
-
-  // Indicates that a kiosk app robot just logged in.
-  virtual void KioskAppLoggedIn(User* user) = 0;
-
-  // Indicates that a user just logged into a public session.
-  virtual void PublicAccountUserLoggedIn(User* user) = 0;
-
-  // Indicates that a regular user just logged in.
-  virtual void RegularUserLoggedIn(const AccountId& account_id,
-                                   const UserType user_type);
-
-  // Indicates that a regular user just logged in as ephemeral.
-  virtual void RegularUserLoggedInAsEphemeral(const AccountId& account_id,
-                                              const UserType user_type);
-
   virtual bool IsEphemeralAccountIdByPolicy(
       const AccountId& account_id) const = 0;
 
@@ -304,6 +302,11 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   virtual const AccountId& GetPendingUserSwitchID() const;
   virtual void SetPendingUserSwitchId(const AccountId& account_id);
+
+  // TODO(b/278643115): Move to private, once we migrate fake implementation
+  // closer enough to the production behavior.
+  void RegularUserLoggedInAsEphemeral(const AccountId& account_id,
+                                      const UserType user_type);
 
   base::ObserverList<UserManager::Observer>::Unchecked observer_list_;
 
@@ -370,11 +373,24 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   // Notifies observers that merge session state had changed.
   void NotifyMergeSessionStateChanged();
 
+  // Processes log-in for each type of users.
+  void RegularUserLoggedIn(const AccountId& account_id,
+                           const UserType user_type);
+  void GuestUserLoggedIn();
+  void PublicAccountUserLoggedIn(User* user);
+  void KioskAppLoggedIn(User* user);
+
   // Insert |user| at the front of the LRU user list.
   void SetLRUUser(User* user);
 
+  // Updates num-users crash key.
+  void UpdateCrashKey(int num_users, std::optional<UserType> active_user_type);
+
   // Sends metrics in response to a user with gaia account (regular) logging in.
   void SendGaiaUserLoginMetrics(const AccountId& account_id);
+
+  // Sends metrics for multi user sign-in.
+  void SendMultiUserSignInMetrics();
 
   // Sets account locale for user with id |account_id|.
   virtual void UpdateUserAccountLocale(const AccountId& account_id,
@@ -385,6 +401,16 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
                              std::unique_ptr<std::string> resolved_locale);
 
   void RemoveLegacySupervisedUser(const AccountId& account_id);
+
+  std::unique_ptr<Delegate> delegate_;
+
+  // TaskRunner for UI thread.
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+
+  const raw_ptr<PrefService, DanglingUntriaged> local_state_;
+
+  // Interface to the signed settings store.
+  const raw_ptr<ash::CrosSettings> cros_settings_;
 
   // Indicates stage of loading user from prefs.
   UserLoadStage user_loading_stage_ = STAGE_NOT_LOADED;
@@ -429,11 +455,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   // because pref will be overidden once session restore starts.
   AccountId last_session_active_account_id_ = EmptyAccountId();
   bool last_session_active_account_id_initialized_ = false;
-
-  // TaskRunner for UI thread.
-  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
-
-  const raw_ptr<PrefService, DanglingUntriaged> local_state_;
 
   base::WeakPtrFactory<UserManagerBase> weak_factory_{this};
 };

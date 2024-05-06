@@ -10,7 +10,7 @@
 # Devices
 # tags: [ android-nexus-5x android-pixel-2 android-pixel-4
 #             android-pixel-6 android-shield-android-tv android-sm-a135m
-#             android-sm-a235m
+#             android-sm-a235m android-sm-s911u1
 #         chromeos-board-amd64-generic chromeos-board-eve chromeos-board-jacuzzi
 #             chromeos-board-octopus chromeos-board-volteer
 #         fuchsia-board-astro fuchsia-board-nelson fuchsia-board-sherlock
@@ -58,6 +58,7 @@
 # Driver
 # tags: [ mesa_lt_19.1
 #         mesa_ge_21.0
+#         mesa_ge_23.2
 #         nvidia_ge_31.0.15.4601 nvidia_lt_31.0.15.4601 ]
 # ASan
 # tags: [ asan no-asan ]
@@ -73,6 +74,11 @@
 # tags: [ webgpu-compat webgpu-not-compat ]
 # WebGPU DXC
 # tags: [ webgpu-dxc-enabled webgpu-dxc-disabled ]
+# WebGPU worker usage
+# tags: [ webgpu-no-worker
+#         webgpu-service-worker
+#         webgpu-dedicated-worker
+#         webgpu-shared-worker ]
 # Clang coverage
 # tags: [ clang-coverage no-clang-coverage ]
 # Skia Graphite
@@ -164,7 +170,7 @@ crbug.com/1489852 [ mac intel release asan ] GpuCrash_InfoForHardwareGpu [ Skip 
 crbug.com/1334650 [ linux ] GpuCrash_InfoForHardwareGpu [ Skip ]
 
 # Windows debug causes render process hangs due to slow gpu process restart.
-crbug.com/1416920 [ win debug ] GpuCrash_InfoForHardwareGpu [ Skip ]
+crbug.com/1416920 [ win debug ] GpuCrash_InfoForHardwareGpu [ Failure ]
 
 ###############################
 # Temporary Skip Expectations #
@@ -193,7 +199,8 @@ crbug.com/1418987 [ linux amd-0x7340 angle-vulkan ] ContextLost_WebGL2UnpackImag
 
 crbug.com/1419558 [ angle-swiftshader clang-coverage fuchsia fuchsia-board-qemu-x64 google-0xc0de ] ContextLost_WebGLContextLostFromQuantity [ Failure ]
 
-
+# Fails with Graphite on Windows
+crbug.com/329145823 [ win release ] GpuCrash_InfoForHardwareGpu [ Failure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

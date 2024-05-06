@@ -4,7 +4,7 @@
 
 import {assert} from 'chrome://resources/js/assert.js';
 
-import {ActionChoice, Button, ButtonPressObserverInterface, GraphicsTablet, GraphicsTabletObserverInterface, GraphicsTabletSettings, InputDeviceSettingsProviderInterface, Keyboard, KeyboardObserverInterface, KeyboardSettings, MetaKey, ModifierKey, Mouse, MouseObserverInterface, MouseSettings, PointingStick, PointingStickObserverInterface, PointingStickSettings, SixPackShortcutModifier, Stylus, StylusObserverInterface, Touchpad, TouchpadObserverInterface, TouchpadSettings} from './input_device_settings_types.js';
+import {ActionChoice, Button, ButtonPressObserverInterface, GraphicsTablet, GraphicsTabletObserverInterface, GraphicsTabletSettings, InputDeviceSettingsProviderInterface, Keyboard, KeyboardBrightnessObserverInterface, KeyboardObserverInterface, KeyboardSettings, MetaKey, ModifierKey, Mouse, MouseObserverInterface, MouseSettings, PointingStick, PointingStickObserverInterface, PointingStickSettings, SixPackShortcutModifier, Stylus, StylusObserverInterface, Touchpad, TouchpadObserverInterface, TouchpadSettings} from './input_device_settings_types.js';
 
 /**
  * @fileoverview
@@ -22,6 +22,8 @@ interface InputDeviceSettingsType {
   fakeMouseButtonActions: {options: ActionChoice[]};
   fakeGraphicsTabletButtonActions: {options: ActionChoice[]};
   fakeHasLauncherButton: {hasLauncherButton: boolean};
+  fakeHasKeyboardBacklight: {hasKeyboardBacklight: boolean};
+  fakeIsRgbKeyboardSupported: {isRgbKeyboardSupported: boolean};
 }
 
 class FakeMethodState {
@@ -87,7 +89,11 @@ export class FakeInputDeviceSettingsProvider implements
   private stylusObservers: StylusObserverInterface[] = [];
   private graphicsTabletObservers: GraphicsTabletObserverInterface[] = [];
   private buttonPressObservers: ButtonPressObserverInterface[] = [];
+  private keyboardBrightnessObserver: KeyboardBrightnessObserverInterface|null =
+      null;
   private observedIds: number[] = [];
+  private keyboardBrightness: number = 40.0;
+  private keyboardColorLinkClicks: number = 0;
   private callCounts_ = {
     setGraphicsTabletSettings: 0,
     setMouseSettings: 0,
@@ -104,6 +110,9 @@ export class FakeInputDeviceSettingsProvider implements
     this.methods.register('fakeMouseButtonActions');
     this.methods.register('fakeGraphicsTabletButtonActions');
     this.methods.register('fakeHasLauncherButton');
+    this.methods.register('fakeHasKeyboardBacklight');
+    this.methods.register('fakeIsRgbKeyboardSupported');
+    this.methods.register('fakeRecordKeyboardColorLinkClicked');
   }
 
   setFakeKeyboards(keyboards: Keyboard[]): void {
@@ -246,6 +255,14 @@ export class FakeInputDeviceSettingsProvider implements
     return this.callCounts_.setGraphicsTabletSettings;
   }
 
+  setKeyboardBrightness(percent: number): void {
+    this.keyboardBrightness = percent;
+  }
+
+  getKeyboardBrightness(): number {
+    return this.keyboardBrightness;
+  }
+
   notifyKeboardListUpdated(): void {
     const keyboards = this.methods.getResult('fakeKeyboards');
     // Make a deep copy to notify the functions observing keyboard settings.
@@ -325,6 +342,11 @@ export class FakeInputDeviceSettingsProvider implements
     this.buttonPressObservers.push(observer);
   }
 
+  observeKeyboardBrightness(observer: KeyboardBrightnessObserverInterface):
+      void {
+    this.keyboardBrightnessObserver = observer;
+  }
+
   getActionsForMouseButtonCustomization(): Promise<{options: ActionChoice[]}> {
     return this.methods.resolveMethod('fakeMouseButtonActions');
   }
@@ -366,6 +388,12 @@ export class FakeInputDeviceSettingsProvider implements
     }
   }
 
+  sendKeyboardBrightnessChange(percent: number): void {
+    if (this.keyboardBrightnessObserver) {
+      this.keyboardBrightnessObserver.onKeyboardBrightnessChanged(percent);
+    }
+  }
+
   hasLauncherButton(): Promise<{hasLauncherButton: boolean}> {
     return this.methods.resolveMethod('fakeHasLauncherButton');
   }
@@ -373,5 +401,33 @@ export class FakeInputDeviceSettingsProvider implements
   setFakeHasLauncherButton(hasLauncherButton: boolean): void {
     this.methods.setResult(
         'fakeHasLauncherButton', {hasLauncherButton: hasLauncherButton});
+  }
+
+  hasKeyboardBacklight(): Promise<{hasKeyboardBacklight: boolean}> {
+    return this.methods.resolveMethod('fakeHasKeyboardBacklight');
+  }
+
+  setFakeHasKeyboardBacklight(hasKeyboardBacklight: boolean): void {
+    this.methods.setResult(
+        'fakeHasKeyboardBacklight',
+        {hasKeyboardBacklight: hasKeyboardBacklight});
+  }
+
+  isRgbKeyboardSupported(): Promise<{isRgbKeyboardSupported: boolean}> {
+    return this.methods.resolveMethod('fakeIsRgbKeyboardSupported');
+  }
+
+  setFakeIsRgbKeyboardSupported(isRgbKeyboardSupported: boolean): void {
+    this.methods.setResult(
+        'fakeIsRgbKeyboardSupported',
+        {isRgbKeyboardSupported: isRgbKeyboardSupported});
+  }
+
+  recordKeyboardColorLinkClicked(): void {
+    this.keyboardColorLinkClicks++;
+  }
+
+  getKeyboardColorLinkClicks(): number {
+    return this.keyboardColorLinkClicks;
   }
 }

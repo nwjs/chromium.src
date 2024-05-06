@@ -137,7 +137,8 @@ IbanSaveManager::TypeOfOfferToSave IbanSaveManager::DetermineHowToSaveIban(
   if (base::FeatureList::IsEnabled(features::kAutofillEnableServerIban) &&
       IsIbanUploadEnabled(client_->GetSyncService(),
                           client_->GetPersonalDataManager()
-                              ->GetPaymentsSigninStateForMetrics())) {
+                              ->payments_data_manager()
+                              .GetPaymentsSigninStateForMetrics())) {
     return TypeOfOfferToSave::kOfferServerSave;
   } else if (import_candidate.record_type() != Iban::kLocalIban) {
     return TypeOfOfferToSave::kOfferLocalSave;
@@ -148,7 +149,8 @@ IbanSaveManager::TypeOfOfferToSave IbanSaveManager::DetermineHowToSaveIban(
 bool IbanSaveManager::MatchesExistingLocalIban(
     const Iban& import_candidate) const {
   return base::ranges::any_of(
-      personal_data_manager_->GetLocalIbans(), [&](const Iban* iban) {
+      personal_data_manager_->payments_data_manager().GetLocalIbans(),
+      [&](const Iban* iban) {
         return iban->value() == import_candidate.value();
       });
 }
@@ -156,7 +158,7 @@ bool IbanSaveManager::MatchesExistingLocalIban(
 bool IbanSaveManager::MatchesExistingServerIban(
     const Iban& import_candidate) const {
   return std::ranges::any_of(
-      personal_data_manager_->GetServerIbans(),
+      personal_data_manager_->payments_data_manager().GetServerIbans(),
       [&import_candidate](const auto& iban) {
         return iban->MatchesPrefixSuffixAndLength(import_candidate);
       });
@@ -229,8 +231,9 @@ void IbanSaveManager::OnUserDidDecideOnLocalSave(
       // Clear all IbanSave strikes for this IBAN, so that if it's later removed
       // the strike count starts over with respect to re-saving it.
       GetIbanSaveStrikeDatabase()->ClearStrikes(partial_iban_hash);
-      client_->GetPersonalDataManager()->OnAcceptedLocalIbanSave(
-          std::move(import_candidate));
+      client_->GetPersonalDataManager()
+          ->payments_data_manager()
+          .OnAcceptedLocalIbanSave(std::move(import_candidate));
       if (observer_for_testing_) {
         observer_for_testing_->OnAcceptSaveIbanComplete();
       }

@@ -61,7 +61,7 @@ namespace {
 
 #if BUILDFLAG(IS_IOS) && BUILDFLAG(USE_ALLOCATOR_SHIM)
 // Do not install allocator shim on iOS 13.4 due to high crash volume on this
-// particular version of OS. TODO(crbug.com/1108219): Remove this workaround
+// particular version of OS. TODO(crbug.com/40707342): Remove this workaround
 // when/if the bug gets fixed.
 bool ShouldInstallAllocatorShim() {
   return !base::ios::IsRunningOnOrLater(13, 4, 0) ||
@@ -235,12 +235,12 @@ void MemorySystem::Impl::InitializeGwpASan(
 
 #if BUILDFLAG(ENABLE_GWP_ASAN_MALLOC)
   gwp_asan::EnableForMalloc(gwp_asan_parameters.boost_sampling,
-                            gwp_asan_parameters.process_type.c_str());
+                            gwp_asan_parameters.process_type);
 #endif
 
 #if BUILDFLAG(ENABLE_GWP_ASAN_PARTITIONALLOC)
   gwp_asan::EnableForPartitionAlloc(gwp_asan_parameters.boost_sampling,
-                                    gwp_asan_parameters.process_type.c_str());
+                                    gwp_asan_parameters.process_type);
 #endif
 
   gwp_asan::MaybeEnableLightweightDetector(

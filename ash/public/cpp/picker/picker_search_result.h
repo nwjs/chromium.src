@@ -25,9 +25,18 @@ namespace ash {
 class ASH_PUBLIC_EXPORT PickerSearchResult {
  public:
   struct TextData {
-    std::u16string text;
+    std::u16string primary_text;
+    std::u16string secondary_text;
+    ui::ImageModel icon;
 
     bool operator==(const TextData&) const;
+  };
+
+  struct SearchRequestData {
+    std::u16string text;
+    ui::ImageModel icon;
+
+    bool operator==(const SearchRequestData&) const;
   };
 
   struct EmojiData {
@@ -49,10 +58,23 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   };
 
   struct ClipboardData {
+    enum class DisplayFormat {
+      kFile,
+      kText,
+      kImage,
+      kHtml,
+    };
+
     // Unique ID that specifies which item in the clipboard this refers to.
     base::UnguessableToken item_id;
+    DisplayFormat display_format;
+    std::u16string display_text;
+    std::optional<ui::ImageModel> display_image;
 
-    ClipboardData(base::UnguessableToken item_id);
+    ClipboardData(base::UnguessableToken item_id,
+                  DisplayFormat display_format,
+                  std::u16string display_text,
+                  std::optional<ui::ImageModel> display_image);
     ClipboardData(const ClipboardData&);
     ClipboardData& operator=(const ClipboardData&);
     ~ClipboardData();
@@ -122,6 +144,7 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   };
 
   using Data = std::variant<TextData,
+                            SearchRequestData,
                             EmojiData,
                             SymbolData,
                             EmoticonData,
@@ -142,10 +165,19 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
                                             std::u16string title,
                                             ui::ImageModel icon);
   static PickerSearchResult Text(std::u16string_view text);
+  static PickerSearchResult Text(std::u16string_view primary_text,
+                                 std::u16string_view secondary_text,
+                                 ui::ImageModel icon);
+  static PickerSearchResult SearchRequest(std::u16string_view text,
+                                          ui::ImageModel icon);
   static PickerSearchResult Emoji(std::u16string_view emoji);
   static PickerSearchResult Symbol(std::u16string_view symbol);
   static PickerSearchResult Emoticon(std::u16string_view emoticon);
-  static PickerSearchResult Clipboard(base::UnguessableToken item_id);
+  static PickerSearchResult Clipboard(
+      base::UnguessableToken item_id,
+      ClipboardData::DisplayFormat display_format,
+      std::u16string display_text,
+      std::optional<ui::ImageModel> display_image);
   static PickerSearchResult Gif(const GURL& preview_url,
                                 const GURL& preview_image_url,
                                 const gfx::Size& preview_dimensions,

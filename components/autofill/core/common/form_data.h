@@ -7,6 +7,7 @@
 
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -117,8 +118,8 @@ struct FrameTokenWithPredecessor {
 // The input B is an unassociated and unowned field.
 // The input C is an unassociated but an owned field.
 //
-// TODO(crbug.com/1243730): Currently, Autofill ignores unowned fields in shadow
-// DOMs.
+// TODO(crbug.com/40195555): Currently, Autofill ignores unowned fields in
+// shadow DOMs.
 //
 // The unowned fields of the frame constitute that frame's *unowned form*.
 //
@@ -180,7 +181,7 @@ struct FormData {
 
   // Finds a field in the FormData by its name or id.
   // Returns a pointer to the field if found, otherwise returns nullptr.
-  FormFieldData* FindFieldByName(const base::StringPiece16 name_or_id);
+  FormFieldData* FindFieldByName(std::u16string_view name_or_id);
 
   // The id attribute of the form.
   std::u16string id_attribute;

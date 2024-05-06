@@ -77,9 +77,10 @@ try_.builder(
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
-try_.orchestrator_builder(
+try_.builder(
     name = "android-12-x64-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Run Chromium tests on Android 12 emulator.",
     mirrors = [
         "ci/android-12-x64-rel",
     ],
@@ -87,32 +88,10 @@ try_.orchestrator_builder(
         configs = [
             "ci/android-12-x64-rel",
             "release_try_builder",
-            "use_clang_coverage",
-            "use_java_coverage",
-            "partial_code_coverage_instrumentation",
         ],
     ),
-    compilator = "android-12-x64-rel-compilator",
-    coverage_test_types = ["unit", "overall"],
-    experiments = {
-        # go/nplus1shardsproposal
-        "chromium.add_one_test_shard": 10,
-        # crbug/940930
-        "chromium.enable_cleandead": 100,
-    },
-    main_list_view = "try",
-    tryjob = try_.job(),
-    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
-    # are addressed
-    # use_orchestrator_pool = True,
-    use_clang_coverage = True,
-    use_java_coverage = True,
-)
-
-try_.compilator_builder(
-    name = "android-12-x64-rel-compilator",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    main_list_view = "try",
+    contact_team_email = "clank-engprod@google.com",
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -387,77 +366,18 @@ try_.builder(
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
-# TODO: crbug.com/41484811 - use a "mirrors" argument to
-# reshape these two RISC-V64 entries to look like the other
-# android-cronet-mainline entries.
-
 try_.builder(
     name = "android-cronet-mainline-clang-riscv64-dbg",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "main_builder"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder",
-            "cronet_android",
-            "debug_static_builder",
-            "reclient",
-            "riscv64",
-            "cronet_android_mainline_clang",
-        ],
-    ),
+    mirrors = ["ci/android-cronet-mainline-clang-riscv64-dbg"],
+    gn_args = "ci/android-cronet-mainline-clang-riscv64-dbg",
     contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-mainline-clang-riscv64-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "main_builder"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder",
-            "cronet_android",
-            "official_optimize",
-            "release_builder",
-            "reclient",
-            "minimal_symbols",
-            "riscv64",
-            "strip_debug_info",
-            "cronet_android_mainline_clang",
-        ],
-    ),
+    mirrors = ["ci/android-cronet-mainline-clang-riscv64-rel"],
+    gn_args = "ci/android-cronet-mainline-clang-riscv64-rel",
     contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
@@ -545,6 +465,7 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x64-dbg",
     contact_team_email = "cronet-team@google.com",
+    main_list_view = "try",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     tryjob = try_.job(
         location_filters = [
@@ -583,7 +504,6 @@ try_.builder(
         configs = ["ci/android-cronet-x86-dbg"],
     ),
     contact_team_email = "cronet-team@google.com",
-    main_list_view = "try",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -880,20 +800,17 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-webview-13-x64-dbg-hostside",
+    name = "android-webview-13-x64-hostside-rel",
     description_html = (
-        "This try builder mirrors android-webview-13-x64-dbg-hostside" +
-        "builder/tester to trial run WebView host-driven CTS.<br/>" +
-        "This builder should be removed after adding the test suite to" +
-        "android-12-x64-rel required CQ builder. b/267730567."
+        "Runs WebView host-driven CTS on Android 13 emulator."
     ),
     mirrors = [
-        "ci/android-webview-13-x64-dbg-hostside",
+        "ci/android-webview-13-x64-hostside-rel",
     ],
     gn_args = gn_args.config(
         configs = [
-            "ci/android-webview-13-x64-dbg-hostside",
-            "debug_try_builder",
+            "ci/android-webview-13-x64-hostside-rel",
+            "release_try_builder",
         ],
     ),
     contact_team_email = "woa-engprod@google.com",
@@ -941,6 +858,49 @@ try_.builder(
         ],
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.orchestrator_builder(
+    name = "android-x64-rel",
+    branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Run Chromium tests on Android emulators.",
+    mirrors = [
+        "ci/android-12-x64-rel",
+        "ci/android-webview-13-x64-hostside-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-12-x64-rel",
+            "release_try_builder",
+            "use_clang_coverage",
+            "use_java_coverage",
+            "partial_code_coverage_instrumentation",
+        ],
+    ),
+    compilator = "android-x64-rel-compilator",
+    contact_team_email = "clank-engprod@google.com",
+    coverage_test_types = ["unit", "overall"],
+    experiments = {
+        # go/nplus1shardsproposal
+        "chromium.add_one_test_shard": 10,
+        # crbug/940930
+        "chromium.enable_cleandead": 100,
+    },
+    main_list_view = "try",
+    tryjob = try_.job(),
+    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # are addressed
+    # use_orchestrator_pool = True,
+    use_clang_coverage = True,
+    use_java_coverage = True,
+)
+
+try_.compilator_builder(
+    name = "android-x64-rel-compilator",
+    branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Compilator builder for android-x64-rel",
+    contact_team_email = "clank-engprod@google.com",
+    main_list_view = "try",
 )
 
 try_.orchestrator_builder(

@@ -13,11 +13,12 @@
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_id.h"
-#import "ios/chrome/browser/snapshots/model/snapshot_storage.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_storage_wrapper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -25,6 +26,7 @@
 #import "testing/platform_test.h"
 #import "ui/base/test/ios/ui_image_test_utils.h"
 
+using tab_groups::TabGroupVisualData;
 using ui::test::uiimage_utils::UIImagesAreEqual;
 using ui::test::uiimage_utils::UIImageWithSizeAndSolidColor;
 
@@ -95,7 +97,7 @@ class BrowserUtilTest : public PlatformTest {
 
   // Returns the cached snapshot for the given snapshot ID in the given snapshot
   // cache.
-  UIImage* GetSnapshot(SnapshotStorage* snapshot_storage,
+  UIImage* GetSnapshot(SnapshotStorageWrapper* snapshot_storage,
                        SnapshotID snapshot_id) {
     CHECK(snapshot_storage);
     base::RunLoop run_loop;
@@ -202,7 +204,7 @@ TEST_F(BrowserUtilTest, TestMovedSnapshot) {
   SnapshotBrowserAgent* agent =
       SnapshotBrowserAgent::FromBrowser(browser_.get());
   agent->SetSessionID(kIdentifier0);
-  SnapshotStorage* snapshot_storage = agent->snapshot_storage();
+  SnapshotStorageWrapper* snapshot_storage = agent->snapshot_storage();
   ASSERT_NE(nil, snapshot_storage);
   UIImage* snapshot = UIImageWithSizeAndSolidColor({10, 20}, UIColor.redColor);
   SnapshotTabHelper* snapshot_tab_helper =
@@ -216,7 +218,8 @@ TEST_F(BrowserUtilTest, TestMovedSnapshot) {
   SnapshotBrowserAgent* other_agent =
       SnapshotBrowserAgent::FromBrowser(other_browser_.get());
   other_agent->SetSessionID(kIdentifier1);
-  SnapshotStorage* other_snapshot_storage = other_agent->snapshot_storage();
+  SnapshotStorageWrapper* other_snapshot_storage =
+      other_agent->snapshot_storage();
   ASSERT_NE(nil, other_snapshot_storage);
   ASSERT_EQ(nil, GetSnapshot(other_snapshot_storage, snapshot_id));
 
@@ -226,4 +229,99 @@ TEST_F(BrowserUtilTest, TestMovedSnapshot) {
   EXPECT_EQ(nil, GetSnapshot(snapshot_storage, snapshot_id));
   EXPECT_TRUE(UIImagesAreEqual(
       snapshot, GetSnapshot(other_snapshot_storage, snapshot_id)));
+}
+
+// Tests that a tab group with one tab is moved from one regular browser to
+// another browser.
+TEST_F(BrowserUtilTest, TestMoveTabGroupOneTabAcrossRegularBrowsers) {
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  WebStateList* other_web_state_list = other_browser_->GetWebStateList();
+
+  // Create a group of two tabs.
+  TabGroupVisualData visual_data =
+      TabGroupVisualData(u"Group", tab_groups::TabGroupColorId::kGrey);
+  const TabGroup* tab_group =
+      web_state_list->CreateGroup({2}, TabGroupVisualData(visual_data));
+
+  web::WebStateID tab_id = GetTabIDForWebStateAt(2, browser_.get());
+  ASSERT_EQ(3, web_state_list->count());
+  ASSERT_EQ(tab_group, web_state_list->GetGroupOfWebStateAt(2));
+
+  // Move the group.
+  MoveTabGroupToBrowser(tab_group, other_browser_.get(), 0);
+
+  const TabGroup* other_group = other_web_state_list->GetGroupOfWebStateAt(0);
+  ASSERT_TRUE(other_group);
+  EXPECT_EQ(1, other_group->range().count());
+  EXPECT_EQ(visual_data, other_group->visual_data());
+  EXPECT_EQ(2, web_state_list->count());
+  EXPECT_EQ(1, other_web_state_list->count());
+  EXPECT_NE(tab_id, GetTabIDForWebStateAt(1, browser_.get()));
+  EXPECT_EQ(tab_id, GetTabIDForWebStateAt(0, other_browser_.get()));
+}
+
+// Tests that a tab group with multiple tabs is moved from one regular browser
+// to another browser.
+TEST_F(BrowserUtilTest, TestMoveTabGroupMutipleTabsAcrossRegularBrowsers) {
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  WebStateList* other_web_state_list = other_browser_->GetWebStateList();
+
+  // Create a group of two tabs.
+  TabGroupVisualData visual_data =
+      TabGroupVisualData(u"Group", tab_groups::TabGroupColorId::kGrey);
+  const TabGroup* tab_group =
+      web_state_list->CreateGroup({0, 1}, TabGroupVisualData(visual_data));
+  web::WebStateID tab_id_0 = GetTabIDForWebStateAt(0, browser_.get());
+  web::WebStateID tab_id_1 = GetTabIDForWebStateAt(1, browser_.get());
+  ASSERT_EQ(3, web_state_list->count());
+  ASSERT_EQ(tab_group, web_state_list->GetGroupOfWebStateAt(0));
+
+  // Move the group.
+  MoveTabGroupToBrowser(tab_group, other_browser_.get(), 0);
+
+  const TabGroup* other_group = other_web_state_list->GetGroupOfWebStateAt(0);
+  ASSERT_TRUE(other_group);
+  EXPECT_EQ(2, other_group->range().count());
+  EXPECT_EQ(visual_data, other_group->visual_data());
+  EXPECT_EQ(1, web_state_list->count());
+  EXPECT_EQ(2, other_web_state_list->count());
+  EXPECT_EQ(tab_id_0, GetTabIDForWebStateAt(0, other_browser_.get()));
+  EXPECT_EQ(tab_id_1, GetTabIDForWebStateAt(1, other_browser_.get()));
+}
+
+// Tests that a tab group with multiple tabs is moved from one regular browser
+// to another browser.
+TEST_F(BrowserUtilTest, TestMoveTabGroupsAcrossRegularBrowsers) {
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  WebStateList* other_web_state_list = other_browser_->GetWebStateList();
+
+  // Create 2 groups.
+  TabGroupVisualData visual_data =
+      TabGroupVisualData(u"Group", tab_groups::TabGroupColorId::kGrey);
+  const TabGroup* tab_group_0 =
+      web_state_list->CreateGroup({0}, TabGroupVisualData(visual_data));
+  const TabGroup* tab_group_1 =
+      web_state_list->CreateGroup({1}, TabGroupVisualData(visual_data));
+  web::WebStateID tab_id_0 = GetTabIDForWebStateAt(0, browser_.get());
+  web::WebStateID tab_id_1 = GetTabIDForWebStateAt(1, browser_.get());
+  ASSERT_EQ(3, web_state_list->count());
+  ASSERT_EQ(tab_group_0, web_state_list->GetGroupOfWebStateAt(0));
+  ASSERT_EQ(tab_group_1, web_state_list->GetGroupOfWebStateAt(1));
+
+  // Move groups.
+  MoveTabGroupToBrowser(tab_group_0, other_browser_.get(), 0);
+  MoveTabGroupToBrowser(tab_group_1, other_browser_.get(), 1);
+
+  const TabGroup* other_group_0 = other_web_state_list->GetGroupOfWebStateAt(0);
+  const TabGroup* other_group_1 = other_web_state_list->GetGroupOfWebStateAt(1);
+  ASSERT_TRUE(other_group_0);
+  ASSERT_TRUE(other_group_1);
+  EXPECT_EQ(1, other_group_0->range().count());
+  EXPECT_EQ(1, other_group_1->range().count());
+  EXPECT_EQ(visual_data, other_group_0->visual_data());
+  EXPECT_EQ(visual_data, other_group_1->visual_data());
+  EXPECT_EQ(1, web_state_list->count());
+  EXPECT_EQ(2, other_web_state_list->count());
+  EXPECT_EQ(tab_id_0, GetTabIDForWebStateAt(0, other_browser_.get()));
+  EXPECT_EQ(tab_id_1, GetTabIDForWebStateAt(1, other_browser_.get()));
 }

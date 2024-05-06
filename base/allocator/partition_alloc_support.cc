@@ -10,6 +10,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/allocator/partition_alloc_features.h"
 #include "base/at_exit.h"
@@ -23,13 +24,13 @@
 #include "base/functional/callback.h"
 #include "base/immediate_crash.h"
 #include "base/location.h"
+#include "base/memory/post_delayed_memory_reduction_task.h"
 #include "base/memory/raw_ptr_asan_service.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/pending_task.h"
 #include "base/ranges/algorithm.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
@@ -55,13 +56,13 @@
 #include "partition_alloc/pointers/raw_ptr.h"
 #include "partition_alloc/shim/allocator_shim.h"
 #include "partition_alloc/shim/allocator_shim_default_dispatch_to_partition_alloc.h"
+#include "partition_alloc/stack/stack.h"
 #include "partition_alloc/thread_cache.h"
 
 #if BUILDFLAG(USE_STARSCAN)
 #include "partition_alloc/shim/nonscannable_allocator.h"
 #include "partition_alloc/starscan/pcscan.h"
 #include "partition_alloc/starscan/pcscan_scheduling.h"
-#include "partition_alloc/starscan/stack/stack.h"
 #include "partition_alloc/starscan/stats_collector.h"
 #include "partition_alloc/starscan/stats_reporter.h"
 #endif  // BUILDFLAG(USE_STARSCAN)
@@ -459,13 +460,13 @@ std::optional<DanglingPointerFreeInfo> TakeDanglingPointerFreeInfo(
 // This function is meant to be used only by Chromium developers, to list what
 // are all the dangling raw_ptr occurrences in a table.
 std::string ExtractDanglingPtrSignature(std::string stacktrace) {
-  std::vector<StringPiece> lines = SplitStringPiece(
+  std::vector<std::string_view> lines = SplitStringPiece(
       stacktrace, "\r\n", KEEP_WHITESPACE, SPLIT_WANT_NONEMPTY);
 
   // We are looking for the callers of the function releasing the raw_ptr and
   // freeing memory. This lists potential matching patterns. A pattern is a list
   // of substrings that are all required to match.
-  const std::vector<StringPiece> callee_patterns[] = {
+  const std::vector<std::string_view> callee_patterns[] = {
       // Common signature patters:
       {"internal::PartitionFree"},
       {"base::", "::FreeFn"},
@@ -484,7 +485,7 @@ std::string ExtractDanglingPtrSignature(std::string stacktrace) {
   size_t caller_index = 0;
   for (size_t i = 0; i < lines.size(); ++i) {
     for (const auto& patterns : callee_patterns) {
-      if (ranges::all_of(patterns, [&](const StringPiece& pattern) {
+      if (ranges::all_of(patterns, [&](std::string_view pattern) {
             return lines[i].find(pattern) != StringPiece::npos;
           })) {
         caller_index = i + 1;
@@ -494,7 +495,7 @@ std::string ExtractDanglingPtrSignature(std::string stacktrace) {
   if (caller_index >= lines.size()) {
     return "no_callee_match";
   }
-  StringPiece caller = lines[caller_index];
+  std::string_view caller = lines[caller_index];
 
   if (caller.empty()) {
     return "invalid_format";
@@ -760,12 +761,11 @@ void UnretainedDanglingRawPtrDetectedCrash(uintptr_t id) {
       "unretained_dangling_ptr_guide.md\n";
   debug::TaskTrace task_trace;
   debug::StackTrace stack_trace;
-  LOG(ERROR) << "Detected dangling raw_ptr in unretained with id="
+  LOG(FATAL) << "Detected dangling raw_ptr in unretained with id="
              << StringPrintf("0x%016" PRIxPTR, id) << ":\n\n"
              << task_trace << '\n'
              << "Stack trace:\n"
              << stack_trace << unretained_dangling_ptr_footer;
-  ImmediateCrash();
 }
 
 void InstallUnretainedDanglingRawPtrChecks() {
@@ -937,10 +937,7 @@ PartitionAllocSupport::GetBrpConfiguration(const std::string& process_type) {
   // TODO(bartekn): Switch to DCHECK once confirmed there are no issues.
   CHECK(base::FeatureList::GetInstance());
 
-  bool enable_brp = false;
-  bool in_slot_metadata_in_same_slot = false;
   bool process_affected_by_brp_flag = false;
-
 #if (BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) &&  \
      BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)) || \
     BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
@@ -969,28 +966,19 @@ PartitionAllocSupport::GetBrpConfiguration(const std::string& process_type) {
         // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)) ||
         // BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
 
+  const bool enable_brp =
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && \
     BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
-  if (process_affected_by_brp_flag) {
-    switch (base::features::kBackupRefPtrModeParam.Get()) {
-      case base::features::BackupRefPtrMode::kDisabled:
-        // Do nothing. Equivalent to !IsEnabled(kPartitionAllocBackupRefPtr).
-        break;
-
-      case base::features::BackupRefPtrMode::kEnabledInSameSlotMode:
-        in_slot_metadata_in_same_slot = true;
-        ABSL_FALLTHROUGH_INTENDED;
-      case base::features::BackupRefPtrMode::kEnabled:
-        enable_brp = true;
-        break;
-    }
-  }
-#endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) &&
-        // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+      // kDisabled is equivalent to !IsEnabled(kPartitionAllocBackupRefPtr).
+      process_affected_by_brp_flag &&
+      base::features::kBackupRefPtrModeParam.Get() !=
+          base::features::BackupRefPtrMode::kDisabled;
+#else
+      false;
+#endif
 
   return {
       enable_brp,
-      in_slot_metadata_in_same_slot,
       process_affected_by_brp_flag,
   };
 }
@@ -1204,10 +1192,6 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
            partition_alloc::TagViolationReportingMode::kDisabled));
   }
 
-  // Set in-slot metadata mode before we create any roots that have BRP enabled.
-  partition_alloc::PartitionRoot::SetInSlotMetadataInSameSlot(
-      brp_config.in_slot_metadata_in_same_slot);
-
   allocator_shim::ConfigurePartitions(
       allocator_shim::EnableBrp(brp_config.enable_brp),
       allocator_shim::EnableMemoryTagging(enable_memory_tagging),
@@ -1244,9 +1228,6 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
               base::features::kPartitionAllocPCScanStackScanning)) {
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
         partition_alloc::internal::PCScan::EnableStackScanning();
-        // Notify PCScan about the main thread.
-        partition_alloc::internal::PCScan::NotifyThreadCreated(
-            partition_alloc::internal::GetStackTop());
 #endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
       }
       if (base::FeatureList::IsEnabled(
@@ -1264,6 +1245,9 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
 #endif  // BUILDFLAG(USE_STARSCAN)
 
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+  partition_alloc::internal::StackTopRegistry::Get().NotifyThreadCreated(
+      partition_alloc::internal::GetStackTop());
+
 #if BUILDFLAG(USE_STARSCAN)
   // Non-quarantinable partition is dealing with hot V8's zone allocations.
   // In case PCScan is enabled in Renderer, enable thread cache on this
@@ -1456,8 +1440,9 @@ void PartitionAllocSupport::OnBackgrounded() {
   // in the meantime, the worst case is a few more system calls.
   //
   // TODO(lizeb): Remove once/if the behavior of idle tasks changes.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, base::BindOnce([]() {
+  base::PostDelayedMemoryReductionTask(
+      base::SingleThreadTaskRunner::GetCurrentDefault(), FROM_HERE,
+      base::BindOnce([]() {
         ::partition_alloc::MemoryReclaimer::Instance()->ReclaimAll();
       }),
       base::Seconds(10));

@@ -46,6 +46,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/platform_apps/app_load_service.h"
 #include "chrome/browser/apps/platform_apps/platform_app_launch.h"
+#include "chrome/browser/ash/crosapi/browser_data_migrator.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
@@ -444,7 +445,7 @@ Profile* GetPrivateProfileIfRequested(const base::CommandLine& command_line,
 StartupProfileInfo GetProfilePickerStartupProfileInfo() {
   // We can only show the profile picker if the system profile (where the
   // profile picker lives) also exists (or is creatable).
-  // TODO(crbug.com/1271859): Remove unnecessary system profile check here.
+  // TODO(crbug.com/40205861): Remove unnecessary system profile check here.
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   if (!profile_manager->GetProfile(ProfileManager::GetSystemProfilePath()))
     return {.profile = nullptr, .mode = StartupProfileMode::kError};
@@ -796,17 +797,18 @@ void StartupBrowserCreator::LaunchBrowserForLastProfiles(
         // workspace will handle the app restore from user's workspace copy.
         // Otherwise if safe mode is on, floating workspace will only emit
         // notification and then delegate the actual work to full restore.
-        if (!ash::floating_workspace_util::ShouldHandleRestartRestore()) {
-          // If FullRestoreService is available for the profile (i.e. the full
-          // restore feature is enabled and the profile is a regular user
-          // profile), defer the browser launching to FullRestoreService code.
-          auto* full_restore_service =
-              ash::full_restore::FullRestoreService::GetForProfile(
-                  profile_to_open);
-          if (full_restore_service) {
-            full_restore_service->LaunchBrowserWhenReady();
-            return;
-          }
+        if (ash::floating_workspace_util::ShouldHandleRestartRestore()) {
+          return;
+        }
+        // If FullRestoreService is available for the profile (i.e. the full
+        // restore feature is enabled and the profile is a regular user
+        // profile), defer the browser launching to FullRestoreService code.
+        auto* full_restore_service =
+            ash::full_restore::FullRestoreService::GetForProfile(
+                profile_to_open);
+        if (full_restore_service) {
+          full_restore_service->LaunchBrowserWhenReady();
+          return;
         }
       }
 #endif
@@ -1043,18 +1045,33 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
   if (chrome::IsRunningInForcedAppMode()) {
     Profile* profile = profile_info.profile;
 
-    if (auto app_id = GetAppId(command_line, profile); app_id.has_value()) {
-      // Skip browser launch since app mode launches its app window.
-      silent_launch = true;
+    // Skip browser launch since app mode launches its app window.
+    silent_launch = true;
 
-      ash::LaunchAppOrDie(profile, app_id.value());
+    if (auto app_id = GetAppId(command_line, profile); app_id.has_value()) {
+      if (ash::BrowserDataMigratorImpl::IsFirstLaunchAfterMigration(
+              g_browser_process->local_state())) {
+        // After a lacros migration the kiosk app should not go through the
+        // crash recovery flow but instead use the full launch process, since
+        // the crash recovery flow does not wait for the force installed
+        // extensions to be installed.
+        // Force the full launch by going back to the login screen and remember
+        // the app to be launched in the local state.
+        LOG(INFO) << "Forcing the kiosk user to log out since it's the first "
+                     "launch after a migration";
+        ash::SetOneTimeAutoLaunchKioskAppId(*g_browser_process->local_state(),
+                                            app_id.value());
+        chrome::AttemptUserExit();
+        return false;
+      } else {
+        ash::LaunchAppOrDie(profile, app_id.value());
+      }
     } else {
       // If we are here, we are either in ARC kiosk session or the user is
       // invalid. We should terminate the session in such cases.
       chrome::AttemptUserExit();
       return false;
     }
-
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -1383,7 +1400,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
   // the launch behavior here isn't quite the correct behavior for an app launch
   // on Mac OS, this behavior is better than nothing and should result in the
   // app shim getting regenerated to hopefully fix future app launches.
-  // TODO(https://crbug.com/1232763): Some integration tests also rely on this
+  // TODO(crbug.com/40191242): Some integration tests also rely on this
   // code. Ideally those would be fixed to test the normal app launch path on
   // Mac instead, and this code should be changed to make it harder to
   // accidentally write tests that don't test the normal app launch path.

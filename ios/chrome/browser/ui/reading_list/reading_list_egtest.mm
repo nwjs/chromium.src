@@ -17,7 +17,6 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
-#import "components/sync/base/features.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -474,8 +473,6 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
       [self isRunningTest:@selector
             (testSignOutFromAccountSettingsFromReadingListManager)] ||
       [self isRunningTest:@selector(testSigninToReviewAccountSettingsPromo)]) {
-    config.features_enabled.push_back(
-        syncer::kReplaceSyncPromosWithSignInPromos);
     config.features_enabled.push_back(kEnableReviewAccountSettingsPromo);
   }
 
@@ -622,8 +619,8 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
   OpenPageSecurityInfoBubble();
   // Verify that the Page Info is about offline pages.
   [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::HeaderWithAccessibilityLabelId(
-                                   IDS_IOS_PAGE_INFO_OFFLINE_PAGE_LABEL)]
+      selectElementWithMatcher:grey_text(l10n_util::GetNSString(
+                                   IDS_IOS_PAGE_INFO_OFFLINE_PAGE_LABEL))]
       assertWithMatcher:grey_notNil()];
 
   // Verify that the webState's title is correct.

@@ -25,6 +25,7 @@
 #include "chrome/browser/ash/login/test/user_auth_config.h"
 #include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
+#include "chrome/browser/ash/net/delay_network_call.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_screen_handler.h"
 #include "chromeos/ash/components/login/auth/auth_status_consumer.h"
@@ -55,12 +56,14 @@ AccountId CreateAccountId(int id, const std::string& domain) {
 
 void AppendUsers(LoginManagerMixin::UserList* users,
                  const std::string& domain,
+                 user_manager::UserType user_type,
                  int n,
                  CryptohomeMixin* cryptohome_mixin) {
   int num = users->size();
   for (int i = 0; i < n; ++i, ++num) {
     auto account_id = CreateAccountId(num, domain);
-    users->push_back(LoginManagerMixin::TestUserInfo(account_id));
+    users->push_back(LoginManagerMixin::TestUserInfo(
+        account_id, test::kDefaultAuthSetup, user_type));
 
     if (cryptohome_mixin != nullptr) {
       cryptohome_mixin->MarkUserAsExisting(account_id);
@@ -93,11 +96,18 @@ UserContext LoginManagerMixin::CreateDefaultUserContext(
 }
 
 void LoginManagerMixin::AppendRegularUsers(int n) {
-  AppendUsers(&initial_users_, kGmailDomain, n, cryptohome_mixin_);
+  AppendUsers(&initial_users_, kGmailDomain, user_manager::UserType::kRegular,
+              n, cryptohome_mixin_);
+}
+
+void LoginManagerMixin::AppendChildUsers(int n) {
+  AppendUsers(&initial_users_, kGmailDomain, user_manager::UserType::kChild, n,
+              cryptohome_mixin_);
 }
 
 void LoginManagerMixin::AppendManagedUsers(int n) {
-  AppendUsers(&initial_users_, kManagedDomain, n, cryptohome_mixin_);
+  AppendUsers(&initial_users_, kManagedDomain, user_manager::UserType::kRegular,
+              n, cryptohome_mixin_);
 }
 
 LoginManagerMixin::LoginManagerMixin(InProcessBrowserTestMixinHost* host)
@@ -269,6 +279,9 @@ void LoginManagerMixin::LoginAsNewRegularUser(
 }
 
 void LoginManagerMixin::LoginAsNewChildUser() {
+  // TODO(b/333450354): Determine why this is necessary and fix.
+  SetDelayNetworkCallsForTesting(true);
+
   LoginDisplayHost::default_host()->StartWizard(GaiaView::kScreenId);
   test::WaitForOobeJSReady();
   ASSERT_FALSE(session_manager::SessionManager::Get()->IsSessionStarted());

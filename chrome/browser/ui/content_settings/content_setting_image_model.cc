@@ -676,7 +676,7 @@ bool ContentSettingBlockedImageModel::UpdateAndGetVisibility(
     return false;
   }
 
-  // TODO(crbug.com/1054460): Handle first-party blocking with new ui.
+  // TODO(crbug.com/40675739): Handle first-party blocking with new ui.
   if (type == ContentSettingsType::COOKIES &&
       CookieSettingsFactory::GetForProfile(profile)
           ->ShouldBlockThirdPartyCookies()) {
@@ -967,7 +967,7 @@ bool ContentSettingMediaImageModel::UpdateAndGetVisibility(
 
   // If neither the microphone nor the camera stream was accessed then no icon
   // is displayed in the omnibox.
-  if (state_.Empty()) {
+  if (state_.empty()) {
     return false;
   }
 
@@ -1320,7 +1320,7 @@ bool ContentSettingNotificationsImageModel::UpdateAndGetVisibility(
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
 
   // We shouldn't show the icon unless we're a PWA.
-  // TODO(crbug.com/1221189): Allow PermissionRequestManager to identify the
+  // TODO(crbug.com/40186737): Allow PermissionRequestManager to identify the
   // correct UI style of a permission prompt.
   const bool quiet_icon_allowed = web_app::AppBrowserController::IsWebApp(
       chrome::FindBrowserWithTab(web_contents));

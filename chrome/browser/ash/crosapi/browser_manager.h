@@ -74,6 +74,10 @@ namespace policy {
 class CloudPolicyCore;
 }
 
+namespace user_manager {
+class DeviceOwnershipWaiter;
+}  // namespace user_manager
+
 namespace crosapi {
 
 namespace mojom {
@@ -83,7 +87,6 @@ class Crosapi;
 
 class BrowserAction;
 class BrowserLoader;
-class DeviceOwnershipWaiter;
 class FilesAppLauncher;
 class PersistentForcedExtensionKeepAlive;
 class TestMojoConnectionManager;
@@ -137,7 +140,7 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // Opens the browser window in lacros-chrome.
   // If lacros-chrome is not yet launched, it triggers to launch.
   // This needs to be called after loading.
-  // TODO(crbug.com/1101676): Notify callers the result of opening window
+  // TODO(crbug.com/40703695): Notify callers the result of opening window
   // request. Because of asynchronous operations crossing processes,
   // there's no guarantee that the opening window request succeeds.
   // Currently, its condition and result are completely hidden behind this
@@ -267,9 +270,6 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // Returns true if keep-alive is enabled.
   bool IsKeepAliveEnabled() const;
 
-  // Returns true if crosapi interface supports GetFeedbackData API.
-  bool GetFeedbackDataSupported() const;
-
   using GetFeedbackDataCallback = base::OnceCallback<void(base::Value::Dict)>;
   // Gathers Lacros feedback data.
   // Virtual for testing.
@@ -330,7 +330,8 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // TODO(crbug.com/1463883): Remove this once we refactored to use the
   // constructor.
   void set_device_ownership_waiter_for_testing(
-      std::unique_ptr<DeviceOwnershipWaiter> device_ownership_waiter);
+      std::unique_ptr<user_manager::DeviceOwnershipWaiter>
+          device_ownership_waiter);
 
   void set_relaunch_requested_for_testing(bool relaunch_requested);
 
@@ -514,7 +515,7 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // web apps in Lacros. Need to decouple the App Platform systems from
   // needing lacros-chrome running all the time.
   friend class apps::AppServiceProxyAsh;
-  // TODO(crbug.com/1311501): ApkWebAppService does not yet support app
+  // TODO(crbug.com/40220252): ApkWebAppService does not yet support app
   // installation when lacros-chrome starts at arbitrary points of time, so it
   // needs to be kept alive.
   friend class ash::ApkWebAppService;
@@ -661,11 +662,6 @@ class BrowserManager : public session_manager::SessionManagerObserver,
       crosapi::mojom::OpenUrlParams_WindowOpenDisposition disposition,
       crosapi::mojom::OpenUrlFrom from,
       NavigateParams::PathBehavior path_behavior);
-
-  // Returns true if the crosapi interface of the currently running lacros
-  // supports NewGuestWindow API. If lacros is older or lacros is not running,
-  // this returns false.
-  bool IsNewGuestWindowSupported() const;
 
   // Creates windows from template data.
   void RestoreWindowsFromTemplate();

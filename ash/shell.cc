@@ -197,6 +197,7 @@
 #include "ash/tray_action/tray_action.h"
 #include "ash/user_education/user_education_controller.h"
 #include "ash/user_education/user_education_delegate.h"
+#include "ash/utility/forest_util.h"
 #include "ash/utility/occlusion_tracker_pauser.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/ash_focus_rules.h"
@@ -673,9 +674,7 @@ DeskProfilesDelegate* Shell::GetDeskProfilesDelegate() {
 // Shell, private:
 
 Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate)
-    : brightness_control_delegate_(
-          std::make_unique<system::BrightnessControllerChromeos>()),
-      focus_cycler_(std::make_unique<FocusCycler>()),
+    : focus_cycler_(std::make_unique<FocusCycler>()),
       ime_controller_(std::make_unique<ImeControllerImpl>()),
       immersive_context_(std::make_unique<ImmersiveContextAsh>()),
       webauthn_dialog_controller_(
@@ -1164,6 +1163,7 @@ Shell::~Shell() {
 
   // Observes `SessionController` and must be destroyed before it.
   federated_service_controller_.reset();
+  brightness_control_delegate_.reset();
 
   UsbguardClient::Shutdown();
 
@@ -1224,6 +1224,11 @@ void Shell::Init(
 
   // Initialized early since it is used by some other objects.
   keyboard_capability_ = std::make_unique<ui::KeyboardCapability>();
+
+  // This needs to be initialized after SessionController.
+  brightness_control_delegate_ =
+      std::make_unique<system::BrightnessControllerChromeos>(
+          local_state_, session_controller_.get());
 
   // These controllers call Shell::Get() in their constructors, so they cannot
   // be in the member initialization list.
@@ -1493,10 +1498,6 @@ void Shell::Init(
 
   // The order in which event filters are added is significant.
 
-  // ui::UserActivityDetector passes events to observers, so let them get
-  // rewritten first.
-  user_activity_detector_ = std::make_unique<ui::UserActivityDetector>();
-
   control_v_histogram_recorder_ = std::make_unique<ControlVHistogramRecorder>();
   AddPreTargetHandler(control_v_histogram_recorder_.get(),
                       ui::EventTarget::Priority::kAccessibility);
@@ -1592,7 +1593,7 @@ void Shell::Init(
   // used in its constructor.
   app_list_controller_ = std::make_unique<AppListControllerImpl>();
 
-  if (features::IsForestFeatureEnabled()) {
+  if (IsForestFeatureFlagEnabled()) {
     birch_model_ = std::make_unique<BirchModel>();
   }
 
@@ -1717,7 +1718,7 @@ void Shell::Init(
       fingerprint.InitWithNewPipeAndPassReceiver());
   user_activity_notifier_ =
       std::make_unique<ui::UserActivityPowerManagerNotifier>(
-          user_activity_detector_.get(), std::move(fingerprint));
+          ui::UserActivityDetector::Get(), std::move(fingerprint));
   video_activity_notifier_ =
       std::make_unique<VideoActivityNotifier>(video_detector_.get());
   bluetooth_state_cache_ = std::make_unique<BluetoothStateCache>();
@@ -1755,7 +1756,6 @@ void Shell::Init(
   }
 
   if (features::AreGlanceablesV2Enabled() ||
-      features::AreGlanceablesV2EnabledForTrustedTesters() ||
       features::AreAnyGlanceablesTimeManagementViewsEnabled()) {
     glanceables_controller_ = std::make_unique<GlanceablesController>();
   }
@@ -1770,7 +1770,7 @@ void Shell::Init(
   projector_controller_ = std::make_unique<ProjectorControllerImpl>();
 
   float_controller_ = std::make_unique<FloatController>();
-  if (features::IsForestFeatureEnabled()) {
+  if (IsForestFeatureFlagEnabled()) {
     pine_controller_ = std::make_unique<PineController>();
   }
   pip_controller_ = std::make_unique<PipController>();
@@ -2025,7 +2025,8 @@ void Shell::OnSessionStateChanged(session_manager::SessionState state) {
     firmware_update_notification_controller_ =
         std::make_unique<FirmwareUpdateNotificationController>(
             message_center::MessageCenter::Get());
-    firmware_update_manager_->RequestAllUpdates();
+    firmware_update_manager_->RequestAllUpdates(
+        FirmwareUpdateManager::Source::kStartup);
   }
 
   // Disable drag-and-drop during OOBE and GAIA login screens by only enabling

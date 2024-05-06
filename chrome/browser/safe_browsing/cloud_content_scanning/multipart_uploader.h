@@ -65,7 +65,11 @@ class MultipartUploadRequest : public ConnectorUploadRequest {
 
   ~MultipartUploadRequest() override;
 
+  // Start the upload. This must be called on the UI thread. When complete, this
+  // will call `callback_` on the UI thread.
   void Start() override;
+
+  std::string GetUploadInfo() override;
 
   static std::unique_ptr<ConnectorUploadRequest> CreateStringRequest(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
@@ -93,6 +97,10 @@ class MultipartUploadRequest : public ConnectorUploadRequest {
       MultipartUploadRequest::Callback callback);
 
   void SetRequestHeaders(network::ResourceRequest* request);
+
+  // Update `scan_type_` to be CONTENT to indicate that the content scan is
+  // successful. Used in testing only.
+  void MarkScanAsCompleteForTesting();
 
  private:
   FRIEND_TEST_ALL_PREFIXES(MultipartUploadRequestTest, GeneratesCorrectBody);
@@ -148,6 +156,8 @@ class MultipartUploadRequest : public ConnectorUploadRequest {
   int retry_count_;
 
   base::Time start_time_;
+
+  bool scan_complete_ = false;
 
   base::WeakPtrFactory<MultipartUploadRequest> weak_factory_{this};
 };

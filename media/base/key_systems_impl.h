@@ -20,19 +20,23 @@
 #include "media/base/eme_constants.h"
 #include "media/base/key_system_info.h"
 #include "media/base/key_systems.h"
-#include "media/base/key_systems_support_observer.h"
+#include "media/base/key_systems_support_registration.h"
 #include "media/base/media_export.h"
 
 namespace media {
 
-// TODO(b/267698934): Migrate KeySystemsImpl to be a per-frame instance.
+// TODO(b/321307544): Rename this callback to more appropriate name e.g.
+// GetSupportedKeySystemsCB.
+using RegisterKeySystemsSupportCB =
+    base::OnceCallback<std::unique_ptr<KeySystemSupportRegistration>(
+        GetSupportedKeySystemsCB)>;
+
 // An implementation of KeySystems that provides functionality to query
 // registered key systems.
-class KeySystemsImpl : public KeySystems {
+class MEDIA_EXPORT KeySystemsImpl : public KeySystems {
  public:
-  // TODO(b/267698934): Remove this API when migrating KeySystems to be a
-  // per-frame instance.
-  static KeySystemsImpl* GetInstance();
+  explicit KeySystemsImpl(RegisterKeySystemsSupportCB cb);
+  ~KeySystemsImpl() override;
 
   KeySystemsImpl(const KeySystemsImpl&) = delete;
   KeySystemsImpl& operator=(const KeySystemsImpl&) = delete;
@@ -75,14 +79,9 @@ class KeySystemsImpl : public KeySystems {
   void ResetForTesting();
 
  private:
-  friend class base::NoDestructor<KeySystemsImpl>;
-
   using MimeTypeToCodecsMap = std::unordered_map<std::string, SupportedCodecs>;
   using CodecMap = std::unordered_map<std::string, EmeCodec>;
   using InitDataTypesMap = std::unordered_map<std::string, EmeInitDataType>;
-
-  KeySystemsImpl();
-  ~KeySystemsImpl() override;
 
   void Initialize();
 
@@ -128,7 +127,11 @@ class KeySystemsImpl : public KeySystems {
   // Makes sure all methods are called from the same thread.
   base::ThreadChecker thread_checker_;
 
-  std::unique_ptr<KeySystemSupportObserver> key_system_support_observer_;
+  std::unique_ptr<KeySystemSupportRegistration>
+      key_system_support_registration_;
+
+  // Callback that is used to initialize key systems.
+  RegisterKeySystemsSupportCB register_key_systems_support_cb_;
 
   base::WeakPtrFactory<KeySystemsImpl> weak_factory_{this};
 };

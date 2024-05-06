@@ -298,15 +298,9 @@ class ASH_EXPORT WallpaperControllerImpl
                               const std::string& file_name,
                               WallpaperLayout layout,
                               const gfx::ImageSkia& image) override;
-  void SetSeaPenWallpaper(
-      const AccountId& account_id,
-      const SeaPenImage& sea_pen_image,
-      const personalization_app::mojom::SeaPenQueryPtr& query,
-      SetWallpaperCallback callback) override;
-
-  void SetSeaPenWallpaperFromFile(const AccountId& account_id,
-                                  uint32_t id,
-                                  SetWallpaperCallback callback) override;
+  void SetSeaPenWallpaper(const AccountId& account_id,
+                          uint32_t image_id,
+                          SetWallpaperCallback callback) override;
   void ConfirmPreviewWallpaper() override;
   void CancelPreviewWallpaper() override;
   void UpdateCurrentWallpaperLayout(const AccountId& account_id,
@@ -399,6 +393,10 @@ class ASH_EXPORT WallpaperControllerImpl
   // Needed when logoff is simulated in testing.
   void ClearPrefChangeObserverForTesting();
 
+  // Overrides `drivefs_delegate_` for testing.
+  void OverrideDriveFsDelegateForTesting(
+      std::unique_ptr<WallpaperDriveFsDelegate> drivefs_delegate);
+
   void set_bypass_decode_for_testing() { bypass_decode_for_testing_ = true; }
 
   void set_allow_shield_for_testing() { allow_shield_for_testing_ = true; }
@@ -418,6 +416,10 @@ class ASH_EXPORT WallpaperControllerImpl
 
   raw_ptr<WallpaperTimeOfDayScheduler> time_of_day_scheduler_for_testing() {
     return time_of_day_scheduler_.get();
+  }
+
+  raw_ptr<WallpaperPrefManager> pref_manager_for_testing() {
+    return pref_manager_.get();
   }
 
  private:
@@ -569,6 +571,14 @@ class ASH_EXPORT WallpaperControllerImpl
                                 uint32_t sea_pen_image_id,
                                 SetWallpaperCallback callback,
                                 const gfx::ImageSkia& image_skia);
+
+  void OnSeaPenWallpaperSavedToPublic(const AccountId& account_id,
+                                      const gfx::ImageSkia& image_skia,
+                                      uint32_t sea_pen_image_id,
+                                      SetWallpaperCallback callback,
+                                      const base::FilePath& file_path);
+
+  void OnSeaPenFilesMigrated(const AccountId& account_id, bool success);
 
   // Saves |image| to disk if the user's data is not ephemeral, or if it is a
   // policy wallpaper for public accounts. Shows the wallpaper immediately if

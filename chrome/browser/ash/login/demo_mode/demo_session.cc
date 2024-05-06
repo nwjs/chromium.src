@@ -308,15 +308,8 @@ bool DemoSession::IsDeviceInDemoMode() {
   if (!InstallAttributes::IsInitialized()) {
     return false;
   }
-  bool is_demo_device_mode = InstallAttributes::Get()->GetMode() ==
-                             policy::DeviceMode::DEVICE_MODE_DEMO;
-  bool is_demo_device_domain =
-      InstallAttributes::Get()->GetDomain() == policy::kDemoModeDomain;
 
-  // We check device mode and domain to allow for dev/test
-  // setup that is done by manual enrollment into demo domain. Device mode is
-  // not set to DeviceMode::DEVICE_MODE_DEMO then.
-  return is_demo_device_mode || is_demo_device_domain;
+  return InstallAttributes::Get()->IsDeviceInDemoMode();
 }
 
 // static
@@ -791,8 +784,8 @@ void DemoSession::RemoveSplashScreen() {
 }
 
 bool DemoSession::ShouldRemoveSplashScreen() {
-  // TODO(crbug.com/934979): Launch screensaver after active session starts, so
-  // that there's no need to check session state here.
+  // TODO(crbug.com/40615242): Launch screensaver after active session starts,
+  // so that there's no need to check session state here.
   return session_manager::SessionManager::Get()->session_state() ==
              session_manager::SessionState::ACTIVE &&
          screensaver_activated_;

@@ -4,11 +4,12 @@
 
 #include "chrome/updater/app/app_install.h"
 
+#include <windows.h>
+
 #include <ocidl.h>
 #include <olectl.h>
 #include <shldisp.h>
 #include <shlobj.h>
-#include <windows.h>
 #include <winhttp.h>
 #include <wrl/client.h>
 
@@ -58,6 +59,7 @@
 #include "chrome/updater/util/win_util.h"
 #include "chrome/updater/win/installer/exit_code.h"
 #include "chrome/updater/win/manifest_util.h"
+#include "chrome/updater/win/ui/l10n_util.h"
 #include "chrome/updater/win/ui/resources/resources.grh"
 #include "chrome/updater/win/win_constants.h"
 #include "components/update_client/update_client_errors.h"
@@ -90,7 +92,7 @@ class InstallProgressSilentObserver : public AppInstallProgress {
                            const std::u16string& app_name) override;
   void OnDownloading(const std::string& app_id,
                      const std::u16string& app_name,
-                     int time_remaining_ms,
+                     const std::optional<base::TimeDelta> time_remaining,
                      int pos) override;
   void OnWaitingRetryDownload(const std::string& app_id,
                               const std::u16string& app_name,
@@ -99,7 +101,7 @@ class InstallProgressSilentObserver : public AppInstallProgress {
                           const std::u16string& app_name) override;
   void OnInstalling(const std::string& app_id,
                     const std::u16string& app_name,
-                    int time_remaining_ms,
+                    const std::optional<base::TimeDelta> time_remaining,
                     int pos) override;
   void OnPause() override;
   void OnComplete(const ObserverCompletionInfo& observer_info) override;
@@ -137,7 +139,7 @@ void InstallProgressSilentObserver::OnWaitingToDownload(
 void InstallProgressSilentObserver::OnDownloading(
     const std::string& app_id,
     const std::u16string& app_name,
-    int time_remaining_ms,
+    const std::optional<base::TimeDelta> time_remaining,
     int pos) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
@@ -155,10 +157,11 @@ void InstallProgressSilentObserver::OnWaitingToInstall(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
-void InstallProgressSilentObserver::OnInstalling(const std::string& app_id,
-                                                 const std::u16string& app_name,
-                                                 int time_remaining_ms,
-                                                 int pos) {
+void InstallProgressSilentObserver::OnInstalling(
+    const std::string& app_id,
+    const std::u16string& app_name,
+    const std::optional<base::TimeDelta> time_remaining,
+    int pos) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
@@ -241,13 +244,13 @@ class AppInstallProgressIPC : public AppInstallProgress {
 
   void OnDownloading(const std::string& app_id,
                      const std::u16string& app_name,
-                     int time_remaining_ms,
+                     const std::optional<base::TimeDelta> time_remaining,
                      int pos) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     CHECK(observer_);
     PostClosure(base::BindOnce(&AppInstallProgress::OnDownloading,
                                base::Unretained(observer_), app_id, app_name,
-                               time_remaining_ms, pos));
+                               time_remaining, pos));
   }
 
   void OnWaitingRetryDownload(const std::string& app_id,
@@ -266,13 +269,13 @@ class AppInstallProgressIPC : public AppInstallProgress {
 
   void OnInstalling(const std::string& app_id,
                     const std::u16string& app_name,
-                    int time_remaining_ms,
+                    const std::optional<base::TimeDelta> time_remaining,
                     int pos) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     CHECK(observer_);
     PostClosure(base::BindOnce(&AppInstallProgress::OnInstalling,
                                base::Unretained(observer_), app_id, app_name,
-                               time_remaining_ms, pos));
+                               time_remaining, pos));
   }
 
   void OnPause() override { NOTREACHED(); }
@@ -736,12 +739,9 @@ void AppInstallControllerImpl::StateChange(
       if (pos >= 0) {
         download_progress_sampler_.AddSample(update_state.downloaded_bytes);
       }
-      const std::optional<base::TimeDelta> remaining_download_time =
-          download_progress_sampler_.GetRemainingTime(update_state.total_bytes);
       install_progress_observer_ipc_->OnDownloading(
           app_id_, app_name_,
-          remaining_download_time ? remaining_download_time->InMilliseconds()
-                                  : -1,
+          download_progress_sampler_.GetRemainingTime(update_state.total_bytes),
           pos >= 0 ? pos : 0);
       break;
     }
@@ -752,12 +752,8 @@ void AppInstallControllerImpl::StateChange(
       if (pos >= 0) {
         install_progress_sampler_.AddSample(pos);
       }
-      const std::optional<base::TimeDelta> remaining_install_time =
-          install_progress_sampler_.GetRemainingTime(100);
       install_progress_observer_ipc_->OnInstalling(
-          app_id_, app_name_,
-          remaining_install_time ? remaining_install_time->InMilliseconds()
-                                 : -1,
+          app_id_, app_name_, install_progress_sampler_.GetRemainingTime(100),
           pos >= 0 ? pos : 0);
       break;
     }
@@ -779,9 +775,10 @@ void AppInstallControllerImpl::StateChange(
 void AppInstallControllerImpl::LoadLogo(const std::string& app_id,
                                         HWND progress_hwnd) {
   std::wstring url = base::SysUTF8ToWide(base::StringPrintf(
-      "%s%s.bmp",
+      "%s%s.bmp?lang=%s",
       CreateExternalConstants()->AppLogoURL().possibly_invalid_spec().c_str(),
-      base::EscapeUrlEncodedData(app_id, false).c_str()));
+      base::EscapeUrlEncodedData(app_id, false).c_str(),
+      base::WideToUTF8(GetPreferredLanguage()).c_str()));
   if (url.empty()) {
     VLOG(1) << __func__ << "No url specified";
     return;
@@ -993,6 +990,11 @@ void AppInstallControllerImpl::DoCancel() {
 }
 
 scoped_refptr<App> MakeAppInstall(bool is_silent_install) {
+  if (IsSystemInstall() &&
+      base::CommandLine::ForCurrentProcess()->HasSwitch(kOemSwitch)) {
+    const bool success = SetOemInstallState();
+    LOG_IF(ERROR, success) << "SetOemInstallState failed";
+  }
   return base::MakeRefCounted<AppInstall>(
       base::BindRepeating(
           [](bool is_silent_install,

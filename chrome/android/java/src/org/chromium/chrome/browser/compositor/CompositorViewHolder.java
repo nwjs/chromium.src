@@ -51,7 +51,6 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -64,6 +63,7 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLoadIfNeededCaller;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -1790,9 +1790,13 @@ public class CompositorViewHolder extends FrameLayout
 
             node.setBoundsInParent(rectToPx(mTouchTarget));
             node.setContentDescription(view.getAccessibilityDescription());
-            node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK);
+            if (view.hasClickAction()) {
+                node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK);
+            }
             node.addAction(AccessibilityNodeInfoCompat.ACTION_FOCUS);
-            node.addAction(AccessibilityNodeInfoCompat.ACTION_LONG_CLICK);
+            if (view.hasLongClickAction()) {
+                node.addAction(AccessibilityNodeInfoCompat.ACTION_LONG_CLICK);
+            }
         }
 
         private Rect rectToPx(RectF rect) {

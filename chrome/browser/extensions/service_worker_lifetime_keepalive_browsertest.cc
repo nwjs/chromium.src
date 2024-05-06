@@ -263,7 +263,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerLifetimeKeepaliveBrowsertest,
 
 // Tests that the service workers will not stop if both extensions are
 // allowlisted via policy and the port is not closed.
-// TODO(https://crbug.com/1454339): Flakes on ChromeOS.
+// TODO(crbug.com/40272276): Flakes on ChromeOS.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_ServiceWorkersDoNotTimeOutWithPolicy \
   DISABLED_ServiceWorkersDoNotTimeOutWithPolicy
@@ -800,12 +800,17 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerLifetimeKeepaliveBrowsertest,
       LoadExtension(test_dir.UnpackedPath(), {.allow_in_incognito = true});
   ASSERT_TRUE(extension);
 
+  Profile* incognito_profile =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  service_worker_test_utils::TestRegistrationObserver registration_observer(
+      incognito_profile);
   // Open example.com/simple.html in an incognito window. The content script
   // will inject.
   ExtensionTestMessageListener content_script_listener("content script ready");
   Browser* incognito_browser = OpenURLOffTheRecord(
       profile(), embedded_test_server()->GetURL("example.com", "/simple.html"));
   ASSERT_TRUE(content_script_listener.WaitUntilSatisfied());
+  registration_observer.WaitForWorkerActivated();
   content::WebContents* incognito_tab =
       incognito_browser->tab_strip_model()->GetActiveWebContents();
   int tab_id = ExtensionTabUtil::GetTabId(incognito_tab);
@@ -819,7 +824,6 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerLifetimeKeepaliveBrowsertest,
            chrome.tabs.sendMessage(%d, 'hello', () => {});
          })();)";
 
-  Profile* incognito_profile = incognito_browser->profile();
   base::Value script_result = BackgroundScriptExecutor::ExecuteScript(
       incognito_profile, extension->id(),
       base::StringPrintf(kOpenMessagePipe, tab_id),
@@ -849,7 +853,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerLifetimeKeepaliveBrowsertest,
   //   tab asynchronously, the keepalive is guaranteed to have resolved.
   //   (Otherwise, it could potentially be racy).
   // Thus, at the end, we have two remaining keepalives.
-  // TODO(crbug.com/1514471): Ideally, there would only be one -- we shouldn't
+  // TODO(crbug.com/41487026): Ideally, there would only be one -- we shouldn't
   // add keepalives for the service worker due to a tab's message port.
 
   EXPECT_THAT(
@@ -931,17 +935,21 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerLifetimeKeepaliveBrowsertest,
       listener_extension_dir.UnpackedPath(), {.allow_in_incognito = true});
   ASSERT_TRUE(listener_extension);
 
+  Profile* incognito_profile =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  service_worker_test_utils::TestRegistrationObserver registration_observer(
+      incognito_profile);
   // Open a new tab in incognito. This spawns the new process for the split mode
   // extensions.
   Browser* incognito_browser = OpenURLOffTheRecord(
       profile(), embedded_test_server()->GetURL("example.com", "/simple.html"));
+  registration_observer.WaitForWorkerActivated();
 
   // Send a message from one extension to the other, opening a message pipe.
   // Since the listener extension never responds, the message pipe will
   // remain open. The listener then sends the script result 'success' when it
   // receives the message.
   static constexpr char kOpenMessagePipe[] = R"(openMessagePipe('%s');)";
-  Profile* incognito_profile = incognito_browser->profile();
   base::Value script_result = BackgroundScriptExecutor::ExecuteScript(
       incognito_profile, opener_extension->id(),
       base::StringPrintf(kOpenMessagePipe, listener_extension->id().c_str()),

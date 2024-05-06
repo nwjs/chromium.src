@@ -72,7 +72,7 @@ bool AreAllVideoCodecsSupported(const std::vector<VideoType>& video_types) {
 }
 
 hls::RenditionManager::CodecSupportType GetSupportedTypes(
-    base::StringPiece container,
+    std::string_view container,
     base::span<const std::string> codecs) {
   std::vector<VideoType> video_formats;
   std::vector<AudioType> audio_formats;
@@ -401,18 +401,6 @@ void HlsManifestDemuxerEngine::UpdateRenditionManifestUri(
     GURL uri,
     base::OnceCallback<void(bool)> cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
-  ProcessAsyncAction<bool>(
-      std::move(cb),
-      base::BindOnce(
-          &HlsManifestDemuxerEngine::UpdateRenditionManifestUriAction,
-          weak_factory_.GetWeakPtr(), std::move(role), std::move(uri)));
-}
-
-void HlsManifestDemuxerEngine::UpdateRenditionManifestUriAction(
-    std::string role,
-    GURL uri,
-    base::OnceCallback<void(bool)> cb) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("media", "HLS::UpdateRenditionManifest",
                                     this, "uri", uri);
   GURL uri_copy = uri;
@@ -660,7 +648,7 @@ void HlsManifestDemuxerEngine::ParsePlaylist(
 
 hls::ParseStatus::Or<scoped_refptr<hls::MediaPlaylist>>
 HlsManifestDemuxerEngine::ParseMediaPlaylistFromStringSource(
-    base::StringPiece source,
+    std::string_view source,
     GURL uri,
     hls::types::DecimalInteger version) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);

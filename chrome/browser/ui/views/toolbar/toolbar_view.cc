@@ -520,6 +520,13 @@ void ToolbarView::Init() {
 
   location_bar_->Init();
 
+  show_forward_button_.Init(
+      prefs::kShowForwardButton, prefs,
+      base::BindRepeating(&ToolbarView::OnShowForwardButtonChanged,
+                          base::Unretained(this)));
+
+  forward_->SetVisible(show_forward_button_.GetValue());
+
   show_home_button_.Init(
       prefs::kShowHomeButton, prefs,
       base::BindRepeating(&ToolbarView::OnShowHomeButtonChanged,
@@ -826,7 +833,7 @@ void ToolbarView::Layout(PassKey) {
   // to the overflow state determined by the first pass.
   // TODO(pengchaocai): Explore possible optimizations.
   if (toolbar_controller_) {
-    // TODO(crbug.com/1499021) Move this logic into LayoutManager.
+    // TODO(crbug.com/40939901) Move this logic into LayoutManager.
     views::ManualLayoutUtil manual_layout_util(layout_manager_);
     const bool was_overflow_button_visible =
         toolbar_controller_->overflow_button()->GetVisible();
@@ -1012,7 +1019,7 @@ void ToolbarView::InitLayout() {
   if (base::FeatureList::IsEnabled(features::kResponsiveToolbar)) {
     constexpr int kToolbarFlexOrderStart = 1;
 
-    // TODO(crbug.com/1479588): Ignore containers till issue addressed.
+    // TODO(crbug.com/40929989): Ignore containers till issue addressed.
     toolbar_controller_ = std::make_unique<ToolbarController>(
         ToolbarController::GetDefaultResponsiveElements(browser_),
         ToolbarController::GetDefaultOverflowOrder(), kToolbarFlexOrderStart,
@@ -1099,6 +1106,16 @@ void ToolbarView::UpdateTypeAndSeverity(
   }
   app_menu_button_->SetAccessibleName(accname_app);
   app_menu_button_->SetTypeAndSeverity(type_and_severity);
+
+  if (base::FeatureList::IsEnabled(features::kDefaultBrowserPromptRefresh) &&
+      DefaultBrowserPromptManager::GetInstance()->get_show_app_menu_prompt()) {
+    // Log whether the default chip was shown when it otherwise should be to
+    // understand the percent of time it is pre-empted.
+    base::UmaHistogramBoolean(
+        "DefaultBrowser.AppMenu.DefaultChipShown",
+        type_and_severity.type ==
+            AppMenuIconController::IconType::DEFAULT_BROWSER_PROMPT);
+  }
 }
 
 SkColor ToolbarView::GetDefaultColorForSeverity(
@@ -1168,7 +1185,8 @@ views::AccessiblePaneView* ToolbarView::GetAsAccessiblePaneView() {
   return this;
 }
 
-views::View* ToolbarView::GetAnchorView(PageActionIconType type) {
+views::View* ToolbarView::GetAnchorView(
+    std::optional<PageActionIconType> type) {
   return location_bar_;
 }
 
@@ -1237,10 +1255,13 @@ void ToolbarView::LoadImages() {
     extensions_container_->UpdateAllIcons();
 }
 
+void ToolbarView::OnShowForwardButtonChanged() {
+  forward_->SetVisible(show_forward_button_.GetValue());
+  InvalidateLayout();
+}
+
 void ToolbarView::OnShowHomeButtonChanged() {
   home_->SetVisible(show_home_button_.GetValue());
-  DeprecatedLayoutImmediately();
-  SchedulePaint();
 }
 
 void ToolbarView::OnTouchUiChanged() {

@@ -157,6 +157,7 @@
   E(kActionManageExtensions, IDC_MANAGE_EXTENSIONS) \
   E(kActionDevToolsInspect, IDC_DEV_TOOLS_INSPECT) \
   E(kActionUpgradeDialog, IDC_UPGRADE_DIALOG) \
+  E(kActionSetBrowserAsDefault, IDC_SET_BROWSER_AS_DEFAULT) \
   E(kActionProfilingEnabled, IDC_PROFILING_ENABLED) \
   E(kActionBookmarksMenu, IDC_BOOKMARKS_MENU) \
   E(kActionExtensionErrors, IDC_EXTENSION_ERRORS) \
@@ -170,7 +171,6 @@
   E(kActionRecentTabsMenu, IDC_RECENT_TABS_MENU) \
   E(kActionRecentTabsNoDeviceTabs, IDC_RECENT_TABS_NO_DEVICE_TABS) \
   E(kActionShowSettingsResetBubble, IDC_SHOW_SETTINGS_RESET_BUBBLE) \
-  E(kActionDistillPage, IDC_DISTILL_PAGE) \
   E(kActionHelpMenu, IDC_HELP_MENU) \
   E(kActionShowSrtBubble, IDC_SHOW_SRT_BUBBLE) \
   E(kActionElevatedRecoveryDialog, IDC_ELEVATED_RECOVERY_DIALOG) \

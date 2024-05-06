@@ -9,6 +9,7 @@
 #include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/no_destructor.h"
+#include "chrome/browser/ui/chromeos/read_write_cards/read_write_cards_view.h"
 #include "ui/aura/window.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/display/screen.h"
@@ -29,20 +30,16 @@ namespace chromeos {
 
 namespace {
 
-constexpr char kWidgetName[] = "QuickAnswersMahiMenuWidget";
 constexpr int kQuickAnswersAndMahiSpacing = 10;
 
 views::Widget::InitParams CreateWidgetInitParams() {
   views::Widget::InitParams params;
   params.activatable = views::Widget::InitParams::Activatable::kNo;
-  // TODO(b/327786910): remove shadow in the widget and use shadow in individual
-  // views.
-  params.shadow_elevation = 2;
-  params.shadow_type = views::Widget::InitParams::ShadowType::kDrop;
+  params.shadow_type = views::Widget::InitParams::ShadowType::kNone;
   params.type = views::Widget::InitParams::TYPE_POPUP;
   params.z_order = ui::ZOrderLevel::kFloatingUIElement;
   params.child = true;
-  params.name = kWidgetName;
+  params.name = ReadWriteCardsUiController::kWidgetName;
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
 
   // Parent the widget to the owner of the menu.
@@ -64,32 +61,39 @@ views::Widget::InitParams CreateWidgetInitParams() {
 
 ReadWriteCardsUiController::ReadWriteCardsUiController() = default;
 
-ReadWriteCardsUiController::~ReadWriteCardsUiController() = default;
+ReadWriteCardsUiController::~ReadWriteCardsUiController() {
+  if (quick_answers_view_) {
+    OnViewIsDeleting(quick_answers_view_);
+  }
+}
 
-views::View* ReadWriteCardsUiController::SetQuickAnswersView(
-    std::unique_ptr<views::View> view) {
+ReadWriteCardsView* ReadWriteCardsUiController::SetQuickAnswersView(
+    std::unique_ptr<ReadWriteCardsView> view) {
   CreateWidgetIfNeeded();
 
-  CHECK(!quick_answers_view_.view());
+  CHECK(!quick_answers_view_);
 
   views::View* contents_view = widget_->GetContentsView();
-  quick_answers_view_.SetView(contents_view->AddChildView(std::move(view)));
+  quick_answers_view_ = contents_view->AddChildView(std::move(view));
+  quick_answers_view_->AddObserver(this);
 
-  UpdateWidgetBounds();
+  Relayout();
 
-  return quick_answers_view_.view();
+  return quick_answers_view_;
 }
 
 void ReadWriteCardsUiController::RemoveQuickAnswersView() {
-  if (!quick_answers_view_.view()) {
+  if (!quick_answers_view_) {
     return;
   }
 
-  widget_->GetContentsView()->RemoveChildViewT(quick_answers_view_.view());
+  widget_->GetContentsView()->RemoveChildViewT(
+      quick_answers_view_.ExtractAsDangling());
+  quick_answers_view_ = nullptr;
   MaybeHideWidget();
 
   if (widget_) {
-    UpdateWidgetBounds();
+    Relayout();
   }
 }
 
@@ -102,7 +106,7 @@ views::View* ReadWriteCardsUiController::SetMahiView(
   views::View* contents_view = widget_->GetContentsView();
   mahi_view_.SetView(contents_view->AddChildView(std::move(view)));
 
-  UpdateWidgetBounds();
+  Relayout();
 
   return mahi_view_.view();
 }
@@ -116,19 +120,19 @@ void ReadWriteCardsUiController::RemoveMahiView() {
   MaybeHideWidget();
 
   if (widget_) {
-    UpdateWidgetBounds();
+    Relayout();
   }
 }
 
-views::View* ReadWriteCardsUiController::GetQuickAnswersViewForTest() {
-  return quick_answers_view_.view();
+ReadWriteCardsView* ReadWriteCardsUiController::GetQuickAnswersViewForTest() {
+  return quick_answers_view_;
 }
 
 views::View* ReadWriteCardsUiController::GetMahiViewForTest() {
   return mahi_view_.view();
 }
 
-void ReadWriteCardsUiController::UpdateWidgetBounds() {
+void ReadWriteCardsUiController::Relayout() {
   CHECK(widget_);
   int widget_width = context_menu_bounds_.width();
   int widget_height =
@@ -137,12 +141,29 @@ void ReadWriteCardsUiController::UpdateWidgetBounds() {
   int x = context_menu_bounds_.x();
   int y =
       context_menu_bounds_.y() - widget_height - kQuickAnswersAndMahiSpacing;
-  if (y < display::Screen::GetScreen()
-              ->GetDisplayMatching(context_menu_bounds_)
-              .work_area()
-              .y()) {
-    y = context_menu_bounds_.bottom() + kQuickAnswersAndMahiSpacing;
+
+  // Include the extra reserved height in our decision to place the widget
+  // above or below the context menu, since we should reserve space at the top
+  // to avoid running out of space when a view re-layout. We will use the
+  // view's `GetMaximumSize()` to calculate this reserved height.
+  int extra_reserved_height = 0;
+  if (quick_answers_view_ && !quick_answers_view_->GetMaximumSize().IsZero()) {
+    CHECK_GE(quick_answers_view_->GetMaximumSize().height(),
+             quick_answers_view_->size().height());
+    extra_reserved_height = quick_answers_view_->GetMaximumSize().height() -
+                            quick_answers_view_->size().height();
   }
+
+  bool widget_above_context_menu = true;
+  if (y - extra_reserved_height < display::Screen::GetScreen()
+                                      ->GetDisplayMatching(context_menu_bounds_)
+                                      .work_area()
+                                      .y()) {
+    y = context_menu_bounds_.bottom() + kQuickAnswersAndMahiSpacing;
+    widget_above_context_menu = false;
+  }
+
+  ReorderChildViews(widget_above_context_menu);
 
   gfx::Rect bounds({x, y}, {widget_width, widget_height});
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -155,13 +176,35 @@ void ReadWriteCardsUiController::UpdateWidgetBounds() {
   widget_->SetBounds(bounds);
 }
 
+void ReadWriteCardsUiController::MaybeRelayout() {
+  if (!widget_) {
+    return;
+  }
+
+  Relayout();
+}
+
 void ReadWriteCardsUiController::SetContextMenuBounds(
     const gfx::Rect& context_menu_bounds) {
   context_menu_bounds_ = context_menu_bounds;
 
-  if (widget_) {
-    UpdateWidgetBounds();
+  if (quick_answers_view_) {
+    quick_answers_view_->SetContextMenuBounds(context_menu_bounds);
   }
+
+  if (widget_) {
+    Relayout();
+  }
+}
+
+void ReadWriteCardsUiController::OnViewIsDeleting(views::View* observed_view) {
+  if (!quick_answers_view_) {
+    return;
+  }
+
+  CHECK_EQ(quick_answers_view_, observed_view);
+  quick_answers_view_->RemoveObserver(this);
+  quick_answers_view_ = nullptr;
 }
 
 void ReadWriteCardsUiController::CreateWidgetIfNeeded() {
@@ -187,12 +230,31 @@ void ReadWriteCardsUiController::CreateWidgetIfNeeded() {
 }
 
 void ReadWriteCardsUiController::MaybeHideWidget() {
-  if (quick_answers_view_.view() || mahi_view_.view()) {
+  if (quick_answers_view_ || mahi_view_.view()) {
     return;
   }
 
   // Close the widget if all the views are removed.
   widget_.reset();
+}
+
+void ReadWriteCardsUiController::ReorderChildViews(
+    bool widget_above_context_menu) {
+  // No need to reorder if one of the view is not set.
+  if (!quick_answers_view_ || !mahi_view_) {
+    return;
+  }
+
+  CHECK(widget_);
+  auto* contents_view = widget_->GetContentsView();
+
+  // Quick Answers view should be on top if the widget is above the context
+  // menu. The order should be reversed otherwise.
+  if (widget_above_context_menu) {
+    contents_view->ReorderChildView(quick_answers_view_, /*index=*/0);
+  } else {
+    contents_view->ReorderChildView(mahi_view_.view(), /*index=*/0);
+  }
 }
 
 }  // namespace chromeos

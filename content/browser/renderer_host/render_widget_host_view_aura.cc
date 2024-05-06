@@ -7,6 +7,7 @@
 #include <limits>
 #include <memory>
 #include <set>
+#include <string_view>
 #include <utility>
 
 #include "base/auto_reset.h"
@@ -563,13 +564,6 @@ void RenderWidgetHostViewAura::NotifyHostAndDelegateOnWasShown(
   DCHECK(host_->is_hidden());
   DCHECK_NE(visibility_, Visibility::VISIBLE);
 
-  auto* wth = window()->GetHost();
-  if (wth && !wth->window()->GetLocalSurfaceId().is_valid()) {
-    wth->window()->AllocateLocalSurfaceId();
-    wth->compositor()->SetLocalSurfaceIdFromParent(
-        wth->window()->GetLocalSurfaceId());
-  }
-
   visibility_ = Visibility::VISIBLE;
 
   bool has_saved_frame = delegated_frame_host_->HasSavedFrame();
@@ -748,6 +742,10 @@ void RenderWidgetHostViewAura::ObserveDevicePosturePlatformProvider() {
 
 void RenderWidgetHostViewAura::OnDisplayFeatureBoundsChanged(
     const gfx::Rect& display_feature_bounds) {
+  if (display_feature_overridden_for_testing_) {
+    return;
+  }
+
   display_feature_ = std::nullopt;
   display_feature_bounds_ = gfx::Rect();
   if (display_feature_bounds.IsEmpty()) {
@@ -895,9 +893,10 @@ void RenderWidgetHostViewAura::ShowWithVisibility(
     legacy_render_widget_host_HWND_->Hide();
   }
 
-  if (window_->GetHost() && GetInputMethod() && !ShouldDoLearning()) {
-    ui::tsf_inputscope::SetPrivateInputScope(
-        RenderWidgetHostViewAura::GetHostWindowHWND());
+  if (window_->GetHost() && GetInputMethod()) {
+    InputScope input_scope = ShouldDoLearning() ? IS_DEFAULT : IS_PRIVATE;
+    ui::tsf_inputscope::SetInputScope(
+        RenderWidgetHostViewAura::GetHostWindowHWND(), input_scope);
   }
 
 #endif  // BUILDFLAG(IS_WIN)
@@ -1647,7 +1646,7 @@ void RenderWidgetHostViewAura::ExtendSelectionAndDelete(
 void RenderWidgetHostViewAura::ExtendSelectionAndReplace(
     size_t before,
     size_t after,
-    const base::StringPiece16 replacement_text) {
+    const std::u16string_view replacement_text) {
   auto* input_handler = GetFrameWidgetInputHandlerForFocusedWidget();
   if (!input_handler) {
     return;
@@ -1702,7 +1701,7 @@ ukm::SourceId RenderWidgetHostViewAura::GetClientSourceForMetrics() const {
 }
 
 bool RenderWidgetHostViewAura::ShouldDoLearning() {
-  return host_->delegate() && host_->delegate()->ShouldDoLearning();
+  return host() && host()->delegate() && host()->delegate()->ShouldDoLearning();
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -2159,7 +2158,7 @@ void RenderWidgetHostViewAura::OnGestureEvent(ui::GestureEvent* event) {
   event_handler_->OnGestureEvent(event);
 }
 
-base::StringPiece RenderWidgetHostViewAura::GetLogContext() const {
+std::string_view RenderWidgetHostViewAura::GetLogContext() const {
   return "RenderWidgetHostViewAura";
 }
 

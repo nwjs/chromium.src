@@ -12,7 +12,6 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/tabs/model/features.h"
 #import "ios/chrome/browser/tabs/model/tabs_closer.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_collection_consumer.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_consumer.h"
@@ -139,9 +138,7 @@
   [self.gridConsumer prepareForDismissal];
   // Shows the tab only if has been created.
   if ([self addNewItem]) {
-    [self.gridConsumer setActivePageFromPage:TabGridPageRegularTabs];
-    [self.tabPresentationDelegate showActiveTabInPage:TabGridPageRegularTabs
-                                         focusOmnibox:NO];
+    [self displayActiveTab];
     base::RecordAction(
         base::UserMetricsAction("MobileTabGridCreateRegularTab"));
   } else {
@@ -190,6 +187,12 @@
   }
 
   [self.toolbarsMutator setToolbarConfiguration:toolbarsConfiguration];
+}
+
+- (void)displayActiveTab {
+  [self.gridConsumer setActivePageFromPage:TabGridPageRegularTabs];
+  [self.tabPresentationDelegate showActiveTabInPage:TabGridPageRegularTabs
+                                       focusOmnibox:NO];
 }
 
 #pragma mark - Private

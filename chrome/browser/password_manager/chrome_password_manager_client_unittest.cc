@@ -14,11 +14,13 @@
 #include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
@@ -31,6 +33,7 @@
 #include "chrome/browser/safe_browsing/user_interaction_observer.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
+#include "chrome/browser/ui/passwords/password_cross_domain_confirmation_popup_controller_impl.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -146,11 +149,11 @@ FormData MakePasswordFormData() {
   form_data.name = u"form-name";
 
   FormFieldData field;
-  field.name = u"password-element";
-  field.id_attribute = field.name;
-  field.name_attribute = field.name;
-  field.form_control_type = autofill::FormControlType::kInputPassword;
-  field.renderer_id = FieldRendererId(123);
+  field.set_name(u"password-element");
+  field.id_attribute = field.name();
+  field.name_attribute = field.name();
+  field.set_form_control_type(autofill::FormControlType::kInputPassword);
+  field.set_renderer_id(FieldRendererId(123));
   form_data.fields.push_back(field);
 
   return form_data;
@@ -1378,7 +1381,7 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
       RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField,
                                  /*is_manual_generation_available=*/false));
   GetClient()->FocusedInputChanged(driver.get(),
-                                   observed_form_data.fields[0].renderer_id,
+                                   observed_form_data.fields[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);
 }
 
@@ -1412,7 +1415,7 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
       RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField,
                                  /*is_manual_generation_available=*/true));
   GetClient()->FocusedInputChanged(driver.get(),
-                                   observed_form_data.fields[0].renderer_id,
+                                   observed_form_data.fields[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);
 }
 
@@ -1624,3 +1627,52 @@ TEST_F(ChromePasswordManagerClientWithAccountStoreAndroidTest,
 }
 
 #endif  //  BUILDFLAG(IS_ANDROID)
+
+#if !BUILDFLAG(IS_ANDROID)
+
+class MockPasswordCrossDomainConfirmationPopupController
+    : public password_manager::PasswordCrossDomainConfirmationPopupController {
+ public:
+  MOCK_METHOD(void, Hide, (autofill::PopupHidingReason), (override));
+  MOCK_METHOD(void,
+              Show,
+              (const gfx::RectF&,
+               base::i18n::TextDirection,
+               const GURL&,
+               const std::u16string&,
+               base::OnceClosure),
+              (override));
+};
+
+TEST_F(ChromePasswordManagerClientTest, ShowCrossDomainConfirmationPopup) {
+// This simple method of the web contents repositioning doesn't work on Mac.
+// The screen coordinates calculation testing is skipped on this platform, but
+// the logic is completely platform independent and is being tested on others.
+#if !BUILDFLAG(IS_MAC)
+  web_contents()->GetNativeView()->SetBounds(gfx::Rect(100, 100, 1000, 1000));
+#endif  // !BUILDFLAG(IS_MAC)
+
+  base::MockRepeatingCallback<std::unique_ptr<
+      password_manager::PasswordCrossDomainConfirmationPopupController>()>
+      popup_factory;
+  EXPECT_CALL(popup_factory, Run).WillOnce([&]() {
+    auto mock_controller =
+        std::make_unique<MockPasswordCrossDomainConfirmationPopupController>();
+    EXPECT_CALL(
+        *mock_controller,
+        Show(gfx::RectF(
+                 gfx::PointF(web_contents()->GetContainerBounds().origin()),
+                 gfx::SizeF(100, 100)),
+             base::i18n::TextDirection::LEFT_TO_RIGHT,
+             GURL("https://google.com"), std::u16string(u"google.de"), _));
+    return mock_controller;
+  });
+  GetClient()->set_cross_domain_confirmation_popup_factory_for_testing(
+      popup_factory.Get());
+
+  GetClient()->ShowCrossDomainConfirmationPopup(
+      gfx::RectF(100, 100), base::i18n::TextDirection::LEFT_TO_RIGHT,
+      GURL("https://google.com"), u"google.de", base::DoNothing());
+}
+
+#endif  //  !BUILDFLAG(IS_ANDROID)

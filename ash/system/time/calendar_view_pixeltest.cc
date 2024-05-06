@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "ash/calendar/calendar_controller.h"
 #include "ash/shelf/shelf.h"
+#include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/system/time/calendar_event_list_view.h"
 #include "ash/system/time/calendar_unittest_utils.h"
@@ -15,6 +17,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
+#include "components/account_id/account_id.h"
+#include "google_apis/calendar/calendar_api_requests.h"
 #include "google_apis/calendar/calendar_api_response_types.h"
 
 namespace ash {
@@ -42,6 +46,22 @@ class CalendarViewPixelTest
     scoped_feature_list_.InitWithFeatureStates(
         {{features::kGlanceablesV2, AreGlanceablesV2Enabled()},
          {features::kGlanceablesV2CalendarView, AreGlanceablesV2Enabled()}});
+  }
+
+  void SetUp() override {
+    AshTestBase::SetUp();
+
+    Shell::Get()->calendar_controller()->SetActiveUserAccountIdForTesting(
+        account_id_);
+    Shell::Get()->calendar_controller()->RegisterClientForUser(account_id_,
+                                                               &client_);
+  }
+
+  void TearDown() override {
+    Shell::Get()->calendar_controller()->RegisterClientForUser(account_id_,
+                                                               nullptr);
+
+    AshTestBase::TearDown();
   }
 
   bool AreGlanceablesV2Enabled() { return GetParam(); }
@@ -77,6 +97,7 @@ class CalendarViewPixelTest
     Shell::Get()->system_tray_model()->calendar_model()->OnEventsFetched(
         calendar_utils::GetStartOfMonthUTC(
             base::subtle::TimeNowIgnoringOverride().LocalMidnight()),
+        google_apis::calendar::kPrimaryCalendarId,
         google_apis::ApiErrorCode::HTTP_SUCCESS,
         calendar_test_utils::CreateMockEventList(std::move(events)).get());
   }
@@ -86,6 +107,8 @@ class CalendarViewPixelTest
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+  const AccountId account_id_ = AccountId::FromUserEmail("user1@email.com");
+  calendar_test_utils::CalendarClientTestImpl client_;
   raw_ptr<CalendarView, DanglingUntriaged> calendar_view_ = nullptr;
   static base::Time fake_time_;
 };
@@ -107,7 +130,7 @@ TEST_P(CalendarViewPixelTest, Basics) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       "calendar_view",
-      /*revision_number=*/9, GetCalendarView()));
+      /*revision_number=*/10, GetCalendarView()));
 }
 
 // Tests that the scroll view scrolls up when there are not at least 2 weeks
@@ -128,7 +151,7 @@ TEST_P(CalendarViewPixelTest, Basics_ShowMoreFutureDates) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       "calendar_view_more_future_dates",
-      /*revision_number=*/0, GetCalendarView()));
+      /*revision_number=*/1, GetCalendarView()));
 }
 
 TEST_P(CalendarViewPixelTest, EventList) {

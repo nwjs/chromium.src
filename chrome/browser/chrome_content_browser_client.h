@@ -39,6 +39,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
 
 class ChromeContentBrowserClientParts;
@@ -258,8 +259,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const GURL& url) override;
   bool IsIsolatedContextAllowedForUrl(content::BrowserContext* browser_context,
                                       const GURL& lock_url) override;
-  bool IsGetAllScreensMediaAllowed(content::BrowserContext* context,
-                                   const url::Origin& origin) override;
+  void CheckGetAllScreensMediaAllowed(
+      content::RenderFrameHost* render_frame_host,
+      base::OnceCallback<void(bool)> callback) override;
   bool IsFileAccessAllowed(const base::FilePath& path,
                            const base::FilePath& absolute_path,
                            const base::FilePath& profile_path) override;
@@ -496,7 +498,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context) override;
   std::optional<base::TimeDelta> GetSpareRendererDelayForSiteURL(
       const GURL& site_url) override;
-  content::TracingDelegate* GetTracingDelegate() override;
+  std::unique_ptr<content::TracingDelegate> CreateTracingDelegate() override;
+  bool IsSystemWideTracingEnabled() override;
   bool IsPluginAllowedToCallRequestOSFileHandle(
       content::BrowserContext* browser_context,
       const GURL& url) override;
@@ -630,6 +633,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       int render_process_id,
       URLLoaderFactoryType type,
       const url::Origin& request_initiator,
+      const net::IsolationInfo& isolation_info,
       std::optional<int64_t> navigation_id,
       ukm::SourceIdObj ukm_source_id,
       network::URLLoaderFactoryBuilder& factory_builder,
@@ -894,6 +898,13 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   CreateIdentityRequestDialogController(
       content::WebContents* web_contents) override;
 
+#if BUILDFLAG(IS_ANDROID)
+  void ShowDigitalIdentityInterstitialIfNeeded(
+      content::WebContents& web_contents,
+      const url::Origin& origin,
+      DigitalIdentityInterstitialCallback callback) override;
+#endif
+
 #if !BUILDFLAG(IS_ANDROID)
   base::TimeDelta GetKeepaliveTimerTimeout(content::BrowserContext* context);
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -992,6 +1003,12 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context,
       mojo::PendingReceiver<media::mojom::VideoEffectsManager>
           video_effects_manager) override;
+
+  void BindVideoEffectsProcessor(
+      const std::string& device_id,
+      content::BrowserContext* browser_context,
+      mojo::PendingReceiver<video_effects::mojom::VideoEffectsProcessor>
+          video_effects_processor) override;
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   void PreferenceRankAudioDeviceInfos(
@@ -1014,6 +1031,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   std::unique_ptr<content::DipsDelegate> CreateDipsDelegate() override;
 
   bool ShouldSuppressAXLoadComplete(content::RenderFrameHost* rfh) override;
+
+  void BindModelManager(
+      content::RenderFrameHost* rfh,
+      mojo::PendingReceiver<blink::mojom::ModelManager> receiver) override;
 
  protected:
   static bool HandleWebUI(GURL* url, content::BrowserContext* browser_context);

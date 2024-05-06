@@ -11,13 +11,13 @@
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/keyed_service/content/browser_context_keyed_service_shutdown_notifier_factory.h"
 #include "components/keyed_service/core/keyed_service_shutdown_notifier.h"
 #include "content/public/browser/navigation_controller.h"
 #include "ui/base/models/menu_model.h"
-#include "ui/webui/mojo_bubble_web_ui_controller.h"
 
 namespace {
 
@@ -82,12 +82,12 @@ const char* const WebUIContentsPreloadManager::kPreloadedWebUIURL =
 
 // A stub WebUI page embdeder that captures the ready-to-show signal.
 class WebUIContentsPreloadManager::WebUIControllerEmbedderStub final
-    : public ui::MojoBubbleWebUIController::Embedder {
+    : public TopChromeWebUIController::Embedder {
  public:
   WebUIControllerEmbedderStub() = default;
   ~WebUIControllerEmbedderStub() = default;
 
-  // ui::MojoBubbleWebUIController::Embedder:
+  // TopChromeWebUIController::Embedder:
   void CloseUI() override {}
   void ShowContextMenu(gfx::Point point,
                        std::unique_ptr<ui::MenuModel> menu_model) override {}
@@ -106,28 +106,27 @@ class WebUIContentsPreloadManager::WebUIControllerEmbedderStub final
     // TODO(40168622): Add type check. This is currently not possible because a
     // WebUIController subclass does not retain its parent class' type info.
     auto* bubble_controller =
-        static_cast<ui::MojoBubbleWebUIController*>(webui_controller);
+        static_cast<TopChromeWebUIController*>(webui_controller);
     bubble_controller->set_embedder(this->GetWeakPtr());
     web_contents_ = web_contents;
     is_ready_to_show_ = false;
   }
 
-  // Detach from the previously attached `web_contents`, returns true if the
-  // contents is ready to be shown.
-  bool Detach() {
+  // Detach from the previously attached `web_contents`.
+  void Detach() {
     content::WebUIController* webui_controller =
         GetWebUIController(web_contents_);
     if (!webui_controller) {
-      return false;
+      return;
     }
 
     auto* bubble_controller =
-        static_cast<ui::MojoBubbleWebUIController*>(webui_controller);
+        static_cast<TopChromeWebUIController*>(webui_controller);
     bubble_controller->set_embedder(nullptr);
     web_contents_ = nullptr;
-
-    return is_ready_to_show_;
   }
+
+  bool is_ready_to_show() const { return is_ready_to_show_; }
 
   base::WeakPtr<WebUIControllerEmbedderStub> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
@@ -143,6 +142,7 @@ using MakeContentsResult = WebUIContentsPreloadManager::MakeContentsResult;
 
 MakeContentsResult::MakeContentsResult() = default;
 MakeContentsResult::~MakeContentsResult() = default;
+MakeContentsResult::MakeContentsResult(MakeContentsResult&&) = default;
 MakeContentsResult& MakeContentsResult::operator=(MakeContentsResult&&) =
     default;
 
@@ -189,8 +189,21 @@ void WebUIContentsPreloadManager::PreloadForBrowserContext(
     return;
   }
 
-  preloaded_web_contents_ = CreateNewContents(browser_context);
-  ObserveBrowserContextShutdown();
+  SetPreloadedContents(CreateNewContents(browser_context));
+}
+
+void WebUIContentsPreloadManager::SetPreloadedContents(
+    std::unique_ptr<content::WebContents> web_contents) {
+  if (preloaded_web_contents_) {
+    webui_controller_embedder_stub_->Detach();
+    StopObserveBrowserContextShutdown();
+  }
+
+  preloaded_web_contents_ = std::move(web_contents);
+  if (preloaded_web_contents_) {
+    webui_controller_embedder_stub_->AttachTo(preloaded_web_contents_.get());
+    ObserveBrowserContextShutdown();
+  }
 }
 
 MakeContentsResult WebUIContentsPreloadManager::MakeContents(
@@ -211,8 +224,8 @@ MakeContentsResult WebUIContentsPreloadManager::MakeContents(
       LoadURLForContents(preloaded_web_contents_.get(), webui_url);
     }
     web_contents_ret = std::move(preloaded_web_contents_);
-    is_ready_to_show = webui_controller_embedder_stub_->Detach();
-    StopObserveBrowserContextShutdown();
+    is_ready_to_show = webui_controller_embedder_stub_->is_ready_to_show();
+    SetPreloadedContents(nullptr);
   } else {
     web_contents_ret = CreateNewContents(browser_context, webui_url);
     is_ready_to_show = false;
@@ -220,9 +233,7 @@ MakeContentsResult WebUIContentsPreloadManager::MakeContents(
 
   if (ShouldPreloadForBrowserContext(browser_context)) {
     // Preloads a new contents.
-    preloaded_web_contents_ = CreateNewContents(browser_context);
-    webui_controller_embedder_stub_->AttachTo(preloaded_web_contents_.get());
-    ObserveBrowserContextShutdown();
+    SetPreloadedContents(CreateNewContents(browser_context));
   }
 
   task_manager::WebContentsTags::ClearTag(web_contents_ret.get());

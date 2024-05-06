@@ -5,14 +5,15 @@
 #ifndef CRYPTO_FAKE_APPLE_KEYCHAIN_V2_H_
 #define CRYPTO_FAKE_APPLE_KEYCHAIN_V2_H_
 
+#import <Foundation/Foundation.h>
+
 #include <string>
 #include <vector>
-
-#import <Foundation/Foundation.h>
 
 #include "base/apple/scoped_cftyperef.h"
 #include "crypto/apple_keychain_v2.h"
 #include "crypto/crypto_export.h"
+#include "crypto/scoped_fake_apple_keychain_v2.h"
 
 namespace crypto {
 
@@ -22,6 +23,8 @@ namespace crypto {
 // entitled builds.
 class CRYPTO_EXPORT FakeAppleKeychainV2 : public AppleKeychainV2 {
  public:
+  using UVMethod = ScopedFakeAppleKeychainV2::UVMethod;
+
   explicit FakeAppleKeychainV2(const std::string& keychain_access_group);
   FakeAppleKeychainV2(const FakeAppleKeychainV2&) = delete;
   FakeAppleKeychainV2& operator=(const FakeAppleKeychainV2&) = delete;
@@ -34,6 +37,8 @@ class CRYPTO_EXPORT FakeAppleKeychainV2 : public AppleKeychainV2 {
   void set_secure_enclave_available(bool is_secure_enclave_available) {
     is_secure_enclave_available_ = is_secure_enclave_available;
   }
+
+  void set_uv_method(UVMethod uv_method) { uv_method_ = uv_method; }
 
   // AppleKeychainV2:
   NSArray* GetTokenIDs() override;
@@ -52,9 +57,13 @@ class CRYPTO_EXPORT FakeAppleKeychainV2 : public AppleKeychainV2 {
       CFStringRef entitlement,
       CFErrorRef* error) override;
 #endif  // !BUILDFLAG(IS_IOS)
+  BOOL LAContextCanEvaluatePolicy(LAPolicy policy,
+                                  NSError* __autoreleasing* error) override;
 
  private:
   bool is_secure_enclave_available_ = true;
+
+  UVMethod uv_method_ = UVMethod::kBiometrics;
 
   // items_ contains the keychain items created by `KeyCreateRandomKey`.
   std::vector<base::apple::ScopedCFTypeRef<CFDictionaryRef>> items_;

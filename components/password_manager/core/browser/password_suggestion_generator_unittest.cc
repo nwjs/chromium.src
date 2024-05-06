@@ -34,12 +34,14 @@ Matcher<Suggestion> EqualsManualFallbackSuggestion(
     const std::u16string& main_text,
     const std::u16string& additional_label,
     Suggestion::Icon icon,
-    bool is_acceptable) {
+    bool is_acceptable,
+    const Suggestion::Payload& payload) {
   return AllOf(
       EqualsSuggestion(id, main_text, icon),
       Field("additional_label", &Suggestion::additional_label,
             additional_label),
-      Field("is_acceptable", &Suggestion::is_acceptable, is_acceptable));
+      Field("is_acceptable", &Suggestion::is_acceptable, is_acceptable),
+      Field("payload", &Suggestion::payload, payload));
 }
 
 Matcher<Suggestion> EqualsManageManagePasswordsSuggestion(
@@ -69,11 +71,48 @@ class PasswordSuggestionGeneratorTest : public testing::Test {
 
   PasswordSuggestionGenerator& generator() { return generator_; }
 
+  PasswordForm password_form() const {
+    return CreateEntry("username@example.com", "password",
+                       GURL("https://google.com/"),
+                       PasswordForm::MatchType::kExact);
+  }
+
+  PasswordForm password_form_no_username() const {
+    return CreateEntry("", "password", GURL("https://google.com/"),
+                       PasswordForm::MatchType::kExact);
+  }
+
   CredentialUIEntry credential_ui_entry() const {
-    PasswordForm form = CreateEntry("username@example.com", "password",
-                                    GURL("https://google.com/"),
-                                    PasswordForm::MatchType::kExact);
-    return CredentialUIEntry(std::move(form));
+    return CredentialUIEntry(password_form());
+  }
+
+  CredentialUIEntry credential_ui_entry_no_username() const {
+    return CredentialUIEntry(password_form_no_username());
+  }
+
+  std::vector<Suggestion> GenerateSuggestedPasswordsSection(
+      const std::vector<PasswordForm> suggested_credentials,
+      IsTriggeredOnPasswordForm on_password_form) {
+    return generator().GetManualFallbackSuggestions(
+        base::make_span(suggested_credentials),
+        base::span<const CredentialUIEntry>(), on_password_form);
+  }
+
+  std::vector<Suggestion> GenerateAllPasswordsSection(
+      const std::vector<CredentialUIEntry>& all_credentials,
+      IsTriggeredOnPasswordForm on_password_form) {
+    return generator().GetManualFallbackSuggestions(
+        base::span<const PasswordForm>(), base::make_span(all_credentials),
+        on_password_form);
+  }
+
+  std::vector<Suggestion> GenerateBothSections(
+      const std::vector<PasswordForm> suggested_credentials,
+      const std::vector<CredentialUIEntry>& all_credentials,
+      IsTriggeredOnPasswordForm on_password_form) {
+    return generator().GetManualFallbackSuggestions(
+        base::make_span(suggested_credentials),
+        base::make_span(all_credentials), on_password_form);
   }
 
  private:
@@ -93,30 +132,118 @@ TEST_F(PasswordSuggestionGeneratorTest, NoPasswordFormFillData) {
   EXPECT_TRUE(suggestions.empty());
 }
 
-TEST_F(PasswordSuggestionGeneratorTest, ManualFallback_NoCredentials) {
-  std::vector<Suggestion> suggestions =
-      generator().GetManualFallbackSuggestions(
-          std::vector<CredentialUIEntry>());
-  EXPECT_TRUE(suggestions.empty());
-}
-
 // Manual fallback suggestions are only relevant for desktop platform.
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
-TEST_F(PasswordSuggestionGeneratorTest, ManualFallback_SuggestionContent) {
-  std::vector<Suggestion> suggestions =
-      generator().GetManualFallbackSuggestions({credential_ui_entry()});
-
-  EXPECT_THAT(suggestions,
-              ElementsAre(EqualsManualFallbackSuggestion(
-                              PopupItemId::kPasswordEntry, u"google.com",
-                              u"username@example.com", Suggestion::Icon::kGlobe,
-                              /*is_acceptable=*/true),
-                          EqualsSuggestion(PopupItemId::kSeparator),
-                          EqualsManageManagePasswordsSuggestion()));
+TEST_F(PasswordSuggestionGeneratorTest, ManualFallback_NoCredentials) {
+  std::vector<Suggestion> suggestions = GenerateBothSections(
+      std::vector<PasswordForm>(), std::vector<CredentialUIEntry>(),
+      IsTriggeredOnPasswordForm(true));
+  EXPECT_TRUE(suggestions.empty());
 }
 
-TEST_F(PasswordSuggestionGeneratorTest, ManualFallback_FirstDomainIsUsed) {
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_SuggestedPasswords_SuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {password_form()}, IsTriggeredOnPasswordForm(true));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(EqualsManualFallbackSuggestion(
+                      PopupItemId::kPasswordEntry, u"google.com",
+                      u"username@example.com", Suggestion::Icon::kGlobe,
+                      /*is_acceptable=*/true,
+                      Suggestion::PasswordSuggestionDetails(u"password")),
+                  EqualsSuggestion(PopupItemId::kSeparator),
+                  EqualsManageManagePasswordsSuggestion()));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_AllPasswords_SuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateAllPasswordsSection(
+      {credential_ui_entry()}, IsTriggeredOnPasswordForm(true));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(EqualsManualFallbackSuggestion(
+                      PopupItemId::kPasswordEntry, u"google.com",
+                      u"username@example.com", Suggestion::Icon::kGlobe,
+                      /*is_acceptable=*/true,
+                      Suggestion::PasswordSuggestionDetails(u"password")),
+                  EqualsSuggestion(PopupItemId::kSeparator),
+                  EqualsManageManagePasswordsSuggestion()));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_SuggestedPasswords_NoUsername_SuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {password_form_no_username()}, IsTriggeredOnPasswordForm(true));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsManualFallbackSuggestion(
+              PopupItemId::kPasswordEntry, u"google.com",
+              l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_EMPTY_LOGIN),
+              Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::PasswordSuggestionDetails(u"password")),
+          EqualsSuggestion(PopupItemId::kSeparator),
+          EqualsManageManagePasswordsSuggestion()));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_AllPasswords_NoUsername_SuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateAllPasswordsSection(
+      {credential_ui_entry_no_username()}, IsTriggeredOnPasswordForm(true));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsManualFallbackSuggestion(
+              PopupItemId::kPasswordEntry, u"google.com",
+              l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_EMPTY_LOGIN),
+              Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::PasswordSuggestionDetails(u"password")),
+          EqualsSuggestion(PopupItemId::kSeparator),
+          EqualsManageManagePasswordsSuggestion()));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_SuggestedPasswords_NonPasswordForm_SuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {password_form()}, IsTriggeredOnPasswordForm(false));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(EqualsManualFallbackSuggestion(
+                      PopupItemId::kPasswordEntry, u"google.com",
+                      u"username@example.com", Suggestion::Icon::kGlobe,
+                      /*is_acceptable=*/false,
+                      Suggestion::PasswordSuggestionDetails(u"password")),
+                  EqualsSuggestion(PopupItemId::kSeparator),
+                  EqualsManageManagePasswordsSuggestion()));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_AllPasswords_NonPasswordForm_SuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateAllPasswordsSection(
+      {credential_ui_entry()}, IsTriggeredOnPasswordForm(false));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(EqualsManualFallbackSuggestion(
+                      PopupItemId::kPasswordEntry, u"google.com",
+                      u"username@example.com", Suggestion::Icon::kGlobe,
+                      /*is_acceptable=*/false,
+                      Suggestion::PasswordSuggestionDetails(u"password")),
+                  EqualsSuggestion(PopupItemId::kSeparator),
+                  EqualsManageManagePasswordsSuggestion()));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_AllPasswords_FirstDomainIsUsed) {
   PasswordForm form_1 =
       CreateEntry("example@google.com", "password", GURL("https://google.com/"),
                   PasswordForm::MatchType::kExact);
@@ -125,20 +252,22 @@ TEST_F(PasswordSuggestionGeneratorTest, ManualFallback_FirstDomainIsUsed) {
                   PasswordForm::MatchType::kExact);
   CredentialUIEntry entry({std::move(form_1), std::move(form_2)});
   std::vector<Suggestion> suggestions =
-      generator().GetManualFallbackSuggestions({entry});
+      GenerateAllPasswordsSection({entry}, IsTriggeredOnPasswordForm(true));
 
   // Only the first domain is used to create the suggestion.
-  EXPECT_THAT(suggestions,
-              ElementsAre(EqualsManualFallbackSuggestion(
-                              PopupItemId::kPasswordEntry, u"google.com",
-                              u"example@google.com", Suggestion::Icon::kGlobe,
-                              /*is_acceptable=*/true),
-                          EqualsSuggestion(PopupItemId::kSeparator),
-                          EqualsManageManagePasswordsSuggestion()));
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(EqualsManualFallbackSuggestion(
+                      PopupItemId::kPasswordEntry, u"google.com",
+                      u"example@google.com", Suggestion::Icon::kGlobe,
+                      /*is_acceptable=*/true,
+                      Suggestion::PasswordSuggestionDetails(u"password")),
+                  EqualsSuggestion(PopupItemId::kSeparator),
+                  EqualsManageManagePasswordsSuggestion()));
 }
 
 TEST_F(PasswordSuggestionGeneratorTest,
-       ManualFallback_MultipleCredentials_SortedByDomain) {
+       ManualFallback_AllPasswords_SortedByDomain) {
   PasswordForm form_1 =
       CreateEntry("first@google.com", "first", GURL("https://google.com/"),
                   PasswordForm::MatchType::kExact);
@@ -153,37 +282,42 @@ TEST_F(PasswordSuggestionGeneratorTest,
                   PasswordForm::MatchType::kExact);
 
   std::vector<Suggestion> suggestions =
-      generator().GetManualFallbackSuggestions(
-          {CredentialUIEntry({std::move(form_1)}),
-           CredentialUIEntry({std::move(form_2)}),
-           CredentialUIEntry({std::move(form_3)}),
-           CredentialUIEntry({std::move(form_4)})});
+      GenerateAllPasswordsSection({CredentialUIEntry({std::move(form_1)}),
+                                   CredentialUIEntry({std::move(form_2)}),
+                                   CredentialUIEntry({std::move(form_3)}),
+                                   CredentialUIEntry({std::move(form_4)})},
+                                  IsTriggeredOnPasswordForm(true));
 
   // Manual fallback suggestions are sorted by domain name.
   EXPECT_THAT(suggestions,
               ElementsAre(EqualsManualFallbackSuggestion(
                               PopupItemId::kPasswordEntry, u"amazon.com",
                               u"fourth@google.com", Suggestion::Icon::kGlobe,
-                              /*is_acceptable=*/true),
+                              /*is_acceptable=*/true,
+                              Suggestion::PasswordSuggestionDetails(u"second")),
                           EqualsManualFallbackSuggestion(
                               PopupItemId::kPasswordEntry, u"google.com",
                               u"first@google.com", Suggestion::Icon::kGlobe,
-                              /*is_acceptable=*/true),
+                              /*is_acceptable=*/true,
+                              Suggestion::PasswordSuggestionDetails(u"first")),
                           EqualsManualFallbackSuggestion(
                               PopupItemId::kPasswordEntry, u"microsoft.com",
                               u"second@google.com", Suggestion::Icon::kGlobe,
-                              /*is_acceptable=*/true),
+                              /*is_acceptable=*/true,
+                              Suggestion::PasswordSuggestionDetails(u"first")),
                           EqualsManualFallbackSuggestion(
                               PopupItemId::kPasswordEntry, u"netflix.com",
                               u"third@google.com", Suggestion::Icon::kGlobe,
-                              /*is_acceptable=*/true),
+                              /*is_acceptable=*/true,
+                              Suggestion::PasswordSuggestionDetails(u"second")),
                           EqualsSuggestion(PopupItemId::kSeparator),
                           EqualsManageManagePasswordsSuggestion()));
 }
 
-TEST_F(PasswordSuggestionGeneratorTest, ManualFallback_ChildSuggestionContent) {
-  std::vector<Suggestion> suggestions =
-      generator().GetManualFallbackSuggestions({credential_ui_entry()});
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_SuggestedPasswords_ChildSuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {password_form()}, IsTriggeredOnPasswordForm(true));
 
   // 1 password suggestion and 2 footer suggestions.
   EXPECT_EQ(suggestions.size(), 3u);
@@ -196,13 +330,147 @@ TEST_F(PasswordSuggestionGeneratorTest, ManualFallback_ChildSuggestionContent) {
               PopupItemId::kFillPassword,
               l10n_util::GetStringUTF16(
                   IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_FILL_PASSWORD_ENTRY),
-              Suggestion::Icon::kNoIcon, Suggestion::ValueToFill(u"password")),
+              Suggestion::Icon::kNoIcon,
+              Suggestion::PasswordSuggestionDetails(u"password")),
           EqualsSuggestion(PopupItemId::kSeparator),
           EqualsSuggestion(
               PopupItemId::kViewPasswordDetails,
               l10n_util::GetStringUTF16(
                   IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_VIEW_DETAILS_ENTRY),
               Suggestion::Icon::kKey)));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_AllPasswords_ChildSuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateAllPasswordsSection(
+      {credential_ui_entry()}, IsTriggeredOnPasswordForm(true));
+
+  // 1 password suggestion and 2 footer suggestions.
+  EXPECT_EQ(suggestions.size(), 3u);
+  EXPECT_THAT(
+      suggestions[0].children,
+      ElementsAre(
+          EqualsSuggestion(PopupItemId::kPasswordFieldByFieldFilling,
+                           u"username@example.com"),
+          EqualsSuggestion(
+              PopupItemId::kFillPassword,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_FILL_PASSWORD_ENTRY),
+              Suggestion::Icon::kNoIcon,
+              Suggestion::PasswordSuggestionDetails(u"password")),
+          EqualsSuggestion(PopupItemId::kSeparator),
+          EqualsSuggestion(
+              PopupItemId::kViewPasswordDetails,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_VIEW_DETAILS_ENTRY),
+              Suggestion::Icon::kKey)));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_SuggestedPasswords_NoUsername_ChildSuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {password_form_no_username()}, IsTriggeredOnPasswordForm(true));
+
+  // 1 password suggestion and 2 footer suggestions.
+  EXPECT_EQ(suggestions.size(), 3u);
+  EXPECT_THAT(
+      suggestions[0].children,
+      ElementsAre(
+          EqualsSuggestion(
+              PopupItemId::kFillPassword,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_FILL_PASSWORD_ENTRY),
+              Suggestion::Icon::kNoIcon,
+              Suggestion::PasswordSuggestionDetails(u"password")),
+          EqualsSuggestion(PopupItemId::kSeparator),
+          EqualsSuggestion(
+              PopupItemId::kViewPasswordDetails,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_VIEW_DETAILS_ENTRY),
+              Suggestion::Icon::kKey)));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_AllPasswords_NoUsername_ChildSuggestionContent) {
+  std::vector<Suggestion> suggestions = GenerateAllPasswordsSection(
+      {credential_ui_entry_no_username()}, IsTriggeredOnPasswordForm(true));
+
+  // 1 password suggestion and 2 footer suggestions.
+  EXPECT_EQ(suggestions.size(), 3u);
+  EXPECT_THAT(
+      suggestions[0].children,
+      ElementsAre(
+          EqualsSuggestion(
+              PopupItemId::kFillPassword,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_FILL_PASSWORD_ENTRY),
+              Suggestion::Icon::kNoIcon,
+              Suggestion::PasswordSuggestionDetails(u"password")),
+          EqualsSuggestion(PopupItemId::kSeparator),
+          EqualsSuggestion(
+              PopupItemId::kViewPasswordDetails,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_VIEW_DETAILS_ENTRY),
+              Suggestion::Icon::kKey)));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_BothSections_OnlyAllPasswordsSectionIsSorted) {
+  PasswordForm form_1 =
+      CreateEntry("first@google.com", "first", GURL("https://microsoft.com/"),
+                  PasswordForm::MatchType::kExact);
+
+  PasswordForm form_2 =
+      CreateEntry("second@google.com", "second", GURL("https://google.com/"),
+                  PasswordForm::MatchType::kExact);
+
+  std::vector<Suggestion> suggestions = GenerateBothSections(
+      {form_1, form_2},
+      {CredentialUIEntry({form_1}), CredentialUIEntry({form_2})},
+      IsTriggeredOnPasswordForm(true));
+
+  // Expected suggestions are:
+  // 0. Suggested passwords section title.
+  // 1. Suggestion for microsoft.com.
+  // 2. Suggestion for google.com.
+  // 3. All passwords section title.
+  // 4. Suggestion for google.com.
+  // 5. Suggestion for microsoft.com.
+  // 6. Footer section separator.
+  // 7. "Manage passwords" suggestion.
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsSuggestion(
+              PopupItemId::kTitle,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_SUGGESTED_PASSWORDS_SECTION_TITLE)),
+          EqualsManualFallbackSuggestion(
+              PopupItemId::kPasswordEntry, u"microsoft.com",
+              u"first@google.com", Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::PasswordSuggestionDetails(u"first")),
+          EqualsManualFallbackSuggestion(
+              PopupItemId::kPasswordEntry, u"google.com", u"second@google.com",
+              Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::PasswordSuggestionDetails(u"second")),
+          EqualsSuggestion(
+              PopupItemId::kTitle,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_ALL_PASSWORDS_SECTION_TITLE)),
+          EqualsManualFallbackSuggestion(
+              PopupItemId::kPasswordEntry, u"google.com", u"second@google.com",
+              Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::PasswordSuggestionDetails(u"second")),
+          EqualsManualFallbackSuggestion(
+              PopupItemId::kPasswordEntry, u"microsoft.com",
+              u"first@google.com", Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::PasswordSuggestionDetails(u"first")),
+          EqualsSuggestion(PopupItemId::kSeparator),
+          EqualsManageManagePasswordsSuggestion()));
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)

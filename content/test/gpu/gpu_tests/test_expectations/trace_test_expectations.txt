@@ -10,7 +10,7 @@
 # Devices
 # tags: [ android-nexus-5x android-pixel-2 android-pixel-4
 #             android-pixel-6 android-shield-android-tv android-sm-a135m
-#             android-sm-a235m
+#             android-sm-a235m android-sm-s911u1
 #         chromeos-board-amd64-generic chromeos-board-eve chromeos-board-jacuzzi
 #             chromeos-board-octopus chromeos-board-volteer
 #         fuchsia-board-astro fuchsia-board-nelson fuchsia-board-sherlock
@@ -58,6 +58,7 @@
 # Driver
 # tags: [ mesa_lt_19.1
 #         mesa_ge_21.0
+#         mesa_ge_23.2
 #         nvidia_ge_31.0.15.4601 nvidia_lt_31.0.15.4601 ]
 # ASan
 # tags: [ asan no-asan ]
@@ -73,6 +74,11 @@
 # tags: [ webgpu-compat webgpu-not-compat ]
 # WebGPU DXC
 # tags: [ webgpu-dxc-enabled webgpu-dxc-disabled ]
+# WebGPU worker usage
+# tags: [ webgpu-no-worker
+#         webgpu-service-worker
+#         webgpu-dedicated-worker
+#         webgpu-shared-worker ]
 # Clang coverage
 # tags: [ clang-coverage no-clang-coverage ]
 # Skia Graphite
@@ -198,7 +204,7 @@ crbug.com/1201009 [ linux ] WebGLCanvasCaptureTraceTest_VideoStreamFromWebGLCanv
 
 # WebGL drawingBufferStorage does not work on Pixel 4, Samsung A23, nexus-5x or
 # Lacros FYI x64 Release (Intel) yet.
-crbug.com/1230619 [ android android-nexus-5x passthrough ] TraceTest_WebGLFloat [ Failure ]
+crbug.com/1230619 [ android android-nexus-5x no-clang-coverage passthrough ] TraceTest_WebGLFloat [ Failure ]
 
 crbug.com/1402261 [ win intel ] OverlayModeTraceTest_DirectComposition_Video_* [ RetryOnFailure ]
 
@@ -211,6 +217,20 @@ crbug.com/329691945 [ win amd-0x7340 ] VideoPathTraceTest_DirectComposition_Vide
 crbug.com/329691945 [ win amd-0x7340 ] VideoPathTraceTest_DirectComposition_Video_VP9_Fullsize [ Failure ]
 crbug.com/329691945 [ win amd-0x7340 ] VideoPathTraceTest_DirectComposition_Video_VP9_NV12 [ Failure ]
 
+# Failures with SkiaGraphite
+crbug.com/329138770 [ win graphite-enabled ] SwapChainTraceTest_CanvasLowLatency2D [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] SwapChainTraceTest_CanvasLowLatency2DDrawImage [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] SwapChainTraceTest_CanvasLowLatency2DImageData [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] SwapChainTraceTest_CanvasLowLatencyWebGL [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] SwapChainTraceTest_CanvasLowLatencyWebGLAlphaFalse [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] SwapChainTraceTest_CanvasLowLatencyWebGLDrawImage [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] SwapChainTraceTest_CanvasLowLatencyWebGLRoundedCorners [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] WebGPUCachingTraceTest_ComputePipelineCrossOriginsCacheMisses [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] WebGPUCachingTraceTest_ComputePipelineDifferentOrigins [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] WebGPUCachingTraceTest_ComputePipelineIncognito [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] WebGPUCachingTraceTest_RenderPipelineCrossOriginsCacheMisses [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] WebGPUCachingTraceTest_RenderPipelineDifferentOrigins [ Failure ]
+crbug.com/329138770 [ win graphite-enabled ] WebGPUCachingTraceTest_RenderPipelineIncognito [ Failure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

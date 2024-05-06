@@ -26,6 +26,16 @@ inline constexpr char kAssistPredictiveWritingEnabled[] =
 inline constexpr char kCalendarIntegrationEnabled[] =
     "ash.calendar_integration_enabled";
 
+// Pref which stores a list of enabled Google integrations such as Calendar,
+// Classroom, Tasks, etc. Individual integration names should not be changed
+// because they are used in the `ContextualGoogleIntegrationsConfiguration`
+// policy and metrics.
+inline constexpr char kContextualGoogleIntegrationsConfiguration[] =
+    "ash.contextual_google_integrations_configuration";
+inline constexpr char kGoogleCalendarIntegrationName[] = "GoogleCalendar";
+inline constexpr char kGoogleClassroomIntegrationName[] = "GoogleClassroom";
+inline constexpr char kGoogleTasksIntegrationName[] = "GoogleTasks";
+
 // A boolean pref of whether emoji suggestion is enabled.
 inline constexpr char kEmojiSuggestionEnabled[] =
     "assistive_input.emoji_suggestion_enabled";
@@ -41,6 +51,9 @@ inline constexpr char kOrcaEnabled[] = "assistive_input.orca_enabled";
 // at OrcaEnabled.yaml.
 inline constexpr char kManagedOrcaEnabled[] =
     "assistive_input.managed.orca_enabled";
+
+// A boolean pref of whether mahi is enabled.
+inline constexpr char kMahiEnabled[] = "settings.mahi_enabled";
 
 // A boolean pref used by an admin policy to enable/disable particular
 // features on the physical keyboard. See the policy at
@@ -446,6 +459,10 @@ inline constexpr char kAccessibilityScreenMagnifierEnabled[] =
 // is enabled.
 inline constexpr char kAccessibilityScreenMagnifierFocusFollowingEnabled[] =
     "settings.a11y.screen_magnifier_focus_following";
+// A boolean pref which determines whether the magnifiers should follow
+// select to speak focus changes.
+inline constexpr char kAccessibilityMagnifierFollowsSts[] =
+    "settings.a11y.screen_magnifier_select_to_speak_focus_following";
 // An integer pref which indicates the mouse following mode for screen
 // magnifier. This maps to AccessibilityController::MagnifierMouseFollowingMode.
 inline constexpr char kAccessibilityScreenMagnifierMouseFollowingMode[] =
@@ -489,7 +506,8 @@ inline constexpr char kAccessibilityMouseKeysAcceleration[] =
 // minimum speed.
 inline constexpr char kAccessibilityMouseKeysMaxSpeed[] =
     "settings.a11y.mouse_keys.max_speed";
-// A boolean pref which determines if mouse keys uses left or right hand keys.
+// An integer pref which determines if mouse keys uses left or right hand keys.
+// Values are from the ash::MouseKeysDominantHand enum.
 inline constexpr char kAccessibilityMouseKeysDominantHand[] =
     "settings.a11y.mouse_keys.dominant_hand";
 // A boolean pref which determines whether autoclick is enabled.
@@ -850,6 +868,11 @@ const char kDisplayPopularityUserReportedDisplays[] =
 // A list of all displays used by the user and reported to popularity metrics.
 const char kDisplayPopularityRevNumber[] = "display_popularity.revision_number";
 
+// A double pref which stores the current screen brightness of the internal
+// display.
+const char kInternalDisplayScreenBrightnessPercent[] =
+    "settings.display.internal_screen_brightness_percent";
+
 // A boolean pref that enable fullscreen alert bubble.
 // TODO(zxdan): Change to an allowlist in M89.
 inline constexpr char kFullscreenAlertEnabled[] =
@@ -1027,6 +1050,11 @@ inline constexpr char kPowerAdaptiveChargingNudgeShown[] =
 
 // Boolean pref for if ChromeOS battery saver is active.
 inline constexpr char kPowerBatterySaver[] = "power.cros_battery_saver_active";
+
+// Pref recording the charge percent while battery saver is enabled, used to
+// detect charging during sleep or when shut down.
+inline constexpr char kPowerBatterySaverPercent[] =
+    "power.cros_battery_saver_percent";
 
 // Screen brightness percent values to be used when running on battery power.
 // Specified by the policy.
@@ -1238,6 +1266,15 @@ inline constexpr char kWallpaperTimeOfDayStatus[] =
 inline constexpr char kWallpaperTimeOfDayScheduleType[] =
     "ash.wallpaper_time_of_day.schedule_type";
 
+// Integer pref that tracks whether user SeaPen images have been moved to
+// cryptohome. SeaPen initially stored images in the global wallpaper directory,
+// but now only stores a copy of the active (currently set as wallpaper) image
+// in global wallpaper directory. All other SeaPen images are in cryptohome so
+// that they are encrypted upon logout.
+// @see SeaPenWallpaperManager::MigrationStatus enum.
+inline constexpr char kWallpaperSeaPenMigrationStatus[] =
+    "ash.wallpaper.sea_pen.migration_status";
+
 // Boolean pref indicating whether a user has enabled the bluetooth adapter.
 inline constexpr char kUserBluetoothAdapterEnabled[] =
     "ash.user.bluetooth.adapter_enabled";
@@ -1310,10 +1347,19 @@ inline constexpr char kTapDraggingEnabled[] =
 inline constexpr char kTouchpadEnabled[] = "events.touch_pad.enabled";
 inline constexpr char kTouchscreenEnabled[] = "events.touch_screen.enabled";
 
+// Boolean value indicating that the ai intro screen should be shown to the
+// user during oobe common or add person flow.
+inline constexpr char kShowAiIntroScreenEnabled[] =
+    "ash.ai_intro_screen_oobe_enabled";
+
 // Boolean value indicating that the touchpad scroll direction screen should be
 // shown to the user during oobe.
 inline constexpr char kShowTouchpadScrollScreenEnabled[] =
     "ash.touchpad_scroll_screen_oobe_enabled";
+
+// Boolean value indicating that the tuna screen should be shown to the
+// user during oobe common or add person flow.
+inline constexpr char kShowTunaScreenEnabled[] = "ash.tuna_screen_oobe_enabled";
 
 // Boolean value indicating that the human presence sesnsor screen should be
 // shown to the user during oobe.
@@ -2090,6 +2136,9 @@ inline constexpr char kGameDashboardShowToolbar[] =
 static constexpr char kSoftwareScanningEnabled[] =
     "ash.nearby.software_scanning_enabled";
 
+// A boolean pref indicating whether to show Birch suggestions in Overview mode.
+inline constexpr char kBirchShowSuggestions[] = "ash.birch.show_suggestions";
+
 // A boolean pref indicating whether Birch should use Google Calendar data.
 inline constexpr char kBirchUseCalendar[] = "ash.birch.use_calendar";
 
@@ -2104,6 +2153,9 @@ inline constexpr char kBirchUseWeather[] = "ash.birch.use_weather";
 
 // A boolean pref indicating whether Birch should use release notes data.
 inline constexpr char kBirchUseReleaseNotes[] = "ash.birch.use_release_notes";
+
+// A preference to keep track of the device registered time.
+inline constexpr char kDeviceRegisteredTime[] = "DeviceRegisteredTime";
 
 //-----------------------------------------------------------------------------
 // Language related Prefs

@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "base/test/scoped_feature_list.h"
+#include "base/test/with_feature_override.h"
+#include "build/buildflag.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
@@ -16,6 +18,15 @@
 #include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/autofill/core/common/autofill_prefs.h"
+#include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "components/sync/base/features.h"
+#include "components/sync/service/sync_user_settings.h"
+#include "google_apis/gaia/google_service_auth_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -49,30 +60,37 @@ class AddressDataManagerTest : public PersonalDataManagerTestBase,
     personal_data_.reset();
   }
 
-  void ResetPersonalDataManager() {
+  AddressDataManager& address_data_manager() {
+    return personal_data_->address_data_manager();
+  }
+
+  void ResetPersonalDataManager(bool use_sync_transport_mode = false) {
     if (personal_data_) {
       personal_data_->Shutdown();
     }
     personal_data_ = std::make_unique<PersonalDataManager>("EN", "US");
     PersonalDataManagerTestBase::ResetPersonalDataManager(
-        /*use_sync_transport_mode=*/false, personal_data_.get());
+        use_sync_transport_mode, personal_data_.get());
   }
 
+  // TODO(b/322170538): Rename.
   void AddProfileToPersonalDataManager(const AutofillProfile& profile) {
     PersonalDataChangedWaiter waiter(*personal_data_);
-    personal_data_->AddProfile(profile);
+    address_data_manager().AddProfile(profile);
     std::move(waiter).Wait();
   }
 
+  // TODO(b/322170538): Rename.
   void UpdateProfileOnPersonalDataManager(const AutofillProfile& profile) {
     PersonalDataChangedWaiter waiter(*personal_data_);
-    personal_data_->UpdateProfile(profile);
+    address_data_manager().UpdateProfile(profile);
     std::move(waiter).Wait();
   }
 
+  // TODO(b/322170538): Rename.
   void RemoveByGUIDFromPersonalDataManager(const std::string& guid) {
     PersonalDataChangedWaiter waiter(*personal_data_);
-    personal_data_->RemoveByGUID(guid);
+    address_data_manager().RemoveProfile(guid);
     std::move(waiter).Wait();
   }
 
@@ -88,7 +106,8 @@ TEST_F(AddressDataManagerTest, AddProfile) {
   // Reload the database.
   ResetPersonalDataManager();
   // Verify the addition.
-  const std::vector<AutofillProfile*>& results1 = personal_data_->GetProfiles();
+  const std::vector<AutofillProfile*>& results1 =
+      address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results1.size());
   EXPECT_EQ(0, profile0.Compare(*results1[0]));
 
@@ -102,7 +121,8 @@ TEST_F(AddressDataManagerTest, AddProfile) {
   ResetPersonalDataManager();
 
   // Verify the non-addition.
-  const std::vector<AutofillProfile*>& results2 = personal_data_->GetProfiles();
+  const std::vector<AutofillProfile*>& results2 =
+      address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results2.size());
   EXPECT_EQ(0, profile0.Compare(*results2[0]));
 
@@ -120,7 +140,7 @@ TEST_F(AddressDataManagerTest, AddProfile) {
   ResetPersonalDataManager();
 
   // Verify the addition.
-  EXPECT_THAT(personal_data_->GetProfiles(),
+  EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1)));
 }
 
@@ -129,7 +149,7 @@ TEST_F(AddressDataManagerTest, UpdateProfile_ModificationDate) {
   test_clock.SetNow(kArbitraryTime);
   AutofillProfile profile = test::GetFullProfile();
   AddProfileToPersonalDataManager(profile);
-  ASSERT_THAT(personal_data_->GetProfiles(),
+  ASSERT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile)));
 
   // Update the profile arbitrarily. Expect that the modification date changes.
@@ -138,14 +158,14 @@ TEST_F(AddressDataManagerTest, UpdateProfile_ModificationDate) {
   test_clock.SetNow(kSomeLaterTime);
   profile.SetRawInfo(EMAIL_ADDRESS, u"new" + profile.GetRawInfo(EMAIL_ADDRESS));
   UpdateProfileOnPersonalDataManager(profile);
-  std::vector<AutofillProfile*> profiles = personal_data_->GetProfiles();
+  std::vector<AutofillProfile*> profiles = address_data_manager().GetProfiles();
   ASSERT_THAT(profiles, UnorderedElementsAre(Pointee(profile)));
   EXPECT_EQ(profiles[0]->modification_date(), kSomeLaterTime);
 
   // If the profile hasn't change, expect that updating is a no-op.
   test_clock.SetNow(kMuchLaterTime);
   UpdateProfileOnPersonalDataManager(profile);
-  profiles = personal_data_->GetProfiles();
+  profiles = address_data_manager().GetProfiles();
   ASSERT_THAT(profiles, UnorderedElementsAre(Pointee(profile)));
   EXPECT_EQ(profiles[0]->modification_date(), kSomeLaterTime);
 }
@@ -166,14 +186,14 @@ TEST_F(AddressDataManagerTest, GetProfiles) {
   ResetPersonalDataManager();
 
   EXPECT_THAT(
-      personal_data_->GetProfiles(),
+      address_data_manager().GetProfiles(),
       UnorderedElementsAre(Pointee(kAccountProfile), Pointee(kAccountProfile2),
                            Pointee(kLocalProfile)));
-  EXPECT_THAT(
-      personal_data_->GetProfilesFromSource(AutofillProfile::Source::kAccount),
-      UnorderedElementsAre(Pointee(kAccountProfile),
-                           Pointee(kAccountProfile2)));
-  EXPECT_THAT(personal_data_->GetProfilesFromSource(
+  EXPECT_THAT(address_data_manager().GetProfilesFromSource(
+                  AutofillProfile::Source::kAccount),
+              UnorderedElementsAre(Pointee(kAccountProfile),
+                                   Pointee(kAccountProfile2)));
+  EXPECT_THAT(address_data_manager().GetProfilesFromSource(
                   AutofillProfile::Source::kLocalOrSyncable),
               ElementsAre(Pointee(kLocalProfile)));
 }
@@ -197,20 +217,20 @@ TEST_F(AddressDataManagerTest, GetProfiles_Order) {
   ResetPersonalDataManager();
 
   // kNone doesn't guarantee any order.
-  EXPECT_THAT(
-      personal_data_->GetProfiles(PersonalDataManager::ProfileOrder::kNone),
-      UnorderedElementsAre(Pointee(profile1), Pointee(profile2),
-                           Pointee(profile3)));
+  EXPECT_THAT(address_data_manager().GetProfiles(
+                  PersonalDataManager::ProfileOrder::kNone),
+              UnorderedElementsAre(Pointee(profile1), Pointee(profile2),
+                                   Pointee(profile3)));
 
   // `profile3` is first, since it has a much higher use count.
   // `profile1` and `profile2` have the same use count, so `profile2` with later
   // use date is second.
-  EXPECT_THAT(personal_data_->GetProfiles(
+  EXPECT_THAT(address_data_manager().GetProfiles(
                   PersonalDataManager::ProfileOrder::kHighestFrecencyDesc),
               testing::ElementsAre(Pointee(profile3), Pointee(profile2),
                                    Pointee(profile1)));
 
-  std::vector<AutofillProfile*> profiles = personal_data_->GetProfiles(
+  std::vector<AutofillProfile*> profiles = address_data_manager().GetProfiles(
       PersonalDataManager::ProfileOrder::kMostRecentlyUsedFirstDesc);
   // Ordered by `use_date()`.
   EXPECT_THAT(profiles,
@@ -226,48 +246,130 @@ TEST_F(AddressDataManagerTest, GetProfiles_Order) {
   for (int i = 0; i < 3; i++) {
     profiles[i]->set_modification_date(now - base::Hours(2 - i));
   }
-  EXPECT_THAT(personal_data_->GetProfiles(
+  EXPECT_THAT(address_data_manager().GetProfiles(
                   PersonalDataManager::ProfileOrder::kMostRecentlyModifiedDesc),
               testing::ElementsAre(Pointee(profile1), Pointee(profile3),
                                    Pointee(profile2)));
+}
+
+// Test that profiles are not shown if |kAutofillProfileEnabled| is set to
+// |false|.
+TEST_F(AddressDataManagerTest, GetProfilesToSuggest_ProfileAutofillDisabled) {
+  // Add two different profiles, a local and a server one.
+  AutofillProfile local_profile(
+      i18n_model_definition::kLegacyHierarchyCountryCode);
+  test::SetProfileInfo(&local_profile, "Josephine", "Alicia", "Saenz",
+                       "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
+                       "Orlando", "FL", "32801", "US", "19482937549");
+  AddProfileToPersonalDataManager(local_profile);
+
+  // Disable Profile autofill.
+  prefs::SetAutofillProfileEnabled(prefs_.get(), false);
+  PersonalDataChangedWaiter(*personal_data_).Wait();
+
+  // Check that profiles were saved.
+  const size_t expected_profiles = 1;
+  EXPECT_EQ(expected_profiles, address_data_manager().GetProfiles().size());
+  // Expect no autofilled values or suggestions.
+  EXPECT_EQ(0U, address_data_manager().GetProfilesToSuggest().size());
+}
+
+// Test that local and server profiles are not loaded into memory on start-up if
+// |kAutofillProfileEnabled| is set to |false|.
+TEST_F(AddressDataManagerTest,
+       GetProfilesToSuggest_NoProfilesLoadedIfDisabled) {
+  // Add two different profiles, a local and a server one.
+  AutofillProfile local_profile(
+      i18n_model_definition::kLegacyHierarchyCountryCode);
+  test::SetProfileInfo(&local_profile, "Josephine", "Alicia", "Saenz",
+                       "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
+                       "Orlando", "FL", "32801", "US", "19482937549");
+  AddProfileToPersonalDataManager(local_profile);
+
+  address_data_manager().LoadProfiles();
+  PersonalDataChangedWaiter(*personal_data_).Wait();
+
+  // Expect that all profiles are suggested.
+  const size_t expected_profiles = 1;
+  EXPECT_EQ(expected_profiles, address_data_manager().GetProfiles().size());
+  EXPECT_EQ(expected_profiles,
+            address_data_manager().GetProfilesToSuggest().size());
+
+  // Disable Profile autofill.
+  prefs::SetAutofillProfileEnabled(prefs_.get(), false);
+  // Reload the database.
+  ResetPersonalDataManager();
+
+  // Expect no profile values or suggestions were loaded.
+  EXPECT_EQ(0U, address_data_manager().GetProfilesToSuggest().size());
+}
+
+// Test that profiles are not added if `kAutofillProfileEnabled` is set to
+// false.
+TEST_F(AddressDataManagerTest, GetProfilesToSuggest_NoProfilesAddedIfDisabled) {
+  prefs::SetAutofillProfileEnabled(prefs_.get(), false);
+  AddProfileToPersonalDataManager(test::GetFullProfile());
+  EXPECT_TRUE(address_data_manager().GetProfiles().empty());
+}
+
+// Tests that `GetProfilesForSettings()` orders by descending modification
+// dates.
+// TODO(crbug.com/1420547): The modification date is set in AutofillTable.
+// Setting it on the test profiles directly doesn't suffice.
+TEST_F(AddressDataManagerTest, GetProfilesForSettings) {
+  TestAutofillClock test_clock;
+
+  AutofillProfile kAccountProfile = test::GetFullProfile();
+  kAccountProfile.set_source_for_testing(AutofillProfile::Source::kAccount);
+  AddProfileToPersonalDataManager(kAccountProfile);
+
+  AutofillProfile kLocalOrSyncableProfile = test::GetFullProfile2();
+  kLocalOrSyncableProfile.set_source_for_testing(
+      AutofillProfile::Source::kLocalOrSyncable);
+  test_clock.Advance(base::Minutes(123));
+  AddProfileToPersonalDataManager(kLocalOrSyncableProfile);
+
+  EXPECT_THAT(address_data_manager().GetProfilesForSettings(),
+              testing::ElementsAre(testing::Pointee(kLocalOrSyncableProfile),
+                                   testing::Pointee(kAccountProfile)));
 }
 
 // Adding, updating, removing operations without waiting in between.
 TEST_F(AddressDataManagerTest, AddRemoveUpdateProfileSequence) {
   AutofillProfile profile(test::GetFullProfile());
 
-  personal_data_->AddProfile(profile);
-  personal_data_->RemoveByGUID(profile.guid());
-  personal_data_->UpdateProfile(profile);
+  address_data_manager().AddProfile(profile);
+  address_data_manager().RemoveProfile(profile.guid());
+  address_data_manager().UpdateProfile(profile);
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
-  auto profiles = personal_data_->GetProfiles();
+  auto profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(0U, profiles.size());
 
-  personal_data_->AddProfile(profile);
-  personal_data_->RemoveByGUID(profile.guid());
-  personal_data_->RemoveByGUID(profile.guid());
+  address_data_manager().AddProfile(profile);
+  address_data_manager().RemoveProfile(profile.guid());
+  address_data_manager().RemoveProfile(profile.guid());
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
-  profiles = personal_data_->GetProfiles();
+  profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(0U, profiles.size());
 
-  personal_data_->AddProfile(profile);
+  address_data_manager().AddProfile(profile);
   profile.SetRawInfo(EMAIL_ADDRESS, u"new@email.com");
-  personal_data_->UpdateProfile(profile);
+  address_data_manager().UpdateProfile(profile);
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
-  profiles = personal_data_->GetProfiles();
+  profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, profiles.size());
   EXPECT_EQ(profiles[0]->GetRawInfo(EMAIL_ADDRESS), u"new@email.com");
 
   profile.SetRawInfo(EMAIL_ADDRESS, u"newer@email.com");
-  personal_data_->UpdateProfile(profile);
+  address_data_manager().UpdateProfile(profile);
   profile.SetRawInfo(EMAIL_ADDRESS, u"newest@email.com");
-  personal_data_->UpdateProfile(profile);
+  address_data_manager().UpdateProfile(profile);
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
-  profiles = personal_data_->GetProfiles();
+  profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, profiles.size());
   EXPECT_EQ(profiles[0]->GetRawInfo(EMAIL_ADDRESS), u"newest@email.com");
 }
@@ -287,7 +389,8 @@ TEST_F(AddressDataManagerTest, AddProfile_BasicInformation) {
   ResetPersonalDataManager();
 
   // Verify the addition.
-  const std::vector<AutofillProfile*>& results = personal_data_->GetProfiles();
+  const std::vector<AutofillProfile*>& results =
+      address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results.size());
   EXPECT_EQ(0, profile.Compare(*results[0]));
 
@@ -404,9 +507,10 @@ TEST_F(AddressDataManagerTest, AddProfile_CrazyCharacters) {
   for (const AutofillProfile& profile : profiles) {
     AddProfileToPersonalDataManager(profile);
   }
-  ASSERT_EQ(profiles.size(), personal_data_->GetProfiles().size());
+  ASSERT_EQ(profiles.size(), address_data_manager().GetProfiles().size());
   for (size_t i = 0; i < profiles.size(); ++i) {
-    EXPECT_TRUE(base::Contains(profiles, *personal_data_->GetProfiles()[i]));
+    EXPECT_TRUE(
+        base::Contains(profiles, *address_data_manager().GetProfiles()[i]));
   }
 }
 
@@ -428,8 +532,8 @@ TEST_F(AddressDataManagerTest, AddProfile_Invalid) {
   with_invalid.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"Invalid_Phone_Number");
 
   AddProfileToPersonalDataManager(with_invalid);
-  ASSERT_EQ(1u, personal_data_->GetProfiles().size());
-  AutofillProfile profile = *personal_data_->GetProfiles()[0];
+  ASSERT_EQ(1u, address_data_manager().GetProfiles().size());
+  AutofillProfile profile = *address_data_manager().GetProfiles()[0];
   ASSERT_NE(without_invalid.GetRawInfo(PHONE_HOME_WHOLE_NUMBER),
             profile.GetRawInfo(PHONE_HOME_WHOLE_NUMBER));
 }
@@ -454,7 +558,7 @@ TEST_F(AddressDataManagerTest, AddUpdateRemoveProfiles) {
   AddProfileToPersonalDataManager(profile0);
   AddProfileToPersonalDataManager(profile1);
 
-  EXPECT_THAT(personal_data_->GetProfiles(),
+  EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1)));
 
   // Update, remove, and add.
@@ -463,7 +567,7 @@ TEST_F(AddressDataManagerTest, AddUpdateRemoveProfiles) {
   RemoveByGUIDFromPersonalDataManager(profile1.guid());
   AddProfileToPersonalDataManager(profile2);
 
-  EXPECT_THAT(personal_data_->GetProfiles(),
+  EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile2)));
 
   // Reset the PersonalDataManager.  This tests that the personal data was saved
@@ -472,7 +576,7 @@ TEST_F(AddressDataManagerTest, AddUpdateRemoveProfiles) {
   ResetPersonalDataManager();
 
   // Verify that we've loaded the profiles from the web database.
-  EXPECT_THAT(personal_data_->GetProfiles(),
+  EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile2)));
 }
 
@@ -499,7 +603,7 @@ TEST_F(AddressDataManagerTest, UpdateProfile_NewObservations) {
   // Since new observations are considered a metadata change, further expected
   // that the modification date hasn't changed.
   const AutofillProfile* pdm_profile =
-      personal_data_->GetProfileByGUID(profile.guid());
+      address_data_manager().GetProfileByGUID(profile.guid());
   EXPECT_THAT(
       pdm_profile->token_quality().GetObservationTypesForFieldType(NAME_FIRST),
       UnorderedElementsAre(ProfileTokenQuality::ObservationType::kAccepted));
@@ -527,7 +631,7 @@ TEST_F(AddressDataManagerTest, UpdateProfile_ResetObservations) {
   UpdateProfileOnPersonalDataManager(profile);
 
   // Expect that only the observations for NAME_LAST remain.
-  profile = *personal_data_->GetProfileByGUID(profile.guid());
+  profile = *address_data_manager().GetProfileByGUID(profile.guid());
   EXPECT_TRUE(profile.token_quality()
                   .GetObservationTypesForFieldType(NAME_FIRST)
                   .empty());
@@ -537,14 +641,29 @@ TEST_F(AddressDataManagerTest, UpdateProfile_ResetObservations) {
           ProfileTokenQuality::ObservationType::kEditedFallback));
 }
 
+TEST_F(AddressDataManagerTest, IsEligibleForAddressAccountStorage) {
+  // All data types are running by default.
+  EXPECT_TRUE(address_data_manager().IsEligibleForAddressAccountStorage());
+
+  // No Sync, no account storage.
+  address_data_manager().SetSyncServiceForTest(nullptr);
+  EXPECT_FALSE(address_data_manager().IsEligibleForAddressAccountStorage());
+}
+
+TEST_F(AddressDataManagerTest, IsCountryEligibleForAccountStorage) {
+  EXPECT_TRUE(address_data_manager().IsCountryEligibleForAccountStorage("AT"));
+  EXPECT_FALSE(address_data_manager().IsCountryEligibleForAccountStorage("IR"));
+}
+
 TEST_F(AddressDataManagerTest, MigrateProfileToAccount) {
   const AutofillProfile kLocalProfile = test::GetFullProfile();
   ASSERT_EQ(kLocalProfile.source(), AutofillProfile::Source::kLocalOrSyncable);
   AddProfileToPersonalDataManager(kLocalProfile);
 
-  personal_data_->MigrateProfileToAccount(kLocalProfile);
+  address_data_manager().MigrateProfileToAccount(kLocalProfile);
   PersonalDataChangedWaiter(*personal_data_).Wait();
-  const std::vector<AutofillProfile*> profiles = personal_data_->GetProfiles();
+  const std::vector<AutofillProfile*> profiles =
+      address_data_manager().GetProfiles();
 
   // `kLocalProfile` should be gone and only the migrated account profile should
   // exist.
@@ -570,7 +689,8 @@ TEST_F(AddressDataManagerTest, PopulateUniqueIDsOnLoad) {
   AddProfileToPersonalDataManager(profile0);
 
   // Verify that we've loaded the profiles from the web database.
-  const std::vector<AutofillProfile*>& results2 = personal_data_->GetProfiles();
+  const std::vector<AutofillProfile*>& results2 =
+      address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results2.size());
   EXPECT_EQ(0, profile0.Compare(*results2[0]));
 
@@ -581,7 +701,8 @@ TEST_F(AddressDataManagerTest, PopulateUniqueIDsOnLoad) {
   AddProfileToPersonalDataManager(profile1);
 
   // Make sure the two profiles have different GUIDs, both valid.
-  const std::vector<AutofillProfile*>& results3 = personal_data_->GetProfiles();
+  const std::vector<AutofillProfile*>& results3 =
+      address_data_manager().GetProfiles();
   ASSERT_EQ(2U, results3.size());
   EXPECT_NE(results3[0]->guid(), results3[1]->guid());
   EXPECT_TRUE(base::Uuid::ParseCaseInsensitive(results3[0]->guid()).is_valid());
@@ -602,7 +723,7 @@ TEST_F(AddressDataManagerTest, SetEmptyProfile) {
   ResetPersonalDataManager();
 
   // Verify that we've loaded the profiles from the web database.
-  ASSERT_EQ(0U, personal_data_->GetProfiles().size());
+  ASSERT_EQ(0U, address_data_manager().GetProfiles().size());
 }
 
 TEST_F(AddressDataManagerTest, Refresh) {
@@ -620,7 +741,7 @@ TEST_F(AddressDataManagerTest, Refresh) {
   AddProfileToPersonalDataManager(profile0);
   AddProfileToPersonalDataManager(profile1);
 
-  EXPECT_THAT(personal_data_->GetProfiles(),
+  EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1)));
 
   AutofillProfile profile2(i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -630,11 +751,11 @@ TEST_F(AddressDataManagerTest, Refresh) {
 
   profile_database_service_->AddAutofillProfile(profile2);
 
-  personal_data_->Refresh();
+  address_data_manager().LoadProfiles();
 
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
-  EXPECT_THAT(personal_data_->GetProfiles(),
+  EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1),
                                    Pointee(profile2)));
 
@@ -643,20 +764,20 @@ TEST_F(AddressDataManagerTest, Refresh) {
   profile_database_service_->RemoveAutofillProfile(
       profile2.guid(), AutofillProfile::Source::kLocalOrSyncable);
 
-  personal_data_->Refresh();
+  address_data_manager().LoadProfiles();
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
-  auto results = personal_data_->GetProfiles();
+  auto results = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results.size());
   EXPECT_EQ(profile0, *results[0]);
 
   profile0.SetRawInfo(NAME_FIRST, u"Mar");
   profile_database_service_->UpdateAutofillProfile(profile0);
 
-  personal_data_->Refresh();
+  address_data_manager().LoadProfiles();
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
-  results = personal_data_->GetProfiles();
+  results = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results.size());
   EXPECT_EQ(profile0, *results[0]);
 }
@@ -669,13 +790,14 @@ TEST_F(AddressDataManagerTest, UpdateLanguageCodeInProfile) {
   AddProfileToPersonalDataManager(profile);
 
   // Make sure everything is set up correctly.
-  EXPECT_EQ(1U, personal_data_->GetProfiles().size());
-  EXPECT_EQ(1U, personal_data_->GetProfiles().size());
+  EXPECT_EQ(1U, address_data_manager().GetProfiles().size());
+  EXPECT_EQ(1U, address_data_manager().GetProfiles().size());
 
   profile.set_language_code("en");
   UpdateProfileOnPersonalDataManager(profile);
 
-  const std::vector<AutofillProfile*>& results = personal_data_->GetProfiles();
+  const std::vector<AutofillProfile*>& results =
+      address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results.size());
   EXPECT_EQ(0, profile.Compare(*results[0]));
   EXPECT_EQ("en", results[0]->language_code());
@@ -704,7 +826,7 @@ TEST_F(AddressDataManagerTest, CreateDuplicateWithAnUpdate) {
   AddProfileToPersonalDataManager(more_recently_used_profile);
   AddProfileToPersonalDataManager(less_recently_used_profile);
 
-  EXPECT_EQ(personal_data_->GetProfiles().size(), 2U);
+  EXPECT_EQ(address_data_manager().GetProfiles().size(), 2U);
 
   // Now make an update to less recently used profile that makes it a duplicate
   // of the more recently used profile.
@@ -717,9 +839,11 @@ TEST_F(AddressDataManagerTest, CreateDuplicateWithAnUpdate) {
   UpdateProfileOnPersonalDataManager(updated_less_recently_used_profile);
 
   // Verify that the less recently used profile was removed.
-  ASSERT_EQ(personal_data_->GetProfiles().size(), 1U);
-  EXPECT_EQ(*personal_data_->GetProfiles()[0], more_recently_used_profile);
-  EXPECT_EQ(personal_data_->GetProfiles()[0]->use_date(), newer_use_data);
+  ASSERT_EQ(address_data_manager().GetProfiles().size(), 1U);
+  EXPECT_EQ(*address_data_manager().GetProfiles()[0],
+            more_recently_used_profile);
+  EXPECT_EQ(address_data_manager().GetProfiles()[0]->use_date(),
+            newer_use_data);
 }
 
 // Tests that the least recently used profile of two existing profiles is
@@ -740,7 +864,7 @@ TEST_F(AddressDataManagerTest,
   AddProfileToPersonalDataManager(less_recently_used_profile);
   AddProfileToPersonalDataManager(more_recently_used_profile);
 
-  EXPECT_EQ(personal_data_->GetProfiles().size(), 2U);
+  EXPECT_EQ(address_data_manager().GetProfiles().size(), 2U);
 
   // Now make an update to profile2 that makes it a duplicate of profile1,
   // but set the last use time to be more recent than the one of profile1.
@@ -755,15 +879,16 @@ TEST_F(AddressDataManagerTest,
   PersonalDataChangedWaiter update_waiter(*personal_data_);
   // Expect an update and a deletion. This only triggers a single notification
   // once both operations have finished.
-  personal_data_->UpdateProfile(updated_more_recently_used_profile);
+  address_data_manager().UpdateProfile(updated_more_recently_used_profile);
   std::move(update_waiter).Wait();
 
   // Verify that less recently used profile was removed.
-  ASSERT_EQ(personal_data_->GetProfiles().size(), 1U);
+  ASSERT_EQ(address_data_manager().GetProfiles().size(), 1U);
 
-  EXPECT_EQ(*personal_data_->GetProfiles()[0],
+  EXPECT_EQ(*address_data_manager().GetProfiles()[0],
             updated_more_recently_used_profile);
-  EXPECT_EQ(personal_data_->GetProfiles()[0]->use_date(), newer_use_data);
+  EXPECT_EQ(address_data_manager().GetProfiles()[0]->use_date(),
+            newer_use_data);
 }
 
 TEST_F(AddressDataManagerTest, RecordUseOf) {
@@ -776,11 +901,11 @@ TEST_F(AddressDataManagerTest, RecordUseOf) {
   AddProfileToPersonalDataManager(profile);
 
   test_clock.SetNow(kSomeLaterTime);
-  personal_data_->RecordUseOf(&profile);
+  address_data_manager().RecordUseOf(profile);
   PersonalDataChangedWaiter(*personal_data_).Wait();
 
   AutofillProfile* adm_profile =
-      personal_data_->GetProfileByGUID(profile.guid());
+      address_data_manager().GetProfileByGUID(profile.guid());
   ASSERT_TRUE(adm_profile);
   EXPECT_EQ(adm_profile->use_count(), 2u);
   EXPECT_EQ(adm_profile->use_date(), kSomeLaterTime);
@@ -788,68 +913,222 @@ TEST_F(AddressDataManagerTest, RecordUseOf) {
 }
 
 TEST_F(AddressDataManagerTest, SaveProfileMigrationStrikes) {
-  AddressDataManager& adm = personal_data_->address_data_manager();
-  EXPECT_FALSE(adm.IsProfileMigrationBlocked(kGuid));
+  EXPECT_FALSE(address_data_manager().IsProfileMigrationBlocked(kGuid));
 
-  adm.AddStrikeToBlockProfileMigration(kGuid);
-  EXPECT_FALSE(adm.IsProfileMigrationBlocked(kGuid));
+  address_data_manager().AddStrikeToBlockProfileMigration(kGuid);
+  EXPECT_FALSE(address_data_manager().IsProfileMigrationBlocked(kGuid));
 
-  adm.AddStrikeToBlockProfileMigration(kGuid);
-  EXPECT_FALSE(adm.IsProfileMigrationBlocked(kGuid));
+  address_data_manager().AddStrikeToBlockProfileMigration(kGuid);
+  EXPECT_FALSE(address_data_manager().IsProfileMigrationBlocked(kGuid));
 
   // After the third strike, the guid should be blocked.
-  adm.AddStrikeToBlockProfileMigration(kGuid);
-  EXPECT_TRUE(adm.IsProfileMigrationBlocked(kGuid));
+  address_data_manager().AddStrikeToBlockProfileMigration(kGuid);
+  EXPECT_TRUE(address_data_manager().IsProfileMigrationBlocked(kGuid));
 
   // Until the strikes are removed again.
-  adm.RemoveStrikesToBlockProfileMigration(kGuid);
-  EXPECT_FALSE(adm.IsProfileMigrationBlocked(kGuid));
+  address_data_manager().RemoveStrikesToBlockProfileMigration(kGuid);
+  EXPECT_FALSE(address_data_manager().IsProfileMigrationBlocked(kGuid));
 
   // `AddMaxStrikesToBlockProfileMigration()` should add sufficiently many
   // strikes.
-  adm.AddMaxStrikesToBlockProfileMigration(kGuid);
-  EXPECT_TRUE(adm.IsProfileMigrationBlocked(kGuid));
+  address_data_manager().AddMaxStrikesToBlockProfileMigration(kGuid);
+  EXPECT_TRUE(address_data_manager().IsProfileMigrationBlocked(kGuid));
 }
 
 TEST_F(AddressDataManagerTest, SaveProfileUpdateStrikes) {
-  AddressDataManager& adm = personal_data_->address_data_manager();
-  EXPECT_FALSE(adm.IsProfileUpdateBlocked(kGuid));
+  EXPECT_FALSE(address_data_manager().IsProfileUpdateBlocked(kGuid));
 
-  adm.AddStrikeToBlockProfileUpdate(kGuid);
-  EXPECT_FALSE(adm.IsProfileUpdateBlocked(kGuid));
+  address_data_manager().AddStrikeToBlockProfileUpdate(kGuid);
+  EXPECT_FALSE(address_data_manager().IsProfileUpdateBlocked(kGuid));
 
-  adm.AddStrikeToBlockProfileUpdate(kGuid);
-  EXPECT_FALSE(adm.IsProfileUpdateBlocked(kGuid));
+  address_data_manager().AddStrikeToBlockProfileUpdate(kGuid);
+  EXPECT_FALSE(address_data_manager().IsProfileUpdateBlocked(kGuid));
 
   // After the third strike, the guid should be blocked.
-  adm.AddStrikeToBlockProfileUpdate(kGuid);
-  EXPECT_TRUE(adm.IsProfileUpdateBlocked(kGuid));
+  address_data_manager().AddStrikeToBlockProfileUpdate(kGuid);
+  EXPECT_TRUE(address_data_manager().IsProfileUpdateBlocked(kGuid));
 
   // Until the strikes are removed again.
-  adm.RemoveStrikesToBlockProfileUpdate(kGuid);
-  EXPECT_FALSE(adm.IsProfileUpdateBlocked(kGuid));
+  address_data_manager().RemoveStrikesToBlockProfileUpdate(kGuid);
+  EXPECT_FALSE(address_data_manager().IsProfileUpdateBlocked(kGuid));
 }
 
 TEST_F(AddressDataManagerTest, SaveProfileSaveStrikes) {
-  AddressDataManager& adm = personal_data_->address_data_manager();
   GURL domain("https://www.block.me/index.html");
 
-  EXPECT_FALSE(adm.IsNewProfileImportBlockedForDomain(domain));
+  EXPECT_FALSE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(domain));
 
-  adm.AddStrikeToBlockNewProfileImportForDomain(domain);
-  EXPECT_FALSE(adm.IsNewProfileImportBlockedForDomain(domain));
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(domain);
+  EXPECT_FALSE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(domain));
 
-  adm.AddStrikeToBlockNewProfileImportForDomain(domain);
-  EXPECT_FALSE(adm.IsNewProfileImportBlockedForDomain(domain));
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(domain);
+  EXPECT_FALSE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(domain));
 
   // After the third strike, the domain should be blocked.
-  adm.AddStrikeToBlockNewProfileImportForDomain(domain);
-  EXPECT_TRUE(adm.IsNewProfileImportBlockedForDomain(domain));
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(domain);
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(domain));
 
   // Until the strikes are removed again.
-  adm.RemoveStrikesToBlockNewProfileImportForDomain(domain);
-  EXPECT_FALSE(adm.IsNewProfileImportBlockedForDomain(domain));
+  address_data_manager().RemoveStrikesToBlockNewProfileImportForDomain(domain);
+  EXPECT_FALSE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(domain));
 }
+
+TEST_F(AddressDataManagerTest, ClearFullBrowsingHistory) {
+  GURL domain("https://www.block.me/index.html");
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(domain);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(domain);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(domain);
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(domain));
+
+  history::DeletionInfo deletion_info = history::DeletionInfo::ForAllHistory();
+  address_data_manager().OnHistoryDeletions(deletion_info);
+
+  EXPECT_FALSE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(domain));
+}
+
+TEST_F(AddressDataManagerTest, ClearUrlsFromBrowsingHistory) {
+  GURL first_url("https://www.block.me/index.html");
+  GURL second_url("https://www.block.too/index.html");
+
+  // Add strikes to block both domains.
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(first_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(first_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(first_url);
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(first_url));
+
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(second_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(second_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(second_url);
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(second_url));
+
+  history::URLRows deleted_urls = {history::URLRow(first_url)};
+  history::DeletionInfo deletion_info =
+      history::DeletionInfo::ForUrls(deleted_urls, {});
+  address_data_manager().OnHistoryDeletions(deletion_info);
+
+  // The strikes for `domain` should be deleted, but the strikes for
+  // `another_domain` should not.
+  EXPECT_FALSE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(first_url));
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(second_url));
+}
+
+TEST_F(AddressDataManagerTest, ClearUrlsFromBrowsingHistoryInTimeRange) {
+  GURL first_url("https://www.block.me/index.html");
+  GURL second_url("https://www.block.too/index.html");
+
+  TestAutofillClock test_clock;
+
+  // Add strikes to block both domains.
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(first_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(first_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(first_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(second_url);
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(second_url);
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(first_url));
+
+  test_clock.Advance(base::Hours(1));
+  base::Time end_of_deletion = AutofillClock::Now();
+  test_clock.Advance(base::Hours(1));
+
+  address_data_manager().AddStrikeToBlockNewProfileImportForDomain(second_url);
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(second_url));
+
+  history::URLRows deleted_urls = {history::URLRow(first_url),
+                                   history::URLRow(second_url)};
+  history::DeletionInfo deletion_info(
+      history::DeletionTimeRange(base::Time::Min(), end_of_deletion), false,
+      deleted_urls, {},
+      std::make_optional<std::set<GURL>>({first_url, second_url}));
+  address_data_manager().OnHistoryDeletions(deletion_info);
+
+  // The strikes for `first_url` should be deleted because the strikes have been
+  // added within the deletion time range.
+  EXPECT_FALSE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(first_url));
+  // The last strike for 'second_url' was collected after the deletion time
+  // range and therefore, the blocking should prevail.
+  EXPECT_TRUE(
+      address_data_manager().IsNewProfileImportBlockedForDomain(second_url));
+}
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+class AddressDataManagerExplicitSigninTest
+    : public base::test::WithFeatureOverride,
+      public AddressDataManagerTest {
+ public:
+  AddressDataManagerExplicitSigninTest()
+      : base::test::WithFeatureOverride(
+            ::switches::kExplicitBrowserSigninUIOnDesktop) {}
+};
+
+TEST_P(AddressDataManagerExplicitSigninTest,
+       IsEligibleForAddressAccountStorageSigninPending) {
+  // Setup account in auth error.
+  CoreAccountInfo account_info =
+      identity_test_env_.identity_manager()->GetPrimaryAccountInfo(
+          signin::ConsentLevel::kSignin);
+  identity_test_env_.SimulateSuccessfulFetchOfAccountInfo(
+      account_info.account_id, account_info.email, account_info.gaia,
+      /*hosted_domain=*/"", "Full Name", "Given Name", /*locale=*/"",
+      /*picture_url=*/"");
+  identity_test_env_.UpdatePersistentErrorOfRefreshTokenForAccount(
+      account_info.account_id,
+      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+  sync_service_.SetTransportState(syncer::SyncService::TransportState::PAUSED);
+
+  // User is still signed in.
+  ASSERT_TRUE(identity_test_env_.identity_manager()->HasPrimaryAccount(
+      signin::ConsentLevel::kSignin));
+  // Addresses are selected data type, but not active.
+  ASSERT_FALSE(sync_service_.GetActiveDataTypes().Has(syncer::CONTACT_INFO));
+  ASSERT_TRUE(sync_service_.GetUserSettings()->GetSelectedTypes().Has(
+      syncer::UserSelectableType::kAutofill));
+
+  // Account storage is eligible when explicit signin UI is enabled.
+  EXPECT_EQ(address_data_manager().IsEligibleForAddressAccountStorage(),
+            ::switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
+                ::switches::ExplicitBrowserSigninPhase::kFull));
+}
+
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(AddressDataManagerExplicitSigninTest);
+
+TEST_F(AddressDataManagerTest, AutofillSyncToggleAvailableInTransportMode) {
+  ResetPersonalDataManager(
+      /*use_sync_transport_mode=*/true);
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{syncer::
+                                kSyncEnableContactInfoDataTypeInTransportMode,
+                            ::switches::kExplicitBrowserSigninUIOnDesktop},
+      /*disabled_features=*/{});
+  const CoreAccountInfo& account = sync_service_.GetAccountInfo();
+  identity_test_env_.SimulateSuccessfulFetchOfAccountInfo(
+      account.account_id, account.email, account.gaia,
+      /*hosted_domain=*/"", "Full Name", "Given Name",
+      personal_data_->app_locale(), /*picture_url=*/"");
+
+  prefs_->SetBoolean(::prefs::kExplicitBrowserSignin, true);
+  EXPECT_TRUE(
+      personal_data_->address_data_manager().IsAutofillSyncToggleAvailable());
+
+  prefs_->SetBoolean(::prefs::kExplicitBrowserSignin, false);
+  EXPECT_FALSE(
+      personal_data_->address_data_manager().IsAutofillSyncToggleAvailable());
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 }  // namespace
 

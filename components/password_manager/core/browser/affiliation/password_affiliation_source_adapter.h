@@ -21,13 +21,16 @@ class PasswordAffiliationSourceAdapter
       public PasswordStoreInterface::Observer,
       public PasswordStoreConsumer {
  public:
-  PasswordAffiliationSourceAdapter(PasswordStoreInterface* store,
-                                   AffiliationSource::Observer* observer);
+  explicit PasswordAffiliationSourceAdapter(PasswordStoreInterface* store);
   ~PasswordAffiliationSourceAdapter() override;
 
   // AffiliationSource:
   void GetFacets(AffiliationSource::ResultCallback response_callback) override;
-  void StartObserving() override;
+  void StartObserving(AffiliationSource::Observer* observer) override;
+
+  // Disables fetching facets that require affiliations and stops observing
+  // password changes.
+  void DisableSource();
 
  private:
   // PasswordStoreInterface::Observer:
@@ -41,14 +44,17 @@ class PasswordAffiliationSourceAdapter
   void OnGetPasswordStoreResults(
       std::vector<std::unique_ptr<PasswordForm>> results) override;
 
+  // Whether this class should continue fetching passwords.
+  bool is_fetching_canceled_ = false;
+
   AffiliationSource::ResultCallback on_password_forms_received_callback_;
 
   const raw_ptr<PasswordStoreInterface> store_;
+  raw_ptr<AffiliationSource::Observer> observer_ = nullptr;
+
   base::ScopedObservation<PasswordStoreInterface,
                           PasswordStoreInterface::Observer>
       scoped_observation_{this};
-
-  const raw_ref<AffiliationSource::Observer> observer_;
 
   base::WeakPtrFactory<PasswordAffiliationSourceAdapter> weak_ptr_factory_{
       this};

@@ -56,6 +56,8 @@ user_data_auth::AuthIntent SerializeIntent(AuthSessionIntent intent) {
       return user_data_auth::AUTH_INTENT_VERIFY_ONLY;
     case AuthSessionIntent::kWebAuthn:
       return user_data_auth::AUTH_INTENT_WEBAUTHN;
+    case AuthSessionIntent::kRestoreKey:
+      return user_data_auth::AUTH_INTENT_RESTORE_KEY;
   }
 }
 
@@ -68,6 +70,8 @@ std::optional<AuthSessionIntent> DeserializeIntent(
       return AuthSessionIntent::kVerifyOnly;
     case user_data_auth::AUTH_INTENT_WEBAUTHN:
       return AuthSessionIntent::kWebAuthn;
+    case user_data_auth::AUTH_INTENT_RESTORE_KEY:
+      return AuthSessionIntent::kRestoreKey;
     default:
       NOTIMPLEMENTED() << "Other intents not implemented yet, intent: "
                        << intent;
@@ -374,6 +378,42 @@ void AuthPerformer::AuthenticateWithPin(const std::string& pin,
   context->SetKey(std::move(key));
   context->SetIsUsingPin(true);
   AuthenticateUsingKnowledgeKey(std::move(context), std::move(callback));
+}
+
+void AuthPerformer::AuthenticateWithFingerprint(
+    std::unique_ptr<UserContext> context,
+    AuthOperationCallback callback) {
+  CHECK(ash::features::IsFingerprintAuthFactorEnabled());
+  CHECK(!context->GetAuthSessionId().empty()) << "Auth session should exist";
+
+  LOGIN_LOG(EVENT) << "Authenticating with fingerprint auth factors";
+
+  const auto& auth_factors = context->GetAuthFactorsData();
+
+  user_data_auth::AuthenticateAuthFactorRequest request;
+  request.set_auth_session_id(context->GetAuthSessionId());
+  std::vector<cryptohome::KeyLabel> fp_labels =
+      auth_factors.GetFactorLabelsByType(
+          cryptohome::AuthFactorType::kFingerprint);
+  if (fp_labels.empty()) {
+    LOGIN_LOG(ERROR) << "Could not find fingerprint factors";
+    std::move(callback).Run(
+        std::move(context),
+        AuthenticationError{cryptohome::ErrorWrapper::CreateFromErrorCodeOnly(
+            user_data_auth::CRYPTOHOME_ERROR_KEY_NOT_FOUND)});
+    return;
+  }
+
+  // The fingerprint auth input is not related to any specific fingerprint auth
+  // factor. it is an empty input to signal the auth factor type.
+  request.mutable_auth_input()->mutable_fingerprint_input();
+  for (auto fp_label : fp_labels) {
+    request.add_auth_factor_labels(fp_label.value());
+  }
+  client_->AuthenticateAuthFactor(
+      request, base::BindOnce(&AuthPerformer::OnAuthenticateAuthFactor,
+                              weak_factory_.GetWeakPtr(), clock_->Now(),
+                              std::move(context), std::move(callback)));
 }
 
 void AuthPerformer::AuthenticateAsKiosk(std::unique_ptr<UserContext> context,

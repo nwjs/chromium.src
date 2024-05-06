@@ -30,6 +30,17 @@ BASE_DECLARE_FEATURE(kLauncherFuzzyMatchForOmnibox);
 // Enables image search in the launcher.
 BASE_DECLARE_FEATURE(kLauncherImageSearch);
 
+// Segmentation flag for local image search.
+BASE_DECLARE_FEATURE(kFeatureManagementLocalImageSearch);
+
+// Whether or not to override configuration of the local image search confidence
+// threshold with an experiment.
+BASE_DECLARE_FEATURE(kLauncherLocalImageSearchConfidence);
+
+// Whether or not to override configuration of the local image search Relevance
+// threshold with an experiment.
+BASE_DECLARE_FEATURE(kLauncherLocalImageSearchRelevance);
+
 // Enable Image Content-based Annotation
 BASE_DECLARE_FEATURE(kLauncherImageSearchIca);
 
@@ -38,6 +49,9 @@ BASE_DECLARE_FEATURE(kICASupportedByHardware);
 
 // Enable Optical Character Recognition
 BASE_DECLARE_FEATURE(kLauncherImageSearchOcr);
+
+// Applies a hard limit about how many images can be process per user session.
+BASE_DECLARE_FEATURE(kLauncherImageSearchIndexingLimit);
 
 BASE_DECLARE_FEATURE(kLauncherSystemInfoAnswerCards);
 
@@ -50,6 +64,7 @@ bool IsLauncherQueryFederatedAnalyticsPHHEnabled();
 bool IsLauncherImageSearchEnabled();
 bool IsLauncherImageSearchIcaEnabled();
 bool IsLauncherImageSearchOcrEnabled();
+bool IsLauncherImageSearchIndexingLimitEnabled();
 bool IsLauncherFuzzyMatchAcrossProvidersEnabled();
 bool isLauncherFuzzyMatchForOmniboxEnabled();
 bool isLauncherSystemInfoAnswerCardsEnabled();

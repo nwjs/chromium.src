@@ -13,8 +13,10 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/sequence_checker.h"
@@ -86,8 +88,7 @@ class WebRtcEventLogManager;
 }  // namespace webrtc_event_logging
 
 namespace speech {
-class SodaInstallerImpl;
-class SodaInstallerImplChromeOS;
+class SodaInstaller;
 }  // namespace speech
 
 namespace screen_ai {
@@ -199,6 +200,8 @@ class BrowserProcessImpl : public BrowserProcess,
   safe_browsing::SafeBrowsingService* safe_browsing_service() override;
   subresource_filter::RulesetService* subresource_filter_ruleset_service()
       override;
+  subresource_filter::RulesetService*
+  fingerprinting_protection_ruleset_service() override;
 
   StartupData* startup_data() override;
 
@@ -250,6 +253,7 @@ class BrowserProcessImpl : public BrowserProcess,
   void CreateBackgroundPrintingManager();
   void CreateSafeBrowsingService();
   void CreateSubresourceFilterRulesetService();
+  void CreateFingerprintingProtectionRulesetService();
   void CreateOptimizationGuideService();
   void CreateStatusTray();
   void CreateBackgroundModeManager();
@@ -363,6 +367,10 @@ class BrowserProcessImpl : public BrowserProcess,
   std::unique_ptr<subresource_filter::RulesetService>
       subresource_filter_ruleset_service_;
 
+  bool created_fingerprinting_protection_ruleset_service_ = false;
+  std::unique_ptr<subresource_filter::RulesetService>
+      fingerprinting_protection_ruleset_service_;
+
   bool shutting_down_ = false;
 
   bool tearing_down_ = false;
@@ -406,17 +414,12 @@ class BrowserProcessImpl : public BrowserProcess,
   // but some users of component updater only install per-user.
   std::unique_ptr<component_updater::ComponentUpdateService> component_updater_;
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_ANDROID)
   // Used to create a singleton instance of SodaInstallerImpl, which can be
   // retrieved using speech::SodaInstaller::GetInstance().
   // SodaInstallerImpl depends on ComponentUpdateService, so define it here
   // to ensure that SodaInstallerImpl gets destructed first.
-  std::unique_ptr<speech::SodaInstallerImpl> soda_installer_impl_;
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  // Chrome OS has a different implementation of SodaInstaller.
-  std::unique_ptr<speech::SodaInstallerImplChromeOS> soda_installer_impl_;
+  std::unique_ptr<speech::SodaInstaller> soda_installer_impl_;
 #endif
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -470,6 +473,8 @@ class BrowserProcessImpl : public BrowserProcess,
       application_breadcrumbs_logger_;
 
   std::unique_ptr<os_crypt_async::OSCryptAsync> os_crypt_async_;
+  std::optional<base::CallbackListSubscription>
+      os_crypt_async_init_subscription_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 };

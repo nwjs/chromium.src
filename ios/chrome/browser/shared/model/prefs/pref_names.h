@@ -303,6 +303,11 @@ inline constexpr char kIosSafetyCheckManagerUpdateCheckResult[] =
 inline constexpr char kIosSafetyCheckManagerSafeBrowsingCheckResult[] =
     "ios.safety_check_manager.safe_browsing_check_result";
 
+// Dictionary preference containing the counts of passwords flagged as
+// compromised, dismissed, reused, and weak by the most recent Safety Check run.
+inline constexpr char kIosSafetyCheckManagerInsecurePasswordCounts[] =
+    "ios.safety_check_manager.insecure_password_counts";
+
 // String preference containing the default account to use for saving files to
 // Google Drive.
 inline constexpr char kIosSaveToDriveDefaultGaiaId[] =
@@ -577,6 +582,17 @@ inline constexpr char kInsecureFormWarningsEnabled[] =
 // This value is true if the default user agent was changed. To be used
 // only when raccoon is enabled.
 inline constexpr char kUserAgentWasChanged[] = "UserAgentWasChanged";
+
+// A time object storing the last time size metrics of the documents directory
+// were logged.
+inline constexpr char kLastApplicationStorageMetricsLogTime[] =
+    "LastApplicationStorageMetricsLogTime";
+
+// Count the number of times the Search Engine Choice Screen was skipped
+// because the application was started via an external Intent.
+inline constexpr char kChoiceScreenSkippedCount[] =
+    "ios.search_engine_choice_screen.skip_count";
+
 }  // namespace prefs
 
 #endif  // IOS_CHROME_BROWSER_PREFS_PREF_NAMES_H_

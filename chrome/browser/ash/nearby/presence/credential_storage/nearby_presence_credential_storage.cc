@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
@@ -25,13 +26,9 @@ const base::FilePath::CharType kRemotePublicCredentialDatabaseName[] =
 const base::FilePath::CharType kPrivateCredentialDatabaseName[] =
     FILE_PATH_LITERAL("NearbyPresencePrivateCredentialDatabase");
 
-// When saving credentials, |delete_key_filter| is always set to true, since
-// |entries_to_save| are not deleted if they match |delete_key_filter|. This
-// avoids duplicating new keys in memory to be saved.
-const leveldb_proto::KeyFilter& DeleteKeyFilter() {
-  static const base::NoDestructor<leveldb_proto::KeyFilter> filter(
-      base::BindRepeating([](const std::string& key) { return true; }));
-  return *filter;
+// Return an empty set, so that no entries are removed.
+std::unique_ptr<std::vector<std::string>> GenerateKeysForEntriesToRemove() {
+  return std::make_unique<std::vector<std::string>>();
 }
 
 }  // namespace
@@ -121,8 +118,9 @@ void NearbyPresenceCredentialStorage::SaveCredentials(
     auto shared_credential_proto =
         proto::SharedCredentialFromMojom(shared_credential.get());
 
-    credential_pairs_to_save->emplace_back(std::make_pair(
-        shared_credential_proto.secret_id(), shared_credential_proto));
+    credential_pairs_to_save->emplace_back(
+        std::make_pair(base::NumberToString(shared_credential_proto.id()),
+                       shared_credential_proto));
   }
 
   switch (public_credential_type) {
@@ -131,9 +129,9 @@ void NearbyPresenceCredentialStorage::SaveCredentials(
       // If successful, then attempt to save private credentials in a
       // follow-up callback. Iff both operations are successful,
       // 'on_credentials_fully_saved_callback' will return kOk.
-      local_public_db_->UpdateEntriesWithRemoveFilter(
+      local_public_db_->UpdateEntries(
           /*entries_to_save=*/std::move(credential_pairs_to_save),
-          /*delete_key_filter=*/DeleteKeyFilter(),
+          /*entries_to_remove=*/GenerateKeysForEntriesToRemove(),
           base::BindOnce(
               &NearbyPresenceCredentialStorage::OnLocalPublicCredentialsSaved,
               weak_ptr_factory_.GetWeakPtr(), std::move(local_credentials),
@@ -143,9 +141,9 @@ void NearbyPresenceCredentialStorage::SaveCredentials(
       // When remote public credentials are updated, the private credentials
       // provided are empty. To preserve the existing private credentials, do
       // not update the private credential database.
-      remote_public_db_->UpdateEntriesWithRemoveFilter(
+      remote_public_db_->UpdateEntries(
           /*entries_to_save=*/std::move(credential_pairs_to_save),
-          /*delete_key_filter=*/DeleteKeyFilter(),
+          /*entries_to_remove=*/GenerateKeysForEntriesToRemove(),
           base::BindOnce(
               &NearbyPresenceCredentialStorage::OnRemotePublicCredentialsSaved,
               weak_ptr_factory_.GetWeakPtr(),
@@ -203,9 +201,10 @@ void NearbyPresenceCredentialStorage::UpdateLocalCredential(
       },
       local_credential_proto.secret_id());
 
+  // TODO(b/333701895): Verify that this works as expected during a broadcast.
   private_db_->UpdateEntriesWithRemoveFilter(
       /*entries_to_save=*/std::move(credential_pair_to_update),
-      /*delete_key_filter=*/update_filter,
+      /*entries_to_remove=*/update_filter,
       base::BindOnce(&NearbyPresenceCredentialStorage::OnLocalCredentialUpdated,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
@@ -311,9 +310,9 @@ void NearbyPresenceCredentialStorage::OnLocalPublicCredentialsSaved(
         std::make_pair(local_credential.secret_id(), local_credential));
   }
 
-  private_db_->UpdateEntriesWithRemoveFilter(
+  private_db_->UpdateEntries(
       /*entries_to_save=*/std::move(credential_pairs_to_save),
-      /*delete_key_filter=*/DeleteKeyFilter(),
+      /*entries_to_remove=*/GenerateKeysForEntriesToRemove(),
       base::BindOnce(
           &NearbyPresenceCredentialStorage::OnPrivateCredentialsSaved,
           weak_ptr_factory_.GetWeakPtr(),

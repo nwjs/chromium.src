@@ -128,6 +128,7 @@ void DidCreateScriptLoader(
   DCHECK_NE(main_script_load_params.is_null(), completion_status == nullptr);
   DCHECK(!(main_script_load_params.is_null() &&
            subresource_loader_params.controller_service_worker_info));
+  TRACE_EVENT("loading", "DidCreateScriptLoader");
 
   // Prepare the controller service worker info to pass to the renderer.
   blink::mojom::ControllerServiceWorkerInfoPtr controller;
@@ -373,6 +374,7 @@ void WorkerScriptFetcher::CreateScriptLoader(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(devtools_agent_host);
   DCHECK(client_security_state);
+  TRACE_EVENT("loading", "WorkerScriptFetcher::CreateScriptLoader");
 
   RenderProcessHost* factory_process =
       RenderProcessHost::FromID(worker_process_id);
@@ -444,8 +446,8 @@ void WorkerScriptFetcher::CreateScriptLoader(
             url_loader_factory::FactoryOverrideOption::kAllow),
         url_loader_factory::ContentClientParams(
             browser_context, creator_render_frame_host,
-            factory_process->GetID(), request_initiator, source_id,
-            &bypass_redirect_checks),
+            factory_process->GetID(), request_initiator, net::IsolationInfo(),
+            source_id, &bypass_redirect_checks),
         devtools_instrumentation::WillCreateURLLoaderFactoryParams::
             ForWorkerMainScript(devtools_agent_host, devtools_worker_token));
 

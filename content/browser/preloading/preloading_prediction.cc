@@ -15,7 +15,7 @@ namespace content {
 
 PreloadingPrediction::PreloadingPrediction(
     PreloadingPredictor predictor,
-    double confidence,
+    PreloadingConfidence confidence,
     ukm::SourceId triggered_primary_page_source_id,
     PreloadingURLMatchCallback url_match_predicate)
     : predictor_type_(predictor),
@@ -33,7 +33,7 @@ void PreloadingPrediction::RecordPreloadingPredictionUKMs(
   if (navigated_page_source_id != ukm::kInvalidSourceId) {
     ukm::builders::Preloading_Prediction builder(navigated_page_source_id);
     builder.SetPreloadingPredictor(predictor_type_.ukm_value())
-        .SetConfidence(confidence_)
+        .SetConfidence(static_cast<int>(confidence_))
         .SetAccuratePrediction(is_accurate_prediction_);
     if (time_to_next_navigation_) {
       builder.SetTimeToNextNavigation(ukm::GetExponentialBucketMinForCounts1000(
@@ -46,7 +46,7 @@ void PreloadingPrediction::RecordPreloadingPredictionUKMs(
     ukm::builders::Preloading_Prediction_PreviousPrimaryPage builder(
         triggered_primary_page_source_id_);
     builder.SetPreloadingPredictor(predictor_type_.ukm_value())
-        .SetConfidence(confidence_)
+        .SetConfidence(static_cast<int>(confidence_))
         .SetAccuratePrediction(is_accurate_prediction_);
     if (time_to_next_navigation_) {
       builder.SetTimeToNextNavigation(ukm::GetExponentialBucketMinForCounts1000(
@@ -71,7 +71,7 @@ void PreloadingPrediction::SetIsAccuratePrediction(const GURL& navigated_url) {
 }
 
 ExperimentalPreloadingPrediction::ExperimentalPreloadingPrediction(
-    base::StringPiece name,
+    std::string_view name,
     PreloadingURLMatchCallback url_match_predicate,
     float score,
     float min_score,
@@ -83,7 +83,7 @@ ExperimentalPreloadingPrediction::ExperimentalPreloadingPrediction(
       max_score_(max_score),
       buckets_(buckets),
       url_match_predicate_(std::move(url_match_predicate)) {
-  CHECK(max_score > min_score);
+  CHECK_GT(max_score, min_score);
 }
 
 void ExperimentalPreloadingPrediction::SetIsAccuratePrediction(

@@ -148,8 +148,7 @@ class MockMediaResource : public MediaResource {
 
   // MediaResource implementation.
   MOCK_CONST_METHOD0(GetType, MediaResource::Type());
-  MOCK_METHOD0(GetAllStreams,
-               std::vector<vector_experimental_raw_ptr<DemuxerStream>>());
+  MOCK_METHOD0(GetAllStreams, std::vector<DemuxerStream*>());
   MOCK_METHOD1(GetFirstStream, DemuxerStream*(DemuxerStream::Type type));
   MOCK_CONST_METHOD0(GetMediaUrlParams, const MediaUrlParams&());
 };
@@ -186,10 +185,7 @@ class MockDemuxer : public Demuxer {
               ());
   MOCK_METHOD(void, Stop, (), (override));
   MOCK_METHOD(void, AbortPendingReads, (), (override));
-  MOCK_METHOD(std::vector<vector_experimental_raw_ptr<DemuxerStream>>,
-              GetAllStreams,
-              (),
-              (override));
+  MOCK_METHOD((std::vector<DemuxerStream*>), GetAllStreams, (), (override));
 
   MOCK_METHOD(base::TimeDelta, GetStartTime, (), (const, override));
   MOCK_METHOD(base::Time, GetTimelineOffset, (), (const, override));
@@ -871,15 +867,16 @@ class MockMediaClient : public media::MediaClient {
   ~MockMediaClient() override;
 
   // MediaClient implementation.
-  MOCK_METHOD1(GetSupportedKeySystems,
-               std::unique_ptr<::media::KeySystemSupportObserver>(
-                   GetSupportedKeySystemsCB cb));
   MOCK_METHOD1(IsSupportedAudioType, bool(const media::AudioType& type));
   MOCK_METHOD1(IsSupportedVideoType, bool(const media::VideoType& type));
   MOCK_METHOD1(IsSupportedBitstreamAudioCodec, bool(media::AudioCodec codec));
   MOCK_METHOD1(GetAudioRendererAlgorithmParameters,
                std::optional<::media::AudioRendererAlgorithmParameters>(
                    media::AudioParameters audio_parameters));
+  MOCK_METHOD(media::ExternalMemoryAllocator*,
+              GetMediaAllocator,
+              (),
+              (override));
 };
 
 class MockVideoEncoderMetricsProvider : public VideoEncoderMetricsProvider {

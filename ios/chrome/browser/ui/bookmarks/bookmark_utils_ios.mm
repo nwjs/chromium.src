@@ -33,7 +33,6 @@
 #import "components/query_parser/query_parser.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/strings/grit/components_strings.h"
-#import "components/sync/base/features.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
@@ -305,7 +304,6 @@ NSString* messageForAddingBookmarksInFolder(
     if (syncingBookmark) {
       // The user is signed-in, and syncing bookmark, but default bookmark
       // account is on a local folder.
-      CHECK(chosenByUser);
       std::u16string title = base::SysNSStringToUTF16(folderTitle);
       std::u16string pattern = l10n_util::GetStringUTF16(
           (showCount) ? IDS_IOS_BOOKMARK_PAGE_BULK_SAVED_FOLDER_TO_DEVICE
@@ -368,7 +366,8 @@ MDCSnackbarMessage* UpdateBookmarkWithUndoToast(
     text = l10n_util::GetNSString(IDS_IOS_BOOKMARK_NEW_BOOKMARK_UPDATED);
   } else {
     text = messageForAddingBookmarksInFolder(
-        title, /*chosenByUser =*/true,
+        base::SysUTF16ToNSString(folder->GetTitledUrlNodeTitle()),
+        /*chosenByUser =*/true,
         GetBookmarkModelType(folder, local_or_syncable_model, account_model),
         /*showCount=*/false, /*count=*/1, authenticationService, syncService);
   }

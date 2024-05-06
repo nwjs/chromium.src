@@ -58,6 +58,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
@@ -550,6 +551,30 @@ bool LayoutObject::IsHR() const {
   return IsA<HTMLHRElement>(GetNode());
 }
 
+bool LayoutObject::IsInputButton() const {
+  NOT_DESTROYED();
+  if (const auto* input = DynamicTo<HTMLInputElement>(GetNode())) {
+    return input->IsButton();
+  }
+  return false;
+}
+
+bool LayoutObject::IsMenuList() const {
+  NOT_DESTROYED();
+  if (const auto* select = DynamicTo<HTMLSelectElement>(GetNode())) {
+    return select->UsesMenuList();
+  }
+  return false;
+}
+
+bool LayoutObject::IsListBox() const {
+  NOT_DESTROYED();
+  if (const auto* select = DynamicTo<HTMLSelectElement>(GetNode())) {
+    return !select->UsesMenuList();
+  }
+  return false;
+}
+
 bool LayoutObject::IsStyleGenerated() const {
   NOT_DESTROYED();
   if (const auto* layout_text_fragment = DynamicTo<LayoutTextFragment>(this))
@@ -690,8 +715,10 @@ DISABLE_CFI_PERF
 void LayoutObject::AddChild(LayoutObject* new_child,
                             LayoutObject* before_child) {
   NOT_DESTROYED();
+#if DCHECK_IS_ON()
   DCHECK(IsAllowedToModifyLayoutTreeStructure(GetDocument()) ||
-         IsLayoutNGObjectForFormattedText());
+         IsDetachedNonDomRoot());
+#endif
 
   LayoutObjectChildList* children = VirtualChildren();
   DCHECK(children);
@@ -759,8 +786,10 @@ void LayoutObject::AddChild(LayoutObject* new_child,
 
 void LayoutObject::RemoveChild(LayoutObject* old_child) {
   NOT_DESTROYED();
+#if DCHECK_IS_ON()
   DCHECK(IsAllowedToModifyLayoutTreeStructure(GetDocument()) ||
-         IsLayoutNGObjectForFormattedText());
+         IsDetachedNonDomRoot());
+#endif
 
   LayoutObjectChildList* children = VirtualChildren();
   DCHECK(children);
@@ -1629,8 +1658,6 @@ void LayoutObject::SetIntrinsicLogicalWidthsDirty(
   bitfields_.SetIntrinsicLogicalWidthsChildDependsOnBlockConstraints(true);
   bitfields_.SetIndefiniteIntrinsicLogicalWidthsDirty(true);
   bitfields_.SetDefiniteIntrinsicLogicalWidthsDirty(true);
-  bitfields_.SetIsSubgridMinMaxSizesCacheDirty(true);
-
   if (mark_parents == kMarkContainerChain &&
       (IsText() || !StyleRef().HasOutOfFlowPosition()))
     InvalidateContainerIntrinsicLogicalWidths();
@@ -1677,16 +1704,22 @@ void LayoutObject::InvalidateIntersectionObserverCachedRects() {
 }
 
 static inline bool ShouldInvalidateBeyond(LayoutObject* o) {
-  // Because LayoutNG does not work on individual inline objects, we can't
-  // use a dirty width on an inline as a signal that it is safe to stop --
-  // inlines never get marked as clean. Instead, we need to keep going to the
-  // next block container.
-  // Atomic inlines do not have this problem as they are treated like blocks
-  // in this context.
-  // There's a similar issue for flow thread objects, as they are invisible to
-  // LayoutNG.
-  if (o->IsLayoutInline() || o->IsText() || o->IsLayoutFlowThread())
+  // We don't work on individual inline objects, instead at an IFC level. We
+  // never clear these bits on inline elements so invalidate past them.
+  if (o->IsLayoutInline() || o->IsText()) {
     return true;
+  }
+
+  // Similarly for tables we don't compute min/max sizes on rows/sections.
+  // Invalidate past them.
+  if (o->IsTableRow() || o->IsTableSection()) {
+    return true;
+  }
+
+  // Flow threads also don't have min/max sizes computed.
+  if (o->IsLayoutFlowThread()) {
+    return true;
+  }
 
   // Invalidate past any subgrids. NOTE: we do this in both axes as we don't
   // know what writing-mode the root grid is in.
@@ -1703,31 +1736,18 @@ static inline bool ShouldInvalidateBeyond(LayoutObject* o) {
 
 inline void LayoutObject::InvalidateContainerIntrinsicLogicalWidths() {
   NOT_DESTROYED();
-  // In order to avoid pathological behavior when inlines are deeply nested, we
-  // do include them in the chain that we mark dirty (even though they're kind
-  // of irrelevant).
-  auto IntrinsicContainer = [](const LayoutObject* current) -> LayoutObject* {
-    // Table cell intrinsic logical-widths are queried directly from a <table>
-    // rather than from their parents (sections or rows). Skip these when
-    // invalidating.
-    if (current->IsTableCell()) {
-      return To<LayoutTableCell>(current)->Table();
-    }
-    return current->Container();
-  };
 
-  LayoutObject* o = IntrinsicContainer(this);
+  LayoutObject* o = Container();
   while (o &&
          (!o->IntrinsicLogicalWidthsDirty() || ShouldInvalidateBeyond(o))) {
+    LayoutObject* container = o->Container();
+
     // Don't invalidate the outermost object of an unrooted subtree. That object
     // will be invalidated when the subtree is added to the document.
-    LayoutObject* container = IntrinsicContainer(o);
     if (!container && !IsA<LayoutView>(o))
       break;
 
     o->bitfields_.SetIntrinsicLogicalWidthsDirty(true);
-    o->bitfields_.SetIsSubgridMinMaxSizesCacheDirty(true);
-
     // A positioned object has no effect on the min/max width of its containing
     // block ever. We can optimize this case and not go up any further.
     if (o->StyleRef().HasOutOfFlowPosition())
@@ -1950,13 +1970,7 @@ PhysicalRect LayoutObject::AbsoluteBoundingBoxRectForScrollIntoView() const {
           ? kIgnoreStickyOffset
           : 0;
 
-  PhysicalRect rect = AbsoluteBoundingBoxRectHandlingEmptyInline(flag);
-  const auto& style = StyleRef();
-  rect.ExpandEdges(LayoutUnit(style.ScrollMarginTop()),
-                   LayoutUnit(style.ScrollMarginRight()),
-                   LayoutUnit(style.ScrollMarginBottom()),
-                   LayoutUnit(style.ScrollMarginLeft()));
-  return rect;
+  return AbsoluteBoundingBoxRectHandlingEmptyInline(flag);
 }
 
 void LayoutObject::AddAbsoluteRectForLayer(gfx::Rect& result) {
@@ -2668,7 +2682,14 @@ void LayoutObject::SetStyle(const ComputedStyle* style,
     return;
 
   if (apply_changes == ApplyStyleChanges::kNo) {
-    SetStyleInternal(std::move(style));
+    const ComputedStyle* old_style = style_;
+    SetStyleInternal(style);
+    // Ideally we shouldn't have to do this, but new CSSImageGeneratorValues are
+    // generated on recalc for custom properties, which means we need to call
+    // UpdateImageObservers to keep CSSImageGeneratorValue::clients_ up-to-date.
+    if (!IsText()) {
+      UpdateImageObservers(old_style, style_.Get());
+    }
     return;
   }
 
@@ -2736,8 +2757,9 @@ void LayoutObject::SetStyle(const ComputedStyle* style,
   const ComputedStyle* old_style = std::move(style_);
   SetStyleInternal(std::move(style));
 
-  if (!IsText())
+  if (!IsText()) {
     UpdateImageObservers(old_style, style_.Get());
+  }
 
   CheckCounterChanges(old_style, style_.Get());
 
@@ -2775,7 +2797,8 @@ void LayoutObject::SetStyle(const ComputedStyle* style,
     if (updated_diff.NeedsFullLayout()) {
       SetNeedsLayoutAndIntrinsicWidthsRecalc(
           layout_invalidation_reason::kStyleChange);
-    } else if (updated_diff.NeedsPositionedMovementLayout()) {
+    } else if (updated_diff.NeedsPositionedMovementLayout() ||
+               StyleRef().HasAnchorFunctionsWithoutEvaluator()) {
       if (StyleRef().HasOutOfFlowPosition()) {
         ContainingBlock()->SetNeedsSimplifiedLayout();
       } else {
@@ -2913,7 +2936,7 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
     if (visibility_changed ||
         style_->EffectiveZIndex() != new_style.EffectiveZIndex() ||
         IsStackingContext(*style_) != IsStackingContext(new_style)) {
-      GetDocument().SetAnnotatedRegionsDirty(true);
+      GetDocument().SetDraggableRegionsDirty(true);
     }
 
     bool background_color_changed =
@@ -2929,11 +2952,6 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
         style_->TextIndent() != new_style.TextIndent()) {
       if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache())
         cache->StyleChanged(this);
-    }
-
-    if (diff.TransformChanged()) {
-      if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache())
-        cache->LocationChanged(this);
     }
 
     if (style_->ContentVisibility() != new_style.ContentVisibility()) {
@@ -4312,7 +4330,7 @@ const ComputedStyle* LayoutObject::GetSelectionStyle() const {
   return GetCachedPseudoElementStyle(kPseudoIdSelection);
 }
 
-void LayoutObject::AddAnnotatedRegions(Vector<AnnotatedRegionValue>& regions) {
+void LayoutObject::AddDraggableRegions(Vector<DraggableRegionValue>& regions) {
   NOT_DESTROYED();
   // Convert the style regions to absolute coordinates.
   if (StyleRef().Visibility() != EVisibility::kVisible || !IsBox())
@@ -4325,7 +4343,7 @@ void LayoutObject::AddAnnotatedRegions(Vector<AnnotatedRegionValue>& regions) {
   PhysicalRect local_bounds = box->PhysicalBorderBoxRect();
   PhysicalRect abs_bounds = LocalToAbsoluteRect(local_bounds);
 
-  AnnotatedRegionValue region;
+  DraggableRegionValue region;
   region.draggable =
       StyleRef().DraggableRegionMode() == EDraggableRegionMode::kDrag;
   region.bounds = abs_bounds;
@@ -5070,9 +5088,12 @@ void LayoutObject::SetModifiedStyleOutsideStyleRecalc(
     ApplyStyleChanges apply_changes) {
   NOT_DESTROYED();
   SetStyle(style, apply_changes);
-  if (IsAnonymous() || !GetNode() || !GetNode()->IsElementNode())
+  if (IsAnonymous()) {
     return;
-  GetNode()->SetComputedStyle(std::move(style));
+  }
+  if (auto* element = DynamicTo<Element>(GetNode())) {
+    element->SetComputedStyle(style);
+  }
 }
 
 LayoutUnit LayoutObject::FlipForWritingModeInternal(
@@ -5179,20 +5200,6 @@ void LayoutObject::InvalidateSubtreePositionTry(bool mark_style_dirty) {
        child = child->NextSibling()) {
     child->InvalidateSubtreePositionTry(mark_style_dirty);
   }
-}
-
-bool IsMenuList(const LayoutObject* object) {
-  if (!object)
-    return false;
-  auto* select = DynamicTo<HTMLSelectElement>(object->GetNode());
-  return select && select->UsesMenuList();
-}
-
-bool IsListBox(const LayoutObject* object) {
-  if (!object)
-    return false;
-  auto* select = DynamicTo<HTMLSelectElement>(object->GetNode());
-  return select && !select->UsesMenuList();
 }
 
 }  // namespace blink

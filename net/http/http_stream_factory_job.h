@@ -20,7 +20,6 @@
 #include "net/http/bidirectional_stream_impl.h"
 #include "net/http/http_auth.h"
 #include "net/http/http_auth_controller.h"
-#include "net/http/http_request_info.h"
 #include "net/http/http_stream_factory.h"
 #include "net/http/http_stream_request.h"
 #include "net/quic/quic_session_pool.h"
@@ -150,7 +149,7 @@ class HttpStreamFactory::Job
   Job(Delegate* delegate,
       JobType job_type,
       HttpNetworkSession* session,
-      const HttpRequestInfo& request_info,
+      const StreamRequestInfo& request_info,
       RequestPriority priority,
       const ProxyInfo& proxy_info,
       const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,
@@ -343,9 +342,10 @@ class HttpStreamFactory::Job
                               bool is_websocket);
 
   // Called in Job constructor. Use |spdy_session_key_| after construction.
-  static SpdySessionKey GetSpdySessionKey(const ProxyChain& proxy_chain,
-                                          const GURL& origin_url,
-                                          const HttpRequestInfo& request_info);
+  static SpdySessionKey GetSpdySessionKey(
+      const ProxyChain& proxy_chain,
+      const GURL& origin_url,
+      const StreamRequestInfo& request_info);
 
   // Returns whether an appropriate SPDY session would correspond to either a
   // connection to the last proxy server in the chain (for the traditional HTTP
@@ -379,7 +379,7 @@ class HttpStreamFactory::Job
 
   bool disable_cert_verification_network_fetches() const;
 
-  const HttpRequestInfo request_info_;
+  const StreamRequestInfo request_info_;
   RequestPriority priority_;
   const ProxyInfo proxy_info_;
   const std::vector<SSLConfig::CertAndStatus> allowed_bad_certs_;
@@ -391,12 +391,18 @@ class HttpStreamFactory::Job
 
   State next_state_ = STATE_NONE;
 
+  bool started_ = false;
+
   // The server we are trying to reach, could be that of the origin or of the
-  // alternative service (after applying host mapping rules).
+  // alternative service (after applying host mapping rules). The scheme of this
+  // is always HTTP or HTTPS, even for websockets requests.
   const url::SchemeHostPort destination_;
 
   // The origin url we're trying to reach. This url may be different from the
-  // original request when host mapping rules are set-up.
+  // original request when host mapping rules are set-up. It has the original
+  // scheme, so may be HTTP, HTTPS, WS, or WSS. It does not change when there's
+  // an alternate service, but it does take into account host mapping rules,
+  // unlike `request_info_.url`.
   const GURL origin_url_;
 
   // True if request is for Websocket.
@@ -504,7 +510,7 @@ class HttpStreamFactory::JobFactory {
       HttpStreamFactory::Job::Delegate* delegate,
       HttpStreamFactory::JobType job_type,
       HttpNetworkSession* session,
-      const HttpRequestInfo& request_info,
+      const StreamRequestInfo& request_info,
       RequestPriority priority,
       const ProxyInfo& proxy_info,
       const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,

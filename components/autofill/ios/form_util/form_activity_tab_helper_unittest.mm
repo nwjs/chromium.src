@@ -19,8 +19,10 @@
 #import "ios/web/public/test/web_test_with_web_state.h"
 #include "testing/platform_test.h"
 
+using autofill::FormRendererId;
 using base::test::ios::kWaitForJSCompletionTimeout;
 using base::test::ios::WaitUntilConditionOrTimeout;
+using ::testing::ElementsAre;
 using web::WebFrame;
 
 // Tests fixture for autofill::FormActivityTabHelper class.
@@ -78,7 +80,6 @@ TEST_P(FormActivityTabHelperTest, TestObserverDocumentSubmitted) {
 
   WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
-  SetUpForUniqueIds(main_frame);
 
   ASSERT_FALSE(observer_->submit_document_info());
   const std::string kTestFormName("form-name");
@@ -115,7 +116,6 @@ TEST_P(FormActivityTabHelperTest, TestFormSubmittedHook) {
 
   WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
-  SetUpForUniqueIds(main_frame);
 
   ASSERT_FALSE(observer_->submit_document_info());
   const std::string kTestFormName("form-name");
@@ -144,7 +144,7 @@ TEST_P(FormActivityTabHelperTest, TestFormSubmittedHook) {
 }
 
 // Tests that observer is called on form activity (input event).
-// TODO(crbug.com/1431960): Disabled test due to bot failure. Re-enable when
+// TODO(crbug.com/40902648): Disabled test due to bot failure. Re-enable when
 // fixed.
 TEST_P(FormActivityTabHelperTest,
        DISABLED_TestObserverFormActivityFrameMessaging) {
@@ -154,7 +154,6 @@ TEST_P(FormActivityTabHelperTest,
 
   WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
-  SetUpForUniqueIds(main_frame);
 
   ASSERT_FALSE(observer_->form_activity_info());
   // First call will set document.activeElement (which is usually set by user
@@ -173,7 +172,6 @@ TEST_P(FormActivityTabHelperTest,
   EXPECT_EQ("text", observer_->form_activity_info()->form_activity.field_type);
   EXPECT_EQ("focus", observer_->form_activity_info()->form_activity.type);
   EXPECT_EQ("", observer_->form_activity_info()->form_activity.value);
-  EXPECT_FALSE(observer_->form_activity_info()->form_activity.input_missing);
   EXPECT_TRUE(observer_->form_activity_info()->form_activity.is_main_frame);
   EXPECT_TRUE(observer_->form_activity_info()->form_activity.has_user_gesture);
 }
@@ -190,7 +188,6 @@ TEST_P(FormActivityTabHelperTest, FormRemovalRegistered) {
 
   web::WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
-  SetUpForUniqueIds(main_frame);
 
   ASSERT_FALSE(observer_->form_removal_info());
 
@@ -205,10 +202,8 @@ TEST_P(FormActivityTabHelperTest, FormRemovalRegistered) {
 
   EXPECT_EQ(web_state(), observer_->form_removal_info()->web_state);
   EXPECT_EQ(main_frame, observer_->form_removal_info()->sender_frame);
-  EXPECT_EQ(autofill::FormRendererId(1),
-            observer_->form_removal_info()->form_removal_params.unique_form_id);
-  EXPECT_FALSE(
-      observer_->form_removal_info()->form_removal_params.input_missing);
+  EXPECT_THAT(observer_->form_removal_info()->form_removal_params.removed_forms,
+              ElementsAre(FormRendererId(1)));
 
   if (allow_batching) {
     histogram_tester_.ExpectUniqueSample("Autofill.iOS.FormActivity.DropCount",
@@ -248,7 +243,6 @@ TEST_P(FormActivityTabHelperTest,
 
   web::WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
-  SetUpForUniqueIds(main_frame);
 
   ASSERT_FALSE(observer_->form_removal_info());
   ASSERT_FALSE(observer_->form_activity_info());

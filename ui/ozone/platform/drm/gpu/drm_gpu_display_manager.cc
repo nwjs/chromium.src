@@ -19,6 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "ui/display/display_features.h"
 #include "ui/display/types/display_mode.h"
@@ -46,6 +47,15 @@ struct DrmDisplayParams {
   scoped_refptr<DrmDevice> drm;
   std::unique_ptr<HardwareDisplayControllerInfo> display_info;
   raw_ptr<display::DisplaySnapshot> snapshot;
+};
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class TestOnlyModesetOutcome {
+  kSuccess = 0,
+  kFallbackSuccess = 1,
+  kFailure = 2,
+  kMaxValue = kFailure,
 };
 
 class DisplayComparator {
@@ -158,6 +168,41 @@ std::string ConfigRequestToString(
   return signature;
 }
 
+TestOnlyModesetOutcome GetTestOnlyModesetOutcome(
+    bool config_success,
+    bool did_test_modeset_with_fallback) {
+  if (!config_success) {
+    return TestOnlyModesetOutcome::kFailure;
+  }
+  return did_test_modeset_with_fallback
+             ? TestOnlyModesetOutcome::kFallbackSuccess
+             : TestOnlyModesetOutcome::kSuccess;
+}
+
+std::string NumDisplaysToHistogramString(int num_displays) {
+  DCHECK(num_displays >= 0)
+      << __func__ << ": " << num_displays << " displays detected.";
+  switch (num_displays) {
+    case 1:
+      return "OneDisplay";
+    case 2:
+      return "TwoDisplays";
+    case 3:
+      return "ThreeDisplays";
+    default:
+      return "FourOrMoreDisplays";
+  }
+}
+
+std::string GetNumFallbackHistogramName(int num_displays) {
+  return base::StrCat({"ConfigureDisplays.Modeset.Test.DynamicCRTCs.",
+                       NumDisplaysToHistogramString(num_displays),
+                       ".PermutationsAttempted"});
+}
+std::string GetTestOnlyModesetOutcomeName(int num_displays) {
+  return base::StrCat({"ConfigureDisplays.Modeset.Test.",
+                       NumDisplaysToHistogramString(num_displays), ".Outcome"});
+}
 }  // namespace
 
 DrmGpuDisplayManager::DrmGpuDisplayManager(ScreenManager* screen_manager,
@@ -412,7 +457,9 @@ bool DrmGpuDisplayManager::ConfigureDisplays(
   const bool should_try_test_fallback =
       !is_commit && !config_success &&
       !display::features::IsHardwareMirrorModeEnabled();
+  bool did_test_modeset_with_fallback = false;
   if (should_try_test_fallback) {
+    did_test_modeset_with_fallback = true;
     config_success = RetryTestConfigureDisplaysWithAlternateCrtcs(
         config_requests, controllers_to_configure);
   }
@@ -428,6 +475,14 @@ bool DrmGpuDisplayManager::ConfigureDisplays(
         FindDisplay(controller.display_id)->SetOrigin(controller.origin);
       }
     }
+  } else {
+    const std::string test_modest_outcome_histogram =
+        GetTestOnlyModesetOutcomeName(config_requests.size());
+    const TestOnlyModesetOutcome test_modeset_outcome =
+        GetTestOnlyModesetOutcome(config_success,
+                                  did_test_modeset_with_fallback);
+    base::UmaHistogramEnumeration(test_modest_outcome_histogram,
+                                  test_modeset_outcome);
   }
 
   return config_success;
@@ -548,8 +603,8 @@ bool DrmGpuDisplayManager::SetPrivacyScreen(int64_t display_id, bool enabled) {
   return display->SetPrivacyScreen(enabled);
 }
 
-std::optional<display::RefreshRange>
-DrmGpuDisplayManager::GetSeamlessRefreshRates(int64_t display_id) const {
+std::optional<std::vector<float>> DrmGpuDisplayManager::GetSeamlessRefreshRates(
+    int64_t display_id) const {
   DrmDisplay* display = FindDisplay(display_id);
   if (!display) {
     LOG(WARNING) << __func__ << ": there is no display with ID " << display_id;
@@ -558,10 +613,9 @@ DrmGpuDisplayManager::GetSeamlessRefreshRates(int64_t display_id) const {
 
   // TODO(b/323362145): Only include modes that can be switched to seamlessly
   // and support contiguity logic.
-  display::RefreshRange range;
+  std::vector<float> range;
   for (const drmModeModeInfo& mode : display->modes()) {
-    float refresh = ModeRefreshRate(mode);
-    range.push_back(display::RefreshRangeNode(refresh));
+    range.push_back(ModeRefreshRate(mode));
   }
   return range;
 }
@@ -631,6 +685,7 @@ bool DrmGpuDisplayManager::RetryTestConfigureDisplaysWithAlternateCrtcs(
 
   // For each DrmDevice, try test modeset with all possible CRTC-connector
   // combinations. Use the first successful one.
+  int num_permutations_attempted = 0;
   bool fallback_successful_for_all_devices = true;
   std::vector<ControllerConfigParams> successful_config_list;
   for (auto& [drm, configs_list] : drm_device_controllers_to_configure) {
@@ -663,6 +718,7 @@ bool DrmGpuDisplayManager::RetryTestConfigureDisplaysWithAlternateCrtcs(
         continue;
       }
 
+      ++num_permutations_attempted;
       if (screen_manager_->ConfigureDisplayControllers(
               configs_list, {display::ModesetFlag::kTestModeset})) {
         has_successful_permutation = true;
@@ -694,6 +750,11 @@ bool DrmGpuDisplayManager::RetryTestConfigureDisplaysWithAlternateCrtcs(
             << __func__
             << ": Failed to revert to the original CRTC-conector pairings.";
       }
+
+      const std::string num_fallback_histogram =
+          GetNumFallbackHistogramName(config_requests.size());
+      base::UmaHistogramCounts1000(num_fallback_histogram,
+                                   num_permutations_attempted);
       return false;
     }
   }
@@ -716,6 +777,11 @@ bool DrmGpuDisplayManager::RetryTestConfigureDisplaysWithAlternateCrtcs(
     LOG(ERROR) << __func__
                << ": Failed to revert to the original CRTC-conector pairings.";
   }
+
+  const std::string num_fallback_histogram =
+      GetNumFallbackHistogramName(config_requests.size());
+  base::UmaHistogramCounts1000(num_fallback_histogram,
+                               num_permutations_attempted);
 
   return fallback_successful_for_all_devices;
 }

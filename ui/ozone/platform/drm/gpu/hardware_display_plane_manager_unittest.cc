@@ -28,10 +28,10 @@
 #include "ui/ozone/platform/drm/common/drm_util.h"
 #include "ui/ozone/platform/drm/gpu/drm_framebuffer.h"
 #include "ui/ozone/platform/drm/gpu/drm_gpu_util.h"
+#include "ui/ozone/platform/drm/gpu/fake_drm_device.h"
 #include "ui/ozone/platform/drm/gpu/hardware_display_plane_atomic.h"
 #include "ui/ozone/platform/drm/gpu/hardware_display_plane_manager_atomic.h"
 #include "ui/ozone/platform/drm/gpu/hardware_display_plane_manager_legacy.h"
-#include "ui/ozone/platform/drm/gpu/mock_drm_device.h"
 #include "ui/ozone/platform/drm/gpu/page_flip_request.h"
 
 namespace ui {
@@ -76,19 +76,20 @@ class HardwareDisplayPlaneManagerTest
                               HardwareDisplayPlaneList* state,
                               DrmOverlayPlaneList& assigns);
 
-  uint32_t AddConnector(MockDrmDevice::MockDrmState& drm_state,
+  uint32_t AddConnector(FakeDrmDevice::MockDrmState& drm_state,
                         uint32_t possible_crtcs) {
-    MockDrmDevice::EncoderProperties& encoder = drm_state.AddEncoder();
+    FakeDrmDevice::EncoderProperties& encoder = drm_state.AddEncoder();
     encoder.possible_crtcs = possible_crtcs;
     const uint32_t encoder_id = encoder.id;
 
-    MockDrmDevice::ConnectorProperties& connector = drm_state.AddConnector();
+    FakeDrmDevice::ConnectorProperties& connector = drm_state.AddConnector();
     connector.connection = true;
     connector.encoders = std::vector<uint32_t>{encoder_id};
     return connector.id;
   }
 
   void SetUp() override;
+  void TearDown() override;
 
   scoped_refptr<DrmFramebuffer> CreateBuffer(const gfx::Size& size) {
     return CreateBufferWithFormat(size, DRM_FORMAT_XRGB8888);
@@ -104,7 +105,7 @@ class HardwareDisplayPlaneManagerTest
  protected:
   HardwareDisplayPlaneList state_;
   scoped_refptr<DrmFramebuffer> fake_buffer_;
-  scoped_refptr<MockDrmDevice> fake_drm_;
+  scoped_refptr<FakeDrmDevice> fake_drm_;
 
   bool use_atomic_ = false;
 };
@@ -113,11 +114,15 @@ void HardwareDisplayPlaneManagerTest::SetUp() {
   use_atomic_ = GetParam();
 
   auto gbm_device = std::make_unique<MockGbmDevice>();
-  fake_drm_ = new MockDrmDevice(std::move(gbm_device));
-  fake_drm_->SetPropertyBlob(MockDrmDevice::AllocateInFormatsBlob(
+  fake_drm_ = new FakeDrmDevice(std::move(gbm_device));
+  fake_drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
       kInFormatsBlobIdBase, {DRM_FORMAT_XRGB8888}, {}));
 
   fake_buffer_ = CreateBuffer(kDefaultBufferSize);
+}
+
+void HardwareDisplayPlaneManagerTest::TearDown() {
+  fake_drm_->ResetPlaneManagerForTesting();
 }
 
 void HardwareDisplayPlaneManagerTest::PerformPageFlip(
@@ -188,15 +193,9 @@ uint64_t HardwareDisplayPlaneManagerTest::GetPlanePropertyValue(
 using HardwareDisplayPlaneManagerLegacyTest = HardwareDisplayPlaneManagerTest;
 using HardwareDisplayPlaneManagerAtomicTest = HardwareDisplayPlaneManagerTest;
 
-// TODO(crbug.com/1431767): Re-enable this test
-#if defined(LEAK_SANITIZER)
-#define MAYBE_ResettingConnectorCache DISABLED_ResettingConnectorCache
-#else
-#define MAYBE_ResettingConnectorCache ResettingConnectorCache
-#endif
-TEST_P(HardwareDisplayPlaneManagerTest, MAYBE_ResettingConnectorCache) {
+TEST_P(HardwareDisplayPlaneManagerTest, ResettingConnectorCache) {
   const int connector_and_crtc_count = 3;
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       connector_and_crtc_count,
       /*planes_per_crtc=*/1);
 
@@ -270,7 +269,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, MAYBE_ResettingConnectorCache) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, SequenceIncrementOnModesetOnly) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithNoProperties();
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithNoProperties();
   // Add some resources so HardwareDisplayPlaneManager can properly initialize
   // within |fake_drm_|.
   drm_state.AddCrtcAndConnector();
@@ -313,7 +312,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, SequenceIncrementOnModesetOnly) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerLegacyTest, Modeset) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, /*use_atomic=*/false);
 
@@ -337,7 +336,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, Modeset) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerLegacyTest, DisableModeset) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, /*use_atomic=*/false);
 
@@ -354,7 +353,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, SinglePlaneAssignment) {
   DrmOverlayPlaneList assigns;
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -367,7 +366,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, AddCursor) {
   DrmOverlayPlaneList assigns;
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -385,7 +384,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, BadCrtc) {
   DrmOverlayPlaneList assigns;
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -398,7 +397,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, NotEnoughPlanes) {
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -410,7 +409,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, MultipleCrtcs) {
   DrmOverlayPlaneList assigns;
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -426,7 +425,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, MultiplePlanesAndCrtcs) {
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -443,7 +442,7 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, CheckFramebufferFormatMatch) {
       CreateBufferWithFormat(kDefaultBufferSize, DRM_FORMAT_NV12);
   assigns.push_back(DrmOverlayPlane::TestPlane(buffer));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -463,14 +462,8 @@ TEST_P(HardwareDisplayPlaneManagerLegacyTest, CheckFramebufferFormatMatch) {
       &state_, assigns, fake_drm_->crtc_property(0).id));
 }
 
-// TODO(crbug.com/1431767): Re-enable this test
-#if defined(LEAK_SANITIZER)
-#define MAYBE_Modeset DISABLED_Modeset
-#else
-#define MAYBE_Modeset Modeset
-#endif
-TEST_P(HardwareDisplayPlaneManagerAtomicTest, MAYBE_Modeset) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+TEST_P(HardwareDisplayPlaneManagerAtomicTest, Modeset) {
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, /*use_atomic=*/true);
 
@@ -490,7 +483,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MAYBE_Modeset) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, DisableModeset) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, /*use_atomic=*/true);
 
@@ -505,14 +498,8 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, DisableModeset) {
   EXPECT_EQ(1, fake_drm_->get_commit_count());
 }
 
-// TODO(crbug.com/1431767): Re-enable this test
-#if defined(LEAK_SANITIZER)
-#define MAYBE_CheckPropsAfterModeset DISABLED_CheckPropsAfterModeset
-#else
-#define MAYBE_CheckPropsAfterModeset CheckPropsAfterModeset
-#endif
-TEST_P(HardwareDisplayPlaneManagerAtomicTest, MAYBE_CheckPropsAfterModeset) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+TEST_P(HardwareDisplayPlaneManagerAtomicTest, CheckPropsAfterModeset) {
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, /*use_atomic=*/true);
 
@@ -548,14 +535,8 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MAYBE_CheckPropsAfterModeset) {
   EXPECT_EQ(kModePropId, crtc_prop_for_name.id);
 }
 
-// TODO(crbug.com/1431767): Re-enable this test
-#if defined(LEAK_SANITIZER)
-#define MAYBE_CheckPropsAfterDisable DISABLED_CheckPropsAfterDisable
-#else
-#define MAYBE_CheckPropsAfterDisable CheckPropsAfterDisable
-#endif
-TEST_P(HardwareDisplayPlaneManagerAtomicTest, MAYBE_CheckPropsAfterDisable) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+TEST_P(HardwareDisplayPlaneManagerAtomicTest, CheckPropsAfterDisable) {
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, /*use_atomic=*/true);
 
@@ -591,14 +572,8 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MAYBE_CheckPropsAfterDisable) {
   EXPECT_EQ(0U, crtc_prop_for_name.value);
 }
 
-// TODO(crbug.com/1431767): Re-enable this test
-#if defined(LEAK_SANITIZER)
-#define MAYBE_CheckVrrAfterModeset DISABLED_CheckVrrAfterModeset
-#else
-#define MAYBE_CheckVrrAfterModeset CheckVrrAfterModeset
-#endif
-TEST_P(HardwareDisplayPlaneManagerAtomicTest, MAYBE_CheckVrrAfterModeset) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+TEST_P(HardwareDisplayPlaneManagerAtomicTest, CheckVrrAfterModeset) {
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/2);
   drm_state.crtc_properties[0].properties.push_back(
       {.id = kVrrEnabledPropId, .value = 0});
@@ -664,7 +639,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MultiplePlaneAssignment) {
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -678,7 +653,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MultiplePlanesAndCrtcs) {
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -696,10 +671,10 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, SharedPlanes) {
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
   assigns.push_back(DrmOverlayPlane::TestPlane(buffer));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
 
-  MockDrmDevice::PlaneProperties& plane_prop =
+  FakeDrmDevice::PlaneProperties& plane_prop =
       drm_state.plane_properties.emplace_back();
   plane_prop.id = 102;
   plane_prop.crtc_mask = (1 << 0) | (1 << 1);
@@ -718,7 +693,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, SharedPlanes) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, UnusedPlanesAreReleased) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -752,7 +727,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, UnusedPlanesAreReleased) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, AssignPlanesRestoresInUse) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -785,7 +760,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, AssignPlanesRestoresInUse) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, PageflipTestRestoresInUse) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -816,7 +791,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, PageflipTestRestoresInUse) {
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest,
        PageFlipOnlySwapsPlaneListsOnSuccess) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -866,7 +841,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MultipleFrames) {
   DrmOverlayPlaneList assigns;
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -888,7 +863,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MultipleFramesDifferentPlanes) {
   DrmOverlayPlaneList assigns;
   assigns.push_back(DrmOverlayPlane::TestPlane(fake_buffer_));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/2);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -903,7 +878,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, MultipleFramesDifferentPlanes) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, PlanePinningAndUnpinning) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count*/ 2,
       /*planes_per_crtc=*/1,
       /*movable_planes=*/1);
@@ -954,7 +929,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, PlanePinningAndUnpinning) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, PlanesUnpinnedOnFailedFlip) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count*/ 2,
       /*planes_per_crtc=*/1,
       /*movable_planes=*/1);
@@ -991,7 +966,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, PlanesUnpinnedOnFailedFlip) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, PlanesUnpinnedOnDisable) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count*/ 2,
       /*planes_per_crtc=*/1,
       /*movable_planes=*/1);
@@ -1028,7 +1003,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, PlanesUnpinnedOnDisable) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_Temperature) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
 
   // This test has full CTM, DEGAMMA, and GAMMA.
@@ -1067,7 +1042,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_Temperature) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_Profile) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
 
   // This test has full CTM, DEGAMMA, and GAMMA.
@@ -1105,7 +1080,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_Profile) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_GammaAdjustment) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
 
   // This test has full CTM, DEGAMMA, and GAMMA.
@@ -1142,7 +1117,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_GammaAdjustment) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_LegacyGamma) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
 
   // This test is missing GAMMA.
@@ -1176,7 +1151,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, ColorManagement_LegacyGamma) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, SetBackgroundColor_Success) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   drm_state.crtc_properties[0].properties.push_back(
       {.id = kBackgroundColorPropId, .value = 0});
@@ -1213,7 +1188,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest,
        CommitReturnsNullOutFenceIfOutFencePtrNotSupported) {
   scoped_refptr<DrmFramebuffer> fake_buffer2 = CreateBuffer(kDefaultBufferSize);
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/2, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -1239,7 +1214,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest,
 
 TEST_P(HardwareDisplayPlaneManagerTest,
        InitializationFailsIfSupportForOutFencePropertiesIsPartial) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/3, /*planes_per_crtc=*/1);
   drm_state.crtc_properties[0].properties.push_back(
       {.id = kOutFencePtrPropId, .value = 1});
@@ -1251,7 +1226,7 @@ TEST_P(HardwareDisplayPlaneManagerTest,
 
 TEST_P(HardwareDisplayPlaneManagerTest,
        InitializationSucceedsIfSupportForOutFencePropertiesIsComplete) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/3, /*planes_per_crtc=*/1);
   drm_state.crtc_properties[0].properties.push_back(
       {.id = kOutFencePtrPropId, .value = 1});
@@ -1265,7 +1240,7 @@ TEST_P(HardwareDisplayPlaneManagerTest,
 
 // Verifies that formats with 2 bits of alpha decay to opaques for AddFB2().
 TEST_P(HardwareDisplayPlaneManagerTest, ForceOpaqueFormatsForAddFramebuffer) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/3, /*planes_per_crtc=*/1);
 
   struct {
@@ -1287,7 +1262,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, ForceOpaqueFormatsForAddFramebuffer) {
 
   // If DRM supports high-bitdepth formats with Alpha, there's no need for
   // opaque decaying. Note that we have to support all |kFourCCFormats|.
-  fake_drm_->SetPropertyBlob(MockDrmDevice::AllocateInFormatsBlob(
+  fake_drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
       kInFormatsBlobIdBase, {DRM_FORMAT_ARGB2101010, DRM_FORMAT_ABGR2101010},
       {}));
   fake_drm_->InitializeState(drm_state, use_atomic_);
@@ -1303,7 +1278,7 @@ TEST_P(HardwareDisplayPlaneManagerTest, ForceOpaqueFormatsForAddFramebuffer) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, GetHardwareCapabilities) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/4, /*planes_per_crtc=*/7);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -1418,7 +1393,7 @@ class HardwareDisplayPlaneManagerPlanesReadyTest : public testing::Test {
 
   void SetUp() override {
     auto gbm_device = std::make_unique<MockGbmDevice>();
-    fake_drm_ = new MockDrmDevice(std::move(gbm_device));
+    fake_drm_ = new FakeDrmDevice(std::move(gbm_device));
     drm_framebuffer_ = CreateBuffer(kDefaultBufferSize);
     planes_without_fences_ = CreatePlanesWithoutFences();
     planes_with_fences_ = CreatePlanesWithFences();
@@ -1454,7 +1429,7 @@ class HardwareDisplayPlaneManagerPlanesReadyTest : public testing::Test {
     return planes;
   }
 
-  scoped_refptr<MockDrmDevice> fake_drm_;
+  scoped_refptr<FakeDrmDevice> fake_drm_;
   std::unique_ptr<HardwareDisplayPlaneManager> plane_manager_;
   bool callback_called = false;
   base::test::TaskEnvironment task_env_{
@@ -1539,7 +1514,7 @@ TEST_F(HardwareDisplayPlaneManagerPlanesReadyTest,
 }
 
 TEST_P(HardwareDisplayPlaneManagerTest, GetPossibleCrtcsBitmaskForConnector) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
   drm_state.AddCrtc();
   drm_state.AddCrtc();
   drm_state.AddCrtc();
@@ -1569,13 +1544,13 @@ TEST_P(HardwareDisplayPlaneManagerTest, GetPossibleCrtcsBitmaskForConnector) {
 
 TEST_P(HardwareDisplayPlaneManagerTest,
        GetPossibleCrtcsBitmaskForConnectorInvalidConnector) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
   drm_state.AddCrtc();
-  MockDrmDevice::EncoderProperties& encoder = drm_state.AddEncoder();
+  FakeDrmDevice::EncoderProperties& encoder = drm_state.AddEncoder();
   encoder.possible_crtcs = 0b1;
   const uint32_t encoder_id = encoder.id;
 
-  MockDrmDevice::ConnectorProperties& connector = drm_state.AddConnector();
+  FakeDrmDevice::ConnectorProperties& connector = drm_state.AddConnector();
   connector.connection = true;
   connector.encoders = std::vector<uint32_t>{encoder_id};
   const uint32_t connector_id = connector.id;
@@ -1591,10 +1566,10 @@ TEST_P(HardwareDisplayPlaneManagerTest,
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, OriginalModifiersSupportOnly) {
-  fake_drm_->SetPropertyBlob(MockDrmDevice::AllocateInFormatsBlob(
+  fake_drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
       kInFormatsBlobIdBase, {DRM_FORMAT_NV12}, {}));
 
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -1643,7 +1618,7 @@ TEST_P(HardwareDisplayPlaneManagerAtomicTest, OriginalModifiersSupportOnly) {
 }
 
 TEST_P(HardwareDisplayPlaneManagerAtomicTest, OverlaySourceCrop) {
-  auto drm_state = MockDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
       /*crtc_count=*/1, /*planes_per_crtc=*/1);
   fake_drm_->InitializeState(drm_state, use_atomic_);
 
@@ -1734,7 +1709,7 @@ class HardwareDisplayPlaneAtomicMock : public HardwareDisplayPlaneAtomic {
 
 TEST(HardwareDisplayPlaneManagerAtomic, EnableBlend) {
   auto gbm_device = std::make_unique<MockGbmDevice>();
-  auto drm_device = base::MakeRefCounted<MockDrmDevice>(std::move(gbm_device));
+  auto drm_device = base::MakeRefCounted<FakeDrmDevice>(std::move(gbm_device));
   auto plane_manager =
       std::make_unique<HardwareDisplayPlaneManagerAtomic>(drm_device.get());
   HardwareDisplayPlaneList plane_list;

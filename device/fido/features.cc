@@ -101,11 +101,6 @@ BASE_FEATURE(kWebAuthnEnclaveAuthenticator,
              "WebAuthenticationEnclaveAuthenticator",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enabled in M120. Remove in or after M123.
-BASE_FEATURE(kWebAuthnNewPasskeyUI,
-             "WebAuthenticationNewPasskeyUI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enabled in M118 on all platforms except ChromeOS. Enabled on M121 for
 // ChromeOS. Remove in or after M124.
 BASE_FEATURE(kWebAuthnFilterGooglePasskeys,
@@ -152,6 +147,27 @@ BASE_FEATURE(kWebAuthnAndroidFidoJson,
 // Default enabled in M123. Remove in or after M126.
 BASE_FEATURE(kWebAuthnPreferVirtualPlatformAuthenticator,
              "WebAuthenticationPreferVirtualPlatformAuthenticator",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Deprecation flag.
+// Default disabled in M125. Remove in or after M128.
+BASE_FEATURE(kWebAuthnEnableAndroidCableAuthenticator,
+             "WebAuthenticationEnableAndroidCableAuthenticator",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Development flag. Must not be enabled by default once
+// kWebAuthnEnclaveAuthenticator is enabled.
+BASE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys,
+             "WebAuthenticationUseInsecureSoftwareUnexportableKeys",
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
+// Default enabled in M126. Remove in or after M129.
+BASE_FEATURE(kWebAuthnCredProtectWin10BugWorkaround,
+             "WebAuthenticationCredProtectWin10BugWorkaround",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace device

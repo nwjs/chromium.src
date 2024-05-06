@@ -2386,7 +2386,8 @@ bool SwapChainPresenter::VideoProcessorBlt(
   bool video_processor_recreated = false;
   VideoProcessorWrapper* video_processor_wrapper =
       layer_tree_->InitializeVideoProcessor(
-          content_rect.size(), swap_chain_size_, video_processor_recreated);
+          content_rect.size(), swap_chain_size_, output_color_space.IsHDR(),
+          video_processor_recreated);
   if (!video_processor_wrapper)
     return false;
 
@@ -2441,7 +2442,8 @@ bool SwapChainPresenter::VideoProcessorBlt(
 
   Microsoft::WRL::ComPtr<ID3D11VideoContext2> context2;
   std::optional<DXGI_HDR_METADATA_HDR10> display_metadata =
-      layer_tree_->GetHDRMetadataHelper()->GetDisplayMetadata();
+      layer_tree_->GetHDRMetadataHelper()->GetDisplayMetadata(
+          layer_tree_->window());
   if (display_metadata.has_value() && SUCCEEDED(video_context.As(&context2))) {
     if (stream_hdr_metadata.has_value()) {
       context2->VideoProcessorSetStreamHDRMetaData(

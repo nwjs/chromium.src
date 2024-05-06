@@ -5,7 +5,6 @@
 #include "components/sync/service/sync_prefs.h"
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "base/test/scoped_feature_list.h"
@@ -414,13 +413,7 @@ TEST_F(SyncPrefsTest,
 #endif
 
 #if BUILDFLAG(IS_IOS)
-  // On iOS, Bookmarks and Reading list require a dedicated opt-in.
-  EXPECT_EQ(
-      sync_prefs_->GetSelectedTypesForAccount(gaia_id_hash_),
-      base::Difference(expected_types, {UserSelectableType::kBookmarks,
-                                        UserSelectableType::kReadingList}));
-
-  sync_prefs_->SetBookmarksAndReadingListAccountStorageOptIn(true);
+  // On iOS, Bookmarks and Reading List are enabled by default.
   expected_types.PutAll(
       {UserSelectableType::kBookmarks, UserSelectableType::kReadingList});
 #endif
@@ -591,7 +584,7 @@ TEST_F(SyncPrefsTest,
   // kPasswords should be disabled.
   UserSelectableTypeSet selected_types =
       sync_prefs_->GetSelectedTypesForAccount(gaia_id_hash_);
-  ASSERT_FALSE(selected_types.Empty());
+  ASSERT_FALSE(selected_types.empty());
   EXPECT_FALSE(selected_types.Has(UserSelectableType::kPasswords));
 
   // User tries to enable kPasswords.
@@ -786,31 +779,6 @@ TEST_F(SyncPrefsTest, PassphrasePromptMutedProductVersion) {
   sync_prefs_->ClearPassphrasePromptMutedProductVersion();
   EXPECT_EQ(0, sync_prefs_->GetPassphrasePromptMutedProductVersion());
 }
-
-#if BUILDFLAG(IS_IOS)
-TEST_F(SyncPrefsTest, SetBookmarksAndReadingListAccountStorageOptInPrefChange) {
-  // Default value disabled.
-  EXPECT_FALSE(
-      sync_prefs_
-          ->IsOptedInForBookmarksAndReadingListAccountStorageForTesting());
-
-  // Enable bookmarks and reading list account storage pref.
-  sync_prefs_->SetBookmarksAndReadingListAccountStorageOptIn(true);
-
-  // Check pref change to enabled.
-  EXPECT_TRUE(
-      sync_prefs_
-          ->IsOptedInForBookmarksAndReadingListAccountStorageForTesting());
-
-  // Clear pref.
-  sync_prefs_->ClearBookmarksAndReadingListAccountStorageOptIn();
-
-  // Default value applied after clearing the pref.
-  EXPECT_FALSE(
-      sync_prefs_
-          ->IsOptedInForBookmarksAndReadingListAccountStorageForTesting());
-}
-#endif  // BUILDFLAG(IS_IOS)
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_F(SyncPrefsTest, GetNumberOfAccountsWithPasswordsSelected) {
@@ -1304,11 +1272,13 @@ TEST_F(SyncPrefsSyncToSigninMigrationTest, MigratesBookmarksOptedIn) {
     disable_sync_to_signin.InitAndDisableFeature(
         kReplaceSyncPromosWithSignInPromos);
 
-    // The user enables Bookmarks and ReadingList. On iOS, this involves a
-    // special opt-in pref.
+    // The user enables Bookmarks and Reading List. On iOS
+    // pre-kReplaceSyncPromosWithSignInPromos, this used to involve a special
+    // opt-in pref.
     SyncPrefs prefs(&pref_service_);
 #if BUILDFLAG(IS_IOS)
-    prefs.SetBookmarksAndReadingListAccountStorageOptIn(true);
+    pref_service_.SetBoolean(
+        prefs::internal::kBookmarksAndReadingListAccountStorageOptIn, true);
 #else
     prefs.SetSelectedTypeForAccount(UserSelectableType::kBookmarks, true,
                                     gaia_id_hash_);
@@ -1355,12 +1325,10 @@ TEST_F(SyncPrefsSyncToSigninMigrationTest, MigratesBookmarksNotOptedIn) {
         kReplaceSyncPromosWithSignInPromos);
 
     // The regular Bookmarks and ReadingList prefs are enabled (by default), but
-    // the additional opt-in pref is not.
+    // the additional opt-in pref should not be enabled.
     SyncPrefs prefs(&pref_service_);
-    ASSERT_FALSE(prefs.GetSelectedTypesForAccount(gaia_id_hash_)
-                     .Has(UserSelectableType::kBookmarks));
-    ASSERT_FALSE(prefs.GetSelectedTypesForAccount(gaia_id_hash_)
-                     .Has(UserSelectableType::kReadingList));
+    ASSERT_FALSE(pref_service_.GetBoolean(
+        prefs::internal::kBookmarksAndReadingListAccountStorageOptIn));
   }
 
   {
@@ -1686,6 +1654,48 @@ TEST_F(SyncPrefsMigrationTest,
 #endif  // BUILDFLAG(IS_IOS)
   EXPECT_FALSE(prefs.MaybeMigratePrefsForSyncToSigninPart1(
       SyncPrefs::SyncAccountState::kSignedInNotSyncing, gaia_id_hash_));
+}
+
+TEST_F(SyncPrefsTest, IsTypeDisabledByUserForAccount) {
+  base::test::ScopedFeatureList enable_sync_to_signin(
+      kReplaceSyncPromosWithSignInPromos);
+
+  ASSERT_FALSE(sync_prefs_->IsTypeDisabledByUserForAccount(
+      UserSelectableType::kBookmarks, gaia_id_hash_));
+  ASSERT_FALSE(sync_prefs_->IsTypeDisabledByUserForAccount(
+      UserSelectableType::kReadingList, gaia_id_hash_));
+  ASSERT_FALSE(sync_prefs_->IsTypeDisabledByUserForAccount(
+      UserSelectableType::kPasswords, gaia_id_hash_));
+
+  // Set up a policy to disable Bookmarks.
+  PrefValueMap policy_prefs;
+  SyncPrefs::SetTypeDisabledByPolicy(&policy_prefs,
+                                     UserSelectableType::kBookmarks);
+  // Copy the policy prefs map over into the PrefService.
+  for (const auto& policy_pref : policy_prefs) {
+    pref_service_.SetManagedPref(policy_pref.first, policy_pref.second.Clone());
+  }
+
+  // Disable Reading List.
+  sync_prefs_->SetSelectedTypeForAccount(UserSelectableType::kReadingList,
+                                         false, gaia_id_hash_);
+
+  // Enable Passwords.
+  sync_prefs_->SetSelectedTypeForAccount(UserSelectableType::kPasswords, true,
+                                         gaia_id_hash_);
+
+  // Check for a disabled type by policy.
+  EXPECT_FALSE(sync_prefs_->IsTypeDisabledByUserForAccount(
+      UserSelectableType::kBookmarks, gaia_id_hash_));
+  // Check for a disabled type by user choice.
+  EXPECT_TRUE(sync_prefs_->IsTypeDisabledByUserForAccount(
+      UserSelectableType::kReadingList, gaia_id_hash_));
+  // Check for an enabled type by user choice.
+  EXPECT_FALSE(sync_prefs_->IsTypeDisabledByUserForAccount(
+      UserSelectableType::kPasswords, gaia_id_hash_));
+  // Check for a type with default value.
+  EXPECT_FALSE(sync_prefs_->IsTypeDisabledByUserForAccount(
+      UserSelectableType::kPreferences, gaia_id_hash_));
 }
 
 }  // namespace

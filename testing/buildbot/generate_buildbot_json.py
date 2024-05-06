@@ -391,8 +391,8 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
         'test_suite_exceptions.pyl')
     args.gn_isolate_map_pyl_path = absolute_file_path('gn_isolate_map.pyl')
     args.variants_pyl_path = absolute_file_path('variants.pyl')
-    args.autoshard_exceptions_json_path = absolute_file_path(
-        'autoshard_exceptions.json')
+    args.autoshard_exceptions_json_path = os.path.join(
+        args.infra_config_dir, 'targets', 'autoshard_exceptions.json')
 
     return args
 
@@ -739,17 +739,6 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
           'script': ('//build/android/pylib/results/presentation/'
                      'test_results_presentation.py'),
       }
-    if not tester_config.get('skip_output_links', False):
-      result['swarming']['output_links'] = [
-        {
-          'link': [
-            'https://luci-logdog.appspot.com/v/?s',
-            '=android%2Fswarming%2Flogcats%2F',
-            '${TASK_ID}%2F%2B%2Funified_logcats',
-          ],
-          'name': 'shard #${SHARD_INDEX} logcats',
-        },
-      ]
     if args:
       result['args'] = args
 
@@ -857,6 +846,19 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
       return None
     result = copy.deepcopy(test_config)
     result.setdefault('test', test_name)
+
+    if 'cros_board' in result or 'cros_board' in tester_config:
+      result['cros_board'] = tester_config.get('cros_board') or result.get(
+          'cros_board')
+    else:
+      raise BBGenErr("skylab tests must specify cros_board.")
+    if 'cros_model' in result or 'cros_model' in tester_config:
+      result['cros_model'] = tester_config.get('cros_model') or result.get(
+          'cros_model')
+    if 'dut_pool' in result or 'cros_dut_pool' in tester_config:
+      result['dut_pool'] = tester_config.get('cros_dut_pool') or result.get(
+          'dut_pool')
+
     self.initialize_args_for_test(result, tester_config)
     result = self.update_and_cleanup_test(result, test_name, tester_name,
                                           tester_config, waterfall)

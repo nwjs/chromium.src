@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef BASE_ALLOCATOR_PARTITION_ALLOCATOR_SRC_PARTITION_ALLOC_PARTITION_ALLOC_CONSTANTS_H_
-#define BASE_ALLOCATOR_PARTITION_ALLOCATOR_SRC_PARTITION_ALLOC_PARTITION_ALLOC_CONSTANTS_H_
+#ifndef PARTITION_ALLOC_PARTITION_ALLOC_CONSTANTS_H_
+#define PARTITION_ALLOC_PARTITION_ALLOC_CONSTANTS_H_
 
 #include <algorithm>
 #include <climits>
@@ -210,14 +210,17 @@ constexpr size_t kHighThresholdForAlternateDistribution =
 // Free Slot Bitmap is only present when USE_FREESLOT_BITMAP is true. State
 // Bitmap is inserted for partitions that may have quarantine enabled.
 //
-// If ENABLE_BACKUP_REF_PTR_SUPPORT is on, RefCountTable(4KiB) is inserted
-// after the Metadata page for BackupRefPtr. The guard pages after the table
-// is reduced to 4KiB.
+// If ENABLE_BACKUP_REF_PTR_SUPPORT is on, InSlotMetadataTable(4KiB) is inserted
+// after the Metadata page, which hosts what normally would be in-slot metadata,
+// but for reasons described in InSlotMetadataPointer() can't always be placed
+// inside the slot. BRP ref-count is there, hence the connection with
+// ENABLE_BACKUP_REF_PTR_SUPPORT.
+// The guard page after the table is reduced to 4KiB.
 //
 //...
-//     | Metadata page (4 KiB) |
-//     | RefCountTable (4 KiB) |
-//     | Guard pages (4 KiB)   |
+//     | Metadata page (4 KiB)       |
+//     | InSlotMetadataTable (4 KiB) |
+//     | Guard pages (4 KiB)         |
 //...
 //
 // Each slot span is a contiguous range of one or more `PartitionPage`s. Note
@@ -522,4 +525,4 @@ using ::partition_alloc::internal::PartitionPageSize;
 
 }  // namespace partition_alloc
 
-#endif  // BASE_ALLOCATOR_PARTITION_ALLOCATOR_SRC_PARTITION_ALLOC_PARTITION_ALLOC_CONSTANTS_H_
+#endif  // PARTITION_ALLOC_PARTITION_ALLOC_CONSTANTS_H_

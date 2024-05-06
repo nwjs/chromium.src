@@ -48,6 +48,7 @@ export type FakeShimlessRmaServiceInterface = ShimlessRmaServiceInterface&{
   setGetCalibrationComponentListResult(
       components: CalibrationComponentStatus[]): void,
   setGetSkuListResult(skus: bigint[]): void,
+  setGetSkuDescriptionListResult(skuDescriptions: string[]): void,
   enableAautomaticallyTriggerUpdateRoFirmwareObservation(): void,
   setGetOriginalSkuResult(skuIndex: number): void,
   enableAutomaticallyTriggerCalibrationObservation(): void,
@@ -311,7 +312,8 @@ export class FakeShimlessRmaService implements FakeShimlessRmaServiceInterface {
         'setDifferentOwner', State.kChooseDestination);
   }
 
-  setWipeDevice(): Promise<{stateResult: StateResult}> {
+  setWipeDevice(_shouldWipeDevice: boolean):
+      Promise<{stateResult: StateResult}> {
     return this.getNextStateForMethod('setWipeDevice', State.kChooseWipeDevice);
   }
 
@@ -362,7 +364,8 @@ export class FakeShimlessRmaService implements FakeShimlessRmaServiceInterface {
         'getRsuDisableWriteProtectChallengeQrCode', {qrCodeData: qrCodeData});
   }
 
-  setRsuDisableWriteProtectCode(): Promise<{stateResult: StateResult}> {
+  setRsuDisableWriteProtectCode(_code: string):
+      Promise<{stateResult: StateResult}> {
     return this.getNextStateForMethod(
         'setRsuDisableWriteProtectCode', State.kEnterRSUWPDisableCode);
   }
@@ -397,7 +400,8 @@ export class FakeShimlessRmaService implements FakeShimlessRmaServiceInterface {
     this.components = components;
   }
 
-  setComponentList(): Promise<{stateResult: StateResult}> {
+  setComponentList(_components: Component[]):
+      Promise<{stateResult: StateResult}> {
     return this.getNextStateForMethod(
         'setComponentList', State.kSelectComponents);
   }
@@ -545,7 +549,8 @@ export class FakeShimlessRmaService implements FakeShimlessRmaServiceInterface {
    * The fake does not use the status list parameter, the fake data is never
    * updated.
    */
-  startCalibration(): Promise<{stateResult: StateResult}> {
+  startCalibration(_components: CalibrationComponentStatus[]):
+      Promise<{stateResult: StateResult}> {
     return this.getNextStateForMethod(
         'startCalibration', State.kCheckCalibration);
   }
@@ -1268,11 +1273,6 @@ export class FakeShimlessRmaService implements FakeShimlessRmaServiceInterface {
     } else {
       // Success.
       this.stateIndex++;
-      if (method === 'chooseManuallyDisableWriteProtect') {
-        // A special case so that choosing manual WP disable sends you to the
-        // appropriate page in the fake app.
-        this.stateIndex++;
-      }
       const state = this.states[this.stateIndex];
       this.setFakeStateForMethod(
           method, state.state, state.canExit, state.canGoBack, state.error);

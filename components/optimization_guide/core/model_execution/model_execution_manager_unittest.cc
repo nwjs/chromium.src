@@ -196,7 +196,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelEmptyAccessToken) {
   request.mutable_generate_params()->set_user_input("a user typed this");
   base::RunLoop run_loop;
   model_execution_manager()->ExecuteModel(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, request,
+      ModelBasedCapabilityKey::kCompose, request,
       /*log_ai_data_request=*/nullptr,
       base::BindOnce(
           [](base::RunLoop* run_loop,
@@ -220,7 +220,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithUserSignIn) {
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   model_execution_manager()->ExecuteModel(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, request,
+      ModelBasedCapabilityKey::kCompose, request,
       /*log_ai_data_request=*/nullptr,
       base::BindOnce(
           [](base::RunLoop* run_loop,
@@ -261,7 +261,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithServerError) {
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, /*config_params=*/std::nullopt);
+      ModelBasedCapabilityKey::kCompose, /*config_params=*/std::nullopt);
   session->ExecuteModel(
       request, base::BindRepeating(
                    [](base::RunLoop* run_loop,
@@ -302,7 +302,7 @@ TEST_F(ModelExecutionManagerTest,
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, /*config_params=*/std::nullopt);
+      ModelBasedCapabilityKey::kCompose, /*config_params=*/std::nullopt);
   session->ExecuteModel(
       request, base::BindRepeating(
                    [](base::RunLoop* run_loop,
@@ -351,7 +351,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelDisableFallback) {
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE,
+      ModelBasedCapabilityKey::kCompose,
       SessionConfigParams{.disable_server_fallback = true});
   ASSERT_FALSE(session);
 
@@ -369,7 +369,7 @@ TEST_F(ModelExecutionManagerTest,
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE,
+      ModelBasedCapabilityKey::kCompose,
       SessionConfigParams{.disable_server_fallback = false});
   session->ExecuteModel(
       request, base::BindRepeating(
@@ -415,7 +415,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithPassthroughSession) {
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, /*config_params=*/std::nullopt);
+      ModelBasedCapabilityKey::kCompose, /*config_params=*/std::nullopt);
   session->ExecuteModel(
       request, base::BindRepeating(
                    [](base::RunLoop* run_loop,
@@ -456,7 +456,7 @@ TEST_F(ModelExecutionManagerTest, LogsContextToExecutionTimeHistogram) {
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, /*config_params=*/std::nullopt);
+      ModelBasedCapabilityKey::kCompose, /*config_params=*/std::nullopt);
   auto execute_model = [&] {
     base::RunLoop run_loop;
     proto::ComposeRequest request;
@@ -509,7 +509,7 @@ TEST_F(ModelExecutionManagerTest,
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, /*config_params=*/std::nullopt);
+      ModelBasedCapabilityKey::kCompose, /*config_params=*/std::nullopt);
   // Message is added through AddContext().
   proto::ComposeRequest request;
   request.mutable_generate_params()->set_user_input("some test");
@@ -536,7 +536,7 @@ TEST_F(ModelExecutionManagerTest,
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, /*config_params=*/std::nullopt);
+      ModelBasedCapabilityKey::kCompose, /*config_params=*/std::nullopt);
   proto::ComposeRequest request;
   request.mutable_generate_params()->set_user_input("first test");
   session->AddContext(request);
@@ -564,7 +564,7 @@ TEST_F(ModelExecutionManagerTest,
   identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);
   auto session = model_execution_manager()->StartSession(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, /*config_params=*/std::nullopt);
+      ModelBasedCapabilityKey::kCompose, /*config_params=*/std::nullopt);
   // First message is added through AddContext().
   proto::ComposeRequest request;
   request.mutable_generate_params()->set_user_input("test_message");
@@ -595,7 +595,7 @@ TEST_F(ModelExecutionManagerTest, TestMultipleParallelRequests) {
       "test_email", signin::ConsentLevel::kSignin);
 
   model_execution_manager()->ExecuteModel(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, request,
+      ModelBasedCapabilityKey::kCompose, request,
       /*log_ai_data_request=*/nullptr,
       base::BindOnce(
           [](base::RunLoop* run_loop,
@@ -610,7 +610,7 @@ TEST_F(ModelExecutionManagerTest, TestMultipleParallelRequests) {
           &run_loop_old));
 
   model_execution_manager()->ExecuteModel(
-      proto::MODEL_EXECUTION_FEATURE_COMPOSE, request,
+      ModelBasedCapabilityKey::kCompose, request,
       /*log_ai_data_request=*/nullptr,
       base::BindOnce(
           [](base::RunLoop* run_loop,

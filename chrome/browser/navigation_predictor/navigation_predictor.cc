@@ -90,14 +90,14 @@ PathLengthDepthAndHash GetUrlPathLengthDepthAndHash(const GURL& target_url) {
 }
 
 base::TimeDelta MLModelExecutionTimerStartDelay() {
-  static int timer_start_delay = base::GetFieldTrialParamByFeatureAsInt(
-      blink::features::kPreloadingHeuristicsMLModel, "timer_start_delay", 0);
+  static int timer_start_delay =
+      blink::features::kPreloadingModelTimerStartDelay.Get();
   return base::Milliseconds(timer_start_delay);
 }
 
 base::TimeDelta MLModelExecutionTimerInterval() {
-  static int timer_interval = base::GetFieldTrialParamByFeatureAsInt(
-      blink::features::kPreloadingHeuristicsMLModel, "timer_interval", 100);
+  static int timer_interval =
+      blink::features::kPreloadingModelTimerInterval.Get();
   return base::Milliseconds(timer_interval);
 }
 
@@ -237,6 +237,7 @@ void NavigationPredictor::ReportNewAnchorElements(
     return;
   }
   std::vector<GURL> new_predictions;
+  const base::TimeTicks now = NowTicks();
   for (auto& element : elements) {
     AnchorId anchor_id(element->anchor_id);
     if (anchors_.find(anchor_id) != anchors_.end()) {
@@ -281,7 +282,7 @@ void NavigationPredictor::ReportNewAnchorElements(
     }
 
     anchors_.emplace(std::piecewise_construct, std::forward_as_tuple(anchor_id),
-                     std::forward_as_tuple(std::move(element), NowTicks()));
+                     std::forward_as_tuple(std::move(element), now));
   }
 
   for (uint32_t removed_element : removed_elements) {
@@ -404,12 +405,14 @@ void NavigationPredictor::OnMLModelExecutionTimerFired() {
   inputs.percent_vertical_distance =
       static_cast<int>(anchor.ratio_distance_root_top * 100);
 
-  inputs.is_same_origin = anchor.is_same_host;
+  inputs.is_same_host = anchor.is_same_host;
   auto to_timedelta = [this](std::optional<base::TimeTicks> ts) {
     return ts.has_value() ? NowTicks() - ts.value() : base::TimeDelta();
   };
-  inputs.entered_viewport_to_left_viewport =
-      to_timedelta(anchor.entered_viewport_timestamp);
+  // TODO(329691634): Using the real viewport entry time for
+  // `entered_viewport_to_left_viewport` produces low quality results.
+  // We could remove it from the model, if we can't get this to be useful.
+  inputs.entered_viewport_to_left_viewport = base::TimeDelta();
   inputs.hover_dwell_time = to_timedelta(anchor.pointer_over_timestamp);
   inputs.pointer_hovering_over_count = anchor.pointer_hovering_over_count;
   if (model_score_callback_) {
@@ -708,7 +711,7 @@ void NavigationPredictor::ReportAnchorElementsEnteredViewport(
     metrics.is_in_iframe_ = anchor.is_in_iframe;
     metrics.is_url_incremented_by_one_ = anchor.is_url_incremented_by_one;
     metrics.contains_image_ = anchor.contains_image;
-    metrics.is_same_origin_ = anchor.is_same_host;
+    metrics.is_same_host_ = anchor.is_same_host;
     metrics.has_text_sibling_ = anchor.has_text_sibling;
     metrics.is_bold_ = anchor.is_bold_font;
     metrics.navigation_start_to_link_logged =

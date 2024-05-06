@@ -32,6 +32,7 @@
 #include "third_party/skia/include/gpu/graphite/dawn/DawnBackendContext.h"
 #include "third_party/skia/include/gpu/graphite/dawn/DawnUtils.h"
 #include "ui/gl/gl_implementation.h"
+#include "ui/gl/gl_switches.h"
 
 #if BUILDFLAG(IS_WIN)
 #include <d3d11_4.h>
@@ -229,6 +230,9 @@ DawnContextProvider::~DawnContextProvider() {
     device_.SetDeviceLostCallback(nullptr, nullptr);
     device_.SetLoggingCallback(nullptr, nullptr);
   }
+  if (instance_) {
+    instance_->DisconnectDawnPlatform();
+  }
 }
 
 bool DawnContextProvider::Initialize(
@@ -269,6 +273,24 @@ bool DawnContextProvider::Initialize(
 #endif
   enabled_toggles.push_back("disable_lazy_clear_for_mapped_at_creation_buffer");
 
+#if BUILDFLAG(IS_WIN)
+  // ClearRenderTargetView() is buggy with some GPUs, so use draw instead.
+  // TODO(crbug.com/329702368): only enable color_clear_with_draw for GPUs with
+  // the issue.
+  if (backend_type == wgpu::BackendType::D3D11) {
+    enabled_toggles.push_back("clear_color_with_draw");
+  }
+#endif
+
+  // Skip expensive swiftshader vkCmdDraw* for tests.
+  // TODO(penghuang): rename kDisableGLDrawingForTests to
+  // kDisableGpuDrawingForTests
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  if (backend_type == wgpu::BackendType::Vulkan && force_fallback_adapter &&
+      command_line->HasSwitch(switches::kDisableGLDrawingForTests)) {
+    enabled_toggles.push_back("vulkan_skip_draw");
+  }
+
   wgpu::DawnTogglesDescriptor toggles_desc;
   toggles_desc.enabledToggles = enabled_toggles.data();
   toggles_desc.disabledToggles = disabled_toggles.data();
@@ -289,6 +311,9 @@ bool DawnContextProvider::Initialize(
       wgpu::FeatureName::DawnInternalUsages,
       wgpu::FeatureName::ImplicitDeviceSynchronization,
       wgpu::FeatureName::SurfaceCapabilities,
+#if BUILDFLAG(IS_ANDROID)
+      wgpu::FeatureName::TextureCompressionETC2,
+#endif
   };
 
   wgpu::RequestAdapterOptions adapter_options;
@@ -307,18 +332,18 @@ bool DawnContextProvider::Initialize(
   }
 
   dawn::native::d3d::RequestAdapterOptionsLUID adapter_options_luid;
-  if (GetANGLED3D11DeviceLUID(&adapter_options_luid.adapterLUID)) {
+  if ((adapter_options.backendType == wgpu::BackendType::D3D11 ||
+       adapter_options.backendType == wgpu::BackendType::D3D12) &&
+      GetANGLED3D11DeviceLUID(&adapter_options_luid.adapterLUID)) {
     // Request the GPU that ANGLE is using if possible.
     adapter_options_luid.nextInChain = adapter_options.nextInChain;
     adapter_options.nextInChain = &adapter_options_luid;
   }
 
+  // Share D3D11 device with ANGLE to reduce synchronization overhead.
   dawn::native::d3d11::RequestAdapterOptionsD3D11Device
       adapter_options_d3d11_device;
-  bool share_d3d11_device =
-      adapter_options.backendType == wgpu::BackendType::D3D11 &&
-      features::kSkiaGraphiteDawnShareDevice.Get();
-  if (share_d3d11_device) {
+  if (adapter_options.backendType == wgpu::BackendType::D3D11) {
     Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device =
         gl::QueryD3D11DeviceObjectFromANGLE();
     CHECK(d3d11_device) << "Query d3d11 device from ANGLE failed.";
@@ -348,11 +373,16 @@ bool DawnContextProvider::Initialize(
   adapter_options.compatibilityMode = false;
   std::vector<dawn::native::Adapter> adapters =
       instance_->EnumerateAdapters(&adapter_options);
+
+#if !BUILDFLAG(IS_WIN)
+  // Not fallback to compatibility mode due to rendering issue with d3d11
+  // feature level 11.0
   if (adapters.empty()) {
     LOG(ERROR) << "No adapters found for non compatibility mode.";
     adapter_options.compatibilityMode = true;
     adapters = instance_->EnumerateAdapters(&adapter_options);
   }
+#endif
 
   if (adapters.empty()) {
     LOG(ERROR) << "No adapters found.";
@@ -369,7 +399,7 @@ bool DawnContextProvider::Initialize(
       wgpu::FeatureName::MultiPlanarFormatP010,
       wgpu::FeatureName::MultiPlanarFormatNv12a,
       wgpu::FeatureName::MultiPlanarRenderTargets,
-      wgpu::FeatureName::Norm16TextureFormats,
+      wgpu::FeatureName::Unorm16TextureFormats,
 
       // The following features are always supported by the the Metal backend on
       // the Mac versions on which Chrome runs.
@@ -462,18 +492,7 @@ bool DawnContextProvider::Initialize(
       backend_type == wgpu::BackendType::Vulkan && force_fallback_adapter;
 
 #if BUILDFLAG(IS_WIN)
-  auto d3d11_device = GetD3D11Device();
-
-  // DirectComposition is initialized in ui/gl/init/gl_initializer_win.cc while
-  // initializing GL. So we need to shutdown it and re-initialize it here with
-  // the D3D11 device from dawn device.
-  // TODO(crbug.com/1469283): avoid initializing DirectComposition twice.
-  if (!share_d3d11_device && d3d11_device) {
-    gl::ShutdownDirectComposition();
-    gl::InitializeDirectComposition(d3d11_device);
-  }
-
-  if (d3d11_device) {
+  if (auto d3d11_device = GetD3D11Device()) {
     static auto* crash_key = base::debug::AllocateCrashKeyString(
         "d3d11-debug-layer", base::debug::CrashKeySize::Size32);
     const bool enabled = IsD3D11DebugLayerEnabled(d3d11_device);

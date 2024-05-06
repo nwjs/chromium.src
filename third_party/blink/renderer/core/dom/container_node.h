@@ -155,7 +155,7 @@ class CORE_EXPORT ContainerNode : public Node {
 
   // Returns the contents of the first descendant element, if any, that contains
   // only text, a part of which is the given substring, if the given validity
-  // checker returns true for it.
+  // checker returns true for it. Ignores ASCII case in the substring search.
   String FindTextInElementWith(
       const AtomicString& substring,
       base::FunctionRef<bool(const String&)> validity_checker) const;
@@ -544,14 +544,18 @@ class CORE_EXPORT ContainerNode : public Node {
   void NotifyNodeRemoved(Node&);
 
   bool HasRestyleFlag(DynamicRestyleFlags mask) const {
-    return HasRareData() && HasRestyleFlagInternal(mask);
+    if (const NodeRareData* data = RareData()) {
+      return data->HasRestyleFlag(mask);
+    }
+    return false;
   }
   bool HasRestyleFlags() const {
-    return HasRareData() && HasRestyleFlagsInternal();
+    if (const NodeRareData* data = RareData()) {
+      return data->HasRestyleFlags();
+    }
+    return false;
   }
   void SetRestyleFlag(DynamicRestyleFlags);
-  bool HasRestyleFlagInternal(DynamicRestyleFlags) const;
-  bool HasRestyleFlagsInternal() const;
 
   bool RecheckNodeInsertionStructuralPrereq(const NodeVector&,
                                             const Node* next,

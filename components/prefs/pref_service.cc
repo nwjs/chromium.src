@@ -321,7 +321,7 @@ bool PrefService::IsUserModifiablePreference(
 
 const base::Value& PrefService::GetValue(base::StringPiece path) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return *GetPreferenceValueChecked(path);
+  return *GetPreferenceValue(path);
 }
 
 const base::Value::Dict& PrefService::GetDict(base::StringPiece path) const {
@@ -591,7 +591,7 @@ PrefService::Preference::Preference(const PrefService* service,
       pref_service_(service) {}
 
 const base::Value* PrefService::Preference::GetValue() const {
-  return pref_service_->GetPreferenceValueChecked(name_);
+  return pref_service_->GetPreferenceValue(name_);
 }
 
 const base::Value* PrefService::Preference::GetRecommendedValue() const {
@@ -663,26 +663,22 @@ const base::Value* PrefService::GetPreferenceValue(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const base::Value* default_value = nullptr;
-  if (!pref_registry_->defaults()->GetValue(path, &default_value))
-    return nullptr;
+  CHECK(pref_registry_->defaults()->GetValue(path, &default_value))
+      << "Trying to access an unregistered pref: " << path;
+  CHECK(default_value);
+  const base::Value::Type default_type = default_value->type();
 
   const base::Value* found_value = nullptr;
-  base::Value::Type default_type = default_value->type();
-  if (!pref_value_store_->GetValue(path, default_type, &found_value)) {
-    // Every registered preference has at least a default value.
-    NOTREACHED() << "no valid value found for registered pref " << path;
-    return default_value;
-  }
-
-  DCHECK_EQ(found_value->type(), default_type);
+  // GetValue shouldn't fail because every registered preference has at least a
+  // default value.
+  CHECK(pref_value_store_->GetValue(path, default_type, &found_value));
+  CHECK(found_value);
+  // The type is expected to match here thanks to a verification in
+  // PrefValueStore::GetValueFromStoreWithType which discards polluted values
+  // (and we should at least get a matching type from the default store if no
+  // other store has a valid value+type).
+  CHECK_EQ(found_value->type(), default_type);
   return found_value;
-}
-
-const base::Value* PrefService::GetPreferenceValueChecked(
-    base::StringPiece path) const {
-  const base::Value* value = GetPreferenceValue(path);
-  DCHECK(value) << "Trying to read an unregistered pref: " << path;
-  return value;
 }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

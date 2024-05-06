@@ -28,10 +28,13 @@
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -41,6 +44,7 @@
 #include "components/javascript_dialogs/app_modal_dialog_view.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
+#include "components/saved_tab_groups/features.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/sessions/core/tab_restore_service_observer.h"
 #include "components/tab_groups/tab_group_color.h"
@@ -856,9 +860,11 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoreWithExistingSiteInstance) {
       browser()->tab_strip_model()->GetWebContentsAt(tab_count - 1);
   content::LoadStopObserver observer(tab);
   static_cast<content::WebContentsDelegate*>(browser())->OpenURLFromTab(
-      tab, content::OpenURLParams(http_url2, content::Referrer(),
-                                  WindowOpenDisposition::CURRENT_TAB,
-                                  ui::PAGE_TRANSITION_TYPED, false));
+      tab,
+      content::OpenURLParams(http_url2, content::Referrer(),
+                             WindowOpenDisposition::CURRENT_TAB,
+                             ui::PAGE_TRANSITION_TYPED, false),
+      /*navigation_handle_callback=*/{});
   observer.Wait();
 
   // Close the tab.
@@ -1997,4 +2003,656 @@ IN_PROC_BROWSER_TEST_F(SoftNavigationTabRestoreTest,
   EXPECT_EQ(closed_tab_index, browser()->tab_strip_model()->active_index());
   // TODO(https://crbug.com/1487628) - validate the the URL is back to the
   // original one, once the bug is fixed.
+}
+
+class TabRestoreSavedGroupsTest : public TabRestoreTest {
+ public:
+  TabRestoreSavedGroupsTest() {
+    scoped_feature_list_.InitWithFeatures({tab_groups::kTabGroupsSaveV2}, {});
+  }
+
+  // Adds |how_many| tabs to the given browser, all navigated to the youtube.com
+  // so when they are closed they are logged in TabRestore. Returns the final
+  // number of tabs.
+  void AddTabs(Browser* browser, int how_many) {
+    for (int i = 0; i < how_many; ++i) {
+      AddTab(browser, GURL("https://www.youtube.com"));
+    }
+  }
+
+  // Adds tab navigated to |url| in the given |browser|.
+  void AddTab(Browser* browser, const GURL& url) {
+    ui_test_utils::NavigateToURLWithDisposition(
+        browser, url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Verify that when restored unsaved groups become saved.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest, RestoreUnsavedGroup) {
+  AddTabs(browser(), 2);
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Close it.
+  browser()->tab_strip_model()->CloseAllTabsInGroup(group);
+
+  // Restore it.
+  chrome::RestoreTab(browser());
+
+  // Check that there is only 1 saved group after restoring.
+  ASSERT_EQ(1, service->model()->Count());
+
+  // Verify the group reopened properly.
+  const tab_groups::SavedTabGroup saved_group =
+      service->model()->saved_tab_groups()[0];
+  EXPECT_EQ(group, saved_group.local_group_id().value());
+  EXPECT_EQ(2u, saved_group.saved_tabs().size());
+
+  // Check the number of tabs in the tabstrip are the same.
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->group_model()
+                ->GetTabGroup(group)
+                ->ListTabs(),
+            gfx::Range(1, 3));
+}
+
+// Close a saved group, then restore it. The group should continue to be saved.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest, RestoreSavedGroup) {
+  AddTabs(browser(), 2);
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+
+  // Close the group.
+  browser()->tab_strip_model()->CloseAllTabsInGroup(group);
+
+  // Restore the group.
+  chrome::RestoreTab(browser());
+
+  // Check that there is only 1 saved group after restoring.
+  ASSERT_TRUE(service->model()->Contains(saved_group_id));
+  EXPECT_EQ(1, service->model()->Count());
+
+  const tab_groups::SavedTabGroup* saved_group =
+      service->model()->Get(saved_group_id);
+
+  // Verify the saved group reopend properly. The local group id should be
+  // different since it is respun when restoring to avoid conflicts.
+  EXPECT_TRUE(saved_group->local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group->saved_guid());
+  EXPECT_EQ(2u, saved_group->saved_tabs().size());
+
+  // Check the number of tabs in the tabstrip are the same.
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->group_model()
+                ->GetTabGroup(saved_group->local_group_id().value())
+                ->ListTabs(),
+            gfx::Range(1, 3));
+}
+
+// Close a saved group, then restore it. The group should continue to be saved
+// and update its color to match the restored entry.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest,
+                       RestoreSavedGroupUpdatesColor) {
+  AddTabs(browser(), 2);
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  TabGroup* const tab_group =
+      browser()->tab_strip_model()->group_model()->GetTabGroup(group);
+  CHECK(tab_group);
+
+  std::u16string original_title = u"This is the original title";
+  tab_groups::TabGroupColorId original_color =
+      tab_groups::TabGroupColorId::kRed;
+  tab_groups::TabGroupVisualData og_visual_data(original_title, original_color);
+  tab_group->SetVisualData(og_visual_data);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+
+  // Close the group.
+  browser()->tab_strip_model()->CloseAllTabsInGroup(group);
+
+  // Update the color of the saved group.
+  tab_groups::TabGroupVisualData new_visual_data(
+      u"This is a new title", tab_groups::TabGroupColorId::kCyan);
+  service->model()->UpdateVisualData(saved_group_id, &new_visual_data);
+
+  // Restore it.
+  chrome::RestoreTab(browser());
+
+  // Check that the restored group has the old group color.
+  const tab_groups::SavedTabGroup* const saved_group =
+      service->model()->Get(saved_group_id);
+  CHECK(saved_group);
+  EXPECT_EQ(original_title, saved_group->title());
+  EXPECT_EQ(original_color, saved_group->color());
+}
+
+// Verify that any tabs that exist in the restored group but not the saved group
+// are added to the saved group.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest,
+                       RestoreSavedGroupAddsUniqueTabs) {
+  AddTabs(browser(), 2);
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  TabGroup* const tab_group =
+      browser()->tab_strip_model()->group_model()->GetTabGroup(group);
+  CHECK(tab_group);
+
+  std::u16string original_title = u"This is the original title";
+  tab_groups::TabGroupColorId original_color =
+      tab_groups::TabGroupColorId::kRed;
+  tab_groups::TabGroupVisualData og_visual_data(original_title, original_color);
+  tab_group->SetVisualData(og_visual_data);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+  ASSERT_TRUE(service->model()->Contains(saved_group_id));
+
+  // Close the group.
+  browser()->tab_strip_model()->CloseAllTabsInGroup(group);
+
+  // Change the tabs in the group.
+  const tab_groups::SavedTabGroup* saved_group =
+      service->model()->Get(saved_group_id);
+
+  const base::Uuid saved_tab_id_1 =
+      saved_group->saved_tabs()[0].saved_tab_guid();
+  const base::Uuid saved_tab_id_2 =
+      saved_group->saved_tabs()[1].saved_tab_guid();
+
+  tab_groups::SavedTabGroupTab tab_1 = *saved_group->GetTab(saved_tab_id_1);
+  tab_groups::SavedTabGroupTab tab_2 = *saved_group->GetTab(saved_tab_id_2);
+
+  tab_1.SetURL(GURL("https://www.1.com"));
+  tab_2.SetURL(GURL("https://www.2.com"));
+
+  service->model()->UpdateTabInGroup(saved_group_id, tab_1);
+  service->model()->UpdateTabInGroup(saved_group_id, tab_2);
+
+  // Restore the group.
+  chrome::RestoreTab(browser());
+
+  const tab_groups::SavedTabGroup* restored_saved_group =
+      service->model()->Get(saved_group_id);
+
+  // There are 2 www.youtube.com urls, only 1 should be added.
+  // TODO(dljames): Verify if this is the behavior we want.
+  EXPECT_EQ(3u, restored_saved_group->saved_tabs().size());
+}
+
+// Verify that a restored group which is already open does not open a new group
+// but focuses a tab in the group.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest,
+                       RestoreSavedGroupFocusedIfOpenAlready) {
+  AddTabs(browser(), 2);
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  TabGroup* const tab_group =
+      browser()->tab_strip_model()->group_model()->GetTabGroup(group);
+  CHECK(tab_group);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+
+  // Close the group.
+  browser()->tab_strip_model()->CloseAllTabsInGroup(group);
+
+  // Reopen the group.
+  service->OpenSavedTabGroupInBrowser(browser(), saved_group_id);
+
+  // Focus a tab not in the group.
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  EXPECT_EQ(0, browser()->tab_strip_model()->active_index());
+
+  // Restore it.
+  chrome::RestoreTab(browser());
+
+  // Check first tab in group focused.
+  EXPECT_EQ(1, browser()->tab_strip_model()->active_index());
+  std::optional<tab_groups::TabGroupId> restored_group_id =
+      browser()->tab_strip_model()->GetActiveTab()->group();
+  ASSERT_TRUE(restored_group_id.has_value());
+  EXPECT_TRUE(service->model()->Contains(restored_group_id.value()));
+}
+
+// Verify that when restored tabs in unsaved groups make the group saved.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest, RestoreTabInUnsavedGroup) {
+  AddTabs(browser(), 2);
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Close the first tab in the group.
+  CloseTab(1);
+
+  // Restore it.
+  chrome::RestoreTab(browser());
+
+  // Check that there is only 1 saved group after restoring.
+  ASSERT_EQ(1, service->model()->Count());
+
+  // Verify the tab that was just restored and the tab that was open in the
+  // group become saved.
+  tab_groups::SavedTabGroup saved_group =
+      service->model()->saved_tab_groups()[0];
+  EXPECT_EQ(group, saved_group.local_group_id().value());
+  ASSERT_EQ(2u, saved_group.saved_tabs().size());
+
+  // Check the number of tabs in the tabstrip are the same.
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->group_model()
+                ->GetTabGroup(group)
+                ->ListTabs(),
+            gfx::Range(1, 3));
+
+  // Closing all tabs individually should unsave the group but do it manually in
+  // case that behavior changes in the future.
+  service->UnsaveGroup(group);
+
+  // Close both tabs individually and restore them. Verify both tabs added to
+  // the group.
+  CloseTab(1);
+  CloseTab(1);
+
+  // Restore the first tab.
+  chrome::RestoreTab(browser());
+
+  // Check that there is only 1 saved group after restoring. And it only has the
+  // one tab we have restored.
+  saved_group = service->model()->saved_tab_groups()[0];
+  ASSERT_EQ(1, service->model()->Count());
+  EXPECT_EQ(1u, saved_group.saved_tabs().size());
+
+  // Restore the second tab.
+  chrome::RestoreTab(browser());
+
+  // Check that there is still only 1 saved group after restoring. It should
+  // have 2 tabs now.
+  saved_group = service->model()->saved_tab_groups()[0];
+  ASSERT_EQ(1, service->model()->Count());
+  EXPECT_EQ(2u, saved_group.saved_tabs().size());
+  for (const auto& tab : saved_group.saved_tabs()) {
+    LOG(ERROR) << "URL: " << tab.url().spec();
+  }
+}
+
+// Verify restoring a tab part of a currently open saved group, adds the tab to
+// the saved group.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest, RestoreTabInSavedGroup) {
+  AddTab(browser(), GURL("https://www.1.com"));
+  AddTab(browser(), GURL("https://www.2.com"));
+
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+  ASSERT_TRUE(service->model()->Contains(saved_group_id));
+  EXPECT_EQ(1, service->model()->Count());
+
+  // Close the first tab in the group.
+  CloseTab(1);
+
+  tab_groups::SavedTabGroup saved_group =
+      *service->model()->Get(saved_group_id);
+
+  EXPECT_TRUE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(1u, saved_group.saved_tabs().size());
+
+  // Restore the tab.
+  chrome::RestoreTab(browser());
+
+  saved_group = *service->model()->Get(saved_group_id);
+
+  // Verify the saved group reopend properly. The local group id should be
+  // different since it is respun when restoring to avoid conflicts.
+  EXPECT_TRUE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(2u, saved_group.saved_tabs().size());
+
+  // Check the number of tabs in the tabstrip are the same.
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->group_model()
+                ->GetTabGroup(saved_group.local_group_id().value())
+                ->ListTabs(),
+            gfx::Range(1, 3));
+}
+
+// Verify restoring a tab part of a recently restored saved group, adds the tab
+// to the saved group.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest,
+                       RestoreTabAfterGroupRestored) {
+  AddTab(browser(), GURL("https://www.1.com"));
+  AddTab(browser(), GURL("https://www.2.com"));
+
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+  ASSERT_TRUE(service->model()->Contains(saved_group_id));
+  EXPECT_EQ(1, service->model()->Count());
+
+  // Close the first tab in the group.
+  CloseTab(1);
+
+  // Close the group.
+  CloseGroup(group);
+
+  tab_groups::SavedTabGroup saved_group =
+      *service->model()->Get(saved_group_id);
+
+  EXPECT_FALSE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(1u, saved_group.saved_tabs().size());
+
+  // Restore the group.
+  chrome::RestoreTab(browser());
+  saved_group = *service->model()->Get(saved_group_id);
+
+  // Verify the saved group reopened properly. The local group id should be
+  // different since it is respun when restoring to avoid conflicts.
+  EXPECT_TRUE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(1u, saved_group.saved_tabs().size());
+
+  // Restore the tab.
+  chrome::RestoreTab(browser());
+  saved_group = *service->model()->Get(saved_group_id);
+
+  // Verify that the second tab was added to the group.
+  EXPECT_EQ(2u, saved_group.saved_tabs().size());
+
+  // Check the number of tabs in the tabstrip are the same.
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->group_model()
+                ->GetTabGroup(saved_group.local_group_id().value())
+                ->ListTabs(),
+            gfx::Range(1, 3));
+}
+
+// Verify restoring a tab part of a closed group, opens the entire group and
+// adds the tab to it with its navigation stack.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest, RestoreTabWhenGroupIsClosed) {
+  AddTab(browser(), GURL("https://www.1.com"));
+  AddTab(browser(), GURL("https://www.2.com"));
+
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+  ASSERT_TRUE(service->model()->Contains(saved_group_id));
+  EXPECT_EQ(1, service->model()->Count());
+
+  // Navigate the second tab in the group a few times.
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetWebContentsAt(2);
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("https://www.3.com"), WindowOpenDisposition::CURRENT_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("https://www.4.com"), WindowOpenDisposition::CURRENT_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  EXPECT_EQ(3, web_contents->GetController().GetEntryCount());
+
+  // Close the second tab in the group.
+  CloseTab(2);
+
+  // Ungroup the group (disconnect first so we don't deleted the saved group).
+  service->DisconnectLocalTabGroup(group);
+  browser()->tab_strip_model()->RemoveFromGroup({1});
+
+  tab_groups::SavedTabGroup saved_group =
+      *service->model()->Get(saved_group_id);
+
+  EXPECT_FALSE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(1u, saved_group.saved_tabs().size());
+
+  // There should be 2 tabs in the browser. 1 for the initial new tab, 1 for the
+  // tab we ungrouped.
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+
+  // Restore the tab.
+  chrome::RestoreTab(browser());
+  saved_group = *service->model()->Get(saved_group_id);
+
+  // Verify the saved tab was added to the correct group.
+  EXPECT_TRUE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(2u, saved_group.saved_tabs().size());
+
+  // Check the number of tabs in the tabstrip are the same.
+  // State: |New Tab| |Ungrouped Tab| Group[|Restored Tab 1| |Restored Tab 2|]
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->group_model()
+                ->GetTabGroup(saved_group.local_group_id().value())
+                ->ListTabs(),
+            gfx::Range(2, 4));
+
+  content::WebContents* restored_contents =
+      browser()->tab_strip_model()->GetWebContentsAt(3);
+  EXPECT_EQ(3, restored_contents->GetController().GetEntryCount());
+}
+
+// Verify restoring a window with an unsaved group saves it when restored.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest,
+                       RestoreWindowWithUnsavedGroup) {
+  AddTab(browser(), GURL("https://www.1.com"));
+  AddTab(browser(), GURL("https://www.2.com"));
+
+  // Add tabs to an unsaved group.
+  browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Create a new browser.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUINewTabURL),
+      WindowOpenDisposition::NEW_WINDOW,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_BROWSER);
+  EXPECT_EQ(2u, active_browser_list_->size());
+
+  // Close the first browser.
+  CloseBrowserSynchronously(browser());
+  EXPECT_EQ(1u, active_browser_list_->size());
+
+  // Use the newly opened browser to restore the closed window.
+  chrome::RestoreTab(active_browser_list_->get(0));
+  Browser* browser = GetBrowser(1);
+  const std::vector<tab_groups::TabGroupId>& group_ids =
+      browser->tab_strip_model()->group_model()->ListTabGroups();
+
+  // Check that the restored window has 3 tabs, 1 group that is now saved, and
+  // that it is linked to the SavedTabGroupModel.
+  EXPECT_EQ(3, browser->tab_strip_model()->count());
+  EXPECT_EQ(1, service->model()->Count());
+  EXPECT_EQ(1u, group_ids.size());
+  EXPECT_TRUE(service->model()->Contains(group_ids[0]));
+}
+
+// Verify restoring a window with a saved group (that is closed) opens the saved
+// group in the window instead of creating a new group.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest,
+                       RestoreWindowWithClosedSavedGroup) {
+  AddTab(browser(), GURL("https://www.1.com"));
+  AddTab(browser(), GURL("https://www.2.com"));
+
+  // Add tabs to a group.
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+  ASSERT_TRUE(service->model()->Contains(saved_group_id));
+  EXPECT_EQ(1, service->model()->Count());
+
+  // Create a new browser.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUINewTabURL),
+      WindowOpenDisposition::NEW_WINDOW,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_BROWSER);
+  EXPECT_EQ(2u, active_browser_list_->size());
+
+  // Close the first browser.
+  CloseBrowserSynchronously(browser());
+  EXPECT_EQ(1u, active_browser_list_->size());
+
+  // Use the newly opened browser to restore the closed window.
+  chrome::RestoreTab(active_browser_list_->get(0));
+  Browser* browser = GetBrowser(1);
+  const std::vector<tab_groups::TabGroupId>& group_ids =
+      browser->tab_strip_model()->group_model()->ListTabGroups();
+
+  // Check that the restored window has 3 tabs, 1 group that is still saved
+  // with the same saved group id.
+  EXPECT_EQ(3, browser->tab_strip_model()->count());
+  EXPECT_EQ(1, service->model()->Count());
+  EXPECT_EQ(1u, group_ids.size());
+  EXPECT_TRUE(service->model()->Contains(group_ids[0]));
+  EXPECT_TRUE(service->model()->Contains(saved_group_id));
+
+  tab_groups::SavedTabGroup saved_group =
+      *service->model()->Get(saved_group_id);
+
+  EXPECT_TRUE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(2u, saved_group.saved_tabs().size());
+}
+
+// Verify that restoring a window with a saved group that is already open does
+// not restore that group twice.
+IN_PROC_BROWSER_TEST_F(TabRestoreSavedGroupsTest,
+                       RestoreWindowWithOpenedSavedGroup) {
+  AddTab(browser(), GURL("https://www.1.com"));
+  AddTab(browser(), GURL("https://www.2.com"));
+  AddTab(browser(), GURL("https://www.3.com"));
+
+  // Add tabs to a group.
+  tab_groups::TabGroupId group =
+      browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  tab_groups::SavedTabGroupKeyedService* service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser()->profile());
+  CHECK(service);
+
+  // Save it.
+  base::Uuid saved_group_id = service->SaveGroup(group);
+  ASSERT_TRUE(service->model()->Contains(group));
+  ASSERT_TRUE(service->model()->Contains(saved_group_id));
+  EXPECT_EQ(1, service->model()->Count());
+
+  // Create a new browser.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUINewTabURL),
+      WindowOpenDisposition::NEW_WINDOW,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_BROWSER);
+  EXPECT_EQ(2u, active_browser_list_->size());
+
+  // Close the first browser.
+  CloseBrowserSynchronously(browser());
+  EXPECT_EQ(1u, active_browser_list_->size());
+
+  // Open the saved group in the second browser.
+  Browser* second_browser = GetBrowser(0);
+  service->OpenSavedTabGroupInBrowser(second_browser, saved_group_id);
+
+  // Use the second browser to restore the closed window.
+  chrome::RestoreTab(second_browser);
+  Browser* first_browser = GetBrowser(1);
+
+  const std::vector<tab_groups::TabGroupId>& first_browser_group_ids =
+      first_browser->tab_strip_model()->group_model()->ListTabGroups();
+  const std::vector<tab_groups::TabGroupId>& second_browser_group_ids =
+      second_browser->tab_strip_model()->group_model()->ListTabGroups();
+
+  // Verify there is only 1 saved group, the first browser has 2 tabs (tabs no
+  // in the group), and the second browser has 3 tabs (1 tab group).
+  EXPECT_EQ(1, service->model()->Count());
+  EXPECT_EQ(2, first_browser->tab_strip_model()->count());
+  EXPECT_EQ(3, second_browser->tab_strip_model()->count());
+
+  EXPECT_TRUE(first_browser_group_ids.empty());
+  EXPECT_EQ(1u, second_browser_group_ids.size());
+  EXPECT_TRUE(service->model()->Contains(second_browser_group_ids[0]));
+  EXPECT_TRUE(service->model()->Contains(saved_group_id));
+
+  tab_groups::SavedTabGroup saved_group =
+      *service->model()->Get(saved_group_id);
+
+  EXPECT_TRUE(saved_group.local_group_id().has_value());
+  EXPECT_EQ(saved_group_id, saved_group.saved_guid());
+  EXPECT_EQ(2u, saved_group.saved_tabs().size());
 }

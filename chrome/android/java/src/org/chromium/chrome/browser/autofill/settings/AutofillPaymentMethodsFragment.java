@@ -15,11 +15,13 @@ import android.os.Bundle;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
+import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.hardware.fingerprint.FingerprintManagerCompat;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
@@ -32,6 +34,7 @@ import org.chromium.chrome.browser.autofill.AutofillEditorBase;
 import org.chromium.chrome.browser.autofill.AutofillUiUtils;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
+import org.chromium.chrome.browser.autofill.PersonalDataManager.Iban;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.device_reauth.DeviceAuthSource;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
@@ -64,7 +67,11 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
     static final String PREF_MANDATORY_REAUTH = "mandatory_reauth";
     static final String PREF_SAVE_CVC = "save_cvc";
     static final String PREF_ADD_IBAN = "add_iban";
+    static final String PREF_IBAN = "iban";
     private static final String PREF_PAYMENT_APPS = "payment_apps";
+
+    @VisibleForTesting
+    static final String PREF_FINANCIAL_ACCOUNTS_MANAGEMENT = "financial_accounts_management";
 
     static final String MANDATORY_REAUTH_EDIT_CARD_HISTOGRAM =
             "Autofill.PaymentMethods.MandatoryReauth.AuthEvent.SettingsPage.EditCard";
@@ -148,6 +155,32 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                     }
                 });
         getPreferenceScreen().addPreference(autofillSwitch);
+
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS)) {
+            Pair<Integer, String> otherFinancialAccountTypes =
+                    getOtherFinancialAccountsTypes(personalDataManager);
+            if (otherFinancialAccountTypes.first != 0) {
+                Preference otherFinancialAccountsPref = new Preference(getStyledContext());
+                otherFinancialAccountsPref.setKey(PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+                otherFinancialAccountsPref.setSingleLineTitle(false);
+                otherFinancialAccountsPref.setTitle(
+                        getResources()
+                                .getString(
+                                        R.string.settings_manage_other_financial_accounts_title,
+                                        otherFinancialAccountTypes.second));
+                otherFinancialAccountsPref.setSummary(
+                        getResources()
+                                .getQuantityString(
+                                        R.plurals
+                                                .settings_manage_other_financial_accounts_description,
+                                        otherFinancialAccountTypes.first,
+                                        otherFinancialAccountTypes.second));
+                getPreferenceScreen().addPreference(otherFinancialAccountsPref);
+                otherFinancialAccountsPref.setOnPreferenceClickListener(
+                        this::showOtherFinancialAccountsFragment);
+            }
+        }
 
         if (isBiometricAvailable()
                 && personalDataManager.isFidoAuthenticationAvailable()
@@ -241,6 +274,7 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
             card_pref.setIcon(
                     getCardIcon(
                             getStyledContext(),
+                            personalDataManager,
                             card.getCardArtUrl(),
                             card.getIssuerIconDrawableId(),
                             AutofillUiUtils.CardIconSize.LARGE,
@@ -263,6 +297,20 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
             Bundle args = card_pref.getExtras();
             args.putString(AutofillEditorBase.AUTOFILL_GUID, card.getGUID());
             getPreferenceScreen().addPreference(card_pref);
+        }
+
+        // Display local IBANs.
+        for (Iban iban : personalDataManager.getLocalIbansForSettings()) {
+            Preference iban_pref = new Preference(getStyledContext());
+            iban_pref.setIcon(R.drawable.iban_icon);
+            iban_pref.setSingleLineTitle(false);
+            iban_pref.setTitle(iban.getLabel());
+            iban_pref.setSummary(iban.getNickname());
+            iban_pref.setFragment(AutofillLocalIbanEditor.class.getName());
+            Bundle args = iban_pref.getExtras();
+            args.putString(AutofillEditorBase.AUTOFILL_GUID, iban.getGuid());
+            getPreferenceScreen().addPreference(iban_pref);
+            iban_pref.setKey(PREF_IBAN);
         }
 
         // Add 'Add credit card' button. Tap of it brings up card editor which allows users type in
@@ -549,6 +597,31 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                             }
                         });
         dialog.show();
+    }
+
+    /**
+     * Returns a pair of the number of types of financial accounts and the string to be displayed in
+     * the settings page.
+     */
+    private Pair<Integer, String> getOtherFinancialAccountsTypes(
+            PersonalDataManager personalDataManager) {
+        return personalDataManager.getMaskedBankAccounts().length == 0
+                ? new Pair<>(0, "")
+                : new Pair<>(
+                        1,
+                        getResources()
+                                .getString(R.string.settings_manage_other_financial_accounts_pix));
+    }
+
+    /** Show the page for managing other finiancial accounts. */
+    private boolean showOtherFinancialAccountsFragment(Preference preference) {
+        Bundle args = preference.getExtras();
+        args.putString(
+                FinancialAccountsManagementFragment.TITLE_KEY, preference.getTitle().toString());
+        SettingsLauncher settingsLauncher = new SettingsLauncherImpl();
+        settingsLauncher.launchSettingsActivity(
+                getActivity(), FinancialAccountsManagementFragment.class, args);
+        return true;
     }
 
     @Override

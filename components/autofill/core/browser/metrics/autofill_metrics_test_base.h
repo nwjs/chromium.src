@@ -63,7 +63,7 @@ class AutofillMetricsBaseTest {
 
   // Removes all existing credit cards and then invokes CreateCreditCards to
   // create the cards.
-  // TODO(crbug/1216615): Migrate this to a params builder pattern or
+  // TODO(crbug.com/40770602): Migrate this to a params builder pattern or
   // something.
   void RecreateCreditCards(bool include_local_credit_card,
                            bool include_masked_server_credit_card,
@@ -110,7 +110,7 @@ class AutofillMetricsBaseTest {
   void SimulateUserChangedTextField(const FormData& form,
                                     FormFieldData& field,
                                     base::TimeTicks timestamp = {}) {
-    SimulateUserChangedTextFieldTo(form, field, field.value + u"_changed",
+    SimulateUserChangedTextFieldTo(form, field, field.value() + u"_changed",
                                    timestamp);
   }
 
@@ -123,14 +123,14 @@ class AutofillMetricsBaseTest {
                                       const std::u16string& new_value,
                                       base::TimeTicks timestamp = {}) {
     // Assert that the field is actually set to a different value.
-    ASSERT_NE(field.value, new_value);
+    ASSERT_NE(field.value(), new_value);
     field.is_autofilled = false;
-    field.value = new_value;
+    field.set_value(new_value);
     autofill_manager().OnTextFieldDidChange(form, field, gfx::RectF(),
                                             timestamp);
   }
 
-  // TODO(crbug.com/1368096): Remove this method once the metrics are fixed.
+  // TODO(crbug.com/40240189): Remove this method once the metrics are fixed.
   void SimulateUserChangedTextFieldWithoutActuallyChangingTheValue(
       const FormData& form,
       FormFieldData& field,

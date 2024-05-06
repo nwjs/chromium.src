@@ -74,9 +74,10 @@ class TestDisplayObserver : public display::DisplayObserver {
     removed_display_ = old_display;
   }
 
-  void OnDidRemoveDisplays() override {
-    if (did_remove_display_closure_)
-      did_remove_display_closure_.Run();
+  void OnDisplaysRemoved(const display::Displays& removed_displays) override {
+    if (displays_removed_closure_) {
+      displays_removed_closure_.Run();
+    }
   }
 
   void OnDisplayMetricsChanged(const display::Display& display,
@@ -88,8 +89,8 @@ class TestDisplayObserver : public display::DisplayObserver {
     }
   }
 
-  void set_did_remove_display_closure(base::RepeatingClosure closure) {
-    did_remove_display_closure_ = std::move(closure);
+  void set_displays_removed_closure(base::RepeatingClosure closure) {
+    displays_removed_closure_ = std::move(closure);
   }
 
   void set_display_metrics_changed_closure(base::RepeatingClosure closure) {
@@ -100,8 +101,8 @@ class TestDisplayObserver : public display::DisplayObserver {
   uint32_t changed_metrics_ = 0;
   display::Display display_;
   display::Display removed_display_;
-  base::RepeatingClosure did_remove_display_closure_{};
-  base::RepeatingClosure display_metrics_changed_closure_{};
+  base::RepeatingClosure displays_removed_closure_;
+  base::RepeatingClosure display_metrics_changed_closure_;
 };
 
 }  // namespace
@@ -679,7 +680,7 @@ TEST_P(WaylandScreenTest, GetPrimaryDisplayAfterRemoval) {
 
   // This results in an ASAN error unless GetPrimaryDisplay() is correctly
   // implemented for empty display list. More details in the crbug above.
-  observer.set_did_remove_display_closure(base::BindLambdaForTesting([&]() {
+  observer.set_displays_removed_closure(base::BindLambdaForTesting([&]() {
     ASSERT_EQ(0u, platform_screen_->GetAllDisplays().size());
     auto display = platform_screen_->GetPrimaryDisplay();
     EXPECT_EQ(display::kDefaultDisplayId, display.id());
@@ -1408,31 +1409,24 @@ TEST_P(WaylandAuraShellScreenTest, UseCorrectScreenBeforeEnterEvent) {
 
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
+#if !BUILDFLAG(IS_CHROMEOS_LACROS)
 INSTANTIATE_TEST_SUITE_P(XdgVersionStableTest,
                          WaylandScreenTest,
                          Values(wl::ServerConfig{}));
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#else
 
 INSTANTIATE_TEST_SUITE_P(
     XdgVersionStableTestWithAuraShell,
     WaylandScreenTest,
-    Values(wl::ServerConfig{.enable_aura_shell =
-                                wl::EnableAuraShellProtocol::kEnabled},
-           wl::ServerConfig{
-               .enable_aura_shell = wl::EnableAuraShellProtocol::kEnabled,
-               .aura_output_manager_protocol =
-                   wl::AuraOutputManagerProtocol::kEnabledV2}));
+    Values(wl::ServerConfig{
+        .enable_aura_shell = wl::EnableAuraShellProtocol::kEnabled}));
 
 INSTANTIATE_TEST_SUITE_P(
     XdgVersionStableTest,
     WaylandAuraShellScreenTest,
-    Values(wl::ServerConfig{.enable_aura_shell =
-                                wl::EnableAuraShellProtocol::kEnabled},
-           wl::ServerConfig{
-               .enable_aura_shell = wl::EnableAuraShellProtocol::kEnabled,
-               .aura_output_manager_protocol =
-                   wl::AuraOutputManagerProtocol::kEnabledV2}));
+    Values(wl::ServerConfig{
+        .enable_aura_shell = wl::EnableAuraShellProtocol::kEnabled}));
 
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 

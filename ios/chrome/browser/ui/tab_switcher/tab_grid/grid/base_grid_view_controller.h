@@ -24,6 +24,7 @@
 @protocol TabContextMenuProvider;
 @protocol TabCollectionDragDropHandler;
 @class TabGridTransitionItem;
+class TabGroup;
 
 namespace web {
 class WebStateID;
@@ -36,15 +37,16 @@ class WebStateID;
 // `gridViewController`.
 - (void)gridViewController:(BaseGridViewController*)gridViewController
        didSelectItemWithID:(web::WebStateID)itemID;
+// Tells the delegate that the `group` was selected in `gridViewController`.
+- (void)gridViewController:(BaseGridViewController*)gridViewController
+            didSelectGroup:(const TabGroup*)group;
 // Tells the delegate that the item with `itemID` was closed in
 // `gridViewController`.
 - (void)gridViewController:(BaseGridViewController*)gridViewController
         didCloseItemWithID:(web::WebStateID)itemID;
-// Tells the delegate that the item with `itemID` was moved to
-// `destinationIndex`.
-- (void)gridViewController:(BaseGridViewController*)gridViewController
-         didMoveItemWithID:(web::WebStateID)itemID
-                   toIndex:(NSUInteger)destinationIndex;
+// Tells the delegate that an item was moved.
+- (void)gridViewControllerDidMoveItem:
+    (BaseGridViewController*)gridViewController;
 // Tells the delegate that the the number of items in `gridViewController`
 // changed to `count`.
 - (void)gridViewController:(BaseGridViewController*)gridViewController
@@ -53,14 +55,6 @@ class WebStateID;
 - (void)gridViewController:(BaseGridViewController*)gridViewController
        didRemoveItemWIthID:(web::WebStateID)itemID;
 
-// Tells the delegate that the visibility of the last item of the grid changed.
-- (void)didChangeLastItemVisibilityInGridViewController:
-    (BaseGridViewController*)gridViewController;
-
-// Tells the delegate that the grid view controller's scroll view will begin
-// dragging.
-- (void)gridViewControllerWillBeginDragging:
-    (BaseGridViewController*)gridViewController;
 // Tells the delegate that the grid view controller cells will begin dragging.
 - (void)gridViewControllerDragSessionWillBegin:
     (BaseGridViewController*)gridViewController;
@@ -154,9 +148,11 @@ class WebStateID;
 - (void)prepareForDismissal;
 
 // Moves the visible cells such as their center is in `center` (expressed in
-// self.view's coordinates) and apply `scale`. Pass CGPointZero to reset their
-// position.
-- (void)centerVisibleCellsToPoint:(CGPoint)center withScale:(CGFloat)scale;
+// self.view's coordinates) and apply `scale`. `translationCompletion` is used
+// to start the translation from a percentage of the total distance.
+- (void)centerVisibleCellsToPoint:(CGPoint)center
+            translationCompletion:(CGFloat)translationCompletion
+                        withScale:(CGFloat)scale;
 // Resets the move and scale done by the method just above.
 - (void)resetVisibleCellsCenterAndScale;
 

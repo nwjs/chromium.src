@@ -420,6 +420,7 @@ class CONTENT_EXPORT NavigationRequest
   bool IsServedFromBackForwardCache() override;
   void SetIsOverridingUserAgent(bool override_ua) override;
   void SetSilentlyIgnoreErrors() override;
+  void SetVisitedLinkSalt(uint64_t salt) override;
   network::mojom::WebSandboxFlags SandboxFlagsInitiator() override;
   network::mojom::WebSandboxFlags SandboxFlagsInherited() override;
   network::mojom::WebSandboxFlags SandboxFlagsToCommit() override;
@@ -444,6 +445,8 @@ class CONTENT_EXPORT NavigationRequest
   blink::mojom::RendererContentSettingsPtr GetContentSettingsForTesting()
       override;
   void SetIsAdTagged() override;
+  // NOTE: Read function comments in NavigationHandle before use!
+  std::optional<url::Origin> GetOriginToCommit() override;
   // End of NavigationHandle implementation.
 
   // mojom::NavigationRendererCancellationListener implementation:
@@ -884,19 +887,6 @@ class CONTENT_EXPORT NavigationRequest
   // possible.
   url::Origin GetTentativeOriginAtRequestTime();
 
-  // Will calculate the origin that this NavigationRequest will commit. (This
-  // should be reasonably accurate, but some browser-vs-renderer inconsistencies
-  // might still exist - they are currently tracked in
-  // https://crbug.com/1220238).
-  //
-  // Returns `nullopt` if the navigation will not commit (e.g. in case of
-  // downloads, or 204 responses).  This may happen if and only if
-  // `NavigationRequest::GetRenderFrameHost` returns null.
-  //
-  // This method may only be called after a response has been delivered for
-  // processing, or after the navigation fails with an error page.
-  std::optional<url::Origin> GetOriginToCommit();
-
   // Same as `GetOriginToCommit()`, except that includes information about how
   // the origin gets calculated, to help debug if the browser-side calculated
   // origin for this navigation differs from the origin calculated on the
@@ -1313,7 +1303,7 @@ class CONTENT_EXPORT NavigationRequest
       EarlyRenderFrameHostSwapType type) {
     early_render_frame_host_swap_type_ = type;
   }
-  EarlyRenderFrameHostSwapType early_render_frame_host_swap_type() {
+  EarlyRenderFrameHostSwapType early_render_frame_host_swap_type() const {
     return early_render_frame_host_swap_type_;
   }
 
@@ -1976,18 +1966,6 @@ class CONTENT_EXPORT NavigationRequest
   // which may be called at any point after BeginNavigation(), will assume that
   // 'prerender_frame_tree_node_id_' has an value assigned.
   void MaybeAssignInvalidPrerenderFrameTreeNodeId();
-
-  // Check if the current navigation request is to an isolated app and injects
-  // the appropriate Cross-Origin-Opener-Policy, Cross-Origin-Embedder-Policy,
-  // Cross-Origin-Resource-Policy, and X-Frame-Options headers to enforce the
-  // security requirements for isolated apps.
-  //
-  // This is a temporary method to make sure that these policies are enforced
-  // for isolated apps. Longer term, it would be better to validate that these
-  // headers are included for isolated apps by developers.
-  // TODO(https://crbug.com/1311061): Remove or replace this method with the
-  // header validation logic for isolated apps.
-  void MaybeInjectIsolatedAppHeaders();
 
   // The NavigationDownloadPolicy is currently fully computed by the renderer
   // process. It is left empty for browser side initiated navigation. This is a

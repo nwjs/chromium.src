@@ -40,6 +40,11 @@ FontHeight ComputeEmphasisMarkOutsets(const ComputedStyle& style,
 
 }  // namespace
 
+void LogicalRubyColumn::Trace(Visitor* visitor) const {
+  visitor->Trace(annotation_items);
+  visitor->Trace(ruby_column_list);
+}
+
 InlineBoxState::InlineBoxState(const InlineBoxState&& state)
     : fragment_start(state.fragment_start),
       item(state.item),
@@ -680,8 +685,9 @@ LayoutUnit InlineLayoutStateStack::ComputeInlinePositions(
     child.rect.offset.inline_offset += position;
     // Box margins/boders/paddings will be processed later.
     // TODO(kojii): we could optimize this if the reordering did not occur.
-    if (!child.HasFragment())
+    if (!child.HasFragment() && !child.IsRubyLinePlaceholder()) {
       continue;
+    }
     position += child.inline_size;
   }
 
@@ -867,7 +873,8 @@ const LayoutResult* InlineLayoutStateStack::BoxData::CreateBoxFragment(
       LogicalOffset static_offset = child.rect.offset - rect.offset;
 
       box.AddOutOfFlowInlineChildCandidate(oof_box, static_offset,
-                                           child.container_direction);
+                                           child.container_direction,
+                                           child.is_hidden_for_paint);
       child.out_of_flow_positioned_box = nullptr;
       continue;
     }
@@ -1176,6 +1183,11 @@ FontHeight InlineLayoutStateStack::MetricsForTopAndBottomAlign(
     }
   }
   return max;
+}
+
+LogicalRubyColumn& InlineLayoutStateStack::CreateRubyColumn() {
+  ruby_column_list_.push_back(MakeGarbageCollected<LogicalRubyColumn>());
+  return *ruby_column_list_.back();
 }
 
 #if DCHECK_IS_ON()

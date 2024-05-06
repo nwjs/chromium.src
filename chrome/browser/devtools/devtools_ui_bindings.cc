@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "aida_client.h"
@@ -17,6 +18,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/json/string_escape.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -182,7 +184,7 @@ class DefaultBindingsDelegate : public DevToolsUIBindings::Delegate {
   int GetDockStateForLogging() override { return 0; }
   int GetOpenedByForLogging() override { return 0; }
   int GetClosedByForLogging() override { return 0; }
-  content::WebContents* web_contents_;
+  raw_ptr<content::WebContents> web_contents_;
 };
 
 void DefaultBindingsDelegate::ActivateWindow() {
@@ -195,7 +197,7 @@ void DefaultBindingsDelegate::OpenInNewTab(const std::string& url) {
                                 WindowOpenDisposition::NEW_FOREGROUND_TAB,
                                 ui::PAGE_TRANSITION_LINK, false);
   Browser* browser = chrome::FindBrowserWithTab(web_contents_);
-  browser->OpenURL(params);
+  browser->OpenURL(params, /*navigation_handle_callback=*/{});
 }
 
 void DefaultBindingsDelegate::OpenSearchResultsInNewTab(
@@ -209,7 +211,7 @@ void DefaultBindingsDelegate::OpenSearchResultsInNewTab(
   content::OpenURLParams params(GURL(url), content::Referrer(),
                                 WindowOpenDisposition::NEW_FOREGROUND_TAB,
                                 ui::PAGE_TRANSITION_LINK, false);
-  browser->OpenURL(params);
+  browser->OpenURL(params, /*navigation_handle_callback=*/{});
 }
 
 void DefaultBindingsDelegate::InspectedContentsClosing() {
@@ -379,7 +381,11 @@ std::string SanitizeFrontendQueryParam(
     return value;
   }
 
-  if (base::FeatureList::IsEnabled(::features::kDevToolsConsoleInsights)) {
+  if (base::FeatureList::IsEnabled(::features::kDevToolsConsoleInsights) ||
+      base::FeatureList::IsEnabled(
+          ::features::kDevToolsConsoleInsightsDogfood) ||
+      base::FeatureList::IsEnabled(
+          ::features::kDevToolsConsoleInsightsSettingVisible)) {
     if (key == "enableAida" && value == "true") {
       return value;
     }
@@ -389,6 +395,26 @@ std::string SanitizeFrontendQueryParam(
     if (key == "aidaTemperature") {
       return value;
     }
+  }
+
+  if (key == "ci_blockedByAge" && value == "true") {
+    return value;
+  }
+
+  if (key == "ci_blockedByEnterprisePolicy" && value == "true") {
+    return value;
+  }
+
+  if (key == "ci_blockedByGeo" && value == "true") {
+    return value;
+  }
+
+  if (key == "ci_blockedByRollout" && value == "true") {
+    return value;
+  }
+
+  if (key == "ci_disabledByDefault" && value == "true") {
+    return value;
   }
 
   return std::string();
@@ -517,7 +543,7 @@ class DevToolsUIBindings::NetworkResourceLoader
     response_headers_ = response_head.headers;
   }
 
-  void OnDataReceived(base::StringPiece chunk,
+  void OnDataReceived(std::string_view chunk,
                       base::OnceClosure resume) override {
     base::Value chunkValue;
 
@@ -557,7 +583,7 @@ class DevToolsUIBindings::NetworkResourceLoader
   void OnRetry(base::OnceClosure start_retry) override { NOTREACHED(); }
 
   const int stream_id_;
-  DevToolsUIBindings* const bindings_;
+  const raw_ptr<DevToolsUIBindings> bindings_;
   const network::ResourceRequest resource_request_;
   const net::NetworkTrafficAnnotationTag traffic_annotation_;
   std::unique_ptr<network::SimpleURLLoader> loader_;
@@ -590,7 +616,7 @@ class DevToolsUIBindings::FrontendWebContentsObserver
   void DocumentOnLoadCompletedInPrimaryMainFrame() override;
   void PrimaryPageChanged(content::Page& page) override;
 
-  DevToolsUIBindings* devtools_bindings_;
+  raw_ptr<DevToolsUIBindings> devtools_bindings_;
 };
 
 DevToolsUIBindings::FrontendWebContentsObserver::FrontendWebContentsObserver(
@@ -779,8 +805,8 @@ void DevToolsUIBindings::DispatchProtocolMessage(
   if (!frontend_host_)
     return;
 
-  base::StringPiece message_sp(reinterpret_cast<const char*>(message.data()),
-                               message.size());
+  std::string_view message_sp(reinterpret_cast<const char*>(message.data()),
+                              message.size());
   if (message_sp.length() < kMaxMessageChunkSize) {
     CallClientMethod("DevToolsAPI", "dispatchMessage", base::Value(message_sp));
     return;
@@ -1982,7 +2008,7 @@ void DevToolsUIBindings::CanShowSurvey(DispatchCallback callback,
 void DevToolsUIBindings::DoAidaConversation(DispatchCallback callback,
                                             const std::string& request,
                                             int stream_id) {
-  if (!AidaClient::CanUseAida(profile_)) {
+  if (AidaClient::CanUseAida(profile_).blocked) {
     return;
   }
   if (!aida_client_) {
@@ -1994,7 +2020,7 @@ void DevToolsUIBindings::DoAidaConversation(DispatchCallback callback,
 }
 
 void DevToolsUIBindings::RegisterAidaClientEvent(const std::string& request) {
-  if (!AidaClient::CanUseAida(profile_)) {
+  if (AidaClient::CanUseAida(profile_).blocked) {
     return;
   }
   if (!aida_client_) {

@@ -8,8 +8,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/webauthn/enclave_manager.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/storage_partition.h"
+
+network::SharedURLLoaderFactory* g_url_loader_factory_test_override;
 
 // static
 EnclaveManager* EnclaveManagerFactory::GetForProfile(Profile* profile) {
@@ -33,16 +34,27 @@ EnclaveManagerFactory::EnclaveManagerFactory()
   DependsOn(IdentityManagerFactory::GetInstance());
 }
 
+// static
+void EnclaveManagerFactory::SetUrlLoaderFactoryForTesting(
+    network::SharedURLLoaderFactory* factory) {
+  g_url_loader_factory_test_override = factory;
+}
+
 EnclaveManagerFactory::~EnclaveManagerFactory() = default;
 
 std::unique_ptr<KeyedService>
 EnclaveManagerFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
   Profile* const profile = Profile::FromBrowserContext(context);
+  // TODO(nsatragno): this should probably use the storage partition network
+  // manager instead.
   return std::make_unique<EnclaveManager>(
       /*base_dir=*/profile->GetPath(),
-      IdentityManagerFactory::GetForProfile(profile),
-      SystemNetworkContextManager::GetInstance()->GetContext(),
-      profile->GetDefaultStoragePartition()
-          ->GetURLLoaderFactoryForBrowserProcess());
+      IdentityManagerFactory::GetForProfile(profile), base::BindRepeating([]() {
+        return SystemNetworkContextManager::GetInstance()->GetContext();
+      }),
+      g_url_loader_factory_test_override
+          ? g_url_loader_factory_test_override
+          : profile->GetDefaultStoragePartition()
+                ->GetURLLoaderFactoryForBrowserProcess());
 }

@@ -11,15 +11,21 @@
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/personal_data_manager_observer_bridge.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
+#import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_navigation_controller.h"
+#import "ios/chrome/browser/ui/autofill/bottom_sheet/bottom_sheet_link_coordinator.h"
+#import "ios/chrome/browser/ui/autofill/bottom_sheet/bottom_sheet_link_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/card_list_delegate.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/card_view_controller.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_card_mediator.h"
+#import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_full_card_requester.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_injection_handler.h"
 #import "ios/web/public/js_messaging/web_frame.h"
@@ -32,6 +38,10 @@
   // C++ to ObjC bridge for PersonalDataManagerObserver.
   std::unique_ptr<autofill::PersonalDataManagerObserverBridge>
       _personalDataManagerObserver;
+
+  // Opening links on the enrollment bottom sheet is delegated to this
+  // dispatcher.
+  __weak id<ApplicationCommands> _dispatcher;
 }
 
 // The view controller presented above the keyboard where the user can select
@@ -87,6 +97,8 @@
                                  ->GetOriginalChromeBrowserState()
                 webStateList:super.browser->GetWebStateList()
               resultDelegate:_cardMediator];
+    _dispatcher = HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                                     ApplicationCommands);
   }
   return self;
 }
@@ -119,7 +131,8 @@
   }];
 }
 
-- (void)requestFullCreditCard:(ManualFillCreditCard*)card {
+- (void)requestFullCreditCard:(ManualFillCreditCard*)card
+                    fieldType:(manual_fill::PaymentFieldType)fieldType {
   __weak __typeof(self) weakSelf = self;
   [self dismissIfNecessaryThenDoCompletion:^{
     if (!weakSelf)
@@ -129,12 +142,19 @@
     if (!autofillCreditCard)
       return;
     [weakSelf.cardRequester requestFullCreditCard:*autofillCreditCard
-                           withBaseViewController:weakSelf.baseViewController];
+                           withBaseViewController:weakSelf.baseViewController
+                                       recordType:card.recordType
+                                        fieldType:fieldType];
   }];
 }
 
-- (void)openURL:(CrURL*)url {
-  // TODO: b/322521955 Open the URL.
+- (void)openURL:(CrURL*)url withTitle:(NSString*)title {
+  [_dispatcher
+      openURLInNewTab:[OpenNewTabCommand
+                          commandWithURLFromChrome:url.gurl
+                                       inIncognito:self.browser
+                                                       ->GetBrowserState()
+                                                       ->IsOffTheRecord()]];
 }
 
 #pragma mark - PersonalDataManagerObserver

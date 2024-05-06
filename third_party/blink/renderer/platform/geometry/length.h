@@ -263,8 +263,9 @@ class PLATFORM_EXPORT Length {
     return !value_;
   }
 
-  // For the layout purposes, if this |Length| is a block-axis size, see
-  // |HasAutoOrContentOrIntrinsic()|, it is usually a better choice.
+  // If this is a length in a property that accepts calc-size(), use
+  // |HasAuto()|.  If this |Length| is a block-axis size
+  // |HasAutoOrContentOrIntrinsic()| is usually a better choice.
   bool IsAuto() const { return GetType() == kAuto; }
   bool IsFixed() const { return GetType() == kFixed; }
 
@@ -274,7 +275,13 @@ class PLATFORM_EXPORT Length {
   bool HasAuto() const;
   bool HasContentOrIntrinsic() const;
   bool HasAutoOrContentOrIntrinsic() const;
+  // HasPercent and HasPercentOrStretch refer to whether the toplevel value
+  // should be treated as a percentage type for web-exposed behavior
+  // decisions.  However, a value can still depend on a percentage when
+  // HasPercent() is false:  for example, calc-size(any, 20%).
   bool HasPercent() const;
+  bool HasPercentOrStretch() const;
+  bool HasStretch() const;
 
   bool IsSpecified() const {
     return GetType() == kFixed || GetType() == kPercent ||
@@ -290,17 +297,16 @@ class PLATFORM_EXPORT Length {
   bool IsFillAvailable() const { return GetType() == kFillAvailable; }
   bool IsFitContent() const { return GetType() == kFitContent; }
   bool IsPercent() const { return GetType() == kPercent; }
+  // IsPercentOrCalc should be used for decisions about whether to optimize
+  // away computing the value on which percentages depend or optimize away
+  // recomputation that results from changes to that value.  It is intended to
+  // be used *only* in cases where the implementation could be changed to one
+  // that returns true only if there are percentage values somewhere in the
+  // expression (that is, one that still returns true for calc-size(any, 30%)
+  // for which HasPercent() is false, but is false for calc-size(any, 30px)).
+  // TODO(https://crbug.com/313072): Rename this.
   bool IsPercentOrCalc() const {
-    // TODO(https://crbug.com/313072): Not all calc()s have percentages;
-    // many callers may want HasPercent, above.
     return GetType() == kPercent || GetType() == kCalculated;
-  }
-  bool IsPercentOrCalcOrStretch() const {
-    // TODO(https://crbug.com/313072): Not all calc()s have percentages;
-    // many callers may want a function like HasPercent, above (but that
-    // doesn't exist yet).
-    return GetType() == kPercent || GetType() == kCalculated ||
-           GetType() == kFillAvailable;
   }
   bool IsFlex() const { return GetType() == kFlex; }
   bool IsExtendToZoom() const { return GetType() == kExtendToZoom; }

@@ -1613,7 +1613,7 @@ enum HeaderBehaviour {
       self.browserContainerViewController.contentView = nil;
       self.browserContainerViewController.contentViewController =
           viewController;
-      [NTPCoordinator constrainDiscoverHeaderMenuButtonNamedGuide];
+      [NTPCoordinator constrainFeedHeaderManagementButtonNamedGuide];
     } else {
       self.browserContainerViewController.contentView = view;
     }
@@ -2107,12 +2107,9 @@ enum HeaderBehaviour {
         [self.typingShield setHidden:YES];
       }];
 
-  ProceduralBlock completion = nil;
-  if (IsIOSLargeFakeboxEnabled()) {
+  ProceduralBlock completion = ^{
     // Show the NTP's fake toolbar after the defocus animation completes.
-    completion = ^{
-      [self.ntpCoordinator locationBarDidResignFirstResponder];
-    };
+    [self.ntpCoordinator locationBarDidResignFirstResponder];
   };
 
   [self.toolbarCoordinator transitionToLocationBarFocusedState:NO
@@ -2374,9 +2371,12 @@ enum HeaderBehaviour {
           forControlEvents:UIControlEventTouchUpInside];
 
       DCHECK(self.applicationCommandsHandler);
+      __weak __typeof(self) weakSelf = self;
       [self.blockingView.tabSwitcherButton
-                 addTarget:self.applicationCommandsHandler
-                    action:@selector(displayRegularTabSwitcherInGridLayout)
+                 addAction:[UIAction actionWithHandler:^(UIAction* action) {
+                   [weakSelf.applicationCommandsHandler
+                       displayTabGridInMode:TabGridOpeningMode::kRegular];
+                 }]
           forControlEvents:UIControlEventTouchUpInside];
     }
 

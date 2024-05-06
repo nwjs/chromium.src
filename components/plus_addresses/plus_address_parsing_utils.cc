@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/strings/pattern.h"
+#include "base/strings/string_number_conversions.h"
 #include "components/plus_addresses/plus_address_types.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
 
@@ -17,6 +18,7 @@ namespace {
 
 // Creates a PlusProfile for `dict` if it fits this schema (in TS notation):
 // {
+//   "ProfileId": string,
 //   "facet": string,
 //   "plusEmail": {
 //     "plusAddress": string,
@@ -25,11 +27,16 @@ namespace {
 // }
 // Returns nullopt if none of the values are parsed.
 std::optional<PlusProfile> ParsePlusProfileFromV1Dict(base::Value::Dict dict) {
+  std::string profile_id;
   std::string facet;
   std::string plus_address;
   std::optional<bool> is_confirmed;
   for (std::pair<const std::string&, base::Value&> entry : dict) {
     auto [key, val] = entry;
+    if (base::MatchPattern(key, "*ProfileId") && val.is_string()) {
+      profile_id = std::move(val.GetString());
+      continue;
+    }
     if (base::MatchPattern(key, "facet") && val.is_string()) {
       facet = std::move(val.GetString());
       continue;
@@ -51,10 +58,12 @@ std::optional<PlusProfile> ParsePlusProfileFromV1Dict(base::Value::Dict dict) {
       }
     }
   }
-  if (facet.empty() || plus_address.empty() || !is_confirmed.has_value()) {
+  if (profile_id.empty() || facet.empty() || plus_address.empty() ||
+      !is_confirmed.has_value()) {
     return std::nullopt;
   }
-  return PlusProfile{.facet = std::move(facet),
+  return PlusProfile{.profile_id = std::move(profile_id),
+                     .facet = std::move(facet),
                      .plus_address = std::move(plus_address),
                      .is_confirmed = *is_confirmed};
 }

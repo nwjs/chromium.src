@@ -25,6 +25,7 @@ class FedCmMetrics;
 class FederatedIdentityApiPermissionContextDelegate;
 class FederatedIdentityPermissionContextDelegate;
 enum class IdpSigninStatus;
+class FederatedAuthRequestPageData;
 
 namespace webid {
 
@@ -106,6 +107,9 @@ bool HasSharingPermissionOrIdpHasThirdPartyCookiesAccess(
     FederatedIdentityPermissionContextDelegate* sharing_permission_delegate,
     FederatedIdentityApiPermissionContextDelegate* api_permission_delegate);
 
+bool IsFedCmAuthzEnabled(RenderFrameHost& host, const url::Origin& idp_origin);
+
+FederatedAuthRequestPageData* GetPageData(RenderFrameHost* render_frame_host);
 }  // namespace webid
 
 }  // namespace content

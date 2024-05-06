@@ -5,6 +5,7 @@
 #include "chrome/browser/touch_to_fill/password_manager/touch_to_fill_controller_autofill_delegate.h"
 
 #include <memory>
+#include <string_view>
 
 #include "base/base64.h"
 #include "base/memory/raw_ptr.h"
@@ -115,9 +116,9 @@ struct MockWebAuthnCredManDelegate : public WebAuthnCredManDelegate {
 };
 
 struct MakeUiCredentialParams {
-  base::StringPiece username;
-  base::StringPiece password;
-  base::StringPiece origin = kExampleCom;
+  std::string_view username;
+  std::string_view password;
+  std::string_view origin = kExampleCom;
   password_manager_util::GetLoginMatchType match_type =
       password_manager_util::GetLoginMatchType::kExact;
   base::TimeDelta time_since_last_use;
@@ -741,7 +742,7 @@ TEST_F(TouchToFillControllerAutofillTest, ShowWebAuthnCredential) {
       /*cred_man_delegate=*/nullptr, /*frame_driver=*/nullptr);
 
   EXPECT_CALL(webauthn_credentials_delegate(),
-              SelectPasskey(base::Base64Encode(credential.credential_id())));
+              SelectPasskey(base::Base64Encode(credential.credential_id()), _));
   EXPECT_CALL(*last_mock_filler(), Dismiss(ToShowVirtualKeyboard(false)));
   EXPECT_CALL(*last_mock_filler(), FillUsernameAndPassword(_, _)).Times(0);
   touch_to_fill_controller().OnPasskeyCredentialSelected(credentials[0]);

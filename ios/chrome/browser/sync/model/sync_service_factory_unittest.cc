@@ -10,11 +10,10 @@
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/data_sharing/public/features.h"
 #include "components/password_manager/core/browser/features/password_features.h"
-#include "components/supervised_user/core/common/buildflags.h"
 #include "components/sync/base/command_line_switches.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
-#include "components/sync/service/data_type_controller.h"
+#include "components/sync/service/model_type_controller.h"
 #include "components/sync/service/sync_service_impl.h"
 #include "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #include "ios/chrome/browser/history/model/history_service_factory.h"
@@ -24,8 +23,6 @@
 #include "ios/web/public/test/web_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
-
-using syncer::DataTypeController;
 
 class SyncServiceFactoryTest : public PlatformTest {
  public:
@@ -52,7 +49,7 @@ class SyncServiceFactoryTest : public PlatformTest {
  protected:
   // Returns the collection of default datatypes.
   syncer::ModelTypeSet DefaultDatatypes() {
-    static_assert(52 == syncer::GetNumModelTypes(),
+    static_assert(51 == syncer::GetNumModelTypes(),
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled).");
 
@@ -70,7 +67,7 @@ class SyncServiceFactoryTest : public PlatformTest {
     datatypes.Put(syncer::AUTOFILL_WALLET_METADATA);
     datatypes.Put(syncer::AUTOFILL_WALLET_OFFER);
     datatypes.Put(syncer::BOOKMARKS);
-    if (base::FeatureList::IsEnabled(commerce::kProductSpecifications)) {
+    if (base::FeatureList::IsEnabled(commerce::kProductSpecificationsSync)) {
       datatypes.Put(syncer::COMPARE);
     }
     datatypes.Put(syncer::CONTACT_INFO);
@@ -80,16 +77,9 @@ class SyncServiceFactoryTest : public PlatformTest {
     datatypes.Put(syncer::PREFERENCES);
     datatypes.Put(syncer::PRIORITY_PREFERENCES);
     datatypes.Put(syncer::READING_LIST);
-    if (base::FeatureList::IsEnabled(syncer::kSyncSegmentationDataType)) {
-      datatypes.Put(syncer::SEGMENTATION);
-    }
     // TODO(crbug.com/919489) Add SECURITY_EVENTS data type once it is enabled.
     datatypes.Put(syncer::SESSIONS);
-
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
     datatypes.Put(syncer::SUPERVISED_USER_SETTINGS);
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
-
     datatypes.Put(syncer::USER_EVENTS);
     datatypes.Put(syncer::USER_CONSENTS);
     datatypes.Put(syncer::SEND_TAB_TO_SELF);
@@ -109,6 +99,9 @@ class SyncServiceFactoryTest : public PlatformTest {
     }
     if (base::FeatureList::IsEnabled(syncer::kSyncPlusAddress)) {
       datatypes.Put(syncer::PLUS_ADDRESS);
+    }
+    if (base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)) {
+      datatypes.Put(syncer::WEBAUTHN_CREDENTIAL);
     }
     return datatypes;
   }
@@ -137,7 +130,7 @@ TEST_F(SyncServiceFactoryTest, CreateSyncServiceImplDefault) {
           chrome_browser_state());
   syncer::ModelTypeSet types = sync_service->GetRegisteredDataTypesForTest();
   const syncer::ModelTypeSet default_types = DefaultDatatypes();
-  EXPECT_EQ(default_types.Size(), types.Size());
+  EXPECT_EQ(default_types.size(), types.size());
   for (syncer::ModelType type : default_types) {
     EXPECT_TRUE(types.Has(type)) << type << " not found in datatypes map";
   }

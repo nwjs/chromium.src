@@ -7,7 +7,6 @@
 #include <string_view>
 
 #include "base/strings/strcat.h"
-#include "base/strings/string_piece.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -52,12 +51,6 @@ constexpr char kProfileUpdateDecisionHistogram[] =
     "Autofill.ProfileImport.UpdateProfileDecision";
 constexpr char kProfileMigrationDecisionHistogram[] =
     "Autofill.ProfileImport.MigrateProfileDecision";
-constexpr char kNewProfileNumberOfEditsHistogram[] =
-    "Autofill.ProfileImport.NewProfileNumberOfEditedFields";
-constexpr char kProfileUpdateNumberOfEditsHistogram[] =
-    "Autofill.ProfileImport.UpdateProfileNumberOfEditedFields";
-constexpr char kProfileMigrationNumberOfEditsHistogram[] =
-    "Autofill.ProfileImport.MigrateProfileNumberOfEditedFields";
 constexpr char kProfileUpdateNumberOfAffectedTypesHistogram[] =
     "Autofill.ProfileImport.UpdateProfileNumberOfAffectedFields";
 
@@ -367,20 +360,16 @@ void AddressProfileSaveManagerTest::VerifyUMAMetricsCollection(
   struct ImportHistogramNames {
     std::string_view decision;
     std::string_view edits;
-    std::string_view num_of_edits;
     void ExpectAllEmpty(const base::HistogramTester& tester) const {
-      ExpectEmptyHistograms(tester, {decision, edits, num_of_edits});
+      ExpectEmptyHistograms(tester, {decision, edits});
     }
   };
   constexpr ImportHistogramNames new_profile_histograms = {
-      kNewProfileDecisionHistogram, kNewProfileEditsHistogram,
-      kNewProfileNumberOfEditsHistogram};
+      kNewProfileDecisionHistogram, kNewProfileEditsHistogram};
   constexpr ImportHistogramNames update_profile_histograms = {
-      kProfileUpdateDecisionHistogram, kProfileUpdateEditsHistogram,
-      kProfileUpdateNumberOfEditsHistogram};
+      kProfileUpdateDecisionHistogram, kProfileUpdateEditsHistogram};
   constexpr ImportHistogramNames migrate_profile_histograms = {
-      kProfileMigrationDecisionHistogram, kProfileMigrationEditsHistogram,
-      kProfileMigrationNumberOfEditsHistogram};
+      kProfileMigrationDecisionHistogram, kProfileMigrationEditsHistogram};
 
   // If the import was not a new profile, confirmable merge or migration, test
   // that the corresponding histograms are unchanged.
@@ -412,11 +401,6 @@ void AddressProfileSaveManagerTest::VerifyUMAMetricsCollection(
   for (auto edited_type : test_scenario.expected_edited_types_for_metrics) {
     histogram_tester.ExpectBucketCount(affected_histograms.edits, edited_type,
                                        1);
-  }
-  if (test_scenario.user_decision == UserDecision::kEditAccepted) {
-    histogram_tester.ExpectUniqueSample(
-        affected_histograms.num_of_edits,
-        test_scenario.expected_edited_types_for_metrics.size(), 1);
   }
 
   // Expect no records in all unaffected histograms.
@@ -1403,7 +1387,8 @@ TEST_P(AddressProfileSaveManagerTest,
 // `kLocalOrSyncable` profiles.
 TEST_P(AddressProfileSaveManagerTest, Migration_Accept) {
   const AutofillProfile standard_profile = test::StandardProfile();
-  personal_data_manager_.SetIsEligibleForAddressAccountStorage(true);
+  personal_data_manager_.test_address_data_manager()
+      .SetIsEligibleForAddressAccountStorage(true);
   ImportScenarioTestCase test_scenario{
       .existing_profiles = {standard_profile},
       .observed_profile = standard_profile,
@@ -1420,7 +1405,8 @@ TEST_P(AddressProfileSaveManagerTest, Migration_Accept) {
 // Tests declining a migration. The strike count should be increased.
 TEST_P(AddressProfileSaveManagerTest, Migration_Decline) {
   const AutofillProfile standard_profile = test::StandardProfile();
-  personal_data_manager_.SetIsEligibleForAddressAccountStorage(true);
+  personal_data_manager_.test_address_data_manager()
+      .SetIsEligibleForAddressAccountStorage(true);
   ImportScenarioTestCase test_scenario{
       .existing_profiles = {standard_profile},
       .observed_profile = standard_profile,
@@ -1438,7 +1424,8 @@ TEST_P(AddressProfileSaveManagerTest, Migration_Decline) {
 // strike count is incremented up to the strike limit.
 TEST_P(AddressProfileSaveManagerTest, Migration_Never) {
   const AutofillProfile standard_profile = test::StandardProfile();
-  personal_data_manager_.SetIsEligibleForAddressAccountStorage(true);
+  personal_data_manager_.test_address_data_manager()
+      .SetIsEligibleForAddressAccountStorage(true);
   ImportScenarioTestCase test_scenario{
       .existing_profiles = {standard_profile},
       .observed_profile = standard_profile,

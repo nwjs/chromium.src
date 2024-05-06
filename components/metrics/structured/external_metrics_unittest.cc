@@ -282,7 +282,7 @@ TEST_F(ExternalMetricsTest, DroppedEventsWhenDisabled) {
   ASSERT_TRUE(base::IsDirectoryEmpty(temp_dir_.GetPath()));
 }
 
-// TODO(crbug.com/1500822): Failing consistently on MSAN.
+// TODO(crbug.com/40941078): Failing consistently on MSAN.
 #if defined(MEMORY_SANITIZER)
 #define MAYBE_ProducedAndDroppedEventMetricCollected \
   DISABLED_ProducedAndDroppedEventMetricCollected
@@ -324,7 +324,7 @@ TEST_F(ExternalMetricsTest, MAYBE_ProducedAndDroppedEventMetricCollected) {
   // verify that the number of histograms produced are what is expected.
   base::HistogramTester::CountsMap produced_map =
       histogram_tester_.GetTotalCountsForPrefix(
-          "StructuredMetrics.ExternalMetricsProduced.");
+          "StructuredMetrics.ExternalMetricsProduced2.");
   int produced_acc = 0;
   for (const auto& hist : produced_map) {
     produced_acc += hist.second;
@@ -332,7 +332,7 @@ TEST_F(ExternalMetricsTest, MAYBE_ProducedAndDroppedEventMetricCollected) {
 
   base::HistogramTester::CountsMap dropped_map =
       histogram_tester_.GetTotalCountsForPrefix(
-          "StructuredMetrics.ExternalMetricsDropped.");
+          "StructuredMetrics.ExternalMetricsDropped2.");
 
   int dropped_acc = 0;
   for (const auto& hist : dropped_map) {

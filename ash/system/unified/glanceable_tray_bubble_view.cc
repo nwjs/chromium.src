@@ -6,12 +6,16 @@
 
 #include <memory>
 #include <numeric>
+#include <vector>
 
 #include "ash/api/tasks/tasks_client.h"
 #include "ash/api/tasks/tasks_types.h"
 #include "ash/constants/ash_features.h"
 #include "ash/glanceables/classroom/glanceables_classroom_client.h"
+#include "ash/glanceables/classroom/glanceables_classroom_student_view.h"
+#include "ash/glanceables/classroom/glanceables_classroom_types.h"
 #include "ash/glanceables/glanceables_controller.h"
+#include "ash/glanceables/glanceables_metrics.h"
 #include "ash/glanceables/tasks/glanceables_tasks_view.h"
 #include "ash/public/cpp/session/user_info.h"
 #include "ash/public/cpp/style/color_provider.h"
@@ -21,12 +25,11 @@
 #include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_utils.h"
-#include "ash/system/unified/classroom_bubble_student_view.h"
-#include "ash/system/unified/tasks_bubble_view.h"
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/ranges/algorithm.h"
+#include "base/time/time.h"
 #include "components/session_manager/session_manager_types.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/list_model.h"
@@ -96,6 +99,7 @@ class TimeManagementContainer : public views::FlexLayoutView {
 BEGIN_METADATA(TimeManagementContainer)
 END_METADATA
 
+// TODO(b/333770880): Remove `ContainerView`.
 // The view that parents glanceable bubbles. It's a flex layout view that
 // propagates child preferred size changes to the tray bubble view and the
 // container bounds changes to the bubble view.
@@ -222,6 +226,7 @@ GlanceableTrayBubbleView::~GlanceableTrayBubbleView() {
 void GlanceableTrayBubbleView::InitializeContents() {
   CHECK(!initialized_);
 
+  // TODO(b/333770880): Remove `scroll_view_`.
   scroll_view_ = AddChildView(std::make_unique<views::ScrollView>(
       views::ScrollView::ScrollWithLayers::kEnabled));
   scroll_view_->SetPaintToLayer();
@@ -296,7 +301,9 @@ void GlanceableTrayBubbleView::InitializeContents() {
 
   auto* const tasks_client =
       Shell::Get()->glanceables_controller()->GetTasksClient();
-  if (should_show_non_calendar_glanceables && tasks_client) {
+  if (should_show_non_calendar_glanceables &&
+      features::IsGlanceablesTimeManagementTasksViewEnabled() && tasks_client &&
+      !tasks_client->IsDisabledByAdmin()) {
     CHECK(!tasks_bubble_view_);
     auto* cached_list = tasks_client->GetCachedTaskLists();
     if (!cached_list) {
@@ -318,17 +325,20 @@ void GlanceableTrayBubbleView::InitializeContents() {
   ChangeAnchorAlignment(shelf_->alignment());
   ChangeAnchorRect(shelf_->GetSystemTrayAnchorRect());
 
-  if (!features::AreAnyGlanceablesTimeManagementViewsEnabled()) {
-    auto* const classroom_client =
-        Shell::Get()->glanceables_controller()->GetClassroomClient();
-    if (should_show_non_calendar_glanceables && classroom_client) {
-      if (!classroom_bubble_student_view_) {
-        classroom_client->IsStudentRoleActive(base::BindOnce(
-            &GlanceableTrayBubbleView::AddClassroomBubbleStudentViewIfNeeded,
-            weak_ptr_factory_.GetWeakPtr()));
-      }
-    }
+  auto* const classroom_client =
+      Shell::Get()->glanceables_controller()->GetClassroomClient();
+  const bool is_classroom_enabled_via_flags =
+      features::IsGlanceablesTimeManagementClassroomStudentDataEnabled() ||
+      (features::AreGlanceablesV2Enabled() &&
+       !features::AreAnyGlanceablesTimeManagementViewsEnabled());
+  if (should_show_non_calendar_glanceables && is_classroom_enabled_via_flags &&
+      classroom_client) {
+    CHECK(!classroom_bubble_student_view_);
+    classroom_client->IsStudentRoleActive(base::BindOnce(
+        &GlanceableTrayBubbleView::AddClassroomBubbleStudentViewIfNeeded,
+        weak_ptr_factory_.GetWeakPtr()));
   }
+
   calendar_view_->ScrollViewToVisible();
 
   ClipScrollViewHeight(screen_max_height);
@@ -381,15 +391,25 @@ void GlanceableTrayBubbleView::AddClassroomBubbleStudentViewIfNeeded(
     return;
   }
 
-  // Adds classroom bubble before `calendar_view_`.
-  auto* const scroll_contents = scroll_view_->contents();
-  const auto calendar_view_index =
-      base::ranges::find(scroll_contents->children(), calendar_view_) -
-      scroll_contents->children().begin();
-  classroom_bubble_student_view_ = scroll_contents->AddChildViewAt(
-      std::make_unique<ClassroomBubbleStudentView>(), calendar_view_index);
+  if (features::AreGlanceablesV2Enabled() &&
+      !features::AreAnyGlanceablesTimeManagementViewsEnabled()) {
+    // Adds classroom bubble before `calendar_view_`.
+    MaybeCreateTimeManagementContainer();
+    classroom_bubble_student_view_ =
+        time_management_container_view_->AddChildView(
+            std::make_unique<GlanceablesClassroomStudentView>());
+    UpdateBubble();
 
-  AdjustChildrenFocusOrder();
+    AdjustChildrenFocusOrder();
+  } else if (features::
+                 IsGlanceablesTimeManagementClassroomStudentDataEnabled()) {
+    Shell::Get()
+        ->glanceables_controller()
+        ->GetClassroomClient()
+        ->GetStudentAssignmentsWithApproachingDueDate(base::BindOnce(
+            &GlanceableTrayBubbleView::OnPotentialStudentAssignmentsLoaded,
+            weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void GlanceableTrayBubbleView::AddTaskBubbleViewIfNeeded(
@@ -400,18 +420,10 @@ void GlanceableTrayBubbleView::AddTaskBubbleViewIfNeeded(
   }
 
   // Add tasks bubble before everything.
-  if (features::IsGlanceablesTimeManagementTasksViewEnabled()) {
-    time_management_container_view_ =
-        AddChildViewAt(std::make_unique<TimeManagementContainer>(), 0);
-    box_layout()->SetFlexForView(time_management_container_view_, 1);
-    tasks_bubble_view_ = time_management_container_view_->AddChildView(
-        std::make_unique<GlanceablesTasksView>(task_lists));
-    UpdateBubble();
-  } else {
-    tasks_bubble_view_ = scroll_view_->contents()->AddChildViewAt(
-        std::make_unique<TasksBubbleView>(task_lists), 0);
-    box_layout()->SetFlexForView(scroll_view_, 1);
-  }
+  MaybeCreateTimeManagementContainer();
+  tasks_bubble_view_ = time_management_container_view_->AddChildView(
+      std::make_unique<GlanceablesTasksView>(task_lists));
+  UpdateBubble();
 
   AdjustChildrenFocusOrder();
 }
@@ -451,41 +463,21 @@ void GlanceableTrayBubbleView::OnGlanceablesContainerHeightChanged(
 void GlanceableTrayBubbleView::AdjustChildrenFocusOrder() {
   const bool is_calendar_for_glanceables =
       features::IsGlanceablesV2CalendarViewEnabled();
+  auto* default_focused_child = GetChildrenFocusList().front().get();
 
   // Make sure the view that contains calendar is the first in the focus list of
   // glanceable views. Depending on whether GlanceablesV2CalendarView is
-  // enabled, the nearest common ancestor of the calendar view and other
-  // glanceables is `this`, or `scroll_view_->contents()`.
+  // enabled, `calendar_view_` could be either under `calendar_container_` or
+  // `scroll_view_`. Note that `calendar_view_` is the only view that could be
+  // created under `scroll_view_`.
   if (is_calendar_for_glanceables) {
-    auto* default_focused_child = GetChildrenFocusList().front().get();
     if (default_focused_child != calendar_container_) {
       calendar_container_->InsertBeforeInFocusList(default_focused_child);
     }
   } else {
-    auto* default_focused_child =
-        scroll_view_->contents()->GetChildrenFocusList().front().get();
-    if (default_focused_child != calendar_view_) {
-      calendar_view_->InsertBeforeInFocusList(default_focused_child);
+    if (default_focused_child != scroll_view_) {
+      scroll_view_->InsertBeforeInFocusList(default_focused_child);
     }
-  }
-
-  const bool time_management_stable_launch =
-      features::AreAnyGlanceablesTimeManagementViewsEnabled();
-
-  // Only adds the time management view/container after the calendar
-  // view/container in the focus list if the calendar flag and the time
-  // management flag are on or off at the same time. Otherwise one of them will
-  // be in the scroll view and the other will be at the same level of the scroll
-  // view.
-  if (is_calendar_for_glanceables != time_management_stable_launch) {
-    return;
-  }
-
-  if (time_management_stable_launch) {
-    time_management_container_view_->InsertAfterInFocusList(
-        calendar_container_);
-  } else {
-    tasks_bubble_view_->InsertAfterInFocusList(calendar_view_);
   }
 }
 
@@ -512,6 +504,24 @@ void GlanceableTrayBubbleView::ClipScrollViewHeight(
 
   scroll_view_->ClipHeightTo(0, screen_max_height - calendar_view_->height() -
                                     kMarginBetweenGlanceables);
+}
+
+void GlanceableTrayBubbleView::MaybeCreateTimeManagementContainer() {
+  if (!time_management_container_view_) {
+    time_management_container_view_ =
+        AddChildViewAt(std::make_unique<TimeManagementContainer>(), 0);
+    box_layout()->SetFlexForView(time_management_container_view_, 1);
+  }
+}
+
+void GlanceableTrayBubbleView::OnPotentialStudentAssignmentsLoaded(
+    bool success,
+    std::vector<std::unique_ptr<GlanceablesClassroomAssignment>> assignments)
+    const {
+  auto* const controller = Shell::Get()->glanceables_controller();
+  RecordClassromInitialLoadTime(
+      /*first_occurrence=*/controller->bubble_shown_count() == 1,
+      base::TimeTicks::Now() - controller->last_bubble_show_time());
 }
 
 BEGIN_METADATA(GlanceableTrayBubbleView)

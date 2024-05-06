@@ -107,7 +107,7 @@ class MockDropHandler : public WmDropHandler {
                void(const gfx::PointF& point, int operation, int modifiers));
   MOCK_METHOD0(MockOnDragDataAvailable, void());
   MOCK_METHOD3(MockDragMotion,
-               int(const gfx::PointF& point, int operation, int modifiers));
+               void(const gfx::PointF& point, int operation, int modifiers));
   MOCK_METHOD0(MockOnDragDrop, void());
   MOCK_METHOD0(OnDragLeave, void());
 
@@ -376,6 +376,44 @@ TEST_P(WaylandDataDragControllerTest, StartDragWithFileContents) {
     EXPECT_EQ(1u, source->mime_types().size());
     EXPECT_EQ(kText, source->mime_types().front());
   });
+}
+
+// Cancels a DnD session that we initiated while the cursor is over our window.
+TEST_P(WaylandDataDragControllerTest, CancelDrag) {
+  FocusAndPressLeftPointerButton(window_.get(), &delegate_);
+
+  // Cancel the session once it's been fully initiated. Note that cancelling the
+  // session in OnDragEnter() would be too early, because when it's called we
+  // haven't finished our setup yet.
+  EXPECT_CALL(*drop_handler_, MockOnDragDataAvailable()).WillOnce([&]() {
+    drag_controller()->CancelSession();
+  });
+
+  RunMouseDragWithSampleData(
+      window_.get(), DragDropTypes::DRAG_COPY | DragDropTypes::DRAG_MOVE);
+}
+
+// Cancels a DnD session that we initiated while the cursor is outside of our
+// window.
+TEST_P(WaylandDataDragControllerTest, CancelDragOutsideWindow) {
+  FocusAndPressLeftPointerButton(window_.get(), &delegate_);
+
+  // Wait for the session to be fully initiated, then send wl_data_device.leave.
+  EXPECT_CALL(*drop_handler_, MockOnDragDataAvailable()).WillOnce([&]() {
+    SendDndLeave();
+  });
+
+  EXPECT_CALL(*drop_handler_, OnDragLeave())
+      // First call happens due to our SendDndLeave() call above, second call
+      // because OnDragLeave() is always called for unsuccessful DnD sessions
+      // (see the comment in WaylandDataDragController::Reset()).
+      .Times(2)
+      .WillOnce([&]() { drag_controller()->CancelSession(); })
+      // Silences an extremely verbose GTest warning.
+      .WillOnce(::testing::Return());
+
+  RunMouseDragWithSampleData(
+      window_.get(), DragDropTypes::DRAG_COPY | DragDropTypes::DRAG_MOVE);
 }
 
 MATCHER_P(PointFNear, n, "") {
@@ -893,7 +931,7 @@ TEST_P(WaylandDataDragControllerTest, DragToNonToplevelWindows) {
 }
 
 // Ensures that requests to create a |PlatformWindowType::kPopup| during drag
-// sessions return xdg_popup-backed windows.
+// sessions return wl_subsurface-backed windows.
 TEST_P(WaylandDataDragControllerTest, PopupRequestCreatesPopupWindow) {
   auto* origin_window = window_.get();
   FocusAndPressLeftPointerButton(origin_window, &delegate_);
@@ -920,7 +958,8 @@ TEST_P(WaylandDataDragControllerTest, PopupRequestCreatesPopupWindow) {
   PostToServerAndWait([surface_id](wl::TestWaylandServerThread* server) {
     auto* surface = server->GetObject<wl::MockSurface>(surface_id);
     ASSERT_TRUE(surface);
-    EXPECT_NE(nullptr, surface->xdg_surface()->xdg_popup());
+    EXPECT_EQ(nullptr, surface->xdg_surface());
+    EXPECT_NE(nullptr, surface->sub_surface());
   });
 }
 
@@ -943,6 +982,7 @@ TEST_P(WaylandDataDragControllerTest, MenuRequestCreatesPopupWindow) {
           auto* surface = server->GetObject<wl::MockSurface>(surface_id);
           ASSERT_TRUE(surface);
           EXPECT_EQ(nullptr, surface->sub_surface());
+          EXPECT_NE(nullptr, surface->xdg_surface()->xdg_popup());
         });
   };
 
@@ -1398,18 +1438,19 @@ TEST_P(WaylandDataDragControllerTest,
       window_.get(), DragDropTypes::DRAG_COPY | DragDropTypes::DRAG_MOVE);
 }
 
+#if !BUILDFLAG(IS_CHROMEOS_LACROS)
 INSTANTIATE_TEST_SUITE_P(XdgVersionStableTest,
                          WaylandDataDragControllerTest,
                          Values(wl::ServerConfig{}));
 
+#else
 INSTANTIATE_TEST_SUITE_P(
     XdgVersionStableTestWithAuraShell,
     WaylandDataDragControllerTest,
     Values(wl::ServerConfig{.enable_aura_shell =
                                 wl::EnableAuraShellProtocol::kEnabled},
            wl::ServerConfig{
-               .enable_aura_shell = wl::EnableAuraShellProtocol::kEnabled,
-               .aura_output_manager_protocol =
-                   wl::AuraOutputManagerProtocol::kEnabledV2}));
+               .enable_aura_shell = wl::EnableAuraShellProtocol::kEnabled}));
+#endif
 
 }  // namespace ui

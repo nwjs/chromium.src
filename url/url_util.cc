@@ -273,9 +273,9 @@ bool DoCanonicalize(const CHAR* spec,
                                   charset_converter, output, output_parsed);
   } else if (DoCompareSchemeComponent(spec, scheme, url::kFileSystemScheme)) {
     // Filesystem URLs are special.
-    ParseFileSystemURL(spec, spec_len, &parsed_input);
-    success = CanonicalizeFileSystemURL(spec, parsed_input, charset_converter,
-                                        output, output_parsed);
+    success = CanonicalizeFileSystemURL(
+        spec, ParseFileSystemURL(std::basic_string_view(spec, spec_len)),
+        charset_converter, output, output_parsed);
 
   } else if (DoIsStandard(spec, scheme, &scheme_type)) {
     // All "normal" URLs.
@@ -290,9 +290,9 @@ bool DoCanonicalize(const CHAR* spec,
     //
     // TODO(crbug.com/1416006): Remove the special handling of 'mailto:" scheme
     // URLs. "mailto:" is simply one of non-special URLs.
-    ParseMailtoURL(spec, spec_len, &parsed_input);
-    success = CanonicalizeMailtoURL(spec, spec_len, parsed_input, output,
-                                    output_parsed);
+    success = CanonicalizeMailtoURL(
+        spec, spec_len, ParseMailtoURL(std::basic_string_view(spec, spec_len)),
+        output, output_parsed);
 
   } else {
     // Non-special scheme URLs like data: and javascript:.

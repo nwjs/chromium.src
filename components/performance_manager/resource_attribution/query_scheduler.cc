@@ -4,6 +4,7 @@
 
 #include "components/performance_manager/resource_attribution/query_scheduler.h"
 
+#include <optional>
 #include <set>
 #include <utility>
 #include <vector>
@@ -19,6 +20,7 @@
 #include "base/synchronization/lock.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/optional_util.h"
+#include "base/types/pass_key.h"
 #include "base/types/variant_util.h"
 #include "components/performance_manager/public/graph/node_data_describer_registry.h"
 #include "components/performance_manager/public/resource_attribution/resource_types.h"
@@ -165,13 +167,27 @@ void QueryScheduler::RemoveScopedQuery(
   // `query_params` goes out of scope and is deleted here.
 }
 
+void QueryScheduler::StartRepeatingQuery(QueryParams* query_params) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(query_params);
+  // Assign a QueryId to the query. This isn't done in AddScopedQuery() because
+  // the QueryId is used to identify queries that need to be notified of
+  // results, and a ScopedResourceUsageQuery that never calls Start() doesn't
+  // need to be notified.
+  static QueryId::Generator id_generator;
+  std::optional<QueryId>& query_id =
+      query_params->GetMutableId(base::PassKey<QueryScheduler>());
+  CHECK(!query_id.has_value());
+  query_id = id_generator.GenerateNextId();
+}
+
 void QueryScheduler::RequestResults(
     const QueryParams& query_params,
     base::OnceCallback<void(const QueryResultMap&)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Send out a measurement request for each resource type. The BarrierCallback
   // will invoke OnResultsReceived when all have responded.
-  const size_t num_requests = query_params.resource_types.Size();
+  const size_t num_requests = query_params.resource_types.size();
   auto barrier_callback = base::BarrierCallback<QueryResultMap>(
       num_requests, base::BindOnce(&QueryScheduler::OnResultsReceived,
                                    weak_factory_.GetWeakPtr(),

@@ -11,10 +11,15 @@
 #include "base/memory/raw_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "components/history/core/browser/visit_delegate.h"
+#include "components/visitedlink/browser/partitioned_visitedlink_writer.h"
 #include "components/visitedlink/browser/visitedlink_delegate.h"
 
 namespace content {
 class BrowserContext;
+}
+
+namespace url {
+class Origin;
 }
 
 namespace visitedlink {
@@ -42,14 +47,38 @@ class ContentVisitDelegate : public VisitDelegate,
   void AddURLs(const std::vector<GURL>& urls) override;
   void DeleteURLs(const std::vector<GURL>& urls) override;
   void DeleteAllURLs() override;
+  std::optional<uint64_t> GetOrAddOriginSalt(
+      const url::Origin& origin) override;
 
   // Implementation of visitedlink::VisitedLinkDelegate.
   void RebuildTable(const scoped_refptr<
       visitedlink::VisitedLinkDelegate::URLEnumerator>& enumerator) override;
+  void BuildVisitedLinkTable(
+      const scoped_refptr<
+          visitedlink::VisitedLinkDelegate::VisitedLinkEnumerator>& enumerator)
+      override;
 
-  raw_ptr<HistoryService> history_service_;  // Weak.
+  raw_ptr<HistoryService> history_service_;
+
+  // Visited Links -----------------------------------------------------------
+  // To keep the partitioned visited links experiments performant, we want to
+  // ensure that only one writer (partitioned or unpartitioned) is constructed
+  // and initialized at a time.
+  //
+  // If `kPartitionVisitedLinkDatabase` is not enabled, `visitedlink_writer_` is
+  // constructed and initialized, while `partitioned_writer_` is
+  // nullopt. This state is referred to as "unpartitioned".
+  //
+  // If `kPartitionVisitedLinkDatabase` is enabled, `visitedlink_writer_` is
+  // nullopt, while `partitioned_writer_` is constructed and
+  // initialized. This state is referred to as "partitioned".
+  std::unique_ptr<visitedlink::PartitionedVisitedLinkWriter>
+      partitioned_writer_;
   std::unique_ptr<visitedlink::VisitedLinkWriter> visitedlink_writer_;
+  // -------------------------------------------------------------------------
+
   base::CancelableTaskTracker task_tracker_;
+  base::WeakPtrFactory<ContentVisitDelegate> weak_factory_{this};
 };
 
 }  // namespace history

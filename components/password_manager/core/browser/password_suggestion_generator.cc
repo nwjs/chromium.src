@@ -87,7 +87,7 @@ autofill::Suggestion CreateGenerationEntry() {
 // Entry for opting in to password account storage and then filling.
 autofill::Suggestion CreateEntryToOptInToAccountStorageThenFill() {
   bool has_passkey_sync = false;
-#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
   has_passkey_sync =
       base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials);
 #endif
@@ -157,7 +157,7 @@ void MaybeAppendManagePasswordsEntry(
   suggestion.icon = autofill::Suggestion::Icon::kSettings;
   // The UI code will pick up an icon from the resources based on the string.
   suggestion.trailing_icon = autofill::Suggestion::Icon::kGooglePasswordManager;
-  suggestions->push_back(std::move(suggestion));
+  suggestions->emplace_back(std::move(suggestion));
 }
 
 // If |field_suggestion| matches |field_content|, creates a Suggestion out of it
@@ -205,7 +205,7 @@ void AppendSuggestionIfMatching(
       suggestion.trailing_icon = CreateStoreIcon(from_account_store);
     }
 #endif
-    suggestions->push_back(suggestion);
+    suggestions->emplace_back(std::move(suggestion));
   }
 }
 
@@ -237,8 +237,8 @@ void GetSuggestions(const autofill::PasswordFormFillData& fill_data,
 
 void AddPasswordUsernameChildSuggestion(const std::u16string& username,
                                         autofill::Suggestion& suggestion) {
-  suggestion.children.push_back(autofill::Suggestion(
-      username, autofill::PopupItemId::kPasswordFieldByFieldFilling));
+  suggestion.children.emplace_back(
+      username, autofill::PopupItemId::kPasswordFieldByFieldFilling);
 }
 
 void AddFillPasswordChildSuggestion(autofill::Suggestion& suggestion,
@@ -247,8 +247,9 @@ void AddFillPasswordChildSuggestion(autofill::Suggestion& suggestion,
       l10n_util::GetStringUTF16(
           IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_FILL_PASSWORD_ENTRY),
       autofill::PopupItemId::kFillPassword);
-  fill_password.payload = autofill::Suggestion::ValueToFill(password);
-  suggestion.children.push_back(fill_password);
+  fill_password.payload =
+      autofill::Suggestion::PasswordSuggestionDetails(password);
+  suggestion.children.emplace_back(std::move(fill_password));
 }
 
 void AddViewPasswordDetailsChildSuggestion(autofill::Suggestion& suggestion) {
@@ -257,11 +258,12 @@ void AddViewPasswordDetailsChildSuggestion(autofill::Suggestion& suggestion) {
           IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_VIEW_DETAILS_ENTRY),
       autofill::PopupItemId::kViewPasswordDetails);
   view_password_details.icon = autofill::Suggestion::Icon::kKey;
-  suggestion.children.push_back(view_password_details);
+  suggestion.children.emplace_back(std::move(view_password_details));
 }
 
 autofill::Suggestion GetManualFallbackSuggestion(
-    const CredentialUIEntry& credential) {
+    const CredentialUIEntry& credential,
+    IsTriggeredOnPasswordForm on_password_form) {
   autofill::Suggestion suggestion(
       GetHumanReadableRealm(credential.GetFirstSignonRealm()),
       autofill::PopupItemId::kPasswordEntry);
@@ -270,13 +272,15 @@ autofill::Suggestion GetManualFallbackSuggestion(
       ReplaceEmptyUsername(credential.username, &replaced);
   suggestion.additional_label = maybe_username;
   suggestion.icon = autofill::Suggestion::Icon::kGlobe;
+  suggestion.payload =
+      autofill::Suggestion::PasswordSuggestionDetails(credential.password);
+  suggestion.is_acceptable = on_password_form.value();
 
   if (!replaced) {
     AddPasswordUsernameChildSuggestion(maybe_username, suggestion);
   }
   AddFillPasswordChildSuggestion(suggestion, credential.password);
-  suggestion.children.push_back(
-      autofill::Suggestion(autofill::PopupItemId::kSeparator));
+  suggestion.children.emplace_back(autofill::PopupItemId::kSeparator);
   AddViewPasswordDetailsChildSuggestion(suggestion);
 
   return suggestion;
@@ -351,26 +355,27 @@ PasswordSuggestionGenerator::GetSuggestionsForDomain(
   if (uses_passkeys && delegate->OfferPasskeysFromAnotherDeviceOption()) {
     bool listed_passkeys = delegate->GetPasskeys().has_value() &&
                            delegate->GetPasskeys()->size() > 0;
-    suggestions.push_back(CreateWebAuthnEntry(listed_passkeys));
+    suggestions.emplace_back(CreateWebAuthnEntry(listed_passkeys));
   }
 #endif
 
   // Add password generation entry, if available.
   if (offers_generation) {
-    suggestions.push_back(show_account_storage_optin
-                              ? CreateEntryToOptInToAccountStorageThenGenerate()
-                              : CreateGenerationEntry());
+    suggestions.emplace_back(
+        show_account_storage_optin
+            ? CreateEntryToOptInToAccountStorageThenGenerate()
+            : CreateGenerationEntry());
   }
 
   // Add button to opt into using the account storage for passwords and then
   // suggest.
   if (show_account_storage_optin) {
-    suggestions.push_back(CreateEntryToOptInToAccountStorageThenFill());
+    suggestions.emplace_back(CreateEntryToOptInToAccountStorageThenFill());
   }
 
   // Add button to sign-in which unlocks the previously used account store.
   if (show_account_storage_resignin) {
-    suggestions.push_back(CreateEntryToReSignin());
+    suggestions.emplace_back(CreateEntryToReSignin());
   }
 
   // Add "Manage all passwords" link to settings.
@@ -381,16 +386,44 @@ PasswordSuggestionGenerator::GetSuggestionsForDomain(
 
 std::vector<autofill::Suggestion>
 PasswordSuggestionGenerator::GetManualFallbackSuggestions(
-    const std::vector<CredentialUIEntry>& credentials) const {
+    base::span<const PasswordForm> suggested_credentials,
+    base::span<const CredentialUIEntry> credentials,
+    IsTriggeredOnPasswordForm on_password_form) const {
   std::vector<autofill::Suggestion> suggestions;
-  for (const CredentialUIEntry& credential : credentials) {
-    suggestions.push_back(GetManualFallbackSuggestion(credential));
+  const bool generate_sections =
+      !suggested_credentials.empty() && !credentials.empty();
+  if (generate_sections) {
+    suggestions.emplace_back(
+        l10n_util::GetStringUTF16(
+            IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_SUGGESTED_PASSWORDS_SECTION_TITLE),
+        autofill::PopupItemId::kTitle);
   }
 
-  base::ranges::sort(suggestions, [](const autofill::Suggestion& a,
-                                     const autofill::Suggestion& b) {
-    return a.main_text.value < b.main_text.value;
-  });
+  for (const auto& form : suggested_credentials) {
+    suggestions.emplace_back(
+        GetManualFallbackSuggestion(CredentialUIEntry(form), on_password_form));
+  }
+
+  if (generate_sections) {
+    suggestions.emplace_back(
+        l10n_util::GetStringUTF16(
+            IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_ALL_PASSWORDS_SECTION_TITLE),
+        autofill::PopupItemId::kTitle);
+  }
+
+  // Only the "All passwords" section should be sorted alphabetically.
+  const size_t relevant_section_offset = suggestions.size();
+
+  for (const CredentialUIEntry& credential : credentials) {
+    suggestions.emplace_back(
+        GetManualFallbackSuggestion(credential, on_password_form));
+  }
+
+  base::ranges::sort(suggestions.begin() + relevant_section_offset,
+                     suggestions.end(), base::ranges::less(),
+                     [](const autofill::Suggestion& suggestion) {
+                       return suggestion.main_text.value;
+                     });
 
   // Add "Manage all passwords" link to settings.
   MaybeAppendManagePasswordsEntry(&suggestions);

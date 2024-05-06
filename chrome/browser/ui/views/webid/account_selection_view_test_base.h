@@ -32,6 +32,7 @@ inline constexpr char kGivenNameBase[] = "given_name";
 
 inline constexpr char kTermsOfServiceUrl[] = "https://terms-of-service.com";
 inline constexpr char kPrivacyPolicyUrl[] = "https://privacy-policy.com";
+inline constexpr char kRpBrandIconUrl[] = "https://rp-brand-icon.com";
 
 // A base class for FedCM account selection view unit tests.
 class AccountSelectionViewTestBase {
@@ -46,13 +47,17 @@ class AccountSelectionViewTestBase {
   std::u16string GetHoverButtonTitle(HoverButton* account);
   views::Label* GetHoverButtonSubtitle(HoverButton* account);
   views::View* GetHoverButtonIconView(HoverButton* account);
+  views::Label* GetHoverButtonFooter(HoverButton* account);
+  views::View* GetHoverButtonSecondaryView(HoverButton* account);
 
   void CheckNonHoverableAccountRow(views::View* row,
                                    const std::string& account_suffix);
   void CheckHoverableAccountRows(
       const std::vector<raw_ptr<views::View, VectorExperimental>>& accounts,
       const std::vector<std::string>& account_suffixes,
-      size_t& accounts_index);
+      size_t& accounts_index,
+      bool expect_idp = false,
+      bool is_modal_dialog = false);
   void CheckDisclosureText(views::View* disclosure_text,
                            bool expect_terms_of_service,
                            bool expect_privacy_policy);

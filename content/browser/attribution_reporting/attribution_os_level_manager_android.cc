@@ -29,7 +29,9 @@
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/attribution_reporting/os_registration.h"
+#include "components/attribution_reporting/registrar.h"
 #include "content/browser/attribution_reporting/attribution_input_event.h"
+#include "content/browser/attribution_reporting/attribution_manager.h"
 #include "content/browser/attribution_reporting/attribution_os_level_manager.h"
 #include "content/browser/attribution_reporting/attribution_reporting.mojom.h"
 #include "content/browser/attribution_reporting/os_registration.h"
@@ -38,6 +40,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/content_browser_client.h"
+#include "services/network/public/cpp/attribution_utils.h"
 #include "url/android/gurl_android.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -46,8 +49,9 @@ namespace content {
 
 namespace {
 
+using ::attribution_reporting::Registrar;
+
 using ApiState = ContentBrowserClient::AttributionReportingOsApiState;
-using OsReportType = ContentBrowserClient::AttributionReportingOsReportType;
 
 int GetDeletionMode(bool delete_rate_limit_data) {
   // See
@@ -144,8 +148,8 @@ void AttributionOsLevelManagerAndroid::Register(
 
   JNIEnv* env = base::android::AttachCurrentThread();
 
+  Registrar registrar = registration.registrar;
   attribution_reporting::mojom::RegistrationType type = registration.GetType();
-  OsReportType report_type = registration.report_type;
   std::vector<base::android::ScopedJavaLocalRef<jobject>> registration_urls;
   base::ranges::transform(
       registration.registration_items, std::back_inserter(registration_urls),
@@ -163,8 +167,8 @@ void AttributionOsLevelManagerAndroid::Register(
   switch (type) {
     case attribution_reporting::mojom::RegistrationType::kSource: {
       DCHECK(input_event.has_value());
-      switch (report_type) {
-        case OsReportType::kWeb: {
+      switch (registrar) {
+        case Registrar::kWeb: {
           auto sources =
               Java_AttributionOsLevelManager_createWebSourceParamsList(
                   env, is_debug_key_allowed.size());
@@ -177,21 +181,18 @@ void AttributionOsLevelManagerAndroid::Register(
               input_event->input_event);
           break;
         }
-        case OsReportType::kOs: {
+        case Registrar::kOs: {
           Java_AttributionOsLevelManager_registerAttributionSource(
-              env, jobj_, request_id,
-              url::GURLAndroid::ToJavaArrayOfGURLs(env, registration_urls),
+              env, jobj_, request_id, registration_urls,
               input_event->input_event);
           break;
         }
-        case OsReportType::kDisabled:
-          return;
       }
       break;
     }
     case attribution_reporting::mojom::RegistrationType::kTrigger: {
-      switch (report_type) {
-        case OsReportType::kWeb: {
+      switch (registrar) {
+        case Registrar::kWeb: {
           auto triggers =
               Java_AttributionOsLevelManager_createWebTriggerParamsList(
                   env, is_debug_key_allowed.size());
@@ -203,15 +204,13 @@ void AttributionOsLevelManagerAndroid::Register(
               env, jobj_, request_id, triggers, top_level_origin);
           break;
         }
-        case OsReportType::kOs: {
+        case Registrar::kOs: {
           for (const auto& registration_url : registration_urls) {
             Java_AttributionOsLevelManager_registerAttributionTrigger(
                 env, jobj_, request_id, registration_url);
           }
           break;
         }
-        case OsReportType::kDisabled:
-          return;
       }
       break;
     }
@@ -241,10 +240,8 @@ void AttributionOsLevelManagerAndroid::ClearData(
 
   Java_AttributionOsLevelManager_deleteRegistrations(
       env, jobj_, request_id, delete_begin.InMillisecondsSinceUnixEpoch(),
-      delete_end.InMillisecondsSinceUnixEpoch(),
-      url::GURLAndroid::ToJavaArrayOfGURLs(env, j_origins),
-      base::android::ToJavaArrayOfStrings(
-          env, std::vector<std::string>(domains.begin(), domains.end())),
+      delete_end.InMillisecondsSinceUnixEpoch(), j_origins,
+      std::vector<std::string>(domains.begin(), domains.end()),
       GetDeletionMode(delete_rate_limit_data), GetMatchBehavior(mode));
 }
 

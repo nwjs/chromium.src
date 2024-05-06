@@ -4,6 +4,8 @@
 #ifndef COMPONENTS_OPTIMIZATION_GUIDE_CORE_MODEL_EXECUTION_ON_DEVICE_MODEL_SERVICE_CONTROLLER_H_
 #define COMPONENTS_OPTIMIZATION_GUIDE_CORE_MODEL_EXECUTION_ON_DEVICE_MODEL_SERVICE_CONTROLLER_H_
 
+#include <sys/types.h>
+
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -17,6 +19,7 @@
 #include "base/sequence_checker.h"
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
+#include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_component.h"
 #include "components/optimization_guide/core/model_execution/session_impl.h"
 #include "components/optimization_guide/core/model_info.h"
@@ -67,9 +70,9 @@ class OnDeviceModelServiceController
   // model if it is not already loaded. The session will handle updating
   // context, executing input, and sending the response.
   std::unique_ptr<OptimizationGuideModelExecutor::Session> CreateSession(
-      proto::ModelExecutionFeature feature,
+      ModelBasedCapabilityKey feature,
       ExecuteRemoteFn execute_remote_fn,
-      OptimizationGuideLogger* logger,
+      base::WeakPtr<OptimizationGuideLogger> logger,
       base::WeakPtr<ModelQualityLogsUploaderService>
           model_quality_uploader_service,
       const std::optional<SessionConfigParams>& config_params);
@@ -84,12 +87,6 @@ class OnDeviceModelServiceController
           performance_class)>;
   void GetEstimatedPerformanceClass(
       GetEstimatedPerformanceClassCallback callback);
-
-  OnDeviceModelAccessController* access_controller(base::PassKey<SessionImpl>) {
-    return access_controller_.get();
-  }
-
-  bool ShouldStartNewSession() const;
 
   // Shuts down the service if there is no active model.
   void ShutdownServiceIfNoModelLoaded();
@@ -123,6 +120,23 @@ class OnDeviceModelServiceController
   }
 
  private:
+  class OnDeviceModelClient : public SessionImpl::OnDeviceModelClient {
+   public:
+    OnDeviceModelClient(
+        base::WeakPtr<OnDeviceModelServiceController> controller,
+        on_device_model::ModelAssetPaths model_paths);
+    ~OnDeviceModelClient() override;
+    bool ShouldUse() override;
+    mojo::Remote<on_device_model::mojom::OnDeviceModel>& GetModelRemote()
+        override;
+    void OnResponseCompleted() override;
+    void OnSessionTimedOut() override;
+
+   private:
+    base::WeakPtr<OnDeviceModelServiceController> controller_;
+    on_device_model::ModelAssetPaths model_paths_;
+  };
+  friend class OnDeviceModelClient;
   friend class base::RefCounted<OnDeviceModelServiceController>;
   friend class ChromeOnDeviceModelServiceController;
   friend class OnDeviceModelServiceControllerTest;
@@ -130,21 +144,30 @@ class OnDeviceModelServiceController
 
   class SafetyModelInfo {
    public:
+    ~SafetyModelInfo();
+
+    static std::unique_ptr<SafetyModelInfo> Load(
+        base::optional_ref<const ModelInfo> model_info);
+    std::optional<proto::FeatureTextSafetyConfiguration> GetConfig(
+        proto::ModelExecutionFeature feature) const;
+    base::FilePath GetDataPath() const;
+    base::FilePath GetSpModelPath() const;
+    int64_t GetVersion() const;
+    uint32_t num_output_categories() const { return num_output_categories_; }
+
+   private:
     SafetyModelInfo(
         const ModelInfo& model_info,
         uint32_t num_output_categories,
         base::flat_map<proto::ModelExecutionFeature,
                        proto::FeatureTextSafetyConfiguration> feature_configs);
-    ~SafetyModelInfo();
 
-    const ModelInfo model_info;
-    const uint32_t num_output_categories;
+    const ModelInfo model_info_;
+    const uint32_t num_output_categories_;
     base::flat_map<proto::ModelExecutionFeature,
                    proto::FeatureTextSafetyConfiguration>
-        feature_configs;
+        feature_configs_;
   };
-
-  bool InitializeSafetyModelInfo(const ModelInfo& model_info);
 
   // Sets the base model directory and initializes the on-device model
   // controller with the parameters, to be ready to load models and execute.
@@ -152,10 +175,9 @@ class OnDeviceModelServiceController
                     const std::string& component_version);
   void ClearModelPath();
 
-  // Makes sure the service is running and starts a mojo session.
-  void StartMojoSession(
-      on_device_model::ModelAssetPaths model_paths,
-      mojo::PendingReceiver<on_device_model::mojom::Session> session);
+  // Ensures the service is running and provides a remote for the model.
+  mojo::Remote<on_device_model::mojom::OnDeviceModel>& GetOrCreateModelRemote(
+      on_device_model::ModelAssetPaths model_paths);
 
   // Invoked at the end of model load, to continue with model execution.
   void OnLoadModelResult(on_device_model::mojom::LoadModelResult result);
@@ -176,10 +198,6 @@ class OnDeviceModelServiceController
   // Gets the model versions based on the current model paths set.
   proto::OnDeviceModelVersions GetModelVersions(
       const std::string& component_version) const;
-
-  // Returns the text safety configuration for `feature`.
-  std::optional<proto::FeatureTextSafetyConfiguration>
-  GetFeatureTextSafetyConfigForFeature(proto::ModelExecutionFeature feature);
 
   // This may be null in the destructor, otherwise non-null.
   std::unique_ptr<OnDeviceModelAccessController> access_controller_;

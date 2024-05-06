@@ -8,6 +8,16 @@
  * types.
  */
 
+// Common data for displaying and filtering print destinations.
+export interface Destination {
+  // ID can be the printer name or ID depending on the originating type of
+  // printer.
+  id: string;
+
+  // Display name from printer.
+  displayName: string;
+}
+
 export interface PrintRequestOutcome {
   success: boolean;
   error?: string;
@@ -21,4 +31,10 @@ export interface PrintPreviewPageHandler {
 
   // Cancel the print preview and close the window.
   cancel(): void;
+}
+
+// Placeholder for the DestinationProvider mojo interface.
+export interface DestinationProvider {
+  // Retrieve a list of local print destinations; usually provided by CUPS.
+  getLocalDestinations(): Promise<Destination[]>;
 }

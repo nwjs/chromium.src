@@ -9,6 +9,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ThreadUtils;
@@ -52,6 +53,7 @@ public class OptimizationGuideBridge implements Destroyable {
      * Initializes the C++ side of this class, using the Optimization Guide Decider for the last
      * used Profile.
      */
+    // TODO(crbug.com/40254448): Pass in Profile reference and remove static access in C++.
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public OptimizationGuideBridge() {
         ThreadUtils.assertOnUiThread();
@@ -326,17 +328,17 @@ public class OptimizationGuideBridge implements Destroyable {
 
         void canApplyOptimization(
                 long nativeOptimizationGuideBridge,
-                GURL url,
+                @JniType("GURL") GURL url,
                 int optimizationType,
                 OptimizationGuideCallback callback);
 
         void canApplyOptimizationOnDemand(
                 long nativeOptimizationGuideBridge,
-                GURL[] urls,
+                @JniType("std::vector<GURL>") GURL[] urls,
                 int[] optimizationTypes,
                 int requestContext,
                 OnDemandOptimizationGuideCallback callback,
-                byte[] requestContextMetadata);
+                @JniType("jni_zero::ByteArrayView") byte[] requestContextMetadata);
 
         void onNewPushNotification(long nativeOptimizationGuideBridge, byte[] encodedNotification);
 

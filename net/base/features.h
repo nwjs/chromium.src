@@ -97,6 +97,11 @@ NET_EXPORT BASE_DECLARE_FEATURE(kUseDnsHttpsSvcbAlpn);
 // transactions complete.
 NET_EXPORT BASE_DECLARE_FEATURE(kUseHostResolverCache);
 
+// Enables the DNS ServiceEndpointRequest API, which provides intermediate
+// service endpoints in the middle of a DNS transaction so that clients of this
+// API can attempt connections as soon as candidate endpoints are available.
+NET_EXPORT BASE_DECLARE_FEATURE(kUseServiceEndpointRequest);
+
 // If the `kUseAlternativePortForGloballyReachableCheck` flag is enabled, the
 // globally reachable check will use the port number specified by
 // `kAlternativePortForGloballyReachableCheck` flag. Otherwise, the globally
@@ -316,6 +321,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTopLevelTpcdTrialSettings);
 // component updater.
 NET_EXPORT BASE_DECLARE_FEATURE(kTpcdMetadataGrants);
 
+// Whether to enable staged rollback of the TPCD Metadata Entries.
+NET_EXPORT BASE_DECLARE_FEATURE(kTpcdMetadataStagedRollback);
+
 // Whether ALPS parsing is on for any type of frame.
 NET_EXPORT BASE_DECLARE_FEATURE(kAlpsParsing);
 
@@ -440,6 +448,24 @@ NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
 NET_EXPORT extern const base::FeatureParam<bool>
     kIpPrivacyRestrictTopLevelSiteSchemes;
 
+// If true, IP protection will attempt to use QUIC to connect to proxies,
+// falling back to HTTPS.  If false, it will only use HTTPs.
+NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseQuicProxies;
+
+// If true, IP protection will only use QUIC to connect to proxies, with no
+// fallback to HTTPS. This is intended for development of the QUIC
+// functionality.
+NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseQuicProxiesOnly;
+
+// Truncate IP protection proxy chains to a single proxy. This is intended for
+// development of the QUIC functionality.
+NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseSingleProxy;
+
+// Send all traffic to this host via IP Protection proxies, regardless of MDL,
+// 1P/3P, or token availability. This is intended for development of the QUIC
+// functionality.
+NET_EXPORT extern const base::FeatureParam<std::string> kIpPrivacyAlwaysProxy;
+
 // Whether QuicParams::migrate_sessions_on_network_change_v2 defaults to true or
 // false. This is needed as a workaround to set this value to true on Android
 // but not on WebView (until crbug.com/1430082 has been fixed).
@@ -496,8 +522,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kSpdyHeadersToHttpResponseUseBuilder);
 // Enables receiving ECN bit by sockets in Chrome.
 NET_EXPORT BASE_DECLARE_FEATURE(kReceiveEcn);
 
-NET_EXPORT BASE_DECLARE_FEATURE(kNewCertPathBuilderIterationLimit);
-
 // Enables using the new ALPS codepoint to negotiate application settings for
 // HTTP2.
 NET_EXPORT BASE_DECLARE_FEATURE(kUseNewAlpsCodepointHttp2);
@@ -520,6 +544,10 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTruncateBodyToContentLength);
 // TCP and QUIC connection resets.
 NET_EXPORT BASE_DECLARE_FEATURE(kReduceIPAddressChangeNotification);
 #endif  // BUILDFLAG(IS_MAC)
+
+// This feature will enable the Device Bound Session Credentials protocol to let
+// the server assert sessions (and cookies) are bound to a specific device.
+NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessions);
 
 }  // namespace net::features
 

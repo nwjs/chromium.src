@@ -248,13 +248,13 @@ suite('internet-detail-dialog', () => {
       });
     });
 
-    test('WiFi in a proxy-auth portalState', function() {
+    test('WiFi in a portal suspected portalState', function() {
       mojoApi.setNetworkTypeEnabledState(NetworkType.kWiFi, true);
       const wifiNetwork = getManagedProperties(NetworkType.kWiFi, 'wifi_user');
       wifiNetwork.source = OncSource.kUser;
       wifiNetwork.connectable = true;
       wifiNetwork.connectionState = ConnectionStateType.kPortal;
-      wifiNetwork.portalState = PortalState.kProxyAuthRequired;
+      wifiNetwork.portalState = PortalState.kPortalSuspected;
 
       mojoApi.setManagedPropertiesForTest(wifiNetwork);
       init();
@@ -567,27 +567,6 @@ suite('internet-detail-dialog', () => {
                 .shadowRoot!.querySelector('apn-selection-dialog');
         assertTrue(!!apnSelectionDialog);
       });
-
-  [false, true].forEach(isJellyEnabled => {
-    test('Dynamic theme CSS is added when isJellyEnabled is set', async () => {
-      loadTimeData.overrideValues({
-        isJellyEnabled: isJellyEnabled,
-      });
-      await setupCellularNetwork(
-          /*isPrimary=*/ true, /*isInhibited=*/ false);
-      await init();
-
-      const linkEl =
-          document.querySelector('link[href*=\'chrome://theme/colors.css\']');
-      if (isJellyEnabled) {
-        assertTrue(!!linkEl);
-        assertTrue(document.body.classList.contains('jelly-enabled'));
-      } else {
-        assertEquals(null, linkEl);
-        assertFalse(document.body.classList.contains('jelly-enabled'));
-      }
-    });
-  });
 
   test('Show toast on show-error-toast event', async function() {
     loadTimeData.overrideValues({

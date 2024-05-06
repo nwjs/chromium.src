@@ -737,7 +737,9 @@ void AppShimManager::OnShimLaunchRequested(
   // TODO(mek): Rather than this workaround, we should make sure to destroy
   // AppShimHost and terminate app shims when an app is uninstalled.
   if (web_app::RecreateShimsRequested(update_behavior) &&
-      !delegate_->AppIsInstalled(profile, host->GetAppId())) {
+      (!delegate_->AppIsInstalled(profile, host->GetAppId()) ||
+       !AppShimRegistry::Get()->IsAppInstalledInProfile(host->GetAppId(),
+                                                        profile->GetPath()))) {
     LOG(ERROR)
         << "Attempting to launch shim for an app that is no longer installed.";
     std::move(terminated_callback).Run();
@@ -1147,6 +1149,9 @@ void AppShimManager::LoadAndLaunchApp_LaunchIfAppropriate(
   bool do_launch = params.HasFilesOrURLs();
 
   // Otherwise, only launch if there are no open windows.
+  // TODO(https://crbug.com/331931430): This code should ignore browsers that
+  // are closing (where IsBrowserClosing() returns true), but doing so is
+  // tricky.
   if (!do_launch) {
     bool had_windows = delegate_->ShowAppWindows(profile, params.app_id);
     if (!had_windows && profile_state && !profile_state->browsers.empty()) {
@@ -1469,8 +1474,13 @@ void AppShimManager::OnShimOpenedFiles(
 
 void AppShimManager::OnShimSelectedProfile(AppShimHost* host,
                                            const base::FilePath& profile_path) {
+  LaunchAppInProfile(host->GetAppId(), profile_path);
+}
+
+void AppShimManager::LaunchAppInProfile(const webapps::AppId& app_id,
+                                        const base::FilePath& profile_path) {
   LoadAndLaunchAppParams params;
-  params.app_id = host->GetAppId();
+  params.app_id = app_id;
   LoadAndLaunchApp(profile_path, params, base::DoNothing());
 }
 

@@ -16,13 +16,27 @@
 // A common place for PlusAddress types to be defined.
 namespace plus_addresses {
 
+namespace internal {
+// TODO(b/322147254): With three std::string members, the Chromium style checker
+// considers `PlusProfile` a complex struct, requiring a user-defined
+// constructor. Using a template avoids triggering this check.
+// Add a constructor and rewrite all aggregate initialisations.
+template <typename = void>
 struct PlusProfile {
-  int64_t profile_id;
+  std::string profile_id;
   std::string facet;
   std::string plus_address;
   bool is_confirmed;
 
   friend bool operator==(const PlusProfile&, const PlusProfile&) = default;
+};
+}  // namespace internal
+using PlusProfile = internal::PlusProfile<>;
+
+struct PlusProfileFacetComparator {
+  bool operator()(const PlusProfile& a, const PlusProfile& b) const {
+    return a.facet < b.facet;
+  }
 };
 
 enum class PlusAddressRequestErrorType {
@@ -74,12 +88,8 @@ class PlusAddressRequestError {
 using autofill::PlusAddressCallback;
 
 using PlusAddressMap = std::map<std::string, std::string>;
-using PlusAddressMapCallback = base::OnceCallback<void(const PlusAddressMap&)>;
 
 // Holds either a PlusProfile or an error that prevented us from getting it.
-using PlusProfileOrError = base::expected<PlusProfile, PlusAddressRequestError>;
-using PlusAddressRequestCallback =
-    base::OnceCallback<void(const PlusProfileOrError&)>;
 using PlusProfileOrError = base::expected<PlusProfile, PlusAddressRequestError>;
 using PlusAddressRequestCallback =
     base::OnceCallback<void(const PlusProfileOrError&)>;

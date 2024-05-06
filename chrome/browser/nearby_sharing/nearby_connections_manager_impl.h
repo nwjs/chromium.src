@@ -5,8 +5,6 @@
 #ifndef CHROME_BROWSER_NEARBY_SHARING_NEARBY_CONNECTIONS_MANAGER_IMPL_H_
 #define CHROME_BROWSER_NEARBY_SHARING_NEARBY_CONNECTIONS_MANAGER_IMPL_H_
 
-#include "chrome/browser/nearby_sharing/public/cpp/nearby_connections_manager.h"
-
 #include <memory>
 
 #include "base/containers/flat_map.h"
@@ -15,8 +13,9 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/nearby_sharing/nearby_connection_impl.h"
-#include "chrome/browser/nearby_sharing/nearby_file_handler.h"
+#include "chromeos/ash/components/nearby/common/connections_manager/nearby_connection_impl.h"
+#include "chromeos/ash/components/nearby/common/connections_manager/nearby_connections_manager.h"
+#include "chromeos/ash/components/nearby/common/connections_manager/nearby_file_handler.h"
 #include "chromeos/ash/components/nearby/presence/nearby_presence_service.h"
 #include "chromeos/ash/services/nearby/public/cpp/nearby_process_manager.h"
 #include "chromeos/ash/services/nearby/public/mojom/nearby_connections.mojom.h"
@@ -45,7 +44,7 @@ class NearbyConnectionsManagerImpl
   void Shutdown() override;
   void StartAdvertising(std::vector<uint8_t> endpoint_info,
                         IncomingConnectionListener* listener,
-                        PowerLevel power_level,
+                        NearbyConnectionsManager::PowerLevel power_level,
                         DataUsage data_usage,
                         ConnectionsCallback callback) override;
   void StopAdvertising(ConnectionsCallback callback) override;
@@ -71,6 +70,7 @@ class NearbyConnectionsManagerImpl
   Payload* GetIncomingPayload(int64_t payload_id) override;
   void Cancel(int64_t payload_id) override;
   void ClearIncomingPayloads() override;
+  void ClearIncomingPayloadWithId(int64_t payload_id) override;
   std::optional<std::string> GetAuthenticationToken(
       const std::string& endpoint_id) override;
   std::optional<std::vector<uint8_t>> GetRawAuthenticationToken(

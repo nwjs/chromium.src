@@ -216,6 +216,9 @@ base::span<const PageInfoUI::PermissionUIInfo> GetContentSettingsUIInfo() {
       {ContentSettingsType::AUTO_PICTURE_IN_PICTURE,
        IDS_SITE_SETTINGS_TYPE_AUTO_PICTURE_IN_PICTURE,
        IDS_SITE_SETTINGS_TYPE_AUTO_PICTURE_IN_PICTURE_MID_SENTENCE},
+      {ContentSettingsType::CAPTURED_SURFACE_CONTROL,
+       IDS_SITE_SETTINGS_TYPE_CAPTURED_SURFACE_CONTROL,
+       IDS_SITE_SETTINGS_TYPE_CAPTURED_SURFACE_CONTROL_MID_SENTENCE},
       {ContentSettingsType::FILE_SYSTEM_WRITE_GUARD,
        IDS_SITE_SETTINGS_TYPE_FILE_SYSTEM_ACCESS_WRITE,
        IDS_SITE_SETTINGS_TYPE_FILE_SYSTEM_ACCESS_WRITE_MID_SENTENCE},
@@ -337,6 +340,9 @@ std::u16string GetPermissionAskStateString(ContentSettingsType type) {
     case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
       message_id = IDS_PAGE_INFO_STATE_TEXT_CAMERA_PAN_TILT_ZOOM_ASK;
       break;
+    case ContentSettingsType::CAPTURED_SURFACE_CONTROL:
+      message_id = IDS_PAGE_INFO_STATE_TEXT_CAPTURED_SURFACE_CONTROL_ASK;
+      break;
     case ContentSettingsType::MEDIASTREAM_MIC:
       message_id = IDS_PAGE_INFO_STATE_TEXT_MIC_ASK;
       break;
@@ -441,34 +447,21 @@ PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {
     case PageInfo::SAFE_BROWSING_STATUS_NONE:
       break;
     case PageInfo::SAFE_BROWSING_STATUS_MALWARE:
-      return CreateSecurityDescription(
-          SecuritySummaryColor::RED,
-          base::FeatureList::IsEnabled(safe_browsing::kRedInterstitialFacelift)
-              ? IDS_PAGE_INFO_MALWARE_SUMMARY_NEW
-              : IDS_PAGE_INFO_MALWARE_SUMMARY,
-          base::FeatureList::IsEnabled(safe_browsing::kRedInterstitialFacelift)
-              ? IDS_PAGE_INFO_MALWARE_DETAILS_NEW
-              : IDS_PAGE_INFO_MALWARE_DETAILS,
-          SecurityDescriptionType::SAFE_BROWSING);
+      return CreateSecurityDescription(SecuritySummaryColor::RED,
+                                       IDS_PAGE_INFO_MALWARE_SUMMARY_NEW,
+                                       IDS_PAGE_INFO_MALWARE_DETAILS_NEW,
+                                       SecurityDescriptionType::SAFE_BROWSING);
     case PageInfo::SAFE_BROWSING_STATUS_SOCIAL_ENGINEERING:
       return CreateSecurityDescription(
           SecuritySummaryColor::RED,
-          base::FeatureList::IsEnabled(safe_browsing::kRedInterstitialFacelift)
-              ? IDS_PAGE_INFO_SOCIAL_ENGINEERING_SUMMARY_NEW
-              : IDS_PAGE_INFO_SOCIAL_ENGINEERING_SUMMARY,
-          base::FeatureList::IsEnabled(safe_browsing::kRedInterstitialFacelift)
-              ? IDS_PAGE_INFO_SOCIAL_ENGINEERING_DETAILS_NEW
-              : IDS_PAGE_INFO_SOCIAL_ENGINEERING_DETAILS,
+          IDS_PAGE_INFO_SOCIAL_ENGINEERING_SUMMARY_NEW,
+          IDS_PAGE_INFO_SOCIAL_ENGINEERING_DETAILS_NEW,
           SecurityDescriptionType::SAFE_BROWSING);
     case PageInfo::SAFE_BROWSING_STATUS_UNWANTED_SOFTWARE:
       return CreateSecurityDescription(
           SecuritySummaryColor::RED,
-          base::FeatureList::IsEnabled(safe_browsing::kRedInterstitialFacelift)
-              ? IDS_PAGE_INFO_UNWANTED_SOFTWARE_SUMMARY_NEW
-              : IDS_PAGE_INFO_UNWANTED_SOFTWARE_SUMMARY,
-          base::FeatureList::IsEnabled(safe_browsing::kRedInterstitialFacelift)
-              ? IDS_PAGE_INFO_UNWANTED_SOFTWARE_DETAILS_NEW
-              : IDS_PAGE_INFO_UNWANTED_SOFTWARE_DETAILS,
+          IDS_PAGE_INFO_UNWANTED_SOFTWARE_SUMMARY_NEW,
+          IDS_PAGE_INFO_UNWANTED_SOFTWARE_DETAILS_NEW,
           SecurityDescriptionType::SAFE_BROWSING);
     case PageInfo::SAFE_BROWSING_STATUS_SAVED_PASSWORD_REUSE: {
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -501,14 +494,14 @@ PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {
                                        IDS_PAGE_INFO_BILLING_DETAILS,
                                        SecurityDescriptionType::SAFE_BROWSING);
     case PageInfo::SAFE_BROWSING_STATUS_MANAGED_POLICY_WARN:
-      return CreateSecurityDescription(SecuritySummaryColor::RED,
+      return CreateSecurityDescription(SecuritySummaryColor::ENTERPRISE,
                                        IDS_PAGE_INFO_ENTERPRISE_WARN_SUMMARY,
                                        IDS_PAGE_INFO_ENTERPRISE_WARN_DETAILS,
                                        SecurityDescriptionType::SAFE_BROWSING);
     case PageInfo::SAFE_BROWSING_STATUS_MANAGED_POLICY_BLOCK:
-      return CreateSecurityDescription(SecuritySummaryColor::RED,
-                                       IDS_PAGE_INFO_ENTERPRISE_WARN_SUMMARY,
-                                       IDS_PAGE_INFO_ENTERPRISE_WARN_DETAILS,
+      return CreateSecurityDescription(SecuritySummaryColor::ENTERPRISE,
+                                       IDS_PAGE_INFO_ENTERPRISE_BLOCK_SUMMARY,
+                                       IDS_PAGE_INFO_ENTERPRISE_BLOCK_DETAILS,
                                        SecurityDescriptionType::SAFE_BROWSING);
   }
 
@@ -824,7 +817,7 @@ std::u16string PageInfoUI::PermissionManagedTooltipToUIString(
       message_id = IDS_PAGE_INFO_PERMISSION_MANAGED_BY_POLICY;
       break;
     case content_settings::SettingSource::SETTING_SOURCE_EXTENSION:
-      // TODO(crbug.com/1225563): Consider "enforced" instead of "managed".
+      // TODO(crbug.com/40775890): Consider "enforced" instead of "managed".
       message_id = IDS_PAGE_INFO_PERMISSION_MANAGED_BY_EXTENSION;
       break;
     default:
@@ -841,7 +834,7 @@ std::u16string PageInfoUI::PermissionAutoBlockedToUIString(
     PageInfoUiDelegate* delegate,
     const PageInfo::PermissionInfo& permission) {
   int message_id = kInvalidResourceID;
-  // TODO(crbug.com/1063023): PageInfo::PermissionInfo should be modified
+  // TODO(crbug.com/40123120): PageInfo::PermissionInfo should be modified
   // to contain all needed information regarding Automatically Blocked flag.
   if (permission.setting == CONTENT_SETTING_BLOCK &&
       permissions::PermissionDecisionAutoBlocker::IsEnabledForContentSetting(

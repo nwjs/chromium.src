@@ -98,10 +98,6 @@ constexpr base::FeatureParam<int>
         &kNonModalDefaultBrowserPromoCooldownRefactor,
         /*name=*/"cooldown-days", /*default_value=*/14};
 
-BASE_FEATURE(kDefaultBrowserVideoPromo,
-             "DefaultBrowserVideoPromo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 const char kIOSEditMenuPartialTranslateNoIncognitoParam[] =
     "IOSEditMenuPartialTranslateNoIncognitoParam";
 
@@ -225,14 +221,6 @@ BASE_FEATURE(kSpotlightReadingListSource,
 BASE_FEATURE(kSpotlightDonateNewIntents,
              "SpotlightDonateNewIntents",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kConsistencyNewAccountInterface,
-             "ConsistencyNewAccountInterface",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsConsistencyNewAccountInterfaceEnabled() {
-  return base::FeatureList::IsEnabled(kConsistencyNewAccountInterface);
-}
 
 BASE_FEATURE(kNewNTPOmniboxLayout,
              "kNewNTPOmniboxLayout",
@@ -402,7 +390,14 @@ BASE_FEATURE(kTabGroupsInGrid,
              "TabGroupsInGrid",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTabGroupsIPad,
+             "TabGroupsIPad",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsTabGroupInGridEnabled() {
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    return base::FeatureList::IsEnabled(kTabGroupsIPad);
+  }
   return base::FeatureList::IsEnabled(kTabGroupsInGrid);
 }
 
@@ -689,9 +684,9 @@ bool IsFeedContainmentEnabled() {
   return base::FeatureList::IsEnabled(kEnableFeedContainment);
 }
 
-int HomeModuleMinimumPadding() {
-  return base::GetFieldTrialParamByFeatureAsInt(kEnableFeedContainment,
-                                                kHomeModuleMinimumPadding, 30);
+CGFloat HomeModuleMinimumPadding() {
+  return base::GetFieldTrialParamByFeatureAsDouble(
+      kEnableFeedContainment, kHomeModuleMinimumPadding, 8.0);
 }
 
 bool IsTabResumptionEnabled() {
@@ -766,3 +761,15 @@ bool IsIOSMagicStackCollectionViewEnabled() {
 BASE_FEATURE(kDisableFullscreenScrolling,
              "DisableFullscreenScrolling",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPinnedTabsEnabled() {
+  return ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
+}
+
+BASE_FEATURE(kPrefetchSystemCapabilitiesOnFirstRun,
+             "PrefetchSystemCapabilitiesOnFirstRun",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPrefetchingSystemCapabilitiesOnFirstRun() {
+  return base::FeatureList::IsEnabled(kPrefetchSystemCapabilitiesOnFirstRun);
+}

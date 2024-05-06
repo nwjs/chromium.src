@@ -75,9 +75,9 @@
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
+#include <initguid.h>
 #include <windows.h>
 
-#include <initguid.h>
 #include "base/logging_win.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/win_util.h"
@@ -176,9 +176,7 @@ void InitLogging(const base::CommandLine& command_line) {
 #endif  // BUILDFLAG(IS_WIN)
 
   if (dest == LoggingDest::kFile) {
-    settings.log_file_path = log_filename.value().c_str();
-  } else {
-    settings.log_file_path = nullptr;
+    settings.log_file_path = log_filename.value();
   }
 
   if (dest == LoggingDest::kStderr) {

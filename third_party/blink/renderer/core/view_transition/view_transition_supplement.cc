@@ -122,10 +122,10 @@ DOMViewTransition* ViewTransitionSupplement::startViewTransition(
     Document& document,
     ViewTransitionOptions* options,
     ExceptionState& exception_state) {
-  CHECK(!options || (options->hasUpdate() && options->hasType()));
+  CHECK(!options || (options->hasUpdate() && options->hasTypes()));
   return StartViewTransitionInternal(
       script_state, document, options ? options->update() : nullptr,
-      options ? options->type() : std::nullopt, exception_state);
+      options ? options->types() : std::nullopt, exception_state);
 }
 
 DOMViewTransition* ViewTransitionSupplement::startViewTransition(
@@ -162,13 +162,17 @@ DOMViewTransition* ViewTransitionSupplement::StartTransition(
     return nullptr;
   }
 
-  if (document.hidden()) {
-    return ViewTransition::CreateSkipped(&document, callback)
-        ->GetScriptDelegate();
-  }
-
   transition_ =
       ViewTransition::CreateFromScript(&document, callback, types, this);
+
+  if (document.hidden()) {
+    auto skipped_transition = transition_;
+    skipped_transition->SkipTransition(
+        ViewTransition::PromiseResponse::kRejectInvalidState);
+
+    DCHECK(!transition_);
+    return skipped_transition->GetScriptDelegate();
+  }
 
   // If there is a transition in a parent frame, give that precedence over a
   // transition in a child frame.
@@ -190,7 +194,8 @@ DOMViewTransition* ViewTransitionSupplement::StartTransition(
 
 void ViewTransitionSupplement::DidChangeVisibilityState() {
   if (GetSupplementable()->hidden() && transition_) {
-    transition_->SkipTransition();
+    transition_->SkipTransition(
+        ViewTransition::PromiseResponse::kRejectInvalidState);
   }
   SendOptInStatusToHost();
 }
@@ -243,7 +248,8 @@ void ViewTransitionSupplement::StartTransition(
   DCHECK(!transition_)
       << "SkipTransition() should finish existing |transition_|";
   transition_ = ViewTransition::CreateForSnapshotForNavigation(
-      &document, navigation_id, std::move(callback), this);
+      &document, navigation_id, std::move(callback), cross_document_types_,
+      this);
 
   auto* page_swap_event = MakeGarbageCollected<PageSwapEvent>(
       document, std::move(params), transition_->GetScriptDelegate());
@@ -321,26 +327,16 @@ ViewTransitionSupplement::TakePendingRequests() {
   return std::move(pending_requests_);
 }
 
-void ViewTransitionSupplement::OnMetaTagChanged(
-    const AtomicString& content_value) {
-  auto cross_document_opt_in =
-      EqualIgnoringASCIICase(content_value, "same-origin")
-          ? mojom::blink::ViewTransitionSameOriginOptIn::kEnabled
-          : mojom::blink::ViewTransitionSameOriginOptIn::kDisabled;
-
-  SetCrossDocumentOptIn(cross_document_opt_in);
-}
-
 void ViewTransitionSupplement::OnViewTransitionsStyleUpdated(
-    bool cross_document_enabled) {
+    bool cross_document_enabled,
+    const Vector<String>& types) {
   CHECK(RuntimeEnabledFeatures::ViewTransitionOnNavigationEnabled());
-  // TODO(https://crbug.com/1463966): Remove meta tag opt-in - ignore the case
-  // where both are specified for now.
-
+  CHECK(RuntimeEnabledFeatures::ViewTransitionTypesEnabled() || types.empty());
   SetCrossDocumentOptIn(
       cross_document_enabled
           ? mojom::blink::ViewTransitionSameOriginOptIn::kEnabled
           : mojom::blink::ViewTransitionSameOriginOptIn::kDisabled);
+  cross_document_types_ = types;
 }
 
 void ViewTransitionSupplement::WillInsertBody() {
@@ -381,6 +377,8 @@ ViewTransitionSupplement::ResolveCrossDocumentViewTransition() {
     CHECK(!ViewTransitionUtils::GetTransition(*GetSupplementable()));
     return nullptr;
   }
+
+  transition_->InitTypes(cross_document_types_);
 
   // TODO(https://crbug.com/1502628): This is where types from the used
   // @view-transition should be applied.

@@ -114,6 +114,10 @@ class ASH_EXPORT FeatureTile : public views::Button {
   // Sets the `callback` for clicks on `icon_button_`.
   void SetIconClickCallback(base::RepeatingCallback<void()> callback);
 
+  // Sets the `on_title_container_bounds_changed_` callback.
+  void SetOnTitleBoundsChangedCallback(
+      base::RepeatingCallback<void()> callback);
+
   // Creates a decorative `drill_in_arrow_` on the right side of the tile. This
   // indicates to the user that the tile shows a detailed view when pressed.
   void CreateDecorativeDrillInArrow();
@@ -141,6 +145,12 @@ class ASH_EXPORT FeatureTile : public views::Button {
   void SetForegroundColorId(ui::ColorId foreground_color_id);
   void SetForegroundToggledColorId(ui::ColorId foreground_toggled_color_id);
   void SetForegroundDisabledColorId(ui::ColorId foreground_disabled_color_id);
+  void SetForegroundOptionalColorId(ui::ColorId foreground_optional_color_id);
+  void SetForegroundOptionalToggledColorId(
+      ui::ColorId foreground_optional_toggled_color_id);
+
+  // Sets a custom color for the tile's ink drop, when its toggled.
+  void SetInkDropToggledBaseColorId(ui::ColorId ink_drop_toggled_base_color_id);
 
   // Sets the tile icon from an ImageSkia.
   void SetImage(gfx::ImageSkia image);
@@ -176,6 +186,9 @@ class ASH_EXPORT FeatureTile : public views::Button {
   void AddLayerToRegion(ui::Layer* layer, views::LayerRegion region) override;
   void RemoveLayerFromRegions(ui::Layer* layer) override;
 
+  // views::ViewObserver:
+  void OnViewBoundsChanged(views::View* observed_view) override;
+
   base::WeakPtr<FeatureTile> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
@@ -183,6 +196,7 @@ class ASH_EXPORT FeatureTile : public views::Button {
   TileType tile_type() { return type_; }
   bool is_icon_clickable() const { return is_icon_clickable_; }
   views::ImageButton* icon_button() { return icon_button_; }
+  views::FlexLayoutView* title_container() const { return title_container_; }
   views::Label* label() { return label_; }
   views::Label* sub_label() { return sub_label_; }
   views::ImageView* drill_in_arrow() { return drill_in_arrow_; }
@@ -260,7 +274,12 @@ class ASH_EXPORT FeatureTile : public views::Button {
   std::optional<ui::ColorId> background_disabled_color_;
   std::optional<ui::ColorId> foreground_color_;
   std::optional<ui::ColorId> foreground_toggled_color_;
+  std::optional<ui::ColorId> foreground_optional_color_;
+  std::optional<ui::ColorId> foreground_optional_toggled_color_;
   std::optional<ui::ColorId> foreground_disabled_color_;
+
+  // Customized value for the tile's ink drop color.
+  std::optional<ui::ColorId> ink_drop_toggled_base_color_;
 
   // Owned by views hierarchy.
   raw_ptr<views::ImageButton> icon_button_ = nullptr;
@@ -302,6 +321,9 @@ class ASH_EXPORT FeatureTile : public views::Button {
   // The download progress, as an integer percentage in the range [0, 100]. Only
   // has meaning when the tile is in an active download state.
   int download_progress_percent_ = 0;
+
+  // Runs when `title_container_`'s bounds is changed.
+  base::RepeatingClosure on_title_container_bounds_changed_;
 
   base::WeakPtrFactory<FeatureTile> weak_ptr_factory_{this};
 };

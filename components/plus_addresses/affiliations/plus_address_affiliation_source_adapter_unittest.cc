@@ -34,9 +34,8 @@ class PlusAddressAffiliationSourceAdapterTest : public testing::Test {
             /*pref_service=*/nullptr,
             std::make_unique<testing::NiceMock<MockPlusAddressHttpClient>>(),
             /*webdata_service=*/nullptr),
-        adapter_(std::make_unique<PlusAddressAffiliationSourceAdapter>(
-            &service_,
-            &mock_source_observer_)) {}
+        adapter_(
+            std::make_unique<PlusAddressAffiliationSourceAdapter>(&service_)) {}
 
   testing::AssertionResult ExpectAdapterToReturnFacets(
       const std::vector<FacetURI>& expected_facets) {
@@ -76,10 +75,10 @@ TEST_F(PlusAddressAffiliationSourceAdapterTest, TestGetFacetsEmpty) {
 
 // Verifies that facets for plus addresses are available via GetFacets.
 TEST_F(PlusAddressAffiliationSourceAdapterTest, TestGetFacets) {
-  service().SavePlusAddress(url::Origin::Create(GURL("https://foo.com")),
-                            "plus+foo@plus.plus");
-  service().SavePlusAddress(url::Origin::Create(GURL("https://bar.com")),
-                            "plus+bar@plus.plus");
+  service().SavePlusProfile(url::Origin::Create(GURL("https://foo.com")),
+                            {.plus_address = "plus+foo@plus.plus"});
+  service().SavePlusProfile(url::Origin::Create(GURL("https://bar.com")),
+                            {.plus_address = "plus+bar@plus.plus"});
 
   EXPECT_TRUE(ExpectAdapterToReturnFacets(
       {FacetURI::FromCanonicalSpec("https://foo.com"),

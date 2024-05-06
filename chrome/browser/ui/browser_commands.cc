@@ -30,6 +30,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate.h"
 #include "chrome/browser/chained_back_navigation_tracker.h"
+#include "chrome/browser/commerce/browser_utils.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/dom_distiller/tab_utils.h"
@@ -115,6 +116,7 @@
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
+#include "components/commerce/core/commerce_utils.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
@@ -413,8 +415,7 @@ void RecordReloadWithCookieBlocking(const Browser* browser,
       content_settings::PageSpecificContentSettings::GetForFrame(
           web_contents->GetPrimaryMainFrame());
   bool cookies_blocked =
-      pscs && (pscs->blocked_local_shared_objects().GetObjectCount() > 0 ||
-               pscs->blocked_browsing_data_model()->size() > 0U);
+      pscs && pscs->blocked_browsing_data_model()->size() > 0U;
 
   ukm::SourceId source_id =
       web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId();
@@ -815,7 +816,7 @@ void Home(Browser* browser, WindowOpenDisposition disposition) {
                                 ui::PAGE_TRANSITION_HOME_PAGE),
       false);
   params.extra_headers = extra_headers;
-  browser->OpenURL(params);
+  browser->OpenURL(params, /*navigation_handle_callback=*/{});
 }
 
 base::WeakPtr<content::NavigationHandle> OpenCurrentURL(Browser* browser) {
@@ -1129,9 +1130,10 @@ void MoveTabsToNewWindow(Browser* browser,
     // Adjust tab index to account for tabs already moved.
     int adjusted_index = tab_indices[i] - i;
     bool pinned = browser->tab_strip_model()->IsTabPinned(adjusted_index);
-    std::unique_ptr<WebContents> contents_move =
-        browser->tab_strip_model()->DetachWebContentsAtForInsertion(
-            adjusted_index);
+    std::unique_ptr<tabs::TabModel> tab_model =
+        browser->tab_strip_model()->DetachTabAtForInsertion(adjusted_index);
+    std::unique_ptr<content::WebContents> contents_move =
+        tabs::TabModel::DestroyAndTakeWebContents(std::move(tab_model));
 
     int add_types = pinned ? AddTabTypes::ADD_PINNED : 0;
     // The last tab made active takes precedence, so activate the last active
@@ -1210,9 +1212,10 @@ void MoveTabsToExistingWindow(Browser* source,
     // Adjust tab index to account for tabs already moved.
     int adjusted_index = tab_indices[i] - i;
     bool pinned = source->tab_strip_model()->IsTabPinned(adjusted_index);
-    std::unique_ptr<WebContents> contents_move =
-        source->tab_strip_model()->DetachWebContentsAtForInsertion(
-            adjusted_index);
+    std::unique_ptr<tabs::TabModel> tab_model =
+        source->tab_strip_model()->DetachTabAtForInsertion(adjusted_index);
+    std::unique_ptr<content::WebContents> contents_move =
+        tabs::TabModel::DestroyAndTakeWebContents(std::move(tab_model));
     int add_types =
         AddTabTypes::ADD_ACTIVE | (pinned ? AddTabTypes::ADD_PINNED : 0);
     target->tab_strip_model()->AddWebContents(
@@ -1231,6 +1234,13 @@ void GroupTab(Browser* browser) {
   browser->tab_strip_model()->ExecuteContextMenuCommand(
       browser->tab_strip_model()->active_index(),
       TabStripModel::ContextMenuCommand::CommandToggleGrouped);
+}
+
+void CreateNewTabGroup(Browser* browser) {
+  NewTab(browser);
+  browser->tab_strip_model()->ExecuteContextMenuCommand(
+      browser->tab_strip_model()->active_index(),
+      TabStripModel::ContextMenuCommand::CommandAddToNewGroup);
 }
 
 void MuteSite(Browser* browser) {
@@ -1279,10 +1289,18 @@ bool HasKeyboardFocusedTab(const Browser* browser) {
 void ConvertPopupToTabbedBrowser(Browser* browser) {
   base::RecordAction(UserMetricsAction("ShowAsTab"));
   TabStripModel* tab_strip = browser->tab_strip_model();
-  std::unique_ptr<content::WebContents> contents =
-      tab_strip->DetachWebContentsAtForInsertion(tab_strip->active_index());
+  std::unique_ptr<tabs::TabModel> tab_model =
+      tab_strip->DetachTabAtForInsertion(tab_strip->active_index());
+  std::unique_ptr<content::WebContents> contents_move =
+      tabs::TabModel::DestroyAndTakeWebContents(std::move(tab_model));
   Browser* b = Browser::Create(Browser::CreateParams(browser->profile(), true));
-  b->tab_strip_model()->AppendWebContents(std::move(contents), true);
+
+  // This method moves a WebContents from a non-normal browser window to a
+  // normal browser window. We cannot move the Tab over directly since TabModel
+  // enforces the requirement that it cannot move between window types.
+  // https://crbug.com/334281979): Non-normal browser windows should not have a
+  // tab to begin with.
+  b->tab_strip_model()->AppendWebContents(std::move(contents_move), true);
   b->window()->Show();
 }
 
@@ -1594,7 +1612,7 @@ bool CanSendTabToSelf(const Browser* browser) {
       browser->tab_strip_model()->GetActiveWebContents());
 }
 
-void SendTabToSelfFromPageAction(Browser* browser) {
+void SendTabToSelf(Browser* browser) {
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   send_tab_to_self::ShowBubble(web_contents);
@@ -1610,7 +1628,7 @@ bool CanGenerateQrCode(const Browser* browser) {
                                       ->GetURL());
 }
 
-void GenerateQRCodeFromPageAction(Browser* browser) {
+void GenerateQRCode(Browser* browser) {
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   qrcode_generator::QRCodeGeneratorBubbleController* controller =
@@ -1620,7 +1638,7 @@ void GenerateQRCodeFromPageAction(Browser* browser) {
   controller->ShowBubble(entry->GetURL());
 }
 
-void SharingHubFromPageAction(Browser* browser) {
+void SharingHub(Browser* browser) {
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   sharing_hub::SharingHubBubbleController* controller =
@@ -1629,7 +1647,7 @@ void SharingHubFromPageAction(Browser* browser) {
   controller->ShowBubble(share::ShareAttempt(web_contents));
 }
 
-void ScreenshotCaptureFromPageAction(Browser* browser) {
+void ScreenshotCapture(Browser* browser) {
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   sharing_hub::ScreenshotCapturedBubbleController* controller =
@@ -2047,10 +2065,17 @@ Browser* OpenInChrome(Browser* hosted_app_browser) {
         gfx::Rect());
   }
 
-  target_browser->tab_strip_model()->AppendWebContents(
-      source_tabstrip->DetachWebContentsAtForInsertion(
-          source_tabstrip->active_index()),
-      true);
+  std::unique_ptr<tabs::TabModel> tab_model =
+      source_tabstrip->DetachTabAtForInsertion(source_tabstrip->active_index());
+  std::unique_ptr<content::WebContents> contents_move =
+      tabs::TabModel::DestroyAndTakeWebContents(std::move(tab_model));
+  // This method moves a WebContents from a non-normal browser window to a
+  // normal browser window. We cannot move the Tab over directly since TabModel
+  // enforces the requirement that it cannot move between window types.
+  // https://crbug.com/334281979): Non-normal browser windows should not have a
+  // tab to begin with.
+  target_browser->tab_strip_model()->AppendWebContents(std::move(contents_move),
+                                                       true);
   auto* web_contents =
       target_browser->tab_strip_model()->GetActiveWebContents();
   CHECK(web_contents);
@@ -2231,6 +2256,18 @@ void ExecLensRegionSearch(Browser* browser) {
                          std::move(lens_region_search_controller_data));
   }
 #endif  // BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
+}
+
+void OpenCommerceProductSpecificationsTab(Browser* browser,
+                                          const std::vector<GURL>& urls,
+                                          const int position) {
+  if (static_cast<int>(urls.size()) <
+      commerce::kProductSpecificationsMinTabsCount) {
+    return;
+  }
+
+  chrome::AddTabAt(browser, commerce::GetProductSpecsTabUrl(urls), position + 1,
+                   true, std::nullopt);
 }
 
 }  // namespace chrome

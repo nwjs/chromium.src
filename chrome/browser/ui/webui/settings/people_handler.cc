@@ -26,6 +26,8 @@
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
+#include "chrome/browser/signin/chrome_signin_pref_names.h"
+#include "chrome/browser/signin/dice_web_signin_interceptor.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_error_controller_factory.h"
 #include "chrome/browser/signin/signin_promo.h"
@@ -53,6 +55,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/signin/public/identity_manager/identity_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/passphrase_enums.h"
@@ -226,7 +229,7 @@ const char PeopleHandler::kConfigurePageStatus[] = "configure";
 const char PeopleHandler::kDonePageStatus[] = "done";
 const char PeopleHandler::kPassphraseFailedPageStatus[] = "passphraseFailed";
 
-// TODO(crbug/1420597): Delete parts needed only by PasswordManager once
+// TODO(crbug.com/40258836): Delete parts needed only by PasswordManager once
 // kPasswordManagerRedesign is launched.
 PeopleHandler::PeopleHandler(Profile* profile)
     : profile_(profile), configuring_sync_(false) {}
@@ -321,6 +324,16 @@ void PeopleHandler::RegisterMessages() {
       "SyncStartKeyRetrieval",
       base::BindRepeating(&PeopleHandler::HandleStartKeyRetrieval,
                           base::Unretained(this)));
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  web_ui()->RegisterMessageCallback(
+      "GetChromeSigninUserChoiceInfo",
+      base::BindRepeating(&PeopleHandler::HandleGetChromeSigninUserChoiceInfo,
+                          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "SetChromeSigninUserChoice",
+      base::BindRepeating(&PeopleHandler::HandleSetChromeSigninUserChoice,
+                          base::Unretained(this)));
+#endif
 }
 
 void PeopleHandler::OnJavascriptAllowed() {
@@ -331,6 +344,12 @@ void PeopleHandler::OnJavascriptAllowed() {
       prefs::kSigninAllowed,
       base::BindRepeating(&PeopleHandler::UpdateSyncStatus,
                           base::Unretained(this)));
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  profile_pref_registrar_->Add(
+      prefs::kChromeSigninInterceptionUserChoice,
+      base::BindRepeating(&PeopleHandler::UpdateChromeSigninUserChoiceInfo,
+                          base::Unretained(this)));
+#endif
 
   signin::IdentityManager* identity_manager(
       IdentityManagerFactory::GetInstance()->GetForProfile(profile_));
@@ -448,6 +467,21 @@ void PeopleHandler::OnExtendedAccountInfoUpdated(const AccountInfo& info) {
 
 void PeopleHandler::OnExtendedAccountInfoRemoved(const AccountInfo& info) {
   FireWebUIListener("stored-accounts-updated", GetStoredAccountsList());
+}
+
+void PeopleHandler::OnRefreshTokenUpdatedForAccount(
+    const CoreAccountInfo& account_info) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  UpdateChromeSigninUserChoiceInfo();
+#endif
+}
+
+void PeopleHandler::OnAccountsInCookieUpdated(
+    const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+    const GoogleServiceAuthError& error) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  UpdateChromeSigninUserChoiceInfo();
+#endif
 }
 
 base::Value::List PeopleHandler::GetStoredAccountsList() {
@@ -636,27 +670,65 @@ void PeopleHandler::HandleStartSignin(const base::Value::List& args) {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
+
 void PeopleHandler::HandleSignout(const base::Value::List& args) {
 #if 0
   bool delete_profile = false;
-  if (args[0].is_bool())
+  if (args[0].is_bool()) {
     delete_profile = args[0].GetBool();
-  base::FilePath profile_path = profile_->GetPath();
-
-  // TODO(crbug.com/1315163): consider splitting `HandleSignout()` in two
-  // different functions: one for "Signout" and one for "Turn off".
+  }
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
   bool is_syncing =
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync);
-  bool delete_profile_allowed = signin_util::IsProfileDeletionAllowed(profile_);
-
-  DCHECK(!delete_profile || delete_profile_allowed)
-      << "Profile deletion is not allowed!";
   DCHECK(is_syncing || !delete_profile)
       << "Deleting the profile should only be offered if the user is "
          "syncing.";
+
+  bool is_clear_primary_account_allowed =
+      ChromeSigninClientFactory::GetForProfile(profile_)
+          ->IsClearPrimaryAccountAllowed(is_syncing);
+
+  if (is_syncing) {
+    HandleTurnOffSync(delete_profile, is_clear_primary_account_allowed);
+    return;
+  }
+
+  if (!is_clear_primary_account_allowed) {
+    // 'Signout' should not be offered in the UI if clear primary account is
+    // not allowed.
+    NOTREACHED()
+        << "Signout should not be offered if clear primary account is not "
+           "allowed.";
+    return;
+  }
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  identity_manager->GetPrimaryAccountMutator()->ClearPrimaryAccount(
+      signin_metrics::ProfileSignout::kUserClickedSignoutSettings);
+#else
+  Browser* browser = chrome::FindBrowserWithTab(web_ui()->GetWebContents());
+  if (!browser) {
+    return;
+  }
+  browser->signin_view_controller()->SignoutOrReauthWithPrompt(
+      signin_metrics::AccessPoint::
+          ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT,
+      signin_metrics::ProfileSignout::kUserClickedSignoutSettings,
+      signin_metrics::SourceForRefreshTokenOperation::kSettings_Signout);
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+}
+
+void PeopleHandler::HandleTurnOffSync(bool delete_profile,
+                                      bool is_clear_primary_account_allowed) {
+  base::FilePath profile_path = profile_->GetPath();
+  bool delete_profile_allowed = signin_util::IsProfileDeletionAllowed(profile_);
+  DCHECK(!delete_profile || delete_profile_allowed)
+      << "Profile deletion is not allowed!";
+
+  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
   auto* signin_client = ChromeSigninClientFactory::GetForProfile(profile_);
-  if (is_syncing && !signin_client->IsRevokeSyncConsentAllowed()) {
+
+  if (!signin_client->IsRevokeSyncConsentAllowed()) {
     // If the user can't revoke sync the profile must be destroyed.
     if (delete_profile && delete_profile_allowed) {
       webui::DeleteProfileAtPath(profile_path,
@@ -667,20 +739,7 @@ void PeopleHandler::HandleSignout(const base::Value::List& args) {
     return;
   }
 
-  bool is_clear_primary_account_allowed =
-      signin_client->IsClearPrimaryAccountAllowed(is_syncing);
-  if (!is_syncing && !is_clear_primary_account_allowed &&
-      !switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-          switches::ExplicitBrowserSigninPhase::kExperimental)) {
-    // 'Signout' should not be offered in the UI if clear primary account is not
-    // allowed.
-    NOTREACHED()
-        << "Signout should not be offered if clear primary account is not "
-           "allowed.";
-    return;
-  }
-
-  if (is_syncing && !is_clear_primary_account_allowed) {
+  if (!is_clear_primary_account_allowed) {
     DCHECK(signin_client->IsRevokeSyncConsentAllowed());
     identity_manager->GetPrimaryAccountMutator()->RevokeSyncConsent(
         signin_metrics::ProfileSignout::kRevokeSyncFromSettings);
@@ -698,8 +757,7 @@ void PeopleHandler::HandleSignout(const base::Value::List& args) {
     }
 
     if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-            switches::ExplicitBrowserSigninPhase::kFull) &&
-        identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+            switches::ExplicitBrowserSigninPhase::kFull)) {
       // In Uno, Gaia logout tab invalidating the account will lead to a sign in
       // paused state. Unset the primary account to ensure it is removed from
       // chrome. The `AccountReconcilor` will revoke refresh tokens for accounts
@@ -707,8 +765,7 @@ void PeopleHandler::HandleSignout(const base::Value::List& args) {
       identity_manager->GetPrimaryAccountMutator()
           ->RemovePrimaryAccountButKeepTokens(
               signin_metrics::ProfileSignout::kUserClickedSignoutSettings);
-    } else if (identity_manager->HasPrimaryAccount(
-                   signin::ConsentLevel::kSync)) {
+    } else {
       // Only revoke the sync consent.
       // * If the primary account is still valid, then it will be removed by
       // the Gaia logout tab (see http://crbug.com/1068978).
@@ -731,6 +788,7 @@ void PeopleHandler::HandleSignout(const base::Value::List& args) {
   }
 #endif
 }
+
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -873,21 +931,32 @@ void PeopleHandler::OnPrimaryAccountChanged(
       if (service && !sync_blocker_)
         sync_blocker_ = service->GetSetupInProgressHandle();
       UpdateSyncStatus();
-      return;
+      break;
     }
     case signin::PrimaryAccountChangeEvent::Type::kCleared:
       sync_blocker_.reset();
       configuring_sync_ = false;
       UpdateSyncStatus();
-      return;
+      break;
     case signin::PrimaryAccountChangeEvent::Type::kNone:
-      return;
+      break;
   }
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  switch (event.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
+    case signin::PrimaryAccountChangeEvent::Type::kSet:
+    case signin::PrimaryAccountChangeEvent::Type::kCleared:
+      UpdateChromeSigninUserChoiceInfo();
+      break;
+    case signin::PrimaryAccountChangeEvent::Type::kNone:
+      break;
+  }
+#endif
 }
 
 void PeopleHandler::OnStateChanged(syncer::SyncService* sync_service) {
   UpdateSyncStatus();
-  // TODO(crbug.com/1106764): Re-evaluate marking sync as configuring here,
+  // TODO(crbug.com/40140566): Re-evaluate marking sync as configuring here,
   // since this gets called whenever SyncService changes state. Inline
   // MaybeMarkSyncConfiguring() then.
   MaybeMarkSyncConfiguring();
@@ -948,7 +1017,7 @@ base::Value::Dict PeopleHandler::GetSyncStatusDictionary() const {
           identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
 
   const SyncStatusLabels status_labels = GetSyncStatusLabels(profile_);
-  // TODO(crbug.com/1027467): Consider unifying some of the fields below to
+  // TODO(crbug.com/40660240): Consider unifying some of the fields below to
   // avoid redundancy.
   sync_status.Set("statusText",
                   GetStringUTF16(status_labels.status_label_string_id));
@@ -966,7 +1035,7 @@ base::Value::Dict PeopleHandler::GetSyncStatusDictionary() const {
                   GetSyncErrorAction(status_labels.action_type));
 
   sync_status.Set("managed", disallowed_by_policy);
-  // TODO(crbug.com/1171279): audit js usages of |disabled| and |signedIn|
+  // TODO(crbug.com/40745012): audit js usages of |disabled| and |signedIn|
   // fields, update it to use the right field, comments around and conditions
   // here. Perhaps removal of one of these to fields is possible.
   sync_status.Set("disabled", !service || disallowed_by_policy);
@@ -1119,5 +1188,69 @@ bool PeopleHandler::IsProfileAuthNeededOrHasErrors() {
              signin::ConsentLevel::kSync) ||
          SigninErrorControllerFactory::GetForProfile(profile_)->HasError();
 }
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+base::Value::Dict PeopleHandler::GetChromeSigninUserChoiceInfo() {
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile_);
+  // Gets the Chrome signed in account or the first signed in account in the
+  // cooke jar, refresh token should be available too.
+  std::string signed_in_email =
+      signin_ui_util::GetSingleAccountForPromos(identity_manager).email;
+
+  bool should_show_settings =
+      !signin::IsImplicitBrowserSigninOrExplicitDisabled(
+          identity_manager, profile_->GetPrefs()) &&
+      !signed_in_email.empty();
+
+  ChromeSigninUserChoice choice =
+      should_show_settings
+          ? DiceWebSigninInterceptor::GetChromeSigninUserChoice(
+                *profile_->GetPrefs(), signed_in_email)
+          : ChromeSigninUserChoice::kNoChoice;
+
+  base::Value::Dict chrome_signin_user_choice_info;
+  chrome_signin_user_choice_info.Set("shouldShowSettings",
+                                     should_show_settings);
+  chrome_signin_user_choice_info.Set("choice", static_cast<int>(choice));
+  chrome_signin_user_choice_info.Set("signedInEmail", signed_in_email);
+
+  return chrome_signin_user_choice_info;
+}
+
+void PeopleHandler::HandleGetChromeSigninUserChoiceInfo(
+    const base::Value::List& args) {
+  AllowJavascript();
+
+  CHECK_EQ(1U, args.size());
+  ResolveJavascriptCallback(args[0], GetChromeSigninUserChoiceInfo());
+}
+
+void PeopleHandler::HandleSetChromeSigninUserChoice(
+    const base::Value::List& args) {
+  CHECK(!signin::IsImplicitBrowserSigninOrExplicitDisabled(
+      IdentityManagerFactory::GetForProfile(profile_), profile_->GetPrefs()));
+  CHECK_EQ(2U, args.size());
+
+  CHECK(args[0].is_int());
+  ChromeSigninUserChoice user_choice =
+      static_cast<ChromeSigninUserChoice>(args[0].GetInt());
+
+  CHECK(args[1].is_string());
+  std::string signed_in_email = args[1].GetString();
+  CHECK(!signed_in_email.empty());
+
+  DiceWebSigninInterceptor::SetChromeSigninUserChoice(
+      *profile_->GetPrefs(), signed_in_email, user_choice);
+}
+
+void PeopleHandler::UpdateChromeSigninUserChoiceInfo() {
+  if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
+          switches::ExplicitBrowserSigninPhase::kFull)) {
+    FireWebUIListener("chrome-signin-user-choice-info-change",
+                      GetChromeSigninUserChoiceInfo());
+  }
+}
+#endif
 
 }  // namespace settings

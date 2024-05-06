@@ -6,10 +6,11 @@
 #define MEDIA_MUXERS_BOX_BYTE_STREAM_H_
 
 #include <optional>
+#include <string_view>
 #include <vector>
 
-#include "base/big_endian.h"
 #include "base/containers/queue.h"
+#include "base/containers/span_writer.h"
 #include "base/containers/stack.h"
 #include "media/base/media_export.h"
 #include "media/formats/mp4/fourccs.h"
@@ -45,7 +46,7 @@ class MEDIA_EXPORT BoxByteStream {
   void WriteU32(uint32_t value);
   void WriteU64(uint64_t value);
   void WriteBytes(const void* buf, size_t len);
-  void WriteString(base::StringPiece value);
+  void WriteString(std::string_view value);
 
   // Ends a writing session. All pending placeholder values in `size_offsets_`
   // are filled in based on their distance from `position_`.
@@ -89,7 +90,7 @@ class MEDIA_EXPORT BoxByteStream {
 
   size_t position_ = 0;
   std::vector<uint8_t> buffer_;
-  std::optional<base::BigEndianWriter> writer_;
+  std::optional<base::SpanWriter<uint8_t>> writer_;
 };
 
 }  // namespace media

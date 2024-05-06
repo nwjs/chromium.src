@@ -464,6 +464,18 @@ void MaybeRecordSharedDictionaryUsedResponseMetrics(
   }
 }
 
+std::vector<network::mojom::HttpRawHeaderPairPtr>
+ResponseHeaderToRawHeaderPairs(
+    const net::HttpResponseHeaders& response_headers) {
+  std::vector<network::mojom::HttpRawHeaderPairPtr> header_array;
+  size_t iterator = 0;
+  std::string name, value;
+  while (response_headers.EnumerateHeaderLines(&iterator, &name, &value)) {
+    header_array.emplace_back(std::in_place, std::move(name), std::move(value));
+  }
+  return header_array;
+}
+
 }  // namespace
 
 URLLoader::MaybeSyncURLLoaderClient::MaybeSyncURLLoaderClient(
@@ -2252,6 +2264,17 @@ void URLLoader::CancelRequest() {
   url_request_->CancelWithError(net::ERR_SSL_CLIENT_AUTH_CERT_NEEDED);
 }
 
+void URLLoader::CancelRequestIfNonceMatchesAndUrlNotExempted(
+    const base::UnguessableToken& nonce,
+    const std::set<GURL>& exemptions) {
+  if (url_request_->isolation_info().nonce() == nonce) {
+    if (!exemptions.contains(
+            url_request_->original_url().GetWithoutFilename())) {
+      url_request_->CancelWithError(net::ERR_NETWORK_ACCESS_REVOKED);
+    }
+  }
+}
+
 void URLLoader::NotifyCompleted(int error_code) {
   // Ensure sending the final upload progress message here, since
   // OnResponseCompleted can be called without OnResponseStarted on cancellation
@@ -2405,6 +2428,17 @@ void URLLoader::NotifyEarlyResponse(
 
   url_loader_client_.Get()->OnReceiveEarlyHints(mojom::EarlyHints::New(
       std::move(parsed_headers), referrer_policy, ip_address_space));
+
+  MaybeNotifyEarlyResponseToDevtools(*headers);
+}
+
+void URLLoader::MaybeNotifyEarlyResponseToDevtools(
+    const net::HttpResponseHeaders& headers) {
+  if (!devtools_observer_ || !devtools_request_id()) {
+    return;
+  }
+  devtools_observer_->OnEarlyHintsResponse(
+      devtools_request_id().value(), ResponseHeaderToRawHeaderPairs(headers));
 }
 
 void URLLoader::SetRawRequestHeadersAndNotify(
@@ -2469,11 +2503,17 @@ void URLLoader::DispatchOnRawRequest(
 
   emitted_devtools_raw_request_ = true;
 
+  // TODO when crbug.com/40093296 "Don't trust |site_for_cookies| provided by
+  // the renderer" is fixed. Update the FromNetworkIsolationKey method to use
+  // url_request_->isolation_info().site_for_cookies() instead of
+  // url_request_->site_for_cookies().
   std::optional<bool> site_has_cookie_in_other_partition =
       url_request_->context()->cookie_store()->SiteHasCookieInOtherPartition(
           net::SchemefulSite(url_request_->url()),
           net::CookiePartitionKey::FromNetworkIsolationKey(
-              url_request_->isolation_info().network_isolation_key()));
+              url_request_->isolation_info().network_isolation_key(),
+              url_request_->site_for_cookies(),
+              net::SchemefulSite(url_request_->url())));
   network::mojom::OtherPartitionInfoPtr other_partition_info = nullptr;
   if (site_has_cookie_in_other_partition.has_value()) {
     other_partition_info = network::mojom::OtherPartitionInfo::New();
@@ -2505,7 +2545,6 @@ bool URLLoader::DispatchOnRawResponse() {
     return false;
   }
 
-  std::vector<network::mojom::HttpRawHeaderPairPtr> header_array;
 
   // This is gated by enable_reporting_raw_headers_ to be backwards compatible
   // with the old report_raw_headers behavior, where we wouldn't even send
@@ -2520,16 +2559,8 @@ bool URLLoader::DispatchOnRawResponse() {
       raw_response_headers_ && enable_reporting_raw_headers_
           ? raw_response_headers_.get()
           : url_request_->response_headers();
-
-  size_t iterator = 0;
-  std::string name, value;
-  while (response_headers->EnumerateHeaderLines(&iterator, &name, &value)) {
-    network::mojom::HttpRawHeaderPairPtr pair =
-        network::mojom::HttpRawHeaderPair::New();
-    pair->key = name;
-    pair->value = value;
-    header_array.push_back(std::move(pair));
-  }
+  std::vector<network::mojom::HttpRawHeaderPairPtr> header_array =
+      ResponseHeaderToRawHeaderPairs(*response_headers);
 
   // Only send the "raw" header text when the headers were actually send in
   // text form (i.e. not QUIC or SPDY)

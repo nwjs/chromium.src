@@ -35,7 +35,6 @@
 #include "base/ranges/algorithm.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
 #include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink.h"
-#include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/renderer/core/css/cascade_layer_map.h"
 #include "third_party/blink/renderer/core/css/check_pseudo_has_cache_scope.h"
 #include "third_party/blink/renderer/core/css/container_query_data.h"
@@ -69,7 +68,6 @@
 #include "third_party/blink/renderer/core/css/style_environment_variables.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_feature_values.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
-#include "third_party/blink/renderer/core/css/try_value_flips.h"
 #include "third_party/blink/renderer/core/css/vision_deficiency.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/document_lifecycle.h"
@@ -117,7 +115,6 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
-#include "third_party/blink/renderer/platform/theme/web_theme_engine_helper.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
@@ -242,11 +239,12 @@ StyleEngine::StyleEngine(Document& document)
         document.GetSettings()->GetForceDarkModeEnabled();
     UpdateColorSchemeMetrics();
 
+    forced_colors_ = document.GetSettings()->GetInForcedColors()
+                         ? ForcedColors::kActive
+                         : ForcedColors::kNone;
     UpdateForcedBackgroundColor();
   }
 
-  forced_colors_ =
-      WebThemeEngineHelper::GetNativeThemeEngine()->GetForcedColors();
   UpdateColorScheme();
 
   // Mostly for the benefit of unit tests.
@@ -2400,7 +2398,9 @@ void StyleEngine::UpdateViewTransitionOptIn() {
 
   // TODO(https://crbug.com/1463966): This will likely need to change to a
   // CSSValueList if we want to support multiple tokens as a trigger.
+  Vector<String> types;
   if (view_transition_rule_) {
+    types = view_transition_rule_->GetTypes();
     if (const CSSValue* value = view_transition_rule_->GetNavigation()) {
       cross_document_enabled =
           To<CSSIdentifierValue>(value)->GetValueID() == CSSValueID::kAuto;
@@ -2408,7 +2408,7 @@ void StyleEngine::UpdateViewTransitionOptIn() {
   }
 
   ViewTransitionSupplement::From(GetDocument())
-      ->OnViewTransitionsStyleUpdated(cross_document_enabled);
+      ->OnViewTransitionsStyleUpdated(cross_document_enabled, types);
 }
 
 bool StyleEngine::HasRulesForId(const AtomicString& id) const {
@@ -2945,7 +2945,7 @@ void StyleEngine::NodeWillBeRemoved(Node& node) {
     if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
       if (element->GetComputedStyle() &&
           element->ComputedStyleRef().ContainsStyle()) {
-        tree->DestroyScopeForElement(*element);
+        tree->RemoveScopeForElement(*element);
       }
     }
     pending_invalidations_.RescheduleSiblingInvalidationsAsDescendants(
@@ -3324,7 +3324,7 @@ void StyleEngine::UpdateStyleForNonEligibleContainer(Element& container) {
   ContainerQueryEvaluator& evaluator =
       container.EnsureContainerQueryEvaluator();
   ContainerQueryEvaluator::Change query_change =
-      evaluator.SizeContainerChanged(PhysicalSize(), kPhysicalAxisNone);
+      evaluator.SizeContainerChanged(PhysicalSize(), kPhysicalAxesNone);
   switch (query_change) {
     case ContainerQueryEvaluator::Change::kNone:
       DCHECK(cq_data->SkippedStyleRecalc());
@@ -3453,7 +3453,6 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
   // Update quotes only if there are any scopes marked dirty.
   if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
     tree->UpdateQuotes();
-    tree->InvalidateAnchorNameReferences();
   }
   if (container == GetDocument().documentElement()) {
     // If the container is the root element, there may be body styles which have
@@ -3471,45 +3470,42 @@ void StyleEngine::UpdateStyleForOutOfFlow(Element& element,
                                           const TryTacticList& tactic_list,
                                           AnchorEvaluator* anchor_evaluator) {
   // Note that we enter this function for any OOF element, not just those that
-  // use position-try-options. Therefore, it's important to return immediately
-  // without doing any work when `try_set` and `existing_try_set` both are
-  // nullptr.
+  // use position-try-options. Therefore, it's important to return without
+  // doing style recalc when anchor positioning features are not in use.
 
-  const CSSPropertyValueSet* existing_try_set = nullptr;
-  const CSSPropertyValueSet* existing_try_tactics_set = nullptr;
-
-  OutOfFlowData* out_of_flow_data = element.GetOutOfFlowData();
-  if (out_of_flow_data) {
-    existing_try_set = out_of_flow_data->GetTryPropertyValueSet();
-    existing_try_tactics_set =
-        out_of_flow_data->GetTryTacticsPropertyValueSet();
+  if (OutOfFlowData* out_of_flow_data = element.GetOutOfFlowData()) {
+    out_of_flow_data->SetTryPropertyValueSet(nullptr);
+    out_of_flow_data->SetTryTacticsPropertyValueSet(nullptr);
   }
 
-  // TODO(crbug.com/40279608): Store on StyleEngine to allow caching.
-  TryValueFlips flips;
-  const CSSPropertyValueSet* try_tactics_set = flips.FlipSet(tactic_list);
+  const CSSPropertyValueSet* try_tactics_set =
+      try_value_flips_.FlipSet(tactic_list);
 
   bool needs_update = false;
 
-  if (existing_try_set != try_set) {
+  if (try_set) {
     element.EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
     needs_update = true;
   }
-  if (existing_try_tactics_set != try_tactics_set) {
+  if (try_tactics_set) {
     element.EnsureOutOfFlowData().SetTryTacticsPropertyValueSet(
         try_tactics_set);
     needs_update = true;
   }
+  if (element.ComputedStyleRef().PositionAnchor() ||
+      element.ImplicitAnchorElement()) {
+    // anchor-center offsets may need to be updated since the layout of the
+    // anchor may have changed. anchor-center offsets are computed when a
+    // default anchor is present.
+    needs_update = true;
+  }
   if (element.ComputedStyleRef().HasAnchorFunctions()) {
-    AnchorResults& anchor_results =
-        element.EnsureOutOfFlowData().GetAnchorResults();
-    if (anchor_results.IsEmpty() ||
-        anchor_results.IsAnyResultDifferent(anchor_evaluator)) {
-      needs_update = true;
-    }
+    needs_update = true;
   }
 
   if (!needs_update) {
+    CHECK(!try_set);
+    CHECK(!try_tactics_set);
     return;
   }
 
@@ -3518,13 +3514,11 @@ void StyleEngine::UpdateStyleForOutOfFlow(Element& element,
   // - The existing AnchorResults are immediately cleared, and
   // - The result of any Evaluate() call made will be stored
   //   in the AnchorResults.
+  //
+  // TODO(crbug.com/333608683): The results of ResultCachingAnchorEvaluator is
+  // currently not used outside of tests.
   ResultCachingAnchorEvaluator result_caching_anchor_evaluator(
       anchor_evaluator, element.EnsureOutOfFlowData().GetAnchorResults());
-
-  // The last seen `try_set` is persisted on Element, such that subsequent
-  // regular style recalcs can continue to include this set.
-  element.EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
-
   base::AutoReset<bool> pt_recalc(&in_position_try_style_recalc_, true);
 
   UpdateViewportSize();
@@ -3735,7 +3729,6 @@ void StyleEngine::UpdateStyleAndLayoutTree() {
     // Update quotes only if there are any scopes marked dirty.
     if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
       tree->UpdateQuotes();
-      tree->InvalidateAnchorNameReferences();
     }
   } else {
     style_recalc_root_.Clear();
@@ -3943,13 +3936,13 @@ bool StyleEngine::SupportsDarkColorScheme() {
 
 void StyleEngine::UpdateColorScheme() {
   auto* settings = GetDocument().GetSettings();
-  auto* web_theme_engine = WebThemeEngineHelper::GetNativeThemeEngine();
-  if (!settings || !web_theme_engine) {
+  if (!settings) {
     return;
   }
 
   ForcedColors old_forced_colors = forced_colors_;
-  forced_colors_ = web_theme_engine->GetForcedColors();
+  forced_colors_ = settings->GetInForcedColors() ? ForcedColors::kActive
+                                                 : ForcedColors::kNone;
 
   mojom::blink::PreferredColorScheme old_preferred_color_scheme =
       preferred_color_scheme_;
@@ -4254,6 +4247,7 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(style_image_cache_);
   visitor->Trace(fill_or_clip_path_uri_value_cache_);
   visitor->Trace(style_containment_scope_tree_);
+  visitor->Trace(try_value_flips_);
   FontSelectorClient::Trace(visitor);
 }
 

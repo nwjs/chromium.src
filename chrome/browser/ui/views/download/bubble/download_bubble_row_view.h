@@ -44,6 +44,7 @@ class DownloadBubbleUIController;
 class DownloadBubbleRowView : public views::View,
                               public views::ContextMenuController,
                               public views::FocusChangeListener,
+                              public views::ViewTargeterDelegate,
                               public DownloadBubbleRowViewInfoObserver {
   METADATA_HEADER(DownloadBubbleRowView, views::View)
 
@@ -105,6 +106,9 @@ class DownloadBubbleRowView : public views::View,
   void SetInputProtectorForTesting(
       std::unique_ptr<views::InputEventActivationProtector> input_protector);
 
+  // views::ViewTargeterDelegate
+  View* TargetForRect(View* root, const gfx::Rect& rect) override;
+
  protected:
   // Overrides ui::LayerDelegate:
   void OnDeviceScaleFactorChanged(float old_device_scale_factor,
@@ -128,6 +132,7 @@ class DownloadBubbleRowView : public views::View,
   void UpdateButtons();
   void UpdateProgressBar();
   void UpdateLabels();
+  void UpdateDeepScanNotice();
   void RecordMetricsOnUpdate();
   void RecordDownloadDisplayed();
 
@@ -155,17 +160,12 @@ class DownloadBubbleRowView : public views::View,
   void OnActionButtonPressed(DownloadCommands::Command command,
                              const ui::Event& event);
 
-  void AnnounceInProgressAlert();
-
   // Registers/unregisters copy accelerator for copy/paste support.
   void RegisterAccelerators(views::FocusManager* focus_manager);
   void UnregisterAccelerators(views::FocusManager* focus_manager);
 
   // DownloadBubbleRowViewInfoObserver implementation:
   void OnInfoChanged() override;
-  void OnDownloadStateChanged(
-      download::DownloadItem::DownloadState old_state,
-      download::DownloadItem::DownloadState new_state) override;
 
   // The icon for the file. We get platform-specific file type icons from
   // IconLoader (see below).
@@ -233,6 +233,8 @@ class DownloadBubbleRowView : public views::View,
 
   raw_ptr<views::InkDropContainerView> inkdrop_container_;
 
+  raw_ptr<views::View> deep_scan_notice_;
+
   // Drag and drop:
   // Whether we are dragging the download bubble row.
   bool dragging_ = false;
@@ -248,9 +250,6 @@ class DownloadBubbleRowView : public views::View,
   // avoid inaccurate repeated logging.
   bool has_download_completion_been_logged_ = false;
 
-  // A timer for accessible alerts of progress updates
-  base::RepeatingTimer accessible_alert_in_progress_timer_;
-
   // A timer for updating the status text string.
   base::RepeatingTimer update_status_text_timer_;
 
@@ -265,7 +264,7 @@ class DownloadBubbleRowView : public views::View,
   // False in tests.
   const bool is_in_partial_view_ = false;
 
-  // TODO(crbug.com/1349528): The size constraint is not passed down from the
+  // TODO(crbug.com/40233803): The size constraint is not passed down from the
   // views tree in the first round of layout, so setting a fixed width to bound
   // the view. This is assuming that the row view is loaded inside a bubble. It
   // will break if the row view is loaded inside a different parent view.

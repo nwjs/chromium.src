@@ -25,7 +25,7 @@ EnclaveIdentity GetEnclaveIdentity();
 // enclave to be overridden for testing. These objects can be nested.
 class COMPONENT_EXPORT(DEVICE_FIDO) ScopedEnclaveOverride {
  public:
-  ScopedEnclaveOverride(EnclaveIdentity identity);
+  explicit ScopedEnclaveOverride(EnclaveIdentity identity);
   ~ScopedEnclaveOverride();
 
  private:
@@ -41,6 +41,8 @@ COMPONENT_EXPORT(DEVICE_FIDO) extern const char kCommandAuthLevelKey[];
 
 // Generic keys for all request types.
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kRequestCommandKey[];
+COMPONENT_EXPORT(DEVICE_FIDO) extern const char kRequestWrappedSecretKey[];
+COMPONENT_EXPORT(DEVICE_FIDO) extern const char kRequestSecretKey[];
 
 // Keys in the top-level of each response.
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kResponseSuccessKey[];
@@ -52,6 +54,9 @@ COMPONENT_EXPORT(DEVICE_FIDO) extern const char kWrapKeyCommandName[];
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kGenKeyPairCommandName[];
 COMPONENT_EXPORT(DEVICE_FIDO)
 extern const char kRecoveryKeyStoreWrapCommandName[];
+COMPONENT_EXPORT(DEVICE_FIDO) extern const char kPasskeysWrapPinCommandName[];
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const char kRecoveryKeyStoreWrapAsMemberCommandName[];
 
 // Register request keys
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kRegisterPubKeysKey[];
@@ -59,10 +64,16 @@ COMPONENT_EXPORT(DEVICE_FIDO) extern const char kRegisterDeviceIdKey[];
 
 // Device key types
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kHardwareKey[];
+COMPONENT_EXPORT(DEVICE_FIDO) extern const char kUserVerificationKey[];
 
 // Wrapping request keys
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kWrappingPurpose[];
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kWrappingKeyToWrap[];
+
+// Wrap PIN request keys
+COMPONENT_EXPORT(DEVICE_FIDO) extern const char kPinHash[];
+COMPONENT_EXPORT(DEVICE_FIDO) extern const char kGeneration[];
+COMPONENT_EXPORT(DEVICE_FIDO) extern const char kClaimKey[];
 
 // Wrapping response keys
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kWrappingResponsePublicKey[];
@@ -82,6 +93,15 @@ COMPONENT_EXPORT(DEVICE_FIDO)
 extern const char kRecoveryKeyStoreCertXml[];
 COMPONENT_EXPORT(DEVICE_FIDO)
 extern const char kRecoveryKeyStoreSigXml[];
+
+// Constants for the recovery key store service, which is used in conjunction
+// with the enclave.
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const char kRecoveryKeyStoreURL[];
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const char kRecoveryKeyStoreCertFileURL[];
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const char kRecoveryKeyStoreSigFileURL[];
 
 }  // namespace device::enclave
 

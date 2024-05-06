@@ -48,8 +48,7 @@ class WebAppInstallFinalizer {
  public:
   using InstallFinalizedCallback =
       base::OnceCallback<void(const webapps::AppId& app_id,
-                              webapps::InstallResultCode code,
-                              OsHooksErrors os_hooks_errors)>;
+                              webapps::InstallResultCode code)>;
   using UninstallWebAppCallback =
       base::OnceCallback<void(webapps::UninstallResultCode code)>;
   using RepeatingUninstallCallback =
@@ -78,7 +77,7 @@ class WebAppInstallFinalizer {
     // `web_app_info.isolated_web_app_version` is invalid.
     std::optional<IsolatedWebAppStorageLocation> isolated_web_app_location;
 
-    // If true, OsIntegrationManager::InstallOsHooks won't be called at all,
+    // If true, OsIntegrationManager::Synchronize() won't be called at all,
     // meaning that all other OS Hooks related parameters below will be ignored.
     bool bypass_os_hooks = false;
 
@@ -169,8 +168,7 @@ class WebAppInstallFinalizer {
                                            bool success);
 
   void OnInstallHooksFinished(InstallFinalizedCallback callback,
-                              webapps::AppId app_id,
-                              OsHooksErrors os_hooks_errors);
+                              webapps::AppId app_id);
   void NotifyWebAppInstalledWithOsHooks(webapps::AppId app_id);
 
   bool ShouldUpdateOsHooks(const webapps::AppId& app_id);
@@ -184,8 +182,7 @@ class WebAppInstallFinalizer {
       bool success);
 
   void OnUpdateHooksFinished(InstallFinalizedCallback callback,
-                             webapps::AppId app_id,
-                             OsHooksErrors os_hooks_errors);
+                             webapps::AppId app_id);
 
   // Returns a value indicating whether the file handlers registered with the OS
   // should be updated. Used to avoid unnecessary updates. TODO(estade): why

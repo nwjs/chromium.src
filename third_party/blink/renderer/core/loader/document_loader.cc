@@ -162,7 +162,6 @@
 #include "third_party/blink/renderer/platform/network/network_utils.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/runtime_feature_state/runtime_feature_state_override_context.h"
-#include "third_party/blink/renderer/platform/scheduler/main_thread/frame_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
@@ -2065,12 +2064,11 @@ void DocumentLoader::DidCommitNavigation() {
     return;
 
   // When committing a new document, the FrameScheduler might need to carry over
-  // the previous document's FrameScheduler's `unreported_task_time()`, as that
+  // the previous document's FrameScheduler's `UnreportedTaskTime()`, as that
   // value should be aggregated across all documents that ever committed in the
   // same frame.
   base::TimeDelta previous_document_unreported_task_time =
-      static_cast<scheduler::FrameSchedulerImpl*>(frame_->GetFrameScheduler())
-          ->unreported_task_time();
+      frame_->GetFrameScheduler()->UnreportedTaskTime();
   if (OldDocumentInfoForCommit* old_document_info =
           ScopedOldDocumentInfoForCommitCapturer::CurrentInfo()) {
     previous_document_unreported_task_time =
@@ -2226,7 +2224,7 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
     // TODO(https://crbug.com/328279696): this block can be removed once the
     // about:srcdoc navigation blocking finishes rolling out, as then the
     // initiator can never be cross-origin to the parent.
-    debug_info_builder.Append("about_srcdoc_with_remote_parent");
+    debug_info_builder.Append("about_srcdoc_with_remote_parent[origin=");
     // Verify this is a sandboxed srcdoc frame.
     CHECK((policy_container_->GetPolicies().sandbox_flags &
            network::mojom::blink::WebSandboxFlags::kOrigin) !=
@@ -2236,6 +2234,8 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
                  ->GetSecurityContext()
                  ->GetSecurityOrigin()
                  ->IsolatedCopy();
+    debug_info_builder.Append(origin->ToString());
+    debug_info_builder.Append("]");
   } else {
     debug_info_builder.Append("use_url_with_precursor");
     // Otherwise, create an origin that propagates precursor information
@@ -2249,8 +2249,11 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
   if ((policy_container_->GetPolicies().sandbox_flags &
        network::mojom::blink::WebSandboxFlags::kOrigin) !=
       network::mojom::blink::WebSandboxFlags::kNone) {
-    debug_info_builder.Append(", add_sandbox");
+    debug_info_builder.Append(", add_sandbox[new_origin_precursor=");
     auto sandbox_origin = origin->DeriveNewOpaqueOrigin();
+    debug_info_builder.Append(
+        sandbox_origin->GetOriginOrPrecursorOriginIfOpaque()->ToString());
+    debug_info_builder.Append("]");
 
     // If we're supposed to inherit our security origin from our
     // owner, but we're also sandboxed, the only things we inherit are

@@ -9,6 +9,7 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "base/timer/elapsed_timer.h"
+#include "chromeos/ash/components/quick_start/logging.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 
 namespace ash::quick_start {
@@ -81,6 +82,47 @@ constexpr const char kGaiaAuthenticationResultHistogramName[] =
 constexpr const char kGaiaAuthenticationDurationHistogramName[] =
     "QuickStart.GaiaAuthentication.Duration";
 constexpr const char kScreenOpened[] = "QuickStart.ScreenOpened";
+constexpr const char kScreenNameAddChild[] = "QuickStart.ScreenClosed.AddChild";
+constexpr const char
+    kScreenNameCheckingForUpdateAndDeterminingDeviceConfiguration[] =
+        "QuickStart.ScreenClosed."
+        "CheckingForUpdateAndDeterminingDeviceConfiguration";
+constexpr const char kScreenNameChooseChromebookSetup[] =
+    "QuickStart.ScreenClosed.ChooseChromebookSetup";
+constexpr const char kScreenNameConsumerUpdate[] =
+    "QuickStart.ScreenClosed.ConsumerUpdate";
+constexpr const char kScreenNameGaiaInfoScreen[] =
+    "QuickStart.ScreenClosed.GaiaInfoScreen";
+constexpr const char kScreenNameGaiaScreen[] =
+    "QuickStart.ScreenClosed.GaiaScreen";
+constexpr const char kScreenNameNetworkScreen[] =
+    "QuickStart.ScreenClosed.Other";
+constexpr const char kScreenNameNone[] = "QuickStart.ScreenClosed.None";
+constexpr const char kScreenNameOther[] = "QuickStart.ScreenClosed.Other";
+constexpr const char kScreenNameQSComplete[] =
+    "QuickStart.ScreenClosed.QSComplete";
+constexpr const char kScreenNameQSConnectingToWifi[] =
+    "QuickStart.ScreenClosed.QSConnectingToWifi";
+constexpr const char kScreenNameQSResumingConnectionAfterUpdate[] =
+    "QuickStart.ScreenClosed.QSResumingConnectionAfterUpdate";
+constexpr const char kScreenNameQSSelectGoogleAccount[] =
+    "QuickStart.ScreenClosed.QSSelectGoogleAccount";
+constexpr const char kScreenNameQSSetUpWithAndroidPhone[] =
+    "QuickStart.ScreenClosed.QSSetUpWithAndroidPhone";
+constexpr const char kScreenNameQSWifiCredentialsReceived[] =
+    "QuickStart.ScreenClosed.QSWifiCredentialsReceived";
+constexpr const char kScreenNameReviewPrivacyAndTerms[] =
+    "QuickStart.ScreenClosed.ReviewPrivacyAndTerms";
+constexpr const char kScreenNameSetupDevicePIN[] =
+    "QuickStart.ScreenClosed.SetupDevicePIN";
+constexpr const char kScreenNameUnifiedSetup[] =
+    "QuickStart.ScreenClosed.UnifiedSetup";
+constexpr const char kScreenNameWelcomeScreen[] =
+    "QuickStart.ScreenClosed.WelcomeScreen";
+constexpr const char kScreenNameQSGettingGoogleAccountInfo[] =
+    "QuickStart.ScreenClosed.QSGettingGoogleAccountInfo";
+constexpr const char kScreenNameQSCreatingAccount[] =
+    "QuickStart.ScreenClosed.QSCreatingAccount";
 
 std::string MapMessageTypeToMetric(
     QuickStartMetrics::MessageType message_type) {
@@ -101,6 +143,56 @@ std::string MapMessageTypeToMetric(
       return kMessageReceivedBootstrapStateCancel;
     case QuickStartMetrics::MessageType::kBootstrapStateComplete:
       return kMessageReceivedBootstrapStateComplete;
+  }
+}
+
+std::string MapScreenNameToMetric(QuickStartMetrics::ScreenName screen_name) {
+  switch (screen_name) {
+    case QuickStartMetrics::ScreenName::kNone:
+      return kScreenNameNone;
+    case QuickStartMetrics::ScreenName::kWelcomeScreen:
+      return kScreenNameWelcomeScreen;
+    case QuickStartMetrics::ScreenName::kNetworkScreen:
+      return kScreenNameNetworkScreen;
+    case QuickStartMetrics::ScreenName::kGaiaScreen:
+      return kScreenNameGaiaScreen;
+    case QuickStartMetrics::ScreenName::kQSSetUpWithAndroidPhone:
+      return kScreenNameQSSetUpWithAndroidPhone;
+    case QuickStartMetrics::ScreenName::kQSConnectingToWifi:
+      return kScreenNameQSConnectingToWifi;
+    case QuickStartMetrics::ScreenName::
+        kCheckingForUpdateAndDeterminingDeviceConfiguration:
+      return kScreenNameCheckingForUpdateAndDeterminingDeviceConfiguration;
+    case QuickStartMetrics::ScreenName::kChooseChromebookSetup:
+      return kScreenNameChooseChromebookSetup;
+    case QuickStartMetrics::ScreenName::kConsumerUpdate:
+      return kScreenNameConsumerUpdate;
+    case QuickStartMetrics::ScreenName::kQSResumingConnectionAfterUpdate:
+      return kScreenNameQSResumingConnectionAfterUpdate;
+    case QuickStartMetrics::ScreenName::kQSGettingGoogleAccountInfo:
+      return kScreenNameQSGettingGoogleAccountInfo;
+    case QuickStartMetrics::ScreenName::kQSComplete:
+      return kScreenNameQSComplete;
+    case QuickStartMetrics::ScreenName::kSetupDevicePIN:
+      return kScreenNameSetupDevicePIN;
+    case QuickStartMetrics::ScreenName::kAddChild:
+      return kScreenNameAddChild;
+    case QuickStartMetrics::ScreenName::kReviewPrivacyAndTerms:
+      return kScreenNameReviewPrivacyAndTerms;
+    case QuickStartMetrics::ScreenName::kUnifiedSetup:
+      return kScreenNameUnifiedSetup;
+    case QuickStartMetrics::ScreenName::kGaiaInfoScreen:
+      return kScreenNameGaiaInfoScreen;
+    case QuickStartMetrics::ScreenName::kQSWifiCredentialsReceived:
+      return kScreenNameQSWifiCredentialsReceived;
+    case QuickStartMetrics::ScreenName::kQSSelectGoogleAccount:
+      return kScreenNameQSSelectGoogleAccount;
+    case QuickStartMetrics::ScreenName::kQSCreatingAccount:
+      return kScreenNameQSCreatingAccount;
+    case QuickStartMetrics::ScreenName::kOther:
+      [[fallthrough]];
+    default:
+      return kScreenNameOther;
   }
 }
 
@@ -127,21 +219,6 @@ QuickStartMetrics::MessageType QuickStartMetrics::MapResponseToMessageType(
     case QuickStartResponseType::kBootstrapStateComplete:
       return MessageType::kBootstrapStateComplete;
   }
-}
-
-// static
-void QuickStartMetrics::RecordScreenOpened(ScreenName screen) {
-  // TODO(b/298042953): Add metric for previous screen.
-  base::UmaHistogramEnumeration(kScreenOpened, screen);
-}
-
-// static
-void QuickStartMetrics::RecordScreenClosed(
-    ScreenName screen,
-    int32_t session_id,
-    base::Time timestamp,
-    std::optional<ScreenName> previous_screen) {
-  // TODO(b/298042953): Add metric for screen duration.
 }
 
 // static
@@ -184,6 +261,33 @@ void QuickStartMetrics::RecordChallengeBytesRequestEnded(
   base::UmaHistogramTimes(kChallengeBytesFetchDurationHistogramName,
                           challenge_bytes_fetch_timer_->Elapsed());
   challenge_bytes_fetch_timer_.reset();
+}
+
+void QuickStartMetrics::RecordScreenOpened(ScreenName screen) {
+  base::UmaHistogramEnumeration(kScreenOpened, screen);
+  screen_opened_view_duration_timer_ = std::make_unique<base::ElapsedTimer>();
+  last_screen_opened_ = screen;
+}
+
+void QuickStartMetrics::RecordScreenClosed(ScreenName screen) {
+  // TODO(b/298042953): Add ScreenClosedReason
+  if (screen_opened_view_duration_timer_ == nullptr) {
+    QS_LOG(ERROR) << "RecordScreenClosed called but now "
+                     "screen_opened_view_duration_timer_ set. screen: "
+                  << screen;
+    return;
+  }
+
+  if (screen != last_screen_opened_) {
+    QS_LOG(ERROR) << "RecordScreenClosed called but screen does not match "
+                     "last_screen_opened_. last_screen_opened_: "
+                  << last_screen_opened_ << " closed screen: " << screen;
+    return;
+  }
+
+  base::UmaHistogramTimes(MapScreenNameToMetric(screen) + ".ViewDuration",
+                          screen_opened_view_duration_timer_->Elapsed());
+  screen_opened_view_duration_timer_.reset();
 }
 
 void QuickStartMetrics::RecordAttestationCertificateRequested() {
@@ -354,6 +458,79 @@ void QuickStartMetrics::RecordMessageReceived(
                                 desired_message_type);
 
   message_elapsed_timer_.reset();
+}
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const QuickStartMetrics::ScreenName& metrics_screen_name) {
+  switch (metrics_screen_name) {
+    case QuickStartMetrics::ScreenName::kOther:
+      stream << "[other]";
+      break;
+    case QuickStartMetrics::ScreenName::kNone:
+      stream << "[none]";
+      break;
+    case QuickStartMetrics::ScreenName::kWelcomeScreen:
+      stream << "[welcome screen]";
+      break;
+    case QuickStartMetrics::ScreenName::kNetworkScreen:
+      stream << "[network screen]";
+      break;
+    case QuickStartMetrics::ScreenName::kGaiaScreen:
+      stream << "[gaia screen]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSSetUpWithAndroidPhone:
+      stream << "[QS setup with Android phone]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSConnectingToWifi:
+      stream << "[QS connecting to wifi]";
+      break;
+    case QuickStartMetrics::ScreenName::
+        kCheckingForUpdateAndDeterminingDeviceConfiguration:
+      stream << "[checking for update and determining device configuration]";
+      break;
+    case QuickStartMetrics::ScreenName::kChooseChromebookSetup:
+      stream << "[choose Chromebook setup]";
+      break;
+    case QuickStartMetrics::ScreenName::kConsumerUpdate:
+      stream << "[consumer update]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSResumingConnectionAfterUpdate:
+      stream << "[QS resuming connection after update]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSGettingGoogleAccountInfo:
+      stream << "[QS getting Google account info]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSComplete:
+      stream << "[QS complete]";
+      break;
+    case QuickStartMetrics::ScreenName::kSetupDevicePIN:
+      stream << "[setup device PIN]";
+      break;
+    case QuickStartMetrics::ScreenName::kAddChild:
+      stream << "[add child]";
+      break;
+    case QuickStartMetrics::ScreenName::kReviewPrivacyAndTerms:
+      stream << "[review privacy and terms]";
+      break;
+    case QuickStartMetrics::ScreenName::kUnifiedSetup:
+      stream << "[unified setup]";
+      break;
+    case QuickStartMetrics::ScreenName::kGaiaInfoScreen:
+      stream << "[gaia info screen]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSWifiCredentialsReceived:
+      stream << "[QS wifi credentials received]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSSelectGoogleAccount:
+      stream << "[QS select Google account]";
+      break;
+    case QuickStartMetrics::ScreenName::kQSCreatingAccount:
+      stream << "[QS creating account]";
+      break;
+  }
+
+  return stream;
 }
 
 }  // namespace ash::quick_start

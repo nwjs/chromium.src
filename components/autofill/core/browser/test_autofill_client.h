@@ -40,7 +40,6 @@
 #include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/mock_iban_access_manager.h"
-#include "components/autofill/core/browser/payments/payments_window_manager.h"
 #include "components/autofill/core/browser/payments/test/mock_mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/test/test_credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
@@ -213,10 +212,6 @@ class TestAutofillClientTemplate : public T {
           std::make_unique<payments::TestPaymentsAutofillClient>();
     }
     return payments_autofill_client_.get();
-  }
-
-  payments::PaymentsWindowManager* GetPaymentsWindowManager() override {
-    return payments_window_manager_.get();
   }
 
   TestStrikeDatabase* GetStrikeDatabase() override {
@@ -456,6 +451,17 @@ class TestAutofillClientTemplate : public T {
 
   PopupHidingReason popup_hiding_reason() { return popup_hidden_reason_; }
 
+  void ShowAutofillFieldIphForManualFallbackFeature(
+      const FormFieldData& field) override {
+    is_showing_manual_fallback_iph_ = true;
+  }
+
+  void HideAutofillFieldIphForManualFallbackFeature() override {
+    is_showing_manual_fallback_iph_ = false;
+  }
+
+  bool IsShowingManualFallbackIph() { return is_showing_manual_fallback_iph_; }
+
   bool IsAutocompleteEnabled() const override { return true; }
 
   bool IsPasswordManagerEnabled() override { return true; }
@@ -532,6 +538,15 @@ class TestAutofillClientTemplate : public T {
   bool IsLastQueriedField(FieldGlobalId field_id) override { return true; }
 #endif
 
+  void set_test_addresses(
+      std::vector<AutofillProfile> test_addresses) override {
+    test_addresses_ = std::move(test_addresses);
+  }
+
+  base::span<const AutofillProfile> GetTestAddresses() const override {
+    return test_addresses_;
+  }
+
   void SetPrefs(std::unique_ptr<PrefService> prefs) {
     prefs_ = std::move(prefs);
   }
@@ -558,13 +573,6 @@ class TestAutofillClientTemplate : public T {
   void set_test_strike_database(
       std::unique_ptr<TestStrikeDatabase> test_strike_database) {
     test_strike_database_ = std::move(test_strike_database);
-  }
-
-
-  void set_payments_window_manager(
-      std::unique_ptr<payments::PaymentsWindowManager>
-          payments_window_manager) {
-    payments_window_manager_ = std::move(payments_window_manager);
   }
 
   void set_test_form_data_importer(
@@ -594,6 +602,9 @@ class TestAutofillClientTemplate : public T {
   void SetVariationConfigCountryCode(
       const GeoIpCountryCode& variation_config_country_code) {
     variation_config_country_code_ = variation_config_country_code;
+    GetPersonalDataManager()
+        ->test_address_data_manager()
+        .SetVariationCountryCode(variation_config_country_code);
   }
 
   void set_save_card_offer_user_decision(
@@ -745,7 +756,6 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
   std::unique_ptr<payments::TestPaymentsAutofillClient>
       payments_autofill_client_;
-  std::unique_ptr<payments::PaymentsWindowManager> payments_window_manager_;
   std::unique_ptr<testing::NiceMock<MockIbanManager>> mock_iban_manager_;
 
   // The below objects must be destroyed before `PaymentsNetworkInterface`
@@ -790,6 +800,8 @@ class TestAutofillClientTemplate : public T {
 
   PopupHidingReason popup_hidden_reason_;
 
+  bool is_showing_manual_fallback_iph_ = false;
+
   network::TestURLLoaderFactory test_url_loader_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_ =
       base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
@@ -813,6 +825,9 @@ class TestAutofillClientTemplate : public T {
   // respectively.
   bool mandatory_reauth_opt_in_prompt_was_shown_ = false;
   bool mandatory_reauth_opt_in_prompt_was_reshown_ = false;
+
+  // Test addresses used to allow developers to test their forms.
+  std::vector<AutofillProfile> test_addresses_;
 
   std::vector<std::string> migration_card_selection_;
 

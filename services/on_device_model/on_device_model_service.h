@@ -10,8 +10,10 @@
 #include "base/component_export.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/types/expected.h"
+#include "base/uuid.h"
 #include "build/build_config.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "services/on_device_model/platform_model_loader.h"
 #include "services/on_device_model/public/cpp/on_device_model.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 #include "services/on_device_model/public/mojom/on_device_model_service.mojom.h"
@@ -47,6 +49,11 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL) OnDeviceModelService
   void LoadModel(mojom::LoadModelParamsPtr params,
                  mojo::PendingReceiver<mojom::OnDeviceModel> model,
                  LoadModelCallback callback) override;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  void LoadPlatformModel(const base::Uuid& uuid,
+                         mojo::PendingReceiver<mojom::OnDeviceModel> model,
+                         LoadPlatformModelCallback callback) override;
+#endif
   void GetEstimatedPerformanceClass(
       GetEstimatedPerformanceClassCallback callback) override;
 
@@ -56,11 +63,14 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL) OnDeviceModelService
   static base::expected<std::unique_ptr<OnDeviceModel>, mojom::LoadModelResult>
   CreateModel(mojom::LoadModelParamsPtr params);
 
-  void DeleteModel(mojom::OnDeviceModel* model);
+  void DeleteModel(base::WeakPtr<mojom::OnDeviceModel> model);
 
   mojo::Receiver<mojom::OnDeviceModelService> receiver_;
   std::set<std::unique_ptr<mojom::OnDeviceModel>, base::UniquePtrComparator>
       models_;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  std::unique_ptr<PlatformModelLoader> platform_model_loader_;
+#endif
 };
 
 }  // namespace on_device_model

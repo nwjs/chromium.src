@@ -18,93 +18,24 @@ namespace autofill {
 
 TestPersonalDataManager::TestPersonalDataManager()
     : PersonalDataManager("en-US", "US") {
-  address_data_manager_ = std::make_unique<TestAddressDataManager>(
-      base::BindRepeating(&PersonalDataManager::NotifyPersonalDataObserver,
-                          base::Unretained(this)));
+  auto notify_observers = base::BindRepeating(
+      &PersonalDataManager::NotifyPersonalDataObserver, base::Unretained(this));
+  address_data_manager_ =
+      std::make_unique<TestAddressDataManager>(notify_observers, app_locale());
   payments_data_manager_ =
-      std::make_unique<TestPaymentsDataManager>(app_locale(), this);
+      std::make_unique<TestPaymentsDataManager>(notify_observers, app_locale());
 }
 
 TestPersonalDataManager::~TestPersonalDataManager() = default;
 
-bool TestPersonalDataManager::IsPaymentsWalletSyncTransportEnabled() const {
-  if (payments_wallet_sync_transport_enabled_.has_value()) {
-    return *payments_wallet_sync_transport_enabled_;
-  }
-  return PersonalDataManager::IsPaymentsWalletSyncTransportEnabled();
-}
-
-std::string TestPersonalDataManager::SaveImportedCreditCard(
-    const CreditCard& imported_credit_card) {
-  num_times_save_imported_credit_card_called_++;
-  AddCreditCard(imported_credit_card);
-  return imported_credit_card.guid();
-}
-
-bool TestPersonalDataManager::IsEligibleForAddressAccountStorage() const {
-  return eligible_for_account_storage_.has_value()
-             ? *eligible_for_account_storage_
-             : PersonalDataManager::IsEligibleForAddressAccountStorage();
-}
-
-const std::string& TestPersonalDataManager::GetDefaultCountryCodeForNewAddress()
-    const {
-  if (default_country_code_.empty())
-    return PersonalDataManager::GetDefaultCountryCodeForNewAddress();
-
-  return default_country_code_;
-}
-
-bool TestPersonalDataManager::IsAutofillWalletImportEnabled() const {
-  // Return the value of autofill_wallet_import_enabled_ if it has been set,
-  // otherwise fall back to the normal behavior of checking the pref_service.
-  if (autofill_wallet_import_enabled_.has_value())
-    return autofill_wallet_import_enabled_.value();
-  return PersonalDataManager::IsAutofillWalletImportEnabled();
-}
-
-bool TestPersonalDataManager::ShouldSuggestServerPaymentMethods() const {
-  return payments_data_manager().IsAutofillPaymentMethodsEnabled() &&
-         IsAutofillWalletImportEnabled();
-}
-
 void TestPersonalDataManager::ClearAllLocalData() {
   ClearProfiles();
   payments_data_manager_->local_credit_cards_.clear();
+  payments_data_manager_->local_ibans_.clear();
 }
 
 bool TestPersonalDataManager::IsDataLoaded() const {
   return true;
-}
-
-bool TestPersonalDataManager::IsSyncFeatureEnabledForPaymentsServerMetrics()
-    const {
-  return false;
-}
-
-CoreAccountInfo TestPersonalDataManager::GetAccountInfoForPaymentsServer()
-    const {
-  return account_info_;
-}
-
-bool TestPersonalDataManager::IsPaymentMethodsMandatoryReauthEnabled() {
-  if (payment_methods_mandatory_reauth_enabled_.has_value()) {
-    return payment_methods_mandatory_reauth_enabled_.value();
-  }
-  return PersonalDataManager::IsPaymentMethodsMandatoryReauthEnabled();
-}
-
-void TestPersonalDataManager::SetPaymentMethodsMandatoryReauthEnabled(
-    bool enabled) {
-  payment_methods_mandatory_reauth_enabled_ = enabled;
-  PersonalDataManager::SetPaymentMethodsMandatoryReauthEnabled(enabled);
-}
-
-bool TestPersonalDataManager::IsPaymentCvcStorageEnabled() {
-  if (payments_cvc_storage_enabled_.has_value()) {
-    return payments_cvc_storage_enabled_.value();
-  }
-  return PersonalDataManager::IsPaymentCvcStorageEnabled();
 }
 
 void TestPersonalDataManager::SetPrefService(PrefService* pref_service) {

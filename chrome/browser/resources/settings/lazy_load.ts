@@ -58,7 +58,9 @@ import './people_page/sync_page.js';
 // <if expr="use_nss_certs">
 import 'chrome://resources/cr_components/certificate_manager/certificate_manager.js';
 // </if>
-
+// <if expr="chrome_root_store_cert_management_ui">
+import 'chrome://resources/cr_components/certificate_manager/certificate_manager_v2.js';
+// </if>
 // Sections
 import './a11y_page/a11y_page.js';
 import './downloads_page/downloads_page.js';
@@ -145,7 +147,7 @@ export {SettingsCheckboxElement} from './controls/settings_checkbox.js';
 export {DownloadsBrowserProxy, DownloadsBrowserProxyImpl} from './downloads_page/downloads_browser_proxy.js';
 export {SettingsDownloadsPageElement} from './downloads_page/downloads_page.js';
 // <if expr="_google_chrome">
-export {SettingsGetMostChromePageElement} from './get_most_chrome_page/get_most_chrome_page.js';
+export {GetTheMostOutOfChromeUserAction, SettingsGetMostChromePageElement} from './get_most_chrome_page/get_most_chrome_page.js';
 // </if>
 // <if expr="_google_chrome and is_win">
 export {IncompatibleApplicationItemElement} from './incompatible_applications_page/incompatible_application_item.js';

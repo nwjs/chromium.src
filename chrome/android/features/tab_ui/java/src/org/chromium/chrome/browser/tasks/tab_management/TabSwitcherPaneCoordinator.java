@@ -29,12 +29,15 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.data_sharing.DataSharingInvitationDialogCoordinator;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -60,6 +63,7 @@ import java.util.List;
 public class TabSwitcherPaneCoordinator implements BackPressHandler {
     private static final String COMPONENT_NAME = "GridTabSwitcher";
 
+    private final Activity mActivity;
     private final OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
     private final Callback<Boolean> mOnVisibilityChanged = this::onVisibilityChanged;
     private final ObservableSupplier<Boolean> mIsVisibleSupplier;
@@ -72,9 +76,12 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
     private final LazyOneshotSupplier<DialogController> mDialogControllerSupplier;
     private final TabListEditorManager mTabListEditorManager;
     private final TabSwitcherMessageManager mMessageManager;
+    private final ModalDialogManager mModalDialogManager;
 
     /** Lazily initialized when shown. */
     private @Nullable TabGridDialogCoordinator mTabGridDialogCoordinator;
+
+    private @Nullable DataSharingInvitationDialogCoordinator mDataSharingDialogCoordinator;
 
     /**
      * @param activity The {@link Activity} that hosts the pane.
@@ -124,6 +131,8 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         try (TraceEvent e = TraceEvent.scoped("TabSwitcherPaneCoordinator.constructor")) {
             mProfileProviderSupplier = profileProviderSupplier;
             mIsVisibleSupplier = isVisibleSupplier;
+            mActivity = activity;
+            mModalDialogManager = modalDialogManager;
             isVisibleSupplier.addObserver(mOnVisibilityChanged);
             assert mode != TabListMode.STRIP : "TabListMode.STRIP not supported.";
 
@@ -464,5 +473,22 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
 
     public void showQuickDeleteAnimation(Runnable onAnimationEnd, List<Tab> tabs) {
         mTabListCoordinator.showQuickDeleteAnimation(onAnimationEnd, tabs);
+    }
+
+    /**
+     * Open the invitation modal on top of the tab switcher view when an invitation intent is
+     * intercepted.
+     *
+     * @param invitationId The id of the invitation.
+     */
+    public void openInvitationModal(String invitationId) {
+        if (mTabGridDialogCoordinator == null) return;
+        mTabGridDialogCoordinator.hideDialog(true);
+
+        if (mDataSharingDialogCoordinator == null) {
+            mDataSharingDialogCoordinator =
+                    new DataSharingInvitationDialogCoordinator(mActivity, mModalDialogManager);
+        }
+        mDataSharingDialogCoordinator.show();
     }
 }

@@ -280,6 +280,10 @@ class MetaBuildWrapper:
     subp.set_defaults(func=self.CmdIsolateEverything)
     subp.add_argument('path',
                       help='path build was generated into')
+    subp.add_argument('--write-ide-json',
+                      action='store_true',
+                      help='Write project target information to a file at '
+                      'project.json in the build dir.')
     subp = subps.add_parser('isolate',
                             description='Generate the .isolate files for a '
                                         'given binary.')
@@ -490,7 +494,7 @@ class MetaBuildWrapper:
     return 0
 
   def CmdIsolateEverything(self):
-    vals = self.Lookup()
+    vals = self.GetConfig()
     return self.RunGNGenAllIsolates(vals)
 
   def CmdHelp(self):
@@ -1136,11 +1140,9 @@ class MetaBuildWrapper:
 
     # Write all generated targets to a JSON file called project.json
     # in the build dir.
-    # TODO(crbug.com/330760869): Enable this conditional once the bots that
-    # need it are passing down the "--write-ide-json" flag.
-    #if self.args.write_ide_json:
-    cmd.append('--ide=json')
-    cmd.append('--json-file-name=project.json')
+    if self.args.write_ide_json:
+      cmd.append('--ide=json')
+      cmd.append('--json-file-name=project.json')
 
     ret, output, _ = self.Run(cmd)
     if ret != 0:

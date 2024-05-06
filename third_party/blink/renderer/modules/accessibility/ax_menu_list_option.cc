@@ -53,8 +53,7 @@ AXObject* AXMenuListOption::ComputeParentAXMenuPopupFor(
   DCHECK(option);
 
   HTMLSelectElement* select = option->OwnerSelectElement();
-  if (!select || !AXObjectCacheImpl::ShouldCreateAXMenuListFor(
-                     select->GetLayoutObject())) {
+  if (!select || !AXObjectCacheImpl::ShouldCreateAXMenuListFor(select)) {
     // If it's an <option> that is not inside of a menulist, we want it to
     // return to the caller and use the default logic.
     return nullptr;
@@ -190,7 +189,6 @@ void AXMenuListOption::GetRelativeBounds(
   if (!ax_menu_list)
     return;
   DCHECK(ax_menu_list->IsMenuList());
-  DCHECK(ax_menu_list->GetLayoutObject());
   WTF::Vector<gfx::Rect> options_bounds =
       To<AXMenuList>(ax_menu_list)->GetOptionsBounds();
   // TODO(lusanpad): Update fix once we figure out what is causing
@@ -238,11 +236,14 @@ String AXMenuListOption::TextAlternative(
 
   name_from = ax::mojom::NameFrom::kContents;
   text_alternative = To<HTMLOptionElement>(GetNode())->DisplayLabel();
+
   if (name_sources) {
     name_sources->push_back(NameSource(found_text_alternative));
     name_sources->back().type = name_from;
     name_sources->back().text = text_alternative;
     found_text_alternative = true;
+    return GetSavedTextAlternativeFromNameSource(
+        found_text_alternative, name_from, related_objects, name_sources);
   }
 
   return text_alternative;

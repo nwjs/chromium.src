@@ -22,7 +22,9 @@
 #import "components/sync/service/sync_service.h"
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
 #import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/passwords/model/password_counter_delegate_bridge.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -60,6 +62,7 @@ BOOL AreCredentialsAtIndexesConnected(
     NSArray<ManualFillCredential*>* credentials,
     int firstIndex,
     int secondIndex) {
+  CHECK(!IsKeyboardAccessoryUpgradeEnabled());
   if (firstIndex < 0 || firstIndex >= (int)credentials.count ||
       secondIndex < 0 || secondIndex >= (int)credentials.count)
     return NO;
@@ -70,6 +73,7 @@ BOOL AreCredentialsAtIndexesConnected(
 @interface ManualFillPasswordMediator () <CRWWebStateObserver,
                                           FormActivityObserver,
                                           ManualFillContentInjector,
+                                          PasswordCounterObserver,
                                           SavedPasswordsPresenterObserver>
 
 // The favicon loader used in TableViewFaviconDataSource.
@@ -111,13 +115,25 @@ BOOL AreCredentialsAtIndexesConnected(
   // initialized if the `_savedPasswordsPresenter` variable is set.
   std::unique_ptr<SavedPasswordsPresenterObserverBridge>
       _savedPasswordsPresenterObserver;
+
+  // Bridge to observe the number of passwords in the password stores.
+  std::unique_ptr<PasswordCounterDelegateBridge> _passwordCounter;
+
+  // Whether or not the user has passwords saved in the password stores.
+  BOOL _hasSavedPasswords;
 }
 
 - (instancetype)initWithFaviconLoader:(FaviconLoader*)faviconLoader
                              webState:(web::WebState*)webState
                           syncService:(syncer::SyncService*)syncService
                                   URL:(const GURL&)URL
-             invokedOnObfuscatedField:(BOOL)invokedOnObfuscatedField {
+             invokedOnObfuscatedField:(BOOL)invokedOnObfuscatedField
+                 profilePasswordStore:
+                     (scoped_refptr<password_manager::PasswordStoreInterface>)
+                         profilePasswordStore
+                 accountPasswordStore:
+                     (scoped_refptr<password_manager::PasswordStoreInterface>)
+                         accountPasswordStore {
   self = [super init];
   if (self) {
     _credentials = @[];
@@ -131,6 +147,12 @@ BOOL AreCredentialsAtIndexesConnected(
     _webState->AddObserver(_webStateObserverBridge.get());
     _formActivityObserverBridge =
         std::make_unique<autofill::FormActivityObserverBridge>(_webState, self);
+
+    // A valid `profilePasswordStore` is needed to observe PasswordCounter.
+    if (IsKeyboardAccessoryUpgradeEnabled() && profilePasswordStore) {
+      _passwordCounter = std::make_unique<PasswordCounterDelegateBridge>(
+          self, profilePasswordStore.get(), accountPasswordStore.get());
+    }
   }
   return self;
 }
@@ -148,6 +170,9 @@ BOOL AreCredentialsAtIndexesConnected(
         _savedPasswordsPresenterObserver.get());
     _savedPasswordsPresenterObserver.reset();
     _savedPasswordsPresenter = nullptr;
+  }
+  if (_passwordCounter) {
+    _passwordCounter.reset();
   }
 }
 
@@ -234,10 +259,16 @@ BOOL AreCredentialsAtIndexesConnected(
   NSMutableArray* items =
       [[NSMutableArray alloc] initWithCapacity:credentials.count];
   for (int i = 0; i < (int)credentials.count; i++) {
+    // Credentials from the same affiliated group are never connected when the
+    // Keyboard Accessory Upgrade feature is enabled.
     BOOL isConnectedToPreviousItem =
-        AreCredentialsAtIndexesConnected(credentials, i, i - 1);
+        IsKeyboardAccessoryUpgradeEnabled()
+            ? NO
+            : AreCredentialsAtIndexesConnected(credentials, i, i - 1);
     BOOL isConnectedToNextItem =
-        AreCredentialsAtIndexesConnected(credentials, i, i + 1);
+        IsKeyboardAccessoryUpgradeEnabled()
+            ? NO
+            : AreCredentialsAtIndexesConnected(credentials, i, i + 1);
     ManualFillCredential* credential = credentials[i];
     ManualFillCredentialItem* item = [[ManualFillCredentialItem alloc]
                initWithCredential:credential
@@ -281,18 +312,21 @@ BOOL AreCredentialsAtIndexesConnected(
       [actions addObject:suggestPasswordItem];
     }
 
-    NSString* otherPasswordsTitleString = l10n_util::GetNSString(
-        IDS_IOS_MANUAL_FALLBACK_SELECT_PASSWORD_WITH_DOTS);
-    ManualFillActionItem* otherPasswordsItem = [[ManualFillActionItem alloc]
-        initWithTitle:otherPasswordsTitleString
-               action:^{
-                 base::RecordAction(base::UserMetricsAction(
-                     "ManualFallback_Password_OpenOtherPassword"));
-                 [weakSelf.navigator openAllPasswordsList];
-               }];
-    otherPasswordsItem.accessibilityIdentifier =
-        manual_fill::OtherPasswordsAccessibilityIdentifier;
-    [actions addObject:otherPasswordsItem];
+    if (!IsKeyboardAccessoryUpgradeEnabled() ||
+        (IsKeyboardAccessoryUpgradeEnabled() && _hasSavedPasswords)) {
+      NSString* otherPasswordsTitleString = l10n_util::GetNSString(
+          IDS_IOS_MANUAL_FALLBACK_SELECT_PASSWORD_WITH_DOTS);
+      ManualFillActionItem* otherPasswordsItem = [[ManualFillActionItem alloc]
+          initWithTitle:otherPasswordsTitleString
+                 action:^{
+                   base::RecordAction(base::UserMetricsAction(
+                       "ManualFallback_Password_OpenOtherPassword"));
+                   [weakSelf.navigator openAllPasswordsList];
+                 }];
+      otherPasswordsItem.accessibilityIdentifier =
+          manual_fill::OtherPasswordsAccessibilityIdentifier;
+      [actions addObject:otherPasswordsItem];
+    }
 
     // "Manage Passwords..." is available in both configurations.
     NSString* managePasswordsTitle =
@@ -455,6 +489,17 @@ BOOL AreCredentialsAtIndexesConnected(
 
 - (void)savedPasswordsDidChange {
   [self fetchAllPasswords];
+}
+
+#pragma mark - PasswordCounterObserver
+
+- (void)passwordCounterChanged:(size_t)totalPasswords {
+  if (_hasSavedPasswords == (totalPasswords > 0)) {
+    return;
+  }
+
+  _hasSavedPasswords = totalPasswords;
+  [self postActionsToConsumer];
 }
 
 @end

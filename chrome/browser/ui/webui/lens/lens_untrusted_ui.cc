@@ -6,7 +6,9 @@
 
 #include "base/memory/ref_counted_memory.h"
 #include "base/strings/strcat.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/lens_untrusted_resources.h"
@@ -17,6 +19,7 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/gfx/codec/jpeg_codec.h"
+#include "ui/webui/color_change_listener/color_change_handler.h"
 
 const char kScreenshotPath[] = "screenshot.jpeg";
 
@@ -27,7 +30,7 @@ bool ShouldLoadScreenshot(const std::string& path) {
 namespace lens {
 
 LensUntrustedUI::LensUntrustedUI(content::WebUI* web_ui)
-    : ui::UntrustedBubbleWebUIController(web_ui) {
+    : UntrustedTopChromeWebUIController(web_ui) {
   // This code path is invoked for both the overlay WebUI and the sidepanel
   // WebUI.
 
@@ -38,7 +41,7 @@ LensUntrustedUI::LensUntrustedUI(content::WebUI* web_ui)
           chrome::kChromeUILensUntrustedURL);
   html_source->AddLocalizedString("close", IDS_CLOSE);
 
-  // Allow frameSrc from all Google subdomains as redirects can occur.
+  // Allow FrameSrc from all Google subdomains as redirects can occur.
   GURL results_side_panel_url =
       GURL(lens::features::GetLensOverlayResultsSearchURL());
   std::string frame_src_directive =
@@ -47,11 +50,24 @@ LensUntrustedUI::LensUntrustedUI(content::WebUI* web_ui)
   html_source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::FrameSrc, frame_src_directive);
 
+  // Allow ImgSrc and StyleSrc from chrome-untrusted:// paths for searchbox use.
+  html_source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ImgSrc,
+      "img-src 'self' chrome-untrusted://resources;");
+  html_source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::StyleSrc,
+      "style-src 'self' chrome-untrusted://resources chrome-untrusted://theme");
+
   // Add required resources.
   webui::SetupWebUIDataSource(
       html_source,
       base::make_span(kLensUntrustedResources, kLensUntrustedResourcesSize),
       IDR_LENS_UNTRUSTED_LENS_OVERLAY_HTML);
+
+  // Add required resources for the searchbox.
+  SearchboxHandler::SetupWebUIDataSource(html_source,
+                                         Profile::FromWebUI(web_ui));
+  html_source->AddBoolean("reportMetrics", false);
 
   // Set request filter for loading the screenshot on the page.
   html_source->SetRequestFilter(
@@ -88,6 +104,24 @@ void LensUntrustedUI::BindInterface(
     mojo::PendingReceiver<lens::mojom::LensPageHandlerFactory> receiver) {
   lens_page_factory_receiver_.reset();
   lens_page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void LensUntrustedUI::BindInterface(
+    mojo::PendingReceiver<searchbox::mojom::PageHandler> receiver) {
+  LensOverlayController* controller =
+      LensOverlayController::GetController(web_ui());
+  auto handler = std::make_unique<RealboxHandler>(
+      std::move(receiver), Profile::FromWebUI(web_ui()),
+      web_ui()->GetWebContents(),
+      /*metrics_reporter=*/nullptr, /*lens_searchbox_client=*/controller,
+      /*omnibox_controller=*/nullptr);
+  controller->SetSearchboxHandler(std::move(handler));
+}
+
+void LensUntrustedUI::BindInterface(
+    mojo::PendingReceiver<color_change_listener::mojom::PageHandler> receiver) {
+  color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
+      web_ui()->GetWebContents(), std::move(receiver));
 }
 
 void LensUntrustedUI::CreatePageHandler(

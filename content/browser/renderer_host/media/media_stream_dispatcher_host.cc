@@ -372,21 +372,6 @@ void MediaStreamDispatcherHost::OnWebContentsFocused() {
   }
 }
 
-bool MediaStreamDispatcherHost::CheckRequestAllScreensAllowed(
-    GlobalRenderFrameHostId render_frame_host_id) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-  RenderFrameHostImpl* render_frame_host =
-      RenderFrameHostImpl::FromID(render_frame_host_id);
-  if (!render_frame_host) {
-    return false;
-  }
-  ContentBrowserClient* browser_client = GetContentClient()->browser();
-  return browser_client->IsGetAllScreensMediaAllowed(
-      render_frame_host->GetBrowserContext(),
-      render_frame_host->GetMainFrame()->GetLastCommittedOrigin());
-}
-
 void MediaStreamDispatcherHost::GenerateStreamsChecksOnUIThread(
     GlobalRenderFrameHostId render_frame_host_id,
     bool request_all_screens,
@@ -396,8 +381,49 @@ void MediaStreamDispatcherHost::GenerateStreamsChecksOnUIThread(
         result_callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  if (request_all_screens &&
-      !CheckRequestAllScreensAllowed(render_frame_host_id)) {
+  if (request_all_screens) {
+    CheckRequestAllScreensAllowed(std::move(get_salt_and_origin_cb),
+                                  std::move(result_callback),
+                                  render_frame_host_id);
+    return;
+  }
+
+  CheckStreamsPermissionResultReceived(std::move(get_salt_and_origin_cb),
+                                       std::move(result_callback),
+                                       /*result=*/true);
+}
+
+void MediaStreamDispatcherHost::CheckRequestAllScreensAllowed(
+    base::OnceCallback<void(MediaDeviceSaltAndOriginCallback)>
+        get_salt_and_origin_cb,
+    base::OnceCallback<void(GenerateStreamsUIThreadCheckResult)>
+        result_callback,
+    GlobalRenderFrameHostId render_frame_host_id) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  RenderFrameHostImpl* render_frame_host =
+      RenderFrameHostImpl::FromID(render_frame_host_id);
+  if (!render_frame_host) {
+    CheckStreamsPermissionResultReceived(std::move(get_salt_and_origin_cb),
+                                         std::move(result_callback),
+                                         /*result=*/false);
+    return;
+  }
+
+  GetContentClient()->browser()->CheckGetAllScreensMediaAllowed(
+      render_frame_host,
+      base::BindOnce(
+          &MediaStreamDispatcherHost::CheckStreamsPermissionResultReceived,
+          std::move(get_salt_and_origin_cb), std::move(result_callback)));
+}
+
+void MediaStreamDispatcherHost::CheckStreamsPermissionResultReceived(
+    base::OnceCallback<void(MediaDeviceSaltAndOriginCallback)>
+        get_salt_and_origin_cb,
+    base::OnceCallback<void(GenerateStreamsUIThreadCheckResult)>
+        result_callback,
+    bool result) {
+  if (!result) {
     std::move(result_callback)
         .Run({.request_allowed = false,
               .salt_and_origin = MediaDeviceSaltAndOrigin::Empty()});

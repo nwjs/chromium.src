@@ -7,6 +7,7 @@
 #include <list>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/barrier_closure.h"
@@ -292,7 +293,7 @@ std::string GetBlockedCgiParams() {
 // Parses the “allowed_websites” and "blocked_websites" field trial parameters
 // and creates a map to represent hosts and corresponding path prefixes.
 base::flat_map<std::string, std::vector<std::string>> ParseCommaSeparatedURLs(
-    base::StringPiece comma_separated_urls) {
+    std::string_view comma_separated_urls) {
   base::flat_map<std::string, std::vector<std::string>> urls;
   for (auto& it :
        base::SplitString(comma_separated_urls, ",", base::TRIM_WHITESPACE,
@@ -305,7 +306,7 @@ base::flat_map<std::string, std::vector<std::string>> ParseCommaSeparatedURLs(
 
 // Parses the "cgi_params" field trial parameter into a set by splitting on "|".
 base::flat_set<std::string> ParseBlockedCgiParams(
-    base::StringPiece cgi_params_string) {
+    std::string_view cgi_params_string) {
   return base::SplitString(cgi_params_string, "|", base::TRIM_WHITESPACE,
                            base::SplitResult::SPLIT_WANT_NONEMPTY);
 }
@@ -1024,7 +1025,7 @@ void BackForwardCacheImpl::NotRestoredReasonBuilder::
   // as well.
   if (!Intersection(banned_features,
                     GetDisallowedForCacheControlNoStoreFeatures())
-           .Empty()) {
+           .empty()) {
     banned_features.Put(
         WebSchedulerTrackedFeature::kMainResourceHasCacheControlNoStore);
     // Record the feature usage in `rfh`. This is needed because all
@@ -1037,7 +1038,7 @@ void BackForwardCacheImpl::NotRestoredReasonBuilder::
     rfh->RecordBackForwardCacheDisablingReason(
         WebSchedulerTrackedFeature::kMainResourceHasCacheControlNoStore);
   }
-  if (!banned_features.Empty()) {
+  if (!banned_features.empty()) {
     if (!ShouldIgnoreBlocklists()) {
       MarkNoWithMultipleFeatures(&result, rfh, banned_features);
     }
@@ -1061,7 +1062,7 @@ void BackForwardCacheImpl::NotRestoredReasonBuilder::
   WebSchedulerTrackedFeatures banned_features = Intersection(
       GetDisallowedFeatures(RequestedFeatures::kAll, kNotInCCNSContext),
       rfh->GetBackForwardCacheDisablingFeatures());
-  if (!banned_features.Empty() && !ShouldIgnoreBlocklists()) {
+  if (!banned_features.empty() && !ShouldIgnoreBlocklists()) {
     if (requested_features == RequestedFeatures::kAll ||
         (requested_features == RequestedFeatures::kAllIfAcked &&
          rfh->render_view_host()->DidReceiveBackForwardCacheAck())) {

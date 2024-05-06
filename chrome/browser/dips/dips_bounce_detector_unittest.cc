@@ -4,6 +4,7 @@
 
 #include "chrome/browser/dips/dips_bounce_detector.h"
 
+#include <string_view>
 #include <tuple>
 
 #include "base/functional/bind.h"
@@ -110,7 +111,7 @@ class TestBounceDetectorDelegate : public DIPSBounceDetectorDelegate {
     }
 
     reported_sites_.push_back(base::JoinString(
-        std::vector<base::StringPiece>(sites.begin(), sites.end()), ", "));
+        std::vector<std::string_view>(sites.begin(), sites.end()), ", "));
   }
 
   void OnSiteStorageAccessed(const GURL& first_party_url,
@@ -996,6 +997,27 @@ TEST_F(DIPSBounceDetectorTest, SiteHadUserActivation) {
   EXPECT_FALSE(CommittedRedirectContext().SiteHadUserActivation("b.test"));
   EXPECT_TRUE(CommittedRedirectContext().SiteHadUserActivation("c.test"));
   EXPECT_FALSE(CommittedRedirectContext().SiteHadUserActivation("d.test"));
+}
+
+TEST_F(DIPSBounceDetectorTest, ClientCookieAccessDuringNavigation) {
+  NavigateTo("http://a.test", kWithUserGesture);
+  NavigateTo("http://b.test", kWithUserGesture);
+
+  auto nav = StartNavigation("http://c.test", kNoUserGesture);
+  // b.test accesses cookies after the navigation started.
+  AccessClientCookie(CookieOperation::kChange);
+  nav.Finish(true);
+
+  EndPendingRedirectChain();
+
+  // The b.test bounce is considered stateful.
+  EXPECT_THAT(
+      redirects(),
+      testing::ElementsAre(("[1/1] a.test/ -> b.test/ (Write) -> c.test/")));
+  EXPECT_THAT(GetRecordedBounces(),
+              testing::ElementsAre(testing::FieldsAre(
+                  GURL("http://b.test"), testing::_, /*stateful=*/true)));
+  EXPECT_EQ(stateful_bounce_count(), 1);
 }
 
 using ChainPair =

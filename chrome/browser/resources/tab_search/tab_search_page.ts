@@ -349,9 +349,9 @@ export class TabSearchPageElement extends TabSearchSearchFieldBase {
       // The infinite-list produces viewport-filled events whenever a data or
       // scroll position change triggers the the viewport fill logic.
       listenOnce(this.$.tabsList, 'viewport-filled', () => {
-        // Push showUi() to the event loop to allow reflow to occur following
-        // the DOM update.
-        setTimeout(() => this.apiProxy_.showUi(), 0);
+        // Push notifySearchUiReadyToShow() to the event loop to allow reflow
+        // to occur following the DOM update.
+        setTimeout(() => this.apiProxy_.notifySearchUiReadyToShow(), 0);
       });
 
       // TODO(crbug.com/c/1349350): Determine why no active window is reported
@@ -650,7 +650,9 @@ export class TabSearchPageElement extends TabSearchSearchFieldBase {
   private tabData_(
       tab: Tab|RecentlyClosedTab, inActiveWindow: boolean, type: TabItemType,
       tabGroupsMap: Map<string, TabGroup>): TabData {
-    const tabData = new TabData(tab, type, new URL(tab.url.url).hostname);
+    // TODO(crbug.com/329638230): figure out why tab.url.url could be empty.
+    const tabData =
+        new TabData(tab, type, new URL(tab.url.url || 'about:blank').hostname);
 
     if (tab.groupId) {
       tabData.tabGroup = tabGroupsMap.get(tokenToString(tab.groupId));

@@ -72,6 +72,15 @@ UIFont* CreateDynamicFont(UIFontTextStyle style, UIFontWeight weight) {
   return [UIFont systemFontOfSize:fontDescriptor.pointSize weight:weight];
 }
 
+UIFont* CreateDynamicFont(UIFontTextStyle style,
+                          UIFontWeight weight,
+                          id<UITraitEnvironment> environment) {
+  UIFontDescriptor* fontDescriptor = [UIFontDescriptor
+      preferredFontDescriptorWithTextStyle:style
+             compatibleWithTraitCollection:environment.traitCollection];
+  return [UIFont systemFontOfSize:fontDescriptor.pointSize weight:weight];
+}
+
 UIImage* CaptureViewWithOption(UIView* view,
                                CGFloat scale,
                                CaptureViewOption option) {
@@ -207,15 +216,6 @@ bool IsCompactHeight(id<UITraitEnvironment> environment) {
 
 bool IsCompactHeight(UITraitCollection* traitCollection) {
   return traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
-}
-
-bool IsRegularXRegularSizeClass(id<UITraitEnvironment> environment) {
-  return IsRegularXRegularSizeClass(environment.traitCollection);
-}
-
-bool IsRegularXRegularSizeClass(UITraitCollection* traitCollection) {
-  return traitCollection.verticalSizeClass == UIUserInterfaceSizeClassRegular &&
-         traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassRegular;
 }
 
 bool ShouldShowCompactToolbar(id<UITraitEnvironment> environment) {

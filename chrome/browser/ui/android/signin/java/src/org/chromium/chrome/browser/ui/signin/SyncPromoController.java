@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.DimenRes;
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.annotation.StringRes;
@@ -34,6 +35,8 @@ import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.signin.services.SigninPreferencesManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.signin.SyncConsentActivityLauncher.AccessPoint;
+import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.components.browser_ui.widget.impression.ImpressionTracker;
 import org.chromium.components.browser_ui.widget.impression.OneShotImpressionListener;
@@ -59,12 +62,23 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A controller for configuring the sync promo. It sets up the sync promo depending on the
- * context: whether there are any Google accounts on the device which have been previously signed in
- * or not. The controller also takes care of counting impressions, recording signin related user
- * actions and histograms.
+ * A controller for configuring the sync promo. It sets up the sync promo depending on the context:
+ * whether there are any Google accounts on the device which have been previously signed in or not.
+ * The controller also takes care of counting impressions, recording signin related user actions and
+ * histograms.
  */
 public class SyncPromoController {
+    public interface Delegate {
+        /**
+         * Returns the string to apply to the sync promo primary button.
+         *
+         * @param context the Android context.
+         * @param profileData the user's profile data used to create the "continue as..." label.
+         */
+        String getTextForPrimaryButton(
+                Context context, @Nullable DisplayableProfileData profileData);
+    }
+
     /** Specifies the various states of sync promo. */
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
@@ -100,6 +114,10 @@ public class SyncPromoController {
     private static final int NTP_SYNC_PROMO_INCREASE_SHOW_COUNT_AFTER_MINUTE = 30;
     private static final String SYNC_ANDROID_NTP_PROMO_MAX_IMPRESSIONS =
             "SyncAndroidNTPPromoMaxImpressions";
+    private static final Set<Integer> ACCESS_POINTS_FOR_NEW_SIGNIN_FLOW =
+            Set.of(SigninAccessPoint.BOOKMARK_MANAGER, SigninAccessPoint.RECENT_TABS);
+    private static final Set<Integer> HISTORY_SYNC_DEDICATED_ACCESS_POINTS =
+            Set.of(SigninAccessPoint.RECENT_TABS);
     @VisibleForTesting static final String GMAIL_DOMAIN = "gmail.com";
 
     /** Strings used for promo shown count histograms. */
@@ -112,13 +130,18 @@ public class SyncPromoController {
     }
 
     private final Profile mProfile;
+    private final AccountPickerBottomSheetStrings mBottomSheetStrings;
     private final @AccessPoint int mAccessPoint;
     private final String mImpressionUserActionName;
+    // TODO(b/332704829): Move the declaration of most of these access-point specific fields to the
+    // Delegate.
     private final @Nullable String mSyncPromoDismissedPreferenceTracker;
     private final @StringRes int mTitleStringId;
     private final @StringRes int mDescriptionStringId;
     private final SyncConsentActivityLauncher mSyncConsentActivityLauncher;
     private final SigninAndHistoryOptInActivityLauncher mSigninAndHistoryOptInActivityLauncher;
+    private final @SigninAndHistoryOptInCoordinator.HistoryOptInMode int mHistoryOptInMode;
+    private final Delegate mDelegate;
 
     private @Nullable DisplayableProfileData mProfileData;
     private @Nullable ImpressionTracker mImpressionTracker;
@@ -219,6 +242,7 @@ public class SyncPromoController {
      * Creates a new SyncPromoController.
      *
      * @param profile The Profile associated with the sync promo.
+     * @param bottomSheetStrings Contains the string resource IDs for the sign-in bottom sheet.
      * @param accessPoint Specifies the AccessPoint from which the promo is to be shown.
      * @param syncConsentActivityLauncher Launcher of {@link SyncConsentActivity}.
      * @param signinAndHistoryOptInActivityLauncher Launcher of {@link
@@ -226,10 +250,12 @@ public class SyncPromoController {
      */
     public SyncPromoController(
             Profile profile,
+            @NonNull AccountPickerBottomSheetStrings bottomSheetStrings,
             @AccessPoint int accessPoint,
             SyncConsentActivityLauncher syncConsentActivityLauncher,
             SigninAndHistoryOptInActivityLauncher signinAndHistoryOptInActivityLauncher) {
         mProfile = profile;
+        mBottomSheetStrings = bottomSheetStrings;
         mAccessPoint = accessPoint;
         mSyncConsentActivityLauncher = syncConsentActivityLauncher;
         mSigninAndHistoryOptInActivityLauncher = signinAndHistoryOptInActivityLauncher;
@@ -240,6 +266,23 @@ public class SyncPromoController {
                         ChromePreferenceKeys.SIGNIN_PROMO_BOOKMARKS_DECLINED;
                 mTitleStringId = R.string.sync_promo_title_bookmarks;
                 mDescriptionStringId = R.string.sync_promo_description_bookmarks;
+                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE;
+                // TODO(b/332704829): Move delegate creation outside of this constructor.
+                mDelegate =
+                        (context, profileData) -> {
+                            IdentityManager identityManager =
+                                    IdentityServicesProvider.get().getIdentityManager(mProfile);
+                            if ((!ChromeFeatureList.isEnabled(
+                                                    ChromeFeatureList
+                                                            .REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+                                            && identityManager.hasPrimaryAccount(
+                                                    ConsentLevel.SIGNIN))
+                                    || profileData == null) {
+                                return context.getResources()
+                                        .getString(R.string.sync_promo_turn_on_sync);
+                            }
+                            return SigninUtils.getContinueAsButtonText(context, profileData);
+                        };
                 break;
             case SigninAccessPoint.NTP_CONTENT_SUGGESTIONS:
                 mImpressionUserActionName = "Signin_Impression_FromNTPContentSuggestions";
@@ -247,12 +290,48 @@ public class SyncPromoController {
                         ChromePreferenceKeys.SIGNIN_PROMO_NTP_PROMO_DISMISSED;
                 mTitleStringId = R.string.sync_promo_title_ntp_content_suggestions;
                 mDescriptionStringId = R.string.sync_promo_description_ntp_content_suggestions;
+                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE;
+                // TODO(b/332704829): Move delegate creation outside of this constructor.
+                mDelegate =
+                        (context, profileData) -> {
+                            IdentityManager identityManager =
+                                    IdentityServicesProvider.get().getIdentityManager(mProfile);
+                            if ((!ChromeFeatureList.isEnabled(
+                                                    ChromeFeatureList
+                                                            .REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+                                            && identityManager.hasPrimaryAccount(
+                                                    ConsentLevel.SIGNIN))
+                                    || profileData == null) {
+                                return context.getResources()
+                                        .getString(R.string.sync_promo_turn_on_sync);
+                            }
+                            return SigninUtils.getContinueAsButtonText(context, profileData);
+                        };
                 break;
             case SigninAccessPoint.RECENT_TABS:
                 mImpressionUserActionName = "Signin_Impression_FromRecentTabs";
                 mSyncPromoDismissedPreferenceTracker = null;
-                mTitleStringId = R.string.sync_promo_title_recent_tabs;
-                mDescriptionStringId = R.string.sync_promo_description_recent_tabs;
+                if (ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+                    // TODO(crbug.com/331384429): Update the strings.
+                    mTitleStringId = R.string.signin_promo_title_recent_tabs;
+                    mDescriptionStringId = R.string.signin_promo_description_recent_tabs;
+                } else {
+                    mTitleStringId = R.string.sync_promo_title_recent_tabs;
+                    mDescriptionStringId = R.string.sync_promo_description_recent_tabs;
+                }
+                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.REQUIRED;
+                // TODO(b/332704829): Move delegate creation outside of this constructor.
+                mDelegate =
+                        (context, profileData) -> {
+                            if (ChromeFeatureList.isEnabled(
+                                    ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+                                return context.getResources()
+                                        .getString(R.string.signin_promo_turn_on);
+                            }
+                            return context.getResources()
+                                    .getString(R.string.sync_promo_turn_on_sync);
+                        };
                 break;
             case SigninAccessPoint.SETTINGS:
                 mImpressionUserActionName = "Signin_Impression_FromSettings";
@@ -260,6 +339,23 @@ public class SyncPromoController {
                         ChromePreferenceKeys.SIGNIN_PROMO_SETTINGS_PERSONALIZED_DISMISSED;
                 mTitleStringId = R.string.sync_promo_title_settings;
                 mDescriptionStringId = R.string.sync_promo_description_settings;
+                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE;
+                // TODO(b/332704829): Move delegate creation outside of this constructor.
+                mDelegate =
+                        (context, profileData) -> {
+                            IdentityManager identityManager =
+                                    IdentityServicesProvider.get().getIdentityManager(mProfile);
+                            if ((!ChromeFeatureList.isEnabled(
+                                                    ChromeFeatureList
+                                                            .REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+                                            && identityManager.hasPrimaryAccount(
+                                                    ConsentLevel.SIGNIN))
+                                    || profileData == null) {
+                                return context.getResources()
+                                        .getString(R.string.sync_promo_turn_on_sync);
+                            }
+                            return SigninUtils.getContinueAsButtonText(context, profileData);
+                        };
                 break;
             default:
                 throw new IllegalArgumentException(
@@ -336,8 +432,7 @@ public class SyncPromoController {
         }
 
         boolean isTypeManagedByPolicy =
-                syncService.isTypeManagedByPolicy(UserSelectableType.BOOKMARKS)
-                        && syncService.isTypeManagedByPolicy(UserSelectableType.READING_LIST);
+                syncService.isTypeManagedByPolicy(UserSelectableType.BOOKMARKS);
         boolean isMaxImpressionCountReached =
                 ChromeSharedPreferences.getInstance()
                                 .readInt(
@@ -352,6 +447,12 @@ public class SyncPromoController {
     }
 
     private boolean canShowRecentTabsPromo() {
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(mProfile);
+            return !historySyncHelper.isHistorySyncDisabledByPolicy()
+                    && !historySyncHelper.didAlreadyOptIn();
+        }
         return !SyncServiceFactory.getForProfile(mProfile)
                 .isTypeManagedByPolicy(UserSelectableType.TABS);
     }
@@ -488,7 +589,8 @@ public class SyncPromoController {
         recordShowCountHistogram(UserAction.SHOWN);
     }
 
-    // TODO(crbug.com/1323197): we can share more code between setupColdState() and setupHotState().
+    // TODO(crbug.com/40838474): we can share more code between setupColdState() and
+    // setupHotState().
     // The difference between the 2 will just be the avatar and the behavior of the primary button.
     private void setupColdState(PersonalizedSigninPromoView view) {
         final Context context = view.getContext();
@@ -498,7 +600,7 @@ public class SyncPromoController {
         view.getTitle().setText(mTitleStringId);
         view.getDescription().setText(mDescriptionStringId);
 
-        view.getPrimaryButton().setText(R.string.sync_promo_turn_on_sync);
+        view.getPrimaryButton().setText(mDelegate.getTextForPrimaryButton(context, null));
         view.getPrimaryButton().setOnClickListener(v -> signinWithNewAccount(context));
 
         view.getSecondaryButton().setVisibility(View.GONE);
@@ -519,21 +621,25 @@ public class SyncPromoController {
         List<CoreAccountInfo> accounts =
                 AccountManagerFacadeProvider.getInstance().getCoreAccountInfos().getResult();
         PrefService prefService = UserPrefs.get(mProfile);
-        boolean launchSigninFlow =
-                shouldLaunchSigninFlow(
+        boolean launchBookmarksSigninFlow =
+                shouldLaunchBookmarksSigninFlow(
                         mAccessPoint, identityManager, signinManager, accounts, prefService);
-        if (launchSigninFlow) {
+        if (launchBookmarksSigninFlow) {
             view.getDescription().setText(R.string.signin_promo_description_bookmarks);
         }
+        // The bookmarks manager has different conditions for displaying the new flow.
         view.getPrimaryButton()
-                .setOnClickListener(v -> signinWithDefaultAccount(context, launchSigninFlow));
+                .setOnClickListener(
+                        v ->
+                                signinWithDefaultAccount(
+                                        context,
+                                        launchBookmarksSigninFlow
+                                                || shouldLaunchDedicatedSigninAndHistorySyncFlow()));
+        view.getPrimaryButton().setText(mDelegate.getTextForPrimaryButton(context, mProfileData));
         if (identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)) {
-            view.getPrimaryButton().setText(R.string.sync_promo_turn_on_sync);
             view.getSecondaryButton().setVisibility(View.GONE);
             return;
         }
-
-        view.getPrimaryButton().setText(SigninUtils.getContinueAsButtonText(context, mProfileData));
 
         // Hide secondary button on automotive devices, as they only support one account per device
         if (BuildInfo.getInstance().isAutomotive) {
@@ -542,26 +648,63 @@ public class SyncPromoController {
             view.getSecondaryButton().setText(R.string.signin_promo_choose_another_account);
             view.getSecondaryButton()
                     .setOnClickListener(
-                            v -> signinWithNotDefaultAccount(context, launchSigninFlow));
+                            v ->
+                                    signinWithNotDefaultAccount(
+                                            context,
+                                            launchBookmarksSigninFlow
+                                                    || shouldLaunchDedicatedSigninAndHistorySyncFlow()));
             view.getSecondaryButton().setVisibility(View.VISIBLE);
         }
     }
 
     private void signinWithNewAccount(Context context) {
         recordShowCountHistogram(UserAction.CONTINUED);
-        mSyncConsentActivityLauncher.launchActivityForPromoAddAccountFlow(context, mAccessPoint);
+        if (shouldLaunchDedicatedSigninAndHistorySyncFlow()) {
+            mSigninAndHistoryOptInActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
+                    context,
+                    mProfile,
+                    mBottomSheetStrings,
+                    SigninAndHistoryOptInCoordinator.NoAccountSigninMode.ADD_ACCOUNT,
+                    SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                            .DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                    mAccessPoint);
+        } else if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+                    context,
+                    mProfile,
+                    mBottomSheetStrings,
+                    SigninAndHistoryOptInCoordinator.NoAccountSigninMode.ADD_ACCOUNT,
+                    SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                            .DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                    mHistoryOptInMode,
+                    mAccessPoint);
+        } else {
+            mSyncConsentActivityLauncher.launchActivityForPromoAddAccountFlow(
+                    context, mAccessPoint);
+        }
     }
 
     private void signinWithDefaultAccount(Context context, boolean launchSigninFlow) {
         recordShowCountHistogram(UserAction.CONTINUED);
-        if (launchSigninFlow) {
-            mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+        if (shouldLaunchDedicatedSigninAndHistorySyncFlow()) {
+            mSigninAndHistoryOptInActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
                     context,
                     mProfile,
+                    mBottomSheetStrings,
                     SigninAndHistoryOptInCoordinator.NoAccountSigninMode.ADD_ACCOUNT,
                     SigninAndHistoryOptInCoordinator.WithAccountSigninMode
                             .DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                    SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE,
+                    mAccessPoint);
+        } else if (launchSigninFlow) {
+            mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+                    context,
+                    mProfile,
+                    mBottomSheetStrings,
+                    SigninAndHistoryOptInCoordinator.NoAccountSigninMode.ADD_ACCOUNT,
+                    SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                            .DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                    mHistoryOptInMode,
                     mAccessPoint);
         } else {
             mSyncConsentActivityLauncher.launchActivityForPromoDefaultFlow(
@@ -571,14 +714,24 @@ public class SyncPromoController {
 
     private void signinWithNotDefaultAccount(Context context, boolean launchSigninFlow) {
         recordShowCountHistogram(UserAction.CONTINUED);
-        if (launchSigninFlow) {
-            mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+        if (shouldLaunchDedicatedSigninAndHistorySyncFlow()) {
+            mSigninAndHistoryOptInActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
                     context,
                     mProfile,
+                    mBottomSheetStrings,
                     SigninAndHistoryOptInCoordinator.NoAccountSigninMode.ADD_ACCOUNT,
                     SigninAndHistoryOptInCoordinator.WithAccountSigninMode
                             .CHOOSE_ACCOUNT_BOTTOM_SHEET,
-                    SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE,
+                    mAccessPoint);
+        } else if (launchSigninFlow) {
+            mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+                    context,
+                    mProfile,
+                    mBottomSheetStrings,
+                    SigninAndHistoryOptInCoordinator.NoAccountSigninMode.ADD_ACCOUNT,
+                    SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                            .CHOOSE_ACCOUNT_BOTTOM_SHEET,
+                    mHistoryOptInMode,
                     mAccessPoint);
         } else {
             mSyncConsentActivityLauncher.launchActivityForPromoChooseAccountFlow(
@@ -624,6 +777,12 @@ public class SyncPromoController {
         RecordUserAction.record(mImpressionUserActionName);
     }
 
+    private boolean shouldLaunchDedicatedSigninAndHistorySyncFlow() {
+        return ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+                && HISTORY_SYNC_DEDICATED_ACCESS_POINTS.contains(mAccessPoint);
+    }
+
     public static void setPrefSigninPromoDeclinedBookmarksForTests(boolean isDeclined) {
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.SIGNIN_PROMO_BOOKMARKS_DECLINED, isDeclined);
@@ -634,7 +793,7 @@ public class SyncPromoController {
     }
 
     @VisibleForTesting
-    static boolean shouldLaunchSigninFlow(
+    static boolean shouldLaunchBookmarksSigninFlow(
             @SigninAccessPoint int accessPoint,
             IdentityManager identityManager,
             SigninManager signinManager,

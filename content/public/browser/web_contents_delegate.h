@@ -31,6 +31,7 @@
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom-forward.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -126,12 +127,18 @@ class CONTENT_EXPORT WebContentsDelegate {
   //
   // A nullptr source indicates the current tab (callers should probably use
   // OpenURL() for these cases which does it for you).
-
+  // If a `navigation_handle_callback` function is provided, it should be called
+  // ith the pending navigation (if any) when the navigation handle become
+  // available. This allows callers to observe or attach their specific data.
+  // This function may not be called if the navigation fails for any reason.
+  //
   // Returns the WebContents the URL is opened in, or nullptr if the URL wasn't
   // opened immediately. Note that the URL might be opened in another context
   // when a nullptr is returned.
-  virtual WebContents* OpenURLFromTab(WebContents* source,
-                                      const OpenURLParams& params);
+  virtual WebContents* OpenURLFromTab(
+      WebContents* source,
+      const OpenURLParams& params,
+      base::OnceCallback<void(NavigationHandle&)> navigation_handle_callback);
 
   // Allows the delegate to optionally cancel navigations that attempt to
   // transfer to a different process between the start of the network load and
@@ -778,11 +785,30 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Notifies the previewed page is activated.
   virtual void DidActivatePreviewedPage() {}
 
+  // Updates the draggable regions defined by the app-region CSS property.
+  virtual void DraggableRegionsChanged(
+      const std::vector<blink::mojom::DraggableRegionPtr>& regions,
+      WebContents* contents) {}
+
 #if !BUILDFLAG(IS_ANDROID)
   // Whether the WebContents should use per PWA instanced
   // system media controls.
   virtual bool ShouldUseInstancedSystemMediaControls() const;
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+  // Allow delegate to override how to take a bitmap snapshot of this
+  // WebContents. Return true if the delegate will execute callback with a
+  // captured bitmap of the committed navigation entry. The callback will ensure
+  // the bitmap is associated with the correct NavigationEntry and it must be
+  // dispatched asynchronously (with an empty bitmap if the capture fails) if
+  // and only if this returns true. And  If the embedder returns false, the
+  // caller within content/ will associate the currently committed entry with a
+  // bitmap of the rendered web page. Note that it's the embedder's
+  // responsibility for capturing the visible content at the time of this call,
+  // though it can invoke the callback with the bitmap asynchronously, at a
+  // later time.
+  virtual bool MaybeCopyContentAreaAsBitmap(
+      base::OnceCallback<void(const SkBitmap&)> callback);
 
  protected:
   virtual ~WebContentsDelegate();

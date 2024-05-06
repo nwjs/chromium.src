@@ -37,17 +37,15 @@ class StyleContainmentScope final
   void CreateCounterNodeForLayoutObject(LayoutObject& object,
                                         const AtomicString& identifier);
   CORE_EXPORT void CreateCounterNodeForLayoutCounter(LayoutCounter&);
-  void CreateListItemCounterNodeForLayoutObject(LayoutObject&);
   void RemoveCounterNodeForLayoutCounter(LayoutCounter&);
   void ReparentCountersToStyleScope(StyleContainmentScope&);
   void UpdateCounters() const;
-
-  void InvalidateAnchorNameReferences() const;
 
   bool IsAncestorOf(const Element*, const Element* stay_within = nullptr);
 
   void AppendChild(StyleContainmentScope*);
   void RemoveChild(StyleContainmentScope*);
+  void Remove();
 
   const Element* GetElement() const { return element_.Get(); }
   CountersScopeTree* GetCountersScopeTree() { return counters_tree_.Get(); }

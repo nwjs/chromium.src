@@ -22,6 +22,28 @@
 #include "ui/accessibility/ax_text_utils.h"
 #include "ui/accessibility/ax_tree_update_util.h"
 
+namespace {
+
+bool GetIsGoogleDocs(const GURL& url) {
+  // A Google Docs URL is in the form of "https://docs.google.com/document*" or
+  // "https://docs.sandbox.google.com/document*".
+  constexpr const char* kDocsURLDomain[] = {"docs.google.com",
+                                            "docs.sandbox.google.com"};
+  if (url.SchemeIsHTTPOrHTTPS()) {
+    for (const std::string& google_docs_url : kDocsURLDomain) {
+      if (url.DomainIs(google_docs_url) && url.has_path() &&
+          url.path().starts_with("/document") &&
+          !url.ExtractFileName().empty()) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+}  // namespace
+
 ReadAnythingAppModel::ReadAnythingAppModel() {
   // TODO(crbug.com/1450930): Use a global ukm recorder instance instead.
   mojo::Remote<ukm::mojom::UkmRecorderFactory> factory;
@@ -33,6 +55,13 @@ ReadAnythingAppModel::ReadAnythingAppModel() {
 ReadAnythingAppModel::~ReadAnythingAppModel() {
   SetActiveUkmSourceId(ukm::kInvalidSourceId);
 }
+
+ReadAnythingAppModel::AXTreeInfo::AXTreeInfo(
+    std::unique_ptr<ui::AXTreeManager> other) {
+  manager = std::move(other);
+}
+
+ReadAnythingAppModel::AXTreeInfo::~AXTreeInfo() = default;
 
 ReadAnythingAppModel::ReadAloudCurrentGranularity::
     ReadAloudCurrentGranularity() {
@@ -77,11 +106,11 @@ void ReadAnythingAppModel::OnSettingsRestoredFromPrefs(
   highlight_granularity_ = static_cast<size_t>(granularity);
 }
 
-void ReadAnythingAppModel::InsertDisplayNode(ui::AXNodeID node) {
+void ReadAnythingAppModel::InsertDisplayNode(const ui::AXNodeID& node) {
   display_node_ids_.insert(node);
 }
 
-void ReadAnythingAppModel::InsertSelectionNode(ui::AXNodeID node) {
+void ReadAnythingAppModel::InsertSelectionNode(const ui::AXNodeID& node) {
   selection_node_ids_.insert(node);
 }
 
@@ -380,35 +409,73 @@ bool ReadAnythingAppModel::SelectionInsideDisplayNodes() {
 }
 
 ui::AXSerializableTree* ReadAnythingAppModel::GetTreeFromId(
-    ui::AXTreeID tree_id) const {
+    const ui::AXTreeID& tree_id) const {
   DCHECK_NE(tree_id, ui::AXTreeIDUnknown());
   DCHECK(ContainsTree(tree_id));
   return static_cast<ui::AXSerializableTree*>(
-      tree_managers_.at(tree_id)->ax_tree());
+      tree_infos_.at(tree_id)->manager->ax_tree());
 }
 
-bool ReadAnythingAppModel::ContainsTree(ui::AXTreeID tree_id) const {
-  return base::Contains(tree_managers_, tree_id);
+bool ReadAnythingAppModel::ContainsTree(const ui::AXTreeID& tree_id) const {
+  return base::Contains(tree_infos_, tree_id);
 }
 
 void ReadAnythingAppModel::AddTree(
-    ui::AXTreeID tree_id,
+    const ui::AXTreeID& tree_id,
     std::unique_ptr<ui::AXSerializableTree> tree) {
   DCHECK(!ContainsTree(tree_id));
   std::unique_ptr<ui::AXTreeManager> manager =
       std::make_unique<ui::AXTreeManager>(std::move(tree));
-  tree_managers_[tree_id] = std::move(manager);
+  std::unique_ptr<ReadAnythingAppModel::AXTreeInfo> tree_info =
+      std::make_unique<AXTreeInfo>(std::move(manager));
+  tree_infos_[tree_id] = std::move(tree_info);
 }
 
-void ReadAnythingAppModel::EraseTree(ui::AXTreeID tree_id) {
-  tree_managers_.erase(tree_id);
+void ReadAnythingAppModel::EraseTree(const ui::AXTreeID& tree_id) {
+  tree_infos_.erase(tree_id);
 
   // Ensure any pending updates associated with the erased tree are removed.
   pending_updates_map_.erase(tree_id);
 }
 
+void ReadAnythingAppModel::AddUrlInformationForTreeId(
+    const ui::AXTreeID& tree_id) {
+  // If the tree isn't yet created, do nothing.
+  if (!ContainsTree(tree_id)) {
+    return;
+  }
+  ReadAnythingAppModel::AXTreeInfo* tree_info = tree_infos_.at(tree_id).get();
+  DCHECK(tree_info);
+
+  // If the url information has already been set for this tree, do nothing.
+  if (tree_info->is_url_information_set) {
+    return;
+  }
+
+  DCHECK(tree_info->manager);
+  // If the tree manager is not the root manager, do nothing.
+  if (!tree_info->manager->IsRoot()) {
+    return;
+  }
+
+  // If the tree doesn't have a root, or the root doesn't have a url set, do
+  // nothing.
+  ui::AXNode* root = tree_info->manager->GetRoot();
+  if (!root || !root->HasStringAttribute(ax::mojom::StringAttribute::kUrl)) {
+    return;
+  }
+
+  GURL url = GURL(root->GetStringAttribute(ax::mojom::StringAttribute::kUrl));
+  tree_info->is_url_information_set = true;
+  tree_info->is_docs = GetIsGoogleDocs(url);
+}
+
+bool ReadAnythingAppModel::IsDocs() const {
+  return tree_infos_.at(active_tree_id_)->is_docs;
+}
+
 void ReadAnythingAppModel::AddPendingUpdates(
-    const ui::AXTreeID tree_id,
+    const ui::AXTreeID& tree_id,
     const std::vector<ui::AXTreeUpdate>& updates) {
   std::vector<ui::AXTreeUpdate> update = GetOrCreatePendingUpdateAt(tree_id);
   update.insert(update.end(), std::make_move_iterator(updates.begin()),
@@ -420,7 +487,8 @@ void ReadAnythingAppModel::ClearPendingUpdates() {
   pending_updates_map_.clear();
 }
 
-void ReadAnythingAppModel::UnserializePendingUpdates(ui::AXTreeID tree_id) {
+void ReadAnythingAppModel::UnserializePendingUpdates(
+    const ui::AXTreeID& tree_id) {
   if (!pending_updates_map_.contains(tree_id)) {
     return;
   }
@@ -440,7 +508,7 @@ void ReadAnythingAppModel::UnserializeUpdates(
     return;
   }
   DCHECK_NE(tree_id, ui::AXTreeIDUnknown());
-  DCHECK(base::Contains(tree_managers_, tree_id));
+  DCHECK(base::Contains(tree_infos_, tree_id));
   ui::AXSerializableTree* tree = GetTreeFromId(tree_id);
   size_t prev_tree_size = tree->size();
   CHECK(tree);
@@ -461,6 +529,7 @@ void ReadAnythingAppModel::UnserializeUpdates(
     tree->Unserialize(update);
   }
 
+  AddUrlInformationForTreeId(tree_id);
   ProcessGeneratedEvents(event_generator, prev_tree_size, tree->size());
 }
 
@@ -502,7 +571,7 @@ void ReadAnythingAppModel::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
   // OnAXTreeDestroyed is called whenever the AXActionHandler in the browser
   // learns that an AXTree was destroyed. This could be from any tab, not just
   // the active one; therefore many tree_ids will not be found in
-  // tree_managers_.
+  // tree_infos_.
   if (!ContainsTree(tree_id)) {
     return;
   }
@@ -515,7 +584,8 @@ void ReadAnythingAppModel::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
   EraseTree(tree_id);
 }
 
-void ReadAnythingAppModel::SetActiveUkmSourceId(ukm::SourceId source_id) {
+void ReadAnythingAppModel::SetActiveUkmSourceId(
+    const ukm::SourceId& source_id) {
   // Record the number of selections made on the current page if it was not
   // distillable.
   if (active_ukm_source_id_ != ukm::kInvalidSourceId &&
@@ -528,13 +598,14 @@ void ReadAnythingAppModel::SetActiveUkmSourceId(ukm::SourceId source_id) {
   active_ukm_source_id_ = source_id;
 }
 
-ui::AXNode* ReadAnythingAppModel::GetAXNode(ui::AXNodeID ax_node_id) const {
+ui::AXNode* ReadAnythingAppModel::GetAXNode(
+    const ui::AXNodeID& ax_node_id) const {
   ui::AXSerializableTree* tree = GetTreeFromId(active_tree_id_);
   return tree->GetFromId(ax_node_id);
 }
 
 bool ReadAnythingAppModel::IsNodeIgnoredForReadAnything(
-    ui::AXNodeID ax_node_id) const {
+    const ui::AXNodeID& ax_node_id) const {
   ui::AXNode* ax_node = GetAXNode(ax_node_id);
   // If the node is not in the active tree (this could happen when RM is still
   // loading), ignore it.
@@ -571,12 +642,13 @@ bool ReadAnythingAppModel::IsNodeIgnoredForReadAnything(
   return (ui::IsControl(role) && !ui::IsTextField(role)) || ui::IsSelect(role);
 }
 
-bool ReadAnythingAppModel::NodeIsContentNode(ui::AXNodeID ax_node_id) const {
+bool ReadAnythingAppModel::NodeIsContentNode(
+    const ui::AXNodeID& ax_node_id) const {
   return base::Contains(content_node_ids_, ax_node_id);
 }
 
 const std::vector<ui::AXTreeUpdate>&
-ReadAnythingAppModel::GetOrCreatePendingUpdateAt(ui::AXTreeID tree_id) {
+ReadAnythingAppModel::GetOrCreatePendingUpdateAt(const ui::AXTreeID& tree_id) {
   if (!pending_updates_map_.contains(tree_id)) {
     pending_updates_map_[tree_id] = std::vector<ui::AXTreeUpdate>();
   }
@@ -619,12 +691,12 @@ ReadAnythingAppModel::GetPendingUpdatesForTesting() {
   return pending_updates_map_;
 }
 
-std::map<ui::AXTreeID, std::unique_ptr<ui::AXTreeManager>>*
+std::map<ui::AXTreeID, std::unique_ptr<ReadAnythingAppModel::AXTreeInfo>>*
 ReadAnythingAppModel::GetTreesForTesting() {
-  return &tree_managers_;
+  return &tree_infos_;
 }
 
-void ReadAnythingAppModel::EraseTreeForTesting(ui::AXTreeID tree_id) {
+void ReadAnythingAppModel::EraseTreeForTesting(const ui::AXTreeID& tree_id) {
   EraseTree(tree_id);
 }
 
@@ -694,6 +766,7 @@ void ReadAnythingAppModel::ProcessNonGeneratedEvents(
     switch (event.event_type) {
       case ax::mojom::Event::kLoadComplete:
         requires_distillation_ = true;
+        page_finished_loading_ = true;
         if (features::IsDataCollectionModeForScreen2xEnabled()) {
           page_finished_loading_for_data_collection_ = true;
         }
@@ -912,33 +985,31 @@ void ReadAnythingAppModel::ToggleLinksEnabled() {
 std::vector<std::string> ReadAnythingAppModel::GetSupportedFonts() const {
   std::vector<std::string> font_choices_;
 
-  if (base::Contains(kLanguagesSupportedByPoppins, default_language_code())) {
+  if (base::Contains(kLanguagesSupportedByPoppins, language_code())) {
     font_choices_.push_back("Poppins");
   }
   font_choices_.push_back("Sans-serif");
   font_choices_.push_back("Serif");
-  if (base::Contains(kLanguagesSupportedByComicNeue, default_language_code())) {
+  if (base::Contains(kLanguagesSupportedByComicNeue, language_code())) {
     font_choices_.push_back("Comic Neue");
   }
-  if (base::Contains(kLanguagesSupportedByLexendDeca,
-                     default_language_code())) {
+  if (base::Contains(kLanguagesSupportedByLexendDeca, language_code())) {
     font_choices_.push_back("Lexend Deca");
   }
-  if (base::Contains(kLanguagesSupportedByEbGaramond,
-                     default_language_code())) {
+  if (base::Contains(kLanguagesSupportedByEbGaramond, language_code())) {
     font_choices_.push_back("EB Garamond");
   }
-  if (base::Contains(kLanguagesSupportedByStixTwoText,
-                     default_language_code())) {
+  if (base::Contains(kLanguagesSupportedByStixTwoText, language_code())) {
     font_choices_.push_back("STIX Two Text");
   }
-  if (base::Contains(kLanguagesSupportedByAndika, default_language_code())) {
+  if (base::Contains(kLanguagesSupportedByAndika, language_code())) {
     font_choices_.push_back("Andika");
   }
   return font_choices_;
 }
 
-std::string ReadAnythingAppModel::GetHtmlTag(ui::AXNodeID ax_node_id) const {
+std::string ReadAnythingAppModel::GetHtmlTag(
+    const ui::AXNodeID& ax_node_id) const {
   ui::AXNode* ax_node = GetAXNode(ax_node_id);
   DCHECK(ax_node);
 
@@ -965,7 +1036,7 @@ std::string ReadAnythingAppModel::GetHtmlTag(ui::AXNodeID ax_node_id) const {
   if (html_tag == ui::ToString(ax::mojom::Role::kMark)) {
     // Replace mark element with bold element for readability.
     html_tag = "b";
-  } else if (is_docs()) {
+  } else if (tree_infos_.at(active_tree_id_)->is_docs) {
     // Change HTML tags for SVG elements to allow Reading Mode to render text
     // for the Annotated Canvas elements in a Google Doc.
     if (html_tag == "svg") {
@@ -979,7 +1050,8 @@ std::string ReadAnythingAppModel::GetHtmlTag(ui::AXNodeID ax_node_id) const {
   return html_tag;
 }
 
-std::string ReadAnythingAppModel::GetAltText(ui::AXNodeID ax_node_id) const {
+std::string ReadAnythingAppModel::GetAltText(
+    const ui::AXNodeID& ax_node_id) const {
   ui::AXNode* ax_node = GetAXNode(ax_node_id);
   CHECK(ax_node);
   std::string alt_text =
@@ -988,7 +1060,7 @@ std::string ReadAnythingAppModel::GetAltText(ui::AXNodeID ax_node_id) const {
 }
 
 std::string ReadAnythingAppModel::GetImageDataUrl(
-    ui::AXNodeID ax_node_id) const {
+    const ui::AXNodeID& ax_node_id) const {
   ui::AXNode* ax_node = GetAXNode(ax_node_id);
   CHECK(ax_node);
 
@@ -1003,8 +1075,9 @@ std::string ReadAnythingAppModel::GetAriaLevel(ui::AXNode* ax_node) const {
   return aria_level;
 }
 
-std::string ReadAnythingAppModel::GetHtmlTagForPDF(ui::AXNode* ax_node,
-                                                   std::string html_tag) const {
+std::string ReadAnythingAppModel::GetHtmlTagForPDF(
+    ui::AXNode* ax_node,
+    const std::string& html_tag) const {
   ax::mojom::Role role = ax_node->GetRole();
 
   // Some nodes in PDFs don't have an HTML tag so use role instead.
@@ -1036,7 +1109,7 @@ std::string ReadAnythingAppModel::GetHtmlTagForPDF(ui::AXNode* ax_node,
 
 std::string ReadAnythingAppModel::GetHeadingHtmlTagForPDF(
     ui::AXNode* ax_node,
-    std::string html_tag) const {
+    const std::string& html_tag) const {
   // Sometimes whole paragraphs can be formatted as a heading. If the text is
   // longer than 2 lines, assume it was meant to be a paragragh,
   if (ax_node->GetTextContentUTF8().length() > (2 * kMaxLineWidth)) {
@@ -1074,7 +1147,7 @@ int ReadAnythingAppModel::GetNextSentence(const std::u16string& text) {
 }
 
 void ReadAnythingAppModel::InitAXPositionWithNode(
-    const ui::AXNodeID starting_node_id) {
+    const ui::AXNodeID& starting_node_id) {
   ui::AXNode* ax_node = GetAXNode(starting_node_id);
 
   // If instance is Null or Empty, create the next AxPosition
@@ -1311,7 +1384,8 @@ ui::AXNode* ReadAnythingAppModel::GetNodeFromCurrentPosition() const {
 // Some of the checks here right now are probably unneeded.
 ui::AXNodePosition::AXPositionInstance
 ReadAnythingAppModel::GetNextValidPositionFromCurrentPosition(
-    ReadAnythingAppModel::ReadAloudCurrentGranularity& current_granularity) {
+    const ReadAnythingAppModel::ReadAloudCurrentGranularity&
+        current_granularity) {
   ui::AXNodePosition::AXPositionInstance new_position =
       ui::AXNodePosition::CreateNullPosition();
 
@@ -1331,6 +1405,38 @@ ReadAnythingAppModel::GetNextValidPositionFromCurrentPosition(
   while (!IsValidAXPosition(new_position, current_granularity)) {
     ui::AXNodePosition::AXPositionInstance possible_new_position =
         new_position->CreateNextSentenceStartPosition(movement_options);
+    bool use_paragraph = false;
+
+    // If the new position and the previous position are the same, try moving
+    // to the next paragraph position instead. This happens rarely, but when
+    // it does, we can get stuck in an infinite loop of calling
+    // CreateNextSentenceStartPosition, as it will always return the same
+    // position.
+    if (ArePositionsEqual(possible_new_position, new_position)) {
+      use_paragraph = true;
+      possible_new_position =
+          new_position->CreateNextParagraphStartPosition(movement_options);
+
+      // If after switching to use the paragraph position, the position is
+      // in a null position, go ahead and return the null position so
+      // speech can terminate properly. Otherwise, speech may get caught
+      // in an infinite loop of searching for another item to speak when
+      // there's no text left. This happens when the final node to be spoken
+      // in the content is followed by an invalid character that causes
+      // CreatenextSentenceStartPosition to repeatedly return the same thing.
+      if (possible_new_position->IsNullPosition()) {
+        return ui::AXNodePosition::AXPosition::CreateNullPosition();
+      }
+    }
+
+    // If the new position is still the same as the old position after trying
+    // a paragraph position, go ahead and return a null position instead, as
+    // ending speech early is preferable to getting stuck in an infinite
+    // loop.
+    if (ArePositionsEqual(possible_new_position, new_position)) {
+      return ui::AXNodePosition::AXPosition::CreateNullPosition();
+    }
+
     if (!possible_new_position->GetAnchor()) {
       if (NodeBeenOrWillBeSpoken(current_granularity,
                                  new_position->GetAnchor()->id())) {
@@ -1343,13 +1449,16 @@ ReadAnythingAppModel::GetNextValidPositionFromCurrentPosition(
     }
 
     new_position =
-        new_position->CreateNextSentenceStartPosition(movement_options);
+        use_paragraph
+            ? new_position->CreateNextParagraphStartPosition(movement_options)
+            : new_position->CreateNextSentenceStartPosition(movement_options);
   }
 
   return new_position;
 }
 
-int ReadAnythingAppModel::GetCurrentTextStartIndex(ui::AXNodeID node_id) {
+int ReadAnythingAppModel::GetCurrentTextStartIndex(
+    const ui::AXNodeID& node_id) {
   if (processed_granularities_on_current_page_.size() < 1) {
     return -1;
   }
@@ -1365,7 +1474,7 @@ int ReadAnythingAppModel::GetCurrentTextStartIndex(ui::AXNodeID node_id) {
   return segment.text_start;
 }
 
-int ReadAnythingAppModel::GetCurrentTextEndIndex(ui::AXNodeID node_id) {
+int ReadAnythingAppModel::GetCurrentTextEndIndex(const ui::AXNodeID& node_id) {
   if (processed_granularities_on_current_page_.size() < 1) {
     return -1;
   }
@@ -1382,8 +1491,9 @@ int ReadAnythingAppModel::GetCurrentTextEndIndex(ui::AXNodeID node_id) {
 }
 
 bool ReadAnythingAppModel::NodeBeenOrWillBeSpoken(
-    ReadAnythingAppModel::ReadAloudCurrentGranularity& current_granularity,
-    ui::AXNodeID id) const {
+    const ReadAnythingAppModel::ReadAloudCurrentGranularity&
+        current_granularity,
+    const ui::AXNodeID& id) const {
   if (base::Contains(current_granularity.segments, id)) {
     return true;
   }
@@ -1405,7 +1515,7 @@ void ReadAnythingAppModel::ResetReadAloudState() {
 }
 
 bool ReadAnythingAppModel::IsTextForReadAnything(
-    ui::AXNodeID ax_node_id) const {
+    const ui::AXNodeID& ax_node_id) const {
   // ListMarkers will have an HTML tag of "::marker," so they won't be
   // considered text when checking for the length of the html tag. However, in
   // order to read out loud ordered bullets, nodes that have the kListMarker
@@ -1428,14 +1538,14 @@ bool ReadAnythingAppModel::IsOpeningPunctuation(char& c) const {
 // AXPosition is at the start of a paragraph and we already have nodes in
 // our current granularity segment.
 bool ReadAnythingAppModel::ShouldSplitAtParagraph(
-    ui::AXNodePosition::AXPositionInstance& position,
-    ReadAloudCurrentGranularity& current_granularity) const {
+    const ui::AXNodePosition::AXPositionInstance& position,
+    const ReadAloudCurrentGranularity& current_granularity) const {
   return position->AtStartOfParagraph() &&
          (current_granularity.node_ids.size() > 0);
 }
 
 ui::AXNode* ReadAnythingAppModel::GetAnchorNode(
-    ui::AXNodePosition::AXPositionInstance& position) const {
+    const ui::AXNodePosition::AXPositionInstance& position) const {
   bool is_leaf = position->GetAnchor()->IsChildOfLeaf();
   // If the node is a leaf, use the parent node instead.
   return is_leaf ? position->GetAnchor()->GetLowestPlatformAncestor()
@@ -1443,9 +1553,9 @@ ui::AXNode* ReadAnythingAppModel::GetAnchorNode(
 }
 
 bool ReadAnythingAppModel::IsValidAXPosition(
-    ui::AXNodePosition::AXPositionInstance& position,
-    ReadAnythingAppModel::ReadAloudCurrentGranularity& current_granularity)
-    const {
+    const ui::AXNodePosition::AXPositionInstance& position,
+    const ReadAnythingAppModel::ReadAloudCurrentGranularity&
+        current_granularity) const {
   ui::AXNode* anchor_node = GetAnchorNode(position);
   bool was_previously_spoken =
       NodeBeenOrWillBeSpoken(current_granularity, anchor_node->id());
@@ -1456,4 +1566,12 @@ bool ReadAnythingAppModel::IsValidAXPosition(
   bool contains_node = base::Contains(*node_ids, anchor_node->id());
 
   return !was_previously_spoken && is_text_node && contains_node;
+}
+
+bool ReadAnythingAppModel::ArePositionsEqual(
+    const ui::AXNodePosition::AXPositionInstance& position,
+    const ui::AXNodePosition::AXPositionInstance& other) const {
+  return position->GetAnchor() && other->GetAnchor() &&
+         (position->CompareTo(*other).value_or(-1) == 0) &&
+         (position->text_offset() == other->text_offset());
 }

@@ -13,6 +13,7 @@
 
 #include "base/debug/proc_maps_linux.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 
@@ -81,7 +82,18 @@ size_t CollectStackTrace(const void** trace, size_t count) {
   return state.frame_count;
 }
 
-void StackTrace::PrintWithPrefix(const char* prefix_string) const {
+// static
+void StackTrace::PrintMessageWithPrefix(cstring_view prefix_string,
+                                        cstring_view message) {
+  if (!prefix_string.empty()) {
+    __android_log_write(ANDROID_LOG_ERROR, "chromium",
+                        StrCat({prefix_string, message}).c_str());
+  } else {
+    __android_log_write(ANDROID_LOG_ERROR, "chromium", message.c_str());
+  }
+}
+
+void StackTrace::PrintWithPrefixImpl(cstring_view prefix_string) const {
   std::string backtrace = ToStringWithPrefix(prefix_string);
   __android_log_write(ANDROID_LOG_ERROR, "chromium", backtrace.c_str());
 }
@@ -89,8 +101,9 @@ void StackTrace::PrintWithPrefix(const char* prefix_string) const {
 // NOTE: Native libraries in APKs are stripped before installing. Print out the
 // relocatable address and library names so host computers can use tools to
 // symbolize and demangle (e.g., addr2line, c++filt).
-void StackTrace::OutputToStreamWithPrefix(std::ostream* os,
-                                          const char* prefix_string) const {
+void StackTrace::OutputToStreamWithPrefixImpl(
+    std::ostream* os,
+    cstring_view prefix_string) const {
   std::string proc_maps;
   std::vector<MappedMemoryRegion> regions;
   // Allow IO to read /proc/self/maps. Reading this file doesn't hit the disk
@@ -121,8 +134,7 @@ void StackTrace::OutputToStreamWithPrefix(std::ostream* os,
       ++iter;
     }
 
-    if (prefix_string)
-      *os << prefix_string;
+    *os << prefix_string;
 
     // Adjust absolute address to be an offset within the mapped region, to
     // match the format dumped by Android's crash output.

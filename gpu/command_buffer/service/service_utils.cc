@@ -103,8 +103,10 @@ gl::GLContextAttribs GenerateGLContextAttribsForCompositor(
     attribs.global_texture_share_group = true;
     attribs.global_semaphore_share_group = true;
 
-    attribs.robust_resource_initialization = true;
-    attribs.robust_buffer_access = true;
+    // Disable resource initialization and buffer bounds checks for trusted
+    // contexts.
+    attribs.robust_resource_initialization = false;
+    attribs.robust_buffer_access = false;
   }
 
   bool force_es2_context = gl::GetGlWorkarounds().disable_es3gl_context;
@@ -356,7 +358,7 @@ bool MSAAIsSlow(const GpuDriverBugWorkarounds& workarounds) {
 }  // namespace gles2
 
 #if BUILDFLAG(IS_MAC)
-void SetMacOSSpecificTextureTargetFromCurrentGLImplementation() {
+uint32_t GetMacOSSpecificTextureTargetForCurrentGLImplementation() {
   // On MacOS, the default texture target for native GpuMemoryBuffers is
   // GL_TEXTURE_RECTANGLE_ARB. This is due to CGL's requirements for creating
   // a GL surface. However, when ANGLE is used on top of SwiftShader or Metal,
@@ -366,8 +368,14 @@ void SetMacOSSpecificTextureTargetFromCurrentGLImplementation() {
   if (gl::GetGLImplementation() == gl::kGLImplementationEGLANGLE &&
       (gl::GetANGLEImplementation() == gl::ANGLEImplementation::kSwiftShader ||
        gl::GetANGLEImplementation() == gl::ANGLEImplementation::kMetal)) {
-    SetMacOSSpecificTextureTarget(GL_TEXTURE_2D);
+    return GL_TEXTURE_2D;
   }
+  return GL_TEXTURE_RECTANGLE_ARB;
+}
+
+void SetMacOSSpecificTextureTargetFromCurrentGLImplementation() {
+  SetMacOSSpecificTextureTarget(
+      GetMacOSSpecificTextureTargetForCurrentGLImplementation());
 }
 #endif  // BUILDFLAG(IS_MAC)
 

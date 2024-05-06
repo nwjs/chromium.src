@@ -8,4 +8,12 @@ option optimize_for = LITE_RUNTIME;
 
 package lens.proto;
 
-message LensOverlayResponse {}
+message LensOverlayInteractionResponse {
+  // The suggest signals.
+  optional string suggest_signals = 1;
+}
+
+message LensOverlayUrlResponse {
+  // The side panel url to load.
+  optional string url = 1;
+}

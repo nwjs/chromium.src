@@ -379,7 +379,8 @@ TEST_F(SplitViewControllerTest, Basic) {
   EXPECT_EQ(
       window1->GetBoundsInScreen(),
       split_view_controller()->GetSnappedWindowBoundsInScreen(
-          SnapPosition::kPrimary, window1.get(), chromeos::kDefaultSnapRatio));
+          SnapPosition::kPrimary, window1.get(), chromeos::kDefaultSnapRatio,
+          /*account_for_divider_width=*/true));
 
   split_view_controller()->SnapWindow(window2.get(), SnapPosition::kSecondary);
   EXPECT_EQ(split_view_controller()->state(),
@@ -387,10 +388,11 @@ TEST_F(SplitViewControllerTest, Basic) {
   EXPECT_EQ(split_view_controller()->secondary_window(), window2.get());
   EXPECT_NE(split_view_controller()->secondary_window(), window1.get());
   EXPECT_EQ(split_view_controller()->InSplitViewMode(), true);
-  EXPECT_EQ(window2->GetBoundsInScreen(),
-            split_view_controller()->GetSnappedWindowBoundsInScreen(
-                SnapPosition::kSecondary, window2.get(),
-                chromeos::kDefaultSnapRatio));
+  EXPECT_EQ(
+      window2->GetBoundsInScreen(),
+      split_view_controller()->GetSnappedWindowBoundsInScreen(
+          SnapPosition::kSecondary, window2.get(), chromeos::kDefaultSnapRatio,
+          /*account_for_divider_width=*/true));
 
   EndSplitView();
   EXPECT_EQ(split_view_controller()->state(),
@@ -1066,6 +1068,51 @@ TEST_F(SplitViewControllerTest, SplitDividerWindowBounds) {
   // divider to one third of the screen size, and vice versa.
   EXPECT_NEAR(window1_width, old_window2_width, 1);
   EXPECT_NEAR(window2_width, old_window1_width, 1);
+}
+
+// Tests that tablet mode multidisplay will end split view to reset window
+// observations.
+TEST_F(SplitViewControllerTest, TabletModeMultiDisplay) {
+  UpdateDisplay("800x600,800x600");
+
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
+
+  // Turn off the display mirror mode.
+  Shell::Get()->display_manager()->SetMirrorMode(display::MirrorMode::kOff,
+                                                 std::nullopt);
+
+  // 1. Snap 1 window on display 1.
+  auto* split_view_controller1 =
+      SplitViewController::Get(Shell::GetAllRootWindows()[0]);
+  auto* split_view_controller2 =
+      SplitViewController::Get(Shell::GetAllRootWindows()[1]);
+  std::unique_ptr<aura::Window> w1(
+      CreateTestWindowInShellWithBounds(gfx::Rect(0, 0, 100, 100)));
+  split_view_controller1->SnapWindow(w1.get(), SnapPosition::kPrimary);
+  EXPECT_TRUE(split_view_controller1->InSplitViewMode());
+  EXPECT_TRUE(split_view_controller1->split_view_divider()->divider_widget());
+
+  // Move the window to display 2. Test we end split view on display 1.
+  PressAndReleaseKey(ui::VKEY_M, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN);
+  EXPECT_TRUE(WindowState::Get(w1.get())->IsMaximized());
+  EXPECT_FALSE(split_view_controller1->InSplitViewMode());
+  EXPECT_FALSE(split_view_controller1->split_view_divider()->divider_widget());
+
+  // 2. Snap 2 windows on display 1.
+  std::unique_ptr<aura::Window> w2(
+      CreateTestWindowInShellWithBounds(gfx::Rect(0, 0, 100, 100)));
+  split_view_controller1->SnapWindow(w1.get(), SnapPosition::kPrimary);
+  split_view_controller1->SnapWindow(w2.get(), SnapPosition::kSecondary);
+  EXPECT_FALSE(split_view_controller2->InSplitViewMode());
+  EXPECT_TRUE(split_view_controller1->InSplitViewMode());
+  EXPECT_TRUE(split_view_controller1->split_view_divider()->divider_widget());
+
+  // Move the window to display 2. Test we end split view on display 1.
+  PressAndReleaseKey(ui::VKEY_M, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN);
+  EXPECT_TRUE(WindowState::Get(w1.get())->IsMaximized());
+  EXPECT_TRUE(WindowState::Get(w2.get())->IsMaximized());
+  EXPECT_FALSE(split_view_controller1->InSplitViewMode());
+  EXPECT_FALSE(split_view_controller1->split_view_divider()->divider_widget());
 }
 
 // Verify that disconnecting a display which has a snapped window in it in
@@ -1997,18 +2044,23 @@ TEST_F(SplitViewControllerTest, SnapWindowWithMinimumSizeTest) {
   UpdateDisplay("800x600");
   aura::test::TestWindowDelegate* delegate =
       static_cast<aura::test::TestWindowDelegate*>(window1->delegate());
-  delegate->set_minimum_size(gfx::Size(396, 0));
+  const int divider_delta = kSplitviewDividerShortSideLength / 2;
+  delegate->set_minimum_size(
+      gfx::Size(800 * chromeos::kDefaultSnapRatio - divider_delta, 0));
   EXPECT_TRUE(split_view_controller()->CanSnapWindow(
       window1.get(), chromeos::kDefaultSnapRatio));
-  delegate->set_minimum_size(gfx::Size(397, 0));
+  delegate->set_minimum_size(
+      gfx::Size(800 * chromeos::kDefaultSnapRatio - divider_delta + 1, 0));
   EXPECT_FALSE(split_view_controller()->CanSnapWindow(
       window1.get(), chromeos::kDefaultSnapRatio));
 
   UpdateDisplay("799x600");
-  delegate->set_minimum_size(gfx::Size(395, 0));
+  delegate->set_minimum_size(
+      gfx::Size(799 * chromeos::kDefaultSnapRatio - divider_delta, 0));
   EXPECT_TRUE(split_view_controller()->CanSnapWindow(
       window1.get(), chromeos::kDefaultSnapRatio));
-  delegate->set_minimum_size(gfx::Size(396, 0));
+  delegate->set_minimum_size(
+      gfx::Size(799 * chromeos::kDefaultSnapRatio - divider_delta + 1, 0));
   EXPECT_FALSE(split_view_controller()->CanSnapWindow(
       window1.get(), chromeos::kDefaultSnapRatio));
 }
@@ -2088,7 +2140,8 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
 
   gfx::Rect snapped_window_bounds =
       split_view_controller()->GetSnappedWindowBoundsInScreen(
-          SnapPosition::kPrimary, window1.get(), chromeos::kDefaultSnapRatio);
+          SnapPosition::kPrimary, window1.get(), chromeos::kDefaultSnapRatio,
+          /*account_for_divider_width=*/true);
   // The snapped window bounds can't be pushed outside of the display area.
   EXPECT_EQ(snapped_window_bounds.x(), display_bounds.x());
   EXPECT_EQ(snapped_window_bounds.width(),
@@ -2126,7 +2179,8 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
 
   snapped_window_bounds =
       split_view_controller()->GetSnappedWindowBoundsInScreen(
-          SnapPosition::kPrimary, window1.get(), chromeos::kDefaultSnapRatio);
+          SnapPosition::kPrimary, window1.get(), chromeos::kDefaultSnapRatio,
+          /*account_for_divider_width=*/true);
   EXPECT_EQ(snapped_window_bounds.y(), display_bounds.y());
   EXPECT_EQ(snapped_window_bounds.height(),
             window1->delegate()->GetMinimumSize().height());
@@ -2158,7 +2212,8 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
 
   snapped_window_bounds =
       split_view_controller()->GetSnappedWindowBoundsInScreen(
-          SnapPosition::kSecondary, window1.get(), chromeos::kDefaultSnapRatio);
+          SnapPosition::kSecondary, window1.get(), chromeos::kDefaultSnapRatio,
+          /*account_for_divider_width=*/true);
   EXPECT_EQ(snapped_window_bounds.x(), display_bounds.x());
   EXPECT_EQ(snapped_window_bounds.width(),
             window1->delegate()->GetMinimumSize().width());
@@ -2190,7 +2245,8 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
 
   snapped_window_bounds =
       split_view_controller()->GetSnappedWindowBoundsInScreen(
-          SnapPosition::kSecondary, window1.get(), chromeos::kDefaultSnapRatio);
+          SnapPosition::kSecondary, window1.get(), chromeos::kDefaultSnapRatio,
+          /*account_for_divider_width=*/true);
   EXPECT_EQ(snapped_window_bounds.y(), display_bounds.y());
   EXPECT_EQ(snapped_window_bounds.height(),
             window1->delegate()->GetMinimumSize().height());
@@ -2692,7 +2748,8 @@ TEST_F(SplitViewControllerTest, AdjustTransientChildBounds) {
   // Now try to manually move the bubble out of the snapped window.
   bubble_window->SetBoundsInScreen(
       split_view_controller()->GetSnappedWindowBoundsInScreen(
-          SnapPosition::kSecondary, window, chromeos::kDefaultSnapRatio),
+          SnapPosition::kSecondary, window, chromeos::kDefaultSnapRatio,
+          /*account_for_divider_width=*/true),
       display::Screen::GetScreen()->GetDisplayNearestWindow(window));
   // Test that the bubble can't be moved outside of its anchor widget.
   EXPECT_TRUE(window_bounds.Contains(bubble_window->GetBoundsInScreen()));
@@ -3959,63 +4016,6 @@ TEST_F(SplitViewControllerTest,
 
   // Convert the device to clamshell mode. There should be no crash.
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(false);
-}
-
-// Tests that snap across multi-displays works correctly. Regression test for
-// b/331663949.
-TEST_F(SplitViewControllerTest, SnapToCorrectDisplay) {
-  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(false);
-  UpdateDisplay("800x600,800x600");
-  display::test::DisplayManagerTestApi display_manager_test(display_manager());
-
-  auto get_drag_point = [](aura::Window* window) -> gfx::Point {
-    const gfx::Rect window_bounds = window->GetBoundsInScreen();
-    return {window_bounds.CenterPoint().x(), window_bounds.y() + 10};
-  };
-
-  // Create 2 test windows with non-overlapping bounds so we can drag them.
-  std::unique_ptr<aura::Window> w1(CreateTestWindow(gfx::Rect(0, 0, 400, 400)));
-  std::unique_ptr<aura::Window> w2(
-      CreateTestWindow(gfx::Rect(400, 0, 400, 400)));
-
-  // Drag to snap `w1` on display 1.
-  auto* event_generator = GetEventGenerator();
-  event_generator->set_current_screen_location(get_drag_point(w1.get()));
-  event_generator->DragMouseTo(0, 100);
-  const gfx::Rect work_area1 =
-      display::Screen::GetScreen()->GetPrimaryDisplay().work_area();
-  EXPECT_EQ(gfx::Rect(0, 0, work_area1.width() / 2, work_area1.height()),
-            w1->GetBoundsInScreen());
-
-  // Drag to snap `w2` on display 1.
-  event_generator->set_current_screen_location(get_drag_point(w2.get()));
-  event_generator->DragMouseTo(799, 100);
-  EXPECT_EQ(gfx::Rect(work_area1.width() / 2, 0, work_area1.width() / 2,
-                      work_area1.height()),
-            w2->GetBoundsInScreen());
-
-  // Drag to snap `w2` on display 2.
-  event_generator->set_current_screen_location(get_drag_point(w2.get()));
-  event_generator->DragMouseTo(800, 100);
-  const gfx::Rect work_area2 =
-      display_manager_test.GetSecondaryDisplay().work_area();
-  EXPECT_EQ(
-      gfx::Rect(work_area2.x(), 0, work_area2.width() / 2, work_area2.height()),
-      w2->GetBoundsInScreen());
-
-  // Drag to snap `w2` back on display 1.
-  event_generator->set_current_screen_location(get_drag_point(w2.get()));
-  event_generator->DragMouseTo(799, 100);
-  EXPECT_EQ(gfx::Rect(work_area1.width() / 2, 0, work_area1.width() / 2,
-                      work_area1.height()),
-            w2->GetBoundsInScreen());
-
-  // Drag to snap `w2` back on display 2. Test the bounds are correct.
-  event_generator->set_current_screen_location(get_drag_point(w2.get()));
-  event_generator->DragMouseTo(800, 100);
-  EXPECT_EQ(
-      gfx::Rect(work_area2.x(), 0, work_area2.width() / 2, work_area2.height()),
-      w2->GetBoundsInScreen());
 }
 
 // The test class that enables the feature flag of portrait mode split view

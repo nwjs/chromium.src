@@ -20,7 +20,6 @@
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
-#import "components/sync/base/features.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/net/model/crurl.h"
@@ -541,7 +540,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
       authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   if (identity) {
     self.userEmail = identity.userEmail;
-    self.syncEnabled = _personalDataManager->IsSyncFeatureEnabledForAutofill();
+    self.syncEnabled = _personalDataManager->address_data_manager()
+                           .IsSyncFeatureEnabledForAutofill();
   }
 }
 
@@ -767,8 +767,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
 - (BOOL)shouldShowCloudOffIconForProfile:
     (const autofill::AutofillProfile&)profile {
   return IsEligibleForMigrationToAccount(*_personalDataManager, profile) &&
-         base::FeatureList::IsEnabled(
-             syncer::kSyncEnableContactInfoDataTypeInTransportMode) &&
          self.userEmail != nil;
 }
 

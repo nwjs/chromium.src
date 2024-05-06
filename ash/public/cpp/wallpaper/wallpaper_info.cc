@@ -118,6 +118,46 @@ bool WallpaperInfo::MatchesAsset(const WallpaperInfo& other) const {
   }
 }
 
+base::Value::Dict WallpaperInfo::ToDict() const {
+  base::Value::Dict wallpaper_info_dict;
+  if (asset_id.has_value()) {
+    wallpaper_info_dict.Set(kNewWallpaperAssetIdNodeName,
+                            base::NumberToString(asset_id.value()));
+  }
+  if (unit_id.has_value()) {
+    wallpaper_info_dict.Set(kNewWallpaperUnitIdNodeName,
+                            base::NumberToString(unit_id.value()));
+  }
+  base::Value::List online_wallpaper_variant_list;
+  for (const auto& variant : variants) {
+    base::Value::Dict online_wallpaper_variant_dict;
+    online_wallpaper_variant_dict.Set(kNewWallpaperAssetIdNodeName,
+                                      base::NumberToString(variant.asset_id));
+    online_wallpaper_variant_dict.Set(kOnlineWallpaperUrlNodeName,
+                                      variant.raw_url.spec());
+    online_wallpaper_variant_dict.Set(kOnlineWallpaperTypeNodeName,
+                                      static_cast<int>(variant.type));
+    online_wallpaper_variant_list.Append(
+        std::move(online_wallpaper_variant_dict));
+  }
+
+  wallpaper_info_dict.Set(kNewWallpaperVariantListNodeName,
+                          std::move(online_wallpaper_variant_list));
+  wallpaper_info_dict.Set(kNewWallpaperCollectionIdNodeName, collection_id);
+  // TODO(skau): Change time representation to TimeToValue.
+  wallpaper_info_dict.Set(
+      kNewWallpaperDateNodeName,
+      base::NumberToString(date.ToDeltaSinceWindowsEpoch().InMicroseconds()));
+  if (dedup_key) {
+    wallpaper_info_dict.Set(kNewWallpaperDedupKeyNodeName, dedup_key.value());
+  }
+  wallpaper_info_dict.Set(kNewWallpaperLocationNodeName, location);
+  wallpaper_info_dict.Set(kNewWallpaperUserFilePathNodeName, user_file_path);
+  wallpaper_info_dict.Set(kNewWallpaperLayoutNodeName, layout);
+  wallpaper_info_dict.Set(kNewWallpaperTypeNodeName, static_cast<int>(type));
+  return wallpaper_info_dict;
+}
+
 WallpaperInfo::~WallpaperInfo() = default;
 
 std::ostream& operator<<(std::ostream& os, const WallpaperInfo& info) {
@@ -127,6 +167,7 @@ std::ostream& operator<<(std::ostream& os, const WallpaperInfo& info) {
   os << "  layout: " << info.layout << std::endl;
   os << "  type: " << static_cast<int>(info.type) << std::endl;
   os << "  date: " << info.date << std::endl;
+  os << "  dedup_key: " << info.dedup_key.value_or("") << std::endl;
   os << "  asset_id: " << info.asset_id.value_or(-1) << std::endl;
   os << "  collection_id: " << info.collection_id << std::endl;
   os << "  unit_id: " << info.unit_id.value_or(-1) << std::endl;

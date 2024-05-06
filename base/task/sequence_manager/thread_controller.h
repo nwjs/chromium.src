@@ -12,6 +12,7 @@
 
 #include "base/base_export.h"
 #include "base/check.h"
+#include "base/features.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
@@ -119,7 +120,7 @@ class BASE_EXPORT ThreadController {
 
   // Explicitly allow or disallow task execution. Implicitly disallowed when
   // entering a nested runloop.
-  virtual void SetTaskExecutionAllowed(bool allowed) = 0;
+  virtual void SetTaskExecutionAllowedInNativeNestedLoop(bool allowed) = 0;
 
   // Whether task execution is allowed or not.
   virtual bool IsTaskExecutionAllowed() const = 0;
@@ -143,10 +144,9 @@ class BASE_EXPORT ThreadController {
   virtual void DetachFromMessagePump() = 0;
 #endif
 
-  // Initializes the state of all the thread controller features. Must be
-  // invoked after FeatureList initialization. Set `record_sample_metadata` to
-  // always enable recording sample metadata in this class.
-  static void InitializeFeatures(bool record_sample_metadata);
+  // Initializes features for this class. See `base::features::Init()`.
+  static void InitializeFeatures(
+      features::EmitThreadControllerProfilerMetadata emit_profiler_metadata);
 
   // Enables TimeKeeper metrics. `thread_name` will be used as a suffix.
   void EnableMessagePumpTimeKeeperMetrics(const char* thread_name);
@@ -285,12 +285,6 @@ class BASE_EXPORT ThreadController {
         TraceObserverForTesting* trace_observer_for_testing);
 
    private:
-#if BUILDFLAG(ENABLE_BASE_TRACING)
-    using TerminatingFlowLambda =
-        std::invoke_result<decltype(perfetto::TerminatingFlow::FromPointer),
-                           void*>::type;
-#endif
-
     // Keeps track of the time spent in various Phases (ignores idle), reports
     // via UMA to the corresponding phase every time one reaches >= 100ms of
     // cumulative time, resulting in a metric of relative time spent in each
@@ -320,6 +314,11 @@ class BASE_EXPORT ThreadController {
       // delta between `lazy_now` and `last_phase_end` and emit a trace event
       // for it.
       void RecordEndOfPhase(Phase phase, LazyNow& lazy_now);
+
+      // If recording is enabled: If the `wakeup.flow` category is enabled,
+      // record a TerminatingFlow into the current "ThreadController Active"
+      // track event.
+      void MaybeEmitIncomingWakeupFlow(perfetto::EventContext& ctx);
 
       const std::string& thread_name() const { return thread_name_; }
 
@@ -378,12 +377,7 @@ class BASE_EXPORT ThreadController {
       RunLevel(State initial_state,
                bool is_nested,
                TimeKeeper& time_keeper,
-               LazyNow& lazy_now
-#if BUILDFLAG(ENABLE_BASE_TRACING)
-               ,
-               TerminatingFlowLambda& terminating_flow_lambda
-#endif
-      );
+               LazyNow& lazy_now);
       ~RunLevel();
 
       // Move-constructible for STL compat. Flags `other.was_moved_` so it noops
@@ -435,9 +429,6 @@ class BASE_EXPORT ThreadController {
 
       SampleMetadata thread_controller_sample_metadata_;
       size_t thread_controller_active_id_ = 0;
-#if BUILDFLAG(ENABLE_BASE_TRACING)
-      const raw_ref<TerminatingFlowLambda> terminating_wakeup_flow_lambda_;
-#endif
 
       // Toggles to true when used as RunLevel&& input to construct another
       // RunLevel. This RunLevel's destructor will then no-op.
@@ -457,11 +448,6 @@ class BASE_EXPORT ThreadController {
     };
 
     [[maybe_unused]] const raw_ref<const ThreadController> outer_;
-
-#if BUILDFLAG(ENABLE_BASE_TRACING)
-    TerminatingFlowLambda terminating_wakeup_lambda_{
-        perfetto::TerminatingFlow::FromPointer(this)};
-#endif
 
     std::stack<RunLevel, std::vector<RunLevel>> run_levels_
         GUARDED_BY_CONTEXT(outer_->associated_thread_->thread_checker);

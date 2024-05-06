@@ -25,6 +25,7 @@ class Isolate;
 }  // namespace v8
 
 namespace blink::scheduler {
+class TaskAttributionInfo;
 
 // This class is used to keep track of tasks posted on the main thread and their
 // ancestry. It assigns an incerementing ID per task, and gets notified when a
@@ -39,19 +40,12 @@ class MODULES_EXPORT TaskAttributionTrackerImpl
 
   TaskAttributionInfo* RunningTask() const override;
 
-  bool IsAncestor(const TaskAttributionInfo& task,
-                  TaskAttributionId ancestor_id) override;
-  void ForEachAncestor(
-      const TaskAttributionInfo& task,
-      base::FunctionRef<IterationStatus(const TaskAttributionInfo& task)>
-          visitor) override;
-
   TaskScope CreateTaskScope(ScriptState* script_state,
-                            TaskAttributionInfo* parent_task,
+                            TaskAttributionInfo* task_state,
                             TaskScopeType type) override;
 
   TaskScope CreateTaskScope(ScriptState* script_state,
-                            TaskAttributionInfo* parent_task,
+                            TaskAttributionInfo* task_state,
                             TaskScopeType type,
                             AbortSignal* abort_source,
                             DOMTaskSignal* priority_source) override;
@@ -61,6 +55,9 @@ class MODULES_EXPORT TaskAttributionTrackerImpl
   void ResetSameDocumentNavigationTasks() override;
   TaskAttributionInfo* CommitSameDocumentNavigation(TaskAttributionId) override;
 
+  TaskAttributionInfo* CreateTaskAttributionInfoForTest(
+      TaskAttributionId id) override;
+
  private:
   explicit TaskAttributionTrackerImpl(v8::Isolate*);
 
@@ -68,7 +65,6 @@ class MODULES_EXPORT TaskAttributionTrackerImpl
   void OnObserverScopeDestroyed(const ObserverScope&) override;
 
   TaskAttributionId next_task_id_;
-  Persistent<TaskAttributionInfo> running_task_ = nullptr;
   Persistent<Observer> observer_ = nullptr;
 
   // A queue of TaskAttributionInfo objects representing tasks that initiated a
