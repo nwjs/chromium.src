@@ -307,7 +307,7 @@ void TabHelper::ClearDismissedExtensions() {
 
 void TabHelper::UpdateDraggableRegions(
     content::RenderFrameHost* sender,
-    const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
+    const std::vector<blink::mojom::DraggableRegionPtr>& regions) {
   if (sender->GetParent())
     return;
   Browser* browser = chrome::FindBrowserWithTab(web_contents());

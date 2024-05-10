@@ -10,7 +10,7 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
-#include "chrome/common/draggable_regions.mojom.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -52,7 +52,7 @@ class TabHelper : public content::WebContentsObserver,
   ~TabHelper() override;
 
   void UpdateDraggableRegions(content::RenderFrameHost* sender,
-                              const std::vector<chrome::mojom::DraggableRegionPtr>& regions);
+                              const std::vector<blink::mojom::DraggableRegionPtr>& regions);
 
   // Sets the extension denoting this as an app. If |extension| is non-null this
   // tab becomes an app-tab. WebContents does not listen for unload events for

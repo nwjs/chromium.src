@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "chrome/common/draggable_regions.mojom.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 
 #include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
@@ -162,7 +162,7 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void SetMinimumSize(gfx::Size) = 0;
   virtual void SetMaximumSize(gfx::Size) = 0;
   virtual void UpdateDraggableRegions(
-                                      const std::vector<chrome::mojom::DraggableRegionPtr>& regions) = 0;
+                                      const std::vector<blink::mojom::DraggableRegionPtr>& regions) = 0;
   virtual SkRegion* GetDraggableRegion() = 0;
   virtual void NativeWindowChanged() = 0;
 

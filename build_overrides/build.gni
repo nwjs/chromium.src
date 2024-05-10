@@ -36,7 +36,7 @@ declare_args() {
   # altogether, in which case all tracing instrumentation in //base becomes a
   # no-op.
   # TODO(crbug/1065905): Add dependency on perfetto to support typed events.
-  enable_base_tracing = true
+  enable_base_tracing = false
 
   # Switches the TRACE_EVENT instrumentation from base's TraceLog implementation
   # to //third_party/perfetto's client library (crbug/1006541).

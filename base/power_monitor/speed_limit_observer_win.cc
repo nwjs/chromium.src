@@ -103,7 +103,7 @@ int SpeedLimitObserverWin::GetCurrentSpeedLimit() {
   // Get the latest estimated throttling level (value between 0.0 and 1.0).
   float throttling_level = EstimateThrottlingLevel();
 
-#if BUILDFLAG(ENABLE_BASE_TRACING)
+#if 0//BUILDFLAG(ENABLE_BASE_TRACING)
   // Emit trace events to investigate issues with power throttling. Run this
   // block only if tracing is running to avoid executing expensive calls to
   // EstimateCpuFrequency(...).
@@ -166,7 +166,7 @@ void SpeedLimitObserverWin::OnTimerTick() {
     callback_.Run(speed_limit_);
   }
 
-#if BUILDFLAG(ENABLE_BASE_TRACING)
+#if 0//BUILDFLAG(ENABLE_BASE_TRACING)
   TRACE_COUNTER(kPowerTraceCategory, "speed_limit",
                 static_cast<unsigned int>(speed_limit));
 #endif  // BUILDFLAG(ENABLE_BASE_TRACING)
@@ -229,7 +229,7 @@ float SpeedLimitObserverWin::EstimateThrottlingLevel() {
       << " num_non_idle_cpus:" << num_non_idle_cpus;
   throttling_level = (load_fraction_total / num_cpus());
 
-#if BUILDFLAG(ENABLE_BASE_TRACING)
+#if 0//BUILDFLAG(ENABLE_BASE_TRACING)
   TRACE_COUNTER(kPowerTraceCategory, "num_active_cpus", num_active_cpus);
 #endif  // BUILDFLAG(ENABLE_BASE_TRACING)
 

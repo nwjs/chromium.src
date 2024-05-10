@@ -435,9 +435,9 @@ void CheckFocusListForCycles(views::View* const start_view) {
 #endif  // DCHECK_IS_ON()
 
 SkRegion* RawDraggableRegionsToSkRegion(
-	const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
+	const std::vector<blink::mojom::DraggableRegionPtr>& regions) {
   SkRegion* sk_region = new SkRegion;
-  for (const chrome::mojom::DraggableRegionPtr& region : regions) {
+  for (const blink::mojom::DraggableRegionPtr& region : regions) {
     sk_region->op(
                   SkIRect::MakeLTRB(region->bounds.x(), region->bounds.y(), region->bounds.right(),
                                     region->bounds.bottom()),
@@ -1068,7 +1068,7 @@ bool BrowserView::NWCanClose(bool user_force) const {
 }
 
 void BrowserView::UpdateDraggableRegions(
-   const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
+   const std::vector<blink::mojom::DraggableRegionPtr>& regions) {
   // Draggable region is not supported for non-frameless window.
   if (!browser_->is_frameless())
     return;

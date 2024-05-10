@@ -463,7 +463,7 @@ class BrowserView : public BrowserWindow,
   void SetResizable(bool) override;
   void SetAllVisible(bool) override;
   void UpdateDraggableRegions(
-			      const std::vector<chrome::mojom::DraggableRegionPtr>& regions) override;
+			      const std::vector<blink::mojom::DraggableRegionPtr>& regions) override;
   SkRegion* GetDraggableRegion() override;
   void Show() override;
   void ShowInactive() override;
