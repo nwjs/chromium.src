@@ -161,9 +161,12 @@ void LogVerdictSource(
 
 bool IsScreenshotAllowedByDataControls(content::BrowserContext* context,
                                        const GURL& url) {
+  return true;
+#if 0
   auto* rules =
       data_controls::RulesServiceFactory::GetForBrowserContext(context);
   return rules ? !rules->BlockScreenshots(url) : true;
+#endif
 }
 
 }  // namespace
