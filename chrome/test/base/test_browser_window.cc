@@ -65,7 +65,7 @@ content::WebContents* TestBrowserWindow::TestLocationBar::GetWebContents() {
 TestBrowserWindow::TestBrowserWindow() = default;
 
 void TestBrowserWindow::UpdateDraggableRegions(
-    const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
+    const std::vector<blink::mojom::DraggableRegionPtr>& regions) {
 }
 SkRegion* TestBrowserWindow::GetDraggableRegion() {
   return nullptr;
