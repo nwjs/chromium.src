@@ -14,13 +14,27 @@
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/browser_autofill_manager.h"
+#include "components/autofill/core/browser/ui/popup_item_ids.h"
+#include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/compose/core/browser/compose_client.h"
 #include "components/compose/core/browser/compose_features.h"
 #include "components/compose/core/browser/compose_metrics.h"
 #include "components/compose/core/browser/compose_utils.h"
 #include "components/compose/core/browser/config.h"
+#include "components/strings/grit/components_strings.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "url/origin.h"
+
+namespace compose {
 
 namespace {
+
+using autofill::AutofillDriver;
+using autofill::AutofillSuggestionTriggerSource;
+using autofill::FieldGlobalId;
+using autofill::FormGlobalId;
+using autofill::PopupItemId;
+using autofill::Suggestion;
 
 // Passes the autofill `text` back into the `field` the dialog was opened on.
 // Called upon insertion.
@@ -36,41 +50,23 @@ void FillTextWithAutofill(base::WeakPtr<autofill::AutofillManager> manager,
   static_cast<autofill::BrowserAutofillManager*>(manager.get())
       ->FillOrPreviewField(autofill::mojom::ActionPersistence::kFill,
                            autofill::mojom::FieldActionType::kReplaceSelection,
-                           form, field, trimmed_text,
-                           autofill::PopupItemId::kCompose);
+                           form, field, trimmed_text, PopupItemId::kCompose);
 }
 
 }  // namespace
-
-namespace compose {
 
 ComposeManagerImpl::ComposeManagerImpl(ComposeClient* client)
     : client_(*client) {}
 
 ComposeManagerImpl::~ComposeManagerImpl() = default;
 
-bool ComposeManagerImpl::ShouldOfferComposePopup(
-    const autofill::FormFieldData& trigger_field,
-    autofill::AutofillSuggestionTriggerSource trigger_source) {
-  return client_->ShouldTriggerPopup(trigger_field, trigger_source);
-}
-
-bool ComposeManagerImpl::HasSavedState(
-    const autofill::FieldGlobalId& trigger_field_id) {
-  // State is saved as a ComposeSession in the ComposeClient. A user can resume
-  // where they left off in a field if the ComposeClient has a ComposeSession
-  // for that field.
-  return client_->HasSession(trigger_field_id);
-}
-
-void ComposeManagerImpl::OpenCompose(autofill::AutofillDriver& driver,
-                                     autofill::FormGlobalId form_id,
-                                     autofill::FieldGlobalId field_id,
+void ComposeManagerImpl::OpenCompose(AutofillDriver& driver,
+                                     FormGlobalId form_id,
+                                     FieldGlobalId field_id,
                                      UiEntryPoint entry_point) {
   if (entry_point == UiEntryPoint::kContextMenu) {
     client_->getPageUkmTracker()->MenuItemClicked();
-    compose::LogComposeContextMenuCtr(
-        compose::ComposeContextMenuCtrEvent::kMenuItemClicked);
+    LogComposeContextMenuCtr(ComposeContextMenuCtrEvent::kMenuItemClicked);
   }
   driver.ExtractForm(
       form_id,
@@ -79,13 +75,13 @@ void ComposeManagerImpl::OpenCompose(autofill::AutofillDriver& driver,
 }
 
 void ComposeManagerImpl::OpenComposeWithUpdatedSelection(
-    autofill::FieldGlobalId field_id,
-    compose::ComposeManagerImpl::UiEntryPoint ui_entry_point,
-    autofill::AutofillDriver* driver,
+    FieldGlobalId field_id,
+    ComposeManagerImpl::UiEntryPoint ui_entry_point,
+    AutofillDriver* driver,
     const std::optional<autofill::FormData>& form_data) {
   if (!form_data) {
-    compose::LogOpenComposeDialogResult(
-        compose::OpenComposeDialogResult::kAutofillFormDataNotFound);
+    LogOpenComposeDialogResult(
+        OpenComposeDialogResult::kAutofillFormDataNotFound);
     client_->getPageUkmTracker()->ShowDialogAbortedDueToMissingFormData();
     return;
   }
@@ -93,8 +89,8 @@ void ComposeManagerImpl::OpenComposeWithUpdatedSelection(
   const autofill::FormFieldData* form_field_data =
       form_data->FindFieldByGlobalId(field_id);
   if (!form_field_data) {
-    compose::LogOpenComposeDialogResult(
-        compose::OpenComposeDialogResult::kAutofillFormFieldDataNotFound);
+    LogOpenComposeDialogResult(
+        OpenComposeDialogResult::kAutofillFormFieldDataNotFound);
     client_->getPageUkmTracker()->ShowDialogAbortedDueToMissingFormFieldData();
     return;
   }
@@ -116,24 +112,21 @@ void ComposeManagerImpl::OpenComposeWithUpdatedSelection(
         base::BindOnce(&ComposeManagerImpl::OpenComposeWithFormData,
                        weak_ptr_factory_.GetWeakPtr(), field_id,
                        ui_entry_point));
-    compose::LogComposeSelectAllStatus(
-        compose::ComposeSelectAllStatus::kSelectedAll);
+    LogComposeSelectAllStatus(ComposeSelectAllStatus::kSelectedAll);
     return;
   }
   OpenComposeWithFormData(field_id, ui_entry_point, driver, form_data);
-  compose::LogComposeSelectAllStatus(
-      compose::ComposeSelectAllStatus::kNoSelectAll);
+  LogComposeSelectAllStatus(ComposeSelectAllStatus::kNoSelectAll);
 }
 
 void ComposeManagerImpl::OpenComposeWithFormData(
-    autofill::FieldGlobalId field_id,
-    compose::ComposeManagerImpl::UiEntryPoint ui_entry_point,
-    autofill::AutofillDriver* driver,
+    FieldGlobalId field_id,
+    ComposeManagerImpl::UiEntryPoint ui_entry_point,
+    AutofillDriver* driver,
     const std::optional<autofill::FormData>& form_data) {
   if (!form_data) {
-    compose::LogOpenComposeDialogResult(
-        compose::OpenComposeDialogResult::
-            kAutofillFormDataNotFoundAfterSelectAll);
+    LogOpenComposeDialogResult(
+        OpenComposeDialogResult::kAutofillFormDataNotFoundAfterSelectAll);
     client_->getPageUkmTracker()->ShowDialogAbortedDueToMissingFormData();
     return;
   }
@@ -141,8 +134,8 @@ void ComposeManagerImpl::OpenComposeWithFormData(
   const autofill::FormFieldData* form_field_data =
       form_data->FindFieldByGlobalId(field_id);
   if (!form_field_data) {
-    compose::LogOpenComposeDialogResult(
-        compose::OpenComposeDialogResult::kAutofillFormFieldDataNotFound);
+    LogOpenComposeDialogResult(
+        OpenComposeDialogResult::kAutofillFormFieldDataNotFound);
     client_->getPageUkmTracker()->ShowDialogAbortedDueToMissingFormFieldData();
     return;
   }
@@ -164,6 +157,75 @@ void ComposeManagerImpl::OpenComposeWithFormFieldData(
     ComposeCallback callback) {
   client_->ShowComposeDialog(ui_entry_point, trigger_field,
                              popup_screen_location, std::move(callback));
+}
+
+std::optional<Suggestion> ComposeManagerImpl::GetSuggestion(
+    const autofill::FormFieldData& field,
+    AutofillSuggestionTriggerSource trigger_source) {
+  if (!client_->ShouldTriggerPopup(field, trigger_source)) {
+    return std::nullopt;
+  }
+  std::u16string suggestion_text;
+  std::u16string label_text;
+  PopupItemId popup_item_id = PopupItemId::kCompose;
+  // State is saved as a `ComposeSession` in the `ComposeClient`. A user can
+  // resume where they left off in a field if the `ComposeClient` has a
+  // `ComposeSession` for that field.
+  const bool has_session = client_->HasSession(field.global_id());
+  if (has_session) {
+    // The nudge text indicates that the user can resume where they left off in
+    // the Compose dialog.
+    suggestion_text =
+        l10n_util::GetStringUTF16(IDS_COMPOSE_SUGGESTION_SAVED_TEXT);
+    label_text = l10n_util::GetStringUTF16(IDS_COMPOSE_SUGGESTION_SAVED_LABEL);
+    if (trigger_source ==
+        AutofillSuggestionTriggerSource::kComposeDialogLostFocus) {
+      popup_item_id = PopupItemId::kComposeSavedStateNotification;
+    }
+  } else {
+    // Text for a new Compose session.
+    suggestion_text =
+        l10n_util::GetStringUTF16(IDS_COMPOSE_SUGGESTION_MAIN_TEXT);
+    label_text = l10n_util::GetStringUTF16(IDS_COMPOSE_SUGGESTION_LABEL);
+  }
+  Suggestion suggestion(std::move(suggestion_text));
+  suggestion.labels = {{Suggestion::Text(std::move(label_text))}};
+  suggestion.popup_item_id = popup_item_id;
+  suggestion.icon = Suggestion::Icon::kPenSpark;
+
+  if (!has_session &&
+      base::FeatureList::IsEnabled(features::kEnableComposeProactiveNudge)) {
+    // Add compose child suggestions
+    Suggestion disable =
+        Suggestion(l10n_util::GetStringUTF16(
+                       IDS_COMPOSE_DISABLE_HELP_ME_WRITE_CHILD_SUGGESTION_TEXT),
+                   PopupItemId::kComposeDisable);
+    Suggestion go_to_settings =
+        Suggestion(l10n_util::GetStringUTF16(
+                       IDS_COMPOSE_GO_TO_SETTINGS_CHILD_SUGGESTION_TEXT),
+                   PopupItemId::kComposeGoToSettings);
+    suggestion.children = {std::move(disable), std::move(go_to_settings)};
+  }
+
+  return suggestion;
+}
+
+void ComposeManagerImpl::NeverShowComposeForOrigin(const url::Origin& origin) {
+  // TODO(b/333929225): Implement.
+  compose::LogComposeProactiveNudgeCtr(
+      compose::ComposeProactiveNudgeCtrEvent::kUserDisabledSite);
+}
+
+void ComposeManagerImpl::DisableCompose() {
+  client_->DisableProactiveNudge();
+  compose::LogComposeProactiveNudgeCtr(
+      compose::ComposeProactiveNudgeCtrEvent::kUserDisabledProactiveNudge);
+}
+
+void ComposeManagerImpl::GoToSettings() {
+  client_->OpenProactiveNudgeSettings();
+  compose::LogComposeProactiveNudgeCtr(
+      compose::ComposeProactiveNudgeCtrEvent::kOpenSettings);
 }
 
 }  // namespace compose

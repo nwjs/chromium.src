@@ -60,16 +60,6 @@
 
 namespace {
 
-bool ShouldResumeSessionFromEntryPoint(
-    ChromeComposeClient::EntryPoint entry_point) {
-  switch (entry_point) {
-    case ChromeComposeClient::EntryPoint::kAutofillPopup:
-      return true;
-    case ChromeComposeClient::EntryPoint::kContextMenu:
-      return false;
-  }
-}
-
 std::u16string RemoveLastCharIfInvalid(std::u16string str) {
   // TODO(b/323902463): Have Autofill send a valid string, i.e. truncated to a
   // valid grapheme, in FormFieldData.selected_text to ensure greatest
@@ -94,6 +84,8 @@ ChromeComposeClient::ChromeComposeClient(content::WebContents* web_contents)
   profile_ = Profile::FromBrowserContext(GetWebContents().GetBrowserContext());
   opt_guide_ = OptimizationGuideKeyedServiceFactory::GetForProfile(profile_);
   pref_service_ = profile_->GetPrefs();
+  proactive_nudge_enabled_.Init(prefs::kEnableProactiveNudge, pref_service_);
+
   compose_enabling_ = std::make_unique<ComposeEnabling>(
       translate_language_provider_.get(), profile_,
       IdentityManagerFactory::GetForProfileIfExists(profile_),
@@ -236,7 +228,7 @@ void ChromeComposeClient::CompleteFirstRun() {
 }
 
 void ChromeComposeClient::OpenComposeSettings() {
-  auto* browser = chrome::FindBrowserWithTab(&GetWebContents());
+  Browser* browser = chrome::FindBrowserWithTab(&GetWebContents());
   // `browser` should never be null here. This can only be triggered when there
   // is an active ComposeSession, which  is indirectly owned by the same
   // WebContents that holds the field that the Compose dialog is triggered from.
@@ -297,15 +289,15 @@ void ChromeComposeClient::CreateOrUpdateSession(
 
   ComposeSession* current_session;
 
-  // We only want to resume if the popup was clicked or the selection is empty.
-  // If the context menu were clicked with a selection, presume this is intent
-  // to restart using the new selection.
-  bool resume_current_session =
-      ShouldResumeSessionFromEntryPoint(ui_entry_point) ||
-      selected_text.empty();
-
+  // We only want to resume if there is an existing session and the popup was
+  // clicked or the selection is empty. If the context menu is clicked with a
+  // selection we start a new session using the selection.
   bool has_session = HasSession(active_compose_ids_.value().first);
-  if (has_session && resume_current_session) {
+  bool resume_current_session =
+      has_session &&
+      (ui_entry_point == EntryPoint::kAutofillPopup || selected_text.empty());
+
+  if (resume_current_session) {
     auto it = sessions_.find(active_compose_ids_.value().first);
     current_session = it->second.get();
     current_session->set_compose_callback(std::move(callback));
@@ -358,13 +350,23 @@ void ChromeComposeClient::CreateOrUpdateSession(
     compose::LogComposeDialogSelectionLength(
         utf8_chars.has_value() ? utf8_chars.value() : 0);
   }  // End of create new session.
+
   current_session->set_current_msbb_state(GetMSBBStateFromPrefs());
 
-  // If we are resuming then don't send the selected text - we want to keep the
-  // prior selection and not trigger another Compose.
-  current_session->InitializeWithText(
-      resume_current_session ? std::nullopt : std::make_optional(selected_text),
-      !selected_text.empty());
+  if (resume_current_session) {
+    current_session->MaybeRefreshInnerText(
+        /*has_selection=*/!selected_text.empty());
+  } else {
+    current_session->InitializeWithText(selected_text);
+  }
+
+  if (!has_session && ui_entry_point == EntryPoint::kAutofillPopup) {
+    // If this is a new session from the popup then the proactive nudge was
+    // clicked. Record nudge ctr metric.
+    compose::LogComposeProactiveNudgeCtr(
+        compose::ComposeProactiveNudgeCtrEvent::kDialogOpened);
+    current_session->set_started_with_proactive_nudge();
+  }
 }
 
 void ChromeComposeClient::RemoveActiveSession() {
@@ -506,9 +508,10 @@ bool ChromeComposeClient::ShouldTriggerPopup(
   bool ongoing_session = HasSession(form_field_data.global_id());
 
   auto should_show_nudge = compose_enabling_->ShouldTriggerPopup(
-      form_field_data.autocomplete_attribute, profile_, translate_manager,
-      ongoing_session, top_level_frame->GetLastCommittedOrigin(),
-      form_field_data.origin, url, trigger_source);
+      form_field_data.autocomplete_attribute, profile_, pref_service_,
+      translate_manager, ongoing_session,
+      top_level_frame->GetLastCommittedOrigin(), form_field_data.origin, url,
+      trigger_source, GetMSBBStateFromPrefs());
 
   // Record ukm only if the proactive nudge shows or is disabled by the flag.
   if (!ongoing_session &&
@@ -518,8 +521,28 @@ bool ChromeComposeClient::ShouldTriggerPopup(
     page_ukm_tracker_->ComposeProactiveNudgeShouldShow();
   }
 
+  if (!ongoing_session && should_show_nudge.has_value()) {
+    compose::LogComposeProactiveNudgeCtr(
+        compose::ComposeProactiveNudgeCtrEvent::kNudgeDisplayed);
+  }
+
   return should_show_nudge.has_value();
 #endif
+}
+
+void ChromeComposeClient::DisableProactiveNudge() {
+  proactive_nudge_enabled_.SetValue(false);
+}
+
+void ChromeComposeClient::OpenProactiveNudgeSettings() {
+  Browser* browser = chrome::FindBrowserWithTab(&GetWebContents());
+  // `browser` should never be null here. This can only be triggered when there
+  // is an active ComposeSession, which  is indirectly owned by the same
+  // WebContents that holds the field that the Compose dialog is triggered from.
+  // The session is created when that dialog is opened and it is destroyed if
+  // its WebContents is destroyed.
+  CHECK(browser);
+  chrome::ShowSettingsSubPage(browser, chrome::kOfferWritingHelpSubpage);
 }
 
 bool ChromeComposeClient::ShouldTriggerContextMenu(

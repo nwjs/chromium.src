@@ -9,6 +9,7 @@
 
 #include "ash/calendar/calendar_client.h"
 #include "ash/calendar/calendar_controller.h"
+#include "ash/constants/ash_switches.h"
 #include "ash/glanceables/common/glanceables_view_id.h"
 #include "ash/public/cpp/ash_view_ids.h"
 #include "ash/session/session_controller_impl.h"
@@ -28,6 +29,7 @@
 #include "ash/system/unified/unified_system_tray_bubble.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_util.h"
+#include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
@@ -94,7 +96,10 @@ class CalendarViewControllerTestObserver
 
 class CalendarViewTest : public AshTestBase {
  public:
-  CalendarViewTest() = default;
+  CalendarViewTest() {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kGlanceablesIgnoreEnableMergeRequestBuildFlag);
+  }
   CalendarViewTest(const CalendarViewTest&) = delete;
   CalendarViewTest& operator=(const CalendarViewTest&) = delete;
   ~CalendarViewTest() override = default;
@@ -1415,6 +1420,8 @@ class CalendarViewAnimationTest
       : AshTestBase(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     scoped_feature_list_.InitWithFeatureState(
         ash::features::kMultiCalendarSupport, IsMultiCalendarEnabled());
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kGlanceablesIgnoreEnableMergeRequestBuildFlag);
   }
   CalendarViewAnimationTest(const CalendarViewAnimationTest&) = delete;
   CalendarViewAnimationTest& operator=(const CalendarViewAnimationTest&) =
@@ -3356,4 +3363,53 @@ TEST_P(CalendarViewWithUpNextViewAnimationTest,
   // After the view is settled, it should scroll to today's row.
   EXPECT_EQ(GetPositionOfToday(), scroll_view()->GetVisibleRect().y());
 }
+
+// Tests that the up-next view can show up after showing the event listview
+// first. Regression test for b/336722659.
+TEST_P(CalendarViewWithUpNextViewAnimationTest,
+       ShowUpNextViewAfterEventListViewCorrectly) {
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  base::Time date;
+  ASSERT_TRUE(base::Time::FromString("30 Nov 2023 10:00 GMT", &date));
+  task_environment()->AdvanceClock(date - base::Time::Now());
+  SetTodayFromTime(date);
+  CreateCalendarView();
+  ui::LayerAnimationStoppedWaiter animation_waiter;
+  animation_waiter.Wait(current_month()->layer());
+  task_environment()->FastForwardBy(
+      calendar_test_utils::kAnimationSettleDownDuration);
+
+  // There's no `up_next_view()` before the events are fetched.
+  EXPECT_FALSE(calendar_view()->up_next_view());
+
+  // Open the event list view for today.
+  ASSERT_EQ(u"30",
+            static_cast<views::LabelButton*>(current_month()->children()[32])
+                ->GetText());
+  GestureTapOn(
+      static_cast<views::LabelButton*>(current_month()->children()[32]));
+
+  animation_waiter.Wait(calendar_sliding_surface_view()->layer());
+  animation_waiter.Wait(current_label()->layer());
+  ASSERT_TRUE(event_list_view());
+  EXPECT_TRUE(event_list_view()->GetVisible());
+  task_environment()->FastForwardBy(
+      calendar_test_utils::kAnimationSettleDownDuration);
+
+  // Fetch an event that starts in 6 mins.
+  MockEventsFetched(calendar_utils::GetStartOfMonthUTC(date),
+                    CreateUpcomingEvents(date + base::Minutes(6)));
+  EXPECT_FALSE(calendar_view()->up_next_view());
+
+  // Close the event list view.
+  CloseEventList();
+  animation_waiter.Wait(calendar_sliding_surface_view()->layer());
+  animation_waiter.Wait(current_label()->layer());
+  EXPECT_FALSE(event_list_view());
+
+  // `up_next_view()` should be visible.
+  EXPECT_TRUE(calendar_view()->up_next_view()->GetVisible());
+}
+
 }  // namespace ash

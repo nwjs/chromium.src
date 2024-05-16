@@ -391,7 +391,8 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
         // started until this one completes (see {@link isOperationInProgress()}).
         mSignInState = signInState;
 
-        if (SigninFeatureMap.isEnabled(SigninFeatures.ENTERPRISE_POLICY_ON_SIGNIN)
+        if (!SigninFeatureMap.isEnabled(SigninFeatures.SKIP_CHECK_FOR_ACCOUNT_MANAGEMENT_ON_SIGNIN)
+                && SigninFeatureMap.isEnabled(SigninFeatures.ENTERPRISE_POLICY_ON_SIGNIN)
                 && !getUserAcceptedAccountManagement()) {
             isAccountManaged(
                     mSignInState.mCoreAccountInfo,
@@ -738,7 +739,9 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
     public void isAccountManaged(
             @NonNull CoreAccountInfo account, final Callback<Boolean> callback) {
         assert account != null;
-        SigninManagerImplJni.get().isAccountManaged(mNativeSigninManagerAndroid, account, callback);
+        SigninManagerImplJni.get()
+                .isAccountManaged(
+                        mNativeSigninManagerAndroid, mAccountTrackerService, account, callback);
     }
 
     @Override
@@ -1014,6 +1017,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
 
         void isAccountManaged(
                 long nativeSigninManagerAndroid,
+                AccountTrackerService accountTrackerService,
                 CoreAccountInfo account,
                 Callback<Boolean> callback);
 

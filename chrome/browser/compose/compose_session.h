@@ -8,6 +8,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/check_op.h"
@@ -157,10 +158,14 @@ class ComposeSession
 
   // Non-ComposeSessionUntrustedPageHandler Methods
 
-  // Notifies the session that a new dialog is opening and starts refreshing
-  // inner text. Calls Compose immediately if the initial input is valid.
-  void InitializeWithText(const std::optional<std::string>& text,
-                          const bool text_selected);
+  // Notifies the session that a new dialog is opening and starts. Saves the
+  // |selected_text| for use as an initial prompt and refreshes innertext.
+  void InitializeWithText(const std::string_view selected_text);
+
+  // If all pre-conditions are acknowledged starts refreshing inner text. If
+  // autocompose is enabled and has not been tried yet this session will also
+  // start a compose request.
+  void MaybeRefreshInnerText(bool has_selection);
 
   // Returns true if the feedback page can be shown. If
   // |skip_feedback_ui_for_testing_| is true then this always returns false and
@@ -178,9 +183,6 @@ class ComposeSession
     callback_ = std::move(callback);
   }
 
-  // Sets an initial input value for the session given by the renderer.
-  void set_initial_input(const std::string input) { initial_input_ = input; }
-
   void set_collect_inner_text(bool collect_inner_text) {
     collect_inner_text_ = collect_inner_text;
   }
@@ -196,6 +198,10 @@ class ComposeSession
   }
 
   bool get_fre_complete() { return fre_complete_; }
+
+  void set_started_with_proactive_nudge() {
+    started_with_proactive_nudge_ = true;
+  }
 
   void SetFirstRunCompleted();
 
@@ -234,7 +240,8 @@ class ComposeSession
 
   // Adds page content to the session context.
   void AddPageContentToSession(std::string inner_text,
-                               std::optional<uint64_t> node_offset);
+                               std::optional<uint64_t> node_offset,
+                               std::string trimmed_inner_text);
 
   // Makes compose or rewrite request.
   void MakeRequest(optimization_guide::proto::ComposeRequest request,
@@ -294,18 +301,24 @@ class ComposeSession
   std::vector<std::unique_ptr<ComposeState>> history_;
 
   // Renderer provided text selection.
-  std::string initial_input_;
-  // True if the user selected text when the dialog is opened.
-  bool text_selected_;
+  std::string initial_input_ = "";
+  // True if there was selected text when the dialog was last opened.
+  bool currently_has_selection_ = false;
 
   // The state of the MSBB preference
-  bool current_msbb_state_;
-  bool msbb_initially_off_;
+  bool current_msbb_state_ = false;
+  bool msbb_initially_off_ = false;
 
   // Reason that a compose msbb session was exited, used for metrics.
   compose::ComposeMSBBSessionCloseReason msbb_close_reason_;
   // State tracking whether the FRE has been completed
   bool fre_complete_ = false;
+
+  // True if we have checked if autocompose is possible this session.
+  bool has_checked_autocompose_ = false;
+
+  // True if the session started with the proactive nudge.
+  bool started_with_proactive_nudge_ = false;
 
   // Reason that a FRE session was exited, used for metrics.
   compose::ComposeFirstRunSessionCloseReason fre_close_reason_;

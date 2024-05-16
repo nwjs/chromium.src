@@ -31,8 +31,7 @@ import type {FuzzySearchOptions} from './fuzzy_search.js';
 import {fuzzySearch} from './fuzzy_search.js';
 import type {InfiniteList} from './infinite_list.js';
 import {NO_SELECTION, selectorNavigationKeys} from './infinite_list.js';
-import type {ItemData} from './tab_data.js';
-import {ariaLabel, TabData, TabGroupData, TabItemType, tokenEquals, tokenToString} from './tab_data.js';
+import {ariaLabel, type ItemData, normalizeURL, TabData, TabGroupData, TabItemType, tokenEquals, tokenToString} from './tab_data.js';
 import type {ProfileData, RecentlyClosedTab, RecentlyClosedTabGroup, Tab, TabGroup, TabsRemovedInfo, TabUpdateInfo} from './tab_search.mojom-webui.js';
 import type {TabSearchApiProxy} from './tab_search_api_proxy.js';
 import {TabSearchApiProxyImpl} from './tab_search_api_proxy.js';
@@ -346,6 +345,19 @@ export class TabSearchPageElement extends TabSearchSearchFieldBase {
           // Ignore silently if mark 'TabListDataReceived' is missing.
           .catch(() => {});
 
+      // In rare cases there is no browser window. I suspect this happens during
+      // browser shutdown. Don't show Tab Search when this happens.
+      if (!profileData.windows) {
+        console.warn('Tab Search: no browser window.');
+        return;
+      }
+
+      // TODO(crbug.com/40855872): Determine why no active window is reported
+      // in some cases on ChromeOS and Linux.
+      const activeWindow = profileData.windows.find((t) => t.active);
+      this.availableHeight_ =
+          activeWindow ? activeWindow!.height : profileData.windows[0]!.height;
+
       // The infinite-list produces viewport-filled events whenever a data or
       // scroll position change triggers the the viewport fill logic.
       listenOnce(this.$.tabsList, 'viewport-filled', () => {
@@ -353,12 +365,6 @@ export class TabSearchPageElement extends TabSearchSearchFieldBase {
         // to occur following the DOM update.
         setTimeout(() => this.apiProxy_.notifySearchUiReadyToShow(), 0);
       });
-
-      // TODO(crbug.com/c/1349350): Determine why no active window is reported
-      // in some cases on ChromeOS and Linux.
-      const activeWindow = profileData.windows.find((t) => t.active);
-      this.availableHeight_ =
-          activeWindow ? activeWindow!.height : profileData.windows[0]!.height;
 
       this.tabsChanged_(profileData);
     });
@@ -650,9 +656,8 @@ export class TabSearchPageElement extends TabSearchSearchFieldBase {
   private tabData_(
       tab: Tab|RecentlyClosedTab, inActiveWindow: boolean, type: TabItemType,
       tabGroupsMap: Map<string, TabGroup>): TabData {
-    // TODO(crbug.com/329638230): figure out why tab.url.url could be empty.
     const tabData =
-        new TabData(tab, type, new URL(tab.url.url || 'about:blank').hostname);
+        new TabData(tab, type, new URL(normalizeURL(tab.url.url)).hostname);
 
     if (tab.groupId) {
       tabData.tabGroup = tabGroupsMap.get(tokenToString(tab.groupId));

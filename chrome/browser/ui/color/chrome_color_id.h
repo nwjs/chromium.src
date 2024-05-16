@@ -79,6 +79,8 @@
   E_CPONLY(kColorComposeDialogResultForeground) \
   E_CPONLY(kColorComposeDialogResultForegroundWhileLoading) \
   E_CPONLY(kColorComposeDialogResultIcon) \
+  E_CPONLY(kColorComposeDialogResultButtonsDivider) \
+  E_CPONLY(kColorComposeDialogResultContainerScrollbarThumb) \
   E_CPONLY(kColorComposeDialogScrollbarThumb) \
   E_CPONLY(kColorComposeDialogTitle) \
   E_CPONLY(kColorComposeDialogTextarea) \
@@ -87,6 +89,7 @@
   E_CPONLY(kColorComposeDialogTextareaReadonlyBackground) \
   E_CPONLY(kColorComposeDialogTextareaReadonlyForeground) \
   E_CPONLY(kColorComposeDialogTextareaIcon) \
+  E_CPONLY(kColorComposeDialogSelectOptionDisabled) \
   /* Desktop media tab list colors. */ \
   E_CPONLY(kColorDesktopMediaTabListBorder) \
   E_CPONLY(kColorDesktopMediaTabListPreviewBackground) \

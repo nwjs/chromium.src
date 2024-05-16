@@ -194,7 +194,7 @@
 <translation id="1992055602764528852">Inicia sesión para ver las pestañas de tus otros dispositivos.</translation>
 <translation id="199425419756152024">Ver contraseña</translation>
 <translation id="2010008505735295285">Volver a cargar</translation>
-<translation id="2015722694326466240">Debes establecer primero un bloqueo de pantalla en tu dispositivo para poder ver las contraseñas.</translation>
+<translation id="2015722694326466240">Para ver las contraseñas, primero debes configurar una contraseña en tu dispositivo.</translation>
 <translation id="2021670401941426298">Consulta las instrucciones de tu buscador para eliminar tu historial de búsqueda (si corresponde).</translation>
 <translation id="202292859882676807">Acceso a micrófono permitido</translation>
 <translation id="20485545164632846">nuevo elemento</translation>
@@ -1049,7 +1049,7 @@ Handoff también debe estar habilitado en la sección General de Configuración,
 <translation id="6377118281273296434">Seguridad del sitio web</translation>
 <translation id="6383719166112032471">Abrir ubicación…</translation>
 <translation id="6387994324662817823">Las contraseñas se guardan en el Gestor de contraseñas de Google solo en este dispositivo.</translation>
-<translation id="6389470377220713856">Nombre de la tarjeta</translation>
+<translation id="6389470377220713856">Nombre que aparece en la tarjeta</translation>
 <translation id="6404422529625928907">Abrir en Google Drive</translation>
 <translation id="6406506848690869874">Sincronización</translation>
 <translation id="6410390304316730527">La función Navegación segura te protege frente a atacantes que pueden intentar engañarte para que realices alguna acción peligrosa, como instalar malware o revelar información personal, incluidas contraseñas, números de teléfono o tarjetas de crédito. Si desactivas esta función, debes tener cuidado al navegar por sitios desconocidos o que no sean de confianza.</translation>

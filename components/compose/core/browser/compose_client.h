@@ -47,6 +47,12 @@ class ComposeClient {
 
   // Getter for the PageUkmTracker instance for the currently loaded page.
   virtual PageUkmTracker* getPageUkmTracker() = 0;
+
+  // Disable the global preference controlling the proactive nudge.
+  virtual void DisableProactiveNudge() = 0;
+
+  // Open the "Offer writing help" settings page in a new active tab.
+  virtual void OpenProactiveNudgeSettings() = 0;
 };
 
 }  // namespace compose

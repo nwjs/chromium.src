@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/compose/compose_enabling.h"
+
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
@@ -11,10 +13,10 @@
 #include "base/test/task_environment.h"
 #include "base/types/expected.h"
 #include "chrome/browser/about_flags.h"
-#include "chrome/browser/compose/compose_enabling.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -177,6 +179,11 @@ class ComposeEnablingTest : public BrowserWithTestWindowTest {
     MockOptimizationGuideKeyedService::ResetForTesting();
   }
 
+  void SetProactiveNudgePref(bool pref_value) {
+    PrefService* prefs = GetProfile()->GetPrefs();
+    prefs->SetBoolean(prefs::kEnableProactiveNudge, pref_value);
+  }
+
   void SignIn(signin::ConsentLevel consent_level) {
     identity_test_env_.MakePrimaryAccountAvailable(kEmail, consent_level);
     identity_test_env_.SetAutomaticIssueOfAccessTokens(true);
@@ -190,6 +197,8 @@ class ComposeEnablingTest : public BrowserWithTestWindowTest {
     scoped_feature_list_.Reset();
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
     compose::ResetConfigForTesting();
+    compose::GetMutableConfigForTesting().proactive_nudge_show_probability =
+        1.0;
   }
 
   CustomMockOptimizationGuideKeyedService& opt_guide() { return *opt_guide_; }
@@ -253,13 +262,30 @@ TEST_F(ComposeEnablingTest, FeatureNotEnabledTest) {
   SignIn(signin::ConsentLevel::kSync);
 
   CheckIsEnabledError(compose_enabling_.get(),
-                      compose::ComposeShowStatus::kFeatureFlagDisabled);
+                      compose::ComposeShowStatus::kComposeFeatureFlagDisabled);
 }
 
 TEST_F(ComposeEnablingTest, NotSignedInTest) {
+  base::HistogramTester histogram_tester;
   // Intentionally skip the signin step.
   CheckIsEnabledError(compose_enabling_.get(),
                       compose::ComposeShowStatus::kSignedOut);
+
+  std::string autocomplete_attribute;
+  // Check that the proactive nudge does not show.
+  EXPECT_FALSE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(),
+              /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
+              GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
+          .has_value());
+
+  histogram_tester.ExpectBucketCount(compose::kComposeProactiveNudgeShowStatus,
+                                     compose::ComposeShowStatus::kSignedOut, 1);
 }
 
 TEST_F(ComposeEnablingTest, SignedInErrorTest) {
@@ -461,22 +487,24 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupDefaultTest) {
   EXPECT_TRUE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 
   // The proactive nudge is disabled by default.
   EXPECT_FALSE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 }
 
@@ -490,11 +518,12 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupDisabledTest) {
   EXPECT_FALSE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 }
 
@@ -521,10 +550,11 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupDisableLanguageBypass) {
         expected,
         compose_enabling_
             ->ShouldTriggerPopup(
-                autocomplete_attribute, GetProfile(),
+                autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
                 mock_translate_manager_.get(), has_saved_state, GetOrigin(),
                 GetOrigin(), GURL(kExampleURL),
-                autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+                autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+                /*is_msbb_enabled*/ true)
             .has_value())
         << "has_saved_state=" << has_saved_state << "(" << language << ")";
   }
@@ -544,16 +574,18 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupEnableLanguageBypassTest) {
   EXPECT_TRUE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 }
 
 TEST_F(ComposeEnablingTest, ShouldNotTriggerProactivePopupAutocompleteOffTest) {
   ResetFeaturesAndConfig({compose::features::kEnableComposeProactiveNudge}, {});
+  base::HistogramTester histogram_tester;
   // Enable everything.
   auto scoped_compose_enabled =
       ComposeEnabling::ScopedEnableComposeForTesting();
@@ -564,23 +596,69 @@ TEST_F(ComposeEnablingTest, ShouldNotTriggerProactivePopupAutocompleteOffTest) {
   EXPECT_TRUE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 
   // The autocomplete attribute is checked with saved state.
   EXPECT_FALSE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
+
+  histogram_tester.ExpectBucketCount(
+      compose::kComposeProactiveNudgeShowStatus,
+      compose::ComposeShowStatus::kAutocompleteOff, 1);
+}
+
+TEST_F(ComposeEnablingTest, ShouldNotTriggerProactivePopupIfMSBBDisabled) {
+  ResetFeaturesAndConfig({compose::features::kEnableComposeProactiveNudge}, {});
+  base::HistogramTester histogram_tester;
+  // Enable everything.
+  auto scoped_compose_enabled =
+      ComposeEnabling::ScopedEnableComposeForTesting();
+
+  std::string autocomplete_attribute;
+  bool ongoing_session = false;
+
+  // The proactive nudge does not show when msbb is disabled.
+  EXPECT_FALSE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(), ongoing_session, GetOrigin(),
+              GetOrigin(), GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled=*/false)
+          .has_value());
+
+  // The proactive nudge shows when msbb is enabled.
+  EXPECT_TRUE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(), ongoing_session, GetOrigin(),
+              GetOrigin(), GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled=*/true)
+          .has_value());
+
+  histogram_tester.ExpectBucketCount(
+      compose::kComposeProactiveNudgeShowStatus,
+      compose::ComposeShowStatus::kProactiveNudgeDisabledByMSBB, 1);
+  histogram_tester.ExpectBucketCount(compose::kComposeProactiveNudgeShowStatus,
+                                     compose::ComposeShowStatus::kShouldShow,
+                                     1);
 }
 
 TEST_F(ComposeEnablingTest, ShouldTriggerPopupWithSavedStateTest) {
@@ -601,22 +679,24 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupWithSavedStateTest) {
         saved_state_nudge,
         compose_enabling_
             ->ShouldTriggerPopup(
-                autocomplete_attribute, GetProfile(),
+                autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
                 mock_translate_manager_.get(),
                 /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
                 GURL(kExampleURL),
-                autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+                autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+                /*is_msbb_enabled*/ true)
             .has_value());
 
     EXPECT_EQ(
         proactive_nudge,
         compose_enabling_
             ->ShouldTriggerPopup(
-                autocomplete_attribute, GetProfile(),
+                autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
                 mock_translate_manager_.get(),
                 /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
                 GURL(kExampleURL),
-                autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+                autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+                /*is_msbb_enabled*/ true)
             .has_value());
   }
 }
@@ -624,15 +704,16 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupWithSavedStateTest) {
 TEST_F(ComposeEnablingTest, ComposeSavedStateNotificationEnabledByDefault) {
   std::string autocomplete_attribute;
 
-  EXPECT_TRUE(
-      compose_enabling_
-          ->ShouldTriggerPopup(autocomplete_attribute, GetProfile(),
-                               mock_translate_manager_.get(),
-                               /*ongoing_session=*/true, GetOrigin(),
-                               GetOrigin(), GURL(kExampleURL),
-                               autofill::AutofillSuggestionTriggerSource::
-                                   kComposeDialogLostFocus)
-          .has_value());
+  EXPECT_TRUE(compose_enabling_
+                  ->ShouldTriggerPopup(
+                      autocomplete_attribute, GetProfile(),
+                      GetProfile()->GetPrefs(), mock_translate_manager_.get(),
+                      /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
+                      GURL(kExampleURL),
+                      autofill::AutofillSuggestionTriggerSource::
+                          kComposeDialogLostFocus,
+                      /*is_msbb_enabled*/ true)
+                  .has_value());
 }
 
 TEST_F(ComposeEnablingTest, SavedStateNotificationWithSavedStateNudgeDisabled) {
@@ -643,15 +724,16 @@ TEST_F(ComposeEnablingTest, SavedStateNotificationWithSavedStateNudgeDisabled) {
   std::string autocomplete_attribute;
 
   // Saved State Notification does not trigger if saved state nudge is disabled.
-  EXPECT_FALSE(
-      compose_enabling_
-          ->ShouldTriggerPopup(autocomplete_attribute, GetProfile(),
-                               mock_translate_manager_.get(),
-                               /*ongoing_session=*/true, GetOrigin(),
-                               GetOrigin(), GURL(kExampleURL),
-                               autofill::AutofillSuggestionTriggerSource::
-                                   kComposeDialogLostFocus)
-          .has_value());
+  EXPECT_FALSE(compose_enabling_
+                   ->ShouldTriggerPopup(
+                       autocomplete_attribute, GetProfile(),
+                       GetProfile()->GetPrefs(), mock_translate_manager_.get(),
+                       /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
+                       GURL(kExampleURL),
+                       autofill::AutofillSuggestionTriggerSource::
+                           kComposeDialogLostFocus,
+                       /*is_msbb_enabled*/ true)
+                   .has_value());
 }
 
 TEST_F(ComposeEnablingTest,
@@ -670,37 +752,41 @@ TEST_F(ComposeEnablingTest,
   EXPECT_TRUE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 
   // Saved state notification is disabled.
-  EXPECT_FALSE(
-      compose_enabling_
-          ->ShouldTriggerPopup(autocomplete_attribute, GetProfile(),
-                               mock_translate_manager_.get(),
-                               /*ongoing_session=*/true, GetOrigin(),
-                               GetOrigin(), GURL(kExampleURL),
-                               autofill::AutofillSuggestionTriggerSource::
-                                   kComposeDialogLostFocus)
-          .has_value());
+  EXPECT_FALSE(compose_enabling_
+                   ->ShouldTriggerPopup(
+                       autocomplete_attribute, GetProfile(),
+                       GetProfile()->GetPrefs(), mock_translate_manager_.get(),
+                       /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
+                       GURL(kExampleURL),
+                       autofill::AutofillSuggestionTriggerSource::
+                           kComposeDialogLostFocus,
+                       /*is_msbb_enabled*/ true)
+                   .has_value());
 
   // AutofillSuggestionTriggerSource is ignored if there is no saved state.
-  EXPECT_TRUE(
-      compose_enabling_
-          ->ShouldTriggerPopup(autocomplete_attribute, GetProfile(),
-                               mock_translate_manager_.get(),
-                               /*ongoing_session=*/false, GetOrigin(),
-                               GetOrigin(), GURL(kExampleURL),
-                               autofill::AutofillSuggestionTriggerSource::
-                                   kComposeDialogLostFocus)
-          .has_value());
+  EXPECT_TRUE(compose_enabling_
+                  ->ShouldTriggerPopup(
+                      autocomplete_attribute, GetProfile(),
+                      GetProfile()->GetPrefs(), mock_translate_manager_.get(),
+                      /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
+                      GURL(kExampleURL),
+                      autofill::AutofillSuggestionTriggerSource::
+                          kComposeDialogLostFocus,
+                      /*is_msbb_enabled*/ true)
+                  .has_value());
 }
 
 TEST_F(ComposeEnablingTest, ShouldTriggerPopupIncorrectSchemeTest) {
+  base::HistogramTester histogram_tester;
   // Enable everything.
   auto scoped_compose_enabled =
       ComposeEnabling::ScopedEnableComposeForTesting();
@@ -713,23 +799,29 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupIncorrectSchemeTest) {
   EXPECT_FALSE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/false, GetOrigin(), url::Origin(),
               GURL(kExampleBadURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 
   // Use URL with incorrect scheme is not checked when there is previous state.
   EXPECT_TRUE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/true, GetOrigin(), url::Origin(),
               GURL(kExampleBadURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
+
+  histogram_tester.ExpectBucketCount(
+      compose::kComposeProactiveNudgeShowStatus,
+      compose::ComposeShowStatus::kIncorrectScheme, 1);
 }
 
 TEST_F(ComposeEnablingTest, ShouldTriggerPopupCrossOrigin) {
@@ -743,11 +835,12 @@ TEST_F(ComposeEnablingTest, ShouldTriggerPopupCrossOrigin) {
   EXPECT_FALSE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/false, GetOrigin(), url::Origin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 }
 
@@ -886,22 +979,24 @@ TEST_F(ComposeEnablingTest, ShouldTriggerDisableComposeByPolicyTest) {
   EXPECT_FALSE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 
   // The saved state is not disabled.
   EXPECT_TRUE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 
   // Verify the metrics reflect the decision not to show the page.
@@ -912,6 +1007,7 @@ TEST_F(ComposeEnablingTest, ShouldTriggerDisableComposeByPolicyTest) {
 
 TEST_F(ComposeEnablingTest, ShouldTriggerDisableNudgeByPolicy) {
   ResetFeaturesAndConfig({compose::features::kEnableComposeProactiveNudge}, {});
+
   // Enable everything.
   auto scoped_compose_enabled =
       ComposeEnabling::ScopedEnableComposeForTesting();
@@ -949,21 +1045,115 @@ TEST_F(ComposeEnablingTest, ShouldTriggerDisableNudgeByPolicy) {
   EXPECT_TRUE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/true, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
 
   // Check that the proactive nudge is disabled.
   EXPECT_FALSE(
       compose_enabling_
           ->ShouldTriggerPopup(
-              autocomplete_attribute, GetProfile(),
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
               mock_translate_manager_.get(),
               /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
               GURL(kExampleURL),
-              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange)
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
           .has_value());
+  // Check that the proactive nudge is not disabled if override is set in the
+  // config.
+  compose::GetMutableConfigForTesting()
+      .proactive_nudge_bypass_optimization_guide = true;
+  EXPECT_TRUE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(),
+              /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
+              GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
+          .has_value());
+}
+
+TEST_F(ComposeEnablingTest, ProactiveNudgePreferenceTest) {
+  ResetFeaturesAndConfig({compose::features::kEnableComposeProactiveNudge}, {});
+  base::HistogramTester histogram_tester;
+  // Enable the feature.
+  auto scoped_compose_enabled =
+      ComposeEnabling::ScopedEnableComposeForTesting();
+  std::string autocomplete_attribute;
+
+  // Preference is enabled by default, proactive nudge should trigger.
+  EXPECT_TRUE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(),
+              /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
+              GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
+          .has_value());
+
+  // When preference is disabled, proactive nudge should not trigger
+  SetProactiveNudgePref(false);
+  EXPECT_FALSE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(),
+              /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
+              GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
+          .has_value());
+  histogram_tester.ExpectBucketCount(compose::kComposeProactiveNudgeShowStatus,
+                                     compose::ComposeShowStatus::kShouldShow,
+                                     1);
+  histogram_tester.ExpectBucketCount(
+      compose::kComposeProactiveNudgeShowStatus,
+      compose::ComposeShowStatus::
+          kPractiveNudgeDisabledGloballyByUserPreference,
+      1);
+}
+
+TEST_F(ComposeEnablingTest, ProactiveNudgeDisabledByRandomness) {
+  ResetFeaturesAndConfig({compose::features::kEnableComposeProactiveNudge}, {});
+  base::HistogramTester histogram_tester;
+  // Enable the feature.
+  auto scoped_compose_enabled =
+      ComposeEnabling::ScopedEnableComposeForTesting();
+  std::string autocomplete_attribute;
+
+  EXPECT_TRUE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(),
+              /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
+              GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
+          .has_value());
+
+  compose::GetMutableConfigForTesting().proactive_nudge_show_probability = 0;
+  EXPECT_FALSE(
+      compose_enabling_
+          ->ShouldTriggerPopup(
+              autocomplete_attribute, GetProfile(), GetProfile()->GetPrefs(),
+              mock_translate_manager_.get(),
+              /*ongoing_session=*/false, GetOrigin(), GetOrigin(),
+              GURL(kExampleURL),
+              autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange,
+              /*is_msbb_enabled*/ true)
+          .has_value());
+
+  histogram_tester.ExpectBucketCount(
+      compose::kComposeProactiveNudgeShowStatus,
+      compose::ComposeShowStatus::kRandomlyBlocked, 1);
 }

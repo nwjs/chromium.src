@@ -4,8 +4,10 @@
 
 #include "chrome/browser/compose/compose_session.h"
 
+#include <cmath>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/feature_list.h"
@@ -455,7 +457,7 @@ void ComposeSession::RequestWithSession(
     bool is_input_edited) {
   if (!collect_inner_text_) {
     // Make sure context is added for sessions with no inner text.
-    AddPageContentToSession("", std::nullopt);
+    AddPageContentToSession("", std::nullopt, "");
   }
 
   // Add timeout for high latency Compose requests.
@@ -618,6 +620,8 @@ void ComposeSession::ModelExecutionComplete(
     result.log_entry->quality_data<optimization_guide::ComposeFeatureTypeMap>()
         ->set_was_generated_via_edit(was_input_edited);
     result.log_entry->quality_data<optimization_guide::ComposeFeatureTypeMap>()
+        ->set_started_with_proactive_nudge(started_with_proactive_nudge_);
+    result.log_entry->quality_data<optimization_guide::ComposeFeatureTypeMap>()
         ->set_request_latency_ms(request_delta.InMilliseconds());
     optimization_guide::proto::Int128* token =
         result.log_entry
@@ -723,8 +727,8 @@ void ComposeSession::RequestInitialState(RequestInitialStateCallback callback) {
   auto compose_config = compose::GetComposeConfig();
 
   std::move(callback).Run(compose::mojom::OpenMetadata::New(
-      fre_complete_, current_msbb_state_, initial_input_, text_selected_,
-      active_mojo_state_->Clone(),
+      fre_complete_, current_msbb_state_, initial_input_,
+      currently_has_selection_, active_mojo_state_->Clone(),
       compose::mojom::ConfigurableParams::New(compose_config.input_min_words,
                                               compose_config.input_max_words,
                                               compose_config.input_max_chars)));
@@ -971,17 +975,21 @@ void ComposeSession::EditResult(const std::string& new_result,
   session_events_.result_edit_count += 1;
 }
 
-void ComposeSession::InitializeWithText(const std::optional<std::string>& text,
-                                        const bool text_selected) {
+void ComposeSession::InitializeWithText(std::string_view selected_text) {
   // In some cases (FRE not shown, MSBB not accepted), we wait to extract the
   // inner text until all conditions are met to enable the feature.  However, if
   // we want to extract the inner text content later, we still need to store the
   // selected text.
-  text_selected_ = text_selected;
-  if (text.has_value()) {
-    initial_input_ = text.value();
-    session_events_.has_initial_text = true;
-  }
+  initial_input_ = std::string(selected_text);
+  session_events_.has_initial_text = !selected_text.empty();
+
+  MaybeRefreshInnerText(!initial_input_.empty());
+}
+
+void ComposeSession::MaybeRefreshInnerText(bool has_selection) {
+  // Update dialog state based on the current selection which can change while
+  // the dialog is hidden.
+  currently_has_selection_ = has_selection;
 
   if (!fre_complete_) {
     session_events_.fre_dialog_shown_count += 1;
@@ -997,28 +1005,36 @@ void ComposeSession::InitializeWithText(const std::optional<std::string>& text,
 
   RefreshInnerText();
 
-  // If no text provided (even an empty string), then we are reopening without
-  // calling compose again, or updating the input text, so skip autocompose.
-  if (text.has_value() && IsValidComposePrompt(initial_input_) &&
-      compose::GetComposeConfig().auto_submit_with_selection) {
+  // We should only autocompose once per session
+  if (has_checked_autocompose_) {
+    return;
+  }
+
+  // Autocompose if it is enabled and there is a valid selection.
+  if (compose::GetComposeConfig().auto_submit_with_selection &&
+      IsValidComposePrompt(initial_input_)) {
     Compose(initial_input_, false);
   }
+  has_checked_autocompose_ = true;
 }
 
 void ComposeSession::AddPageContentToSession(
     std::string inner_text,
-    std::optional<uint64_t> node_offset) {
+    std::optional<uint64_t> node_offset,
+    std::string trimmed_inner_text) {
   if (!session_) {
     return;
   }
   optimization_guide::proto::ComposePageMetadata page_metadata;
   page_metadata.set_page_url(web_contents_->GetLastCommittedURL().spec());
   page_metadata.set_page_title(base::UTF16ToUTF8(web_contents_->GetTitle()));
-  page_metadata.set_page_inner_text(std::move(inner_text));
 
   if (node_offset.has_value()) {
     page_metadata.set_page_inner_text_offset(node_offset.value());
   }
+  page_metadata.set_trimmed_page_inner_text(trimmed_inner_text);
+
+  page_metadata.set_page_inner_text(std::move(inner_text));
 
   optimization_guide::proto::ComposeRequest request;
   *request.mutable_page_metadata() = std::move(page_metadata);
@@ -1037,20 +1053,30 @@ void ComposeSession::UpdateInnerTextAndContinueComposeIfNecessary(
   }
   got_inner_text_ = true;
   std::string inner_text;
+  std::string trimmed_inner_text;
   std::optional<uint64_t> node_offset;
   if (result) {
     const compose::Config& config = compose::GetComposeConfig();
     inner_text = std::move(result->inner_text);
+    node_offset = result->node_offset;
+    if (node_offset.has_value()) {
+      trimmed_inner_text = compose::GetTrimmedPageText(
+          inner_text, config.trimmed_inner_text_max_chars, node_offset.value(),
+          config.trimmed_inner_text_header_length);
+    } else {
+      trimmed_inner_text =
+          inner_text.substr(0, config.trimmed_inner_text_max_chars);
+    }
     compose::LogComposeDialogInnerTextSize(inner_text.size());
     if (inner_text.size() > config.inner_text_max_bytes) {
       compose::LogComposeDialogInnerTextShortenedBy(
           inner_text.size() - config.inner_text_max_bytes);
       inner_text.erase(config.inner_text_max_bytes);
     }
-    node_offset = result->node_offset;
     compose::LogComposeDialogInnerTextOffsetFound(node_offset.has_value());
   }
-  AddPageContentToSession(std::move(inner_text), node_offset);
+  AddPageContentToSession(std::move(inner_text), node_offset,
+                          std::move(trimmed_inner_text));
   if (!continue_compose_.is_null()) {
     std::move(continue_compose_).Run();
   }
@@ -1098,7 +1124,7 @@ void ComposeSession::SetFirstRunCompleted() {
   fre_complete_ = true;
 
   // Start inner text capture which was skipped until FRE was complete.
-  InitializeWithText(std::make_optional(initial_input_), text_selected_);
+  MaybeRefreshInnerText(currently_has_selection_);
 }
 
 void ComposeSession::SetMSBBCloseReason(

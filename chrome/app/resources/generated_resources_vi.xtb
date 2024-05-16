@@ -170,7 +170,7 @@ Bạn có thể kiểm tra mật khẩu bất cứ lúc nào trong <ph name="GOO
 <translation id="1122960773616686544">Tên dấu trang</translation>
 <translation id="1124772482545689468">Người dùng</translation>
 <translation id="1125550662859510761">Có vẻ như là <ph name="WIDTH" /> x <ph name="HEIGHT" /> (Gốc)</translation>
-<translation id="1125921926864945797">Hình nền và kiểu</translation>
+<translation id="1125921926864945797">Hình nền và phong cách</translation>
 <translation id="1126809382673880764">Không bảo vệ bạn trước các trang web, tệp đã tải xuống và tiện ích nguy hiểm. Bạn sẽ vẫn được bảo vệ bằng tính năng Duyệt web an toàn (nếu có) ở các dịch vụ khác của Google, chẳng hạn như Gmail và Tìm kiếm.</translation>
 <translation id="1128090040635299943">Đang định cấu hình Linux. Quá trình này sẽ mất một vài phút.</translation>
 <translation id="1128591060186966949">Chỉnh sửa công cụ tìm kiếm</translation>
@@ -1268,7 +1268,7 @@ Các quyền bạn từng cấp cho ứng dụng có thể áp dụng cho cả t
 <translation id="1925021887439448749">Nhập địa chỉ web tùy chỉnh</translation>
 <translation id="1925124445985510535">Tính năng kiểm tra an toàn đã chạy vào lúc <ph name="TIME" /></translation>
 <translation id="192564025059434655">Sau tháng 12 năm 2022, các phiên bản cũ của ứng dụng Chrome sẽ không mở trên các thiết bị Windows. Bạn có thể kiểm tra xem có phiên bản mới không.</translation>
-<translation id="1926339101652878330">Các cài đặt này chịu sự kiểm soát của chính sách doanh nghiệp. Vui lòng liên hệ với quản trị viên của bạn để biết thêm thông tin.</translation>
+<translation id="1926339101652878330">Các chế độ cài đặt này chịu sự kiểm soát của chính sách doanh nghiệp. Vui lòng liên hệ với quản trị viên của bạn để biết thêm thông tin.</translation>
 <translation id="1926887872692564784">Con trỏ</translation>
 <translation id="1927632033341042996">Ngón tay <ph name="NEW_FINGER_NUMBER" /></translation>
 <translation id="192817607445937251">Phương thức khóa màn hình: mã PIN</translation>
@@ -3436,6 +3436,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="3566721612727112615">Chưa thêm trang web nào</translation>
 <translation id="3567284462585300767">Hãy hiển thị thiết bị để nhận và gửi tệp với những người xung quanh bạn</translation>
 <translation id="356738834800832239">Mật khẩu của bạn đã được lưu</translation>
+<translation id="3568431410312984116">Cho phép tính năng "Giúp tôi viết" tự động mở</translation>
 <translation id="3569382839528428029">Bạn có muốn <ph name="APP_NAME" /> chia sẻ màn hình của bạn không?</translation>
 <translation id="3569614820047645079">Các tệp trong Drive của tôi sẽ tự động đồng bộ hoá với Chromebook để bạn có thể truy cập các tệp này mà không cần kết nối Internet.</translation>
 <translation id="3569682580018832495"><ph name="ORIGIN" /> có thể xem các tệp và thư mục sau</translation>
@@ -4220,7 +4221,7 @@ Thông tin này có thể bao gồm thông tin về phần mềm đã cài đặ
 <translation id="4136203100490971508">Chế độ Ánh sáng đêm sẽ tự động tắt khi trời sáng</translation>
 <translation id="41365691917097717">Nếu bạn tiếp tục, tùy chọn gỡ lỗi ADB sẽ bật để tạo và thử nghiệm các ứng dụng Android. Xin lưu ý rằng thao tác này sẽ cho phép cài đặt các ứng dụng Android mà Google chưa xác minh. Để tắt ADB, bạn cần phải đặt lại thiết bị về trạng thái ban đầu.</translation>
 <translation id="4137923333452716643">Đánh dấu văn bản bạn muốn mở ở chế độ đọc</translation>
-<translation id="4138267921960073861">Hiển thị tên người dùng và ảnh trên màn hình đăng nhập</translation>
+<translation id="4138267921960073861">Hiện tên người dùng và ảnh trên màn hình đăng nhập</translation>
 <translation id="4138598238327913711">Tính năng kiểm tra ngữ pháp hiện chỉ hỗ trợ tiếng Anh</translation>
 <translation id="413915106327509564"><ph name="WINDOW_TITLE" /> – Đã kết nối thiết bị giao diện tương tác với con người (HID)</translation>
 <translation id="4139326893730851150">Các bản cập nhật chương trình cơ sở</translation>
@@ -4920,7 +4921,7 @@ Thông tin này có thể bao gồm thông tin về phần mềm đã cài đặ
 <translation id="4682481611456523884">Nội dung đã nhúng trên trang web này không được sử dụng thông tin mà họ đã lưu về bạn</translation>
 <translation id="4683629100208651599">Viết thường</translation>
 <translation id="4683947955326903992"><ph name="PERCENTAGE" />% (mặc định)</translation>
-<translation id="4684427112815847243">Đồng bộ hóa mọi thứ</translation>
+<translation id="4684427112815847243">Đồng bộ hoá mọi thứ</translation>
 <translation id="4685096503970466594">Tắt <ph name="FEATURE_NAME" /></translation>
 <translation id="4687238339694011189">Đảm bảo máy in đã bật và kết nối với cùng một mạng như Chromebook. Nếu không, hãy sử dụng cáp USB</translation>
 <translation id="4687613760714619596">Thiết bị không xác định (<ph name="DEVICE_ID" />)</translation>
@@ -5912,6 +5913,7 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="5474859849784484111"><ph name="MANAGER" /> yêu cầu bạn kết nối Wi-Fi ngay bây giờ và tải bản cập nhật xuống, hoặc tải xuống từ đường kết nối có đo lượng dữ liệu (bạn có thể mất phí).</translation>
 <translation id="5477089831058413614">Định cấu hình điểm phát sóng <ph name="DEVICE_TYPE" /></translation>
 <translation id="5481273127572794904">Không được phép tự động tải nhiều tệp xuống</translation>
+<translation id="5481682542063333508">Đề xuất hỗ trợ viết</translation>
 <translation id="5481941284378890518">Thêm máy in lân cận</translation>
 <translation id="5482417738572414119">Đăng nhập để cho phép Chrome đề xuất nhóm thẻ và sắp xếp các thẻ của bạn</translation>
 <translation id="5484181871714116891">Khi bật tuỳ chọn này, bạn chọn tạo khoá truy cập bằng Chuỗi khoá iCloud và có thể sử dụng khoá đó trên các thiết bị Apple của bạn. Khi bạn tắt tuỳ chọn này, hồ sơ Chrome của bạn trên thiết bị này sẽ là nơi tạo khoá truy cập.</translation>
@@ -7947,7 +7949,7 @@ Bạn còn # mật khẩu bị lộ nữa. Trình quản lý mật khẩu của 
 <translation id="7044124535091449260">Tìm hiểu thêm về quyền truy cập vào trang web</translation>
 <translation id="7044207729381622209">Bạn sẽ bị đăng xuất khỏi những trang web này, kể cả ở các thẻ đang mở</translation>
 <translation id="7044211973375150246">Một ứng dụng cũng được đặt để mở các đường liên kết giống như <ph name="APP_NAME" />. Thao tác này sẽ ngăn <ph name="APP_NAME_2" /> mở các đường liên kết được hỗ trợ.</translation>
-<translation id="7044606776288350625">Dữ liệu đồng bộ hóa</translation>
+<translation id="7044606776288350625">Dữ liệu đồng bộ hoá</translation>
 <translation id="7047059339731138197">Chọn nền</translation>
 <translation id="7049293980323620022">Giữ tệp?</translation>
 <translation id="7049524156282610342">Dữ liệu duyệt web của <ph name="DISPLAY_NAME" /></translation>
@@ -8368,7 +8370,7 @@ Bạn còn # mật khẩu bị lộ nữa. Trình quản lý mật khẩu của 
 <translation id="7395774987022469191">Toàn màn hình</translation>
 <translation id="7396017167185131589">Các thư mục dùng chung sẽ xuất hiện ở đây</translation>
 <translation id="7396845648024431313"><ph name="APP_NAME" /> sẽ chạy khi khởi động hệ thống và tiếp tục chạy ở chế độ nền ngay cả khi bạn đã đóng tất cả các cửa sổ khác của <ph name="PRODUCT_NAME" />.</translation>
-<translation id="7399045143794278225">Tùy chỉnh dữ liệu đồng bộ hóa</translation>
+<translation id="7399045143794278225">Tuỳ chỉnh dữ liệu đồng bộ hoá</translation>
 <translation id="7399155934146900496">Không trang web nào được phép sử dụng thông tin vị trí của bạn</translation>
 <translation id="7399616692258236448">Tự động chặn yêu cầu vị trí đối với mọi trang web, ngoại trừ các trang web bạn cho phép</translation>
 <translation id="7399802613464275309">Kiểm tra an toàn</translation>
@@ -8643,7 +8645,7 @@ Bạn còn # mật khẩu bị lộ nữa. Trình quản lý mật khẩu của 
 <translation id="7605594153474022051">Đồng bộ hóa không hoạt động</translation>
 <translation id="7606248551867844312">Xác nhận cắt</translation>
 <translation id="7606560865764296217">Tạm dừng ảnh động</translation>
-<translation id="7606992457248886637">Quyền</translation>
+<translation id="7606992457248886637">Tổ chức phát hành</translation>
 <translation id="7607002721634913082">Đã tạm dừng</translation>
 <translation id="7608810328871051088">Các tùy chọn Android</translation>
 <translation id="7609148976235050828">Vui lòng kết nối với Internet và thử lại.</translation>
@@ -9438,7 +9440,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8168435359814927499">Nội dung</translation>
 <translation id="8169165065843881617">{NUM_TABS,plural, =1{Thêm thẻ vào danh sách đọc}other{Thêm các thẻ vào danh sách đọc}}</translation>
 <translation id="8171334254070436367">Ẩn tất cả thẻ</translation>
-<translation id="8174047975335711832">Thông tin về thiết bị</translation>
+<translation id="8174047975335711832">Thông tin thiết bị</translation>
 <translation id="8174876712881364124">Sao lưu vào Google Drive. Dễ dàng khôi phục dữ liệu hoặc chuyển đổi thiết bị bất kỳ lúc nào. Bản sao lưu này bao gồm cả dữ liệu ứng dụng. Các bản sao lưu được tải lên Google và mã hóa bằng mật khẩu Tài khoản Google của con bạn. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
 <translation id="8176332201990304395">Hồng và trắng</translation>
 <translation id="8176529144855282213">Để bật quyền truy cập vào micrô, hãy bật công tắc micrô nằm trên thiết bị</translation>
@@ -10121,6 +10123,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="869167754614449887"><ph name="FILE_NAME" /> đã bị xoá khỏi nhật ký tải xuống</translation>
 <translation id="8692107307702113268">Mật khẩu dài hơn 1000 ký tự</translation>
 <translation id="8693639060656817812">Tìm hiểu thêm về tình trạng hoạt động của tính năng Chống theo dõi</translation>
+<translation id="8693862390730570097">Không cho phép tính năng "Giúp tôi viết" tự động mở</translation>
 <translation id="8694596275649352090">Khoá khi ngủ hoặc khi đóng nắp</translation>
 <translation id="8695139659682234808">Thêm các quyền kiểm soát của cha mẹ sau khi thiết lập</translation>
 <translation id="8695825812785969222">Mở &amp;vị trí...</translation>
@@ -10436,7 +10439,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8929738682246584251">Bật/tắt kính lúp</translation>
 <translation id="8930622219860340959">Không dây</translation>
 <translation id="8931076093143205651">Gửi dữ liệu chẩn đoán và dữ liệu về mức sử dụng. Giúp cải thiện trải nghiệm Android của bạn bằng cách tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng ứng dụng và thiết bị cho Google. Những thông tin này sẽ giúp tăng độ ổn định của hệ thống và ứng dụng cũng như cải thiện các mặt khác. Một số dữ liệu tổng hợp cũng sẽ hữu ích cho các ứng dụng và đối tác của Google, chẳng hạn như những nhà phát triển Android. Tùy chọn cài đặt này do chủ sở hữu thực thi. Chủ sở hữu có thể chọn gửi dữ liệu chẩn đoán và dữ liệu về mức sử dụng của thiết bị này cho Google. Nếu bạn bật tùy chọn cài đặt Hoạt động trên web và ứng dụng bổ sung, thì dữ liệu này có thể được lưu vào Tài khoản Google của bạn.</translation>
-<translation id="8931475688782629595">Quản lý dữ liệu đồng bộ hóa</translation>
+<translation id="8931475688782629595">Quản lý dữ liệu đồng bộ hoá</translation>
 <translation id="8931479761457920281">Được phép khoá con trỏ</translation>
 <translation id="8931713990831679796">Các máy in này đã kết nối và sẵn sàng hoạt động. Hãy lưu máy in vào hồ sơ của bạn để truy cập dễ dàng hơn.</translation>
 <translation id="8932654652795262306">Thông tin chi tiết về tính năng Chia sẻ Internet tức thì</translation>
@@ -10708,6 +10711,7 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="9112987648460918699">Tìm...</translation>
 <translation id="9113240369465613386">Chỉ các trang lẻ</translation>
 <translation id="9113469270512809735">Ẩn/hiện các mục đã đóng gần đây</translation>
+<translation id="9113529408970052045">Tính năng "Giúp tôi viết" có thể tự động mở khi hộp văn bản trên một trang web cho phép điền nội dung dạng ngắn</translation>
 <translation id="9114663181201435112">Đăng nhập dễ dàng</translation>
 <translation id="9115675100829699941">&amp;Dấu trang</translation>
 <translation id="9115932142612197835">Chế độ cài đặt này không thay đổi khả năng sử dụng Google Dịch hoặc Ống kính</translation>

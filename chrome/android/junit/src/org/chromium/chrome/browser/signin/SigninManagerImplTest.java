@@ -94,6 +94,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Tests for {@link SigninManagerImpl}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @LooperMode(LooperMode.Mode.LEGACY)
+@EnableFeatures({
+    SigninFeatures.SKIP_CHECK_FOR_ACCOUNT_MANAGEMENT_ON_SIGNIN
+})
 @DisableFeatures(SigninFeatures.ENTERPRISE_POLICY_ON_SIGNIN)
 public class SigninManagerImplTest {
     private static final long NATIVE_SIGNIN_MANAGER = 10001L;
@@ -472,7 +475,7 @@ public class SigninManagerImplTest {
                             return null;
                         })
                 .when(mNativeMock)
-                .isAccountManaged(anyLong(), any(), any());
+                .isAccountManaged(anyLong(), any(), any(), any());
 
         doAnswer(
                         (args) -> {

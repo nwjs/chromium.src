@@ -145,6 +145,8 @@ constexpr char kTabletSplitViewResizeWithOverviewMaxLatencyHistogram[] =
 // for the purpose of metric collection.
 base::Time g_multi_display_split_view_start_time;
 
+bool g_use_fast_resize_for_testing = false;
+
 bool InTabletMode() {
   return display::Screen::GetScreen()->InTabletMode();
 }
@@ -1605,6 +1607,49 @@ void SplitViewController::StartResizeWithDivider(
         kTabletSplitViewResizeMultiMaxLatencyHistogram);
     return;
   }
+  // TODO(b/337283677): Remove these crash logs when the crash is fixed.
+  SCOPED_CRASH_KEY_NUMBER("b337283677", "state", base::to_underlying(state_));
+  SCOPED_CRASH_KEY_BOOL("b337283677", "in_overview_session",
+                        IsInOverviewSession());
+  SCOPED_CRASH_KEY_BOOL(
+      "b337283677", "is_overview_shutting_down",
+      GetOverviewSession() && GetOverviewSession()->is_shutting_down());
+  SCOPED_CRASH_KEY_BOOL("b337283677", "is_divider_animating",
+                        IsDividerAnimating());
+
+  std::string primary_title =
+      primary_window_ ? base::UTF16ToUTF8(primary_window_->GetTitle())
+                      : std::string();
+  std::string secondary_title =
+      secondary_window_ ? base::UTF16ToUTF8(secondary_window_->GetTitle())
+                        : std::string();
+  SCOPED_CRASH_KEY_STRING256("b337283677", "primary_title", primary_title);
+  SCOPED_CRASH_KEY_STRING256("b337283677", "secondary_title", secondary_title);
+
+  auto primary_state_type =
+      primary_window_ ? base::to_underlying(
+                            WindowState::Get(primary_window_)->GetStateType())
+                      : -1;
+  auto secondary_state_type =
+      secondary_window_
+          ? base::to_underlying(
+                WindowState::Get(secondary_window_)->GetStateType())
+          : -1;
+  SCOPED_CRASH_KEY_NUMBER("b337283677", "primary_state_type",
+                          primary_state_type);
+  SCOPED_CRASH_KEY_NUMBER("b337283677", "secondary_state_type",
+                          secondary_state_type);
+
+  auto primary_window_type =
+      primary_window_ ? primary_window_->GetProperty(aura::client::kAppType)
+                      : -1;
+  auto secondary_window_type =
+      secondary_window_ ? secondary_window_->GetProperty(aura::client::kAppType)
+                        : -1;
+  SCOPED_CRASH_KEY_NUMBER("b337283677", "primary_window_type",
+                          primary_window_type);
+  SCOPED_CRASH_KEY_NUMBER("b337283677", "secondary_window_type",
+                          secondary_window_type);
 
   CHECK(IsInOverviewSession());
   if (GetOverviewSession()->GetGridWithRootWindow(root_window_)->empty()) {
@@ -1749,9 +1794,13 @@ gfx::Rect SplitViewController::GetSnappedWindowBoundsInScreen(
   }
 
   const bool should_use_window_bounds_in_fast_resize =
-      IsResizingWithDivider() && tablet_resize_mode_ == TabletResizeMode::kFast;
+      g_use_fast_resize_for_testing ||
+      (IsResizingWithDivider() &&
+       tablet_resize_mode_ == TabletResizeMode::kFast);
   if (window_for_minimum_size && should_use_window_bounds_in_fast_resize) {
-    return window_for_minimum_size->GetBoundsInScreen();
+    gfx::Rect bounds_in_screen(window_for_minimum_size->GetTargetBounds());
+    wm::ConvertRectToScreen(root_window_, &bounds_in_screen);
+    return bounds_in_screen;
   }
 
   const int divider_position =
@@ -1769,6 +1818,10 @@ SnapPosition SplitViewController::GetPositionOfSnappedWindow(
   DCHECK(IsWindowInSplitView(window));
   return window == primary_window_ ? SnapPosition::kPrimary
                                    : SnapPosition::kSecondary;
+}
+
+void SplitViewController::SetUseFastResizeForTesting(bool val) {
+  g_use_fast_resize_for_testing = val;
 }
 
 aura::Window* SplitViewController::GetPhysicalLeftOrTopWindow() {
@@ -2219,6 +2272,24 @@ void SplitViewController::OnWindowSnapped(
         snap_action_source);
     overview_start_action_.reset();
     enter_exit_overview_type_.reset();
+    return;
+  }
+
+  // If we are in clamshell and did *not* start partial overview, which may
+  // happen if there is an opposite snapped window not in split view, end split
+  // view, except for the following cases:
+  // 1. Partial overview may already be in session, i.e. if the window snapped
+  // in partial overview swaps snap positions via the window layout menu.
+  // 2. During tablet -> clamshell transition, we do not end split view since
+  // it may still be needed by `SnapGroupController` to create a `SnapGroup`.
+  // Split view will be ended either in `MaybeCreateSnapGroup()` or
+  // `MaybeEndSplitViewAndOverview()` in `TabletModeWindowManager`.
+  // TODO(b/327269057): Refactor tablet <-> clamshell transition.
+  if (!InTabletMode() &&
+      !RootWindowController::ForWindow(window)->split_view_overview_session() &&
+      snap_action_source !=
+          WindowSnapActionSource::kSnapByClamshellTabletTransition) {
+    EndSplitView(EndReason::kNormal);
     return;
   }
 

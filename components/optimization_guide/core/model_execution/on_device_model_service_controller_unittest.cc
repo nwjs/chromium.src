@@ -1550,6 +1550,50 @@ TEST_F(OnDeviceModelServiceControllerTest,
 }
 
 TEST_F(OnDeviceModelServiceControllerTest,
+       RequestCheckFailsWithUnmetRequiredLanguageButIgnored) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kTextSafetyClassifier,
+      {{"on_device_retract_unsafe_content", "true"}});
+  Initialize();
+
+  {
+    // Configure a request safety check on the PageUrl.
+    auto safety_config =
+        std::make_unique<proto::FeatureTextSafetyConfiguration>();
+    safety_config->add_allowed_languages("eo");
+    auto* default_threshold = safety_config->add_safety_category_thresholds();
+    default_threshold->set_output_index(0);
+    default_threshold->set_threshold(0.1);
+    auto* check = safety_config->add_request_check();
+    check->set_ignore_language_result(true);
+    auto* input_template = check->add_input_template();
+    input_template->set_string_template("url: %s");
+    AddPageUrlSubstitution(input_template);
+    auto* threshold1 = check->add_safety_category_thresholds();
+    threshold1->set_output_index(0);
+    threshold1->set_threshold(0.5);
+    SetFeatureTextSafetyConfiguration(std::move(safety_config));
+  }
+
+  // Score output as completely safe.
+  g_safety_info = on_device_model::mojom::SafetyInfo::New();
+  g_safety_info->class_scores = {0.0, 0.0};
+  g_safety_info->language =
+      on_device_model::mojom::LanguageDetectionResult::New("eo", 1.0);
+
+  auto session = test_controller_->CreateSession(
+      kFeature, base::DoNothing(), logger_.GetWeakPtr(), nullptr,
+      /*config_params=*/std::nullopt);
+  EXPECT_TRUE(session);
+
+  ExecuteModel(*session, "safe_url");
+  task_environment_.RunUntilIdle();
+  EXPECT_TRUE(response_received_);
+  EXPECT_FALSE(response_error_);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest,
        RequestCheckPassesWithMetRequiredLanguage) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
@@ -1693,6 +1737,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   const auto& response_log = check_log.response().text_safety_model_response();
   EXPECT_FALSE(response_log.is_unsafe());
   EXPECT_EQ(response_log.language_code(), "");
+  EXPECT_EQ(response_log.language_confidence(), 0.0);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest,
@@ -1749,6 +1794,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   EXPECT_THAT(response_log.scores(), ElementsAre(0.2));
   EXPECT_FALSE(response_log.is_unsafe());
   EXPECT_EQ(response_log.language_code(), "eo");
+  EXPECT_EQ(response_log.language_confidence(), 1.0);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest,
@@ -1805,6 +1851,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   EXPECT_THAT(response_log.scores(), ElementsAre(0.8));
   EXPECT_TRUE(response_log.is_unsafe());
   EXPECT_EQ(response_log.language_code(), "eo");
+  EXPECT_EQ(response_log.language_confidence(), 1.0);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest,
@@ -1861,6 +1908,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   EXPECT_THAT(response_log.scores(), ElementsAre(0.2));
   EXPECT_FALSE(response_log.is_unsafe());
   EXPECT_EQ(response_log.language_code(), "");
+  EXPECT_EQ(response_log.language_confidence(), 0.0);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, SafetyModelDarkMode) {

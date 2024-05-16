@@ -1142,14 +1142,16 @@ void OverviewGrid::RearrangeDuringDrag(
 
 void OverviewGrid::SetSplitViewDragIndicatorsDraggedWindow(
     aura::Window* dragged_window) {
-  DCHECK(split_view_drag_indicators_);
-  split_view_drag_indicators_->SetDraggedWindow(dragged_window);
+  if (split_view_drag_indicators_) {
+    split_view_drag_indicators_->SetDraggedWindow(dragged_window);
+  }
 }
 
 void OverviewGrid::SetSplitViewDragIndicatorsWindowDraggingState(
     SplitViewDragIndicators::WindowDraggingState window_dragging_state) {
-  DCHECK(split_view_drag_indicators_);
-  split_view_drag_indicators_->SetWindowDraggingState(window_dragging_state);
+  if (split_view_drag_indicators_) {
+    split_view_drag_indicators_->SetWindowDraggingState(window_dragging_state);
+  }
 }
 
 bool OverviewGrid::MaybeUpdateDesksWidgetBounds() {
@@ -2239,7 +2241,7 @@ void OverviewGrid::UpdateNoWindowsWidget(bool no_items,
   if (!no_items || IsShowingSavedDeskLibrary() ||
       ShouldShowPineDialog(root_window_)) {
     no_windows_widget_.reset();
-    faster_splitview_widget_.reset();
+    UpdateFasterSplitViewWidget();
     return;
   }
 
@@ -3326,6 +3328,12 @@ void OverviewGrid::OnSettingsButtonPressed() {
 void OverviewGrid::UpdateFasterSplitViewWidget() {
   if (!window_util::IsInFasterSplitScreenSetupSession(root_window_)) {
     // If we weren't started by faster splitview, don't show the widget.
+    if (auto* faster_split_view = GetFasterSplitView()) {
+      auto* focus_cycler = overview_session_->focus_cycler();
+      focus_cycler->OnViewDestroyingOrDisabling(faster_split_view->GetToast());
+      focus_cycler->OnViewDestroyingOrDisabling(
+          faster_split_view->settings_button());
+    }
     faster_splitview_widget_.reset();
     return;
   }
